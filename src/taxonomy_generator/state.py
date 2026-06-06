@@ -36,10 +36,19 @@ class UserFeedback(BaseModel):
 
 @dataclass
 class InputState:
-    """Defines the input state for the agent, representing initial configuration parameters."""
+    """Defines the input state for the agent, representing initial configuration parameters.
+    
+    Supports two input modes:
+    1. **Direct corpus input**: Pass a list of documents (as Doc objects or dicts with 
+       'id' and 'content' keys) via the `documents` field. The pipeline will skip 
+       LangSmith retrieval entirely.
+    2. **LangSmith retrieval**: Provide `project_name`, `org_id`, and `days` to fetch 
+       conversation runs from LangSmith. This is the legacy mode.
+    """
     project_name: str = ""
     org_id: str = ""  # LangSmith API Key
     days: int = 3  # Number of days to look back for runs
+    documents: List[Doc] = field(default_factory=list)  # Pre-populated documents (skips LangSmith)
 
 
 @dataclass

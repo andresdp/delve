@@ -2,6 +2,131 @@
 
 from langchain_core.prompts import ChatPromptTemplate
 
+SUMMARY_GENERATION_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """Your task is to generate a concise summary and explanation of a piece of text.
+
+## Guidelines
+
+- **Summary**: Capture the main topic, intent, or purpose of the text in {summary_length} words or fewer.
+- **Explanation**: Provide a brief explanation of the key points or themes in {explanation_length} words or fewer.
+
+## Output Format
+
+Respond using the following XML tags:
+
+<summary>Your summary here</summary>
+<explanation>Your explanation here</explanation>
+
+Do not include any other text outside the XML tags."""),
+    ("human", """Summarize the following text:
+
+<text>
+{content}
+</text>""")
+])
+
+TAXONOMY_UPDATE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """# Instruction
+
+## Context
+
+- **Goal**: Your goal is to update an existing taxonomy by incorporating new data. You may add, merge, rename, or remove categories as needed.
+
+- **Existing taxonomy**: 
+{cluster_table_xml}
+
+- **Data**: The input data is a list of conversation summaries in XML format:
+  <conversations>
+  {data_xml}
+  </conversations>
+
+- **Use case**: {use_case}
+
+- **Previous feedback**: {feedback}
+
+## Requirements
+
+### User Feedback Integration (CRITICAL)
+- You MUST incorporate any previous user feedback into your clustering decisions
+- If specific changes were requested, implement them exactly as specified
+
+### Format
+- Output clusters in **XML format** with each cluster as a `<cluster>` element:
+  <cluster>
+    <id>category id</id>
+    <name>category name</name>
+    <description>category description</description>
+  </cluster>
+
+- **id**: category number starting from 1, incremented.
+- **name**: within {cluster_name_length} words. Verb or noun phrase.
+- **description**: within {cluster_description_length} words.
+- Total categories: **no more than {max_num_clusters}**.
+- Output in **English** only.
+
+### Quality
+- No overlap or contradiction among categories.
+- Names should be concise and specific to each category.
+- Descriptions should differentiate one category from another.
+- Categories should serve the given use case well.
+- Be specific and meaningful. Do not invent categories not in the data.
+
+# Output
+Provide your updated cluster table between the tags: <cluster_table>your updated cluster table</cluster_table>"""),
+    ("human", "Update the taxonomy based on the new data provided above.")
+])
+
+TAXONOMY_REVIEW_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """# Instruction
+
+## Context
+
+- **Goal**: Your goal is to review and refine an existing taxonomy. Evaluate whether the categories are well-defined, non-overlapping, and cover the data well. Make adjustments as needed.
+
+- **Existing taxonomy**: 
+{cluster_table_xml}
+
+- **Data**: A sample of conversation summaries for reference:
+  <conversations>
+  {data_xml}
+  </conversations>
+
+- **Use case**: {use_case}
+
+- **Previous feedback**: {feedback}
+
+## Requirements
+
+### User Feedback Integration (CRITICAL)
+- You MUST incorporate any previous user feedback into your review decisions
+
+### Format
+- Output clusters in **XML format** with each cluster as a `<cluster>` element:
+  <cluster>
+    <id>category id</id>
+    <name>category name</name>
+    <description>category description</description>
+  </cluster>
+
+- **id**: category number starting from 1, incremented.
+- **name**: within {cluster_name_length} words. Verb or noun phrase.
+- **description**: within {cluster_description_length} words.
+- Total categories: **no more than {max_num_clusters}**.
+- Output in **English** only.
+
+### Quality
+- No overlap or contradiction among categories.
+- Names should be concise and specific.
+- Descriptions should differentiate categories clearly.
+- Categories should be orthogonal and cover the target domain.
+- Remove vague categories like "Other", "General", "Miscellaneous".
+- Ensure the taxonomy serves the given use case well.
+
+# Output
+Provide your reviewed cluster table between the tags: <cluster_table>your reviewed cluster table</cluster_table>"""),
+    ("human", "Review the taxonomy and make any necessary improvements.")
+])
+
 LABELER_PROMPT = ChatPromptTemplate.from_messages([
     ("system", """Your task is to use the provided taxonomy to categorize the overall topic or intent of a conversation between a human and an AI assistant.  
 

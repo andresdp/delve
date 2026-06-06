@@ -1,16 +1,19 @@
 """Node for generating summaries of documents."""
 
+import logging
 import re
 from typing import Dict, List, Any
 from uuid import uuid4
 
-from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough, RunnableConfig
 
 from taxonomy_generator.state import State
 from taxonomy_generator.utils import load_chat_model, parse_taxa, invoke_taxonomy_chain
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.prompts import SUMMARY_GENERATION_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 def _get_content(state: Dict[str, List]) -> List[Dict[str, str]]:
@@ -87,10 +90,11 @@ async def generate_summaries(
     """Generate summaries for a collection of documents."""
 
     configuration = Configuration.from_runnable_config(config)
+    logger.info("Generating summaries for %d documents using model: %s", len(state.documents), configuration.fast_llm)
 
     # Initialize the model and prompt
     model = load_chat_model(configuration.fast_llm)
-    summary_prompt = hub.pull("wfh/tnt-llm-summary-generation").partial(
+    summary_prompt = SUMMARY_GENERATION_PROMPT.partial(
         summary_length=20, explanation_length=30
     )
 
@@ -124,4 +128,7 @@ async def generate_summaries(
         else:
             processed_docs.append({"id": str(uuid4()), "content": str(doc)})
 
-    return await map_reduce_chain.ainvoke({"documents": processed_docs})
+    logger.info("Processing %d documents through summary chain", len(processed_docs))
+    result = await map_reduce_chain.ainvoke({"documents": processed_docs})
+    logger.info("Summaries generated successfully for %d documents", len(result.get("documents", [])))
+    return result

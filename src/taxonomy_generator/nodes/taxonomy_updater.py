@@ -1,12 +1,15 @@
 """Node for updating taxonomies based on new document batches."""
 
-from langchain import hub
+import logging
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.state import State
 from taxonomy_generator.utils import load_chat_model, parse_taxa, invoke_taxonomy_chain
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.prompts import TAXONOMY_UPDATE_PROMPT
+
+logger = logging.getLogger(__name__)
 
 
 def _setup_update_chain(configuration: Configuration):
@@ -20,7 +23,7 @@ def _setup_update_chain(configuration: Configuration):
         Chain for updating and parsing taxonomies
     """
     # Initialize the prompt
-    update_prompt = hub.pull("wfh/tnt-llm-taxonomy-update")
+    update_prompt = TAXONOMY_UPDATE_PROMPT
 
     # Create the chain
     model = load_chat_model(configuration.fast_llm)
@@ -55,11 +58,19 @@ async def update_taxonomy(
 
     # Determine which minibatch to use
     which_mb = len(state.clusters) % len(state.minibatches)
+    mb_indices = state.minibatches[which_mb]
+    logger.info(
+        "Updating taxonomy — iteration %d, minibatch %d (%d documents), model: %s",
+        len(state.clusters), which_mb, len(mb_indices), configuration.fast_llm,
+    )
 
     # Update taxonomy using the next batch
-    return await invoke_taxonomy_chain(
+    result = await invoke_taxonomy_chain(
         update_chain,
         state,
         config,
-        state.minibatches[which_mb]
+        mb_indices,
     )
+    num_clusters = len(result.get("clusters", [[]])[0]) if result.get("clusters") else 0
+    logger.info("Taxonomy updated — now %d categories", num_clusters)
+    return result

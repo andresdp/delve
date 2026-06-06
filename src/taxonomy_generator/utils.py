@@ -1,3 +1,4 @@
+import logging
 import re
 import random
 from typing import List, Optional, Dict, Union
@@ -10,6 +11,55 @@ from langsmith.schemas import Run
 from taxonomy_generator.state import Doc, State
 from taxonomy_generator.configuration import Configuration
 
+logger = logging.getLogger(__name__)
+
+
+def strings_to_docs(texts: List[str]) -> List[Doc]:
+    """Convert a list of strings into Doc objects with auto-generated IDs.
+
+    This is the primary entry point for providing an arbitrary corpus to the
+    taxonomy generation pipeline. Each string becomes a Doc with a unique ID.
+
+    Args:
+        texts: A list of raw text strings representing the corpus.
+
+    Returns:
+        List[Doc]: A list of Doc objects ready for pipeline processing.
+    """
+    from uuid import uuid4
+    return [Doc(id=str(uuid4()), content=text) for text in texts]
+
+
+def docs_from_dicts(dicts: List[Dict]) -> List[Doc]:
+    """Convert a list of dictionaries into Doc objects.
+
+    Each dict should have at least 'id' and 'content' keys.
+    Missing keys will use defaults.
+
+    Args:
+        dicts: A list of dictionaries with document data.
+
+    Returns:
+        List[Doc]: A list of Doc objects ready for pipeline processing.
+    """
+    from uuid import uuid4
+    docs = []
+    for d in dicts:
+        if isinstance(d, Doc):
+            docs.append(d)
+        elif isinstance(d, dict):
+            docs.append(Doc(
+                id=d.get("id", str(uuid4())),
+                content=d.get("content", ""),
+                summary=d.get("summary"),
+                explanation=d.get("explanation"),
+                category=d.get("category"),
+            ))
+        else:
+            docs.append(Doc(id=str(uuid4()), content=str(d)))
+    return docs
+
+
 def load_chat_model(fully_specified_name: str) -> BaseChatModel:
     """Load a chat model from a fully specified name.
 
@@ -17,6 +67,7 @@ def load_chat_model(fully_specified_name: str) -> BaseChatModel:
         fully_specified_name (str): String in the format 'provider/model'.
     """
     provider, model = fully_specified_name.split("/", maxsplit=1)
+    logger.debug("Loading chat model: provider=%s, model=%s", provider, model)
     return init_chat_model(model, model_provider=provider)
 
 
@@ -172,6 +223,11 @@ def parse_taxa(output_text: str) -> Dict[str, List[Dict[str, str]]]:
         for id, name, description in cluster_matches
     ]
     
+    if not clusters:
+        logger.warning("No taxonomy clusters parsed from LLM output (output length: %d)", len(output_text))
+    else:
+        logger.debug("Parsed %d taxonomy clusters from LLM output", len(clusters))
+    
     return {"clusters": clusters}
 
 
@@ -236,6 +292,7 @@ async def invoke_taxonomy_chain(
             if state.user_feedback.explanation:
                 feedback += f"\nReason for modification: {state.user_feedback.explanation}"
 
+        logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(minibatch))
         updated_taxonomy = await chain.ainvoke(
             {
                 "data_xml": data_table_xml,
@@ -249,10 +306,12 @@ async def invoke_taxonomy_chain(
                 "max_num_clusters": configuration.max_num_clusters,
             }
         )
+        num_clusters = len(updated_taxonomy.get("clusters", []))
+        logger.debug("Taxonomy chain returned %d clusters", num_clusters)
         return {
             "clusters": [updated_taxonomy["clusters"]],
             "status": ["Taxonomy generated.."],
         }
     except Exception as e:
-        print("Taxonomy generation error: ", e)
+        logger.error("Taxonomy generation error: %s", e)
         raise

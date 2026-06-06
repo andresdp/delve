@@ -51,26 +51,91 @@ TnT-LLM enables powerful and scalable applications in text mining and analysis:
 
 1. **Installation**
 
+Install from PyPI:
 ```
 pip install delve-taxonomy-generator
 ```
 
+Or install from source with the included requirements:
+```
+git clone https://github.com/andrestorres123/delve.git
+cd delve
+pip install -r requirements.txt
+```
+
 2. **API Keys Setup**
-Delve Taxonomy Generator requires the following API key to be set as an environment variable:
-   * `ANTHROPIC_API_KEY`: For processing and generating taxonomies from unstructured data
+Delve Taxonomy Generator requires an API key for your preferred LLM provider. **OpenAI is the default provider.**
 
-You can set this using environment variables:
+   * `OPENAI_API_KEY`: Required for the default OpenAI models (primary)
+   * `ANTHROPIC_API_KEY`: Optional, if using Anthropic models
+   * `FIREWORKS_API_KEY`: Optional, if using Fireworks models
+   * `GROQ_API_KEY`: Optional, if using Groq models
 
+You can set these using environment variables or a `.env` file:
+
+```
+export OPENAI_API_KEY="your-key-here"
+```
+
+**Model Selection:** You can configure the models via environment variables:
+```
+export LLM_MODEL=openai/gpt-5.4-nano          # Main model (default)
+export LLM_FAST_MODEL=openai/gpt-5.4-nano      # Fast model for summaries (default)
+```
+
+To switch to Anthropic:
 ```
 export ANTHROPIC_API_KEY="your-key-here"
+export LLM_MODEL=anthropic/claude-3-5-sonnet-20240620
+export LLM_FAST_MODEL=anthropic/claude-3-haiku-20240307
 ```
 
-3. **Basic Usage**
+3. **Basic Usage — Direct Corpus Input**
+
+You can pass any arbitrary list of text strings directly to the pipeline:
+
+```python
+from taxonomy_generator import graph, strings_to_docs
+
+# Convert a list of strings into documents
+texts = [
+    "User asked about resetting their password...",
+    "Customer complained about billing charges...",
+    "User wants to know about shipping times...",
+    # ... add as many documents as you need
+]
+
+result = await graph.ainvoke({
+    "documents": strings_to_docs(texts)
+})
+
+# Access the taxonomy results
+documents = result['documents']
+clusters = result["clusters"]
+messages = result['messages']
+```
+
+You can also pass pre-structured documents as dicts or Doc objects:
+
+```python
+from taxonomy_generator import graph, Doc
+
+result = await graph.ainvoke({
+    "documents": [
+        Doc(id="1", content="User asked about resetting their password..."),
+        Doc(id="2", content="Customer complained about billing charges..."),
+    ]
+})
+```
+
+4. **Legacy Usage — LangSmith Retrieval**
+
+If you have conversation traces stored in LangSmith, you can still use the original retrieval mode:
 
 ```python
 from taxonomy_generator.graph import graph
 
-# Generate taxonomy from unstructured data
+# Generate taxonomy from LangSmith conversation runs
 result = await graph.ainvoke({
     "project_name": "YOUR_PROJECT_NAME",
     "org_id": "YOUR_LANGSMITH_API_KEY",
@@ -83,7 +148,35 @@ clusters = result["clusters"]
 messages = result['messages']
 ```
 
-4. **Output** The system generates three main output properties:
+5. **Command-Line Interface**
+
+You can also run the pipeline directly from the command line:
+
+```bash
+# From a corpus file (.txt — one document per line, or .json — array of strings/objects)
+python main.py --corpus my_corpus.txt
+
+# From a JSON corpus
+python main.py --corpus documents.json
+
+# Override the model
+python main.py --corpus my_corpus.txt --model groq/llama-3.3-70b-versatile
+
+# Save results to a folder (creates the folder if it doesn't exist)
+python main.py --corpus my_corpus.txt --output ./results
+
+# From LangSmith (legacy)
+python main.py --project-name MY_PROJECT --org-id MY_API_KEY --days 3
+```
+
+When `--output` is specified, three JSON files are saved to the folder with a timestamp:
+- `documents_<timestamp>.json` — Labeled documents with id, content, summary, explanation, and category
+- `taxonomy_<timestamp>.json` — All taxonomy iterations (last is final)
+- `messages_<timestamp>.json` — Formatted result messages
+
+All `.env` variables are automatically loaded via `python-dotenv`.
+
+6. **Output** The system generates three main output properties:
 
    * **messages**: Contains a friendly message with the taxonomy information pretty-printed in a human-readable format. This is useful for quick inspection and sharing results with non-technical stakeholders.
    

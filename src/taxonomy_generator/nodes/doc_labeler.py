@@ -1,8 +1,8 @@
 """Node for labeling documents using the generated taxonomy."""
 
+import logging
 import re
 from typing import Dict, Any, List
-from langchain import hub
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage
@@ -11,6 +11,8 @@ from taxonomy_generator.state import State, Doc
 from taxonomy_generator.utils import load_chat_model
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import LABELER_PROMPT
+
+logger = logging.getLogger(__name__)
 
 def _parse_labels(output_text: str) -> Dict[str, str]:
     """Parse the generated labels from the predictions."""
@@ -67,7 +69,7 @@ def _format_results(docs: List[Doc]) -> str:
     Returns:
         str: Formatted string showing document previews and their labels
     """
-    result = " Document Classification Results:\n\n"
+    result = "Document Classification Results:\n\n"
     for doc in docs:
         # Get first 200 chars of content, clean it up
         preview = doc.content[:400].replace('\n', ' ').strip()
@@ -75,7 +77,7 @@ def _format_results(docs: List[Doc]) -> str:
             preview += "..."
             
         # Add document preview and its category
-        result += f"🏷️  Category: {doc.category}\n"
+        result += f"🔖 Category: {doc.category}\n"
         result += f"📄 Document: {preview}\n"
         result += "─" * 80 + "\n\n"
     
@@ -121,13 +123,19 @@ async def label_documents(
         latest_clusters = [state.clusters[-1]] if isinstance(state.clusters[-1], dict) else state.clusters[-1]
     
     if not latest_clusters:
+        logger.error("No valid clusters found in state for document labeling")
         raise ValueError("No valid clusters found in state")
-        
+    
+    logger.info(
+        "Labeling %d documents using taxonomy with %d categories (batch_size: %d, model: %s)",
+        len(state.documents), len(latest_clusters), batch_size, configuration.fast_llm,
+    )
     
     # Process documents in batches
     labeled_docs = []
     for i in range(0, len(state.documents), batch_size):
         batch = state.documents[i : i + batch_size]
+        logger.debug("Processing labeling batch %d-%d of %d", i, i + len(batch), len(state.documents))
         batch_results = [
             await labeling_chain.ainvoke(
                 {
@@ -155,8 +163,10 @@ async def label_documents(
     results_display = _format_results(updated_docs)
     message = AIMessage(content=f"✅ Documents have been labeled!\n\n{results_display}")
 
+    logger.info("Successfully labeled %d documents", len(updated_docs))
+
     return {
         "documents": updated_docs,
         "messages": [message],
         "status": ["Documents labeled successfully"],
-    } 
+    }
