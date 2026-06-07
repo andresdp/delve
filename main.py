@@ -138,10 +138,9 @@ def _display_taxonomy(clusters: list, configuration: Configuration) -> None:
         show_lines=True,
         border_style="blue",
         title_style="bold blue",
-        row_styles=["", "dim"],
     )
     table.add_column("#", style="cyan bold", width=4, justify="right")
-    table.add_column("Name", style="white bold", min_width=20, max_width=50)
+    table.add_column("Name", style="bold", min_width=20, max_width=50)
     table.add_column("Description", style="dim", min_width=30, max_width=80)
 
     for cluster in final_taxonomy:

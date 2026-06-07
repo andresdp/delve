@@ -56,7 +56,7 @@ This project is a production-oriented implementation of the approach described i
 | **Fast LLM** | OpenAI GPT-5.4 nano (default) | Summarization and lightweight tasks (configurable via `config.yaml` or `LLM_FAST_MODEL` env var) |
 | **Data Source** | Direct corpus input | Document ingestion via `.txt` or `.json` corpus files |
 | **Output Schema** | Pydantic models | Structured LLM outputs via `with_structured_output()` |
-| **Prompts** | Local (`prompts.py`) | All prompt templates defined inline — no external prompt hub |
+| **Prompts** | Local (`prompts/` package) | System prompts stored as `.md` files, loaded into `ChatPromptTemplate` at import time |
 | **Language** | Python ≥ 3.9 | Async/await throughout |
 
 ### Design Principles
@@ -302,7 +302,7 @@ class LabelOutput(BaseModel):
 2. The LLM outputs a structured `SummaryOutput` Pydantic object via `with_structured_output()`.
 3. Documents are enriched with `id`, `content`, `summary`, and `explanation`.
 
-**Prompt:** `SUMMARY_GENERATION_PROMPT` (from `prompts.py`)
+**Prompt:** `SUMMARY_GENERATION_PROMPT` (from `prompts/` package)
 
 ---
 
@@ -365,7 +365,7 @@ class LabelOutput(BaseModel):
    - The next minibatch of document summaries as JSON.
 3. The LLM returns a `TaxonomyOutput` Pydantic object, which is appended to the clusters list via the `operator.add` reducer.
 
-**Prompt:** `TAXONOMY_UPDATE_PROMPT` (from `prompts.py`)
+**Prompt:** `TAXONOMY_UPDATE_PROMPT` (from `prompts/` package)
 
 **Looping:** This node loops back to itself via the conditional edge until all minibatches have been processed (see [§6 Routing](#6-routing--control-flow)).
 
@@ -388,7 +388,7 @@ class LabelOutput(BaseModel):
 3. The LLM may merge, split, rename, or refine categories.
 4. Returns the final taxonomy version as a `TaxonomyOutput` Pydantic object.
 
-**Prompt:** `TAXONOMY_REVIEW_PROMPT` (from `prompts.py`)
+**Prompt:** `TAXONOMY_REVIEW_PROMPT` (from `prompts/` package)
 
 ---
 
@@ -414,7 +414,7 @@ class LabelOutput(BaseModel):
 6. If no category fits, defaults to `"Other"`.
 7. Generates a formatted `AIMessage` with classification results including document previews and labels.
 
-**Prompt:** `LABELER_PROMPT` (defined in `prompts.py`)
+**Prompt:** `LABELER_PROMPT` (from `prompts/` package)
 
 ---
 
@@ -521,7 +521,7 @@ Settings are managed through a layered system: **YAML config file** → **enviro
 
 ### Prompt Templates
 
-#### All prompts are defined locally in `prompts.py`
+#### System prompts are stored as Markdown files in the `prompts/` package
 
 | Prompt Name | Used By | Purpose |
 |---|---|---|
@@ -726,7 +726,13 @@ delve/
         ├── settings.py                     # YAML settings loader & dataclasses
         ├── graph.py                        # LangGraph StateGraph definition
         ├── schemas.py                      # Pydantic output schemas
-        ├── prompts.py                      # Inline prompt templates
+        ├── prompts/                        # Prompt templates (system prompts as .md files)
+        │   ├── __init__.py                 #   Loads .md files into ChatPromptTemplate
+        │   ├── summary_generation.md       #   Summary generation system prompt
+        │   ├── taxonomy_generation.md      #   Taxonomy generation system prompt
+        │   ├── taxonomy_update.md          #   Taxonomy update system prompt
+        │   ├── taxonomy_review.md          #   Taxonomy review system prompt
+        │   └── labeler.md                  #   Document labeling system prompt
         ├── state.py                        # State dataclasses (Input/Output/State)
         ├── utils.py                        # Shared utilities and helpers
         ├── nodes/

@@ -11,7 +11,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - **Settings**: `src/taxonomy_generator/settings.py` — YAML settings loader with frozen dataclasses
 - **Config file**: `config.yaml` — centralized YAML configuration (see `SETTINGS.md` for reference)
 - **Schemas**: `src/taxonomy_generator/schemas.py` — Pydantic models for structured LLM outputs (`SummaryOutput`, `TaxonomyOutput`, `LabelOutput`, `Cluster`)
-- **Prompts**: `src/taxonomy_generator/prompts.py` — all LLM prompt templates as `ChatPromptTemplate`
+- **Prompts**: `src/taxonomy_generator/prompts/` — system prompts stored as `.md` files, loaded into `ChatPromptTemplate` at import time
 - **Utilities**: `src/taxonomy_generator/utils.py` — shared helpers (model loading, JSON formatting, chain invocation)
 
 ## Pipeline phases
@@ -36,7 +36,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - `pyyaml` for YAML-based configuration (`config.yaml`)
 - `rich` for terminal output formatting (tables, panels, styled text)
 - `python-dotenv` for environment variable management
-- All prompts defined locally in `prompts.py` — no external prompt hub
+- System prompts stored as `.md` files in `prompts/` package — loaded into `ChatPromptTemplate` at import time; human messages defined inline in `prompts/__init__.py`
 
 ## Environment variables
 - `LLM_MODEL` — main reasoning model (default: `openai/gpt-5.4-nano`)
