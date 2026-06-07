@@ -12,7 +12,7 @@ The framework consists of two phases:
 
 TnT-LLM combines the accuracy of LLMs with the scalability of traditional classifiers, making it highly efficient for real-world applications such as conversational AI analysis. This project uses the framework to extract insights and organize unstructured text data with minimal human intervention.
 
-For more detailed information, see the [Design Document](DESIGN.md) for architecture and implementation details, or refer to the [original paper](https://arxiv.org/abs/2403.12173).
+For more detailed information, see the [Design Document](DESIGN.md) for architecture and implementation details, the [Settings Reference](SETTINGS.md) for all configurable parameters, or the [Usage Examples](EXAMPLES.md) for a complete walkthrough with sample output. Refer to the [original paper](https://arxiv.org/abs/2403.12173) for the theoretical framework.
 
 ![TNT LLM Diagram](images/tnt_llm.png)
 
