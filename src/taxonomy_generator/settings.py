@@ -72,6 +72,7 @@ class SummarizationSettings:
     skip: bool = False
     summary_length: int = 20
     explanation_length: int = 30
+    max_concurrency: int = 5
 
 
 @dataclass(frozen=True)
@@ -140,6 +141,7 @@ def _build_summarization(raw: dict) -> SummarizationSettings:
         skip=raw.get("skip", SummarizationSettings.skip),
         summary_length=raw.get("summary_length", SummarizationSettings.summary_length),
         explanation_length=raw.get("explanation_length", SummarizationSettings.explanation_length),
+        max_concurrency=raw.get("max_concurrency", SummarizationSettings.max_concurrency),
     )
 
 

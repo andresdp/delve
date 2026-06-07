@@ -89,6 +89,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `summarization.skip` | `bool` | `false` | Skip the summarization step entirely. When `true`, raw document content is used for taxonomy generation instead of LLM-generated summaries. A warning is logged when enabled. |
 | `summarization.summary_length` | `int` | `20` | Max words for document summaries. |
 | `summarization.summary_explanation_length` | `int` | `30` | Max words for document summary explanations. |
+| `summarization.max_concurrency` | `int` | `5` | Max concurrent LLM requests during summarization. Acts as a semaphore to prevent API rate limit errors. |
 
 ### 2.5 Labeling
 
@@ -131,6 +132,7 @@ summarization:
   skip: false
   summary_length: 20
   summary_explanation_length: 30
+  max_concurrency: 5
 
 labeling:
   fallback_category: "Other"
@@ -308,6 +310,7 @@ For all other settings:
 | **Summarization** | Skip summarization | `summarization.skip` | `false` |
 | **Summarization** | Summary length (words) | `summarization.summary_length` | `20` |
 | **Summarization** | Summary explanation length (words) | `summarization.summary_explanation_length` | `30` |
+| **Summarization** | Max concurrent summarization requests | `summarization.max_concurrency` | `5` |
 | **Labeling** | Fallback category | `labeling.fallback_category` | `"Other"` |
 | **Output** | Default output directory | `output.default_output_dir` | `"output"` |
 | **Output** | Graph PNG filename | `output.graph_filename` | `"graph.png"` |

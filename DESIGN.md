@@ -303,6 +303,7 @@ class LabelOutput(BaseModel):
 2. The LLM outputs a structured `SummaryOutput` Pydantic object via `with_structured_output()`.
 3. Documents are enriched with `id`, `content`, `summary`, and `explanation`.
 4. Summaries are **use-case-aware** — the prompt includes `{use_case}` to produce contextual compression rather than generic summarization.
+5. Summaries are generated **in parallel** via `abatch()` with a configurable concurrency limit (`summary_max_concurrency`, default: 5) to avoid API rate limits.
 
 **Prompt:** `SUMMARY_GENERATION_PROMPT` (from `prompts/` package)
 
@@ -522,6 +523,7 @@ Settings are managed through a layered system: **YAML config file** → **enviro
 |---|---|---|---|---|
 | `summary_length` | `int` | `20` | `summarization.summary_length` | Max words for document summaries |
 | `summary_explanation_length` | `int` | `30` | `summarization.summary_explanation_length` | Max words for summary explanations |
+| `summary_max_concurrency` | `int` | `5` | `summarization.max_concurrency` | Max concurrent LLM requests during summarization |
 | `fallback_category` | `str` | `"Other"` | `labeling.fallback_category` | Category when no taxonomy match |
 
 ### Prompt Templates

@@ -85,11 +85,21 @@ async def generate_summaries(
         | structured_model
     ).with_config(run_name="GenerateSummary")
 
-    # Create the full chain with map-reduce
+    # Create the full chain with map-reduce, bounded concurrency
+    max_conc = configuration.summary_max_concurrency
+
+    async def _abatch_with_concurrency(inputs):
+        return await summary_chain.abatch(
+            inputs, config={"max_concurrency": max_conc}
+        )
+
     map_reduce_chain = (
         RunnablePassthrough.assign(
             summaries=_get_content
-            | RunnableLambda(func=summary_chain.batch, afunc=summary_chain.abatch)
+            | RunnableLambda(
+                func=summary_chain.batch,
+                afunc=_abatch_with_concurrency,
+            )
         )
         | _reduce_summaries
     )

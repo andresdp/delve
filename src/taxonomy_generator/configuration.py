@@ -133,6 +133,11 @@ class Configuration:
         metadata={"description": "Max words for summary explanations."},
     )
 
+    summary_max_concurrency: int = field(
+        default=None,
+        metadata={"description": "Max concurrent LLM requests during summarization."},
+    )
+
     # ── Labeling ────────────────────────────────────────────────────────
     fallback_category: str = field(
         default=None,
@@ -214,6 +219,7 @@ class Configuration:
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,
             "summary_explanation_length": s.summarization.explanation_length,
+            "summary_max_concurrency": s.summarization.max_concurrency,
             # Labeling
             "fallback_category": s.labeling.fallback_category,
             "review_sample_size": s.labeling.review_sample_size,
