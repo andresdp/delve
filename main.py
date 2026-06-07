@@ -126,7 +126,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _display_taxonomy(clusters: list, configuration: Configuration) -> None:
+def _display_taxonomy(clusters: list, explanations: list, configuration: Configuration) -> None:
     """Display the generated taxonomy as a rich table."""
     if not clusters:
         return
@@ -160,6 +160,15 @@ def _display_taxonomy(clusters: list, configuration: Configuration) -> None:
     summary.append("  ·  Iterations: ", style="bold")
     summary.append(str(len(clusters)), style="cyan bold")
     console.print(summary)
+
+    # Show latest explanation/rationale
+    if explanations and explanations[-1]:
+        console.print(Panel(
+            explanations[-1],
+            title="[bold blue]💬 Taxonomy Rationale[/bold blue]",
+            border_style="blue",
+        ))
+
     console.print()
 
 
@@ -281,12 +290,13 @@ async def run(args: argparse.Namespace) -> None:
 
     # Display results
     clusters = result.get("clusters", [])
+    explanations = result.get("explanations", [])
     documents = result.get("documents", [])
     messages = result.get("messages", [])
 
     if clusters:
         logger.info("Generated taxonomy with %d categories (%d iterations)", len(clusters[-1]), len(clusters))
-        _display_taxonomy(clusters, effective_config)
+        _display_taxonomy(clusters, explanations, effective_config)
 
     if documents:
         logger.info("Labeling results: %d documents categorized", len(documents))
@@ -323,10 +333,17 @@ async def run(args: argparse.Namespace) -> None:
             json.dump(docs_data, f, indent=2, ensure_ascii=False)
         logger.info("Documents saved to: %s", docs_path)
 
-        # Save taxonomy (all iterations + final)
+        # Save taxonomy (all iterations paired with explanations)
+        taxonomy_data = []
+        for i, iteration_clusters in enumerate(clusters):
+            entry = {
+                "explanation": explanations[i] if i < len(explanations) else "",
+                "clusters": iteration_clusters,
+            }
+            taxonomy_data.append(entry)
         taxonomy_path = output_dir / f"taxonomy_{timestamp}.json"
         with open(taxonomy_path, "w") as f:
-            json.dump(clusters, f, indent=2, ensure_ascii=False)
+            json.dump(taxonomy_data, f, indent=2, ensure_ascii=False)
         logger.info("Taxonomy saved to: %s", taxonomy_path)
 
         # Save messages

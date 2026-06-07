@@ -29,8 +29,11 @@ class TaxonomyOutput(BaseModel):
         description="List of taxonomy categories."
     )
     explanation: str = Field(
-        default="",
-        description="Brief reasoning for the clustering decisions.",
+        description=(
+            "Your rationale for this taxonomy: why you chose these categories, "
+            "how they capture the themes in the data, and what trade-offs you made. "
+            "Must not be empty."
+        ),
     )
 
 

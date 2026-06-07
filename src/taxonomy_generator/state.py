@@ -56,6 +56,7 @@ class OutputState:
     """Defines the output state for the agent, representing the interaction history."""
     messages: Annotated[Sequence[AnyMessage], add_messages] = field(default_factory=list)
     clusters: Annotated[List[List[Dict]], operator.add] = field(default_factory=list)
+    explanations: Annotated[List[str], operator.add] = field(default_factory=list)
     documents: List[Doc] = field(default_factory=list)
 
 
@@ -69,6 +70,7 @@ class State(InputState, OutputState):
     documents: List[Doc] = field(default_factory=list)
     minibatches: List[List[int]] = field(default_factory=list)
     clusters: Annotated[List[List[Dict]], operator.add] = field(default_factory=list)
+    explanations: Annotated[List[str], operator.add] = field(default_factory=list)
     status: Annotated[List[str], operator.add] = field(default_factory=list)
     use_case: str = field(default="")
     is_last_step: IsLastStep = field(default=False)

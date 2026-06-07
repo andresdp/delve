@@ -171,6 +171,7 @@ async def invoke_taxonomy_chain(
         logger.debug("Taxonomy chain returned %d clusters", num_clusters)
         return {
             "clusters": [clusters_list],
+            "explanations": [result.explanation],
             "status": ["Taxonomy generated."],
         }
     except Exception as e:
