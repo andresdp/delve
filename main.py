@@ -161,13 +161,24 @@ def _display_taxonomy(clusters: list, explanations: list, configuration: Configu
     summary.append(str(len(clusters)), style="cyan bold")
     console.print(summary)
 
-    # Show latest explanation/rationale
-    if explanations and explanations[-1]:
-        console.print(Panel(
-            explanations[-1],
-            title="[bold blue]💬 Taxonomy Rationale[/bold blue]",
-            border_style="blue",
-        ))
+    # Show all explanations/rationale across iterations
+    if explanations and any(explanations):
+        parts = []
+        for i, explanation in enumerate(explanations):
+            if explanation:
+                if i == 0:
+                    label = "Generation"
+                elif i == len(explanations) - 1:
+                    label = "Review"
+                else:
+                    label = "Update"
+                parts.append(f"[bold cyan]{i+1}. {label}:[/bold cyan] {explanation}")
+        if parts:
+            console.print(Panel(
+                "\n\n".join(parts),
+                title="[bold blue]💬 Taxonomy Rationale[/bold blue]",
+                border_style="blue",
+            ))
 
     console.print()
 
