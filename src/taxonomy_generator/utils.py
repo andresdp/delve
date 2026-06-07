@@ -59,6 +59,55 @@ def docs_from_dicts(dicts: List[Dict]) -> List[Doc]:
     return docs
 
 
+logger = logging.getLogger(__name__)
+
+
+def strings_to_docs(texts: List[str]) -> List[Doc]:
+    """Convert a list of strings into Doc objects with auto-generated IDs.
+
+    This is the primary entry point for providing an arbitrary corpus to the
+    taxonomy generation pipeline. Each string becomes a Doc with a unique ID.
+
+    Args:
+        texts: A list of raw text strings representing the corpus.
+
+    Returns:
+        List[Doc]: A list of Doc objects ready for pipeline processing.
+    """
+    from uuid import uuid4
+    return [Doc(id=str(uuid4()), content=text) for text in texts]
+
+
+def docs_from_dicts(dicts: List[Dict]) -> List[Doc]:
+    """Convert a list of dictionaries into Doc objects.
+
+    Each dict should have at least 'id' and 'content' keys.
+    Missing keys will use defaults.
+
+    Args:
+        dicts: A list of dictionaries with document data.
+
+    Returns:
+        List[Doc]: A list of Doc objects ready for pipeline processing.
+    """
+    from uuid import uuid4
+    docs = []
+    for d in dicts:
+        if isinstance(d, Doc):
+            docs.append(d)
+        elif isinstance(d, dict):
+            docs.append(Doc(
+                id=d.get("id", str(uuid4())),
+                content=d.get("content", ""),
+                summary=d.get("summary"),
+                explanation=d.get("explanation"),
+                category=d.get("category"),
+            ))
+        else:
+            docs.append(Doc(id=str(uuid4()), content=str(d)))
+    return docs
+
+
 def load_chat_model(fully_specified_name: str) -> BaseChatModel:
     """Load a chat model from a fully specified name.
 

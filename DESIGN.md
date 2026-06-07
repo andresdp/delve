@@ -637,6 +637,7 @@ LLM_MODEL=ollama/llama3.2
 LLM_FAST_MODEL=ollama/llama3.2
 ```
 
+
 ### Installation
 
 ```bash
