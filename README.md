@@ -12,9 +12,19 @@ The framework consists of two phases:
 
 TnT-LLM combines the accuracy of LLMs with the scalability of traditional classifiers, making it highly efficient for real-world applications such as conversational AI analysis. This project uses the framework to extract insights and organize unstructured text data with minimal human intervention.
 
-For more detailed information, you can refer to the [original paper](https://arxiv.org/abs/2403.12173).
+For more detailed information, see the [Design Document](DESIGN.md) for architecture and implementation details, or refer to the [original paper](https://arxiv.org/abs/2403.12173).
 
 ![TNT LLM Diagram](images/tnt_llm.png)
+
+### 🍴 About This Fork
+
+This project is a fork of the [original TnT-LLM implementation](https://github.com/hinthornw/tnt-llm), adapted and extended with the following major changes:
+
+- **No LangSmith dependency** — Removed the requirement for LangSmith as a data source. The pipeline now accepts direct corpus input via `.txt` or `.json` files, making it fully self-contained and provider-agnostic.
+- **Multi-provider LLM support** — Added support for multiple LLM providers (OpenAI, Anthropic, Fireworks, Groq, Ollama) via LangChain's `init_chat_model`, configurable through simple environment variables.
+- **Pydantic structured outputs** — Replaced XML-based prompt formatting and regex output parsing with Pydantic models and `with_structured_output()`, ensuring reliable and validated LLM responses.
+- **Improved CLI** — Enhanced the command-line interface with `argparse` grouped arguments, `--corpus` flag for direct file input, `--output` for saving results, `--quiet` mode, and `rich`-formatted terminal output with tables and panels.
+- **JSON-based data formatting** — All data exchanged with LLMs uses JSON instead of XML, improving clarity and consistency across the pipeline.
 
 ### 🔥 Why This Matters
 
@@ -51,30 +61,62 @@ TnT-LLM enables powerful and scalable applications in text mining and analysis:
 
 1. **Installation**
 
+Install from PyPI:
 ```
 pip install delve-taxonomy-generator
 ```
 
+Or install from source with the included requirements:
+```
+git clone https://github.com/andrestorres123/delve.git
+cd delve
+pip install -r requirements.txt
+```
+
 2. **API Keys Setup**
-Delve Taxonomy Generator requires the following API key to be set as an environment variable:
-   * `ANTHROPIC_API_KEY`: For processing and generating taxonomies from unstructured data
+Delve Taxonomy Generator requires an API key for your preferred LLM provider. **OpenAI is the default provider.**
 
-You can set this using environment variables:
+   * `OPENAI_API_KEY`: Required for the default OpenAI models (primary)
+   * `ANTHROPIC_API_KEY`: Optional, if using Anthropic models
+   * `FIREWORKS_API_KEY`: Optional, if using Fireworks models
+   * `GROQ_API_KEY`: Optional, if using Groq models
 
+You can set these using environment variables or a `.env` file:
+
+```
+export OPENAI_API_KEY="your-key-here"
+```
+
+**Model Selection:** You can configure the models via environment variables:
+```
+export LLM_MODEL=openai/gpt-5.4-nano          # Main model (default)
+export LLM_FAST_MODEL=openai/gpt-5.4-nano      # Fast model for summaries (default)
+```
+
+To switch to Anthropic:
 ```
 export ANTHROPIC_API_KEY="your-key-here"
+export LLM_MODEL=anthropic/claude-3-5-sonnet-20240620
+export LLM_FAST_MODEL=anthropic/claude-3-haiku-20240307
 ```
 
-3. **Basic Usage**
+3. **Basic Usage — Direct Corpus Input**
+
+You can pass any arbitrary list of text strings directly to the pipeline:
 
 ```python
-from taxonomy_generator.graph import graph
+from taxonomy_generator import graph, strings_to_docs
 
-# Generate taxonomy from unstructured data
+# Convert a list of strings into documents
+texts = [
+    "User asked about resetting their password...",
+    "Customer complained about billing charges...",
+    "User wants to know about shipping times...",
+    # ... add as many documents as you need
+]
+
 result = await graph.ainvoke({
-    "project_name": "YOUR_PROJECT_NAME",
-    "org_id": "YOUR_LANGSMITH_API_KEY",
-    "days": 3  # Number of days to analyze
+    "documents": strings_to_docs(texts)
 })
 
 # Access the taxonomy results
@@ -83,7 +125,45 @@ clusters = result["clusters"]
 messages = result['messages']
 ```
 
-4. **Output** The system generates three main output properties:
+You can also pass pre-structured documents as dicts or Doc objects:
+
+```python
+from taxonomy_generator import graph, Doc
+
+result = await graph.ainvoke({
+    "documents": [
+        Doc(id="1", content="User asked about resetting their password..."),
+        Doc(id="2", content="Customer complained about billing charges..."),
+    ]
+})
+```
+
+4. **Command-Line Interface**
+
+You can also run the pipeline directly from the command line:
+
+```bash
+# From a corpus file (.txt — one document per line, or .json — array of strings/objects)
+python main.py --corpus my_corpus.txt
+
+# From a JSON corpus
+python main.py --corpus documents.json
+
+# Override the model
+python main.py --corpus my_corpus.txt --model groq/llama-3.3-70b-versatile
+
+ # Save results to a folder (creates the folder if it doesn't exist)
+ python main.py --corpus my_corpus.txt --output ./results
+ ```
+
+When `--output` is specified, three JSON files are saved to the folder with a timestamp:
+- `documents_<timestamp>.json` — Labeled documents with id, content, summary, explanation, and category
+- `taxonomy_<timestamp>.json` — All taxonomy iterations (last is final)
+- `messages_<timestamp>.json` — Formatted result messages
+
+All `.env` variables are automatically loaded via `python-dotenv`.
+
+5. **Output** The system generates three main output properties:
 
    * **messages**: Contains a friendly message with the taxonomy information pretty-printed in a human-readable format. This is useful for quick inspection and sharing results with non-technical stakeholders.
    
