@@ -175,10 +175,13 @@ python main.py --corpus my_corpus.txt --model groq/llama-3.3-70b-versatile
  python main.py --corpus my_corpus.txt --output ./results
  ```
 
-When `--output` is specified, three JSON files are saved to the folder with a timestamp:
-- `documents_<timestamp>.json` — Labeled documents with id, content, summary, explanation, and category
+When `--output` is specified, four JSON files are saved to the folder with a timestamp:
+- `documents_<timestamp>.json` — Labeled documents with id, content, summary, explanation, category, and score
 - `taxonomy_<timestamp>.json` — All taxonomy iterations (last is final)
 - `messages_<timestamp>.json` — Formatted result messages
+- `clusters_<timestamp>.json` — Final taxonomy as a tree: clusters with nested documents
+
+All files include a `taxonomy_name` field at the top level (set via `taxonomy.name` in `config.yaml` or `--name` CLI flag; defaults to `"taxonomy"`).
 
 All `.env` variables are automatically loaded via `python-dotenv`. For the full list of configurable settings, see [SETTINGS.md](SETTINGS.md).
 
@@ -188,18 +191,22 @@ The system generates three main outputs — accessible programmatically via the 
 
 #### `documents` — Labeled Documents (`documents_<timestamp>.json`)
 
-A JSON array of fully enriched document objects:
+A JSON object with the taxonomy name and an array of fully enriched document objects:
 
 ```json
-[
-  {
-    "id": "437c2fa9-72d4-45ac-bcc4-7397db9d1059",
+{
+  "taxonomy_name": "taxonomy",
+  "documents": [
+    {
+      "id": "437c2fa9-72d4-45ac-bcc4-7397db9d1059",
     "content": "How do I reset my password? I've tried clicking the forgot password link...",
     "summary": "User asks how to reset their password after the forgot-password email never arrives.",
-    "explanation": "They attempted the reset link but report not receiving the email...",
-    "category": "Forgot-password email delivery failed"
-  }
-]
+    "explanation": "Document clearly describes a password reset issue with email delivery failure.",
+    "category": "Forgot-password email delivery failed",
+    "score": 0.95
+    }
+  ]
+}
 ```
 
 | Field | Description |
@@ -207,24 +214,34 @@ A JSON array of fully enriched document objects:
 | `id` | Auto-generated UUID |
 | `content` | Original raw document text |
 | `summary` | LLM-generated concise summary |
-| `explanation` | LLM-generated reasoning about the document |
+| `explanation` | LLM-generated classification reasoning |
 | `category` | Assigned taxonomy category (or the configured `fallback_category`) |
+| `score` | Classification confidence (0.0–1.0, where 1.0 = perfect fit) |
 
 #### `clusters` — Taxonomy Iterations (`taxonomy_<timestamp>.json`)
 
-An array of arrays — each inner array is one taxonomy revision (from initial generation → iterative updates → final review). **The last array is the final taxonomy used for labeling.**
+A JSON object with the taxonomy name and an array of iterations. Each iteration is one taxonomy revision (from initial generation → iterative updates → final review). **The last iteration is the final taxonomy used for labeling.**
 
 ```json
-[
-  [
+{
+  "taxonomy_name": "taxonomy",
+  "iterations": [
+    {
+      "explanation": "...",
+      "clusters": [
     {"id": "1", "name": "Calendar sync issues", "description": "..."},
-    {"id": "2", "name": "Login and authentication", "description": "..."}
-  ],
-  [
-    {"id": "1", "name": "Calendar synchronization failure", "description": "..."},
-    {"id": "2", "name": "Password reset and 2FA issues", "description": "..."}
+        {"id": "2", "name": "Login and authentication", "description": "..."}
+      ]
+    },
+    {
+      "explanation": "...",
+      "clusters": [
+        {"id": "1", "name": "Calendar synchronization failure", "description": "..."},
+        {"id": "2", "name": "Password reset and 2FA issues", "description": "..."}
+      ]
+    }
   ]
-]
+}
 ```
 
 | Field | Description |
@@ -235,21 +252,51 @@ An array of arrays — each inner array is one taxonomy revision (from initial g
 
 #### `messages` — Pipeline Messages (`messages_<timestamp>.json`)
 
-A JSON array of LangChain message objects produced during the pipeline run:
+A JSON object with the taxonomy name and an array of LangChain message objects:
 
 ```json
-[
-  {
-    "type": "AIMessage",
-    "content": "✅ Documents have been labeled!\n\n🔖 Category: Password reset issue\n📄 Document: How do I reset my password?..."
-  }
-]
+{
+  "taxonomy_name": "taxonomy",
+  "messages": [
+    {
+      "type": "AIMessage",
+      "content": "✅ Documents have been labeled!\n\n🔖 Category: Password reset issue\n📄 Document: How do I reset my password?..."
+    }
+  ]
+}
 ```
 
 | Field | Description |
 |---|---|
 | `type` | LangChain message type (e.g. `"AIMessage"`) |
 | `content` | Formatted text with category labels and document previews |
+
+#### `clusters` — Taxonomy Tree (`clusters_<timestamp>.json`)
+
+A JSON object with the taxonomy name and the final taxonomy as a tree — clusters with their categorized documents nested inside:
+
+```json
+{
+  "taxonomy_name": "taxonomy",
+  "clusters": [
+    {
+      "id": 1,
+      "name": "Billing Issues",
+      "description": "Questions about invoices, payments...",
+      "documents": [
+        {"id": "abc123", "content": "How do I get a refund...", "score": 0.95}
+      ]
+    }
+  ]
+}
+```
+
+| Field | Description |
+|---|---|
+| `id` | Cluster numeric identifier |
+| `name` | Category name |
+| `description` | Category description |
+| `documents` | Array of documents assigned to this category |
 
 
 ## 🙏 Acknowledgements

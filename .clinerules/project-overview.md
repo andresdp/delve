@@ -20,12 +20,12 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - **Taxonomy Generation** (`generate_taxonomy`) — produces initial taxonomy from first minibatch
 - **Iterative Refinement** (`update_taxonomy` loop) — refines taxonomy per minibatch via conditional edge
 - **Quality Review** (`review_taxonomy`) — final review pass on random document sample
-- **Classification** (`label_documents`) — assigns categories to all documents using the final taxonomy
+- **Classification** (`label_documents`) — assigns categories and confidence scores to all documents using the final taxonomy (parallel processing via `asyncio.gather`)
 
 ## State management
 - Three-tier model: `InputState` → `State` (internal) → `OutputState`
 - `clusters` uses `operator.add` reducer (accumulates taxonomy iterations)
-- `Doc` dataclass is the standard document representation with `id`, `content`, `summary`, `explanation`, `category`
+- `Doc` dataclass is the standard document representation with `id`, `content`, `summary`, `explanation`, `category`, `score`
 - `invoke_taxonomy_chain()` in `utils.py` is the shared orchestrator for all taxonomy nodes
 
 ## Tech stack
@@ -51,15 +51,16 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - Use `Configuration.from_runnable_config(config)` to access settings inside nodes
 - **Model assignment**: `model` (main reasoning) is used for taxonomy generation/update/review; `fast_llm` is used for summarization and labeling
 - Key defaults: `batch_size=200`, `max_num_clusters=25`, `sample_size=0` (use all), `max_runs=0` (no limit)
-- New settings: `random_seed=42`, `use_case`, `summary_length=20`, `fallback_category="Other"`, `review_sample_size`, `skip_summarization=false`
+- New settings: `random_seed=42`, `use_case`, `summary_length=20`, `fallback_category="Other"`, `review_sample_size`, `skip_summarization=false`, `name="taxonomy"`, `max_docs_per_category_tree=5`
 - See `SETTINGS.md` for the complete settings reference
 
 ## CLI conventions
-- Use `argparse` with grouped arguments: "Input source", "Model configuration", "Output"
+- Use `argparse` with grouped arguments: "Input source", "Configuration", "Model configuration", "Taxonomy", "Output"
 - `--corpus` is required — accepts `.txt` (one doc per line) or `.json` (array of strings/objects with `content` field)
 - `--config` accepts a custom YAML config file path (defaults to `config.yaml`)
 - `--quiet` flag suppresses logging (sets level to WARNING), shows only rich-formatted output
-- `--output` saves results (documents, taxonomy, messages) as timestamped JSON files
+- `--name` sets the taxonomy name (shown in output, included in JSON files; defaults to `"taxonomy"`)
+- `--output` saves results (documents, taxonomy, messages, clusters) as timestamped JSON files
 - Graph PNG is exported automatically when not in quiet mode
 - Always display the LLM model names in rich output (visible even in quiet mode)
 
@@ -71,8 +72,11 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 
 ## Output formatting
 - Use `rich` library for all user-facing terminal output in `main.py`
+- Pipeline step progress: each node prints emoji + label + minibatch index as it executes
+- Elapsed time and token usage displayed after pipeline completion
 - Taxonomy results: `rich.table.Table` with styled borders, row striping, and summary footer
-- Document labeling: `rich.table.Table` showing category + content preview (max 20 docs)
+- Taxonomy tree: `rich.tree.Tree` showing categories with nested documents, scores, and descriptions
+- Document labeling: `rich.table.Table` showing category + score + content preview (max 20 docs)
 - Section headers: `rich.panel.Panel` with styled titles and borders
 - Never use `title_style` parameter on `Panel` (not supported in all rich versions) — use inline markup in the `title` string instead
 - `Table` supports `title_style` — use it freely
@@ -88,6 +92,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - All LLM outputs use structured outputs via `with_structured_output()` with Pydantic schemas from `schemas.py`
 - No XML or regex parsing — Pydantic models handle output validation
 - When adding new settings, add them to: `config.yaml`, `settings.py` dataclass, `configuration.py`, and `SETTINGS.md`
+- All JSON output files include a top-level `"taxonomy_name"` field from `configuration.name`
 - When adding new conditional edges, add a routing module in `routing/` and register it in `graph.py`
 
 ## Dependencies

@@ -54,6 +54,7 @@ class PipelineSettings:
 class TaxonomySettings:
     """Taxonomy generation constraints."""
 
+    name: str = "taxonomy"
     max_num_clusters: int = 25
     cluster_name_length: int = 10
     cluster_description_length: int = 30
@@ -88,6 +89,7 @@ class OutputSettings:
     """Output formatting parameters."""
 
     max_displayed_documents: int = 20
+    max_docs_per_category_tree: int = 5
     content_preview_length: int = 100
     default_output_dir: str = "output"
     graph_filename: str = "graph.png"
@@ -127,6 +129,7 @@ def _build_pipeline(raw: dict) -> PipelineSettings:
 
 def _build_taxonomy(raw: dict) -> TaxonomySettings:
     return TaxonomySettings(
+        name=raw.get("name", TaxonomySettings.name),
         max_num_clusters=raw.get("max_num_clusters", TaxonomySettings.max_num_clusters),
         cluster_name_length=raw.get("cluster_name_length", TaxonomySettings.cluster_name_length),
         cluster_description_length=raw.get("cluster_description_length", TaxonomySettings.cluster_description_length),
@@ -155,6 +158,7 @@ def _build_labeling(raw: dict) -> LabelingSettings:
 def _build_output(raw: dict) -> OutputSettings:
     return OutputSettings(
         max_displayed_documents=raw.get("max_displayed_documents", OutputSettings.max_displayed_documents),
+        max_docs_per_category_tree=raw.get("max_docs_per_category_tree", OutputSettings.max_docs_per_category_tree),
         content_preview_length=raw.get("content_preview_length", OutputSettings.content_preview_length),
         default_output_dir=raw.get("default_output_dir", OutputSettings.default_output_dir),
         graph_filename=raw.get("graph_filename", OutputSettings.graph_filename),

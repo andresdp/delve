@@ -74,6 +74,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
+| `taxonomy.name` | `str` | `"taxonomy"` | Optional name to identify this taxonomy. Shown in CLI output and included in all generated JSON files. Override via `--name` CLI flag. |
 | `taxonomy.use_case` | `str` | `"Generate the taxonomy that can be used to label the user intent in the conversation."` | The use case description sent to the LLM for taxonomy generation and refinement. |
 | `taxonomy.max_num_clusters` | `int` | `25` | Maximum number of taxonomy categories the LLM may produce. |
 | `taxonomy.cluster_name_length` | `int` | `10` | Max words for cluster/category names. |
@@ -104,6 +105,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `output.default_output_dir` | `str` | `"output"` | Default directory for output files (graph PNG, etc.). |
 | `output.graph_filename` | `str` | `"graph.png"` | Filename for the auto-exported Mermaid pipeline diagram. |
 | `output.max_displayed_documents` | `int` | `20` | Max documents shown in the rich table display. |
+| `output.max_docs_per_category_tree` | `int` | `5` | Max documents shown per category in the taxonomy tree view. |
 | `output.content_preview_length` | `int` | `100` | Character length for content previews in the display table. |
 
 ### Example `config.yaml`
@@ -194,14 +196,20 @@ models:
 |---|---|---|---|
 | `--config` | `str` | `None` (uses `./config.yaml`) | Path to a YAML configuration file. If not provided, defaults to `./config.yaml` in the project root. |
 
-### 4.3 Model Overrides
+### 4.3 Taxonomy
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--name` | `str` | `None` | Override the taxonomy name (`taxonomy.name`). Shown in CLI output and included in JSON files. |
+
+### 4.4 Model Overrides
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `--model` | `str` | `None` | Override the main LLM model (`models.model`). Format: `provider/model-name`. |
 | `--fast-model` | `str` | `None` | Override the fast LLM model (`models.fast_llm`). Format: `provider/model-name`. |
 
-### 4.4 Output
+### 4.5 Output
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -300,6 +308,7 @@ For all other settings:
 | **Pipeline** | Documents to sample | `pipeline.sample_size` | `50` |
 | **Pipeline** | Minibatch size | `pipeline.batch_size` | `200` |
 | **Pipeline** | Random seed | `pipeline.random_seed` | `42` |
+| **Taxonomy** | Taxonomy name | `taxonomy.name` | `"taxonomy"` |
 | **Taxonomy** | Use case description | `taxonomy.use_case` | User intent classification |
 | **Taxonomy** | Max categories | `taxonomy.max_num_clusters` | `25` |
 | **Taxonomy** | Max name length (words) | `taxonomy.cluster_name_length` | `10` |
@@ -315,12 +324,14 @@ For all other settings:
 | **Output** | Default output directory | `output.default_output_dir` | `"output"` |
 | **Output** | Graph PNG filename | `output.graph_filename` | `"graph.png"` |
 | **Output** | Max displayed documents | `output.max_displayed_documents` | `20` |
+| **Output** | Max docs per category in tree | `output.max_docs_per_category_tree` | `5` |
 | **Output** | Content preview length (chars) | `output.content_preview_length` | `100` |
 
 ### ✅ Configurable via CLI / Env
 
 | Setting | CLI Flag | Env Var | Config YAML Key |
 |---|---|---|---|
+| Taxonomy name | `--name` | — | `taxonomy.name` |
 | Main model | `--model` | `LLM_MODEL` | `models.model` |
 | Fast model | `--fast-model` | `LLM_FAST_MODEL` | `models.fast_llm` |
 | Config file path | `--config` | — | — |

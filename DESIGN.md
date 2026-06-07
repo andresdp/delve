@@ -230,8 +230,9 @@ class Doc:
     id: str                    # Unique identifier
     content: str               # Raw document text
     summary: Optional[str]     # LLM-generated summary
-    explanation: Optional[str] # LLM-generated explanation
+    explanation: Optional[str] # LLM-generated reasoning (labeling) or explanation (summarization)
     category: Optional[str]    # Assigned taxonomy category
+    score: Optional[float]     # Classification confidence (0.0–1.0)
 ```
 
 #### `UserFeedback` — Feedback for Taxonomy Revision
@@ -262,6 +263,7 @@ class TaxonomyOutput(BaseModel):
 class LabelOutput(BaseModel):
     reasoning: str
     category: str
+    score: float               # Confidence 0.0–1.0
 ```
 
 ---
@@ -418,13 +420,13 @@ class LabelOutput(BaseModel):
 **Behavior:**
 1. Retrieves the latest complete cluster set from `state.clusters`.
 2. Formats the taxonomy as JSON via `format_taxonomy()`.
-3. Processes documents in batches of `configuration.batch_size`.
+3. Processes documents **in parallel** via `asyncio.gather` with a semaphore for concurrency control (reuses `summary_max_concurrency` setting).
 4. For each document, the LLM:
-   - Reads the content and taxonomy.
-   - Returns a `LabelOutput` Pydantic object with `reasoning` and `category` fields.
-5. Labels are assigned to each `Doc.category`.
-6. If no category fits, defaults to `"Other"`.
-7. Generates a formatted `AIMessage` with classification results including document previews and labels.
+   - Reads the content, taxonomy, and use case context.
+   - Returns a `LabelOutput` Pydantic object with `reasoning`, `category`, and `score` fields.
+5. Labels are assigned to each `Doc.category`, reasoning to `Doc.explanation`, and confidence to `Doc.score`.
+6. If no category fits, defaults to the configured `fallback_category` (default: `"Other"`).
+7. Generates a formatted `AIMessage` with classification results including document previews, labels, and scores.
 
 **Prompt:** `LABELER_PROMPT` (from `prompts/` package)
 
@@ -491,7 +493,7 @@ Settings are managed through a layered system: **YAML config file** → **enviro
 **Files:** `config.yaml`, `settings.py`, `configuration.py`
 
 **Resolution order** (highest priority wins):
-1. CLI flags (`--model`, `--fast-model`)
+1. CLI flags (`--model`, `--fast-model`, `--name`)
 2. Environment variables (`LLM_MODEL`, `LLM_FAST_MODEL`)
 3. YAML config file (`config.yaml`)
 4. Built-in code defaults (`Settings` dataclass)
@@ -516,6 +518,7 @@ Settings are managed through a layered system: **YAML config file** → **enviro
 
 | Parameter | Type | Default | YAML Key | Description |
 |---|---|---|---|---|
+| `name` | `str` | `"taxonomy"` | `taxonomy.name` | Optional name identifying this taxonomy |
 | `use_case` | `str` | User intent classification | `taxonomy.use_case` | Use case description for LLM |
 | `max_num_clusters` | `int` | `25` | `taxonomy.max_num_clusters` | Maximum taxonomy categories |
 | `cluster_name_length` | `int` | `10` | `taxonomy.cluster_name_length` | Max words for cluster names |
@@ -559,7 +562,7 @@ All LLM outputs use **Pydantic structured outputs** via `with_structured_output(
 |---|---|---|
 | Document summaries | `SummaryOutput` | `summary`, `explanation` |
 | Taxonomy clusters | `TaxonomyOutput` | `clusters` (list of `Cluster`), `explanation` |
-| Document labels | `LabelOutput` | `reasoning`, `category` |
+| Document labels | `LabelOutput` | `reasoning`, `category`, `score` |
 
 ---
 
@@ -680,6 +683,28 @@ Using Ollama (local models, no API key needed):
 LLM_MODEL=ollama/llama3.2
 LLM_FAST_MODEL=ollama/llama3.2
 ```
+
+### CLI Features
+
+The CLI (`main.py`) provides real-time feedback during pipeline execution:
+
+- **Step-by-step progress** — Each pipeline node is displayed with an emoji and label as it executes (e.g., `🧠 Generating initial taxonomy ✓`)
+- **Minibatch progress** — Shows current minibatch index during iterative refinement (e.g., `🔄 Updating taxonomy (minibatch 3/5) ✓`)
+- **Elapsed time & token usage** — After completion, displays total pipeline time and LLM token consumption (prompt + completion)
+- **Taxonomy tree** — A `rich.tree.Tree` visualization showing categories with their categorized documents, scores, and descriptions
+
+### Output Files
+
+When using `--output`, four JSON files are generated:
+
+| File | Description |
+|---|---|
+| `documents_<timestamp>.json` | Labeled documents with `taxonomy_name` wrapper |
+| `taxonomy_<timestamp>.json` | All taxonomy iterations with `taxonomy_name` wrapper |
+| `messages_<timestamp>.json` | Pipeline messages with `taxonomy_name` wrapper |
+| `clusters_<timestamp>.json` | Final taxonomy as a tree: clusters with nested documents |
+
+All JSON files include a top-level `"taxonomy_name"` field from the `taxonomy.name` setting.
 
 ### Installation
 

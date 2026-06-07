@@ -87,6 +87,11 @@ class Configuration:
     )
 
     # ── Taxonomy ────────────────────────────────────────────────────────
+    name: str = field(
+        default=None,
+        metadata={"description": "Name identifying this taxonomy."},
+    )
+
     max_num_clusters: int = field(
         default=None,
         metadata={"description": "Maximum number of taxonomy categories."},
@@ -155,6 +160,11 @@ class Configuration:
         metadata={"description": "Max documents shown in rich display table."},
     )
 
+    max_docs_per_category_tree: int = field(
+        default=None,
+        metadata={"description": "Max documents shown per category in the taxonomy tree view."},
+    )
+
     content_preview_length: int = field(
         default=None,
         metadata={"description": "Characters shown in document preview."},
@@ -209,6 +219,7 @@ class Configuration:
             "batch_size": s.pipeline.batch_size,
             "random_seed": s.pipeline.random_seed,
             # Taxonomy
+            "name": s.taxonomy.name,
             "max_num_clusters": s.taxonomy.max_num_clusters,
             "cluster_name_length": s.taxonomy.cluster_name_length,
             "cluster_description_length": s.taxonomy.cluster_description_length,
@@ -225,6 +236,7 @@ class Configuration:
             "review_sample_size": s.labeling.review_sample_size,
             # Output
             "max_displayed_documents": s.output.max_displayed_documents,
+            "max_docs_per_category_tree": s.output.max_docs_per_category_tree,
             "content_preview_length": s.output.content_preview_length,
             "default_output_dir": s.output.default_output_dir,
             "graph_filename": s.output.graph_filename,
