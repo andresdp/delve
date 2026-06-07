@@ -323,10 +323,12 @@ class LabelOutput(BaseModel):
 | **Output** | `minibatches` (list of index lists), `status` |
 
 **Behavior:**
-1. Creates a list of indices `[0, 1, ..., N-1]` for the sampled documents.
-2. Randomly shuffles the indices.
-3. Partitions into batches of `configuration.batch_size` (default: 200).
-4. If the last batch is smaller than `batch_size`, it is padded with random samples from earlier indices to maintain consistent size.
+1. Validates that `batch_size` is a positive integer (raises `ValueError` otherwise).
+2. Guards against empty documents (logs a warning and returns empty minibatches).
+3. Creates a list of indices `[0, 1, ..., N-1]` for the sampled documents.
+4. Randomly shuffles the indices using the global RNG state (already seeded by `load_corpus` when `random_seed` is configured).
+5. Partitions into batches of `configuration.batch_size` (default: 200).
+6. The final batch may be smaller than `batch_size` if the total document count is not evenly divisible — no duplicate padding is applied.
 
 ---
 
@@ -469,7 +471,7 @@ Given `sample_size=50` documents and `batch_size=200`:
 - `should_review` checks: 1 revision ≥ 1 minibatch → proceed to `review_taxonomy`.
 
 Given `sample_size=500` documents and `batch_size=200`:
-- Three minibatches are created: [200], [200], [200] (last one padded).
+- Three minibatches are created: [200], [200], [100] (last one smaller, no padding).
 - `generate_taxonomy` produces clusters[0] (1 revision).
 - `update_taxonomy` → clusters[1] (2 revisions) → loop → clusters[2] (3 revisions).
 - `should_review` checks: 3 revisions ≥ 3 minibatches → proceed to `review_taxonomy`.
