@@ -1,7 +1,8 @@
 """Node for labeling documents using the generated taxonomy."""
 
+import asyncio
 import logging
-from typing import Dict, List
+from typing import List
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage
 
@@ -23,10 +24,10 @@ def _get_field(doc, field: str, default=""):
 
 def _format_results(docs: List[Doc]) -> str:
     """Format labeled documents in a readable way.
-    
+
     Args:
         docs: List of labeled documents (Doc objects or dicts)
-        
+
     Returns:
         str: Formatted string showing document previews and their labels
     """
@@ -34,14 +35,16 @@ def _format_results(docs: List[Doc]) -> str:
     for doc in docs:
         content = _get_field(doc, "content", "")
         category = _get_field(doc, "category", "N/A")
+        score = _get_field(doc, "score", None)
         preview = content[:400].replace('\n', ' ').strip()
         if len(content) > 200:
             preview += "..."
-            
-        result += f"🔖 Category: {category}\n"
+
+        score_str = f" ({score:.2f})" if score is not None else ""
+        result += f"🔖 Category: {category}{score_str}\n"
         result += f"📄 Document: {preview}\n"
         result += "─" * 80 + "\n\n"
-    
+
     return result
 
 
@@ -49,7 +52,10 @@ def _setup_classification_chain(configuration: Configuration):
     """Set up the chain for document labeling."""
     model = load_chat_model(configuration.fast_llm)
     structured_model = model.with_structured_output(LabelOutput)
-    labeler_prompt = LABELER_PROMPT.partial(fallback_category=configuration.fallback_category)
+    labeler_prompt = LABELER_PROMPT.partial(
+        fallback_category=configuration.fallback_category,
+        use_case=configuration.use_case,
+    )
 
     return (
         labeler_prompt
@@ -57,62 +63,69 @@ def _setup_classification_chain(configuration: Configuration):
     ).with_config(run_name="LabelDocs")
 
 
+async def _label_single_doc(labeling_chain, doc_content: str, taxonomy_json: str, semaphore: asyncio.Semaphore) -> LabelOutput:
+    """Label a single document with concurrency control."""
+    async with semaphore:
+        return await labeling_chain.ainvoke({
+            "content": doc_content,
+            "taxonomy_json": taxonomy_json,
+        })
+
+
 async def label_documents(
     state: State,
     config: RunnableConfig,
 ) -> dict:
     """Label documents using the generated taxonomy."""
-    
+
     configuration = Configuration.from_runnable_config(config)
     labeling_chain = _setup_classification_chain(configuration)
-    
-    batch_size = configuration.batch_size
-    
+
+    max_concurrency = configuration.summary_max_concurrency
+    semaphore = asyncio.Semaphore(max_concurrency)
+
     # Get latest complete set of clusters
     latest_clusters = None
     for clusters in reversed(state.clusters):
         if isinstance(clusters, list) and clusters:
             latest_clusters = clusters
             break
-    
+
     if not latest_clusters and state.clusters:
         latest_clusters = [state.clusters[-1]] if isinstance(state.clusters[-1], dict) else state.clusters[-1]
-    
+
     if not latest_clusters:
         logger.error("No valid clusters found in state for document labeling")
         raise ValueError("No valid clusters found in state")
-    
+
     taxonomy_json = format_taxonomy(latest_clusters)
 
     logger.info(
-        "Labeling %d documents using taxonomy with %d categories (batch_size: %d, model: %s)",
-        len(state.documents), len(latest_clusters), batch_size, configuration.fast_llm,
+        "Labeling %d documents using taxonomy with %d categories (concurrency: %d, model: %s)",
+        len(state.documents), len(latest_clusters), max_concurrency, configuration.fast_llm,
     )
-    
-    # Process documents in batches
-    labeled_results: List[LabelOutput] = []
-    for i in range(0, len(state.documents), batch_size):
-        batch = state.documents[i : i + batch_size]
-        logger.debug("Processing labeling batch %d-%d of %d", i, i + len(batch), len(state.documents))
-        batch_results = [
-            await labeling_chain.ainvoke(
-                {
-                    "content": doc["content"] if isinstance(doc, dict) else doc.content,
-                    "taxonomy_json": taxonomy_json,
-                }
-            )
-            for doc in batch
-        ]
-        labeled_results.extend(batch_results)
 
-    # Update documents with labels
+    # Process all documents in parallel with concurrency control
+    tasks = [
+        _label_single_doc(
+            labeling_chain,
+            doc["content"] if isinstance(doc, dict) else doc.content,
+            taxonomy_json,
+            semaphore,
+        )
+        for doc in state.documents
+    ]
+    labeled_results: List[LabelOutput] = await asyncio.gather(*tasks)
+
+    # Update documents with labels, scores, and reasoning
     updated_docs = [
         Doc(
             id=doc["id"] if isinstance(doc, dict) else doc.id,
             content=doc["content"] if isinstance(doc, dict) else doc.content,
             summary=doc.get("summary", "") if isinstance(doc, dict) else (doc.summary or ""),
-            explanation=doc.get("explanation", "") if isinstance(doc, dict) else (doc.explanation or ""),
+            explanation=label_result.reasoning,
             category=label_result.category,
+            score=label_result.score,
         )
         for doc, label_result in zip(state.documents, labeled_results)
     ]

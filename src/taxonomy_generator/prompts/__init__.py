@@ -135,7 +135,7 @@ TAXONOMY_REVIEW_PROMPT = _load_prompt(
 
 LABELER_PROMPT = _load_prompt(
     "labeler.md",
-    "Assign a single category to the following content:\n\n{content}",
+    "Classify the following document into the best-fitting category from the taxonomy above.\n\n{content}",
 )
 
 __all__ = [

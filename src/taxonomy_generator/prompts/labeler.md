@@ -1,21 +1,31 @@
-Your task is to use the provided taxonomy to categorize the overall topic or intent of a conversation between a human and an AI assistant.
+# Instruction
 
-First, here is the taxonomy to use:
+## Context
+
+- **Goal**: Classify a document into the single most relevant category from the provided taxonomy.
+- **Use case**: {use_case}
+
+## Taxonomy
 
 {taxonomy_json}
 
-To complete the task:
+## Steps
 
-1. Carefully read through the entire conversation, paying attention to the key topics discussed and the apparent intents behind the human's messages.
+1. **Read** the document carefully, identifying its main topic, intent, or theme.
 
-2. Consult the taxonomy and identify the single most relevant category that best captures the overall topic or intent of the conversation.
+2. **Match** the document to the single best-fitting category from the taxonomy above. Consider both the category name and description when making your choice.
 
-3. Write out a chain of reasoning for why you selected that category. Explain how the category fits the content of the conversation, referencing specific statements or passages as evidence.
+3. **Score** your confidence in the match:
+   - **1.0** — Perfect fit. The document clearly and unambiguously belongs to this category.
+   - **0.7–0.9** — Good fit. The document matches well but has minor secondary themes.
+   - **0.4–0.6** — Partial fit. The document could belong to this category but also fits others, or only partially matches.
+   - **0.1–0.3** — Poor fit. The document doesn't match any category well; this is the closest option.
+   - **0.0** — No fit at all (should only occur with the fallback category).
 
-4. If by any chance no category fits the content nicely, use the category '{fallback_category}'.
+4. **Reason** — Briefly explain why you chose this category and your confidence level.
 
-You must respond with a JSON object containing:
-- "reasoning": your chain of reasoning
-- "category": the name of the category you chose (just the text, no number)
+## Rules
 
-Remember, choose the single most relevant category. Don't choose multiple categories. Think it through carefully and explain your reasoning before giving your final category choice.
+- Choose **exactly one** category per document.
+- If no category fits the document well, use the fallback category: **{fallback_category}**.
+- The category name in your response must **exactly match** a category name from the taxonomy.

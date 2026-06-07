@@ -19,6 +19,7 @@ class Doc:
     summary: Optional[str] = None
     explanation: Optional[str] = None
     category: Optional[str] = None
+    score: Optional[float] = None
 
     def __str__(self) -> str:
         """Return a clean content preview instead of the full repr."""

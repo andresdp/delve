@@ -198,6 +198,7 @@ def _display_documents(documents: list, configuration: Configuration) -> None:
         title_style="bold green",
     )
     table.add_column("Category", style="magenta bold", min_width=20, max_width=45)
+    table.add_column("Score", style="cyan", width=6, justify="center")
     table.add_column("Document Preview", style="dim", min_width=40, max_width=80)
 
     display_docs = documents[:max_display]
@@ -206,14 +207,20 @@ def _display_documents(documents: list, configuration: Configuration) -> None:
             getattr(doc, "category", None)
             or (doc.get("category") if isinstance(doc, dict) else None)
         )
+        score = (
+            getattr(doc, "score", None)
+            or (doc.get("score") if isinstance(doc, dict) else None)
+        )
         content = (
             getattr(doc, "content", None)
             or (doc.get("content") if isinstance(doc, dict) else None)
             or ""
         )
         content_preview = content[:preview_length]
+        score_str = f"{score:.2f}" if score is not None else "—"
         table.add_row(
             label or "N/A",
+            score_str,
             content_preview + "..." if len(content_preview) >= preview_length else content_preview,
         )
 
@@ -334,6 +341,7 @@ async def run(args: argparse.Namespace) -> None:
                     "summary": getattr(doc, "summary", ""),
                     "explanation": getattr(doc, "explanation", ""),
                     "category": getattr(doc, "category", ""),
+                    "score": getattr(doc, "score", None),
                 })
             else:
                 docs_data.append(doc)

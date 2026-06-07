@@ -46,3 +46,10 @@ class LabelOutput(BaseModel):
     category: str = Field(
         description="The single most relevant category name from the taxonomy."
     )
+    score: float = Field(
+        description=(
+            "Confidence score between 0.0 and 1.0 indicating how well the document "
+            "fits the chosen category. 1.0 = perfect fit, 0.5 = ambiguous or partial "
+            "match, close to 0.0 = poor fit (likely fallback)."
+        ),
+    )
