@@ -344,13 +344,15 @@ class LabelOutput(BaseModel):
 | **Model** | Uses `configuration.model` (main reasoning) |
 
 **Behavior:**
-1. Formats the first minibatch's documents as JSON summaries.
-2. Sends to LLM with the `TAXONOMY_GENERATION_PROMPT`, specifying:
+1. Formats feedback from `state.user_feedback` (if any).
+2. Sets up the chain with `TAXONOMY_GENERATION_PROMPT.partial(use_case, feedback)`.
+3. Formats the first minibatch's documents as JSON summaries.
+4. Sends to LLM with the prompt, specifying:
    - Use case (default: user intent classification)
    - Previous user feedback (if any)
    - Constraints: max clusters, name/description lengths
-3. The LLM returns a `TaxonomyOutput` Pydantic object via `with_structured_output()`.
-4. Returns the initial cluster list (wrapped in a list for the accumulator pattern).
+5. The LLM returns a `TaxonomyOutput` Pydantic object via `with_structured_output()`.
+6. Returns the initial cluster list (wrapped in a list for the accumulator pattern).
 
 ---
 
@@ -581,10 +583,9 @@ This is the central helper for all taxonomy-related nodes. It:
 2. Formats documents as JSON via `format_docs()`.
 3. Retrieves the previous taxonomy from `state.clusters[-1]`.
 4. Formats the previous taxonomy as JSON via `format_taxonomy()`.
-5. Formats user feedback if present.
-6. Invokes the chain with all context.
-7. The chain returns a `TaxonomyOutput` Pydantic object directly.
-8. Converts the Pydantic model to dict list and returns the updated clusters appended to the accumulator.
+5. Invokes the chain with all context (use case and feedback are pre-bound via `partial()` in each node).
+6. The chain returns a `TaxonomyOutput` Pydantic object directly.
+7. Converts the Pydantic model to dict list and returns the updated clusters appended to the accumulator.
 
 ### Data Transformation Pipeline
 

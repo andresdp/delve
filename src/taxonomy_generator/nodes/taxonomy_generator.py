@@ -4,7 +4,7 @@ import logging
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.state import State
-from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain
+from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain, format_feedback
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.prompts import TAXONOMY_GENERATION_PROMPT
@@ -33,12 +33,10 @@ async def generate_taxonomy(
     """Generate taxonomy from the first batch of documents."""
     configuration = Configuration.from_runnable_config(config)
 
-    feedback = "No previous feedback provided."
-    if state.user_feedback:
-        feedback = f"Previous user feedback: {state.user_feedback.feedback}"
-        if state.user_feedback.explanation:
-            feedback += f"\nReason for modification: {state.user_feedback.explanation}"
-    
+    # NOTE: Feedback for the initial taxonomy must come from external sources —
+    # either pre-populated in the initial state or injected via human-in-the-loop.
+    # In the standard pipeline flow, no feedback is available at this stage.
+    feedback = format_feedback(state)
     logger.info("Generating initial taxonomy from first minibatch (%d documents)", len(state.minibatches[0]))
 
     taxonomy_chain = _setup_taxonomy_chain(configuration, feedback)

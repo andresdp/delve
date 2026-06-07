@@ -4,7 +4,7 @@ import logging
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.state import State
-from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain
+from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain, format_feedback
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.prompts import TAXONOMY_UPDATE_PROMPT
@@ -12,9 +12,12 @@ from taxonomy_generator.prompts import TAXONOMY_UPDATE_PROMPT
 logger = logging.getLogger(__name__)
 
 
-def _setup_update_chain(configuration: Configuration):
+def _setup_update_chain(configuration: Configuration, feedback: str):
     """Set up the chain for taxonomy updates."""
-    update_prompt = TAXONOMY_UPDATE_PROMPT
+    update_prompt = TAXONOMY_UPDATE_PROMPT.partial(
+        use_case=configuration.use_case,
+        feedback=feedback,
+    )
     model = load_chat_model(configuration.model)
     structured_model = model.with_structured_output(TaxonomyOutput)
 
@@ -30,8 +33,10 @@ async def update_taxonomy(
 ) -> dict:
     """Update taxonomy using the next batch of documents."""
     configuration = Configuration.from_runnable_config(config)
-    
-    update_chain = _setup_update_chain(configuration)
+
+    feedback = format_feedback(state)
+
+    update_chain = _setup_update_chain(configuration, feedback)
 
     which_mb = len(state.clusters) % len(state.minibatches)
     mb_indices = state.minibatches[which_mb]

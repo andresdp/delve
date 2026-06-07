@@ -116,6 +116,26 @@ def format_taxonomy(clusters: List[Dict[str, str]]) -> str:
     return json.dumps(items, indent=2)
 
 
+def format_feedback(state: State) -> str:
+    """Format user feedback from state into a string for taxonomy prompts.
+
+    Returns ``"None."`` when no feedback is present so the LLM receives
+    a clear signal to proceed with standard clustering.
+
+    Args:
+        state: Current pipeline state.
+
+    Returns:
+        Formatted feedback string.
+    """
+    if not state.user_feedback:
+        return "None."
+    parts = [f"Previous user feedback: {state.user_feedback.feedback}"]
+    if state.user_feedback.explanation:
+        parts.append(f"Reason for modification: {state.user_feedback.explanation}")
+    return "\n".join(parts)
+
+
 async def invoke_taxonomy_chain(
     chain: Runnable,
     state: State,
@@ -131,20 +151,12 @@ async def invoke_taxonomy_chain(
         previous_taxonomy = state.clusters[-1] if state.clusters else []
         taxonomy_json = format_taxonomy(previous_taxonomy)
 
-        # Format feedback if it exists
-        feedback = "No previous feedback provided."
-        if state.user_feedback:
-            feedback = f"Previous user feedback: {state.user_feedback.feedback}"
-            if state.user_feedback.explanation:
-                feedback += f"\nReason for modification: {state.user_feedback.explanation}"
-
         logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(minibatch))
         result: TaxonomyOutput = await chain.ainvoke(
             {
                 "data_json": data_json,
                 "use_case": configuration.use_case,
                 "taxonomy_json": taxonomy_json,
-                "feedback": feedback,
                 "suggestion_length": configuration.suggestion_length,
                 "cluster_name_length": configuration.cluster_name_length,
                 "cluster_description_length": configuration.cluster_description_length,
@@ -159,7 +171,7 @@ async def invoke_taxonomy_chain(
         logger.debug("Taxonomy chain returned %d clusters", num_clusters)
         return {
             "clusters": [clusters_list],
-            "status": ["Taxonomy generated.."],
+            "status": ["Taxonomy generated."],
         }
     except Exception as e:
         logger.error("Taxonomy generation error: %s", e)

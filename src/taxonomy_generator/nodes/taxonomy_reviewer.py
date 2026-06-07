@@ -5,7 +5,7 @@ import random
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.state import State
-from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain
+from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain, format_feedback
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.prompts import TAXONOMY_REVIEW_PROMPT
@@ -13,9 +13,12 @@ from taxonomy_generator.prompts import TAXONOMY_REVIEW_PROMPT
 logger = logging.getLogger(__name__)
 
 
-def _setup_review_chain(configuration: Configuration):
+def _setup_review_chain(configuration: Configuration, feedback: str):
     """Set up the chain for taxonomy review."""
-    review_prompt = TAXONOMY_REVIEW_PROMPT
+    review_prompt = TAXONOMY_REVIEW_PROMPT.partial(
+        use_case=configuration.use_case,
+        feedback=feedback,
+    )
     model = load_chat_model(configuration.model)
     structured_model = model.with_structured_output(TaxonomyOutput)
 
@@ -31,8 +34,10 @@ async def review_taxonomy(
 ) -> dict:
     """Review and finalize taxonomy using a random sample of documents."""
     configuration = Configuration.from_runnable_config(config)
-    
-    review_chain = _setup_review_chain(configuration)
+
+    feedback = format_feedback(state)
+
+    review_chain = _setup_review_chain(configuration, feedback)
 
     review_size = configuration.review_sample_size or configuration.batch_size
     indices = list(range(len(state.documents)))
