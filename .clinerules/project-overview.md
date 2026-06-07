@@ -7,7 +7,9 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - **Nodes**: `src/taxonomy_generator/nodes/` — each pipeline step is a separate module (e.g., `runs_retriever.py`, `summary_generator.py`, `taxonomy_generator.py`, `taxonomy_updater.py`, `taxonomy_reviewer.py`, `doc_labeler.py`, `minibatches_generator.py`)
 - **Routing**: `src/taxonomy_generator/routing/` — conditional edge logic (e.g., `should_review.py`)
 - **State**: `src/taxonomy_generator/state.py` — dataclass-based state definitions (`State`, `InputState`, `OutputState`, `Doc`)
-- **Configuration**: `src/taxonomy_generator/configuration.py` — centralized config with `Configuration` class
+- **Configuration**: `src/taxonomy_generator/configuration.py` — LangGraph `Configuration` class reading from `Settings`
+- **Settings**: `src/taxonomy_generator/settings.py` — YAML settings loader with frozen dataclasses
+- **Config file**: `config.yaml` — centralized YAML configuration (see `SETTINGS.md` for reference)
 - **Schemas**: `src/taxonomy_generator/schemas.py` — Pydantic models for structured LLM outputs (`SummaryOutput`, `TaxonomyOutput`, `LabelOutput`, `Cluster`)
 - **Prompts**: `src/taxonomy_generator/prompts.py` — all LLM prompt templates as `ChatPromptTemplate`
 - **Utilities**: `src/taxonomy_generator/utils.py` — shared helpers (model loading, JSON formatting, chain invocation)
@@ -31,6 +33,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - LangGraph for workflow orchestration
 - LangChain with `init_chat_model` for multi-provider LLM support (OpenAI, Anthropic, Fireworks, Groq, Ollama)
 - Pydantic for structured LLM outputs via `with_structured_output()`
+- `pyyaml` for YAML-based configuration (`config.yaml`)
 - `rich` for terminal output formatting (tables, panels, styled text)
 - `python-dotenv` for environment variable management
 - All prompts defined locally in `prompts.py` — no external prompt hub
@@ -42,13 +45,19 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - `ANTHROPIC_API_KEY`, `FIREWORKS_API_KEY`, `GROQ_API_KEY` — optional alternative providers
 - Ollama runs locally (no API key) — use `ollama/<model>` format (e.g., `ollama/llama3.2`)
 
-## Key configuration defaults
-- `batch_size=200`, `max_num_clusters=25`, `sample_size=50`, `max_runs=500`
-- `cluster_name_length=10` words, `cluster_description_length=30` words
+## Configuration system
+- Settings are loaded from `config.yaml` → env vars → CLI flags (highest priority wins)
+- `init_settings(config_path)` must be called in `main.py` before pipeline invocation
+- Use `Configuration.from_runnable_config(config)` to access settings inside nodes
+- **Model assignment**: `model` (main reasoning) is used for taxonomy generation/update/review; `fast_llm` is used for summarization and labeling
+- Key defaults: `batch_size=200`, `max_num_clusters=25`, `sample_size=0` (use all), `max_runs=0` (no limit)
+- New settings: `random_seed=42`, `use_case`, `summary_length=20`, `fallback_category="Other"`, `review_sample_size`
+- See `SETTINGS.md` for the complete settings reference
 
 ## CLI conventions
 - Use `argparse` with grouped arguments: "Input source", "Model configuration", "Output"
 - `--corpus` is required — accepts `.txt` (one doc per line) or `.json` (array of strings/objects with `content` field)
+- `--config` accepts a custom YAML config file path (defaults to `config.yaml`)
 - `--quiet` flag suppresses logging (sets level to WARNING), shows only rich-formatted output
 - `--output` saves results (documents, taxonomy, messages) as timestamped JSON files
 - Graph PNG is exported automatically when not in quiet mode
@@ -74,11 +83,18 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - Chain setup is extracted into a private `_setup_*_chain()` helper in each node module
 - Use `Configuration.from_runnable_config(config)` to access settings inside nodes
 - Model names follow `provider/model` format (e.g., `openai/gpt-4o-mini`)
+- Taxonomy nodes (`generate`, `update`, `review`) use `configuration.model`; summarization and labeling use `configuration.fast_llm`
 - JSON-based prompt formatting for LLM inputs (documents, taxonomy clusters)
 - All LLM outputs use structured outputs via `with_structured_output()` with Pydantic schemas from `schemas.py`
 - No XML or regex parsing — Pydantic models handle output validation
+- When adding new settings, add them to: `config.yaml`, `settings.py` dataclass, `configuration.py`, and `SETTINGS.md`
 
 ## Dependencies
 - Add new dependencies to both `pyproject.toml` and `requirements.txt`
 - Use `pip install -e .` for development installs
 - Keep `requirements.txt` in sync with `pyproject.toml` dependencies list
+
+## Running the project
+- **Never use `PYTHONPATH`** to run Python scripts. Always use `python -m` or ensure the package is installed via `pip install -e .`
+- To install: `pip install -e .` (may need `pip install --upgrade pip` first for pyproject.toml support)
+- To run: `python main.py [args]` (after install) or `python -m taxonomy_generator [args]` (if `__main__.py` exists)

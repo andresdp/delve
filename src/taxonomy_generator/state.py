@@ -20,6 +20,13 @@ class Doc:
     explanation: Optional[str] = None
     category: Optional[str] = None
 
+    def __str__(self) -> str:
+        """Return a clean content preview instead of the full repr."""
+        preview = self.content[:100].replace("\n", " ").strip()
+        if len(self.content) > 100:
+            preview += "..."
+        return preview
+
 
 class UserFeedback(BaseModel):
     """Represents user feedback on the taxonomy.

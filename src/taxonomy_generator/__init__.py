@@ -9,7 +9,8 @@ Use ``strings_to_docs()`` to convert raw strings, or pass dicts/Doc objects dire
 
 from taxonomy_generator.graph import graph
 from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.settings import Settings, init_settings
+from taxonomy_generator.settings import Settings
+from taxonomy_generator.configuration import init_settings
 from taxonomy_generator.state import State, InputState, OutputState, Doc, UserFeedback
 from taxonomy_generator.utils import strings_to_docs, docs_from_dicts
 

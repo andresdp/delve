@@ -51,8 +51,9 @@ This project is a production-oriented implementation of the approach described i
 |---|---|---|
 | **Orchestration** | LangGraph (`StateGraph`) | Directed graph execution with conditional routing |
 | **LLM Framework** | LangChain | Model invocation, prompt templates, structured outputs |
-| **Primary LLM** | OpenAI GPT-5.4 nano (default) | Main reasoning model (configurable via `LLM_MODEL` env var) |
-| **Fast LLM** | OpenAI GPT-5.4 nano (default) | Summarization and lightweight tasks (configurable via `LLM_FAST_MODEL` env var) |
+| **Configuration** | YAML (`config.yaml`) | Centralized settings with `Settings` dataclasses (see [SETTINGS.md](SETTINGS.md)) |
+| **Primary LLM** | OpenAI GPT-5.4 nano (default) | Main reasoning model (configurable via `config.yaml` or `LLM_MODEL` env var) |
+| **Fast LLM** | OpenAI GPT-5.4 nano (default) | Summarization and lightweight tasks (configurable via `config.yaml` or `LLM_FAST_MODEL` env var) |
 | **Data Source** | Direct corpus input | Document ingestion via `.txt` or `.json` corpus files |
 | **Output Schema** | Pydantic models | Structured LLM outputs via `with_structured_output()` |
 | **Prompts** | Local (`prompts.py`) | All prompt templates defined inline — no external prompt hub |
@@ -332,7 +333,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Generate the initial label taxonomy from the first minibatch |
 | **Input** | `state.documents` (via first minibatch), `state.user_feedback` |
 | **Output** | `clusters` (initial taxonomy), `status` |
-| **Model** | Uses `configuration.fast_llm` |
+| **Model** | Uses `configuration.model` (main reasoning) |
 
 **Behavior:**
 1. Formats the first minibatch's documents as JSON summaries.
@@ -354,7 +355,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Refine the taxonomy by exposing it to the next minibatch |
 | **Input** | `state.documents`, `state.clusters`, `state.minibatches` |
 | **Output** | Updated `clusters`, `status` |
-| **Model** | Uses `configuration.fast_llm` |
+| **Model** | Uses `configuration.model` (main reasoning) |
 
 **Behavior:**
 1. Determines which minibatch to use: `which_mb = len(state.clusters) % len(state.minibatches)`.
@@ -379,10 +380,10 @@ class LabelOutput(BaseModel):
 | **Purpose** | Perform a final review and consolidation of the taxonomy |
 | **Input** | `state.documents`, `state.clusters` |
 | **Output** | Final `clusters`, `status` |
-| **Model** | Uses `configuration.fast_llm` |
+| **Model** | Uses `configuration.model` (main reasoning) |
 
 **Behavior:**
-1. Takes a random sample of `configuration.batch_size` documents.
+1. Takes a random sample of `configuration.review_sample_size` documents (defaults to `batch_size`).
 2. Sends the current taxonomy and sample to the LLM for review (as JSON).
 3. The LLM may merge, split, rename, or refine categories.
 4. Returns the final taxonomy version as a `TaxonomyOutput` Pydantic object.
@@ -472,22 +473,51 @@ Given `sample_size=500` documents and `batch_size=200`:
 
 ### Configuration Parameters
 
-**File:** `configuration.py`
+Settings are managed through a layered system: **YAML config file** → **environment variables** → **CLI flags**. See [SETTINGS.md](SETTINGS.md) for the complete reference.
 
-All parameters are configurable via the LangGraph `RunnableConfig` mechanism.
+**Files:** `config.yaml`, `settings.py`, `configuration.py`
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `model` | `str` | `"openai/gpt-5.4-nano"` (via `LLM_MODEL` env var) | Primary LLM for main reasoning tasks |
-| `fast_llm` | `str` | `"openai/gpt-5.4-nano"` (via `LLM_FAST_MODEL` env var) | Lighter LLM for summarization and classification |
-| `max_runs` | `int` | `500` | Maximum number of documents to process |
-| `sample_size` | `int` | `50` | Number of documents to sample for processing |
-| `batch_size` | `int` | `200` | Size of minibatches for taxonomy iteration |
-| `suggestion_length` | `int` | `30` | Max words for taxonomy suggestions |
-| `cluster_name_length` | `int` | `10` | Max words for cluster names |
-| `cluster_description_length` | `int` | `30` | Max words for cluster descriptions |
-| `explanation_length` | `int` | `20` | Max words for explanations |
-| `max_num_clusters` | `int` | `25` | Maximum number of taxonomy categories |
+**Resolution order** (highest priority wins):
+1. CLI flags (`--model`, `--fast-model`)
+2. Environment variables (`LLM_MODEL`, `LLM_FAST_MODEL`)
+3. YAML config file (`config.yaml`)
+4. Built-in code defaults (`Settings` dataclass)
+
+#### Models
+
+| Parameter | Type | Default | YAML Key | Description |
+|---|---|---|---|---|
+| `model` | `str` | `openai/gpt-5.4-nano` | `models.model` | Primary LLM for taxonomy generation, update, and review |
+| `fast_llm` | `str` | `openai/gpt-5.4-nano` | `models.fast_llm` | Lighter LLM for summarization and labeling |
+
+#### Pipeline
+
+| Parameter | Type | Default | YAML Key | Description |
+|---|---|---|---|---|
+| `max_runs` | `int` | `0` (no limit) | `pipeline.max_runs` | Maximum documents to process |
+| `sample_size` | `int` | `0` (use all) | `pipeline.sample_size` | Documents to randomly sample |
+| `batch_size` | `int` | `200` | `pipeline.batch_size` | Minibatch size for taxonomy iteration |
+| `random_seed` | `int` | `42` | `pipeline.random_seed` | Random seed for reproducibility |
+
+#### Taxonomy
+
+| Parameter | Type | Default | YAML Key | Description |
+|---|---|---|---|---|
+| `use_case` | `str` | User intent classification | `taxonomy.use_case` | Use case description for LLM |
+| `max_num_clusters` | `int` | `25` | `taxonomy.max_num_clusters` | Maximum taxonomy categories |
+| `cluster_name_length` | `int` | `10` | `taxonomy.cluster_name_length` | Max words for cluster names |
+| `cluster_description_length` | `int` | `30` | `taxonomy.cluster_description_length` | Max words for cluster descriptions |
+| `suggestion_length` | `int` | `30` | `taxonomy.suggestion_length` | Max words for taxonomy suggestions |
+| `explanation_length` | `int` | `20` | `taxonomy.explanation_length` | Max words for explanations |
+| `review_sample_size` | `int` | `null` (uses `batch_size`) | `taxonomy.review_sample_size` | Documents sampled for review |
+
+#### Summarization & Labeling
+
+| Parameter | Type | Default | YAML Key | Description |
+|---|---|---|---|---|
+| `summary_length` | `int` | `20` | `summarization.summary_length` | Max words for document summaries |
+| `summary_explanation_length` | `int` | `30` | `summarization.summary_explanation_length` | Max words for summary explanations |
+| `fallback_category` | `str` | `"Other"` | `labeling.fallback_category` | Category when no taxonomy match |
 
 ### Prompt Templates
 
@@ -673,6 +703,7 @@ messages = result['messages']        # Formatted results
 delve/
 ├── pyproject.toml                          # Package configuration
 ├── langgraph.json                          # LangGraph deployment config
+├── config.yaml                             # YAML configuration file
 ├── main.py                                 # CLI entry point (argparse-based)
 ├── .env.example                            # Environment variable template
 ├── examples/                               # Example corpus files
@@ -680,6 +711,7 @@ delve/
 │   └── product_reviews.json                #   JSON corpus (array of objects)
 ├── README.md                               # Project overview and usage
 ├── DESIGN.md                               # This document
+├── SETTINGS.md                             # Complete settings reference
 ├── Makefile                                # Build automation
 ├── LICENSE                                 # MIT License
 ├── images/
@@ -690,7 +722,8 @@ delve/
 └── src/
     └── taxonomy_generator/
         ├── __init__.py                     # Package initialization
-        ├── configuration.py                # Configuration dataclass
+        ├── configuration.py                # LangGraph Configuration dataclass
+        ├── settings.py                     # YAML settings loader & dataclasses
         ├── graph.py                        # LangGraph StateGraph definition
         ├── schemas.py                      # Pydantic output schemas
         ├── prompts.py                      # Inline prompt templates

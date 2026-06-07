@@ -14,22 +14,31 @@ from taxonomy_generator.prompts import LABELER_PROMPT
 logger = logging.getLogger(__name__)
 
 
+def _get_field(doc, field: str, default=""):
+    """Safely get a field from a Doc object or dict."""
+    if isinstance(doc, dict):
+        return doc.get(field, default)
+    return getattr(doc, field, default)
+
+
 def _format_results(docs: List[Doc]) -> str:
     """Format labeled documents in a readable way.
     
     Args:
-        docs: List of labeled documents
+        docs: List of labeled documents (Doc objects or dicts)
         
     Returns:
         str: Formatted string showing document previews and their labels
     """
     result = "Document Classification Results:\n\n"
     for doc in docs:
-        preview = doc.content[:400].replace('\n', ' ').strip()
-        if len(doc.content) > 200:
+        content = _get_field(doc, "content", "")
+        category = _get_field(doc, "category", "N/A")
+        preview = content[:400].replace('\n', ' ').strip()
+        if len(content) > 200:
             preview += "..."
             
-        result += f"🔖 Category: {doc.category}\n"
+        result += f"🔖 Category: {category}\n"
         result += f"📄 Document: {preview}\n"
         result += "─" * 80 + "\n\n"
     
