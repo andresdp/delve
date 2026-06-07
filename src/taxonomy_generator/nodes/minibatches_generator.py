@@ -1,11 +1,14 @@
 """Node for generating minibatches from documents."""
 
+import logging
 import random
 from typing import List, Dict
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.state import State
 from taxonomy_generator.configuration import Configuration
+
+logger = logging.getLogger(__name__)
 
 
 def _create_batches(indices: List[int], batch_size: int) -> List[List[int]]:
@@ -48,13 +51,19 @@ async def generate_minibatches(state: State, config: RunnableConfig) -> dict:
         dict: Updated state fields with minibatches
     """
     configuration = Configuration.from_runnable_config(config)
+    logger.info("Generating minibatches from %d documents (batch_size: %d)", len(state.documents), configuration.batch_size)
     
+    # Set random seed if configured for reproducibility
+    if configuration.random_seed is not None:
+        random.seed(configuration.random_seed)
+
     # Create and shuffle document indices
     indices = list(range(len(state.documents)))
     random.shuffle(indices)
 
     # Generate batches
     batches = _create_batches(indices, configuration.batch_size)
+    logger.info("Created %d minibatches from %d documents", len(batches), len(state.documents))
 
     return {
         "minibatches": batches,

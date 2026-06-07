@@ -36,10 +36,12 @@ class UserFeedback(BaseModel):
 
 @dataclass
 class InputState:
-    """Defines the input state for the agent, representing initial configuration parameters."""
-    project_name: str = ""
-    org_id: str = ""  # LangSmith API Key
-    days: int = 3  # Number of days to look back for runs
+    """Defines the input state for the agent, representing initial configuration parameters.
+    
+    Pass a list of documents (as Doc objects or dicts with 'id' and 'content' keys)
+    via the `documents` field. Use ``strings_to_docs()`` to convert raw strings.
+    """
+    documents: List[Doc] = field(default_factory=list)
 
 
 @dataclass

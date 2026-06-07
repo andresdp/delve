@@ -17,7 +17,7 @@ from taxonomy_generator.nodes.summary_generator import generate_summaries
 from taxonomy_generator.nodes.doc_labeler import label_documents
 
 
-builder = StateGraph(State, input=InputState, output=OutputState, config_schema=Configuration)
+builder = StateGraph(State, input_schema=InputState, output_schema=OutputState, context_schema=Configuration)
 
 # Add nodes
 builder.add_node("get_runs", retrieve_runs)
