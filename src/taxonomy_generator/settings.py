@@ -69,6 +69,7 @@ class TaxonomySettings:
 class SummarizationSettings:
     """Document summarization parameters."""
 
+    skip: bool = False
     summary_length: int = 20
     explanation_length: int = 30
 
@@ -136,6 +137,7 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
 
 def _build_summarization(raw: dict) -> SummarizationSettings:
     return SummarizationSettings(
+        skip=raw.get("skip", SummarizationSettings.skip),
         summary_length=raw.get("summary_length", SummarizationSettings.summary_length),
         explanation_length=raw.get("explanation_length", SummarizationSettings.explanation_length),
     )

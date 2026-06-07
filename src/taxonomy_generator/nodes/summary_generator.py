@@ -73,6 +73,7 @@ async def generate_summaries(
     # Initialize the model and prompt
     model = load_chat_model(configuration.fast_llm)
     summary_prompt = SUMMARY_GENERATION_PROMPT.partial(
+        use_case=configuration.use_case,
         summary_length=configuration.summary_length,
         explanation_length=configuration.summary_explanation_length,
     )

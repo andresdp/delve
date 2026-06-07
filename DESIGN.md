@@ -163,7 +163,7 @@ START
 | Phase | Nodes | Description |
 |---|---|---|
 | **Data Ingestion** | `get_runs` | Accepts direct corpus input via `--corpus` flag |
-| **Preprocessing** | `summarize`, `get_minibatches` | Creates document summaries and partitions data into batches |
+| **Preprocessing** | `summarize` (optional), `get_minibatches` | Creates use-case-aware document summaries (can be skipped) and partitions data into batches |
 | **Taxonomy Generation** | `generate_taxonomy` | Produces the initial taxonomy from the first minibatch |
 | **Iterative Refinement** | `update_taxonomy` (loop) | Refines taxonomy by exposing it to each subsequent minibatch |
 | **Quality Review** | `review_taxonomy` | Final review pass on a random document sample |
@@ -294,6 +294,7 @@ class LabelOutput(BaseModel):
 | **Input** | `state.documents` |
 | **Output** | Updated `documents` with `summary` and `explanation` fields populated |
 | **Model** | Uses `configuration.fast_llm` (default: OpenAI GPT-5.4 nano) |
+| **Can be skipped** | Yes — set `summarization.skip: true` in `config.yaml` |
 
 **Behavior:**
 1. Uses a **map-reduce** pattern over documents:
@@ -301,8 +302,11 @@ class LabelOutput(BaseModel):
    - **Reduce**: Summaries are merged back into the document objects.
 2. The LLM outputs a structured `SummaryOutput` Pydantic object via `with_structured_output()`.
 3. Documents are enriched with `id`, `content`, `summary`, and `explanation`.
+4. Summaries are **use-case-aware** — the prompt includes `{use_case}` to produce contextual compression rather than generic summarization.
 
 **Prompt:** `SUMMARY_GENERATION_PROMPT` (from `prompts/` package)
+
+**Skipping:** When `skip_summarization` is `true`, the `get_runs` node routes directly to `get_minibatches` via the `should_summarize` conditional edge. Raw document content is used instead of summaries (with a warning logged). The `format_docs()` utility falls back to `doc.content` when `doc.summary` is `None`.
 
 ---
 
@@ -445,7 +449,8 @@ def should_review(state: State) -> Literal["update_taxonomy", "review_taxonomy"]
 | From | To | Type | Condition |
 |---|---|---|---|
 | `START` | `get_runs` | Fixed | — |
-| `get_runs` | `summarize` | Fixed | — |
+| `get_runs` | `summarize` | Conditional | `skip_summarization=false` (default) |
+| `get_runs` | `get_minibatches` | Conditional | `skip_summarization=true` |
 | `summarize` | `get_minibatches` | Fixed | — |
 | `get_minibatches` | `generate_taxonomy` | Fixed | — |
 | `generate_taxonomy` | `update_taxonomy` | Fixed | — |
@@ -746,4 +751,5 @@ delve/
         │   └── doc_labeler.py             # Document classification
         └── routing/
             ├── __init__.py
-            └── should_review.py            # Conditional routing logic
+            ├── should_review.py            # Taxonomy update loop routing
+            └── should_summarize.py         # Summarization skip routing

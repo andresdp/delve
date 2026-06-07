@@ -86,6 +86,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
+| `summarization.skip` | `bool` | `false` | Skip the summarization step entirely. When `true`, raw document content is used for taxonomy generation instead of LLM-generated summaries. A warning is logged when enabled. |
 | `summarization.summary_length` | `int` | `20` | Max words for document summaries. |
 | `summarization.summary_explanation_length` | `int` | `30` | Max words for document summary explanations. |
 
@@ -127,6 +128,7 @@ taxonomy:
   review_sample_size: null
 
 summarization:
+  skip: false
   summary_length: 20
   summary_explanation_length: 30
 
@@ -303,6 +305,7 @@ For all other settings:
 | **Taxonomy** | Max suggestion length (words) | `taxonomy.suggestion_length` | `30` |
 | **Taxonomy** | Max explanation length (words) | `taxonomy.explanation_length` | `20` |
 | **Taxonomy** | Review sample size | `taxonomy.review_sample_size` | `null` (uses `batch_size`) |
+| **Summarization** | Skip summarization | `summarization.skip` | `false` |
 | **Summarization** | Summary length (words) | `summarization.summary_length` | `20` |
 | **Summarization** | Summary explanation length (words) | `summarization.summary_explanation_length` | `30` |
 | **Labeling** | Fallback category | `labeling.fallback_category` | `"Other"` |
@@ -326,8 +329,8 @@ For all other settings:
 
 | Aspect | Value | File |
 |---|---|---|
-| Output language | English | `prompts.py` |
-| Cluster ID format | Numeric, starting from 1 | `prompts.py` |
+| Output language | English | `prompts/` package |
+| Cluster ID format | Numeric, starting from 1 | `prompts/` package |
 | JSON indent for LLM | 2 spaces | `utils.py` |
 | Output filename pattern | `{type}_{YYYYMMDD_HHMMSS}.json` | `main.py` |
 | Log format | Standard with timestamps | `main.py` |

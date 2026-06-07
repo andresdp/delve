@@ -118,6 +118,11 @@ class Configuration:
     )
 
     # ── Summarization ──────────────────────────────────────────────────
+    skip_summarization: bool = field(
+        default=None,
+        metadata={"description": "Skip the summarization step entirely."},
+    )
+
     summary_length: int = field(
         default=None,
         metadata={"description": "Max words for document summaries."},
@@ -206,6 +211,7 @@ class Configuration:
             "explanation_length": s.taxonomy.explanation_length,
             "use_case": s.taxonomy.use_case,
             # Summarization
+            "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,
             "summary_explanation_length": s.summarization.explanation_length,
             # Labeling

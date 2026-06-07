@@ -7,6 +7,7 @@ from langgraph.graph import StateGraph, START, END
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.routing.should_review import should_review
+from taxonomy_generator.routing.should_summarize import should_summarize
 from taxonomy_generator.state import InputState, OutputState, State
 from taxonomy_generator.nodes.runs_retriever import retrieve_runs
 from taxonomy_generator.nodes.taxonomy_generator import generate_taxonomy
@@ -31,7 +32,14 @@ builder.add_node("label_documents", label_documents)
 
 # Add edges
 builder.add_edge(START, "get_runs")
-builder.add_edge("get_runs", "summarize")
+builder.add_conditional_edges(
+    "get_runs",
+    should_summarize,
+    {
+        "summarize": "summarize",
+        "get_minibatches": "get_minibatches",
+    }
+)
 builder.add_edge("summarize", "get_minibatches")
 builder.add_edge("get_minibatches", "generate_taxonomy")
 builder.add_edge("generate_taxonomy", "update_taxonomy")

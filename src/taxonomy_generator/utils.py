@@ -82,7 +82,10 @@ def format_docs(docs: List[Doc]) -> str:
     items = []
     for doc in docs:
         doc_id = doc["id"] if isinstance(doc, dict) else doc.id
-        doc_summary = doc.get("summary", "") if isinstance(doc, dict) else (doc.summary or "")
+        if isinstance(doc, dict):
+            doc_summary = doc.get("summary") or doc.get("content", "")
+        else:
+            doc_summary = doc.summary or doc.content or ""
         items.append({"id": doc_id, "summary": doc_summary})
     return json.dumps(items, indent=2)
 

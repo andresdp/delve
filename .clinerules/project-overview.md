@@ -5,7 +5,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - **Entry point**: `main.py` — argparse CLI with async execution, rich-formatted output, and logging
 - **Pipeline graph**: `src/taxonomy_generator/graph.py` — LangGraph `StateGraph` defining the taxonomy generation workflow
 - **Nodes**: `src/taxonomy_generator/nodes/` — each pipeline step is a separate module (e.g., `runs_retriever.py`, `summary_generator.py`, `taxonomy_generator.py`, `taxonomy_updater.py`, `taxonomy_reviewer.py`, `doc_labeler.py`, `minibatches_generator.py`)
-- **Routing**: `src/taxonomy_generator/routing/` — conditional edge logic (e.g., `should_review.py`)
+- **Routing**: `src/taxonomy_generator/routing/` — conditional edge logic (e.g., `should_review.py`, `should_summarize.py`)
 - **State**: `src/taxonomy_generator/state.py` — dataclass-based state definitions (`State`, `InputState`, `OutputState`, `Doc`)
 - **Configuration**: `src/taxonomy_generator/configuration.py` — LangGraph `Configuration` class reading from `Settings`
 - **Settings**: `src/taxonomy_generator/settings.py` — YAML settings loader with frozen dataclasses
@@ -16,7 +16,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 
 ## Pipeline phases
 - **Data Ingestion** (`get_runs`) — accepts direct corpus input via `--corpus` flag
-- **Preprocessing** (`summarize`, `get_minibatches`) — creates document summaries and partitions into batches
+- **Preprocessing** (`summarize` (optional), `get_minibatches`) — creates use-case-aware document summaries (can be skipped via `summarization.skip`) and partitions into batches
 - **Taxonomy Generation** (`generate_taxonomy`) — produces initial taxonomy from first minibatch
 - **Iterative Refinement** (`update_taxonomy` loop) — refines taxonomy per minibatch via conditional edge
 - **Quality Review** (`review_taxonomy`) — final review pass on random document sample
@@ -51,7 +51,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - Use `Configuration.from_runnable_config(config)` to access settings inside nodes
 - **Model assignment**: `model` (main reasoning) is used for taxonomy generation/update/review; `fast_llm` is used for summarization and labeling
 - Key defaults: `batch_size=200`, `max_num_clusters=25`, `sample_size=0` (use all), `max_runs=0` (no limit)
-- New settings: `random_seed=42`, `use_case`, `summary_length=20`, `fallback_category="Other"`, `review_sample_size`
+- New settings: `random_seed=42`, `use_case`, `summary_length=20`, `fallback_category="Other"`, `review_sample_size`, `skip_summarization=false`
 - See `SETTINGS.md` for the complete settings reference
 
 ## CLI conventions
@@ -88,6 +88,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - All LLM outputs use structured outputs via `with_structured_output()` with Pydantic schemas from `schemas.py`
 - No XML or regex parsing — Pydantic models handle output validation
 - When adding new settings, add them to: `config.yaml`, `settings.py` dataclass, `configuration.py`, and `SETTINGS.md`
+- When adding new conditional edges, add a routing module in `routing/` and register it in `graph.py`
 
 ## Dependencies
 - Add new dependencies to both `pyproject.toml` and `requirements.txt`
