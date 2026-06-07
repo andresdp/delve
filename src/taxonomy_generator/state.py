@@ -66,7 +66,6 @@ class State(InputState, OutputState):
     This class extends InputState and OutputState with additional attributes needed 
     throughout the taxonomy generation process.
     """
-    all_documents: List[Doc] = field(default_factory=list)
     documents: List[Doc] = field(default_factory=list)
     minibatches: List[List[int]] = field(default_factory=list)
     clusters: Annotated[List[List[Dict]], operator.add] = field(default_factory=list)

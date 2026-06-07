@@ -4,7 +4,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 ## Project architecture
 - **Entry point**: `main.py` — argparse CLI with async execution, rich-formatted output, and logging
 - **Pipeline graph**: `src/taxonomy_generator/graph.py` — LangGraph `StateGraph` defining the taxonomy generation workflow
-- **Nodes**: `src/taxonomy_generator/nodes/` — each pipeline step is a separate module (e.g., `runs_retriever.py`, `summary_generator.py`, `taxonomy_generator.py`, `taxonomy_updater.py`, `taxonomy_reviewer.py`, `doc_labeler.py`, `minibatches_generator.py`)
+- **Nodes**: `src/taxonomy_generator/nodes/` — each pipeline step is a separate module (e.g., `corpus_loader.py`, `summary_generator.py`, `taxonomy_generator.py`, `taxonomy_updater.py`, `taxonomy_reviewer.py`, `doc_labeler.py`, `minibatches_generator.py`)
 - **Routing**: `src/taxonomy_generator/routing/` — conditional edge logic (e.g., `should_review.py`, `should_summarize.py`)
 - **State**: `src/taxonomy_generator/state.py` — dataclass-based state definitions (`State`, `InputState`, `OutputState`, `Doc`)
 - **Configuration**: `src/taxonomy_generator/configuration.py` — LangGraph `Configuration` class reading from `Settings`
@@ -15,7 +15,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - **Utilities**: `src/taxonomy_generator/utils.py` — shared helpers (model loading, JSON formatting, chain invocation)
 
 ## Pipeline phases
-- **Data Ingestion** (`get_runs`) — accepts direct corpus input via `--corpus` flag
+- **Data Ingestion** (load_corpus) — accepts direct corpus input via `--corpus` flag
 - **Preprocessing** (`summarize` (optional), `get_minibatches`) — creates use-case-aware document summaries (can be skipped via `summarization.skip`) and partitions into batches
 - **Taxonomy Generation** (`generate_taxonomy`) — produces initial taxonomy from first minibatch
 - **Iterative Refinement** (`update_taxonomy` loop) — refines taxonomy per minibatch via conditional edge

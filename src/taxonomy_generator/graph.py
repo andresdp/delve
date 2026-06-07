@@ -9,7 +9,7 @@ from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.routing.should_review import should_review
 from taxonomy_generator.routing.should_summarize import should_summarize
 from taxonomy_generator.state import InputState, OutputState, State
-from taxonomy_generator.nodes.runs_retriever import retrieve_runs
+from taxonomy_generator.nodes.corpus_loader import load_corpus
 from taxonomy_generator.nodes.taxonomy_generator import generate_taxonomy
 from taxonomy_generator.nodes.minibatches_generator import generate_minibatches
 from taxonomy_generator.nodes.taxonomy_updater import update_taxonomy
@@ -21,7 +21,7 @@ from taxonomy_generator.nodes.doc_labeler import label_documents
 builder = StateGraph(State, input_schema=InputState, output_schema=OutputState, context_schema=Configuration)
 
 # Add nodes
-builder.add_node("get_runs", retrieve_runs)
+builder.add_node("load_corpus", load_corpus)
 builder.add_node("summarize", generate_summaries)
 builder.add_node("get_minibatches", generate_minibatches)
 builder.add_node("generate_taxonomy", generate_taxonomy)
@@ -31,9 +31,9 @@ builder.add_node("review_taxonomy", review_taxonomy)
 builder.add_node("label_documents", label_documents)
 
 # Add edges
-builder.add_edge(START, "get_runs")
+builder.add_edge(START, "load_corpus")
 builder.add_conditional_edges(
-    "get_runs",
+    "load_corpus",
     should_summarize,
     {
         "summarize": "summarize",
