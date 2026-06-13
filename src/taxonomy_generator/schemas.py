@@ -16,7 +16,7 @@ class Cluster(BaseModel):
     """A single taxonomy category."""
 
     id: str = Field(description="Category number, starting from 1, incremented.")
-    name: str = Field(description="Concise category name (verb or noun phrase).")
+    name: str = Field(description="Concise category name as a noun-driven phrase (e.g., 'Request Routing Strategy', not 'Route Requests').")
     description: str = Field(
         description="Category description that differentiates it from others."
     )

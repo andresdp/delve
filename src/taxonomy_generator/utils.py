@@ -152,6 +152,13 @@ async def invoke_taxonomy_chain(
         taxonomy_json = format_taxonomy(previous_taxonomy)
 
         logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(minibatch))
+        # When max_num_clusters is None, let the LLM determine the count from data
+        max_clusters_value = configuration.max_num_clusters
+        max_clusters_str = (
+            str(max_clusters_value) if max_clusters_value is not None
+            else "unlimited — determine the number of dimensions based on what the data naturally supports. Prefer fewer, high-quality dimensions (typically 3–8) over many narrow ones. Only add a dimension when it captures a genuinely orthogonal axis of variation that cannot be merged into an existing one."
+        )
+
         result: TaxonomyOutput = await chain.ainvoke(
             {
                 "data_json": data_json,
@@ -161,7 +168,7 @@ async def invoke_taxonomy_chain(
                 "cluster_name_length": configuration.cluster_name_length,
                 "cluster_description_length": configuration.cluster_description_length,
                 "explanation_length": configuration.explanation_length,
-                "max_num_clusters": configuration.max_num_clusters,
+                "max_num_clusters": max_clusters_str,
             }
         )
 

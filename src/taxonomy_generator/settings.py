@@ -55,7 +55,7 @@ class TaxonomySettings:
     """Taxonomy generation constraints."""
 
     name: str = "taxonomy"
-    max_num_clusters: int = 25
+    max_num_clusters: Optional[int] = None
     cluster_name_length: int = 10
     cluster_description_length: int = 30
     suggestion_length: int = 30

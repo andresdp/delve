@@ -202,6 +202,133 @@ Four timestamped JSON files are saved to the output folder:
 
 ---
 
+## Example: Software Architecture Decisions
+
+This example uses a corpus of 26 software architecture design decisions from a delivery management system (`examples/decisions_results.json`).
+
+### 1. Prepare the Corpus
+
+The source JSON has structured decision objects. First, flatten them into a corpus file:
+
+```bash
+python examples/prepare_decisions_corpus.py
+```
+
+This generates `examples/architecture_decisions.json` — a flat JSON array where each entry combines the decision's description, pattern name (in parentheses), and rationale into a single string.
+
+### 2. Configure the Use Case
+
+A domain-specific config file (`examples/config_decisions.yaml`) sets the `use_case` to guide taxonomy generation toward architecture patterns:
+
+```yaml
+taxonomy:
+  name: "architecture-decisions"
+  max_num_clusters: 6
+  use_case: >-
+    Classify software architecture design decisions for a food delivery
+    company migrating from a monolithic system to microservices. The
+    system serves PC and mobile clients accessing customer and order data
+    via SQL databases, with business modules for Customers (critical),
+    Orders (non-critical, with retry limits), Delivery & Routing
+    (critical, with optimization algorithms based on truck delay),
+    Statistics (non-critical, order/truck status), Incidents
+    (semi-critical, route manager alerts), and external Payments
+    (critical, third-party gateway). An OrderManager mediates between
+    customers, orders, delivery, and incidents. Group decisions by their
+    architectural pattern (e.g., API Gateway, Microservices, Adapter,
+    Strategy, Repository), the functional module they address, and their
+    integration or resilience strategy.
+```
+
+### 3. Run the Pipeline
+
+```bash
+python main.py --corpus examples/architecture_decisions.json --config examples/config_decisions.yaml --quiet --output output/
+```
+
+### Console Output
+
+#### Step-by-Step Progress
+
+```
+  📂 Loading corpus  ✓
+  📝 Generating summaries  ✓
+  📦 Creating minibatches  ✓
+  🧠 Generating initial taxonomy (minibatch 1/3)  ✓
+  🔄 Updating taxonomy (minibatch 2/3)  ✓
+  🔄 Updating taxonomy (minibatch 3/3)  ✓
+  🔍 Reviewing taxonomy  ✓
+  🏷️ Labeling documents  ✓
+
+  ⏱️  Pipeline completed in 38.9s  ·  🪙 47,276 tokens (41,849 prompt + 5,427 completion)
+```
+
+#### Generated Taxonomy
+
+```
+                        📊 Generated Taxonomy: architecture-decisions
+┏━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃    # ┃ Name                                     ┃ Description                             ┃
+┡━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│    1 │ API gateway routing for client and       │ Centralizes entry/routing for HTTP/REST │
+│      │ services                                 │ client requests to backend              │
+│      │                                          │ microservices and client/mobile access. │
+│    2 │ Runtime selection of optimization        │ Delivery selects among multiple         │
+│      │ strategy classes                         │ optimization algorithms at runtime.     │
+│    3 │ Microkernel plugin loading for           │ Optimization algorithms are plugins     │
+│      │ optimization algorithms                  │ loaded into a microkernel core.         │
+│    4 │ Circuit breaker for failure-cascade      │ Prevents cascading failures by blocking │
+│      │ resilience                               │ dependent-call cascades.                │
+│    5 │ Bulkhead isolation without limiting      │ Isolates components; explicitly avoids  │
+│      │ client retries                           │ throttling for client order retries.    │
+│    6 │ Microservices CRUD for customers and     │ Customer and order service boundaries   │
+│      │ orders                                   │ and REST CRUD APIs.                     │
+│    7 │ Service decomposition for statistics,    │ Splits statistics, incident handling,   │
+│      │ incidents, routing                       │ and routing into distinct microservices.│
+│    8 │ Facade and adapter for payments client   │ Simplified internal interface for       │
+│      │ interface                                │ payments, unifying external access.     │
+│    9 │ Repository-per-service SQL persistence   │ Each microservice owns its SQL          │
+│      │ ownership                                │ persistence via dedicated repositories. │
+│   10 │ Observer events and incident event       │ Observer-based state-change events and  │
+│      │ sourcing                                 │ event sourcing for incident histories.  │
+└──────┴──────────────────────────────────────────┴─────────────────────────────────────────┘
+  Total categories: 10  ·  Iterations: 4
+```
+
+#### Taxonomy Tree (excerpt)
+
+```
+📂 architecture-decisions  (10 categories, 26 documents)
+├── API gateway routing for client and services (9 docs)
+│   ├── 📄 Use the Gateway to route requests to the appropriate services... (0.95)
+│   ├── 📄 Deploy an API Gateway to expose and manage APIs for accessing... (0.95)
+│   └── ... and 7 more
+├── Runtime selection of optimization strategy classes (1 docs)
+│   └── 📄 Implement two optimization algorithms as separate strategy classes... (0.95)
+├── Facade and adapter for payments client interface (3 docs)
+│   ├── 📄 Implement an Adapter module that wraps the external Payments... (0.95)
+│   └── ... and 2 more
+├── Observer events and incident event sourcing (2 docs)
+│   ├── 📄 Use observer pattern internally within microservices... (0.90)
+│   └── 📄 Adopt event sourcing for critical modules like incidents... (0.95)
+└── ...
+```
+
+#### Output Files
+
+The taxonomy name (`architecture-decisions`) is used as a prefix in all output filenames:
+
+```
+╭──────────────────── 💾 Results Saved ─────────────────────╮
+│ Documents:      output/architecture-decisions_documents_20260608_230906.json
+│ Taxonomy:       output/architecture-decisions_taxonomy_20260608_230906.json
+│ Messages:        output/architecture-decisions_messages_20260608_230906.json
+│ Clusters:       output/architecture-decisions_clusters_20260608_230906.json
+╰───────────────────────────────────────────────────────────╯
+```
+
+---
+
 ## More Examples
 
 ### Custom Taxonomy Name
@@ -214,12 +341,6 @@ python main.py --corpus examples/product_reviews.json --name "Laptop Reviews" --
 
 ```bash
 python main.py --corpus examples/customer_support.txt --model groq/llama-3.3-70b-versatile --quiet
-```
-
-### Custom Configuration
-
-```bash
-python main.py --corpus examples/customer_support.txt --config my_config.yaml --output output/
 ```
 
 ### Verbose Mode (with Logging)

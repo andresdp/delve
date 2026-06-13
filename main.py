@@ -165,6 +165,14 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Name for this taxonomy (shown in output and JSON files). Defaults to 'taxonomy'.",
     )
+    taxonomy_group.add_argument(
+        "-k",
+        "--max-clusters",
+        type=int,
+        default=None,
+        help="Override the maximum number of dimensions/categories from the config. "
+        "Pass 0 for unlimited (LLM decides).",
+    )
 
     # Output
     output_group = parser.add_argument_group("Output")
@@ -214,7 +222,7 @@ def _display_taxonomy(clusters: list, explanations: list, configuration: Configu
 
     # Summary footer
     summary = Text()
-    summary.append("  Total categories: ", style="bold")
+    summary.append("  Total dimensions: ", style="bold")
     summary.append(str(len(final_taxonomy)), style="cyan bold")
     summary.append("  ·  Iterations: ", style="bold")
     summary.append(str(len(clusters)), style="cyan bold")
@@ -264,7 +272,7 @@ def _display_taxonomy_tree(clusters: list, documents: list, configuration: Confi
     # Build tree
     tree = Tree(
         f"📂 [bold bright_blue]{configuration.name}[/bold bright_blue]  "
-        f"[dim]({len(final_taxonomy)} categories, {len(documents)} documents)[/dim]",
+        f"[dim]({len(final_taxonomy)} dimensions, {len(documents)} documents)[/dim]",
         guide_style="dim",
     )
 
@@ -420,6 +428,10 @@ async def run(args: argparse.Namespace) -> None:
     if args.name:
         configurable["name"] = args.name
         logger.info("Overriding taxonomy name: %s", args.name)
+    if args.max_clusters is not None:
+        # 0 means unlimited (None internally); any positive int caps the count
+        configurable["max_num_clusters"] = args.max_clusters if args.max_clusters > 0 else None
+        logger.info("Overriding max dimensions: %s", configurable["max_num_clusters"])
     config = {"configurable": configurable} if configurable else {}
 
     # Resolve effective configuration for display
@@ -427,9 +439,11 @@ async def run(args: argparse.Namespace) -> None:
 
     # Show model info (always visible, even in quiet mode)
     taxonomy_name = effective_config.name
+    max_dims_str = str(effective_config.max_num_clusters) if effective_config.max_num_clusters else "unlimited (LLM decides)"
     console.print(Panel(
         f"[bold]Starting taxonomy generation pipeline...[/bold]\n\n"
         f"[dim]Taxonomy:[/dim] [cyan]{taxonomy_name}[/cyan]\n"
+        f"[dim]Max dimensions:[/dim] [cyan]{max_dims_str}[/cyan]\n"
         f"[dim]Model:[/dim] [cyan]{effective_config.model}[/cyan]\n"
         f"[dim]Fast LLM:[/dim] [cyan]{effective_config.fast_llm}[/cyan]",
         title="[bold bright_blue]🚀 Delve[/bold bright_blue]",
@@ -548,6 +562,10 @@ async def run(args: argparse.Namespace) -> None:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        # Sanitize taxonomy name for use as filename prefix
+        name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in effective_config.name)
+        name_prefix = f"{name_prefix}_"
+
         # Serialize documents
         docs_data = []
         for doc in documents:
@@ -565,7 +583,7 @@ async def run(args: argparse.Namespace) -> None:
 
         # Save documents
         docs_output = {"taxonomy_name": effective_config.name, "documents": docs_data}
-        docs_path = output_dir / f"documents_{timestamp}.json"
+        docs_path = output_dir / f"{name_prefix}documents_{timestamp}.json"
         with open(docs_path, "w") as f:
             json.dump(docs_output, f, indent=2, ensure_ascii=False)
         logger.info("Documents saved to: %s", docs_path)
@@ -578,7 +596,7 @@ async def run(args: argparse.Namespace) -> None:
                 "clusters": iteration_clusters,
             }
             taxonomy_data["iterations"].append(entry)
-        taxonomy_path = output_dir / f"taxonomy_{timestamp}.json"
+        taxonomy_path = output_dir / f"{name_prefix}taxonomy_{timestamp}.json"
         with open(taxonomy_path, "w") as f:
             json.dump(taxonomy_data, f, indent=2, ensure_ascii=False)
         logger.info("Taxonomy saved to: %s", taxonomy_path)
@@ -590,7 +608,7 @@ async def run(args: argparse.Namespace) -> None:
                 "type": type(msg).__name__,
                 "content": msg.content if hasattr(msg, "content") else str(msg),
             })
-        msgs_path = output_dir / f"messages_{timestamp}.json"
+        msgs_path = output_dir / f"{name_prefix}messages_{timestamp}.json"
         with open(msgs_path, "w") as f:
             json.dump(msgs_data, f, indent=2, ensure_ascii=False)
         logger.info("Messages saved to: %s", msgs_path)
@@ -651,7 +669,7 @@ async def run(args: argparse.Namespace) -> None:
                     ],
                 })
 
-            tree_path = output_dir / f"clusters_{timestamp}.json"
+            tree_path = output_dir / f"{name_prefix}clusters_{timestamp}.json"
             with open(tree_path, "w") as f:
                 json.dump(tree_data, f, indent=2, ensure_ascii=False)
             logger.info("Taxonomy tree saved to: %s", tree_path)

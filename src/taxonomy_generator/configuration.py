@@ -92,9 +92,9 @@ class Configuration:
         metadata={"description": "Name identifying this taxonomy."},
     )
 
-    max_num_clusters: int = field(
+    max_num_clusters: Optional[int] = field(
         default=None,
-        metadata={"description": "Maximum number of taxonomy categories."},
+        metadata={"description": "Maximum number of taxonomy dimensions. None = LLM determines the count from the data."},
     )
 
     cluster_name_length: int = field(

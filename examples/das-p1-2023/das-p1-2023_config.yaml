@@ -1,0 +1,56 @@
+# Delve Configuration — DAS-P1-2023 Architecture Decisions
+# ──────────────────────────────────────────────
+# Use with: python main.py --corpus examples/das-p1-2023/das-p1-2023_architecture_decisions.json --config examples/das-p1-2023/das-p1-2023_config.yaml --output examples/das-p1-2023/
+
+models:
+  model: "openai/gpt-5.4-nano"
+  fast_llm: "openai/gpt-5.4-nano"
+
+pipeline:
+  max_runs: 0
+  sample_size: 0
+  batch_size: 8
+  random_seed: 42
+
+taxonomy:
+  name: "das-p1-2023"
+  max_num_clusters: null  # Let the LLM determine the number of dimensions from the data
+  cluster_name_length: 10
+  cluster_description_length: 30
+  suggestion_length: 30
+  explanation_length: 20
+  use_case: >-
+    Classify software architecture design decisions for a food delivery
+    company migrating from a monolithic system to microservices. The
+    system serves PC and mobile clients accessing customer and order data
+    via SQL databases, with business modules for Customers (critical),
+    Orders (non-critical, with retry limits), Delivery & Routing
+    (critical, with optimization algorithms based on truck delay),
+    Statistics (non-critical, order/truck status), Incidents
+    (semi-critical, route manager alerts), and external Payments
+    (critical, third-party gateway). An OrderManager mediates between
+    customers, orders, delivery, and incidents. Identify the orthogonal
+    dimensions of architectural variation along which these decisions
+    differ — each dimension should capture a fundamentally different type
+    of architectural concern (e.g., system decomposition approach, request
+    routing strategy, external integration method, data access pattern,
+    resilience mechanism, algorithm selection strategy). Each decision
+    belongs to the dimension whose axis of variation best describes its
+    fundamental architectural intent.
+
+summarization:
+  skip: false
+  summary_length: 20
+  explanation_length: 30
+  max_concurrency: 5
+
+labeling:
+  fallback_category: "Other"
+  review_sample_size: 15
+
+output:
+  max_displayed_documents: 26
+  max_docs_per_category_tree: 5
+  content_preview_length: 120
+  default_output_dir: "output"
+  graph_filename: "graph.png"
