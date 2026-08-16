@@ -38,6 +38,7 @@ class ModelSettings:
 
     model: str = "openai/gpt-5.4-nano"
     fast_llm: str = "openai/gpt-5.4-nano"
+    embedding: str = "openai/text-embedding-3-small"
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,14 @@ class TaxonomySettings:
         "Generate the taxonomy that can be used to label "
         "the user intent in the conversation."
     )
+    # Consecutive saturated minibatches required to stop the update loop early.
+    saturation_streak_threshold: int = 2
+    # Embedding-distance cutoff (Euclidean on L2-normalized vectors) below which
+    # two values within the same dimension are merged automatically.
+    value_merge_distance_threshold: float = 0.2
+    # Distance band above the threshold routed to LLM adjudication instead of
+    # auto-merge or auto-reject.
+    value_merge_borderline_band: float = 0.08
 
 
 @dataclass(frozen=True)
@@ -96,6 +105,23 @@ class OutputSettings:
 
 
 @dataclass(frozen=True)
+class VisualizationSettings:
+    """PCA taxonomy visualization parameters (erdogant/pca based charts).
+
+    All off by default so normal runs pay no extra cost/latency.
+    """
+
+    enabled: bool = False
+    # If False, only render the final (post-consolidate) chart; if True,
+    # render at every stage (generate/update/review/consolidate).
+    every_iteration: bool = False
+    # 2 or 3 dimensional projection.
+    dimensions: int = 2
+    # Where chart files are written (None = default_output_dir / --output).
+    output_dir: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level settings container."""
 
@@ -105,6 +131,7 @@ class Settings:
     summarization: SummarizationSettings = field(default_factory=SummarizationSettings)
     labeling: LabelingSettings = field(default_factory=LabelingSettings)
     output: OutputSettings = field(default_factory=OutputSettings)
+    visualization: VisualizationSettings = field(default_factory=VisualizationSettings)
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +142,7 @@ def _build_models(raw: dict) -> ModelSettings:
     return ModelSettings(
         model=raw.get("model", ModelSettings.model),
         fast_llm=raw.get("fast_llm", ModelSettings.fast_llm),
+        embedding=raw.get("embedding", ModelSettings.embedding),
     )
 
 
@@ -136,6 +164,15 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
         suggestion_length=raw.get("suggestion_length", TaxonomySettings.suggestion_length),
         explanation_length=raw.get("explanation_length", TaxonomySettings.explanation_length),
         use_case=raw.get("use_case", TaxonomySettings.use_case),
+        saturation_streak_threshold=raw.get(
+            "saturation_streak_threshold", TaxonomySettings.saturation_streak_threshold
+        ),
+        value_merge_distance_threshold=raw.get(
+            "value_merge_distance_threshold", TaxonomySettings.value_merge_distance_threshold
+        ),
+        value_merge_borderline_band=raw.get(
+            "value_merge_borderline_band", TaxonomySettings.value_merge_borderline_band
+        ),
     )
 
 
@@ -162,6 +199,15 @@ def _build_output(raw: dict) -> OutputSettings:
         content_preview_length=raw.get("content_preview_length", OutputSettings.content_preview_length),
         default_output_dir=raw.get("default_output_dir", OutputSettings.default_output_dir),
         graph_filename=raw.get("graph_filename", OutputSettings.graph_filename),
+    )
+
+
+def _build_visualization(raw: dict) -> VisualizationSettings:
+    return VisualizationSettings(
+        enabled=raw.get("enabled", VisualizationSettings.enabled),
+        every_iteration=raw.get("every_iteration", VisualizationSettings.every_iteration),
+        dimensions=raw.get("dimensions", VisualizationSettings.dimensions),
+        output_dir=raw.get("output_dir", VisualizationSettings.output_dir),
     )
 
 
@@ -199,6 +245,7 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         summarization=_build_summarization(raw.get("summarization", {})),
         labeling=_build_labeling(raw.get("labeling", {})),
         output=_build_output(raw.get("output", {})),
+        visualization=_build_visualization(raw.get("visualization", {})),
     )
 
     logger.debug("Loaded settings: %s", settings)

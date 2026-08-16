@@ -65,6 +65,14 @@ class Configuration:
         },
     )
 
+    embedding: Annotated[str, {"__template_metadata__": {"kind": "embeddings"}}] = field(
+        default=None,  # resolved lazily from Settings
+        metadata={
+            "description": "Embedding model (provider/model-name). Used for value "
+            "consolidation and taxonomy PCA visualization."
+        },
+    )
+
     # ── Pipeline ────────────────────────────────────────────────────────
     max_runs: int = field(
         default=None,
@@ -120,6 +128,21 @@ class Configuration:
     use_case: str = field(
         default=None,
         metadata={"description": "Use case description guiding taxonomy generation."},
+    )
+
+    saturation_streak_threshold: int = field(
+        default=None,
+        metadata={"description": "Consecutive saturated minibatches required to stop the update loop early."},
+    )
+
+    value_merge_distance_threshold: float = field(
+        default=None,
+        metadata={"description": "Embedding-distance cutoff (epsilon) for automatic value consolidation."},
+    )
+
+    value_merge_borderline_band: float = field(
+        default=None,
+        metadata={"description": "Distance band above epsilon routed to LLM adjudication for value merges."},
     )
 
     # ── Summarization ──────────────────────────────────────────────────
@@ -180,6 +203,27 @@ class Configuration:
         metadata={"description": "Pipeline graph diagram filename."},
     )
 
+    # ── Visualization ────────────────────────────────────────────────────
+    visualization_enabled: bool = field(
+        default=None,
+        metadata={"description": "Enable taxonomy PCA chart export (default false)."},
+    )
+
+    visualization_every_iteration: bool = field(
+        default=None,
+        metadata={"description": "Render a PCA chart at every stage, not only post-consolidation."},
+    )
+
+    visualization_dimensions: int = field(
+        default=None,
+        metadata={"description": "PCA projection dimensions for charts: 2 or 3."},
+    )
+
+    visualization_output_dir: Optional[str] = field(
+        default=None,
+        metadata={"description": "Directory for chart files (defaults to the output dir)."},
+    )
+
     # ── LangGraph integration ──────────────────────────────────────────
 
     @classmethod
@@ -213,6 +257,7 @@ class Configuration:
             # Models
             "model": s.models.model,
             "fast_llm": s.models.fast_llm,
+            "embedding": s.models.embedding,
             # Pipeline
             "max_runs": s.pipeline.max_runs,
             "sample_size": s.pipeline.sample_size,
@@ -226,6 +271,9 @@ class Configuration:
             "suggestion_length": s.taxonomy.suggestion_length,
             "explanation_length": s.taxonomy.explanation_length,
             "use_case": s.taxonomy.use_case,
+            "saturation_streak_threshold": s.taxonomy.saturation_streak_threshold,
+            "value_merge_distance_threshold": s.taxonomy.value_merge_distance_threshold,
+            "value_merge_borderline_band": s.taxonomy.value_merge_borderline_band,
             # Summarization
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,
@@ -240,4 +288,9 @@ class Configuration:
             "content_preview_length": s.output.content_preview_length,
             "default_output_dir": s.output.default_output_dir,
             "graph_filename": s.output.graph_filename,
+            # Visualization
+            "visualization_enabled": s.visualization.enabled,
+            "visualization_every_iteration": s.visualization.every_iteration,
+            "visualization_dimensions": s.visualization.dimensions,
+            "visualization_output_dir": s.visualization.output_dir,
         }

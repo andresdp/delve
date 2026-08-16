@@ -40,9 +40,13 @@ STEP_INFO = {
     "load_corpus": ("📂", "Loading corpus"),
     "summarize": ("📝", "Generating summaries"),
     "get_minibatches": ("📦", "Creating minibatches"),
+    "open_code_minibatch": ("🔬", "Open coding minibatch"),
     "generate_taxonomy": ("🧠", "Generating initial taxonomy"),
     "update_taxonomy": ("🔄", "Updating taxonomy"),
+    "check_saturation": ("🧪", "Checking saturation"),
     "review_taxonomy": ("🔍", "Reviewing taxonomy"),
+    "consolidate_values": ("🧲", "Consolidating values"),
+    "select_dimensions": ("🎯", "Selecting dimensions"),
     "label_documents": ("🏷️", "Labeling documents"),
 }
 
@@ -209,12 +213,20 @@ def _display_taxonomy(clusters: list, explanations: list, configuration: Configu
     table.add_column("#", style="cyan bold", width=4, justify="right")
     table.add_column("Name", style="bold", min_width=20, max_width=50)
     table.add_column("Description", style="dim", min_width=30, max_width=80)
+    table.add_column("Values", style="green", min_width=20, max_width=45)
 
     for cluster in final_taxonomy:
+        value_labels = [
+            v.get("label", "")
+            for v in (cluster.get("values") or [])
+            if isinstance(v, dict)
+        ]
+        values_str = " · ".join(label for label in value_labels if label) or "—"
         table.add_row(
             str(cluster.get("id", "?")),
             cluster.get("name", "Unnamed"),
             cluster.get("description", "No description"),
+            values_str,
         )
 
     console.print()
@@ -230,13 +242,21 @@ def _display_taxonomy(clusters: list, explanations: list, configuration: Configu
 
     # Show all explanations/rationale across iterations
     if explanations and any(explanations):
+        n = len(explanations)
+        tail_labels = {}
+        if n >= 1:
+            tail_labels[n - 1] = "Selection"
+        if n >= 2:
+            tail_labels[n - 2] = "Consolidation"
+        if n >= 3:
+            tail_labels[n - 3] = "Review"
         parts = []
         for i, explanation in enumerate(explanations):
             if explanation:
                 if i == 0:
                     label = "Generation"
-                elif i == len(explanations) - 1:
-                    label = "Review"
+                elif i in tail_labels:
+                    label = tail_labels[i]
                 else:
                     label = "Update"
                 parts.append(f"[bold cyan]{i+1}. {label}:[/bold cyan] {explanation}")
@@ -467,6 +487,8 @@ async def run(args: argparse.Namespace) -> None:
     # ── Stream pipeline execution with step-by-step display ──────────
     result: dict = {}
     clusters: list = []
+    selected_clusters: list = []
+    saturation_history: list = []
     explanations: list = []
     documents: list = []
     messages: list = []
@@ -511,6 +533,10 @@ async def run(args: argparse.Namespace) -> None:
             if node_output:
                 if "clusters" in node_output:
                     clusters.extend(node_output["clusters"])
+                if "selected_clusters" in node_output:
+                    selected_clusters = node_output["selected_clusters"]
+                if "saturation_history" in node_output:
+                    saturation_history.extend(node_output["saturation_history"])
                 if "explanations" in node_output:
                     explanations.extend(node_output["explanations"])
                 if "documents" in node_output:
@@ -576,6 +602,7 @@ async def run(args: argparse.Namespace) -> None:
                     "summary": getattr(doc, "summary", ""),
                     "explanation": getattr(doc, "explanation", ""),
                     "category": getattr(doc, "category", ""),
+                    "value": getattr(doc, "value", None),
                     "score": getattr(doc, "score", None),
                 })
             else:
@@ -589,7 +616,14 @@ async def run(args: argparse.Namespace) -> None:
         logger.info("Documents saved to: %s", docs_path)
 
         # Save taxonomy (all iterations paired with explanations)
-        taxonomy_data = {"taxonomy_name": effective_config.name, "iterations": []}
+        taxonomy_data = {
+            "taxonomy_name": effective_config.name,
+            "iterations": [],
+        }
+        if saturation_history:
+            taxonomy_data["saturation_history"] = saturation_history
+        if selected_clusters:
+            taxonomy_data["selected_clusters"] = selected_clusters[-1]
         for i, iteration_clusters in enumerate(clusters):
             entry = {
                 "explanation": explanations[i] if i < len(explanations) else "",

@@ -19,6 +19,7 @@ class Doc:
     summary: Optional[str] = None
     explanation: Optional[str] = None
     category: Optional[str] = None
+    value: Optional[str] = None
     score: Optional[float] = None
 
     def __str__(self) -> str:
@@ -30,12 +31,16 @@ class Doc:
 
 
 class UserFeedback(BaseModel):
-    """Represents user feedback on the taxonomy.
-    
+    """Represents feedback on the taxonomy.
+
+    The producer may be a human (pre-populated state or human-in-the-loop)
+    or an automated critic (e.g., the saturation checker reporting uncovered
+    concepts) — both flow into the same ``{feedback}`` prompt slot.
+
     Attributes:
         decision: Whether to continue with current taxonomy or modify it
         explanation: Explanation of why this decision was made
-        feedback: Optional specific feedback from the user
+        feedback: Optional specific feedback from the producer
     """
     decision: Literal["continue", "modify"]
     explanation: str
@@ -59,6 +64,7 @@ class OutputState:
     clusters: Annotated[List[List[Dict]], operator.add] = field(default_factory=list)
     explanations: Annotated[List[str], operator.add] = field(default_factory=list)
     documents: List[Doc] = field(default_factory=list)
+    selected_clusters: List[List[Dict]] = field(default_factory=list)
 
 
 @dataclass
@@ -73,6 +79,16 @@ class State(InputState, OutputState):
     clusters: Annotated[List[List[Dict]], operator.add] = field(default_factory=list)
     explanations: Annotated[List[str], operator.add] = field(default_factory=list)
     status: Annotated[List[str], operator.add] = field(default_factory=list)
+    # Open codes accumulate across minibatches, mirroring `clusters`.
+    open_codes: Annotated[List[Dict], operator.add] = field(default_factory=list)
+    # Index of the next minibatch to open-code (advances ahead of axial coding).
+    open_code_batch_index: int = field(default=0)
+    # Theoretical-saturation tracking (per-minibatch verdicts + current streak).
+    saturation_history: Annotated[List[Dict], operator.add] = field(default_factory=list)
+    saturation_streak: int = field(default=0)
+    # Use-case-selected subset of the final reviewed taxonomy. Kept distinct from
+    # the full `clusters[-1]` so both full and filtered taxonomies stay inspectable.
+    selected_clusters: List[List[Dict]] = field(default_factory=list)
     use_case: str = field(default="")
     is_last_step: IsLastStep = field(default=False)
     user_feedback: UserFeedback = field(default=None)

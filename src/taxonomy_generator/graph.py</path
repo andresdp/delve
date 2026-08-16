@@ -8,7 +8,6 @@ from langgraph.graph import StateGraph, START, END
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.routing.should_review import should_review
 from taxonomy_generator.routing.should_summarize import should_summarize
-from taxonomy_generator.routing.should_generate_or_update import should_generate_or_update
 from taxonomy_generator.state import InputState, OutputState, State
 from taxonomy_generator.nodes.corpus_loader import load_corpus
 from taxonomy_generator.nodes.taxonomy_generator import generate_taxonomy
@@ -50,26 +49,14 @@ builder.add_conditional_edges(
 )
 builder.add_edge("summarize", "get_minibatches")
 builder.add_edge("get_minibatches", "open_code_minibatch")
-
-# The first open-coding pass (no taxonomy yet) feeds initial generation;
-# every later pass feeds an incremental update.
-builder.add_conditional_edges(
-    "open_code_minibatch",
-    should_generate_or_update,
-    {
-        "generate_taxonomy": "generate_taxonomy",
-        "update_taxonomy": "update_taxonomy",
-    }
-)
-
-# Both axial-coding steps flow into the saturation check, which also
-# handles exhaustion (fewer remaining batches than the streak threshold,
-# e.g. a single-minibatch corpus) by routing on to review.
-builder.add_edge("generate_taxonomy", "check_saturation")
+builder.add_edge("open_code_minibatch", "generate_taxonomy")
+builder.add_edge("generate_taxonomy", "open_code_minibatch")
 builder.add_edge("update_taxonomy", "check_saturation")
+builder.add_edge("review_taxonomy", "consolidate_values")
+builder.add_edge("consolidate_values", "select_dimensions")
+builder.add_edge("select_dimensions", "label_documents")
+builder.add_edge("label_documents", END)
 
-# After each axial pass: continue open-coding the next batch, or move on to
-# review when saturated or when the minibatches are exhausted.
 builder.add_conditional_edges(
     "check_saturation",
     should_review,
@@ -78,13 +65,10 @@ builder.add_conditional_edges(
         "review_taxonomy": "review_taxonomy",
     }
 )
-
-# Post-review stages: value consolidation, use-case dimension selection,
-# then two-level labeling.
-builder.add_edge("review_taxonomy", "consolidate_values")
-builder.add_edge("consolidate_values", "select_dimensions")
-builder.add_edge("select_dimensions", "label_documents")
-builder.add_edge("label_documents", END)
+# The update loop: open_code → update. The conditional edge from
+# check_saturation routes either back to open_code_minibatch (next batch)
+# or forward to review_taxonomy (saturated or minibatches exhausted).
+builder.add_edge("open_code_minibatch", "update_taxonomy")
 
 graph = builder.compile()
 graph.name = "Taxonomy Generation"

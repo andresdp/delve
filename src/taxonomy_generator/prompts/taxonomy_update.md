@@ -7,7 +7,7 @@
 - **Existing taxonomy**:
 {taxonomy_json}
 
-- **New data**: A batch of document summaries in JSON format:
+- **New data**: A batch of documents in JSON format with their open codes (fine-grained concept/decision labels with rationales):
 {data_json}
 
 - **Use case**: {use_case}
@@ -21,6 +21,8 @@ Think of the taxonomy as a **design space**:
 - Each **category is a dimension** — an axis that captures a fundamentally different *kind* of variation among documents.
 - Each **document is a value** along exactly one dimension.
 - Dimensions must be **orthogonal** — each captures a different *type* of distinction. If two categories are really just different values on the same axis (e.g., "Minor Bugs" vs "Critical Bugs" are both values of a "Bug Severity" axis), they should be one dimension, not two.
+- Each dimension carries **values** — the specific decisions or positions along its axis supported by the data. Values are points on the axis; the dimension is the axis itself.
+- Dimensions may be linked by typed **relations** (precondition, consequence, co_occurring, constrains). Only assert a relation when it holds because of the use case's logic, not because two concepts merely co-occur in the same documents.
 
 ## Key Principle: Stability + Adaptability
 
@@ -57,6 +59,8 @@ Apply these **only when clearly justified** by the new data:
 
 ### Format
 - Each cluster has: **id** (number starting from 1, incremented), **name** (within {cluster_name_length} words, a noun-driven phrase that describes the *axis of variation* — use noun-based constructions like "Request Routing Strategy" rather than verb-based ones like "Route Requests"), **description** (within {cluster_description_length} words, explaining the range of documents along this dimension and what distinguishes it from other dimensions).
+- Each cluster also carries: **values** (draft decisions along the dimension supported by the open codes; each value has an **id** formatted as `<dimension_id>.<n>`, **dimension_id**, **label**, **description**, and **supporting_doc_ids**) and **relations** (typed links with **target_id**, **type** — `precondition`, `consequence`, `co_occurring`, or `constrains` — and a **rationale** judged against the use case).
+- **Preserve existing values** that remain supported; **merge** value drafts from new open codes into existing values (union their supporting_doc_ids); **add** new values only for decisions not yet on the axis. Never drop values without justification.
 - Total dimensions: **{max_num_clusters}**.
 - Output in **English** only.
 

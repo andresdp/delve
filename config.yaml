@@ -10,6 +10,10 @@ models:
   # Fast/lightweight model — used for summarization, labeling, and taxonomy update.
   fast_llm: "openai/gpt-5.4-nano"
 
+  # Embedding model — used for value consolidation and taxonomy PCA visualization.
+  # Supported providers: openai/<model>, ollama/<model>.
+  embedding: "openai/text-embedding-3-small"
+
 pipeline:
   # Maximum number of documents to process (0 = no limit).
   max_runs: 0
@@ -47,6 +51,19 @@ taxonomy:
     Generate the taxonomy that can be used to label
     the user intent in the conversation.
 
+  # Consecutive saturated minibatches required to stop the update loop early.
+  # Empirically tunable against the example corpora.
+  saturation_streak_threshold: 2
+
+  # Embedding-distance cutoff (epsilon, Euclidean on L2-normalized vectors)
+  # below which two values within the same dimension are merged automatically.
+  # Calibrated for openai/text-embedding-3-small; tune when changing models.
+  value_merge_distance_threshold: 0.2
+
+  # Distance band above the cutoff routed to LLM adjudication instead of
+  # auto-merge or auto-reject.
+  value_merge_borderline_band: 0.08
+
 summarization:
   # Skip summarization entirely (documents go directly to taxonomy generation).
   # When true, raw document content is used instead of summaries.
@@ -83,3 +100,18 @@ output:
 
   # Pipeline graph diagram filename.
   graph_filename: "graph.png"
+
+# Taxonomy PCA visualization (erdogant/pca based charts of values by dimension).
+visualization:
+  # Master on/off switch (default false — no cost/latency on normal runs).
+  enabled: false
+
+  # If false, only render the final (post-consolidation) chart; if true,
+  # render at every stage (generate/update/review/consolidate).
+  every_iteration: false
+
+  # PCA projection dimensions: 2 or 3.
+  dimensions: 2
+
+  # Where chart files are written (null = default_output_dir / --output).
+  output_dir: null

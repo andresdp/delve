@@ -1,0 +1,1334 @@
+{
+  "taxonomy_name": "campus-bike",
+  "iterations": [
+    {
+      "explanation": "No previous feedback existed. Five orthogonal axes separate credentials, payments, privacy retention, workflow states, and report delivery; relations encode dependencies.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Authentication Security Controls",
+          "description": "Authentication controls vary by credential mechanism and validity enforcement, distinct from payment processing, data retention, workflow modeling, and reporting.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Verified user identity is typically required before CityBike authorizes sensitive operations such as payment or bike rental actions."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "30-Minute Verification Code TTL",
+              "description": "Verification codes are invalidated after a fixed 30-minute time-to-live, limiting replay and unauthorized account or transaction access.",
+              "supporting_doc_ids": [
+                "7655d4ea-482b-4584-b8c4-efe4a7697e22",
+                "043406b7-1290-4e7c-972f-80e320a843d9",
+                "7411e863-f0aa-4f68-93ae-463873f731e4"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Sensitive Data Retention Policy",
+          "description": "Sensitive-data handling varies by retention and deletion policy, separate from authentication behavior, payment integration, workflow control, and report delivery.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "GDPR and related privacy obligations constrain whether biometric authentication data may be retained after authentication."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Ephemeral Biometric Data",
+              "description": "Biometric thumbprint data supports authentication but is deleted immediately afterward, minimizing retention of sensitive personal data.",
+              "supporting_doc_ids": [
+                "aa8baa11-c9eb-4d64-a2c4-e7cde30343a0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Payment Provider Integration Strategy",
+          "description": "Payment integration varies by abstraction and provider substitution strategy, distinct from authentication, privacy retention, rental workflow, and reporting concerns.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Payment processing normally follows user verification, making authentication a prerequisite for securely initiating or authorizing a rental payment."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Payment Facade Delegation",
+              "description": "A payment facade hides internal payment handling and delegates processing to one or more underlying external payment services.",
+              "supporting_doc_ids": [
+                "f0142f8a-25e1-4572-a887-f2a73fbea731"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Interchangeable Payment Strategies",
+              "description": "Strategy classes encapsulate interchangeable payment methods or providers, allowing payment implementations to change without modifying surrounding application logic.",
+              "supporting_doc_ids": [
+                "a17f4bfb-f4ac-4f2e-b347-eee511d127cb"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Rental Workflow State Modeling",
+          "description": "Rental workflow control varies by explicit modeling of navigation, QR unlocking, rental progression, and payment-related states.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Explicit rental lifecycle states generate the operational history that reporting features subsequently assemble and expose to users."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "State-Machine Rental Lifecycle",
+              "description": "A state machine represents navigation, QR scanning, bike unlocking, active rental, completion, and payment transitions as an explicit user-journey lifecycle.",
+              "supporting_doc_ids": [
+                "a1cbab92-d42f-40f1-b74a-accd8c11264d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Usage Report Construction and Delivery",
+          "description": "Reporting varies by report assembly and delivery separation, distinct from the operational workflow that produces usage events and the payment systems involved.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Report generation depends on usage-history information produced by completed or ongoing rental workflow states."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Builder-Based Downloadable Reports",
+              "description": "A Builder assembles downloadable usage-history reports while keeping report construction separate from export and user delivery.",
+              "supporting_doc_ids": [
+                "96deb902-6f7a-4f49-8731-aef3ca308895"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Preserved five dimensions; refined authentication/privacy scopes; added encryption, location, and event-notification axes; added values; broadened workflow timing; added security/causal relations.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Authentication and Session Controls",
+          "description": "Authentication varies by credential mechanism, verification validity, and session invalidation, distinct from privacy retention, payment processing, workflow, and reporting.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Verified identity and an active authenticated session are required before CityBike authorizes sensitive payment or rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "30-Minute Verification Code TTL",
+              "description": "Verification codes expire after a fixed 30-minute time-to-live, limiting replay and unauthorized account or transaction access.",
+              "supporting_doc_ids": [
+                "7655d4ea-482b-4584-b8c4-efe4a7697e22",
+                "043406b7-1290-4e7c-972f-80e320a843d9",
+                "7411e863-f0aa-4f68-93ae-463873f731e4"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Immediate Manual Session Invalidation",
+              "description": "Users can immediately and manually invalidate their active authenticated session through logout.",
+              "supporting_doc_ids": [
+                "94483cbe-3c72-4bc5-802c-15adc6ec1db1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Personal Data Governance and Retention",
+          "description": "Personal-data handling varies by collection scope, privacy-oriented form processing, retention, and deletion, distinct from encryption and authentication mechanics.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "GDPR and related privacy obligations constrain whether biometric authentication data may be retained after authentication."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Ephemeral Biometric Data",
+              "description": "Biometric thumbprint data supports authentication but is deleted immediately afterward, minimizing retention of sensitive personal data.",
+              "supporting_doc_ids": [
+                "aa8baa11-c9eb-4d64-a2c4-e7cde30343a0"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Identity and Optional Location Data Collection",
+              "description": "Registration collects identity, contact, and optional coarse location data through a security-focused account-onboarding form.",
+              "supporting_doc_ids": [
+                "e730b3d2-3c02-4cc3-9940-fc2111f7bba1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Payment Provider Integration Strategy",
+          "description": "Payment integration varies by abstraction and provider substitution strategy, distinct from authentication, privacy, workflow, and report delivery.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Payment processing normally follows user verification, making authentication a prerequisite for securely initiating or authorizing rental payment."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Encryption requirements restrict how payment providers and payment data can be integrated and accessed."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Payment Facade Delegation",
+              "description": "A payment facade hides internal payment handling and delegates processing to one or more underlying external payment services.",
+              "supporting_doc_ids": [
+                "f0142f8a-25e1-4572-a887-f2a73fbea731"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Interchangeable Payment Strategies",
+              "description": "Strategy classes encapsulate interchangeable payment methods or providers, allowing implementations to change without modifying surrounding application logic.",
+              "supporting_doc_ids": [
+                "a17f4bfb-f4ac-4f2e-b347-eee511d127cb"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Rental Workflow and Timing Control",
+          "description": "Rental workflow varies by explicit lifecycle-state representation and time-based coordination, distinct from payment, location tracking, communication, and reporting.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Explicit rental lifecycle states generate the operational history that reporting features subsequently assemble and expose."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "State-Machine Rental Lifecycle",
+              "description": "A state machine represents navigation, QR scanning, bike unlocking, active rental, completion, and payment transitions as an explicit lifecycle.",
+              "supporting_doc_ids": [
+                "a1cbab92-d42f-40f1-b74a-accd8c11264d",
+                "9d47f329-49f9-4007-a8db-c6364eb15f72"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Scheduler-Based Duration and Pre-Expiry Notifications",
+              "description": "A scheduler tracks rental duration and triggers time-based reminders, including notifications before rental expiry.",
+              "supporting_doc_ids": [
+                "632445a8-d4c4-4924-90d3-7fd851fc6e4e",
+                "9d47f329-49f9-4007-a8db-c6364eb15f72"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Usage Report Construction and Delivery",
+          "description": "Reporting varies by history assembly, construction, export, and user delivery, separate from rental operations that produce usage events.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Report generation depends on usage-history information produced by completed or ongoing rental workflow states."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Builder-Based Downloadable Reports",
+              "description": "A Builder assembles downloadable usage-history reports while keeping report construction separate from export and user delivery.",
+              "supporting_doc_ids": [
+                "96deb902-6f7a-4f49-8731-aef3ca308895"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Encryption Protection",
+          "description": "Data protection varies by encryption coverage for transit, storage, payment, registration, and authentication flows, distinct from retention policy.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Encryption requirements constrain authentication data handling and channel protection across registration and login flows."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Encryption requirements constrain payment integrations and protect sensitive payment information exchanged with external providers."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "End-to-End and At-Rest Data Encryption",
+              "description": "User and payment data are encrypted in transit and at rest, covering registration, authentication, service communication, storage, and payment flows.",
+              "supporting_doc_ids": [
+                "b8d2211c-7bca-4997-9e51-7e1774862a9f"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Bike Location Tracking Strategy",
+          "description": "Bike discovery varies by geospatial query and proximity processing, distinct from rental lifecycle, event propagation, payment, and reporting.",
+          "relations": [
+            {
+              "target_id": "8",
+              "type": "precondition",
+              "rationale": "Location-aware bike discovery supplies the availability and position information that real-time status notifications propagate to riders."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Proximity-Based Bike Lookup",
+              "description": "A location-aware service retrieves nearby bikes by processing user proximity queries and geospatial context.",
+              "supporting_doc_ids": [
+                "c8dd559b-becf-496a-a3fc-9616d5e53814"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Real-Time Event Notification Pattern",
+          "description": "Real-time communication varies by observer-based propagation of operational and history events, distinct from location computation and scheduled timing.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "consequence",
+              "rationale": "Bike status and availability changes provide operational events that observer-based notification mechanisms propagate to users or dependent views."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Observer-Based Bike Availability Notifications",
+              "description": "Observer-based notifications propagate bike status changes and refresh the available-bike view in real time.",
+              "supporting_doc_ids": [
+                "cea83efd-428d-49a7-a3e2-70dd67487e75",
+                "277f60e4-5979-4090-900a-819441fa62f8"
+              ]
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Usage History Availability Notifications",
+              "description": "Asynchronous notifications inform users when usage-history information becomes available.",
+              "supporting_doc_ids": [
+                "cea83efd-428d-49a7-a3e2-70dd67487e75"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Added missing sample-supported values, clarified authentication/payment coverage, and added persistence/query strategy for the otherwise unclassified repository decision.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Authentication and Session Controls",
+          "description": "Authentication architecture varies by credential mechanism, verification validity, and session invalidation, distinct from privacy governance, encryption, payment, workflow, and reporting.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Verified identity and an active authenticated session are required before CityBike authorizes sensitive payment or rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "30-Minute Verification Code TTL",
+              "description": "Verification codes expire after a fixed 30-minute time-to-live, limiting replay and unauthorized account or transaction access.",
+              "supporting_doc_ids": [
+                "7655d4ea-482b-4584-b8c4-efe4a7697e22",
+                "043406b7-1290-4e7c-972f-80e320a843d9",
+                "7411e863-f0aa-4f68-93ae-463873f731e4"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Immediate Manual Session Invalidation",
+              "description": "Users can immediately and manually invalidate their active authenticated session through logout.",
+              "supporting_doc_ids": [
+                "94483cbe-3c72-4bc5-802c-15adc6ec1db1"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Email-and-Password Authentication",
+              "description": "Email and password credentials provide a conventional account-login mechanism for authenticated access.",
+              "supporting_doc_ids": [
+                "f60bcece-4de5-445b-a2a7-1fe9a5a9b5c2"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Personal Data Collection Governance",
+          "description": "Personal-data governance varies by the kinds of identity, contact, biometric, and optional location data collected, distinct from retention and security mechanisms.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Collection choices determine which personal data require privacy controls, including the treatment of biometric authentication information."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Identity and Optional Location Data Collection",
+              "description": "Registration collects identity, contact, and optional coarse location data through a security-focused account-onboarding form.",
+              "supporting_doc_ids": [
+                "e730b3d2-3c02-4cc3-9940-fc2111f7bba1"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Ephemeral Biometric Data",
+              "description": "Biometric thumbprint data supports authentication but is deleted immediately afterward, minimizing retention of sensitive personal data.",
+              "supporting_doc_ids": [
+                "aa8baa11-c9eb-4d64-a2c4-e7cde30343a0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Payment Provider Integration Strategy",
+          "description": "Payment integration varies by abstraction, API adaptation, and provider substitution strategy, distinct from authentication, privacy, workflow, and report delivery.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Payment processing normally follows user verification, making authentication a prerequisite for securely initiating or authorizing rental payment."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Encryption requirements restrict how payment providers and payment data can be integrated and accessed."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Payment Facade Delegation",
+              "description": "A payment facade hides internal payment handling and delegates processing to one or more underlying external payment services.",
+              "supporting_doc_ids": [
+                "f0142f8a-25e1-4572-a887-f2a73fbea731"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Interchangeable Payment Strategies",
+              "description": "Strategy classes encapsulate interchangeable payment methods or providers, allowing implementations to change without modifying surrounding application logic.",
+              "supporting_doc_ids": [
+                "a17f4bfb-f4ac-4f2e-b347-eee511d127cb"
+              ]
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Payment API Adapter Abstraction",
+              "description": "Adapters translate differing external payment-provider APIs into a common internal interface.",
+              "supporting_doc_ids": [
+                "e551147e-0430-49e1-bb73-95fc3203764d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Rental Workflow and Timing Control",
+          "description": "Rental operations vary by lifecycle-state representation, command encapsulation, event orchestration, and time-based coordination, distinct from payment and location services.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Explicit rental lifecycle states generate the operational history that reporting features subsequently assemble and expose."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "State-Machine Rental Lifecycle",
+              "description": "A state machine represents navigation, QR scanning, bike unlocking, active rental, completion, and payment transitions as an explicit lifecycle.",
+              "supporting_doc_ids": [
+                "a1cbab92-d42f-40f1-b74a-accd8c11264d",
+                "9d47f329-49f9-4007-a8db-c6364eb15f72"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Scheduler-Based Duration and Pre-Expiry Notifications",
+              "description": "A scheduler tracks rental duration and triggers time-based reminders, including notifications before rental expiry.",
+              "supporting_doc_ids": [
+                "632445a8-d4c4-4924-90d3-7fd851fc6e4e",
+                "9d47f329-49f9-4007-a8db-c6364eb15f72"
+              ]
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Event-Driven Lifecycle Orchestration",
+              "description": "Events coordinate asynchronous bike-lifecycle operations, such as triggering removal or other workflow actions after bike registration.",
+              "supporting_doc_ids": [
+                "9b76642d-4a27-4949-b16c-94f61e8f4be1"
+              ]
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Command-Based Rental Operations",
+              "description": "Command objects encapsulate rental operations while leaving notification concerns outside command-based workflow handling.",
+              "supporting_doc_ids": [
+                "5d99c052-32b1-4b3d-8541-367e89f6a77d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Usage Report Construction and Delivery",
+          "description": "Reporting varies by usage-history assembly, construction, export, and user delivery, separate from rental operations that produce usage events.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Report generation depends on usage-history information produced by completed or ongoing rental workflow states."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Builder-Based Downloadable Reports",
+              "description": "A Builder assembles downloadable usage-history reports while keeping report construction separate from export and user delivery.",
+              "supporting_doc_ids": [
+                "96deb902-6f7a-4f49-8731-aef3ca308895"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Encryption Protection",
+          "description": "Data protection varies by encryption coverage for transit, storage, payment, registration, and authentication flows, distinct from retention policy.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Encryption requirements constrain authentication data handling and channel protection across registration and login flows."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Encryption requirements constrain payment integrations and protect sensitive payment information exchanged with external providers."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "End-to-End and At-Rest Data Encryption",
+              "description": "User and payment data are encrypted in transit and at rest, covering registration, authentication, service communication, storage, and payment flows.",
+              "supporting_doc_ids": [
+                "b8d2211c-7bca-4997-9e51-7e1774862a9f"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Bike Location Tracking Strategy",
+          "description": "Bike discovery varies by geospatial query and proximity processing, distinct from rental lifecycle, event propagation, payment, and reporting.",
+          "relations": [
+            {
+              "target_id": "8",
+              "type": "precondition",
+              "rationale": "Location-aware bike discovery supplies availability and position information that real-time status notifications propagate to riders."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Proximity-Based Bike Lookup",
+              "description": "A location-aware service retrieves nearby bikes by processing user proximity queries and geospatial context.",
+              "supporting_doc_ids": [
+                "c8dd559b-becf-496a-a3fc-9616d5e53814",
+                "4157bda6-022e-48b7-98f2-352eb4daec0b"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Real-Time Event Notification Pattern",
+          "description": "Operational communication varies by observer-based propagation of status and history events, distinct from location computation and scheduled timing.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "consequence",
+              "rationale": "Bike status and availability changes provide operational events that observer-based notification mechanisms propagate to users or dependent views."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Observer-Based Bike Availability Notifications",
+              "description": "Observer-based notifications propagate bike status changes and refresh available-bike views in real time.",
+              "supporting_doc_ids": [
+                "cea83efd-428d-49a7-a3e2-70dd67487e75",
+                "277f60e4-5979-4090-900a-819441fa62f8",
+                "878ad873-f227-4c48-9345-b48d65ede360",
+                "cfe7eb89-f7c8-483e-aea1-a08af1b2bd80"
+              ]
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Usage History Availability Notifications",
+              "description": "Asynchronous notifications inform users when usage-history information becomes available.",
+              "supporting_doc_ids": [
+                "cea83efd-428d-49a7-a3e2-70dd67487e75"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Data Persistence and Query Strategy",
+          "description": "Data persistence varies by repository abstraction, storage organization, and query strategy, distinct from report construction and operational workflow.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "precondition",
+              "rationale": "Persistence and query mechanisms supply the usage data required for report construction and delivery."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Repository-Based Data Persistence",
+              "description": "A repository abstracts persistence and querying for bike data and usage statistics.",
+              "supporting_doc_ids": [
+                "08d25a67-aa08-4852-8a80-8cda3b79c3dd"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 18 draft values. Merge decisions (threshold 0.200, borderline band 0.080): [1] kept 1.1 as-is; [1] kept 1.2 as-is; [1] kept 1.3 as-is; [2] kept 2.1 as-is; [2] kept 2.2 as-is; [3] kept 3.1 as-is; [3] kept 3.2 as-is; [3] kept 3.3 as-is; [4] kept 4.1 as-is; [4] kept 4.2 as-is; [4] kept 4.3 as-is; [4] kept 4.4 as-is; [8] kept 8.1 as-is; [8] kept 8.2 as-is",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Authentication and Session Controls",
+          "description": "Authentication architecture varies by credential mechanism, verification validity, and session invalidation, distinct from privacy governance, encryption, payment, workflow, and reporting.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Verified identity and an active authenticated session are required before CityBike authorizes sensitive payment or rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "30-Minute Verification Code TTL",
+              "description": "Verification codes expire after a fixed 30-minute time-to-live, limiting replay and unauthorized account or transaction access.",
+              "supporting_doc_ids": [
+                "7655d4ea-482b-4584-b8c4-efe4a7697e22",
+                "043406b7-1290-4e7c-972f-80e320a843d9",
+                "7411e863-f0aa-4f68-93ae-463873f731e4"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Immediate Manual Session Invalidation",
+              "description": "Users can immediately and manually invalidate their active authenticated session through logout.",
+              "supporting_doc_ids": [
+                "94483cbe-3c72-4bc5-802c-15adc6ec1db1"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Email-and-Password Authentication",
+              "description": "Email and password credentials provide a conventional account-login mechanism for authenticated access.",
+              "supporting_doc_ids": [
+                "f60bcece-4de5-445b-a2a7-1fe9a5a9b5c2"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Personal Data Collection Governance",
+          "description": "Personal-data governance varies by the kinds of identity, contact, biometric, and optional location data collected, distinct from retention and security mechanisms.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Collection choices determine which personal data require privacy controls, including the treatment of biometric authentication information."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Identity and Optional Location Data Collection",
+              "description": "Registration collects identity, contact, and optional coarse location data through a security-focused account-onboarding form.",
+              "supporting_doc_ids": [
+                "e730b3d2-3c02-4cc3-9940-fc2111f7bba1"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Ephemeral Biometric Data",
+              "description": "Biometric thumbprint data supports authentication but is deleted immediately afterward, minimizing retention of sensitive personal data.",
+              "supporting_doc_ids": [
+                "aa8baa11-c9eb-4d64-a2c4-e7cde30343a0"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Payment Provider Integration Strategy",
+          "description": "Payment integration varies by abstraction, API adaptation, and provider substitution strategy, distinct from authentication, privacy, workflow, and report delivery.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Payment processing normally follows user verification, making authentication a prerequisite for securely initiating or authorizing rental payment."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Encryption requirements restrict how payment providers and payment data can be integrated and accessed."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Payment Facade Delegation",
+              "description": "A payment facade hides internal payment handling and delegates processing to one or more underlying external payment services.",
+              "supporting_doc_ids": [
+                "f0142f8a-25e1-4572-a887-f2a73fbea731"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Interchangeable Payment Strategies",
+              "description": "Strategy classes encapsulate interchangeable payment methods or providers, allowing implementations to change without modifying surrounding application logic.",
+              "supporting_doc_ids": [
+                "a17f4bfb-f4ac-4f2e-b347-eee511d127cb"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Payment API Adapter Abstraction",
+              "description": "Adapters translate differing external payment-provider APIs into a common internal interface.",
+              "supporting_doc_ids": [
+                "e551147e-0430-49e1-bb73-95fc3203764d"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Rental Workflow and Timing Control",
+          "description": "Rental operations vary by lifecycle-state representation, command encapsulation, event orchestration, and time-based coordination, distinct from payment and location services.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Explicit rental lifecycle states generate the operational history that reporting features subsequently assemble and expose."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "State-Machine Rental Lifecycle",
+              "description": "A state machine represents navigation, QR scanning, bike unlocking, active rental, completion, and payment transitions as an explicit lifecycle.",
+              "supporting_doc_ids": [
+                "a1cbab92-d42f-40f1-b74a-accd8c11264d",
+                "9d47f329-49f9-4007-a8db-c6364eb15f72"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Scheduler-Based Duration and Pre-Expiry Notifications",
+              "description": "A scheduler tracks rental duration and triggers time-based reminders, including notifications before rental expiry.",
+              "supporting_doc_ids": [
+                "632445a8-d4c4-4924-90d3-7fd851fc6e4e",
+                "9d47f329-49f9-4007-a8db-c6364eb15f72"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Event-Driven Lifecycle Orchestration",
+              "description": "Events coordinate asynchronous bike-lifecycle operations, such as triggering removal or other workflow actions after bike registration.",
+              "supporting_doc_ids": [
+                "9b76642d-4a27-4949-b16c-94f61e8f4be1"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Command-Based Rental Operations",
+              "description": "Command objects encapsulate rental operations while leaving notification concerns outside command-based workflow handling.",
+              "supporting_doc_ids": [
+                "5d99c052-32b1-4b3d-8541-367e89f6a77d"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Usage Report Construction and Delivery",
+          "description": "Reporting varies by usage-history assembly, construction, export, and user delivery, separate from rental operations that produce usage events.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Report generation depends on usage-history information produced by completed or ongoing rental workflow states."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Builder-Based Downloadable Reports",
+              "description": "A Builder assembles downloadable usage-history reports while keeping report construction separate from export and user delivery.",
+              "supporting_doc_ids": [
+                "96deb902-6f7a-4f49-8731-aef3ca308895"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Encryption Protection",
+          "description": "Data protection varies by encryption coverage for transit, storage, payment, registration, and authentication flows, distinct from retention policy.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Encryption requirements constrain authentication data handling and channel protection across registration and login flows."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Encryption requirements constrain payment integrations and protect sensitive payment information exchanged with external providers."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "End-to-End and At-Rest Data Encryption",
+              "description": "User and payment data are encrypted in transit and at rest, covering registration, authentication, service communication, storage, and payment flows.",
+              "supporting_doc_ids": [
+                "b8d2211c-7bca-4997-9e51-7e1774862a9f"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Bike Location Tracking Strategy",
+          "description": "Bike discovery varies by geospatial query and proximity processing, distinct from rental lifecycle, event propagation, payment, and reporting.",
+          "relations": [
+            {
+              "target_id": "8",
+              "type": "precondition",
+              "rationale": "Location-aware bike discovery supplies availability and position information that real-time status notifications propagate to riders."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Proximity-Based Bike Lookup",
+              "description": "A location-aware service retrieves nearby bikes by processing user proximity queries and geospatial context.",
+              "supporting_doc_ids": [
+                "c8dd559b-becf-496a-a3fc-9616d5e53814",
+                "4157bda6-022e-48b7-98f2-352eb4daec0b"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Real-Time Event Notification Pattern",
+          "description": "Operational communication varies by observer-based propagation of status and history events, distinct from location computation and scheduled timing.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "consequence",
+              "rationale": "Bike status and availability changes provide operational events that observer-based notification mechanisms propagate to users or dependent views."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Observer-Based Bike Availability Notifications",
+              "description": "Observer-based notifications propagate bike status changes and refresh available-bike views in real time.",
+              "supporting_doc_ids": [
+                "cea83efd-428d-49a7-a3e2-70dd67487e75",
+                "277f60e4-5979-4090-900a-819441fa62f8",
+                "878ad873-f227-4c48-9345-b48d65ede360",
+                "cfe7eb89-f7c8-483e-aea1-a08af1b2bd80"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Usage History Availability Notifications",
+              "description": "Asynchronous notifications inform users when usage-history information becomes available.",
+              "supporting_doc_ids": [
+                "cea83efd-428d-49a7-a3e2-70dd67487e75"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Data Persistence and Query Strategy",
+          "description": "Data persistence varies by repository abstraction, storage organization, and query strategy, distinct from report construction and operational workflow.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "precondition",
+              "rationale": "Persistence and query mechanisms supply the usage data required for report construction and delivery."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Repository-Based Data Persistence",
+              "description": "A repository abstracts persistence and querying for bike data and usage statistics.",
+              "supporting_doc_ids": [
+                "08d25a67-aa08-4852-8a80-8cda3b79c3dd"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All open codes are already subsumed by the existing taxonomy. The payment-related codes fit the Payment Provider Integration Strategy dimension (facade delegation, multiple backends, strategy-based abstraction, interchangeable implementations). The biometric login and immediate deletion codes are covered by Authentication Security Controls and Sensitive Data Retention Policy, respectively. The verification-code expiry/TTL/timeout codes are all variants of the existing authentication validity-enforcement value. The report builder, downloadable report, and construction-vs-export separation codes are captured by Usage Report Construction and Delivery. The state-machine/user-journey, navigation, QR unlock, rental progression, and payment-state codes are covered by Rental Workflow State Modeling. No open code introduces a distinct architectural concern outside the current dimensions for the CityBike use case."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are already subsumed by existing dimensions. Rental duration tracking and pre-expiry notification handling map to Rental Workflow and Timing Control (dimension 4), especially the scheduler-based duration and pre-expiry notifications value. Observer-based bike status change notifications, usage history availability notifications, observer-based bike availability update, and real-time availability notification are covered by Real-Time Event Notification Pattern (dimension 8). Immediate session termination on logout and manual session invalidation supported fit Authentication and Session Controls (dimension 1). Identity and contact data collection, optional location attribute capture, and security-focused form handling are captured by Personal Data Governance and Retention (dimension 2), with the privacy/compliance aspect also compatible with Data Encryption Protection (dimension 6) for protected flows. Password-based authentication setup is not a new architectural concern in this taxonomy relative to the use case; it falls under authentication/session control rather than a separate dimension. Proximity-based bike lookup and location-aware query handling are already covered by Bike Location Tracking Strategy (dimension 7). The encryption-related codes are absorbed by Data Encryption Protection (dimension 6), which already spans transit, storage, registration, authentication, and payment flows. The state pattern for rental lifecycle is covered by Rental Workflow and Timing Control (dimension 4) as the lifecycle/state-machine axis. Scheduler-driven timing notifications are likewise covered by dimension 4. No genuinely new architectural dimension appears in this minibatch."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "4",
+      "name": "Rental Workflow and Timing Control",
+      "description": "Rental operations vary by lifecycle-state representation, command encapsulation, event orchestration, and time-based coordination, distinct from payment and location services.",
+      "relations": [
+        {
+          "target_id": "5",
+          "type": "consequence",
+          "rationale": "Explicit rental lifecycle states generate the operational history that reporting features subsequently assemble and expose."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "State-Machine Rental Lifecycle",
+          "description": "A state machine represents navigation, QR scanning, bike unlocking, active rental, completion, and payment transitions as an explicit lifecycle.",
+          "supporting_doc_ids": [
+            "a1cbab92-d42f-40f1-b74a-accd8c11264d",
+            "9d47f329-49f9-4007-a8db-c6364eb15f72"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Scheduler-Based Duration and Pre-Expiry Notifications",
+          "description": "A scheduler tracks rental duration and triggers time-based reminders, including notifications before rental expiry.",
+          "supporting_doc_ids": [
+            "632445a8-d4c4-4924-90d3-7fd851fc6e4e",
+            "9d47f329-49f9-4007-a8db-c6364eb15f72"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Event-Driven Lifecycle Orchestration",
+          "description": "Events coordinate asynchronous bike-lifecycle operations, such as triggering removal or other workflow actions after bike registration.",
+          "supporting_doc_ids": [
+            "9b76642d-4a27-4949-b16c-94f61e8f4be1"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Command-Based Rental Operations",
+          "description": "Command objects encapsulate rental operations while leaving notification concerns outside command-based workflow handling.",
+          "supporting_doc_ids": [
+            "5d99c052-32b1-4b3d-8541-367e89f6a77d"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Bike Location Tracking Strategy",
+      "description": "Bike discovery varies by geospatial query and proximity processing, distinct from rental lifecycle, event propagation, payment, and reporting.",
+      "relations": [
+        {
+          "target_id": "8",
+          "type": "precondition",
+          "rationale": "Location-aware bike discovery supplies availability and position information that real-time status notifications propagate to riders."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Proximity-Based Bike Lookup",
+          "description": "A location-aware service retrieves nearby bikes by processing user proximity queries and geospatial context.",
+          "supporting_doc_ids": [
+            "c8dd559b-becf-496a-a3fc-9616d5e53814",
+            "4157bda6-022e-48b7-98f2-352eb4daec0b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Real-Time Event Notification Pattern",
+      "description": "Operational communication varies by observer-based propagation of status and history events, distinct from location computation and scheduled timing.",
+      "relations": [
+        {
+          "target_id": "7",
+          "type": "consequence",
+          "rationale": "Bike status and availability changes provide operational events that observer-based notification mechanisms propagate to users or dependent views."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Observer-Based Bike Availability Notifications",
+          "description": "Observer-based notifications propagate bike status changes and refresh available-bike views in real time.",
+          "supporting_doc_ids": [
+            "cea83efd-428d-49a7-a3e2-70dd67487e75",
+            "277f60e4-5979-4090-900a-819441fa62f8",
+            "878ad873-f227-4c48-9345-b48d65ede360",
+            "cfe7eb89-f7c8-483e-aea1-a08af1b2bd80"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Usage History Availability Notifications",
+          "description": "Asynchronous notifications inform users when usage-history information becomes available.",
+          "supporting_doc_ids": [
+            "cea83efd-428d-49a7-a3e2-70dd67487e75"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Payment Provider Integration Strategy",
+      "description": "Payment integration varies by abstraction, API adaptation, and provider substitution strategy, distinct from authentication, privacy, workflow, and report delivery.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "precondition",
+          "rationale": "Payment processing normally follows user verification, making authentication a prerequisite for securely initiating or authorizing rental payment."
+        },
+        {
+          "target_id": "6",
+          "type": "constrains",
+          "rationale": "Encryption requirements restrict how payment providers and payment data can be integrated and accessed."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Payment Facade Delegation",
+          "description": "A payment facade hides internal payment handling and delegates processing to one or more underlying external payment services.",
+          "supporting_doc_ids": [
+            "f0142f8a-25e1-4572-a887-f2a73fbea731"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Interchangeable Payment Strategies",
+          "description": "Strategy classes encapsulate interchangeable payment methods or providers, allowing implementations to change without modifying surrounding application logic.",
+          "supporting_doc_ids": [
+            "a17f4bfb-f4ac-4f2e-b347-eee511d127cb"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Payment API Adapter Abstraction",
+          "description": "Adapters translate differing external payment-provider APIs into a common internal interface.",
+          "supporting_doc_ids": [
+            "e551147e-0430-49e1-bb73-95fc3203764d"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "name": "Authentication and Session Controls",
+      "description": "Authentication architecture varies by credential mechanism, verification validity, and session invalidation, distinct from privacy governance, encryption, payment, workflow, and reporting.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "precondition",
+          "rationale": "Verified identity and an active authenticated session are required before CityBike authorizes sensitive payment or rental operations."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "30-Minute Verification Code TTL",
+          "description": "Verification codes expire after a fixed 30-minute time-to-live, limiting replay and unauthorized account or transaction access.",
+          "supporting_doc_ids": [
+            "7655d4ea-482b-4584-b8c4-efe4a7697e22",
+            "043406b7-1290-4e7c-972f-80e320a843d9",
+            "7411e863-f0aa-4f68-93ae-463873f731e4"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Immediate Manual Session Invalidation",
+          "description": "Users can immediately and manually invalidate their active authenticated session through logout.",
+          "supporting_doc_ids": [
+            "94483cbe-3c72-4bc5-802c-15adc6ec1db1"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Email-and-Password Authentication",
+          "description": "Email and password credentials provide a conventional account-login mechanism for authenticated access.",
+          "supporting_doc_ids": [
+            "f60bcece-4de5-445b-a2a7-1fe9a5a9b5c2"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Data Encryption Protection",
+      "description": "Data protection varies by encryption coverage for transit, storage, payment, registration, and authentication flows, distinct from retention policy.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "constrains",
+          "rationale": "Encryption requirements constrain authentication data handling and channel protection across registration and login flows."
+        },
+        {
+          "target_id": "3",
+          "type": "constrains",
+          "rationale": "Encryption requirements constrain payment integrations and protect sensitive payment information exchanged with external providers."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "End-to-End and At-Rest Data Encryption",
+          "description": "User and payment data are encrypted in transit and at rest, covering registration, authentication, service communication, storage, and payment flows.",
+          "supporting_doc_ids": [
+            "b8d2211c-7bca-4997-9e51-7e1774862a9f"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Personal Data Collection Governance",
+      "description": "Personal-data governance varies by the kinds of identity, contact, biometric, and optional location data collected, distinct from retention and security mechanisms.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "constrains",
+          "rationale": "Collection choices determine which personal data require privacy controls, including the treatment of biometric authentication information."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Identity and Optional Location Data Collection",
+          "description": "Registration collects identity, contact, and optional coarse location data through a security-focused account-onboarding form.",
+          "supporting_doc_ids": [
+            "e730b3d2-3c02-4cc3-9940-fc2111f7bba1"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Ephemeral Biometric Data",
+          "description": "Biometric thumbprint data supports authentication but is deleted immediately afterward, minimizing retention of sensitive personal data.",
+          "supporting_doc_ids": [
+            "aa8baa11-c9eb-4d64-a2c4-e7cde30343a0"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Data Persistence and Query Strategy",
+      "description": "Data persistence varies by repository abstraction, storage organization, and query strategy, distinct from report construction and operational workflow.",
+      "relations": [
+        {
+          "target_id": "5",
+          "type": "precondition",
+          "rationale": "Persistence and query mechanisms supply the usage data required for report construction and delivery."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Repository-Based Data Persistence",
+          "description": "A repository abstracts persistence and querying for bike data and usage statistics.",
+          "supporting_doc_ids": [
+            "08d25a67-aa08-4852-8a80-8cda3b79c3dd"
+          ]
+        }
+      ]
+    }
+  ]
+}

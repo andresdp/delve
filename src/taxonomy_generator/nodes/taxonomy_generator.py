@@ -1,13 +1,19 @@
 """Node for generating taxonomies from document batches."""
 
 import logging
+
 from langchain_core.runnables import RunnableConfig
 
-from taxonomy_generator.state import State
-from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain, format_feedback
 from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.prompts import TAXONOMY_GENERATION_PROMPT
+from taxonomy_generator.schemas import TaxonomyOutput
+from taxonomy_generator.state import State
+from taxonomy_generator.utils import (
+    format_feedback,
+    invoke_taxonomy_chain,
+    load_chat_model,
+)
+from taxonomy_generator.visualization import embed_and_render
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +36,7 @@ async def generate_taxonomy(
     state: State,
     config: RunnableConfig,
 ) -> dict:
-    """Generate taxonomy from the first batch of documents."""
+    """Generate taxonomy from the first batch of documents (axial coding)."""
     configuration = Configuration.from_runnable_config(config)
 
     # NOTE: Feedback for the initial taxonomy must come from external sources —
@@ -49,4 +55,11 @@ async def generate_taxonomy(
     )
     num_clusters = len(result.get("clusters", [[]])[0]) if result.get("clusters") else 0
     logger.info("Initial taxonomy generated with %d categories", num_clusters)
+
+    # Optional per-iteration PCA chart of the draft values.
+    if result.get("clusters"):
+        await embed_and_render(
+            configuration, result["clusters"][0], stage="generate", iteration_index=1,
+        )
+
     return result

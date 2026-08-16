@@ -71,7 +71,7 @@ TAXONOMY_GENERATION_PROMPT = _load_prompt(
         "\n"
         "- You can ignore low quality or ambiguous data points.\n"
         "\n"
-        "## Q2. Why did you choose these dimensions? Explain your reasoning **within {explanation_length} words**. For each dimension, explain what axis of variation it captures and why it is orthogonal to the others. Include how you addressed any user feedback."
+        "## Q2. Why did you choose these dimensions? Explain your reasoning **within {explanation_length} words**. For each dimension, explain what axis of variation it captures and why it is orthogonal to the others. Describe the values you drafted and any relations you identified. Include how you addressed any user feedback."
     ),
 )
 
@@ -102,7 +102,7 @@ TAXONOMY_UPDATE_PROMPT = _load_prompt(
         "\n"
         "- If an **\"Other\"** or catch-all dimension exists, try to minimize it by re-assigning documents to specific dimensions or creating new specific ones.\n"
         "\n"
-        "## Q2. What did you change and why? Explain your reasoning **within {explanation_length} words**. List each modification and its justification."
+        "## Q2. What did you change and why? Explain your reasoning **within {explanation_length} words**. List each modification and its justification, including changes to values and relations."
     ),
 )
 
@@ -146,10 +146,50 @@ LABELER_PROMPT = _load_prompt(
     "Classify the following document into the best-fitting category from the taxonomy above.\n\n{content}",
 )
 
+# ---------------------------------------------------------------------------
+# Open coding (grounded theory: fine-grained per-document concept extraction)
+# ---------------------------------------------------------------------------
+
+OPEN_CODING_PROMPT = _load_prompt(
+    "open_coding.md",
+    "Extract the open codes from the document above.",
+)
+
+# ---------------------------------------------------------------------------
+# Saturation check (theoretical saturation stopping condition)
+# ---------------------------------------------------------------------------
+
+SATURATION_CHECK_PROMPT = _load_prompt(
+    "saturation_check.md",
+    "Check whether the taxonomy above is saturated with respect to these open codes.",
+)
+
+# ---------------------------------------------------------------------------
+# Value merge adjudication (borderline pairs within one dimension)
+# ---------------------------------------------------------------------------
+
+VALUE_MERGE_PROMPT = _load_prompt(
+    "value_merge.md",
+    "Adjudicate whether the two candidate values above are the same decision.",
+)
+
+# ---------------------------------------------------------------------------
+# Dimension selection (selective coding as use-case relevance filtering)
+# ---------------------------------------------------------------------------
+
+DIMENSION_SELECTION_PROMPT = _load_prompt(
+    "dimension_selection.md",
+    "Select the dimensions relevant to the use case from the taxonomy above.",
+)
+
 __all__ = [
     "SUMMARY_GENERATION_PROMPT",
     "TAXONOMY_GENERATION_PROMPT",
     "TAXONOMY_UPDATE_PROMPT",
     "TAXONOMY_REVIEW_PROMPT",
     "LABELER_PROMPT",
+    "OPEN_CODING_PROMPT",
+    "SATURATION_CHECK_PROMPT",
+    "VALUE_MERGE_PROMPT",
+    "DIMENSION_SELECTION_PROMPT",
 ]

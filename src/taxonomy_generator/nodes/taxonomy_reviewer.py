@@ -2,13 +2,19 @@
 
 import logging
 import random
+
 from langchain_core.runnables import RunnableConfig
 
-from taxonomy_generator.state import State
-from taxonomy_generator.utils import load_chat_model, invoke_taxonomy_chain, format_feedback
 from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.prompts import TAXONOMY_REVIEW_PROMPT
+from taxonomy_generator.schemas import TaxonomyOutput
+from taxonomy_generator.state import State
+from taxonomy_generator.utils import (
+    format_feedback,
+    invoke_taxonomy_chain,
+    load_chat_model,
+)
+from taxonomy_generator.visualization import embed_and_render
 
 logger = logging.getLogger(__name__)
 
@@ -56,4 +62,12 @@ async def review_taxonomy(
     )
     num_clusters = len(result.get("clusters", [[]])[0]) if result.get("clusters") else 0
     logger.info("Taxonomy review complete — %d categories finalized", num_clusters)
+
+    # Optional PCA chart of the post-polish draft values.
+    if result.get("clusters"):
+        await embed_and_render(
+            configuration, result["clusters"][0], stage="review",
+            iteration_index=len(state.clusters),
+        )
+
     return result
