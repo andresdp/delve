@@ -1,48 +1,55 @@
 ---
 type: runtime workflow
 title: LangGraph pipeline and routing
-description: The compiled seven-node LangGraph workflow, its conditional branches, state lifecycle, and iteration termination invariant.
-tags: [pipeline, langgraph, routing]
+description: The compiled LangGraph workflow, its conditional branches, reducers, saturation lifecycle, post-review processing, and termination invariants.
+tags: [pipeline, langgraph, routing, lifecycle]
 ---
 
 # LangGraph pipeline and routing
 
-`src/taxonomy_generator/graph.py` constructs and compiles a `StateGraph(State, input_schema=InputState, output_schema=OutputState, context_schema=Configuration)`. The compiled object is exported as `graph` and named `Taxonomy Generation`.
+`src/taxonomy_generator/graph.py` constructs `StateGraph(State, input_schema=InputState, output_schema=OutputState, context_schema=Configuration)`. The compiled object is exported as `graph` and named `Taxonomy Generation`.
 
 ## Lifecycle
 
 ```mermaid
 flowchart TD
     Start([START]) --> Load["load_corpus"]
-    Load -->|summarize enabled| Summarize["summarize"]
+    Load -->|summarization enabled| Summarize["summarize"]
     Load -->|skip summarization| Batches["get_minibatches"]
     Summarize --> Batches
-    Batches --> Generate["generate_taxonomy"]
-    Generate --> Update["update_taxonomy"]
-    Update -->|revisions less than minibatches| Update
-    Update -->|all minibatches processed| Review["review_taxonomy"]
-    Review --> Label["label_documents"]
+    Batches --> Open["open_code_minibatch"]
+    Open -->|first pass| Generate["generate_taxonomy"]
+    Open -->|later pass| Update["update_taxonomy"]
+    Generate --> Saturation["check_saturation"]
+    Update --> Saturation
+    Saturation -->|more batches and not saturated| Open
+    Saturation -->|saturated or exhausted| Review["review_taxonomy"]
+    Review --> Consolidate["consolidate_values"]
+    Consolidate --> Select["select_dimensions"]
+    Select --> Label["label_documents"]
     Label --> Finish([END])
 ```
 
-The diagram reflects the explicit edges in `graph.py` and the decisions in `should_summarize` and `should_review`.
-
-The fixed ordering is load, optional summarize, batch, initial generation, one or more update passes, final review, then labeling. `should_review` compares `len(state.clusters)` with `len(state.minibatches)`: the initial generation contributes the first taxonomy iteration, and updates continue until every minibatch has been incorporated. `should_summarize` resolves `skip_summarization` from runtime configuration and bypasses the LLM summary node when true.
+`load_corpus` optionally leads through summaries, then every minibatch is open-coded before axial generation or update. `should_generate_or_update` routes the first open-coded batch to generation and later batches to updates. `should_review` stops when the saturation streak reaches `saturation_streak_threshold` or minibatches are exhausted; unsaturated exhaustion still proceeds to review. Review is followed by value consolidation, use-case dimension selection, and labeling.
 
 ## Node contracts
 
 | Node | Owns | Main state effect |
 |---|---|---|
 | `load_corpus` | normalization and limits | replaces `documents`; appends status |
-| `summarize` | fast-model summaries | replaces documents with summary/explanation fields |
+| `summarize` | fast-model summaries | enriches documents with summary/explanation |
 | `get_minibatches` | shuffled index partitions | replaces `minibatches` |
-| `generate_taxonomy` | first batch taxonomy | appends `clusters` and `explanations` |
-| `update_taxonomy` | subsequent refinement | appends one iteration per routing pass |
-| `review_taxonomy` | sampled final review | appends final reviewed iteration |
-| `label_documents` | classification | replaces documents and appends an `AIMessage` |
+| `open_code_minibatch` | per-document concept extraction | appends `open_codes`; advances `open_code_batch_index` |
+| `generate_taxonomy` | first-batch axial coding | appends `clusters` and `explanations` |
+| `update_taxonomy` | subsequent refinement | appends a taxonomy iteration |
+| `check_saturation` | theoretical-saturation verdict | appends history and updates streak |
+| `review_taxonomy` | sampled final review | appends reviewed taxonomy iteration |
+| `consolidate_values` | within-dimension value merging | appends a cleaned taxonomy iteration |
+| `select_dimensions` | use-case relevance filter | replaces `selected_clusters` without deleting full taxonomy |
+| `label_documents` | classification | labels documents and appends an `AIMessage` |
 
-Nodes return partial dictionaries; reducers in `State` append taxonomy/explanation/status collections while document and minibatch fields are replaced. A graph run requires non-empty documents and valid batches; empty input or invalid `batch_size` fails before meaningful LLM work.
+`clusters`, `explanations`, `status`, `open_codes`, and `saturation_history` append through reducers; document, minibatch, and selection fields are replaced. The graph requires valid non-empty corpus/batch input before meaningful model work. Configuration and node behavior are detailed in [Taxonomy generation and refinement](taxonomy.md) and [Pipeline state and structured schemas](../data-model/state-and-schemas.md).
 
 ## Extension and validation
 
-To add a pipeline step, update node registration and edges in `graph.py`, define its state contract, and update CLI streaming labels in `main.py` if it should be visible. Routing changes must preserve the relationship between taxonomy iterations and minibatches. There is no repository test suite; narrow non-network checks are `python -c "from taxonomy_generator.graph import graph; print(graph)"` and `python main.py --help` after dependencies are installed. Behavioral invariants are implemented in `nodes/corpus_loader.py`, `nodes/minibatches_generator.py`, and `routing/should_review.py`.
+To add a pipeline step, update node registration and edges in `graph.py`, define its state/schema contract, and update CLI streaming labels in `main.py` if it should be visible. Routing changes must preserve open-code index alignment, saturation termination, and post-review ordering. Narrow checks are `python -c "from taxonomy_generator.graph import graph; print(graph)"` and `python main.py --help`; provider-backed runs are conditional integration checks.

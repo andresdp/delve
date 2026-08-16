@@ -14,7 +14,7 @@ from taxonomy_generator.utils import (
     invoke_taxonomy_chain,
     load_chat_model,
 )
-from taxonomy_generator.visualization import embed_and_render
+from taxonomy_generator.visualization import render_taxonomy_biplot
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +63,9 @@ async def review_taxonomy(
     num_clusters = len(result.get("clusters", [[]])[0]) if result.get("clusters") else 0
     logger.info("Taxonomy review complete — %d categories finalized", num_clusters)
 
-    # Optional PCA chart of the post-polish draft values.
+    # Optional biplot of the post-polish draft values.
     if result.get("clusters"):
-        await embed_and_render(
+        await render_taxonomy_biplot(
             configuration, result["clusters"][0], stage="review",
             iteration_index=len(state.clusters),
         )

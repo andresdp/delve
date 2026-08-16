@@ -36,7 +36,7 @@ from taxonomy_generator.utils import (
     load_embeddings_model,
     pairwise_euclidean,
 )
-from taxonomy_generator.visualization import render_taxonomy_pca, should_render
+from taxonomy_generator.visualization import render_taxonomy_biplot, should_render
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +111,26 @@ async def consolidate_values(
     """Consolidate draft values within each dimension of the reviewed taxonomy."""
     configuration = Configuration.from_runnable_config(config)
 
+    # Optional disable: pass the reviewed taxonomy through untouched (no
+    # embeddings, no LLM adjudication). Visualization then places every value
+    # at a unitary distance on its dimension axis.
+    if not configuration.consolidate_values:
+        logger.info("Value consolidation disabled — passing taxonomy through unchanged")
+        reviewed = state.clusters[-1] if state.clusters else []
+        if should_render(configuration, "consolidate"):
+            await render_taxonomy_biplot(
+                configuration, reviewed, stage="consolidate",
+                iteration_index=len(state.clusters),
+            )
+        return {
+            "clusters": [reviewed],
+            "explanations": [
+                "Value consolidation disabled (taxonomy.consolidate_values=false); "
+                "values kept exactly as generated."
+            ],
+            "status": ["Value consolidation skipped (disabled)."],
+        }
+
     reviewed = state.clusters[-1] if state.clusters else []
     all_values = _flatten_values(reviewed)
 
@@ -142,8 +162,6 @@ async def consolidate_values(
     merged_provenance: List[str] = []
     # Global row of each draft value in the embedding matrix.
     global_ids = {v["id"]: i for i, v in enumerate(all_values)}
-    # Map consolidated value id -> its canonical draft vector (for the chart).
-    consolidated_vectors: Dict[str, np.ndarray] = {}
 
     # Process each dimension independently — values never compete across axes.
     consolidated_clusters: List[Dict] = []
@@ -163,8 +181,6 @@ async def consolidate_values(
             ]
             new_cluster["values"] = renumbered
             consolidated_clusters.append(new_cluster)
-            for i, v in enumerate(dim_values):
-                consolidated_vectors[f"{dim_id}.{i + 1}"] = vectors[global_ids[v["id"]]]
             continue
 
         dim_vector_rows = [global_ids[v["id"]] for v in dim_values]
@@ -240,9 +256,6 @@ async def consolidate_values(
             )
             new_values.append(consolidated)
             merged_provenance.append(f"[{dim_id}] {provenance}")
-            centroid = group_vectors.mean(axis=0)
-            canonical_row = int(np.argmin(np.linalg.norm(group_vectors - centroid, axis=1)))
-            consolidated_vectors[consolidated["id"]] = group_vectors[canonical_row]
 
         new_cluster["values"] = new_values
         consolidated_clusters.append(new_cluster)
@@ -253,11 +266,11 @@ async def consolidate_values(
                 dim_id, len(dim_values), len(new_values),
             )
 
-    # Final PCA chart of the consolidated values (the "after" picture).
-    # Uses full-dimensional vectors; the projection is only a view.
+    # Final biplot of the consolidated values (the "after" picture).
+    # The projection is only a view; merge decisions used full distances.
     if should_render(configuration, "consolidate"):
-        await render_taxonomy_pca(
-            configuration, consolidated_clusters, consolidated_vectors,
+        await render_taxonomy_biplot(
+            configuration, consolidated_clusters,
             stage="consolidate", iteration_index=len(state.clusters),
         )
 

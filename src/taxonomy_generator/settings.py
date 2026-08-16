@@ -73,6 +73,11 @@ class TaxonomySettings:
     # Distance band above the threshold routed to LLM adjudication instead of
     # auto-merge or auto-reject.
     value_merge_borderline_band: float = 0.08
+    # When False, value consolidation is disabled: the consolidate_values node
+    # passes the reviewed taxonomy through unchanged (no embeddings, no LLM
+    # adjudication), and visualization places all values of a dimension at a
+    # unitary distance on the dimension axis.
+    consolidate_values: bool = True
 
 
 @dataclass(frozen=True)
@@ -173,6 +178,7 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
         value_merge_borderline_band=raw.get(
             "value_merge_borderline_band", TaxonomySettings.value_merge_borderline_band
         ),
+        consolidate_values=raw.get("consolidate_values", TaxonomySettings.consolidate_values),
     )
 
 

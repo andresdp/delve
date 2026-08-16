@@ -1,24 +1,28 @@
 ---
 type: prompt architecture
 title: Prompt templates and structured LLM contracts
-description: Markdown-backed prompt loading and the five prompt-to-model-to-schema contracts used by Delve.
+description: Markdown-backed prompt loading and the nine prompt-to-model-to-schema contracts used across summarization, coding, taxonomy refinement, consolidation, selection, and labeling.
 tags: [prompts, llm, schemas]
 ---
 
 # Prompt templates and structured LLM contracts
 
-`prompts/__init__.py` loads five Markdown system files with `_load_prompt` and pairs each with an inline human message in a `ChatPromptTemplate`. Loading occurs at package import time, so missing package files fail import and prompt edits are runtime behavior changes.
+`src/taxonomy_generator/prompts/__init__.py` loads Markdown prompt files at package import time. Missing package data fails import, so prompt text and `pyproject.toml` package-data behavior are part of the runtime contract.
 
-| Template and file | Human input | Bound model | Structured schema | Key variables |
-|---|---|---|---|---|
-| `SUMMARY_GENERATION_PROMPT` / `summary_generation.md` | `{content}` | `Configuration.fast_llm` | `SummaryOutput` | `use_case`, `summary_length`, `explanation_length` |
-| `TAXONOMY_GENERATION_PROMPT` / `taxonomy_generation.md` | data/questions | `Configuration.model` | `TaxonomyOutput` | feedback, use case, lengths, max dimensions |
-| `TAXONOMY_UPDATE_PROMPT` / `taxonomy_update.md` | new batch/questions | `Configuration.model` | `TaxonomyOutput` | same taxonomy controls plus existing taxonomy/data JSON |
-| `TAXONOMY_REVIEW_PROMPT` / `taxonomy_review.md` | review questions | `Configuration.model` | `TaxonomyOutput` | same controls and review sample context |
-| `LABELER_PROMPT` / `labeler.md` | `{content}` | `Configuration.fast_llm` | `LabelOutput` | `fallback_category`, `use_case`, `taxonomy_json` |
+| Template/file | Model | Structured schema | Role |
+|---|---|---|---|
+| `SUMMARY_GENERATION_PROMPT` / `summary_generation.md` | `fast_llm` | `SummaryOutput` | summarize one document |
+| `OPEN_CODING_PROMPT` / `open_coding.md` | `fast_llm` | `OpenCodesOutput` | extract document concepts before grouping |
+| `TAXONOMY_GENERATION_PROMPT` / `taxonomy_generation.md` | `model` | `TaxonomyOutput` | create dimensions, values, and relations |
+| `TAXONOMY_UPDATE_PROMPT` / `taxonomy_update.md` | `model` | `TaxonomyOutput` | refine the existing design with a new batch |
+| `SATURATION_CHECK_PROMPT` / `saturation_check.md` | `fast_llm` | `SaturationCheckOutput` | identify uncovered concepts and saturation |
+| `TAXONOMY_REVIEW_PROMPT` / `taxonomy_review.md` | `model` | `TaxonomyOutput` | review a sampled final taxonomy |
+| `VALUE_MERGE_PROMPT` / `value_merge.md` | `model` | `ValueMergeOutput` | adjudicate borderline same-decision pairs |
+| `DIMENSION_SELECTION_PROMPT` / `dimension_selection.md` | `model` | `SelectionOutput` | retain dimensions relevant to the use case |
+| `LABELER_PROMPT` / `labeler.md` | `fast_llm` | `LabelOutput` | classify each document and choose a value when applicable |
 
-Taxonomy chains receive `data_json`, `taxonomy_json`, `use_case`, `suggestion_length`, `cluster_name_length`, `cluster_description_length`, `explanation_length`, and a rendered `max_num_clusters`. `invoke_taxonomy_chain` supplies these and appends the returned clusters/explanation. Generation/update/review prompts require orthogonal, use-case-relevant dimensions and discourage vague catch-alls. `format_feedback` supplies `None.` when no feedback exists.
+Taxonomy chains receive formatted open codes or documents, existing taxonomy JSON where applicable, use-case and length controls, feedback, and a rendered cluster limit. `format_taxonomy` includes relations and values when present. Open coding prefers summaries when available; code-less documents remain visible through a summary fallback.
 
 ## Safe change recipe
 
-When changing a prompt, preserve its variable names or update the partial bindings in the owning node/helper. If changing output shape, update the Pydantic schema, node mapping, `utils` formatting, and [CLI/output contracts](../interfaces/cli-and-outputs.md). Summary and labeling use bounded concurrency; taxonomy stages use the reasoning model. Validate prompt import with `python -c "import taxonomy_generator.prompts"` and compile the graph without network calls; provider-backed behavior requires a configured model/key and is not a deterministic test.
+Preserve prompt variable names or update the partial bindings in the owning node/helper. If changing a response shape, update `schemas.py`, the node mapping, state fields, `utils` formatting, and [CLI/output contracts](../interfaces/cli-and-outputs.md). Validate with `python -c "import taxonomy_generator.prompts"` and graph compilation without network; provider-backed generation, selection, merge adjudication, or labeling is conditional integration validation.

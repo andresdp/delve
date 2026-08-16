@@ -13,7 +13,7 @@ from taxonomy_generator.utils import (
     invoke_taxonomy_chain,
     load_chat_model,
 )
-from taxonomy_generator.visualization import embed_and_render
+from taxonomy_generator.visualization import render_taxonomy_biplot
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +63,9 @@ async def update_taxonomy(
     num_clusters = len(result.get("clusters", [[]])[0]) if result.get("clusters") else 0
     logger.info("Taxonomy updated — now %d categories", num_clusters)
 
-    # Optional per-iteration PCA chart of the evolving draft values.
+    # Optional per-iteration biplot of the evolving draft values.
     if result.get("clusters"):
-        await embed_and_render(
+        await render_taxonomy_biplot(
             configuration, result["clusters"][0], stage="update",
             iteration_index=len(state.clusters) + 1,
         )

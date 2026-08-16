@@ -46,7 +46,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 |---|---|---|---|
 | `models.model` | `str` | `"openai/gpt-5.4-nano"` | Primary LLM for **taxonomy generation, update, and review** (main reasoning tasks). Override via `LLM_MODEL` env var or `--model` CLI flag. |
 | `models.fast_llm` | `str` | `"openai/gpt-5.4-nano"` | Lighter LLM for **document summarization, labeling, open coding, and saturation checks**. Override via `LLM_FAST_MODEL` env var or `--fast-model` CLI flag. |
-| `models.embedding` | `str` | `"openai/text-embedding-3-small"` | Embedding model for **value consolidation** and taxonomy **PCA visualization**. Format: `provider/model-name`. Supported providers: `openai`, `ollama`. |
+| `models.embedding` | `str` | `"openai/text-embedding-3-small"` | Embedding model for **value consolidation** and taxonomy **biplot axis positions**. Format: `provider/model-name`. Supported providers: `openai`, `ollama`. |
 
 **Model name format:** `provider/model-name` (e.g., `openai/gpt-4o-mini`, `anthropic/claude-3-haiku-20240307`, `ollama/llama3.2`).
 
@@ -89,6 +89,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `taxonomy.saturation_streak_threshold` | `int` | `2` | Consecutive saturated minibatches required to stop the update loop early (theoretical saturation). Empirically tunable. |
 | `taxonomy.value_merge_distance_threshold` | `float` | `0.2` | Embedding-distance cutoff (`epsilon`, Euclidean on L2-normalized vectors) below which two values within the same dimension are merged automatically. Calibrated for `text-embedding-3-small`. |
 | `taxonomy.value_merge_borderline_band` | `float` | `0.08` | Distance band above `epsilon` routed to LLM adjudication instead of auto-merge or auto-reject. |
+| `taxonomy.consolidate_values` | `bool` | `true` | When `false`, value consolidation is disabled: the `consolidate_values` node passes the reviewed taxonomy through unchanged (no embeddings, no LLM adjudication), and visualization places every value at a unitary distance on its dimension axis. |
 | `taxonomy.review_sample_size` | `int` or `null` | `null` | Number of documents to sample for the final taxonomy review. `null` = use `batch_size`. |
 
 ### 2.4 Summarization
@@ -120,11 +121,13 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
-| `visualization.enabled` | `bool` | `false` | Master on/off switch for taxonomy PCA chart export. Off by default so normal runs pay no extra cost/latency. |
+| `visualization.enabled` | `bool` | `false` | Master on/off switch for taxonomy biplot chart export. Off by default so normal runs pay no extra cost/latency. |
 | `visualization.every_iteration` | `bool` | `false` | If `false`, only render the final (post-consolidation) chart; if `true`, render at every stage (generate/update/review/consolidate). |
 | `visualization.dimensions` | `int` | `2` | PCA projection dimensions for charts: `2` or `3`. |
-| `visualization.output_dir` | `str` or `null` | `null` | Directory for chart files (`taxonomy_pca_<name>_<stage>_<iter>.png`). `null` = use `output.default_output_dir` / `--output`. |
+| `visualization.output_dir` | `str` or `null` | `null` | Directory for chart files (`taxonomy_biplot_<name>_<stage>_<iter>.png`). `null` = use `output.default_output_dir` / `--output`. |
 
+> **Biplot semantics:** the design matrix has one row per *value* and one column per *dimension*. A value's entry in its own dimension's column encodes its position along that axis — derived from the same embedding geometry used by consolidation (reduced to 1-D via classical MDS within each dimension) when `taxonomy.consolidate_values` is `true`, or a unitary `1.0` otherwise. Dimension columns are drawn as loading arrows; each value's point lies on its dimension's arrow at a distance reflecting its axis position.
+>
 > **Caveat:** merge decisions are never made from the projected 2D/3D coordinates — only from full-dimensional embedding distance. The chart reports explained variance and flags itself as a weak proxy when captured variance is low.
 
 ### Example `config.yaml`
@@ -339,6 +342,7 @@ For all other settings:
 | **Taxonomy** | Value merge distance threshold (epsilon) | `taxonomy.value_merge_distance_threshold` | `0.2` |
 | **Taxonomy** | Value merge borderline band | `taxonomy.value_merge_borderline_band` | `0.08` |
 | **Taxonomy** | Review sample size | `taxonomy.review_sample_size` | `null` (uses `batch_size`) |
+| **Taxonomy** | Value consolidation enabled | `taxonomy.consolidate_values` | `true` |
 | **Summarization** | Skip summarization | `summarization.skip` | `false` |
 | **Summarization** | Summary length (words) | `summarization.summary_length` | `20` |
 | **Summarization** | Summary explanation length (words) | `summarization.summary_explanation_length` | `30` |
@@ -353,6 +357,14 @@ For all other settings:
 | **Visualization** | Render every iteration | `visualization.every_iteration` | `false` |
 | **Visualization** | PCA dimensions | `visualization.dimensions` | `2` |
 | **Visualization** | Chart output directory | `visualization.output_dir` | `null` (uses `output.default_output_dir`) |
+
+### 📊 Standalone biplot command
+
+```bash
+python main.py --visualize <path/to/taxonomy.json> [--iteration N] [--axis-positions {auto,embeddings,uniform}] [--output DIR]
+```
+
+Renders a PCA biplot from a saved taxonomy JSON without running the pipeline. Cluster source: `--iteration N` (1-based) > `selected_clusters` > last iteration. `auto` follows the `consolidated` flag recorded in the file (uniform for legacy files — fully offline); `uniform` places every value of a dimension at unit distance (no API calls); `embeddings` computes axis positions from the embedding model.
 
 ### ✅ Configurable via CLI / Env
 

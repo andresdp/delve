@@ -7,7 +7,7 @@ tags: [architecture, langgraph, taxonomy]
 
 # Delve architecture overview
 
-Delve is a Python 3.9+ package that turns an unstructured corpus into an iteratively refined taxonomy and LLM-labeled documents. The repository has one runtime application (`main.py`) and one installable package under `src/taxonomy_generator`; it is not a multi-service workspace. The research/design intent is TnT-LLM Phase A: taxonomy generation and zero-shot labeling, not classifier training.
+Delve is a Python 3.9+ package that turns an unstructured corpus into an iteratively refined taxonomy and LLM-labeled documents. The repository has one runtime application (`main.py`) and one installable package under `src/taxonomy_generator`; it is not a multi-service workspace. The research/design intent is TnT-LLM-style taxonomy generation and zero-shot labeling, with open coding, saturation checks, value consolidation, and use-case dimension selection; it does not train a lightweight classifier in this repository.
 
 ## Composition and entrypoints
 
@@ -22,8 +22,11 @@ flowchart TD
     Cli --> Normalize["strings_to_docs and load_corpus"]
     Normalize --> Graph["compiled LangGraph graph"]
     Graph --> Taxonomy["taxonomy iterations"]
+    Taxonomy --> Consolidate["value consolidation"]
+    Consolidate --> Select["selected dimensions"]
     Graph --> Labeled["labeled Doc records"]
     Taxonomy --> Files["timestamped JSON outputs"]
+    Select --> Files
     Labeled --> Files
     Config["config.yaml and RunnableConfig"] --> Graph
     Models["LangChain chat model providers"] --> Graph

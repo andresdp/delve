@@ -10,6 +10,9 @@ Usage:
 
     # With custom config file:
     python main.py --corpus my_corpus.txt --config /path/to/config.yaml
+
+    # Render a PCA biplot from a saved taxonomy JSON (no LLM calls in uniform mode):
+    python main.py --visualize my_output/taxonomy_20250101_120000.json
 """
 
 import argparse
@@ -192,6 +195,32 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help="Suppress log output — show only rich-formatted results.",
+    )
+
+    # Visualization
+    visualize_group = parser.add_argument_group("Visualization")
+    visualize_group.add_argument(
+        "--visualize",
+        type=str,
+        default=None,
+        help="Render a PCA biplot from a saved taxonomy JSON file and exit "
+             "(does not run the pipeline). Accepts any *_taxonomy_*.json output.",
+    )
+    visualize_group.add_argument(
+        "--iteration",
+        type=int,
+        default=None,
+        help="With --visualize: 1-based taxonomy iteration to render. "
+             "Default: selected_clusters if present, else the last iteration.",
+    )
+    visualize_group.add_argument(
+        "--axis-positions",
+        choices=["auto", "embeddings", "uniform"],
+        default="auto",
+        help="With --visualize: how values are placed on dimension axes. "
+             "'auto' follows the consolidated flag recorded in the file "
+             "(uniform when absent), 'embeddings' uses the embedding model, "
+             "'uniform' places every value at unit distance.",
     )
 
     return parser.parse_args()
@@ -418,6 +447,87 @@ def _display_messages(messages: list) -> None:
     console.print()
 
 
+def _select_clusters_for_visualize(data, iteration):
+    """Pick the taxonomy iteration to render from a saved taxonomy JSON.
+
+    Priority: --iteration N (1-based) > selected_clusters > last iteration.
+    Returns (clusters, iteration_number).
+    """
+    if isinstance(data, list):
+        # Bare cluster-list file.
+        return data, 1
+
+    iterations = data.get("iterations") or []
+    if iteration is not None:
+        if not 1 <= iteration <= len(iterations):
+            raise SystemExit(
+                f"--iteration {iteration} out of range (file has {len(iterations)} iterations)"
+            )
+        return iterations[iteration - 1].get("clusters") or [], iteration
+
+    if data.get("selected_clusters"):
+        return data["selected_clusters"], len(iterations) or 1
+
+    if iterations:
+        return iterations[-1].get("clusters") or [], len(iterations)
+
+    raise SystemExit("No iterations or selected_clusters found in the taxonomy file")
+
+
+async def _run_visualize(args: argparse.Namespace) -> None:
+    """Render a PCA biplot from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+
+    try:
+        with open(args.visualize) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        console.print(f"[bold red]❌ Could not load taxonomy file: {e}[/bold red]")
+        raise SystemExit(1)
+
+    clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+
+    # 'auto': follow the consolidated flag recorded in the file; legacy files
+    # without it fall back to uniform (fully offline, no API calls).
+    axis_positions = args.axis_positions
+    if axis_positions == "auto" and isinstance(data, dict) and "consolidated" in data:
+        axis_positions = "embeddings" if data.get("consolidated") else "uniform"
+
+    name = data.get("taxonomy_name") if isinstance(data, dict) else None
+    configurable = {
+        "name": name or settings.taxonomy.name,
+        # Force visualization on for this invocation; honor --output.
+        "visualization_enabled": True,
+    }
+    if args.output:
+        configurable["visualization_output_dir"] = args.output
+    configuration = Configuration.from_runnable_config({"configurable": configurable})
+
+    n_values = sum(len(c.get("values") or []) for c in clusters if isinstance(c, dict))
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.visualize}\n"
+        f"[bold]Iteration:[/bold] {iteration}\n"
+        f"[bold]Values:[/bold] {n_values}\n"
+        f"[bold]Dimensions:[/bold] {len(clusters)}\n"
+        f"[bold]Axis positions:[/bold] {axis_positions}",
+        title="[bold bright_blue]📊 Taxonomy Biplot[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+
+    from taxonomy_generator.visualization import render_taxonomy_biplot
+
+    out_path = await render_taxonomy_biplot(
+        configuration, clusters,
+        stage="standalone", iteration_index=iteration,
+        axis_positions=axis_positions,
+    )
+    if out_path:
+        console.print(f"\n  [bold green]✅ Biplot saved to:[/bold green] {out_path}\n")
+    else:
+        console.print("\n  [bold red]❌ Biplot could not be rendered — see log output.[/bold red]\n")
+        raise SystemExit(1)
+
+
 async def run(args: argparse.Namespace) -> None:
     if not args.corpus:
         logger.error("--corpus is required")
@@ -443,7 +553,7 @@ async def run(args: argparse.Namespace) -> None:
         configurable["model"] = args.model
         logger.info("Overriding main model: %s", args.model)
     if args.fast_model:
-        configurable["fast_llm"] = args.fast_model
+        configurable["fast_llm"] = args.fast_llm
         logger.info("Overriding fast model: %s", args.fast_model)
     if args.name:
         configurable["name"] = args.name
@@ -618,6 +728,7 @@ async def run(args: argparse.Namespace) -> None:
         # Save taxonomy (all iterations paired with explanations)
         taxonomy_data = {
             "taxonomy_name": effective_config.name,
+            "consolidated": bool(effective_config.consolidate_values),
             "iterations": [],
         }
         if saturation_history:
@@ -741,6 +852,12 @@ def main() -> None:
     )
     # Suppress noisy HTTP request logs from httpx/openai
     logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # Standalone biplot mode — render from a saved taxonomy JSON and exit.
+    if args.visualize:
+        asyncio.run(_run_visualize(args))
+        return
+
     logger.info("Delve Taxonomy Generator starting")
     asyncio.run(run(args))
 

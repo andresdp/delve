@@ -145,6 +145,11 @@ class Configuration:
         metadata={"description": "Distance band above epsilon routed to LLM adjudication for value merges."},
     )
 
+    consolidate_values: bool = field(
+        default=None,
+        metadata={"description": "Consolidate semantically duplicate values within dimensions (default true)."},
+    )
+
     # ── Summarization ──────────────────────────────────────────────────
     skip_summarization: bool = field(
         default=None,
@@ -274,6 +279,7 @@ class Configuration:
             "saturation_streak_threshold": s.taxonomy.saturation_streak_threshold,
             "value_merge_distance_threshold": s.taxonomy.value_merge_distance_threshold,
             "value_merge_borderline_band": s.taxonomy.value_merge_borderline_band,
+            "consolidate_values": s.taxonomy.consolidate_values,
             # Summarization
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,

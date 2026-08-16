@@ -1,6 +1,6 @@
 # Files
 
-- [Document classification](classification.md) - Final-taxonomy selection, bounded parallel LLM labeling, confidence records, fallback behavior, and classification messages.
-- [LangGraph pipeline and routing](graph.md) - The compiled seven-node LangGraph workflow, its conditional branches, state lifecycle, and iteration termination invariant.
+- [Document classification](classification.md) - Final-taxonomy selection, bounded parallel LLM labeling, confidence and value records, fallback behavior, and classification messages.
+- [LangGraph pipeline and routing](graph.md) - The compiled LangGraph workflow, its conditional branches, reducers, saturation lifecycle, post-review processing, and termination invariants.
 - [Corpus ingestion and preprocessing](ingestion-and-preprocessing.md) - File input normalization, document limits, optional summaries, concurrency, and minibatch construction before taxonomy generation.
-- [Taxonomy generation and refinement](taxonomy.md) - Initial taxonomy creation, minibatch-driven updates, final review, and the prompt/model contracts that produce taxonomy iterations.
+- [Taxonomy generation, consolidation, and selection](taxonomy.md) - Open coding, minibatch-driven taxonomy refinement, saturation review, embedding-based value consolidation, and use-case dimension selection.
