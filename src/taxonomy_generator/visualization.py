@@ -252,6 +252,15 @@ def export_axis_matrix_csv(
     return out_path
 
 
+def _point_label(point: Dict, max_len: int = 25) -> str:
+    """Annotation text for a value point: ``id: Label`` (truncated)."""
+    label = str(point.get("label", "")).strip()
+    text = f"{point['value_id']}: {label}" if label else str(point["value_id"])
+    if len(text) > max_len:
+        text = text[: max_len - 1] + "…"
+    return text
+
+
 def _extract_loadings(result, n_features: int, n_components: int) -> Optional[np.ndarray]:
     """Extract a ``(n_features x n_components)`` loadings matrix from a pca result."""
     loadings = None
@@ -382,13 +391,21 @@ async def render_taxonomy_biplot(
             projected[:, 2] + offsets[:, 2],
             c=colors, s=48, alpha=0.85,
         )
+        for i, point in enumerate(points):
+            ax.text(
+                projected[i, 0] + offsets[i, 0],
+                projected[i, 1] + offsets[i, 1],
+                projected[i, 2] + offsets[i, 2],
+                _point_label(point),
+                fontsize=6, alpha=0.7,
+            )
         ax.set_zlabel("PC3")
     else:
         ax = fig.add_subplot()
         ax.scatter(projected[:, 0] + offsets[:, 0], projected[:, 1] + offsets[:, 1], c=colors, s=48, alpha=0.85)
         for i, point in enumerate(points):
             ax.annotate(
-                point["value_id"],
+                _point_label(point),
                 (projected[i, 0] + offsets[i, 0], projected[i, 1] + offsets[i, 1]),
                 fontsize=7,
                 alpha=0.7,
@@ -400,7 +417,9 @@ async def render_taxonomy_biplot(
     ax.set_ylabel("PC2")
 
     # Dimension loading arrows (biplot). Scaled to a fraction of the score
-    # spread so arrows and points share the same visual frame.
+    # spread so arrows and points share the same visual frame. No per-arrow
+    # text labels — arrows are identified by color via the legend, which
+    # avoids overlapping texts when arrows sit close together.
     if loadings is not None:
         max_radius = float(np.max(np.linalg.norm(projected, axis=1))) if len(projected) else 0.0
         max_arrow = float(np.max(np.linalg.norm(loadings, axis=1))) if loadings.size else 0.0
@@ -409,30 +428,17 @@ async def render_taxonomy_biplot(
             arrows = loadings * scale
             for i, dim in enumerate(dims):
                 color = dim_colors[dim["id"]]
-                label = f"{dim['id']}: {dim['name']}"
-                if len(label) > 30:
-                    label = label[:27] + "..."
                 if n_components >= 3:
                     ax.quiver(
                         0, 0, 0, arrows[i, 0], arrows[i, 1], arrows[i, 2],
                         color=color, linewidth=1.6, arrow_length_ratio=0.08,
                     )
-                    ax.text(arrows[i, 0], arrows[i, 1], arrows[i, 2], label, fontsize=8, color=color)
                 else:
                     ax.annotate(
                         "",
                         xy=(arrows[i, 0], arrows[i, 1]),
                         xytext=(0, 0),
                         arrowprops=dict(arrowstyle="->", color=color, lw=1.6),
-                    )
-                    ax.annotate(
-                        label,
-                        (arrows[i, 0], arrows[i, 1]),
-                        fontsize=8,
-                        color=color,
-                        fontweight="bold",
-                        xytext=(4, 4),
-                        textcoords="offset points",
                     )
 
     weak_proxy = " (weak proxy — low captured variance)" if variance_share < 0.5 else ""
