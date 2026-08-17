@@ -17,6 +17,7 @@ stored ``explanation`` and dimension descriptions.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, Dict, List
 
 from taxonomy_generator.configuration import Configuration
@@ -275,3 +276,27 @@ def assemble_report(
     lines.append(render_catalog(clusters))
 
     return "\n".join(lines)
+
+
+async def generate_and_write_report(
+    clusters: List[Cluster],
+    explanation: str,
+    configuration: Configuration,
+    out_path: Path,
+) -> str | None:
+    """Generate the narrative summary, assemble the report, and write it to disk.
+
+    Shared by every report-generation call site (standalone and
+    auto-triggered), so the generate-assemble-write sequence lives in one
+    place rather than being duplicated per caller.
+
+    Returns:
+        The generated narrative summary, or ``None`` when it was
+        unavailable (see :func:`generate_narrative_summary`). The file is
+        written either way — callers use the return value only to decide
+        what to tell the operator.
+    """
+    narrative = await generate_narrative_summary(clusters, explanation, configuration)
+    report_markdown = assemble_report(clusters, narrative)
+    out_path.write_text(report_markdown)
+    return narrative

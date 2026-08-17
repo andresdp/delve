@@ -497,7 +497,7 @@ def _select_clusters_for_visualize(data, iteration):
 
 
 def _explanation_for_view(data: Any, iteration_arg: Optional[int]) -> str:
-    """Resolve the explanation text paired with the rendered view (KTD5).
+    """Resolve the explanation text paired with the rendered view.
 
     ``_select_clusters_for_visualize`` only returns ``(clusters,
     iteration_number)`` — it does not expose which iteration's
@@ -507,8 +507,8 @@ def _explanation_for_view(data: Any, iteration_arg: Optional[int]) -> str:
     - ``--iteration N`` renders iteration N's own clusters, so its own
       explanation (``iterations[N-1]["explanation"]``) is the correct text.
     - The default view (``selected_clusters`` when present, else the last
-      iteration) has no explanation of its own paired 1:1 with it, so per
-      KTD5 it falls back to the latest iteration's explanation.
+      iteration) has no explanation of its own paired 1:1 with it, so it
+      falls back to the latest iteration's explanation.
 
     Returns "" when no matching explanation is available (e.g. a bare
     cluster-list file, or a legacy file whose iteration entries omit
@@ -526,16 +526,25 @@ def _explanation_for_view(data: Any, iteration_arg: Optional[int]) -> str:
     return ""
 
 
-async def _run_visualize(args: argparse.Namespace) -> None:
-    """Render a PCA biplot from a saved taxonomy JSON and exit."""
-    settings = init_settings(args.config)
-
+def _load_taxonomy_file(path: str) -> Any:
+    """Load and parse a saved taxonomy JSON file, exiting with a clear error on failure."""
     try:
-        with open(args.visualize) as f:
-            data = json.load(f)
+        with open(path) as f:
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError) as e:
         console.print(f"[bold red]❌ Could not load taxonomy file: {e}[/bold red]")
         raise SystemExit(1)
+
+
+def _count_values(clusters: Any) -> int:
+    """Count total values across a list of cluster dicts."""
+    return sum(len(c.get("values") or []) for c in clusters if isinstance(c, dict))
+
+
+async def _run_visualize(args: argparse.Namespace) -> None:
+    """Render a PCA biplot from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+    data = _load_taxonomy_file(args.visualize)
 
     clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
 
@@ -555,7 +564,7 @@ async def _run_visualize(args: argparse.Namespace) -> None:
         configurable["visualization_output_dir"] = args.output
     configuration = Configuration.from_runnable_config({"configurable": configurable})
 
-    n_values = sum(len(c.get("values") or []) for c in clusters if isinstance(c, dict))
+    n_values = _count_values(clusters)
     console.print(Panel(
         f"[bold]File:[/bold] {args.visualize}\n"
         f"[bold]Iteration:[/bold] {iteration}\n"
@@ -583,13 +592,7 @@ async def _run_visualize(args: argparse.Namespace) -> None:
 async def _run_report(args: argparse.Namespace) -> None:
     """Render a grounded-theory markdown report from a saved taxonomy JSON and exit."""
     settings = init_settings(args.config)
-
-    try:
-        with open(args.report) as f:
-            data = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        console.print(f"[bold red]❌ Could not load taxonomy file: {e}[/bold red]")
-        raise SystemExit(1)
+    data = _load_taxonomy_file(args.report)
 
     clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
     explanation = _explanation_for_view(data, args.iteration)
@@ -604,7 +607,7 @@ async def _run_report(args: argparse.Namespace) -> None:
         configurable["visualization_output_dir"] = args.output
     configuration = Configuration.from_runnable_config({"configurable": configurable})
 
-    n_values = sum(len(c.get("values") or []) for c in clusters if isinstance(c, dict))
+    n_values = _count_values(clusters)
     console.print(Panel(
         f"[bold]File:[/bold] {args.report}\n"
         f"[bold]Iteration:[/bold] {iteration}\n"
@@ -613,11 +616,6 @@ async def _run_report(args: argparse.Namespace) -> None:
         title="[bold bright_blue]📄 Grounded Theory Report[/bold bright_blue]",
         border_style="bright_blue",
     ))
-
-    narrative = await report_renderer.generate_narrative_summary(clusters, explanation, configuration)
-    if narrative is None:
-        console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
-    report_markdown = report_renderer.assemble_report(clusters, narrative)
 
     from taxonomy_generator.visualization import resolve_output_dir
 
@@ -628,8 +626,12 @@ async def _run_report(args: argparse.Namespace) -> None:
     name_prefix = f"{name_prefix}_" if name_prefix else ""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = out_dir / f"{name_prefix}report_{timestamp}.md"
-    with open(out_path, "w") as f:
-        f.write(report_markdown)
+
+    narrative = await report_renderer.generate_and_write_report(
+        clusters, explanation, configuration, out_path
+    )
+    if narrative is None:
+        console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
 
     console.print(f"\n  [bold green]✅ Report saved to:[/bold green] {out_path}\n")
 
@@ -927,12 +929,12 @@ async def run(args: argparse.Namespace) -> None:
         else:
             tree_path = None
 
-        # Generate the grounded-theory markdown report automatically (R2),
-        # unless the operator opted out (R12). Reuses the just-built
-        # taxonomy_data — it already has the exact {"iterations": [...],
-        # "selected_clusters": [...]} shape _select_clusters_for_visualize
-        # and _explanation_for_view expect from a loaded taxonomy JSON, so
-        # the same view-precedence helpers apply here unmodified (R4).
+        # Generate the grounded-theory markdown report automatically, unless
+        # the operator opted out. Reuses the just-built taxonomy_data — it
+        # already has the exact {"iterations": [...], "selected_clusters":
+        # [...]} shape _select_clusters_for_visualize and
+        # _explanation_for_view expect from a loaded taxonomy JSON, so the
+        # same view-precedence helpers apply here unmodified.
         report_path = None
         if not args.no_auto_report:
             if taxonomy_data["iterations"] or taxonomy_data.get("selected_clusters"):
@@ -940,15 +942,12 @@ async def run(args: argparse.Namespace) -> None:
                     taxonomy_data, args.iteration
                 )
                 report_explanation = _explanation_for_view(taxonomy_data, args.iteration)
-                narrative = await report_renderer.generate_narrative_summary(
-                    report_clusters, report_explanation, effective_config
+                report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
+                narrative = await report_renderer.generate_and_write_report(
+                    report_clusters, report_explanation, effective_config, report_path
                 )
                 if narrative is None:
                     logger.info("Narrative summary unavailable — report will omit it.")
-                report_markdown = report_renderer.assemble_report(report_clusters, narrative)
-                report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
-                with open(report_path, "w") as f:
-                    f.write(report_markdown)
                 logger.info(
                     "Report saved to: %s (iteration %s)", report_path, report_iteration
                 )
