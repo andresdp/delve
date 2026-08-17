@@ -938,19 +938,26 @@ async def run(args: argparse.Namespace) -> None:
         report_path = None
         if not args.no_auto_report:
             if taxonomy_data["iterations"] or taxonomy_data.get("selected_clusters"):
-                report_clusters, report_iteration = _select_clusters_for_visualize(
-                    taxonomy_data, args.iteration
-                )
-                report_explanation = _explanation_for_view(taxonomy_data, args.iteration)
-                report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
-                narrative = await report_renderer.generate_and_write_report(
-                    report_clusters, report_explanation, effective_config, report_path
-                )
-                if narrative is None:
-                    logger.info("Narrative summary unavailable — report will omit it.")
-                logger.info(
-                    "Report saved to: %s (iteration %s)", report_path, report_iteration
-                )
+                try:
+                    report_clusters, report_iteration = _select_clusters_for_visualize(
+                        taxonomy_data, args.iteration
+                    )
+                except SystemExit as e:
+                    # The four core --output artifacts are already saved at this
+                    # point; an out-of-range --iteration should degrade the
+                    # report step gracefully rather than aborting a successful run.
+                    logger.warning("Skipping automatic report generation: %s", e)
+                else:
+                    report_explanation = _explanation_for_view(taxonomy_data, args.iteration)
+                    report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
+                    narrative = await report_renderer.generate_and_write_report(
+                        report_clusters, report_explanation, effective_config, report_path
+                    )
+                    if narrative is None:
+                        logger.info("Narrative summary unavailable — report will omit it.")
+                    logger.info(
+                        "Report saved to: %s (iteration %s)", report_path, report_iteration
+                    )
             else:
                 logger.info("No taxonomy generated — skipping automatic report generation.")
 

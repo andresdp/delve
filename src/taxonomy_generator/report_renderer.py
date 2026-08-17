@@ -31,8 +31,13 @@ Cluster = Dict[str, Any]
 
 
 def _cluster_id(cluster: Cluster) -> str:
-    """Return a cluster's id as a string, defaulting to '?' when absent."""
-    return str(cluster.get("id", "?"))
+    """Return a cluster's id as a string, defaulting to '?' when absent or null."""
+    return str(cluster.get("id") or "?")
+
+
+def _relation_target_id(relation: Dict[str, Any]) -> str:
+    """Return a relation's target_id as a string, defaulting to '' when absent or null."""
+    return str(relation.get("target_id") or "")
 
 
 def _mermaid_node_id(cluster_id: str) -> str:
@@ -46,8 +51,13 @@ def _mermaid_node_id(cluster_id: str) -> str:
 
 
 def _escape_mermaid_label(text: str) -> str:
-    """Escape characters that would break a quoted mermaid node/edge label."""
-    return text.replace('"', "'")
+    """Escape characters that would break a quoted mermaid node/edge label.
+
+    Quoted mermaid labels must stay on one physical line — an embedded
+    newline splits the label mid-statement and corrupts the fenced block,
+    so newlines are collapsed to spaces alongside the existing quote escape.
+    """
+    return text.replace('"', "'").replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
 
 
 def render_diagram(clusters: List[Cluster]) -> str:
@@ -83,7 +93,7 @@ def render_diagram(clusters: List[Cluster]) -> str:
         node_id = _mermaid_node_id(cid)
         relations = cluster.get("relations") or []
         for relation in relations:
-            target_id = str(relation.get("target_id", ""))
+            target_id = _relation_target_id(relation)
             if target_id not in rendered_ids:
                 continue
             relation_type = relation.get("type") or "related_to"
@@ -147,7 +157,7 @@ def render_catalog(clusters: List[Cluster]) -> str:
             for relation in relations:
                 if not isinstance(relation, dict):
                     continue
-                target_id = str(relation.get("target_id", ""))
+                target_id = _relation_target_id(relation)
                 relation_type = relation.get("type") or "related_to"
                 rationale = relation.get("rationale") or ""
                 target_cluster = clusters_by_id.get(target_id)

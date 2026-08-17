@@ -20,6 +20,7 @@
 
 - **Reword and synthesize only.** You are polishing existing text for readability, not analyzing new data. Every claim in your summary must already be present, in substance, in the taxonomy explanation or a dimension description above.
 - **Never invent structure.** Do not introduce a dimension name, relation type, or value name that is not present in the "Dimensions" section above. Do not assert a relation between dimensions unless the source material already states it.
+- **The "Dimensions" section is the sole authority on what exists in this view.** The "Taxonomy Explanation" text may have been written for an earlier or broader version of the taxonomy and can reference dimensions that are no longer part of this rendered view. Ignore any such reference — do not carry a dimension, relation, or value into your summary unless it also appears in "Dimensions".
 - **Do not contradict the source.** If the explanation and a dimension description appear to disagree, preserve both framings rather than resolving the tension yourself.
 - Write for a reader with no prior context on this taxonomy: prefer plain language over jargon, and spell out acronyms on first use if the source material does.
 - Keep the summary to a few short paragraphs — long enough to orient the reader, short enough to read before the diagram.
