@@ -1,0 +1,1917 @@
+{
+  "taxonomy_name": "campus-bike",
+  "consolidated": true,
+  "iterations": [
+    {
+      "explanation": "Seven orthogonal axes separate behavior structuring, notifications, availability synchronization, operations, pricing, payments, and session security; no previous feedback existed.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Rental Operation Structuring",
+          "description": "Architectural patterns for structuring executable rental operations, including where command-based encapsulation applies or is deliberately excluded.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "precondition",
+              "rationale": "Authenticated sessions are required to safely authorize rental actions and prevent unauthorized operation execution."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Command-Based Rental Operations",
+              "description": "Encapsulates rental actions as command objects to organize execution and potentially support queuing, logging, or undo behavior.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Scoped Command Application",
+              "description": "Limits command usage to rental operations rather than applying it to notification scheduling, preserving responsibility boundaries.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Client Notification Delivery",
+          "description": "Client-facing delivery of rental and usage updates, distinguished by notification propagation and asynchronous UI scheduling rather than inventory synchronization.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Client notifications commonly consume state changes produced by bike availability synchronization."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer-Based Rental Notifications",
+              "description": "Uses observers to notify UI components when rental state changes, keeping client views synchronized with rental activity.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Asynchronous Notification Scheduling",
+              "description": "Uses asynchronous scheduling when necessary so state-change notifications do not block application processing or degrade UI responsiveness.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ]
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Observer-Based User Updates",
+              "description": "Uses observers to push bike-status and usage-history changes to users and other interested client consumers.",
+              "supporting_doc_ids": [
+                "98e9971e-bec1-47ef-9e86-e5e8246fd389"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Bike Availability Synchronization",
+          "description": "Mechanisms for detecting bike-status changes and refreshing availability data, distinct from delivering broader user notifications.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Availability changes provide operational state that monitoring dashboards and analytics can consume."
+            },
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Availability state changes are a direct source of client-facing availability notifications."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer-Based Availability Refresh",
+              "description": "Uses observers to refresh the available-bike list whenever a bike status changes.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Status-Change Driven Synchronization",
+              "description": "Triggers availability updates directly from bike-status transitions, making state change the synchronization event.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Operational Monitoring and Analytics",
+          "description": "Aggregation and interpretation of live bike operations data for dashboards, monitoring, and usage-based operational insight.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Monitoring and analytics depend on current operational state, including synchronized bike availability and status data."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Aggregated Operations Dashboard",
+              "description": "Aggregates bike status information into an operational dashboard for centralized visibility.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Real-Time Operational Monitoring",
+              "description": "Provides live visibility into bike conditions and platform operations.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Usage Analytics Processing",
+              "description": "Processes usage data to support operational analysis and service optimization.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Rental Pricing Calculation",
+          "description": "Architectural strategies for determining rental charges, separate from the mechanisms that execute external payment transactions.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "The calculated rental amount is an input required by payment-provider integration when charging a rider."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy-Based Pricing Calculation",
+              "description": "Uses a dedicated strategy abstraction to select and vary rental pricing calculation behavior.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Separated Pricing and Notification Timing",
+              "description": "Keeps notification timing outside pricing calculation, maintaining separation between charge computation and event delivery responsibilities.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Third-Party Payment Integration",
+          "description": "Abstraction and decoupling choices for integrating multiple external payment providers while preserving a stable internal payment contract.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Payment integration requires a computed charge amount from the rental pricing strategy before invoking an external provider."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Adapter-Based Payment Integration",
+              "description": "Wraps third-party payment providers with adapters so provider-specific interfaces conform to the platform’s internal contract.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Common Internal Payment Interface",
+              "description": "Exposes a common internal payment interface, insulating rental services from provider-specific APIs and implementation details.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Authenticated Session Protection",
+          "description": "Controls for limiting authenticated account exposure over time, distinct from rental behavior, notifications, payments, and operational data processing.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Session timeout limits the period during which users can access protected rental and payment-related operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Fifteen-Minute Inactivity Timeout",
+              "description": "Automatically logs users out after 15 minutes of inactivity to reduce unauthorized access risk.",
+              "supporting_doc_ids": [
+                "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Automatic Idle Logout",
+              "description": "Terminates authenticated sessions automatically after an idle period as an account and privacy protection.",
+              "supporting_doc_ids": [
+                "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Renamed dimensions 4 and 7; added repository, reporting, onboarding, verification, and encryption values; refined security and payment relations; preserved prior values.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Rental Operation Structuring",
+          "description": "Architectural patterns for structuring executable rental operations, including command encapsulation and its deliberate scope boundaries.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "precondition",
+              "rationale": "Authenticated sessions and account protections are required to authorize rental actions safely."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Command-Based Rental Operations",
+              "description": "Encapsulates rental actions as command objects to organize execution and potentially support queuing, logging, or undo behavior.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Scoped Command Application",
+              "description": "Limits command usage to rental operations rather than applying it to notification scheduling, preserving responsibility boundaries.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Client Notification Delivery",
+          "description": "Client-facing delivery of rental, availability, and usage updates through observation and asynchronous scheduling mechanisms.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Client notifications commonly consume availability and operational state changes produced by synchronization mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer-Based Rental Notifications",
+              "description": "Uses observers to notify UI components when rental state changes, keeping client views synchronized with rental activity.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Asynchronous Notification Scheduling",
+              "description": "Uses asynchronous scheduling so state-change notifications do not block processing or degrade UI responsiveness.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ]
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Observer-Based User Updates",
+              "description": "Uses observers to push bike-status and usage-history changes to users and other interested client consumers.",
+              "supporting_doc_ids": [
+                "98e9971e-bec1-47ef-9e86-e5e8246fd389"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Bike Availability Synchronization",
+          "description": "Mechanisms for detecting bike-status changes and refreshing availability data, distinct from broader client notification delivery.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Availability changes provide operational state consumed by monitoring, analytics, and reporting functions."
+            },
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Availability state changes are a direct source of client-facing availability notifications."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer-Based Availability Refresh",
+              "description": "Uses observers to refresh the available-bike list whenever a bike status changes.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Status-Change Driven Synchronization",
+              "description": "Triggers availability updates directly from bike-status transitions, making state change the synchronization event.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Operational Data and Reporting",
+          "description": "Persistence, querying, aggregation, interpretation, and presentation of operational and usage data for monitoring and reporting.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Operational data processing depends on current bike availability and status information."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Aggregated Operations Dashboard",
+              "description": "Aggregates bike status information into an operational dashboard for centralized visibility.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Real-Time Operational Monitoring",
+              "description": "Provides live visibility into bike conditions and platform operations.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Usage Analytics Processing",
+              "description": "Processes usage data to support operational analysis and service optimization.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Repository-Based Bike Persistence",
+              "description": "Uses repository abstractions to isolate bike-domain persistence from application and domain logic.",
+              "supporting_doc_ids": [
+                "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+              ]
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Repository-Based Usage Querying",
+              "description": "Uses repository abstractions to query usage statistics while separating analytics access from storage implementation.",
+              "supporting_doc_ids": [
+                "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+              ]
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Builder-Based Usage Reports",
+              "description": "Uses a Builder pattern to compose structured usage-history reports from multiple report components.",
+              "supporting_doc_ids": [
+                "8b991615-1c2a-4626-be23-211b598d6806"
+              ]
+            },
+            {
+              "id": "4.7",
+              "dimension_id": "4",
+              "label": "Downloadable Usage History",
+              "description": "Produces usage-history reports as downloadable artifacts for rider-facing history access.",
+              "supporting_doc_ids": [
+                "8b991615-1c2a-4626-be23-211b598d6806"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Rental Pricing Calculation",
+          "description": "Architectural strategies for determining rental charges, separate from external payment transaction execution.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "The calculated rental amount is required before a payment provider can charge a rider."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy-Based Pricing Calculation",
+              "description": "Uses a dedicated strategy abstraction to select and vary rental pricing calculation behavior.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Separated Pricing and Notification Timing",
+              "description": "Keeps notification timing outside pricing calculation, separating charge computation from event delivery responsibilities.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Third-Party Payment Integration",
+          "description": "Abstraction and decoupling choices for integrating external payment providers through a stable internal payment contract.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "precondition",
+              "rationale": "Payment integration requires a computed charge amount from the rental pricing strategy."
+            },
+            {
+              "target_id": "7",
+              "type": "constrains",
+              "rationale": "Payment-related information requires account and data-security controls during transmission and storage."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Adapter-Based Payment Integration",
+              "description": "Wraps third-party payment providers with adapters so provider-specific interfaces conform to the platform's internal contract.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Common Internal Payment Interface",
+              "description": "Exposes a common internal payment interface, insulating rental services from provider-specific APIs and implementation details.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Identity and Data Security",
+          "description": "Controls authentication, account onboarding, verification-code lifecycle, session exposure, and confidentiality of user and payment data.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Security controls restrict access to rental and payment operations and protect associated user information."
+            },
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "Identity verification and secure data handling are required before protected payment operations can proceed."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Fifteen-Minute Inactivity Timeout",
+              "description": "Automatically logs users out after 15 minutes of inactivity to reduce unauthorized access risk.",
+              "supporting_doc_ids": [
+                "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Automatic Idle Logout",
+              "description": "Terminates authenticated sessions automatically after an idle period as an account and privacy protection.",
+              "supporting_doc_ids": [
+                "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+              ]
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Identity Data Collection at Signup",
+              "description": "Collects identity information during signup as part of account creation and access management.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Contact Data Collection at Signup",
+              "description": "Collects contact information during signup to support account verification and user communication.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Password-Based Authentication",
+              "description": "Requires password credentials for account creation and subsequent authentication.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.6",
+              "dimension_id": "7",
+              "label": "Optional Location Data Collection",
+              "description": "Makes location collection optional, supporting location-aware services while preserving user choice and privacy.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.7",
+              "dimension_id": "7",
+              "label": "Registration Security Controls",
+              "description": "Applies security controls to registration workflows to protect onboarding data and account creation.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.8",
+              "dimension_id": "7",
+              "label": "Time-Limited Verification Tokens",
+              "description": "Issues verification tokens with a defined lifetime as part of authentication or account verification.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81",
+                "02c6bb05-8795-4cbb-a674-8fef497b49a4",
+                "355629bb-1dd0-4938-9644-695bb7968493"
+              ]
+            },
+            {
+              "id": "7.9",
+              "dimension_id": "7",
+              "label": "Thirty-Minute Verification-Code Validity",
+              "description": "Sets verification-code validity to 30 minutes, limiting the exposure period for account verification.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81",
+                "02c6bb05-8795-4cbb-a674-8fef497b49a4",
+                "355629bb-1dd0-4938-9644-695bb7968493"
+              ]
+            },
+            {
+              "id": "7.10",
+              "dimension_id": "7",
+              "label": "Verification-Code Delivery Channel",
+              "description": "Delivers verification codes through an explicitly selected communication channel within the authentication flow.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81"
+              ]
+            },
+            {
+              "id": "7.11",
+              "dimension_id": "7",
+              "label": "Thirty-Second Verification-Code Validity",
+              "description": "Sets verification-code lifetime to 30 seconds to prevent reuse and reduce authentication abuse.",
+              "supporting_doc_ids": [
+                "0a0d65a5-35f7-496b-a264-efaaecb81598"
+              ]
+            },
+            {
+              "id": "7.12",
+              "dimension_id": "7",
+              "label": "Encryption of Data in Transit",
+              "description": "Encrypts user and payment data during transmission to protect confidentiality across web and mobile communications.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            },
+            {
+              "id": "7.13",
+              "dimension_id": "7",
+              "label": "Encryption of Stored User Data",
+              "description": "Encrypts persisted user information to protect confidentiality of stored registration and payment-related data.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            },
+            {
+              "id": "7.14",
+              "dimension_id": "7",
+              "label": "Registration Data Confidentiality",
+              "description": "Applies confidentiality protections specifically to registration information handled during onboarding.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            },
+            {
+              "id": "7.15",
+              "dimension_id": "7",
+              "label": "Payment Data Confidentiality",
+              "description": "Applies confidentiality protections to payment-related information handled by the platform and external payment integrations.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated duplicate security values and corrected directional relations; all seven dimensions remain relevant, distinct, and sample documents remain assignable.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Rental Operation Structuring",
+          "description": "Architectural patterns for structuring executable rental operations, including command encapsulation and deliberate boundaries around command usage.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "precondition",
+              "rationale": "Authenticated sessions and account protections are required to authorize rental actions safely."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Command-Based Rental Operations",
+              "description": "Encapsulates rental actions as command objects to organize execution and potentially support queuing, logging, or undo behavior.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Scoped Command Application",
+              "description": "Limits command usage to rental operations rather than applying it to notification scheduling, preserving responsibility boundaries.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Client Notification Delivery",
+          "description": "Client-facing delivery of rental, availability, and usage updates through observation and asynchronous scheduling mechanisms.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Client notifications commonly consume availability and operational state changes produced by synchronization mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer-Based Rental Notifications",
+              "description": "Uses observers to notify UI components when rental state changes, keeping client views synchronized with rental activity.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Asynchronous Notification Scheduling",
+              "description": "Uses asynchronous scheduling so state-change notifications do not block processing or degrade UI responsiveness.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ]
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Observer-Based User Updates",
+              "description": "Uses observers to push bike-status and usage-history changes to users and other interested client consumers.",
+              "supporting_doc_ids": [
+                "98e9971e-bec1-47ef-9e86-e5e8246fd389"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Bike Availability Synchronization",
+          "description": "Mechanisms for detecting bike-status changes and refreshing availability data, distinct from broader client notification delivery.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Availability changes provide operational state consumed by monitoring, analytics, and reporting functions."
+            },
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Availability state changes are a direct source of client-facing availability notifications."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer-Based Availability Refresh",
+              "description": "Uses observers to refresh the available-bike list whenever a bike status changes.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Status-Change Driven Synchronization",
+              "description": "Triggers availability updates directly from bike-status transitions, making state change the synchronization event.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Operational Data and Reporting",
+          "description": "Persistence, querying, aggregation, interpretation, and presentation of operational and usage data for monitoring and reporting.",
+          "relations": [],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Aggregated Operations Dashboard",
+              "description": "Aggregates bike status information into an operational dashboard for centralized visibility.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Real-Time Operational Monitoring",
+              "description": "Provides live visibility into bike conditions and platform operations.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Usage Analytics Processing",
+              "description": "Processes usage data to support operational analysis and service optimization.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ]
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Repository-Based Bike Persistence",
+              "description": "Uses repository abstractions to isolate bike-domain persistence from application and domain logic.",
+              "supporting_doc_ids": [
+                "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+              ]
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Repository-Based Usage Querying",
+              "description": "Uses repository abstractions to query usage statistics while separating analytics access from storage implementation.",
+              "supporting_doc_ids": [
+                "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+              ]
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Builder-Based Usage Reports",
+              "description": "Uses a Builder pattern to compose structured usage-history reports from multiple report components.",
+              "supporting_doc_ids": [
+                "8b991615-1c2a-4626-be23-211b598d6806"
+              ]
+            },
+            {
+              "id": "4.7",
+              "dimension_id": "4",
+              "label": "Downloadable Usage History",
+              "description": "Produces usage-history reports as downloadable artifacts for rider-facing history access.",
+              "supporting_doc_ids": [
+                "8b991615-1c2a-4626-be23-211b598d6806"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Rental Pricing Calculation",
+          "description": "Architectural strategies for determining rental charges, separate from external payment transaction execution.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "consequence",
+              "rationale": "Pricing decisions produce the rental amount later used by payment processing."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy-Based Pricing Calculation",
+              "description": "Uses a dedicated strategy abstraction to select and vary rental pricing calculation behavior.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Separated Pricing and Notification Timing",
+              "description": "Keeps notification timing outside pricing calculation, separating charge computation from event delivery responsibilities.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Third-Party Payment Integration",
+          "description": "Abstraction and decoupling choices for integrating external payment providers through a stable internal payment contract.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "precondition",
+              "rationale": "Payment integration requires a computed charge amount from the rental pricing strategy."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Adapter-Based Payment Integration",
+              "description": "Wraps third-party payment providers with adapters so provider-specific interfaces conform to the platform's internal contract.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Common Internal Payment Interface",
+              "description": "Exposes a common internal payment interface, insulating rental services from provider-specific APIs and implementation details.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Identity and Data Security",
+          "description": "Controls identity, authentication, session protection, verification lifecycles, and confidentiality of user and payment data.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Security controls restrict access to rental and payment operations and protect associated user information."
+            },
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "Identity verification and secure data handling are required before protected payment operations can proceed."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Fifteen-Minute Inactivity Timeout",
+              "description": "Automatically logs users out after 15 minutes of inactivity to reduce unauthorized access risk.",
+              "supporting_doc_ids": [
+                "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+              ]
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Identity Data Collection at Signup",
+              "description": "Collects identity information during signup as part of account creation and access management.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Contact Data Collection at Signup",
+              "description": "Collects contact information during signup to support account verification and user communication.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Password-Based Authentication",
+              "description": "Requires password credentials for account creation and subsequent authentication.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc",
+                "ef3797cd-39c5-478e-b305-85a46bbd4ffa"
+              ]
+            },
+            {
+              "id": "7.6",
+              "dimension_id": "7",
+              "label": "Optional Location Data Collection",
+              "description": "Makes location collection optional, supporting location-aware services while preserving user choice and privacy.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.7",
+              "dimension_id": "7",
+              "label": "Registration Security Controls",
+              "description": "Applies security controls to registration workflows to protect onboarding data and account creation.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ]
+            },
+            {
+              "id": "7.9",
+              "dimension_id": "7",
+              "label": "Thirty-Minute Verification-Code Validity",
+              "description": "Sets verification-code validity to 30 minutes, limiting the exposure period for account verification.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81",
+                "02c6bb05-8795-4cbb-a674-8fef497b49a4",
+                "355629bb-1dd0-4938-9644-695bb7968493"
+              ]
+            },
+            {
+              "id": "7.10",
+              "dimension_id": "7",
+              "label": "Verification-Code Delivery Channel",
+              "description": "Delivers verification codes through an explicitly selected communication channel within the authentication flow.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81"
+              ]
+            },
+            {
+              "id": "7.11",
+              "dimension_id": "7",
+              "label": "Thirty-Second Verification-Code Validity",
+              "description": "Sets verification-code lifetime to 30 seconds to prevent reuse and reduce authentication abuse.",
+              "supporting_doc_ids": [
+                "0a0d65a5-35f7-496b-a264-efaaecb81598"
+              ]
+            },
+            {
+              "id": "7.12",
+              "dimension_id": "7",
+              "label": "Encryption of Data in Transit",
+              "description": "Encrypts user and payment data during transmission to protect confidentiality across web and mobile communications.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            },
+            {
+              "id": "7.13",
+              "dimension_id": "7",
+              "label": "Encryption of Stored User Data",
+              "description": "Encrypts persisted user information to protect confidentiality of stored registration and payment-related data.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            },
+            {
+              "id": "7.14",
+              "dimension_id": "7",
+              "label": "Registration Data Confidentiality",
+              "description": "Applies confidentiality protections specifically to registration information handled during onboarding.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            },
+            {
+              "id": "7.15",
+              "dimension_id": "7",
+              "label": "Payment Data Confidentiality",
+              "description": "Applies confidentiality protections to payment-related information handled by the platform and external payment integrations.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 31 draft values. Merge decisions (threshold 0.200, borderline band 0.080): [1] kept 1.1 as-is; [1] kept 1.2 as-is; [2] kept 2.1 as-is; [2] kept 2.2 as-is; [2] kept 2.3 as-is; [3] kept 3.1 as-is; [3] kept 3.2 as-is; [4] kept 4.1 as-is; [4] kept 4.2 as-is; [4] kept 4.3 as-is; [4] kept 4.4 as-is; [4] kept 4.5 as-is; [4] kept 4.6 as-is; [4] kept 4.7 as-is; [5] kept 5.1 as-is; [5] kept 5.2 as-is; [6] kept 6.1 as-is; [6] kept 6.2 as-is; [7] kept 7.1 as-is; [7] kept 7.3 as-is; [7] kept 7.4 as-is; [7] kept 7.5 as-is; [7] kept 7.6 as-is; [7] kept 7.7 as-is; [7] kept 7.9 as-is; [7] kept 7.10 as-is; [7] kept 7.11 as-is; [7] kept 7.12 as-is; [7] kept 7.13 as-is; [7] kept 7.14 as-is; [7] kept 7.15 as-is",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Rental Operation Structuring",
+          "description": "Architectural patterns for structuring executable rental operations, including command encapsulation and deliberate boundaries around command usage.",
+          "relations": [
+            {
+              "target_id": "7",
+              "type": "precondition",
+              "rationale": "Authenticated sessions and account protections are required to authorize rental actions safely."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Command-Based Rental Operations",
+              "description": "Encapsulates rental actions as command objects to organize execution and potentially support queuing, logging, or undo behavior.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Scoped Command Application",
+              "description": "Limits command usage to rental operations rather than applying it to notification scheduling, preserving responsibility boundaries.",
+              "supporting_doc_ids": [
+                "d657c7b5-003c-4459-bf83-1d2303cac270"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Client Notification Delivery",
+          "description": "Client-facing delivery of rental, availability, and usage updates through observation and asynchronous scheduling mechanisms.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Client notifications commonly consume availability and operational state changes produced by synchronization mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer-Based Rental Notifications",
+              "description": "Uses observers to notify UI components when rental state changes, keeping client views synchronized with rental activity.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Asynchronous Notification Scheduling",
+              "description": "Uses asynchronous scheduling so state-change notifications do not block processing or degrade UI responsiveness.",
+              "supporting_doc_ids": [
+                "47704444-8c6a-4ab6-a475-583b8f42358d"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Observer-Based User Updates",
+              "description": "Uses observers to push bike-status and usage-history changes to users and other interested client consumers.",
+              "supporting_doc_ids": [
+                "98e9971e-bec1-47ef-9e86-e5e8246fd389"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Bike Availability Synchronization",
+          "description": "Mechanisms for detecting bike-status changes and refreshing availability data, distinct from broader client notification delivery.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Availability changes provide operational state consumed by monitoring, analytics, and reporting functions."
+            },
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Availability state changes are a direct source of client-facing availability notifications."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer-Based Availability Refresh",
+              "description": "Uses observers to refresh the available-bike list whenever a bike status changes.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Status-Change Driven Synchronization",
+              "description": "Triggers availability updates directly from bike-status transitions, making state change the synchronization event.",
+              "supporting_doc_ids": [
+                "321ab560-9bfe-4dad-81d0-bd697533adf1"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Operational Data and Reporting",
+          "description": "Persistence, querying, aggregation, interpretation, and presentation of operational and usage data for monitoring and reporting.",
+          "relations": [],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Aggregated Operations Dashboard",
+              "description": "Aggregates bike status information into an operational dashboard for centralized visibility.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Real-Time Operational Monitoring",
+              "description": "Provides live visibility into bike conditions and platform operations.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Usage Analytics Processing",
+              "description": "Processes usage data to support operational analysis and service optimization.",
+              "supporting_doc_ids": [
+                "8b81e393-3c14-41b1-9148-6a9004a1f002"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Repository-Based Bike Persistence",
+              "description": "Uses repository abstractions to isolate bike-domain persistence from application and domain logic.",
+              "supporting_doc_ids": [
+                "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Repository-Based Usage Querying",
+              "description": "Uses repository abstractions to query usage statistics while separating analytics access from storage implementation.",
+              "supporting_doc_ids": [
+                "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Builder-Based Usage Reports",
+              "description": "Uses a Builder pattern to compose structured usage-history reports from multiple report components.",
+              "supporting_doc_ids": [
+                "8b991615-1c2a-4626-be23-211b598d6806"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.7",
+              "dimension_id": "4",
+              "label": "Downloadable Usage History",
+              "description": "Produces usage-history reports as downloadable artifacts for rider-facing history access.",
+              "supporting_doc_ids": [
+                "8b991615-1c2a-4626-be23-211b598d6806"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Rental Pricing Calculation",
+          "description": "Architectural strategies for determining rental charges, separate from external payment transaction execution.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "consequence",
+              "rationale": "Pricing decisions produce the rental amount later used by payment processing."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy-Based Pricing Calculation",
+              "description": "Uses a dedicated strategy abstraction to select and vary rental pricing calculation behavior.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Separated Pricing and Notification Timing",
+              "description": "Keeps notification timing outside pricing calculation, separating charge computation from event delivery responsibilities.",
+              "supporting_doc_ids": [
+                "af26ffff-a771-4794-9757-b0dd897d2b03"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Third-Party Payment Integration",
+          "description": "Abstraction and decoupling choices for integrating external payment providers through a stable internal payment contract.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "precondition",
+              "rationale": "Payment integration requires a computed charge amount from the rental pricing strategy."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Adapter-Based Payment Integration",
+              "description": "Wraps third-party payment providers with adapters so provider-specific interfaces conform to the platform's internal contract.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Common Internal Payment Interface",
+              "description": "Exposes a common internal payment interface, insulating rental services from provider-specific APIs and implementation details.",
+              "supporting_doc_ids": [
+                "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Identity and Data Security",
+          "description": "Controls identity, authentication, session protection, verification lifecycles, and confidentiality of user and payment data.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Security controls restrict access to rental and payment operations and protect associated user information."
+            },
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "Identity verification and secure data handling are required before protected payment operations can proceed."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Fifteen-Minute Inactivity Timeout",
+              "description": "Automatically logs users out after 15 minutes of inactivity to reduce unauthorized access risk.",
+              "supporting_doc_ids": [
+                "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Identity Data Collection at Signup",
+              "description": "Collects identity information during signup as part of account creation and access management.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Contact Data Collection at Signup",
+              "description": "Collects contact information during signup to support account verification and user communication.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Password-Based Authentication",
+              "description": "Requires password credentials for account creation and subsequent authentication.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc",
+                "ef3797cd-39c5-478e-b305-85a46bbd4ffa"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Optional Location Data Collection",
+              "description": "Makes location collection optional, supporting location-aware services while preserving user choice and privacy.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.6",
+              "dimension_id": "7",
+              "label": "Registration Security Controls",
+              "description": "Applies security controls to registration workflows to protect onboarding data and account creation.",
+              "supporting_doc_ids": [
+                "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.7",
+              "dimension_id": "7",
+              "label": "Thirty-Minute Verification-Code Validity",
+              "description": "Sets verification-code validity to 30 minutes, limiting the exposure period for account verification.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81",
+                "02c6bb05-8795-4cbb-a674-8fef497b49a4",
+                "355629bb-1dd0-4938-9644-695bb7968493"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.8",
+              "dimension_id": "7",
+              "label": "Verification-Code Delivery Channel",
+              "description": "Delivers verification codes through an explicitly selected communication channel within the authentication flow.",
+              "supporting_doc_ids": [
+                "e09d6807-031e-44b6-ac3c-197502d78f81"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.9",
+              "dimension_id": "7",
+              "label": "Thirty-Second Verification-Code Validity",
+              "description": "Sets verification-code lifetime to 30 seconds to prevent reuse and reduce authentication abuse.",
+              "supporting_doc_ids": [
+                "0a0d65a5-35f7-496b-a264-efaaecb81598"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.10",
+              "dimension_id": "7",
+              "label": "Encryption of Data in Transit",
+              "description": "Encrypts user and payment data during transmission to protect confidentiality across web and mobile communications.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.11",
+              "dimension_id": "7",
+              "label": "Encryption of Stored User Data",
+              "description": "Encrypts persisted user information to protect confidentiality of stored registration and payment-related data.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.12",
+              "dimension_id": "7",
+              "label": "Registration Data Confidentiality",
+              "description": "Applies confidentiality protections specifically to registration information handled during onboarding.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.13",
+              "dimension_id": "7",
+              "label": "Payment Data Confidentiality",
+              "description": "Applies confidentiality protections to payment-related information handled by the platform and external payment integrations.",
+              "supporting_doc_ids": [
+                "57ec3120-93a5-4208-922e-0b3033c17f3f"
+              ],
+              "merged_from": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are already subsumed by existing taxonomy dimensions. The Command-pattern items map directly to Dimension 1 (Rental Operation Structuring), the observer/asynchronous notification items map to Dimension 2 (Client Notification Delivery), bike availability/status-change refresh items map to Dimension 3 (Bike Availability Synchronization), dashboard/real-time monitoring/analytics map to Dimension 4 (Operational Monitoring and Analytics), pricing strategy and notification-separation map to Dimension 5 (Rental Pricing Calculation), payment integration/interface items map to Dimension 6 (Third-Party Payment Integration), and inactivity timeout/automatic logout map to Dimension 7 (Authenticated Session Protection). No open code introduces a distinct architectural concern outside these existing axes for the CityBike use case."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are already subsumed by existing taxonomy dimensions. The authentication-related codes map to Dimension 7 (Identity and Data Security), including verification token validity, signup identity/contact collection, password-based authentication, optional location data collection, registration security controls, code delivery channel, and multiple code-expiry variants. The persistence/querying codes map to Dimension 4 (Operational Data and Reporting), specifically repository-based bike persistence, repository-based usage querying, report assembly, and downloadable usage history. The remaining codes about encryption and confidentiality are also covered by Dimension 7. No open code introduces a new architectural axis distinct from the existing security, persistence, reporting, or authentication concerns, so no uncovered concepts remain."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "7",
+      "name": "Identity and Data Security",
+      "description": "Controls identity, authentication, session protection, verification lifecycles, and confidentiality of user and payment data.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "constrains",
+          "rationale": "Security controls restrict access to rental and payment operations and protect associated user information."
+        },
+        {
+          "target_id": "6",
+          "type": "precondition",
+          "rationale": "Identity verification and secure data handling are required before protected payment operations can proceed."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Fifteen-Minute Inactivity Timeout",
+          "description": "Automatically logs users out after 15 minutes of inactivity to reduce unauthorized access risk.",
+          "supporting_doc_ids": [
+            "f17c32c8-28ed-43b5-8c6e-723d0aeb96eb"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Identity Data Collection at Signup",
+          "description": "Collects identity information during signup as part of account creation and access management.",
+          "supporting_doc_ids": [
+            "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Contact Data Collection at Signup",
+          "description": "Collects contact information during signup to support account verification and user communication.",
+          "supporting_doc_ids": [
+            "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Password-Based Authentication",
+          "description": "Requires password credentials for account creation and subsequent authentication.",
+          "supporting_doc_ids": [
+            "3ea91d1b-de90-4cda-bb36-7d30532643dc",
+            "ef3797cd-39c5-478e-b305-85a46bbd4ffa"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.5",
+          "dimension_id": "7",
+          "label": "Optional Location Data Collection",
+          "description": "Makes location collection optional, supporting location-aware services while preserving user choice and privacy.",
+          "supporting_doc_ids": [
+            "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.6",
+          "dimension_id": "7",
+          "label": "Registration Security Controls",
+          "description": "Applies security controls to registration workflows to protect onboarding data and account creation.",
+          "supporting_doc_ids": [
+            "3ea91d1b-de90-4cda-bb36-7d30532643dc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.7",
+          "dimension_id": "7",
+          "label": "Thirty-Minute Verification-Code Validity",
+          "description": "Sets verification-code validity to 30 minutes, limiting the exposure period for account verification.",
+          "supporting_doc_ids": [
+            "e09d6807-031e-44b6-ac3c-197502d78f81",
+            "02c6bb05-8795-4cbb-a674-8fef497b49a4",
+            "355629bb-1dd0-4938-9644-695bb7968493"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.8",
+          "dimension_id": "7",
+          "label": "Verification-Code Delivery Channel",
+          "description": "Delivers verification codes through an explicitly selected communication channel within the authentication flow.",
+          "supporting_doc_ids": [
+            "e09d6807-031e-44b6-ac3c-197502d78f81"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.9",
+          "dimension_id": "7",
+          "label": "Thirty-Second Verification-Code Validity",
+          "description": "Sets verification-code lifetime to 30 seconds to prevent reuse and reduce authentication abuse.",
+          "supporting_doc_ids": [
+            "0a0d65a5-35f7-496b-a264-efaaecb81598"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.10",
+          "dimension_id": "7",
+          "label": "Encryption of Data in Transit",
+          "description": "Encrypts user and payment data during transmission to protect confidentiality across web and mobile communications.",
+          "supporting_doc_ids": [
+            "57ec3120-93a5-4208-922e-0b3033c17f3f"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.11",
+          "dimension_id": "7",
+          "label": "Encryption of Stored User Data",
+          "description": "Encrypts persisted user information to protect confidentiality of stored registration and payment-related data.",
+          "supporting_doc_ids": [
+            "57ec3120-93a5-4208-922e-0b3033c17f3f"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.12",
+          "dimension_id": "7",
+          "label": "Registration Data Confidentiality",
+          "description": "Applies confidentiality protections specifically to registration information handled during onboarding.",
+          "supporting_doc_ids": [
+            "57ec3120-93a5-4208-922e-0b3033c17f3f"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.13",
+          "dimension_id": "7",
+          "label": "Payment Data Confidentiality",
+          "description": "Applies confidentiality protections to payment-related information handled by the platform and external payment integrations.",
+          "supporting_doc_ids": [
+            "57ec3120-93a5-4208-922e-0b3033c17f3f"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Third-Party Payment Integration",
+      "description": "Abstraction and decoupling choices for integrating external payment providers through a stable internal payment contract.",
+      "relations": [
+        {
+          "target_id": "5",
+          "type": "precondition",
+          "rationale": "Payment integration requires a computed charge amount from the rental pricing strategy."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Adapter-Based Payment Integration",
+          "description": "Wraps third-party payment providers with adapters so provider-specific interfaces conform to the platform's internal contract.",
+          "supporting_doc_ids": [
+            "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Common Internal Payment Interface",
+          "description": "Exposes a common internal payment interface, insulating rental services from provider-specific APIs and implementation details.",
+          "supporting_doc_ids": [
+            "0419eaf0-be97-4f61-90c7-21bde0891a8a"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Rental Pricing Calculation",
+      "description": "Architectural strategies for determining rental charges, separate from external payment transaction execution.",
+      "relations": [
+        {
+          "target_id": "6",
+          "type": "consequence",
+          "rationale": "Pricing decisions produce the rental amount later used by payment processing."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Strategy-Based Pricing Calculation",
+          "description": "Uses a dedicated strategy abstraction to select and vary rental pricing calculation behavior.",
+          "supporting_doc_ids": [
+            "af26ffff-a771-4794-9757-b0dd897d2b03"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Separated Pricing and Notification Timing",
+          "description": "Keeps notification timing outside pricing calculation, separating charge computation from event delivery responsibilities.",
+          "supporting_doc_ids": [
+            "af26ffff-a771-4794-9757-b0dd897d2b03"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "name": "Rental Operation Structuring",
+      "description": "Architectural patterns for structuring executable rental operations, including command encapsulation and deliberate boundaries around command usage.",
+      "relations": [
+        {
+          "target_id": "7",
+          "type": "precondition",
+          "rationale": "Authenticated sessions and account protections are required to authorize rental actions safely."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Command-Based Rental Operations",
+          "description": "Encapsulates rental actions as command objects to organize execution and potentially support queuing, logging, or undo behavior.",
+          "supporting_doc_ids": [
+            "d657c7b5-003c-4459-bf83-1d2303cac270"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Scoped Command Application",
+          "description": "Limits command usage to rental operations rather than applying it to notification scheduling, preserving responsibility boundaries.",
+          "supporting_doc_ids": [
+            "d657c7b5-003c-4459-bf83-1d2303cac270"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Bike Availability Synchronization",
+      "description": "Mechanisms for detecting bike-status changes and refreshing availability data, distinct from broader client notification delivery.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "Availability changes provide operational state consumed by monitoring, analytics, and reporting functions."
+        },
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "Availability state changes are a direct source of client-facing availability notifications."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Observer-Based Availability Refresh",
+          "description": "Uses observers to refresh the available-bike list whenever a bike status changes.",
+          "supporting_doc_ids": [
+            "321ab560-9bfe-4dad-81d0-bd697533adf1"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Status-Change Driven Synchronization",
+          "description": "Triggers availability updates directly from bike-status transitions, making state change the synchronization event.",
+          "supporting_doc_ids": [
+            "321ab560-9bfe-4dad-81d0-bd697533adf1"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Client Notification Delivery",
+      "description": "Client-facing delivery of rental, availability, and usage updates through observation and asynchronous scheduling mechanisms.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "consequence",
+          "rationale": "Client notifications commonly consume availability and operational state changes produced by synchronization mechanisms."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Observer-Based Rental Notifications",
+          "description": "Uses observers to notify UI components when rental state changes, keeping client views synchronized with rental activity.",
+          "supporting_doc_ids": [
+            "47704444-8c6a-4ab6-a475-583b8f42358d"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Asynchronous Notification Scheduling",
+          "description": "Uses asynchronous scheduling so state-change notifications do not block processing or degrade UI responsiveness.",
+          "supporting_doc_ids": [
+            "47704444-8c6a-4ab6-a475-583b8f42358d"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Observer-Based User Updates",
+          "description": "Uses observers to push bike-status and usage-history changes to users and other interested client consumers.",
+          "supporting_doc_ids": [
+            "98e9971e-bec1-47ef-9e86-e5e8246fd389"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Operational Data and Reporting",
+      "description": "Persistence, querying, aggregation, interpretation, and presentation of operational and usage data for monitoring and reporting.",
+      "relations": [],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Aggregated Operations Dashboard",
+          "description": "Aggregates bike status information into an operational dashboard for centralized visibility.",
+          "supporting_doc_ids": [
+            "8b81e393-3c14-41b1-9148-6a9004a1f002"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Real-Time Operational Monitoring",
+          "description": "Provides live visibility into bike conditions and platform operations.",
+          "supporting_doc_ids": [
+            "8b81e393-3c14-41b1-9148-6a9004a1f002"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Usage Analytics Processing",
+          "description": "Processes usage data to support operational analysis and service optimization.",
+          "supporting_doc_ids": [
+            "8b81e393-3c14-41b1-9148-6a9004a1f002"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Repository-Based Bike Persistence",
+          "description": "Uses repository abstractions to isolate bike-domain persistence from application and domain logic.",
+          "supporting_doc_ids": [
+            "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Repository-Based Usage Querying",
+          "description": "Uses repository abstractions to query usage statistics while separating analytics access from storage implementation.",
+          "supporting_doc_ids": [
+            "beb7c0db-7aa8-4f79-95ed-8115163fd9bc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.6",
+          "dimension_id": "4",
+          "label": "Builder-Based Usage Reports",
+          "description": "Uses a Builder pattern to compose structured usage-history reports from multiple report components.",
+          "supporting_doc_ids": [
+            "8b991615-1c2a-4626-be23-211b598d6806"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.7",
+          "dimension_id": "4",
+          "label": "Downloadable Usage History",
+          "description": "Produces usage-history reports as downloadable artifacts for rider-facing history access.",
+          "supporting_doc_ids": [
+            "8b991615-1c2a-4626-be23-211b598d6806"
+          ],
+          "merged_from": []
+        }
+      ]
+    }
+  ]
+}

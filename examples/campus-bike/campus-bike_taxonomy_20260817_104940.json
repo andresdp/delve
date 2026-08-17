@@ -1,0 +1,1999 @@
+{
+  "taxonomy_name": "campus-bike",
+  "consolidated": true,
+  "iterations": [
+    {
+      "explanation": "No previous feedback was provided. Orthogonal axes separate identity, sessions, verification, rental state, persistence, notifications, lifecycle events, and command encapsulation.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Identity and Credential Security",
+          "description": "Authentication mechanisms and credential-protection choices, distinguished from session termination and domain workflow behavior.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Credential authentication and protection determine which secure identity context can be established for CityBike sessions."
+            },
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Authenticated identity is required before protected rental operations such as QR-based unlocking can begin."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Email/password authentication",
+              "description": "Uses email and password as the primary user authentication mechanism.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Transport and storage protection",
+              "description": "Protects credentials during transmission and while stored by the platform.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Ephemeral verification codes",
+              "description": "Uses short-lived verification codes to reduce replay and unauthorized account-verification risk.",
+              "supporting_doc_ids": [
+                "8cf5307e-dd93-4ff4-a976-dce29a946888"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Session Lifecycle Control",
+          "description": "Session lifecycle policies governing how authenticated access is ended, independently of credential validation or rental state.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Session termination operationalizes the security boundary established by identity and credential mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Immediate logout termination",
+              "description": "Provides an explicit logout action that immediately invalidates or ends the current user session.",
+              "supporting_doc_ids": [
+                "f0e2c013-88ea-4952-874c-4c11a1a987e6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Rental Workflow State Management",
+          "description": "State and interaction models for progressing users and rentals through unlock, active-use, and return stages.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Rental workflows require authenticated users before unlocking or changing protected rental states."
+            },
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Reliable rental state tracking generally requires persistence for current lifecycle state and historical usage data."
+            },
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "State transitions create the changes that clients and operational components need to receive in real time."
+            },
+            {
+              "target_id": "7",
+              "type": "co_occurring",
+              "rationale": "Command objects provide an implementation form for actions represented by the rental workflow."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "State-machine workflow",
+              "description": "Represents navigation and rental progression with explicit states rather than ad hoc conditional transitions.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "QR-based bike unlocking",
+              "description": "Starts a rental by scanning a bike QR code and transitioning the rental into an unlocked state.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Rental lifecycle state tracking",
+              "description": "Tracks checkout, active ride, return, and related bike-status transitions as explicit lifecycle states.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Persistence and Data Access",
+          "description": "Abstractions and policies for storing, querying, and retrieving operational and analytical CityBike data.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Rental lifecycle and bike status decisions depend on a way to persist and query domain state."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Repository-based persistence abstraction",
+              "description": "Uses repositories to decouple domain services from persistence technology while supporting bike-data queries.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Usage-statistics persistence",
+              "description": "Persists and retrieves usage statistics alongside operational bike information for platform analysis.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Real-Time Notification Delivery",
+          "description": "Mechanisms for propagating state changes to user interfaces or components, emphasizing timing and delivery behavior.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Rental and bike-state transitions are the source events that notifications communicate to clients and dependent components."
+            },
+            {
+              "target_id": "6",
+              "type": "co_occurring",
+              "rationale": "Event-driven processing can deliver asynchronous updates that become user-visible or operational notifications."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Observer-based state notifications",
+              "description": "Uses observers to push rental-state changes to the UI or subscribed components.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Scheduled event delivery",
+              "description": "Uses scheduler assistance when notification dispatch requires deferred or timed delivery.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d"
+              ]
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "UI synchronization on state change",
+              "description": "Updates client components when rental state changes so displayed availability and ride status remain synchronized.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Bike Lifecycle Event Integration",
+          "description": "Asynchronous propagation of bike registration, update, and removal events across services or processing components.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Asynchronous bike lifecycle events can produce downstream state updates that notification mechanisms expose to users or operators."
+            },
+            {
+              "target_id": "7",
+              "type": "co_occurring",
+              "rationale": "Event-driven processing and command-based operations are complementary but distinct interaction styles for service coordination."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Event-driven bike registration",
+              "description": "Treats bike registration as an initiating domain event that triggers subsequent processing.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Asynchronous downstream bike updates",
+              "description": "Processes bike removal and update actions asynchronously after the registration event.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Rental Operation Command Strategy",
+          "description": "Encapsulation and applicability boundaries for executing rental actions, separate from notification scheduling and event delivery.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Command encapsulation organizes actions performed within the rental workflow but does not determine workflow states themselves."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Explicitly excluding commands from notification scheduling preserves a separate event-delivery mechanism for asynchronous updates."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Command-based rental operations",
+              "description": "Encapsulates rental operations as command objects to separate action requests from their execution.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Separate notification scheduling",
+              "description": "Keeps notification scheduling outside the Command pattern, assigning it to a distinct delivery approach.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Merged event/notification axes; consolidated commands into workflow; broadened data for reports; added payment axis; added values and relations.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Identity and Credential Security",
+          "description": "Authentication mechanisms, credential protection, and verification-token policies that establish secure user identity contexts.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Credential authentication and protection determine which secure identity context can be established for CityBike sessions."
+            },
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Authenticated identity is required before protected rental operations such as QR-based unlocking can begin."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Email/password authentication",
+              "description": "Uses email and password as the primary user authentication mechanism.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Transport and storage protection",
+              "description": "Protects credentials during transmission and while stored by the platform.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Ephemeral verification code authentication",
+              "description": "Generates and delivers short-lived verification codes to support secure account authentication.",
+              "supporting_doc_ids": [
+                "8cf5307e-dd93-4ff4-a976-dce29a946888",
+                "e6167813-b03d-457d-a7e7-fc8dfbf914f6"
+              ]
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "30-minute verification-code validity",
+              "description": "Expires verification-code tokens after a specified 30-minute validity window to limit replay risk.",
+              "supporting_doc_ids": [
+                "e6167813-b03d-457d-a7e7-fc8dfbf914f6",
+                "4bdb6079-8f19-4915-aef4-9f4ad0313522"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Session Lifecycle Control",
+          "description": "Policies governing how authenticated access is explicitly ended, independently of credential validation and rental state.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Session termination operationalizes the security boundary established by identity and credential mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Immediate logout termination",
+              "description": "Provides an explicit logout action that immediately invalidates or ends the current user session.",
+              "supporting_doc_ids": [
+                "f0e2c013-88ea-4952-874c-4c11a1a987e6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Rental Workflow Management",
+          "description": "State models and operation-execution strategies for progressing users and rentals through unlock, active-use, timing, and return stages.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Rental workflows require authenticated users before unlocking or changing protected rental states."
+            },
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Reliable rental state tracking and operation execution generally require persistence for current lifecycle and usage data."
+            },
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "State transitions and time-based rental actions create events that clients and operational components need to receive."
+            },
+            {
+              "target_id": "7",
+              "type": "co_occurring",
+              "rationale": "Payment handling commonly accompanies or constrains completion of rental operations, while remaining a separate integration concern."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "State-machine workflow",
+              "description": "Represents navigation and rental progression with explicit states rather than ad hoc conditional transitions.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "QR-based bike unlocking",
+              "description": "Starts a rental by scanning a bike QR code and transitioning the rental into an unlocked state.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Rental lifecycle state tracking",
+              "description": "Tracks checkout, active ride, return, and related bike-status transitions as explicit lifecycle states.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8",
+                "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+              ]
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Rental duration tracking",
+              "description": "Monitors elapsed rental time to support time-based management of active bike rentals.",
+              "supporting_doc_ids": [
+                "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+              ]
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Command-based rental operations",
+              "description": "Encapsulates rental operations as command objects to separate action requests from their execution.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Separate notification scheduling",
+              "description": "Keeps notification scheduling outside command objects, assigning timing and delivery to a distinct mechanism.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Data Access and Reporting",
+          "description": "Abstractions and policies for storing, querying, retrieving, and assembling operational, historical, and analytical CityBike data.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Rental lifecycle decisions and downloadable history depend on persistent, queryable operational and usage data."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Repository-based persistence abstraction",
+              "description": "Uses repositories to decouple domain services from persistence technology while supporting bike-data queries.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Usage-statistics persistence",
+              "description": "Persists and retrieves usage statistics alongside operational bike information for platform analysis.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ]
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Downloadable usage history reports",
+              "description": "Assembles usage-history data into reports that riders can download.",
+              "supporting_doc_ids": [
+                "74136801-9796-4f36-85bf-e01895bc6f9e"
+              ]
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Builder-based report assembly",
+              "description": "Uses the Builder pattern to construct downloadable reports from composed usage-history data.",
+              "supporting_doc_ids": [
+                "74136801-9796-4f36-85bf-e01895bc6f9e"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Event and Notification Propagation",
+          "description": "Patterns for propagating domain and bike-status changes asynchronously to user interfaces, subscribers, and dependent components.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Rental, timing, and bike-status transitions are source events that notification mechanisms communicate to clients and subscribers."
+            },
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Asynchronous propagation can expose newly available usage history and availability information after data changes."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Observer-based state notifications",
+              "description": "Uses observers to push rental-state changes to the UI or subscribed components.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Scheduled event delivery",
+              "description": "Uses scheduler assistance when notification dispatch requires deferred or timed delivery.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d",
+                "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+              ]
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "UI synchronization on state change",
+              "description": "Updates client components when rental state changes so displayed availability and ride status remain synchronized.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d",
+                "b9936b57-f580-403e-9a73-55d934cbd1b1"
+              ]
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Event-driven bike registration",
+              "description": "Treats bike registration as an initiating domain event that triggers subsequent processing.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ]
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Asynchronous downstream bike updates",
+              "description": "Processes bike removal and update actions asynchronously after registration or other lifecycle events.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ]
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Pre-timeout expiry notifications",
+              "description": "Sends reminders before rental expiry based on monitored rental duration and scheduled timing.",
+              "supporting_doc_ids": [
+                "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+              ]
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Observer-based user notifications",
+              "description": "Uses observer subscriptions to notify users about bike-status changes and newly available usage history.",
+              "supporting_doc_ids": [
+                "96417ce3-845b-4ec3-8bb5-9a8464f0b0d6"
+              ]
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Observer-based bike availability refresh",
+              "description": "Refreshes the available-bikes list when bike status changes, propagating status events into UI or model updates.",
+              "supporting_doc_ids": [
+                "b9936b57-f580-403e-9a73-55d934cbd1b1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Payment Integration Strategy",
+          "description": "Abstractions and delegation strategies for integrating CityBike with external payment platforms and payment-processing services.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Payment authorization and processing support rental completion but are implemented through a separate external-service integration boundary."
+            },
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Payment data handling must remain separate from credential security while still respecting platform security controls."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Payment facade abstraction",
+              "description": "Hides payment-processing complexity behind a simple facade exposed to CityBike application services.",
+              "supporting_doc_ids": [
+                "82093e20-7e11-4b33-85bb-579d6c7db091"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Delegation to payment services",
+              "description": "Delegates facade operations to underlying payment services or third-party payment providers.",
+              "supporting_doc_ids": [
+                "82093e20-7e11-4b33-85bb-579d6c7db091"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Rental Operation Encapsulation",
+          "description": "Encapsulation strategies for executing rental actions, including command-based separation of requests from execution.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Encapsulated operation requests organize actions performed within the rental workflow without determining lifecycle states."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Keeping notification scheduling outside command execution preserves a separate event and timing-delivery mechanism."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Command-based rental operations",
+              "description": "Encapsulates rental operations as command objects to separate action requests from their execution.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Separate notification scheduling",
+              "description": "Keeps notification scheduling outside the Command pattern, assigning it to a distinct delivery approach.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Merged duplicate command dimensions, added missing session timeout and payment strategy values, and added the use-case-critical bike location axis.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Identity and Credential Security",
+          "description": "Authentication methods, credential protection, and verification-token policies that establish secure user identity contexts.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "precondition",
+              "rationale": "Identity controls determine which authenticated context can be established before protected sessions and rental operations begin."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Credential and token protections constrain secure access to rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Email/password authentication",
+              "description": "Uses email and password as the primary user authentication mechanism.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Transport and storage protection",
+              "description": "Protects credentials during transmission and while stored by the platform.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Ephemeral verification code authentication",
+              "description": "Generates and delivers short-lived verification codes to support secure account authentication.",
+              "supporting_doc_ids": [
+                "8cf5307e-dd93-4ff4-a976-dce29a946888",
+                "e6167813-b03d-457d-a7e7-fc8dfbf914f6"
+              ]
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "30-minute verification-code validity",
+              "description": "Expires verification-code tokens after a specified 30-minute validity window to limit replay risk.",
+              "supporting_doc_ids": [
+                "e6167813-b03d-457d-a7e7-fc8dfbf914f6",
+                "4bdb6079-8f19-4915-aef4-9f4ad0313522"
+              ]
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "30-second verification-code validity",
+              "description": "Applies a 30-second expiration policy to one-time verification codes.",
+              "supporting_doc_ids": [
+                "8cf5307e-dd93-4ff4-a976-dce29a946888"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Session Lifecycle Control",
+          "description": "Policies for ending authenticated access, including explicit logout and automatic expiration, independently of rental state.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Session termination enforces the security boundary established by identity and credential mechanisms."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Session validity affects whether users may initiate or continue protected rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Immediate logout termination",
+              "description": "Provides an explicit logout action that immediately invalidates or ends the current user session.",
+              "supporting_doc_ids": [
+                "f0e2c013-88ea-4952-874c-4c11a1a987e6"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Inactivity-based session timeout",
+              "description": "Automatically ends a user session after 15 minutes of inactivity.",
+              "supporting_doc_ids": [
+                "fc75dbb1-16df-41b4-a7ae-015336451c19"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Rental Workflow Management",
+          "description": "State models and execution strategies for progressing rentals through unlock, active use, timing, and return stages.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Authenticated identity is required before unlocking or changing protected rental states."
+            },
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Persistent operational data supports rental lifecycle decisions and history retrieval."
+            },
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Rental transitions and timing actions generate events consumed by notification mechanisms."
+            },
+            {
+              "target_id": "6",
+              "type": "co_occurring",
+              "rationale": "Payment handling commonly accompanies or constrains rental completion while remaining a separate integration concern."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "State-machine workflow",
+              "description": "Represents navigation and rental progression with explicit states rather than ad hoc conditional transitions.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "QR-based bike unlocking",
+              "description": "Starts a rental by scanning a bike QR code and transitioning the rental into an unlocked state.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Rental lifecycle state tracking",
+              "description": "Tracks checkout, active ride, return, and related bike-status transitions as explicit lifecycle states.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-8b8f-97c37cef726d",
+                "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+              ]
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Rental duration tracking",
+              "description": "Monitors elapsed rental time to support time-based management of active bike rentals.",
+              "supporting_doc_ids": [
+                "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+              ]
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Command-based rental operations",
+              "description": "Encapsulates rental actions as command objects, separating action requests from their execution.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Separate notification scheduling",
+              "description": "Keeps notification scheduling outside command execution, assigning timing and delivery to a distinct mechanism.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Data Access and Reporting",
+          "description": "Abstractions and policies for storing, querying, retrieving, and assembling operational, historical, and analytical platform data.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Persistent, queryable data constrains lifecycle decisions and supports downloadable usage history."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Repository-based persistence abstraction",
+              "description": "Uses repositories to decouple domain services from persistence technology while supporting bike-data queries.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Usage-statistics persistence",
+              "description": "Persists and retrieves usage statistics alongside operational bike information for platform analysis.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ]
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Downloadable usage history reports",
+              "description": "Assembles usage-history data into reports that riders can download.",
+              "supporting_doc_ids": [
+                "74136801-9796-4f36-85bf-e01895bc6f9e"
+              ]
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Builder-based report assembly",
+              "description": "Uses the Builder pattern to construct downloadable reports from composed usage-history data.",
+              "supporting_doc_ids": [
+                "74136801-9796-4f36-85bf-e01895bc6f9e"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Event and Notification Propagation",
+          "description": "Patterns for propagating domain and bike-status changes asynchronously to interfaces, subscribers, and dependent components.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Rental, timing, and bike-status transitions provide source events for notification and subscriber mechanisms."
+            },
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Propagation can expose updated availability and usage-history information after data changes."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Observer-based state notifications",
+              "description": "Uses observers to push rental-state changes to the UI or subscribed components.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Scheduled event delivery",
+              "description": "Uses scheduler assistance when notification dispatch requires deferred or timed delivery.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d",
+                "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+              ]
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "UI synchronization on state change",
+              "description": "Updates client components when rental state changes so displayed availability and ride status remain synchronized.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d",
+                "b9936b57-f580-403e-9a73-55d934cbd1b1"
+              ]
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Event-driven bike registration",
+              "description": "Treats bike registration as an initiating domain event that triggers subsequent processing.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ]
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Asynchronous downstream bike updates",
+              "description": "Processes bike removal and update actions asynchronously after registration or other lifecycle events.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ]
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Pre-timeout expiry notifications",
+              "description": "Sends reminders before rental expiry based on monitored duration and scheduled timing.",
+              "supporting_doc_ids": [
+                "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+              ]
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Observer-based user notifications",
+              "description": "Uses observer subscriptions to notify users about bike-status changes and newly available usage history.",
+              "supporting_doc_ids": [
+                "96417ce3-845b-4ec3-8bb5-9a8464f0b0d6"
+              ]
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Observer-based bike availability refresh",
+              "description": "Refreshes available-bike listings when bike-status events occur.",
+              "supporting_doc_ids": [
+                "b9936b57-f580-403e-9a73-55d934cbd1b1"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Payment Integration Strategy",
+          "description": "Abstractions and delegation strategies for connecting the platform with external payment providers and interchangeable payment-processing implementations.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Payment authorization and processing support rental completion but cross a separate external-service boundary."
+            },
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Payment data handling must respect platform security and privacy controls."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Payment facade abstraction",
+              "description": "Hides payment-processing complexity behind a simple facade exposed to application services.",
+              "supporting_doc_ids": [
+                "82093e20-7e11-4b33-85bb-579d6c7db091"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Delegation to payment services",
+              "description": "Delegates facade operations to underlying payment services or third-party payment providers.",
+              "supporting_doc_ids": [
+                "82093e20-7e11-4b33-85bb-579d6c7db091"
+              ]
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Strategy-based payment methods",
+              "description": "Uses separate strategy classes to support interchangeable payment-processing methods.",
+              "supporting_doc_ids": [
+                "a29f2f3d-618a-493d-a598-2be2ee798fde"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Bike Location and Availability Tracking",
+          "description": "Approaches for locating, filtering, monitoring, and presenting bike positions and availability across the service area.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "co_occurring",
+              "rationale": "Location and availability information is propagated to clients through event and notification mechanisms."
+            },
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Rental lifecycle changes alter bike availability and status information."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Radius-based bike proximity filtering",
+              "description": "Returns bike locations within a specified radius of the rider, supporting the 1000-meter service-area requirement.",
+              "supporting_doc_ids": [
+                "1c05341f-7300-4147-ad46-4ebd4e8d3fcd"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Real-time bike status tracking",
+              "description": "Provides live bike-status information for availability and operational monitoring.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 30 draft values. Merge decisions (threshold 0.200, borderline band 0.080): [1] kept 1.1 as-is; [1] kept 1.2 as-is; [1] kept 1.3 as-is; [1] kept 1.4 as-is; [1] kept 1.5 as-is; [2] kept 2.1 as-is; [2] kept 2.2 as-is; [3] kept 3.1 as-is; [3] kept 3.2 as-is; [3] kept 3.3 as-is; [3] kept 3.4 as-is; [3] kept 3.5 as-is; [3] kept 3.6 as-is; [4] kept 4.1 as-is; [4] kept 4.2 as-is; [4] kept 4.3 as-is; [4] kept 4.4 as-is; [5] kept 5.1 as-is; [5] kept 5.2 as-is; [5] kept 5.3 as-is; [5] kept 5.4 as-is; [5] kept 5.5 as-is; [5] kept 5.6 as-is; [5] kept 5.7 as-is; [5] kept 5.8 as-is; [6] kept 6.1 as-is; [6] kept 6.2 as-is; [6] kept 6.3 as-is; [7] kept 7.1 as-is; [7] kept 7.2 as-is",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Identity and Credential Security",
+          "description": "Authentication methods, credential protection, and verification-token policies that establish secure user identity contexts.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "precondition",
+              "rationale": "Identity controls determine which authenticated context can be established before protected sessions and rental operations begin."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Credential and token protections constrain secure access to rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Email/password authentication",
+              "description": "Uses email and password as the primary user authentication mechanism.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Transport and storage protection",
+              "description": "Protects credentials during transmission and while stored by the platform.",
+              "supporting_doc_ids": [
+                "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Ephemeral verification code authentication",
+              "description": "Generates and delivers short-lived verification codes to support secure account authentication.",
+              "supporting_doc_ids": [
+                "8cf5307e-dd93-4ff4-a976-dce29a946888",
+                "e6167813-b03d-457d-a7e7-fc8dfbf914f6"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "30-minute verification-code validity",
+              "description": "Expires verification-code tokens after a specified 30-minute validity window to limit replay risk.",
+              "supporting_doc_ids": [
+                "e6167813-b03d-457d-a7e7-fc8dfbf914f6",
+                "4bdb6079-8f19-4915-aef4-9f4ad0313522"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "30-second verification-code validity",
+              "description": "Applies a 30-second expiration policy to one-time verification codes.",
+              "supporting_doc_ids": [
+                "8cf5307e-dd93-4ff4-a976-dce29a946888"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Session Lifecycle Control",
+          "description": "Policies for ending authenticated access, including explicit logout and automatic expiration, independently of rental state.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Session termination enforces the security boundary established by identity and credential mechanisms."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Session validity affects whether users may initiate or continue protected rental operations."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Immediate logout termination",
+              "description": "Provides an explicit logout action that immediately invalidates or ends the current user session.",
+              "supporting_doc_ids": [
+                "f0e2c013-88ea-4952-874c-4c11a1a987e6"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Inactivity-based session timeout",
+              "description": "Automatically ends a user session after 15 minutes of inactivity.",
+              "supporting_doc_ids": [
+                "fc75dbb1-16df-41b4-a7ae-015336451c19"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Rental Workflow Management",
+          "description": "State models and execution strategies for progressing rentals through unlock, active use, timing, and return stages.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "precondition",
+              "rationale": "Authenticated identity is required before unlocking or changing protected rental states."
+            },
+            {
+              "target_id": "4",
+              "type": "precondition",
+              "rationale": "Persistent operational data supports rental lifecycle decisions and history retrieval."
+            },
+            {
+              "target_id": "5",
+              "type": "consequence",
+              "rationale": "Rental transitions and timing actions generate events consumed by notification mechanisms."
+            },
+            {
+              "target_id": "6",
+              "type": "co_occurring",
+              "rationale": "Payment handling commonly accompanies or constrains rental completion while remaining a separate integration concern."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "State-machine workflow",
+              "description": "Represents navigation and rental progression with explicit states rather than ad hoc conditional transitions.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "QR-based bike unlocking",
+              "description": "Starts a rental by scanning a bike QR code and transitioning the rental into an unlocked state.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Rental lifecycle state tracking",
+              "description": "Tracks checkout, active ride, return, and related bike-status transitions as explicit lifecycle states.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-8b8f-97c37cef726d",
+                "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Rental duration tracking",
+              "description": "Monitors elapsed rental time to support time-based management of active bike rentals.",
+              "supporting_doc_ids": [
+                "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Command-based rental operations",
+              "description": "Encapsulates rental actions as command objects, separating action requests from their execution.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Separate notification scheduling",
+              "description": "Keeps notification scheduling outside command execution, assigning timing and delivery to a distinct mechanism.",
+              "supporting_doc_ids": [
+                "46cf4785-000d-4fa6-b243-623b434d1e8b"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Data Access and Reporting",
+          "description": "Abstractions and policies for storing, querying, retrieving, and assembling operational, historical, and analytical platform data.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Persistent, queryable data constrains lifecycle decisions and supports downloadable usage history."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Repository-based persistence abstraction",
+              "description": "Uses repositories to decouple domain services from persistence technology while supporting bike-data queries.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Usage-statistics persistence",
+              "description": "Persists and retrieves usage statistics alongside operational bike information for platform analysis.",
+              "supporting_doc_ids": [
+                "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Downloadable usage history reports",
+              "description": "Assembles usage-history data into reports that riders can download.",
+              "supporting_doc_ids": [
+                "74136801-9796-4f36-85bf-e01895bc6f9e"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Builder-based report assembly",
+              "description": "Uses the Builder pattern to construct downloadable reports from composed usage-history data.",
+              "supporting_doc_ids": [
+                "74136801-9796-4f36-85bf-e01895bc6f9e"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Event and Notification Propagation",
+          "description": "Patterns for propagating domain and bike-status changes asynchronously to interfaces, subscribers, and dependent components.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "precondition",
+              "rationale": "Rental, timing, and bike-status transitions provide source events for notification and subscriber mechanisms."
+            },
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Propagation can expose updated availability and usage-history information after data changes."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Observer-based state notifications",
+              "description": "Uses observers to push rental-state changes to the UI or subscribed components.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Scheduled event delivery",
+              "description": "Uses scheduler assistance when notification dispatch requires deferred or timed delivery.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d",
+                "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "UI synchronization on state change",
+              "description": "Updates client components when rental state changes so displayed availability and ride status remain synchronized.",
+              "supporting_doc_ids": [
+                "200dd6e8-9729-438e-b8f8-97c37cef726d",
+                "b9936b57-f580-403e-9a73-55d934cbd1b1"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Event-driven bike registration",
+              "description": "Treats bike registration as an initiating domain event that triggers subsequent processing.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Asynchronous downstream bike updates",
+              "description": "Processes bike removal and update actions asynchronously after registration or other lifecycle events.",
+              "supporting_doc_ids": [
+                "78fc081c-8c07-4362-8b29-dcda247900f6"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Pre-timeout expiry notifications",
+              "description": "Sends reminders before rental expiry based on monitored duration and scheduled timing.",
+              "supporting_doc_ids": [
+                "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Observer-based user notifications",
+              "description": "Uses observer subscriptions to notify users about bike-status changes and newly available usage history.",
+              "supporting_doc_ids": [
+                "96417ce3-845b-4ec3-8bb5-9a8464f0b0d6"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Observer-based bike availability refresh",
+              "description": "Refreshes available-bike listings when bike-status events occur.",
+              "supporting_doc_ids": [
+                "b9936b57-f580-403e-9a73-55d934cbd1b1"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Payment Integration Strategy",
+          "description": "Abstractions and delegation strategies for connecting the platform with external payment providers and interchangeable payment-processing implementations.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Payment authorization and processing support rental completion but cross a separate external-service boundary."
+            },
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "Payment data handling must respect platform security and privacy controls."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Payment facade abstraction",
+              "description": "Hides payment-processing complexity behind a simple facade exposed to application services.",
+              "supporting_doc_ids": [
+                "82093e20-7e11-4b33-85bb-579d6c7db091"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Delegation to payment services",
+              "description": "Delegates facade operations to underlying payment services or third-party payment providers.",
+              "supporting_doc_ids": [
+                "82093e20-7e11-4b33-85bb-579d6c7db091"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Strategy-based payment methods",
+              "description": "Uses separate strategy classes to support interchangeable payment-processing methods.",
+              "supporting_doc_ids": [
+                "a29f2f3d-618a-493d-a598-2be2ee798fde"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Bike Location and Availability Tracking",
+          "description": "Approaches for locating, filtering, monitoring, and presenting bike positions and availability across the service area.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "co_occurring",
+              "rationale": "Location and availability information is propagated to clients through event and notification mechanisms."
+            },
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Rental lifecycle changes alter bike availability and status information."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Radius-based bike proximity filtering",
+              "description": "Returns bike locations within a specified radius of the rider, supporting the 1000-meter service-area requirement.",
+              "supporting_doc_ids": [
+                "1c05341f-7300-4147-ad46-4ebd4e8d3fcd"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Real-time bike status tracking",
+              "description": "Provides live bike-status information for availability and operational monitoring.",
+              "supporting_doc_ids": [
+                "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+              ],
+              "merged_from": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are already subsumed by the existing taxonomy. The navigation state machine and QR-based bike unlock flow fall under Rental Workflow State Management; real-time bike status updates are captured by Real-Time Notification Delivery and its UI synchronization/observer variants; email/password authentication, secure transmission, and secure storage are covered by Identity and Credential Security; immediate session termination is covered by Session Lifecycle Control; repository-based persistence, bike data querying, and usage statistics persistence fit Persistence and Data Access; event-driven registration and asynchronous downstream updates are covered by Bike Lifecycle Event Integration; and the command-pattern codes are covered by Rental Operation Command Strategy. No open code introduces a genuinely new architectural axis for the CityBike use case."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are already subsumed by the existing taxonomy. Rental duration tracking, pre-timeout expiry notification, scheduler-driven timing notifications, and bike status change/UI update codes fit within Rental Workflow Management and Event and Notification Propagation. Verification code generation, delivery, 30-minute validity, and secure authentication support are covered by Identity and Credential Security, including ephemeral verification-code authentication and token validity. Downloadable usage history report generation and Builder-based assembly are covered by Data Access and Reporting. Payment facade abstraction and delegation to underlying payment services are covered by Payment Integration Strategy. The remaining codes (state pattern for rental lifecycle, observer-based notifications, bike availability refresh, and related UI/model updates) are already represented in the taxonomy’s workflow, event propagation, and encapsulation dimensions. No genuinely new architectural concern is introduced by this minibatch relative to the CityBike use case."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Identity and Credential Security",
+      "description": "Authentication methods, credential protection, and verification-token policies that establish secure user identity contexts.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "precondition",
+          "rationale": "Identity controls determine which authenticated context can be established before protected sessions and rental operations begin."
+        },
+        {
+          "target_id": "3",
+          "type": "constrains",
+          "rationale": "Credential and token protections constrain secure access to rental operations."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Email/password authentication",
+          "description": "Uses email and password as the primary user authentication mechanism.",
+          "supporting_doc_ids": [
+            "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Transport and storage protection",
+          "description": "Protects credentials during transmission and while stored by the platform.",
+          "supporting_doc_ids": [
+            "fd2411a7-fbaa-4ea4-a5c0-f0903f6ab1ff"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Ephemeral verification code authentication",
+          "description": "Generates and delivers short-lived verification codes to support secure account authentication.",
+          "supporting_doc_ids": [
+            "8cf5307e-dd93-4ff4-a976-dce29a946888",
+            "e6167813-b03d-457d-a7e7-fc8dfbf914f6"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "30-minute verification-code validity",
+          "description": "Expires verification-code tokens after a specified 30-minute validity window to limit replay risk.",
+          "supporting_doc_ids": [
+            "e6167813-b03d-457d-a7e7-fc8dfbf914f6",
+            "4bdb6079-8f19-4915-aef4-9f4ad0313522"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.5",
+          "dimension_id": "1",
+          "label": "30-second verification-code validity",
+          "description": "Applies a 30-second expiration policy to one-time verification codes.",
+          "supporting_doc_ids": [
+            "8cf5307e-dd93-4ff4-a976-dce29a946888"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Session Lifecycle Control",
+      "description": "Policies for ending authenticated access, including explicit logout and automatic expiration, independently of rental state.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "consequence",
+          "rationale": "Session termination enforces the security boundary established by identity and credential mechanisms."
+        },
+        {
+          "target_id": "3",
+          "type": "constrains",
+          "rationale": "Session validity affects whether users may initiate or continue protected rental operations."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Immediate logout termination",
+          "description": "Provides an explicit logout action that immediately invalidates or ends the current user session.",
+          "supporting_doc_ids": [
+            "f0e2c013-88ea-4952-874c-4c11a1a987e6"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Inactivity-based session timeout",
+          "description": "Automatically ends a user session after 15 minutes of inactivity.",
+          "supporting_doc_ids": [
+            "fc75dbb1-16df-41b4-a7ae-015336451c19"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Rental Workflow Management",
+      "description": "State models and execution strategies for progressing rentals through unlock, active use, timing, and return stages.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "precondition",
+          "rationale": "Authenticated identity is required before unlocking or changing protected rental states."
+        },
+        {
+          "target_id": "4",
+          "type": "precondition",
+          "rationale": "Persistent operational data supports rental lifecycle decisions and history retrieval."
+        },
+        {
+          "target_id": "5",
+          "type": "consequence",
+          "rationale": "Rental transitions and timing actions generate events consumed by notification mechanisms."
+        },
+        {
+          "target_id": "6",
+          "type": "co_occurring",
+          "rationale": "Payment handling commonly accompanies or constrains rental completion while remaining a separate integration concern."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "State-machine workflow",
+          "description": "Represents navigation and rental progression with explicit states rather than ad hoc conditional transitions.",
+          "supporting_doc_ids": [
+            "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "QR-based bike unlocking",
+          "description": "Starts a rental by scanning a bike QR code and transitioning the rental into an unlocked state.",
+          "supporting_doc_ids": [
+            "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Rental lifecycle state tracking",
+          "description": "Tracks checkout, active ride, return, and related bike-status transitions as explicit lifecycle states.",
+          "supporting_doc_ids": [
+            "f096c5dd-60a4-4cbc-8b8f-97c37cef726d",
+            "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Rental duration tracking",
+          "description": "Monitors elapsed rental time to support time-based management of active bike rentals.",
+          "supporting_doc_ids": [
+            "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.5",
+          "dimension_id": "3",
+          "label": "Command-based rental operations",
+          "description": "Encapsulates rental actions as command objects, separating action requests from their execution.",
+          "supporting_doc_ids": [
+            "46cf4785-000d-4fa6-b243-623b434d1e8b"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.6",
+          "dimension_id": "3",
+          "label": "Separate notification scheduling",
+          "description": "Keeps notification scheduling outside command execution, assigning timing and delivery to a distinct mechanism.",
+          "supporting_doc_ids": [
+            "46cf4785-000d-4fa6-b243-623b434d1e8b"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Bike Location and Availability Tracking",
+      "description": "Approaches for locating, filtering, monitoring, and presenting bike positions and availability across the service area.",
+      "relations": [
+        {
+          "target_id": "5",
+          "type": "co_occurring",
+          "rationale": "Location and availability information is propagated to clients through event and notification mechanisms."
+        },
+        {
+          "target_id": "3",
+          "type": "consequence",
+          "rationale": "Rental lifecycle changes alter bike availability and status information."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Radius-based bike proximity filtering",
+          "description": "Returns bike locations within a specified radius of the rider, supporting the 1000-meter service-area requirement.",
+          "supporting_doc_ids": [
+            "1c05341f-7300-4147-ad46-4ebd4e8d3fcd"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Real-time bike status tracking",
+          "description": "Provides live bike-status information for availability and operational monitoring.",
+          "supporting_doc_ids": [
+            "f096c5dd-60a4-4cbc-acaf-6903e6e3bcd8"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Payment Integration Strategy",
+      "description": "Abstractions and delegation strategies for connecting the platform with external payment providers and interchangeable payment-processing implementations.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "co_occurring",
+          "rationale": "Payment authorization and processing support rental completion but cross a separate external-service boundary."
+        },
+        {
+          "target_id": "1",
+          "type": "constrains",
+          "rationale": "Payment data handling must respect platform security and privacy controls."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Payment facade abstraction",
+          "description": "Hides payment-processing complexity behind a simple facade exposed to application services.",
+          "supporting_doc_ids": [
+            "82093e20-7e11-4b33-85bb-579d6c7db091"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Delegation to payment services",
+          "description": "Delegates facade operations to underlying payment services or third-party payment providers.",
+          "supporting_doc_ids": [
+            "82093e20-7e11-4b33-85bb-579d6c7db091"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Strategy-based payment methods",
+          "description": "Uses separate strategy classes to support interchangeable payment-processing methods.",
+          "supporting_doc_ids": [
+            "a29f2f3d-618a-493d-a598-2be2ee798fde"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Event and Notification Propagation",
+      "description": "Patterns for propagating domain and bike-status changes asynchronously to interfaces, subscribers, and dependent components.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "precondition",
+          "rationale": "Rental, timing, and bike-status transitions provide source events for notification and subscriber mechanisms."
+        },
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "Propagation can expose updated availability and usage-history information after data changes."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Observer-based state notifications",
+          "description": "Uses observers to push rental-state changes to the UI or subscribed components.",
+          "supporting_doc_ids": [
+            "200dd6e8-9729-438e-b8f8-97c37cef726d"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Scheduled event delivery",
+          "description": "Uses scheduler assistance when notification dispatch requires deferred or timed delivery.",
+          "supporting_doc_ids": [
+            "200dd6e8-9729-438e-b8f8-97c37cef726d",
+            "4b2cec56-c5b2-4bc5-8832-ac63d4a4001b"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "UI synchronization on state change",
+          "description": "Updates client components when rental state changes so displayed availability and ride status remain synchronized.",
+          "supporting_doc_ids": [
+            "200dd6e8-9729-438e-b8f8-97c37cef726d",
+            "b9936b57-f580-403e-9a73-55d934cbd1b1"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Event-driven bike registration",
+          "description": "Treats bike registration as an initiating domain event that triggers subsequent processing.",
+          "supporting_doc_ids": [
+            "78fc081c-8c07-4362-8b29-dcda247900f6"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.5",
+          "dimension_id": "5",
+          "label": "Asynchronous downstream bike updates",
+          "description": "Processes bike removal and update actions asynchronously after registration or other lifecycle events.",
+          "supporting_doc_ids": [
+            "78fc081c-8c07-4362-8b29-dcda247900f6"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.6",
+          "dimension_id": "5",
+          "label": "Pre-timeout expiry notifications",
+          "description": "Sends reminders before rental expiry based on monitored duration and scheduled timing.",
+          "supporting_doc_ids": [
+            "cc7bd612-4b04-4000-b31d-4f9c382a7981"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.7",
+          "dimension_id": "5",
+          "label": "Observer-based user notifications",
+          "description": "Uses observer subscriptions to notify users about bike-status changes and newly available usage history.",
+          "supporting_doc_ids": [
+            "96417ce3-845b-4ec3-8bb5-9a8464f0b0d6"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.8",
+          "dimension_id": "5",
+          "label": "Observer-based bike availability refresh",
+          "description": "Refreshes available-bike listings when bike-status events occur.",
+          "supporting_doc_ids": [
+            "b9936b57-f580-403e-9a73-55d934cbd1b1"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Data Access and Reporting",
+      "description": "Abstractions and policies for storing, querying, retrieving, and assembling operational, historical, and analytical platform data.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "constrains",
+          "rationale": "Persistent, queryable data constrains lifecycle decisions and supports downloadable usage history."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Repository-based persistence abstraction",
+          "description": "Uses repositories to decouple domain services from persistence technology while supporting bike-data queries.",
+          "supporting_doc_ids": [
+            "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Usage-statistics persistence",
+          "description": "Persists and retrieves usage statistics alongside operational bike information for platform analysis.",
+          "supporting_doc_ids": [
+            "17c43962-c0b4-43ea-8e11-dbf0a8ec258a"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Downloadable usage history reports",
+          "description": "Assembles usage-history data into reports that riders can download.",
+          "supporting_doc_ids": [
+            "74136801-9796-4f36-85bf-e01895bc6f9e"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Builder-based report assembly",
+          "description": "Uses the Builder pattern to construct downloadable reports from composed usage-history data.",
+          "supporting_doc_ids": [
+            "74136801-9796-4f36-85bf-e01895bc6f9e"
+          ],
+          "merged_from": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1206 @@
+{
+  "taxonomy_name": "pharmacy-food",
+  "consolidated": true,
+  "iterations": [
+    {
+      "explanation": "Orthogonal dimensions separate persistence abstraction, UI structure, async UI updates, search constraint modeling, and third-party integration.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Data Access Abstraction via Repository Pattern",
+          "description": "Architectural decisions about abstracting persistence/query logic using repositories. Values differ by which domains are explicitly targeted for repository encapsulation (orders, profiles, meals, promotions, subscriptions).",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "UI-driven interaction flows typically depend on structured profile/order/meal access behind repositories."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Repository for orders, promotions, subscriptions",
+              "description": "Use repositories to centralize access to ordering, promotion, and subscription-related data sources.",
+              "supporting_doc_ids": [
+                "d46274a6-c8a4-4b5c-b039-684dea3d4825"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Repository for profiles, orders, meals",
+              "description": "Use repositories to encapsulate reads/writes for user profiles, meal orders, and meal data/query operations.",
+              "supporting_doc_ids": [
+                "038da4c4-fdb8-4778-b00e-1eb1e44a55bd"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "UI Interaction Structure via MVC Pattern",
+          "description": "Architectural decisions about structuring user-facing workflows using MVC. Values differ by whether MVC is chosen as the governing UI interaction architecture for core flows.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "MVC UI flows commonly benefit from observing domain state changes (e.g., promotions/subscriptions) to update views."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "MVC controllers/views typically call into repository-backed services for interaction-driven reads/writes."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "MVC for user interaction flows",
+              "description": "Adopt MVC to manage interaction areas like browsing promotions, order history, and subscription management.",
+              "supporting_doc_ids": [
+                "a3c49557-2d60-48fa-8787-16aa40d47d6c"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "MVC for core browsing/profile/order modifications",
+              "description": "Use MVC to separate model, view, and controller concerns for browsing meals, profile updates, and order/meal modifications.",
+              "supporting_doc_ids": [
+                "48c80a73-d1c6-46c7-aa14-da9e41eed3d7"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Asynchronous State Propagation via Observer Pattern",
+          "description": "Architectural decisions about how UI layers learn about state changes asynchronously. Values differ by adopting Observer for propagating promotion/subscription updates into views.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Observer-driven updates primarily serve view consistency within an MVC-style UI structure."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer for promotion/subscription UI updates",
+              "description": "Use Observer to push promotion/subscription state changes to UI views asynchronously for timely updates.",
+              "supporting_doc_ids": [
+                "45516b74-76a2-47ec-9fe9-4a603a432db0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Catalog Search Constraint Modeling via Specification Pattern",
+          "description": "Architectural decisions about how meal search constraints are represented and composed. Values differ by modeling search filters as availability + dietary specifications and supporting multi-vendor catalogs.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Search specifications typically execute against meal/order/profile data that is abstracted via repositories."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Availability and dietary filters as specifications",
+              "description": "Implement search filtering as composable specification components for availability and dietary criteria.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Vendor-agnostic filtering for multi-vendor ghost kitchen",
+              "description": "Ensure specifications operate correctly across items offered by third-party vendors within a shared catalog experience.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Third-Party Provider Integration via Adapter and Strategy",
+          "description": "Architectural decisions about integrating heterogeneous external services and swapping algorithms/providers. Values differ by using Adapter for interface unification and Strategy for pluggable provider/search selection.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Search algorithms/providers often work alongside search constraints to produce final filtered results."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Adapter for multi-map-provider integration",
+              "description": "Use Adapter to translate each map provider’s interface into a shared common interface for the platform.",
+              "supporting_doc_ids": [
+                "83243e20-59e5-47d3-ac17-dca01e06fab3"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strategy for swappable map providers/search algorithms",
+              "description": "Use Strategy so different map providers or search algorithms can be exchanged via interchangeable components.",
+              "supporting_doc_ids": [
+                "b2a89a61-03d7-438f-a815-0934a622c7f8"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Added three orthogonal security/auth dimensions and one map-facade dimension. Refined relation from repo to search; otherwise preserved existing MVC/Observer/specification/adapter/strategy dimensions.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Data Access Abstraction via Repository Pattern",
+          "description": "Architectural decisions about abstracting persistence/query logic using repositories. Values differ by which domains are explicitly targeted for repository encapsulation (orders, profiles, meals, promotions, subscriptions).",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Search/filters typically execute against meal/order/profile data that is abstracted via repositories for consistent access boundaries."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Repository for orders, promotions, subscriptions",
+              "description": "Centralize access to ordering, promotion, and subscription-related data sources via repositories.",
+              "supporting_doc_ids": [
+                "d46274a6-c8a4-4b5c-b039-684dea3d4825"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Repository for profiles, orders, meals",
+              "description": "Encapsulate reads/writes for user profiles, meal orders, and meal data/query operations using repositories.",
+              "supporting_doc_ids": [
+                "038da4c4-fdb8-4778-b00e-1eb1e44a55bd"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "UI Interaction Structure via MVC Pattern",
+          "description": "Architectural decisions about structuring user-facing workflows using MVC. Values differ by whether MVC is chosen as the governing UI interaction architecture for core flows.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Observer-driven asynchronous updates primarily support keeping MVC views consistent with changing promotion/subscription state."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "MVC controllers/views commonly delegate interaction-driven reads/writes to repository-backed services."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "MVC for user interaction flows",
+              "description": "Adopt MVC to manage interaction areas like browsing promotions, order history, and subscription management.",
+              "supporting_doc_ids": [
+                "a3c49557-2d60-48fa-8787-16aa40d47d6c"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "MVC for core browsing/profile/order modifications",
+              "description": "Use MVC to separate model, view, and controller concerns for browsing meals, profile updates, and order/meal modifications.",
+              "supporting_doc_ids": [
+                "48c80a73-d1c6-46c7-aa14-da9e41eed3d7"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Asynchronous State Propagation via Observer Pattern",
+          "description": "Architectural decisions about how UI layers learn about state changes asynchronously. Values differ by adopting Observer for propagating promotion/subscription updates into views.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Observer-driven updates primarily serve view consistency within an MVC-style UI structure."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer for promotion/subscription UI updates",
+              "description": "Push promotion/subscription state changes to UI views asynchronously using Observer.",
+              "supporting_doc_ids": [
+                "45516b74-76a2-47ec-9fe9-4a603a432db0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Catalog Search Constraint Modeling via Specification Pattern",
+          "description": "Architectural decisions about representing and composing meal search constraints. Values differ by modeling filters as composable availability/dietary specifications and supporting multi-vendor catalogs.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Search specifications typically execute against meal/order/profile data accessed through repositories."
+            },
+            {
+              "target_id": "8",
+              "type": "co_occurring",
+              "rationale": "Map abstraction (e.g., for pickup/item discovery) is often integrated with catalog browsing experiences."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Availability and dietary filters as specifications",
+              "description": "Implement search filtering as composable specification components for availability and dietary criteria.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Vendor-agnostic filtering for multi-vendor ghost kitchen",
+              "description": "Ensure specifications operate correctly across items offered by third-party vendors within a shared catalog experience.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Third-Party Provider Integration via Adapter and Strategy",
+          "description": "Architectural decisions about integrating heterogeneous external services and swapping providers/algorithms. Values differ by using Adapter for interface unification and Strategy for pluggable provider selection.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Provider/search selection commonly works alongside search constraints to produce final filtered results."
+            },
+            {
+              "target_id": "8",
+              "type": "consequence",
+              "rationale": "Facade/abstraction for maps is part of the broader external-provider integration concern family."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Adapter for multi-map-provider integration",
+              "description": "Translate each map provider’s interface into a shared common interface for the platform.",
+              "supporting_doc_ids": [
+                "83243e20-59e5-47d3-ac17-dca01e06fab3"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strategy for swappable map providers/search algorithms",
+              "description": "Exchange map providers or search algorithms via interchangeable Strategy components.",
+              "supporting_doc_ids": [
+                "b2a89a61-03d7-438f-a815-0934a622c7f8"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Credential Security Controls for Authentication",
+          "description": "Architectural decisions for securing authentication credentials. Values differ by credential-at-rest protection and access control over authentication secrets used across the platform.",
+          "relations": [],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Encrypted credential storage with secret protection",
+              "description": "Store authentication credentials/secrets using encryption to reduce risk from data exposure.",
+              "supporting_doc_ids": [
+                "ba0f1c20-89e7-4a57-bbe5-60ffd4cd35a9"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Strict access control for authentication secrets",
+              "description": "Limit access to passwords/authentication secrets through strict internal access-control boundaries.",
+              "supporting_doc_ids": [
+                "ba0f1c20-89e7-4a57-bbe5-60ffd4cd35a9"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Authentication and Account Verification Workflow Design",
+          "description": "Architectural decisions for verifying users and activating accounts. Values differ by credential verification mechanism and inclusion of validation/confirmation steps in registration.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "Correct authentication workflows require the underlying credential storage and secret access controls for safe verification."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Standard authentication against stored credentials",
+              "description": "Authenticate users by verifying presented credentials against stored records using standard authentication mechanisms.",
+              "supporting_doc_ids": [
+                "d80284ff-544b-45a1-8402-72d95f8db182"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Client and server registration validation",
+              "description": "Perform both client-side and server-side validation during user registration to ensure onboarding reliability and security.",
+              "supporting_doc_ids": [
+                "d1c17e33-e894-488c-a4e0-f1be23c5ca4c"
+              ]
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Registration confirmation after initial signup",
+              "description": "Add a post-signup confirmation/activation step before enabling downstream personalization and purchase features.",
+              "supporting_doc_ids": [
+                "d1c17e33-e894-488c-a4e0-f1be23c5ca4c"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Map-Service Interface Abstraction via Facade",
+          "description": "Architectural decisions about decoupling map-provider details from user-facing discovery flows. Values differ by using a Facade to hide provider-specific differences behind one interface.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Facade abstraction typically sits on top of (or coordinates with) lower-level third-party provider integration patterns like Adapter/Strategy."
+            },
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Item discovery, pickup selection, and browsing experiences often integrate map-based UI alongside catalog search."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Facade abstraction for map-provider integration",
+              "description": "Use a Facade to hide/abstract underlying map-provider integration details from the rest of the platform.",
+              "supporting_doc_ids": [
+                "d3ae82a0-0858-4646-91a3-d12d0ee369ab"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "No changes: criteria (coverage, orthogonality, clarity) are satisfied; sample documents map cleanly to existing dimensions; names describe axes, not single values. Previous feedback: none provided, so no integration needed.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Data Access Abstraction via Repository Pattern",
+          "description": "Architectural decisions abstracting persistence/query using repositories, differing by which domains (orders, profiles, meals, promotions, subscriptions) are encapsulated behind interfaces.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Search/filters operate over domain data typically accessed through repository abstractions."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Repository for orders, promotions, subscriptions",
+              "description": "Centralize ordering, promotion, and subscription persistence/query behind dedicated repository interfaces.",
+              "supporting_doc_ids": [
+                "d46274a6-c8a4-4b5c-b039-684dea3d4825"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Repository for profiles, orders, meals",
+              "description": "Encapsulate profile, meal, and ordering reads/writes via repositories for consistent access boundaries.",
+              "supporting_doc_ids": [
+                "038da4c4-fdb8-4778-b00e-1eb1e44a55bd"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "UI Interaction Structure via MVC Pattern",
+          "description": "Architectural decisions structuring UI workflows with MVC, differing by whether MVC governs core flows like browsing, profile updates, and order/subscription modifications.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Observer updates commonly keep MVC view state consistent as promotion/subscription data changes."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "MVC controllers/views often delegate interaction-driven operations to repository-backed services."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "MVC for user interaction flows",
+              "description": "Adopt MVC to manage interaction areas such as promotions browsing, order history, and subscription management.",
+              "supporting_doc_ids": [
+                "a3c49557-2d60-48fa-8787-16aa40d47d6c"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "MVC for core browsing and modifications",
+              "description": "Use MVC separation for browsing meals and handling profile/order/meal modifications.",
+              "supporting_doc_ids": [
+                "48c80a73-d1c6-46c7-aa14-da9e41eed3d7"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Asynchronous State Propagation via Observer Pattern",
+          "description": "Architectural decisions for asynchronously propagating state changes to UI via Observer, focusing on promotion/subscription updates reaching views.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Observer-driven updates primarily serve view consistency within an MVC-style UI structure."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer for promotion/subscription UI updates",
+              "description": "Push promotion/subscription state changes to UI views asynchronously using Observer.",
+              "supporting_doc_ids": [
+                "45516b74-76a2-47ec-9fe9-4a603a432db0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Catalog Search Constraint Modeling via Specification Pattern",
+          "description": "Architectural decisions representing and composing meal search constraints, differing by how availability/dietary filters are modeled as composable specifications and applied across vendors.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Search specifications typically execute against domain data accessed through repositories."
+            },
+            {
+              "target_id": "8",
+              "type": "co_occurring",
+              "rationale": "Discovery/pickup and location mapping abstractions commonly integrate with catalog browsing and filtering."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Availability and dietary filters as specifications",
+              "description": "Implement meal search filtering as composable specification components for availability and dietary criteria.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Vendor-agnostic specifications for multi-vendor catalogs",
+              "description": "Ensure specification logic works across third-party vendor items in a shared ghost-kitchen catalog experience.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Third-Party Provider Integration via Adapter and Strategy",
+          "description": "Architectural decisions integrating heterogeneous external services and swapping providers/algorithms, differing by using Adapter for interface unification and Strategy for pluggable provider selection.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Provider selection and search constraint modeling jointly produce filtered catalog results."
+            },
+            {
+              "target_id": "8",
+              "type": "consequence",
+              "rationale": "Facade-based map UI abstraction typically coordinates with lower-level provider integration patterns."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Adapter for multi-map-provider integration",
+              "description": "Translate each map provider’s interface into a shared common interface for the platform.",
+              "supporting_doc_ids": [
+                "83243e20-59e5-47d3-ac17-dca01e06fab3"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strategy for swappable map providers and search algorithms",
+              "description": "Exchange map providers or search algorithms using interchangeable Strategy components.",
+              "supporting_doc_ids": [
+                "b2a89a61-03d7-438f-a815-0934a622c7f8"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Credential Security Controls for Authentication",
+          "description": "Architectural decisions securing authentication credentials, differing by how secrets are protected at rest and how access to authentication material is restricted.",
+          "relations": [],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Encrypted credential storage with secret protection",
+              "description": "Store credentials/secrets encrypted to reduce exposure risk from data compromise.",
+              "supporting_doc_ids": [
+                "ba0f1c20-89e7-4a57-bbe5-60ffd4cd35a9"
+              ]
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Strict access control for authentication secrets",
+              "description": "Constrain internal access to authentication secrets/password material via strict authorization boundaries.",
+              "supporting_doc_ids": [
+                "ba0f1c20-89e7-4a57-bbe5-60ffd4cd35a9"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Account Verification Workflow Design",
+          "description": "Architectural decisions for verifying users and activating accounts, differing by verification mechanism and inclusion of registration validation and confirmation steps.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "Safe authentication/verification requires credential storage and secret-access controls."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Standard authentication against stored credentials",
+              "description": "Verify presented user credentials against stored records using standard authentication mechanisms.",
+              "supporting_doc_ids": [
+                "d80284ff-544b-45a1-8402-72d95f8db182"
+              ]
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Client and server registration validation",
+              "description": "Perform both client-side and server-side validation during registration to improve security and reliability.",
+              "supporting_doc_ids": [
+                "d1c17e33-e894-488c-a4e0-f1be23c5ca4c"
+              ]
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Post-signup registration confirmation",
+              "description": "Require a confirmation/activation step after initial signup before enabling downstream personalization and purchasing.",
+              "supporting_doc_ids": [
+                "d1c17e33-e894-488c-a4e0-f1be23c5ca4c"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Map-Service Interface Abstraction via Facade",
+          "description": "Architectural decisions decoupling map-provider details from discovery flows, differing by whether a Facade hides provider-specific integration details behind one interface.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Facade abstraction typically sits atop or coordinates with lower-level provider integration components."
+            },
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Pickup/item discovery experiences often combine mapping UI with catalog search and filtering."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Facade abstraction for map-provider integration",
+              "description": "Use a Facade to hide map-provider differences from the rest of the platform.",
+              "supporting_doc_ids": [
+                "d3ae82a0-0858-4646-91a3-d12d0ee369ab"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 15 draft values. Merge decisions (threshold 0.200, borderline band 0.080): [1] kept 1.1 as-is; [1] kept 1.2 as-is; [2] kept 2.1 as-is; [2] kept 2.2 as-is; [4] kept 4.1 as-is; [4] kept 4.2 as-is; [5] kept 5.1 as-is; [5] kept 5.2 as-is; [6] kept 6.1 as-is; [6] kept 6.2 as-is; [7] kept 7.1 as-is; [7] kept 7.2 as-is; [7] kept 7.3 as-is",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Data Access Abstraction via Repository Pattern",
+          "description": "Architectural decisions abstracting persistence/query using repositories, differing by which domains (orders, profiles, meals, promotions, subscriptions) are encapsulated behind interfaces.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Search/filters operate over domain data typically accessed through repository abstractions."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Repository for orders, promotions, subscriptions",
+              "description": "Centralize ordering, promotion, and subscription persistence/query behind dedicated repository interfaces.",
+              "supporting_doc_ids": [
+                "d46274a6-c8a4-4b5c-b039-684dea3d4825"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Repository for profiles, orders, meals",
+              "description": "Encapsulate profile, meal, and ordering reads/writes via repositories for consistent access boundaries.",
+              "supporting_doc_ids": [
+                "038da4c4-fdb8-4778-b00e-1eb1e44a55bd"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "UI Interaction Structure via MVC Pattern",
+          "description": "Architectural decisions structuring UI workflows with MVC, differing by whether MVC governs core flows like browsing, profile updates, and order/subscription modifications.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Observer updates commonly keep MVC view state consistent as promotion/subscription data changes."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "MVC controllers/views often delegate interaction-driven operations to repository-backed services."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "MVC for user interaction flows",
+              "description": "Adopt MVC to manage interaction areas such as promotions browsing, order history, and subscription management.",
+              "supporting_doc_ids": [
+                "a3c49557-2d60-48fa-8787-16aa40d47d6c"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "MVC for core browsing and modifications",
+              "description": "Use MVC separation for browsing meals and handling profile/order/meal modifications.",
+              "supporting_doc_ids": [
+                "48c80a73-d1c6-46c7-aa14-da9e41eed3d7"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Asynchronous State Propagation via Observer Pattern",
+          "description": "Architectural decisions for asynchronously propagating state changes to UI via Observer, focusing on promotion/subscription updates reaching views.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Observer-driven updates primarily serve view consistency within an MVC-style UI structure."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Observer for promotion/subscription UI updates",
+              "description": "Push promotion/subscription state changes to UI views asynchronously using Observer.",
+              "supporting_doc_ids": [
+                "45516b74-76a2-47ec-9fe9-4a603a432db0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Catalog Search Constraint Modeling via Specification Pattern",
+          "description": "Architectural decisions representing and composing meal search constraints, differing by how availability/dietary filters are modeled as composable specifications and applied across vendors.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Search specifications typically execute against domain data accessed through repositories."
+            },
+            {
+              "target_id": "8",
+              "type": "co_occurring",
+              "rationale": "Discovery/pickup and location mapping abstractions commonly integrate with catalog browsing and filtering."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Availability and dietary filters as specifications",
+              "description": "Implement meal search filtering as composable specification components for availability and dietary criteria.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Vendor-agnostic specifications for multi-vendor catalogs",
+              "description": "Ensure specification logic works across third-party vendor items in a shared ghost-kitchen catalog experience.",
+              "supporting_doc_ids": [
+                "3f0ebef5-a1b7-40aa-a060-585790470b40"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Third-Party Provider Integration via Adapter and Strategy",
+          "description": "Architectural decisions integrating heterogeneous external services and swapping providers/algorithms, differing by using Adapter for interface unification and Strategy for pluggable provider selection.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Provider selection and search constraint modeling jointly produce filtered catalog results."
+            },
+            {
+              "target_id": "8",
+              "type": "consequence",
+              "rationale": "Facade-based map UI abstraction typically coordinates with lower-level provider integration patterns."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Adapter for multi-map-provider integration",
+              "description": "Translate each map provider’s interface into a shared common interface for the platform.",
+              "supporting_doc_ids": [
+                "83243e20-59e5-47d3-ac17-dca01e06fab3"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strategy for swappable map providers and search algorithms",
+              "description": "Exchange map providers or search algorithms using interchangeable Strategy components.",
+              "supporting_doc_ids": [
+                "b2a89a61-03d7-438f-a815-0934a622c7f8"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Credential Security Controls for Authentication",
+          "description": "Architectural decisions securing authentication credentials, differing by how secrets are protected at rest and how access to authentication material is restricted.",
+          "relations": [],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Encrypted credential storage with secret protection",
+              "description": "Store credentials/secrets encrypted to reduce exposure risk from data compromise.",
+              "supporting_doc_ids": [
+                "ba0f1c20-89e7-4a57-bbe5-60ffd4cd35a9"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Strict access control for authentication secrets",
+              "description": "Constrain internal access to authentication secrets/password material via strict authorization boundaries.",
+              "supporting_doc_ids": [
+                "ba0f1c20-89e7-4a57-bbe5-60ffd4cd35a9"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Account Verification Workflow Design",
+          "description": "Architectural decisions for verifying users and activating accounts, differing by verification mechanism and inclusion of registration validation and confirmation steps.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "precondition",
+              "rationale": "Safe authentication/verification requires credential storage and secret-access controls."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Standard authentication against stored credentials",
+              "description": "Verify presented user credentials against stored records using standard authentication mechanisms.",
+              "supporting_doc_ids": [
+                "d80284ff-544b-45a1-8402-72d95f8db182"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Client and server registration validation",
+              "description": "Perform both client-side and server-side validation during registration to improve security and reliability.",
+              "supporting_doc_ids": [
+                "d1c17e33-e894-488c-a4e0-f1be23c5ca4c"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Post-signup registration confirmation",
+              "description": "Require a confirmation/activation step after initial signup before enabling downstream personalization and purchasing.",
+              "supporting_doc_ids": [
+                "d1c17e33-e894-488c-a4e0-f1be23c5ca4c"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Map-Service Interface Abstraction via Facade",
+          "description": "Architectural decisions decoupling map-provider details from discovery flows, differing by whether a Facade hides provider-specific integration details behind one interface.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Facade abstraction typically sits atop or coordinates with lower-level provider integration components."
+            },
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Pickup/item discovery experiences often combine mapping UI with catalog search and filtering."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Facade abstraction for map-provider integration",
+              "description": "Use a Facade to hide map-provider differences from the rest of the platform.",
+              "supporting_doc_ids": [
+                "d3ae82a0-0858-4646-91a3-d12d0ee369ab"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All open codes map cleanly onto existing taxonomy dimensions: (1) Repository pattern for orders/promotions/subscriptions → Data Access Abstraction (Dimension 1, value 1.1). (2) Repository pattern for profiles/orders/meals → Data Access Abstraction (Dimension 1, value 1.2). (3) MVC architecture for user interaction flows / MVC for core browsing-profile-order modifications → UI Interaction Structure via MVC (Dimension 2, values 2.1/2.2). (4) Observer pattern for asynchronous UI updates on promotion/subscription changes → Asynchronous State Propagation via Observer (Dimension 3, value 3.1). (5) Meal search filters as availability + dietary specifications → Catalog Search Constraint Modeling via Specification Pattern (Dimension 4, value 4.1). (6) Search filtering supports multi-vendor ghost-kitchen catalog → same specification dimension (Dimension 4, value 4.2) capturing vendor-agnostic filtering. (7) Adapter pattern for multi-map-provider integration → Third-Party Provider Integration via Adapter (Dimension 5, value 5.1). (8) Strategy pattern for swappable map providers/search algorithms → same integration dimension (Dimension 5, value 5.2). Therefore, no relevant open concept remains outside the taxonomy’s existing axes of architectural variation."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are already covered by existing taxonomy dimensions: (1) Encrypted credential storage and strict access control for authentication secrets map to Dimension 6 (Credential Security Controls). (2) Standard authentication against stored credentials maps to Dimension 7 (Authentication and Account Verification Workflow Design), and (3) client/server registration validation and (4) registration confirmation after signup are also values within Dimension 7. (5) Facade abstraction for map-provider integration maps directly to Dimension 8. Therefore, there are no uncovered concepts in this minibatch."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "4",
+      "name": "Catalog Search Constraint Modeling via Specification Pattern",
+      "description": "Architectural decisions representing and composing meal search constraints, differing by how availability/dietary filters are modeled as composable specifications and applied across vendors.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "co_occurring",
+          "rationale": "Search specifications typically execute against domain data accessed through repositories."
+        },
+        {
+          "target_id": "8",
+          "type": "co_occurring",
+          "rationale": "Discovery/pickup and location mapping abstractions commonly integrate with catalog browsing and filtering."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Availability and dietary filters as specifications",
+          "description": "Implement meal search filtering as composable specification components for availability and dietary criteria.",
+          "supporting_doc_ids": [
+            "3f0ebef5-a1b7-40aa-a060-585790470b40"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Vendor-agnostic specifications for multi-vendor catalogs",
+          "description": "Ensure specification logic works across third-party vendor items in a shared ghost-kitchen catalog experience.",
+          "supporting_doc_ids": [
+            "3f0ebef5-a1b7-40aa-a060-585790470b40"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Third-Party Provider Integration via Adapter and Strategy",
+      "description": "Architectural decisions integrating heterogeneous external services and swapping providers/algorithms, differing by using Adapter for interface unification and Strategy for pluggable provider selection.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "co_occurring",
+          "rationale": "Provider selection and search constraint modeling jointly produce filtered catalog results."
+        },
+        {
+          "target_id": "8",
+          "type": "consequence",
+          "rationale": "Facade-based map UI abstraction typically coordinates with lower-level provider integration patterns."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Adapter for multi-map-provider integration",
+          "description": "Translate each map provider’s interface into a shared common interface for the platform.",
+          "supporting_doc_ids": [
+            "83243e20-59e5-47d3-ac17-dca01e06fab3"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Strategy for swappable map providers and search algorithms",
+          "description": "Exchange map providers or search algorithms using interchangeable Strategy components.",
+          "supporting_doc_ids": [
+            "b2a89a61-03d7-438f-a815-0934a622c7f8"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Map-Service Interface Abstraction via Facade",
+      "description": "Architectural decisions decoupling map-provider details from discovery flows, differing by whether a Facade hides provider-specific integration details behind one interface.",
+      "relations": [
+        {
+          "target_id": "5",
+          "type": "constrains",
+          "rationale": "Facade abstraction typically sits atop or coordinates with lower-level provider integration components."
+        },
+        {
+          "target_id": "4",
+          "type": "co_occurring",
+          "rationale": "Pickup/item discovery experiences often combine mapping UI with catalog search and filtering."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Facade abstraction for map-provider integration",
+          "description": "Use a Facade to hide map-provider differences from the rest of the platform.",
+          "supporting_doc_ids": [
+            "d3ae82a0-0858-4646-91a3-d12d0ee369ab"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "name": "Data Access Abstraction via Repository Pattern",
+      "description": "Architectural decisions abstracting persistence/query using repositories, differing by which domains (orders, profiles, meals, promotions, subscriptions) are encapsulated behind interfaces.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "Search/filters operate over domain data typically accessed through repository abstractions."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Repository for orders, promotions, subscriptions",
+          "description": "Centralize ordering, promotion, and subscription persistence/query behind dedicated repository interfaces.",
+          "supporting_doc_ids": [
+            "d46274a6-c8a4-4b5c-b039-684dea3d4825"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Repository for profiles, orders, meals",
+          "description": "Encapsulate profile, meal, and ordering reads/writes via repositories for consistent access boundaries.",
+          "supporting_doc_ids": [
+            "038da4c4-fdb8-4778-b00e-1eb1e44a55bd"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "UI Interaction Structure via MVC Pattern",
+      "description": "Architectural decisions structuring UI workflows with MVC, differing by whether MVC governs core flows like browsing, profile updates, and order/subscription modifications.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "co_occurring",
+          "rationale": "Observer updates commonly keep MVC view state consistent as promotion/subscription data changes."
+        },
+        {
+          "target_id": "1",
+          "type": "co_occurring",
+          "rationale": "MVC controllers/views often delegate interaction-driven operations to repository-backed services."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "MVC for user interaction flows",
+          "description": "Adopt MVC to manage interaction areas such as promotions browsing, order history, and subscription management.",
+          "supporting_doc_ids": [
+            "a3c49557-2d60-48fa-8787-16aa40d47d6c"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "MVC for core browsing and modifications",
+          "description": "Use MVC separation for browsing meals and handling profile/order/meal modifications.",
+          "supporting_doc_ids": [
+            "48c80a73-d1c6-46c7-aa14-da9e41eed3d7"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Asynchronous State Propagation via Observer Pattern",
+      "description": "Architectural decisions for asynchronously propagating state changes to UI via Observer, focusing on promotion/subscription updates reaching views.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "Observer-driven updates primarily serve view consistency within an MVC-style UI structure."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Observer for promotion/subscription UI updates",
+          "description": "Push promotion/subscription state changes to UI views asynchronously using Observer.",
+          "supporting_doc_ids": [
+            "45516b74-76a2-47ec-9fe9-4a603a432db0"
+          ]
+        }
+      ]
+    }
+  ],
+  "dropped_dimensions": [
+    {
+      "id": "6",
+      "rationale": "Authentication credential security and secret-handling controls are important generally, but the use case for this step is centered on architectural variation for ghost-kitchen catalog, multi-vendor ordering/discovery, and personalization data flows. None of the provided dimensions in scope explicitly link credential storage/access-control choices to the core architecture decisions being classified."
+    },
+    {
+      "id": "7",
+      "rationale": "User account verification workflow (signup validation/confirmation) is orthogonal to the main ghost-kitchen architectural variations in catalog search, provider/vendor integration, pickup mapping, data/persistence abstractions, and recommendation pipeline enablement. It does not meaningfully change the architectural intent described by the included dimensions for this use case."
+    }
+  ]
+}
