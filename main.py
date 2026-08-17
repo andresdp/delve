@@ -237,6 +237,13 @@ def parse_args() -> argparse.Namespace:
              "(uniform when absent), 'embeddings' uses the embedding model, "
              "'uniform' places every value at unit distance.",
     )
+    visualize_group.add_argument(
+        "--no-auto-report",
+        action="store_true",
+        default=False,
+        help="With --output: skip automatic grounded-theory report generation "
+             "(and its narrative LLM call) for this pipeline run.",
+    )
 
     return parser.parse_args()
 
@@ -920,6 +927,34 @@ async def run(args: argparse.Namespace) -> None:
         else:
             tree_path = None
 
+        # Generate the grounded-theory markdown report automatically (R2),
+        # unless the operator opted out (R12). Reuses the just-built
+        # taxonomy_data — it already has the exact {"iterations": [...],
+        # "selected_clusters": [...]} shape _select_clusters_for_visualize
+        # and _explanation_for_view expect from a loaded taxonomy JSON, so
+        # the same view-precedence helpers apply here unmodified (R4).
+        report_path = None
+        if not args.no_auto_report:
+            if taxonomy_data["iterations"] or taxonomy_data.get("selected_clusters"):
+                report_clusters, report_iteration = _select_clusters_for_visualize(
+                    taxonomy_data, args.iteration
+                )
+                report_explanation = _explanation_for_view(taxonomy_data, args.iteration)
+                narrative = await report_renderer.generate_narrative_summary(
+                    report_clusters, report_explanation, effective_config
+                )
+                if narrative is None:
+                    logger.info("Narrative summary unavailable — report will omit it.")
+                report_markdown = report_renderer.assemble_report(report_clusters, narrative)
+                report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
+                with open(report_path, "w") as f:
+                    f.write(report_markdown)
+                logger.info(
+                    "Report saved to: %s (iteration %s)", report_path, report_iteration
+                )
+            else:
+                logger.info("No taxonomy generated — skipping automatic report generation.")
+
         # Results panel
         saved_lines = (
             f"[bold green]Documents:[/bold green]      {docs_path}\n"
@@ -928,6 +963,8 @@ async def run(args: argparse.Namespace) -> None:
         )
         if tree_path:
             saved_lines += f"\n[bold green]Clusters:[/bold green]       {tree_path}"
+        if report_path:
+            saved_lines += f"\n[bold green]Report:[/bold green]         {report_path}"
         console.print(Panel(
             saved_lines,
             title="[bold green]💾 Results Saved[/bold green]",
