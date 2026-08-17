@@ -14,6 +14,18 @@ class SummaryOutput(BaseModel):
     explanation: str = Field(description="A brief explanation of the key points or themes.")
 
 
+class NarrativeSummaryOutput(BaseModel):
+    """Structured output for the grounded-theory report's narrative summary."""
+
+    summary: str = Field(
+        description=(
+            "A readable narrative summary synthesizing the taxonomy's explanation and "
+            "dimension descriptions. Must not introduce any dimension, relation, or value "
+            "name absent from the supplied input."
+        )
+    )
+
+
 class OpenCode(BaseModel):
     """A fine-grained per-document concept or decision label (open coding)."""
 

@@ -182,6 +182,15 @@ DIMENSION_SELECTION_PROMPT = _load_prompt(
     "Select the dimensions relevant to the use case from the taxonomy above.",
 )
 
+# ---------------------------------------------------------------------------
+# Narrative summary (grounded-theory report: readable overview of the taxonomy)
+# ---------------------------------------------------------------------------
+
+NARRATIVE_SUMMARY_PROMPT = _load_prompt(
+    "narrative_summary.md",
+    "Write the narrative summary from the taxonomy explanation and dimensions above.",
+)
+
 __all__ = [
     "SUMMARY_GENERATION_PROMPT",
     "TAXONOMY_GENERATION_PROMPT",
@@ -192,4 +201,5 @@ __all__ = [
     "SATURATION_CHECK_PROMPT",
     "VALUE_MERGE_PROMPT",
     "DIMENSION_SELECTION_PROMPT",
+    "NARRATIVE_SUMMARY_PROMPT",
 ]
