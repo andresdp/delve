@@ -132,6 +132,36 @@ def render_diagram(clusters: List[Cluster]) -> str:
     return "\n".join(lines)
 
 
+def _merged_from_note(value: Dict[str, Any]) -> str:
+    """Build the inline note for a value consolidation folded into this one.
+
+    Value consolidation (when enabled) merges draft values judged to
+    represent the same decision, keeping the nearest-to-centroid value's
+    label/description as canonical. The merged-away drafts are not silently
+    dropped — this renders which ones a catalog entry now stands in for, so
+    a reader sees the consolidation rather than an unexplained value count.
+
+    Args:
+        value: A single value dict from a dimension's ``values`` list.
+
+    Returns:
+        A parenthetical markdown note, or "" when this value was not the
+        product of a merge (``merged_from`` absent or empty).
+    """
+    merged_from = value.get("merged_from") or []
+    if not isinstance(merged_from, list) or not merged_from:
+        return ""
+    labels = [
+        m.get("label") or m.get("id", "?")
+        for m in merged_from
+        if isinstance(m, dict)
+    ]
+    if not labels:
+        return ""
+    quoted = ", ".join(f'"{label}"' for label in labels)
+    return f"_(consolidated with {len(labels)} similar value{'s' if len(labels) != 1 else ''} judged the same decision: {quoted})_"
+
+
 def render_catalog(clusters: List[Cluster]) -> str:
     """Render the per-dimension catalog as markdown.
 
@@ -140,8 +170,10 @@ def render_catalog(clusters: List[Cluster]) -> str:
     ``target_id`` is not among the rendered clusters, the relation line is
     kept but noted as pointing outside this view rather than dropped —
     incoming relations are intentionally left to the diagram and not
-    duplicated here. This is a verbatim rendering of the taxonomy JSON — no
-    LLM involvement.
+    duplicated here. A value produced by value consolidation (see
+    :func:`_merged_from_note`) is annotated with the similar draft values it
+    now stands in for. This is a verbatim rendering of the taxonomy JSON —
+    no LLM involvement.
 
     Args:
         clusters: The in-scope taxonomy dimensions (clusters) to render.
@@ -173,7 +205,11 @@ def render_catalog(clusters: List[Cluster]) -> str:
                     continue
                 label = value.get("label") or "Unnamed value"
                 value_description = value.get("description") or ""
-                lines.append(f"- **{label}** — {value_description}")
+                line = f"- **{label}** — {value_description}"
+                merged_note = _merged_from_note(value)
+                if merged_note:
+                    line += f" {merged_note}"
+                lines.append(line)
         else:
             lines.append("_No values recorded._")
         lines.append("")

@@ -14,8 +14,10 @@ Implements the value consolidation algorithm from
    band) go to an LLM adjudication call.
 6. Canonical label per merged group: the nearest-to-centroid value.
 
-Nothing is silently deleted: merged-away values are recorded in the
-consolidated value's description metadata and logged for inspection.
+Nothing is silently deleted: merged-away values are recorded (id and
+label) on the consolidated value's ``merged_from`` field and logged for
+inspection. The grounded-theory report surfaces this on the merged
+value's catalog entry — see ``report_renderer.render_catalog``.
 """
 
 import json
@@ -80,11 +82,14 @@ def _merge_group(
     canonical = group_values[canonical_idx]
 
     supporting = []
-    merged_ids = []
+    merged_from = []
     for i, value in enumerate(group_values):
         supporting.extend(value.get("supporting_doc_ids") or [])
         if i != canonical_idx:
-            merged_ids.append(value.get("id", "?"))
+            merged_from.append({
+                "id": value.get("id", "?"),
+                "label": value.get("label", ""),
+            })
 
     supporting_ids = list(dict.fromkeys(supporting))  # stable dedupe
 
@@ -94,9 +99,10 @@ def _merge_group(
         "label": canonical.get("label", ""),
         "description": canonical.get("description", ""),
         "supporting_doc_ids": supporting_ids,
-        "merged_from": merged_ids,
+        "merged_from": merged_from,
     }
 
+    merged_ids = [m["id"] for m in merged_from]
     provenance = (
         f"merged {canonical.get('id')} + {', '.join(merged_ids)}" if merged_ids
         else f"kept {canonical.get('id')} as-is"
