@@ -13,6 +13,9 @@ Usage:
 
     # Render a PCA biplot from a saved taxonomy JSON (no LLM calls in uniform mode):
     python main.py --visualize my_output/taxonomy_20250101_120000.json
+
+    # Render a self-contained grounded-theory markdown report from a saved taxonomy JSON:
+    python main.py --report my_output/taxonomy_20250101_120000.json
 """
 
 import argparse
@@ -23,6 +26,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Optional
 
 from dotenv import load_dotenv
 from langchain_core.callbacks import BaseCallbackHandler
@@ -32,7 +36,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from taxonomy_generator import graph, strings_to_docs
+from taxonomy_generator import graph, report_renderer, strings_to_docs
 from taxonomy_generator.configuration import Configuration, init_settings
 
 logger = logging.getLogger(__name__)
@@ -197,20 +201,31 @@ def parse_args() -> argparse.Namespace:
         help="Suppress log output — show only rich-formatted results.",
     )
 
-    # Visualization
-    visualize_group = parser.add_argument_group("Visualization")
-    visualize_group.add_argument(
+    # Visualization / Reporting
+    visualize_group = parser.add_argument_group("Visualization & Reporting")
+    standalone_mode = visualize_group.add_mutually_exclusive_group()
+    standalone_mode.add_argument(
         "--visualize",
         type=str,
         default=None,
         help="Render a PCA biplot from a saved taxonomy JSON file and exit "
-             "(does not run the pipeline). Accepts any *_taxonomy_*.json output.",
+             "(does not run the pipeline). Accepts any *_taxonomy_*.json output. "
+             "Mutually exclusive with --report.",
+    )
+    standalone_mode.add_argument(
+        "--report",
+        type=str,
+        default=None,
+        help="Render a self-contained grounded-theory markdown report (narrative "
+             "summary, relationship diagram, dimension catalog) from a saved "
+             "taxonomy JSON file and exit (does not run the pipeline). Accepts "
+             "any *_taxonomy_*.json output. Mutually exclusive with --visualize.",
     )
     visualize_group.add_argument(
         "--iteration",
         type=int,
         default=None,
-        help="With --visualize: 1-based taxonomy iteration to render. "
+        help="With --visualize or --report: 1-based taxonomy iteration to render. "
              "Default: selected_clusters if present, else the last iteration.",
     )
     visualize_group.add_argument(
@@ -474,6 +489,36 @@ def _select_clusters_for_visualize(data, iteration):
     raise SystemExit("No iterations or selected_clusters found in the taxonomy file")
 
 
+def _explanation_for_view(data: Any, iteration_arg: Optional[int]) -> str:
+    """Resolve the explanation text paired with the rendered view (KTD5).
+
+    ``_select_clusters_for_visualize`` only returns ``(clusters,
+    iteration_number)`` — it does not expose which iteration's
+    ``explanation`` matches the resolved view. Both selection cases resolve
+    to a specific iteration's explanation directly from the loaded JSON:
+
+    - ``--iteration N`` renders iteration N's own clusters, so its own
+      explanation (``iterations[N-1]["explanation"]``) is the correct text.
+    - The default view (``selected_clusters`` when present, else the last
+      iteration) has no explanation of its own paired 1:1 with it, so per
+      KTD5 it falls back to the latest iteration's explanation.
+
+    Returns "" when no matching explanation is available (e.g. a bare
+    cluster-list file, or a legacy file whose iteration entries omit
+    ``explanation``).
+    """
+    if not isinstance(data, dict):
+        return ""
+    iterations = data.get("iterations") or []
+    if iteration_arg is not None:
+        if 1 <= iteration_arg <= len(iterations):
+            return iterations[iteration_arg - 1].get("explanation") or ""
+        return ""
+    if iterations:
+        return iterations[-1].get("explanation") or ""
+    return ""
+
+
 async def _run_visualize(args: argparse.Namespace) -> None:
     """Render a PCA biplot from a saved taxonomy JSON and exit."""
     settings = init_settings(args.config)
@@ -526,6 +571,60 @@ async def _run_visualize(args: argparse.Namespace) -> None:
     else:
         console.print("\n  [bold red]❌ Biplot could not be rendered — see log output.[/bold red]\n")
         raise SystemExit(1)
+
+
+async def _run_report(args: argparse.Namespace) -> None:
+    """Render a grounded-theory markdown report from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+
+    try:
+        with open(args.report) as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        console.print(f"[bold red]❌ Could not load taxonomy file: {e}[/bold red]")
+        raise SystemExit(1)
+
+    clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+    explanation = _explanation_for_view(data, args.iteration)
+
+    name = data.get("taxonomy_name") if isinstance(data, dict) else None
+    configurable = {
+        "name": name or settings.taxonomy.name,
+    }
+    # Mirror --visualize: --output (when present) overrides the standalone
+    # output directory; --corpus is never read in this mode.
+    if args.output:
+        configurable["visualization_output_dir"] = args.output
+    configuration = Configuration.from_runnable_config({"configurable": configurable})
+
+    n_values = sum(len(c.get("values") or []) for c in clusters if isinstance(c, dict))
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.report}\n"
+        f"[bold]Iteration:[/bold] {iteration}\n"
+        f"[bold]Values:[/bold] {n_values}\n"
+        f"[bold]Dimensions:[/bold] {len(clusters)}",
+        title="[bold bright_blue]📄 Grounded Theory Report[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+
+    narrative = await report_renderer.generate_narrative_summary(clusters, explanation, configuration)
+    if narrative is None:
+        console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
+    report_markdown = report_renderer.assemble_report(clusters, narrative)
+
+    from taxonomy_generator.visualization import resolve_output_dir
+
+    out_dir = resolve_output_dir(configuration)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in configuration.name)
+    name_prefix = f"{name_prefix}_" if name_prefix else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = out_dir / f"{name_prefix}report_{timestamp}.md"
+    with open(out_path, "w") as f:
+        f.write(report_markdown)
+
+    console.print(f"\n  [bold green]✅ Report saved to:[/bold green] {out_path}\n")
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -856,6 +955,11 @@ def main() -> None:
     # Standalone biplot mode — render from a saved taxonomy JSON and exit.
     if args.visualize:
         asyncio.run(_run_visualize(args))
+        return
+
+    # Standalone report mode — render a markdown report from a saved taxonomy JSON and exit.
+    if args.report:
+        asyncio.run(_run_report(args))
         return
 
     logger.info("Delve Taxonomy Generator starting")
