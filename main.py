@@ -26,7 +26,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional, Tuple
 
 from dotenv import load_dotenv
 from langchain_core.callbacks import BaseCallbackHandler
@@ -526,6 +526,31 @@ def _explanation_for_view(data: Any, iteration_arg: Optional[int]) -> str:
     return ""
 
 
+def _dropped_dimensions_for_view(
+    data: Any, iteration_arg: Optional[int]
+) -> Tuple[List[Any], List[Any]]:
+    """Resolve discarded-dimension data for the rendered view, when applicable.
+
+    Discarded-dimension rationale is recorded once, for the single
+    dimension-selection step that produced ``selected_clusters`` from the
+    taxonomy's final iteration — it only applies when that is the view
+    actually being rendered (no explicit ``--iteration`` override) and the
+    file recorded it (older files predating this feature have neither key).
+
+    Returns:
+        ``(dropped_dimensions, all_clusters_for_name_lookup)`` — both empty
+        when discarded-dimension data doesn't apply to this render.
+    """
+    if iteration_arg is not None or not isinstance(data, dict):
+        return [], []
+    dropped = data.get("dropped_dimensions") or []
+    if not dropped:
+        return [], []
+    iterations = data.get("iterations") or []
+    all_clusters = iterations[-1].get("clusters") or [] if iterations else []
+    return dropped, all_clusters
+
+
 def _load_taxonomy_file(path: str) -> Any:
     """Load and parse a saved taxonomy JSON file, exiting with a clear error on failure."""
     try:
@@ -596,6 +621,7 @@ async def _run_report(args: argparse.Namespace) -> None:
 
     clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
     explanation = _explanation_for_view(data, args.iteration)
+    dropped_dimensions, all_clusters_for_dropped = _dropped_dimensions_for_view(data, args.iteration)
 
     name = data.get("taxonomy_name") if isinstance(data, dict) else None
     configurable = {
@@ -628,7 +654,8 @@ async def _run_report(args: argparse.Namespace) -> None:
     out_path = out_dir / f"{name_prefix}report_{timestamp}.md"
 
     narrative = await report_renderer.generate_and_write_report(
-        clusters, explanation, configuration, out_path
+        clusters, explanation, configuration, out_path,
+        dropped_dimensions, all_clusters_for_dropped,
     )
     if narrative is None:
         console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
@@ -706,6 +733,7 @@ async def run(args: argparse.Namespace) -> None:
     result: dict = {}
     clusters: list = []
     selected_clusters: list = []
+    dropped_dimensions: list = []
     saturation_history: list = []
     explanations: list = []
     documents: list = []
@@ -753,6 +781,8 @@ async def run(args: argparse.Namespace) -> None:
                     clusters.extend(node_output["clusters"])
                 if "selected_clusters" in node_output:
                     selected_clusters = node_output["selected_clusters"]
+                if "dropped_dimensions" in node_output:
+                    dropped_dimensions = node_output["dropped_dimensions"]
                 if "saturation_history" in node_output:
                     saturation_history.extend(node_output["saturation_history"])
                 if "explanations" in node_output:
@@ -843,6 +873,8 @@ async def run(args: argparse.Namespace) -> None:
             taxonomy_data["saturation_history"] = saturation_history
         if selected_clusters:
             taxonomy_data["selected_clusters"] = selected_clusters[-1]
+        if dropped_dimensions:
+            taxonomy_data["dropped_dimensions"] = dropped_dimensions
         for i, iteration_clusters in enumerate(clusters):
             entry = {
                 "explanation": explanations[i] if i < len(explanations) else "",
@@ -949,9 +981,13 @@ async def run(args: argparse.Namespace) -> None:
                     logger.warning("Skipping automatic report generation: %s", e)
                 else:
                     report_explanation = _explanation_for_view(taxonomy_data, args.iteration)
+                    report_dropped, report_all_clusters = _dropped_dimensions_for_view(
+                        taxonomy_data, args.iteration
+                    )
                     report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
                     narrative = await report_renderer.generate_and_write_report(
-                        report_clusters, report_explanation, effective_config, report_path
+                        report_clusters, report_explanation, effective_config, report_path,
+                        report_dropped, report_all_clusters,
                     )
                     if narrative is None:
                         logger.info("Narrative summary unavailable — report will omit it.")

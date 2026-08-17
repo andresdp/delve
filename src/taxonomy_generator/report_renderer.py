@@ -206,6 +206,46 @@ def render_catalog(clusters: List[Cluster]) -> str:
     return "\n".join(lines)
 
 
+def render_discarded_dimensions(dropped: List[Cluster], all_clusters: List[Cluster]) -> str:
+    """Render the dimensions dimension-selection excluded from this view.
+
+    Verbatim rendering — no LLM involvement. Discarded dimensions are by
+    definition absent from the rendered/selected view, so their name is
+    looked up from ``all_clusters`` (the full, pre-selection cluster list)
+    rather than from the view being rendered.
+
+    Args:
+        dropped: Discarded-dimension records (``id``, ``rationale``) from
+            the taxonomy's dimension-selection step.
+        all_clusters: The full cluster list to resolve discarded names from.
+
+    Returns:
+        A markdown string, or "" when there is nothing to render (no
+        discarded dimensions recorded, or not applicable to this view).
+    """
+    if not dropped:
+        return ""
+
+    clusters_by_id = {_cluster_id(c): c for c in all_clusters}
+
+    lines = [
+        "## Discarded Dimensions",
+        "",
+        "Dimensions considered during taxonomy generation but excluded from "
+        "this view during dimension selection, judged not relevant to the "
+        "stated use case:",
+        "",
+    ]
+    for item in _in_id_order(dropped):
+        did = _cluster_id(item)
+        source = clusters_by_id.get(did)
+        name = (source.get("name") if source else None) or "Unnamed"
+        rationale = item.get("rationale") or "No rationale recorded."
+        lines.append(f"- **{did}. {name}** — {rationale}")
+
+    return "\n".join(lines)
+
+
 def _format_dimensions_for_prompt(clusters: List[Cluster]) -> str:
     """Format dimension names and descriptions for the narrative-summary prompt."""
     lines = []
@@ -274,20 +314,29 @@ async def generate_narrative_summary(
 def assemble_report(
     clusters: List[Cluster],
     narrative_summary_or_none: str | None,
+    dropped_dimensions: List[Cluster] | None = None,
+    all_clusters_for_dropped: List[Cluster] | None = None,
 ) -> str:
-    """Combine the narrative summary, diagram, and catalog into one document.
+    """Combine the narrative summary, diagram, catalog, and discarded-dimension list into one document.
 
     Sections are laid out narrative first, then the diagram, then the
-    catalog, so a reader gets a plain-language overview before the
-    structural detail. When the narrative summary is unavailable, a clearly
-    worded "unavailable" note takes its place rather than failing the
-    report.
+    catalog, then discarded dimensions last, so a reader gets a
+    plain-language overview before the structural detail. When the narrative
+    summary is unavailable, a clearly worded "unavailable" note takes its
+    place rather than failing the report. The discarded-dimensions section
+    is omitted entirely when there is nothing to show (see
+    :func:`render_discarded_dimensions`).
 
     Args:
         clusters: The in-scope taxonomy dimensions (clusters) to render.
         narrative_summary_or_none: The generated narrative summary, or
             ``None`` when :func:`generate_narrative_summary` failed or was
             skipped.
+        dropped_dimensions: Discarded-dimension records for this view, or
+            ``None``/empty when not applicable (see
+            :func:`render_discarded_dimensions`).
+        all_clusters_for_dropped: The full, pre-selection cluster list used
+            to resolve discarded dimensions' names.
 
     Returns:
         The complete markdown report as a single string.
@@ -313,6 +362,11 @@ def assemble_report(
 
     lines.append(render_catalog(clusters))
 
+    discarded = render_discarded_dimensions(dropped_dimensions or [], all_clusters_for_dropped or [])
+    if discarded:
+        lines.append("")
+        lines.append(discarded)
+
     return "\n".join(lines)
 
 
@@ -321,12 +375,21 @@ async def generate_and_write_report(
     explanation: str,
     configuration: Configuration,
     out_path: Path,
+    dropped_dimensions: List[Cluster] | None = None,
+    all_clusters_for_dropped: List[Cluster] | None = None,
 ) -> str | None:
     """Generate the narrative summary, assemble the report, and write it to disk.
 
     Shared by every report-generation call site (standalone and
     auto-triggered), so the generate-assemble-write sequence lives in one
     place rather than being duplicated per caller.
+
+    Args:
+        dropped_dimensions: Discarded-dimension records for this view, or
+            ``None``/empty when not applicable — see
+            :func:`render_discarded_dimensions`.
+        all_clusters_for_dropped: The full, pre-selection cluster list used
+            to resolve discarded dimensions' names.
 
     Returns:
         The generated narrative summary, or ``None`` when it was
@@ -335,6 +398,6 @@ async def generate_and_write_report(
         what to tell the operator.
     """
     narrative = await generate_narrative_summary(clusters, explanation, configuration)
-    report_markdown = assemble_report(clusters, narrative)
+    report_markdown = assemble_report(clusters, narrative, dropped_dimensions, all_clusters_for_dropped)
     out_path.write_text(report_markdown)
     return narrative

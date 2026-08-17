@@ -65,6 +65,7 @@ class OutputState:
     explanations: Annotated[List[str], operator.add] = field(default_factory=list)
     documents: List[Doc] = field(default_factory=list)
     selected_clusters: List[List[Dict]] = field(default_factory=list)
+    dropped_dimensions: List[Dict] = field(default_factory=list)
 
 
 @dataclass
@@ -89,6 +90,9 @@ class State(InputState, OutputState):
     # Use-case-selected subset of the final reviewed taxonomy. Kept distinct from
     # the full `clusters[-1]` so both full and filtered taxonomies stay inspectable.
     selected_clusters: List[List[Dict]] = field(default_factory=list)
+    # Dimensions dimension-selection excluded from selected_clusters, kept
+    # inspectable with a rationale rather than only logged to `status`.
+    dropped_dimensions: List[Dict] = field(default_factory=list)
     use_case: str = field(default="")
     is_last_step: IsLastStep = field(default=False)
     user_feedback: UserFeedback = field(default=None)

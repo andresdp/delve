@@ -2,9 +2,9 @@
 
 Filters the reviewed, value-consolidated taxonomy to the subset of
 dimensions that serve the use case. Dropped dimensions are kept
-inspectable — recorded with rationales in the status/explanations
-accumulators and omitted only from ``selected_clusters`` — never silently
-deleted from the full taxonomy.
+inspectable — recorded with rationales in ``dropped_dimensions`` (and
+mirrored into the ``status`` log) and omitted only from
+``selected_clusters`` — never silently deleted from the full taxonomy.
 """
 
 import logging
@@ -82,6 +82,7 @@ async def select_dimensions(
 
     return {
         "selected_clusters": [selected],
+        "dropped_dimensions": dropped,
         "explanations": [result.rationale],
         "status": status,
     }
