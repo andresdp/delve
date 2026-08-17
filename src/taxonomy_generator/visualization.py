@@ -42,7 +42,7 @@ the ``visualization.enabled`` config flag, and directly by the standalone
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -261,6 +261,52 @@ def _point_label(point: Dict, max_len: int = 25) -> str:
     return text
 
 
+def _dimension_color_map(dims: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Assign one color per dimension (tab10 for <=10 dims, else tab20)."""
+    import matplotlib.pyplot as plt
+
+    dim_ids = [d["id"] for d in dims]
+    cmap = plt.get_cmap("tab10" if len(dim_ids) <= 10 else "tab20")
+    return {d: cmap(i % cmap.N) for i, d in enumerate(dim_ids)}
+
+
+def _uniform_mode_jitter(configuration: Configuration, coords: np.ndarray, mode: str) -> np.ndarray:
+    """Display-only jitter so coincident points stay legible in uniform mode.
+
+    Uniform mode collapses every value of a dimension onto the same
+    coordinate, so without jitter they'd overplot exactly. Seeded by
+    ``random_seed`` for reproducibility; the underlying data is untouched.
+    """
+    offsets = np.zeros_like(coords, dtype=float)
+    if mode == "uniform" and len(coords) > 0:
+        rng = np.random.default_rng(configuration.random_seed if configuration.random_seed is not None else 0)
+        spans = np.maximum(coords.max(axis=0) - coords.min(axis=0), np.finfo(float).eps)
+        offsets = rng.uniform(-0.03, 0.03, size=coords.shape) * spans
+    return offsets
+
+
+def _save_biplot_figure(
+    fig: Any, configuration: Configuration, stage: str, iteration_index: int, kind: str
+) -> Optional[Path]:
+    """Save a rendered figure to the standard biplot filename. Fail-soft."""
+    out_dir = resolve_output_dir(configuration)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / (
+        f"taxonomy_biplot_{_sanitize_name(configuration.name)}_{stage}_{iteration_index}.png"
+    )
+    try:
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=140)
+    except Exception as e:
+        logger.warning("%s save failed for stage=%s: %s", kind, stage, e)
+        return None
+    finally:
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+    return out_path
+
+
 def _extract_loadings(result, n_features: int, n_components: int) -> Optional[np.ndarray]:
     """Extract a ``(n_features x n_components)`` loadings matrix from a pca result."""
     loadings = None
@@ -279,6 +325,87 @@ def _extract_loadings(result, n_features: int, n_components: int) -> Optional[np
     if loadings.shape == (n_components, n_features):
         loadings = loadings.T
     return loadings if loadings.shape == (n_features, n_components) else None
+
+
+def _render_direct_scatter(
+    configuration: Configuration,
+    points: List[Dict[str, Any]],
+    matrix: np.ndarray,
+    dims: List[Dict[str, Any]],
+    stage: str,
+    iteration_index: int,
+    mode: str,
+) -> Optional[Path]:
+    """Plot values directly on the taxonomy's own dimension axes — no PCA.
+
+    Used when the taxonomy has exactly 2 or 3 dimensions: the axis-coordinate
+    matrix already has one column per dimension, so there is nothing to
+    reduce. Plotting the raw columns is exact (not a lossy projection), and
+    each axis is directly readable as one named dimension rather than an
+    abstract, rotated principal component — so there is no "explained
+    variance" to report and no loading arrows to draw (the axes already are
+    the dimensions).
+    """
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        logger.warning("Scatter rendering skipped — missing optional dependency: %s", e)
+        return None
+
+    n_axis_dims = matrix.shape[1]
+    dim_colors = _dimension_color_map(dims)
+    colors = [dim_colors[p["dimension_id"]] for p in points]
+    offsets = _uniform_mode_jitter(configuration, matrix, mode)
+
+    fig = plt.figure(figsize=(9, 7))
+    if n_axis_dims >= 3:
+        ax = fig.add_subplot(projection="3d")
+        ax.scatter(
+            matrix[:, 0] + offsets[:, 0],
+            matrix[:, 1] + offsets[:, 1],
+            matrix[:, 2] + offsets[:, 2],
+            c=colors, s=48, alpha=0.85,
+        )
+        for i, point in enumerate(points):
+            ax.text(
+                matrix[i, 0] + offsets[i, 0],
+                matrix[i, 1] + offsets[i, 1],
+                matrix[i, 2] + offsets[i, 2],
+                _point_label(point),
+                fontsize=6, alpha=0.7,
+            )
+        ax.set_zlabel(f"{dims[2]['id']}: {dims[2]['name']}")
+    else:
+        ax = fig.add_subplot()
+        ax.scatter(matrix[:, 0] + offsets[:, 0], matrix[:, 1] + offsets[:, 1], c=colors, s=48, alpha=0.85)
+        for i, point in enumerate(points):
+            ax.annotate(
+                _point_label(point),
+                (matrix[i, 0] + offsets[i, 0], matrix[i, 1] + offsets[i, 1]),
+                fontsize=7, alpha=0.7, xytext=(3, 3), textcoords="offset points",
+            )
+
+    ax.set_xlabel(f"{dims[0]['id']}: {dims[0]['name']}")
+    ax.set_ylabel(f"{dims[1]['id']}: {dims[1]['name']}")
+    ax.set_title(
+        f"Taxonomy scatter — values on their own dimension axes — stage: {stage}, iteration: {iteration_index}\n"
+        f"Axis positions: {mode} · {n_axis_dims} dimensions plotted directly (no PCA — nothing to reduce)"
+    )
+
+    handles = [
+        plt.Line2D([0], [0], marker="o", linestyle="", color=dim_colors[d["id"]],
+                   label=f"{d['id']}: {d['name']}")
+        for d in dims
+    ]
+    ax.legend(handles=handles, fontsize=8, loc="best")
+
+    out_path = _save_biplot_figure(fig, configuration, stage, iteration_index, kind="Scatter")
+    if out_path is not None:
+        logger.info("Scatter written: %s (axis positions: %s, %d dimensions, no PCA)", out_path, mode, n_axis_dims)
+    return out_path
 
 
 async def render_taxonomy_biplot(
@@ -326,6 +453,12 @@ async def render_taxonomy_biplot(
         logger.debug("Skipping biplot render — a single dimension gives a 1-D space")
         return None
 
+    if matrix.shape[1] in (2, 3):
+        # The taxonomy already has exactly as many dimensions as a 2D/3D plot
+        # has axes — nothing to reduce, so plot the raw axis coordinates
+        # directly instead of running PCA on an already-final space.
+        return _render_direct_scatter(configuration, points, matrix, dims, stage, iteration_index, mode)
+
     try:
         import matplotlib
 
@@ -365,22 +498,9 @@ async def render_taxonomy_biplot(
         variance_share = float(explained[-1]) if explained.size else 0.0
     loadings = _extract_loadings(result, matrix.shape[1], n_components)
 
-    # Assign one color per dimension.
-    dim_ids = [d["id"] for d in dims]
-    cmap = plt.get_cmap("tab10" if len(dim_ids) <= 10 else "tab20")
-    dim_colors = {d: cmap(i % cmap.N) for i, d in enumerate(dim_ids)}
+    dim_colors = _dimension_color_map(dims)
     colors = [dim_colors[p["dimension_id"]] for p in points]
-
-    # Display-only jitter so coincident points (uniform mode collapses every
-    # value of a dimension onto the same projected point) stay legible.
-    # Seeded by random_seed for reproducibility; the data itself is untouched.
-    offsets = np.zeros_like(projected, dtype=float)
-    if mode == "uniform" and len(projected) > 0:
-        rng = np.random.default_rng(configuration.random_seed if configuration.random_seed is not None else 0)
-        spans = np.maximum(
-            projected.max(axis=0) - projected.min(axis=0), np.finfo(float).eps
-        )
-        offsets = rng.uniform(-0.03, 0.03, size=projected.shape) * spans
+    offsets = _uniform_mode_jitter(configuration, projected, mode)
 
     fig = plt.figure(figsize=(9, 7))
     if n_components >= 3:
@@ -455,20 +575,7 @@ async def render_taxonomy_biplot(
     ]
     ax.legend(handles=handles, fontsize=8, loc="best")
 
-    out_dir = resolve_output_dir(configuration)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / (
-        f"taxonomy_biplot_{_sanitize_name(configuration.name)}_{stage}_{iteration_index}.png"
-    )
-
-    try:
-        fig.tight_layout()
-        fig.savefig(out_path, dpi=140)
-    except Exception as e:
-        logger.warning("Biplot save failed for stage=%s: %s", stage, e)
-        return None
-    finally:
-        plt.close(fig)
-
-    logger.info("Biplot written: %s (axis positions: %s, explained variance %.0f%%)", out_path, mode, variance_share * 100)
+    out_path = _save_biplot_figure(fig, configuration, stage, iteration_index, kind="Biplot")
+    if out_path is not None:
+        logger.info("Biplot written: %s (axis positions: %s, explained variance %.0f%%)", out_path, mode, variance_share * 100)
     return out_path
