@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import NARRATIVE_SUMMARY_PROMPT
@@ -50,6 +50,32 @@ def _mermaid_node_id(cluster_id: str) -> str:
     return f"dim_{cluster_id}"
 
 
+def _id_sort_key(cluster: Cluster) -> Tuple[int, Any]:
+    """Sort key placing dimensions in numeric id order (1, 2, ..., 10, 11).
+
+    Dimension ids are stored as strings, so a plain string sort would put
+    "10" before "2". Falls back to the raw string for a non-numeric id so
+    rendering never errors on unexpected data — it just sorts after every
+    numeric id, in string order.
+    """
+    cid = _cluster_id(cluster)
+    try:
+        return (0, int(cid))
+    except ValueError:
+        return (1, cid)
+
+
+def _in_id_order(clusters: List[Cluster]) -> List[Cluster]:
+    """Return clusters sorted into numeric dimension-id order.
+
+    The order clusters arrive in reflects how the view was selected (e.g.
+    ``selected_clusters`` preserves the model's relevance ordering, not
+    dimension-id order) — every rendered section of the report presents
+    dimensions in the same id order regardless of that upstream ordering.
+    """
+    return sorted(clusters, key=_id_sort_key)
+
+
 def _escape_mermaid_label(text: str) -> str:
     """Escape characters that would break a quoted mermaid node/edge label.
 
@@ -77,6 +103,7 @@ def render_diagram(clusters: List[Cluster]) -> str:
     Returns:
         A fenced ``mermaid`` code block as a markdown string.
     """
+    clusters = _in_id_order(clusters)
     rendered_ids = {_cluster_id(cluster) for cluster in clusters}
 
     lines = ["```mermaid", "flowchart TB"]
@@ -123,6 +150,7 @@ def render_catalog(clusters: List[Cluster]) -> str:
         A markdown string with one section per dimension.
     """
     clusters_by_id = {_cluster_id(cluster): cluster for cluster in clusters}
+    clusters = _in_id_order(clusters)
 
     lines = ["## Dimension Catalog", ""]
 
@@ -181,7 +209,7 @@ def render_catalog(clusters: List[Cluster]) -> str:
 def _format_dimensions_for_prompt(clusters: List[Cluster]) -> str:
     """Format dimension names and descriptions for the narrative-summary prompt."""
     lines = []
-    for cluster in clusters:
+    for cluster in _in_id_order(clusters):
         name = cluster.get("name") or "Unnamed"
         description = cluster.get("description") or ""
         lines.append(f"- {name}: {description}")
