@@ -94,6 +94,16 @@ class Configuration:
         metadata={"description": "Random seed for reproducibility (null = random)."},
     )
 
+    mode: str = field(
+        default=None,
+        metadata={"description": "Run mode: 'train' (build/update taxonomy) or 'test' (frozen dimensions, label only)."},
+    )
+
+    taxonomy_input: Optional[str] = field(
+        default=None,
+        metadata={"description": "Path to a saved taxonomy JSON used as the starting taxonomy."},
+    )
+
     # ── Taxonomy ────────────────────────────────────────────────────────
     name: str = field(
         default=None,
@@ -268,6 +278,9 @@ class Configuration:
             "sample_size": s.pipeline.sample_size,
             "batch_size": s.pipeline.batch_size,
             "random_seed": s.pipeline.random_seed,
+            # Pipeline — run modes / seeding
+            "mode": s.pipeline.mode,
+            "taxonomy_input": s.pipeline.taxonomy_input,
             # Taxonomy
             "name": s.taxonomy.name,
             "max_num_clusters": s.taxonomy.max_num_clusters,

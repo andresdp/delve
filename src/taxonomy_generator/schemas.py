@@ -175,3 +175,13 @@ class LabelOutput(BaseModel):
             "matches the document. Null when the category has no values or none fit."
         ),
     )
+    proposed_value_label: Optional[str] = Field(
+        default=None,
+        description=(
+            "When NO existing value of the chosen category fits the document's "
+            "specific decision: a concise label (2-6 words) naming that decision, "
+            "suitable as a new value on the category's axis. Null when an existing "
+            "value_id was chosen, when the category has no values at all, or when "
+            "the fallback category was used."
+        ),
+    )

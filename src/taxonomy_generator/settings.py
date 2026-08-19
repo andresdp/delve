@@ -49,6 +49,14 @@ class PipelineSettings:
     sample_size: int = 0
     batch_size: int = 200
     random_seed: Optional[int] = None
+    # Run mode: "train" (default) progressively builds/updates the taxonomy;
+    # "test" freezes the seeded taxonomy's dimensions and only labels new
+    # documents (with value growth) against them.
+    mode: str = "train"
+    # Path to a saved taxonomy JSON used as the run's starting taxonomy.
+    # Required for test mode; in train mode it seeds refinement instead of
+    # generating from scratch. None = generate from scratch (today's behavior).
+    taxonomy_input: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +86,22 @@ class TaxonomySettings:
     # adjudication), and visualization places all values of a dimension at a
     # unitary distance on the dimension axis.
     consolidate_values: bool = True
+
+
+@dataclass(frozen=True)
+class FeedbackSettings:
+    """Optional external feedback for taxonomy refinement.
+
+    Consumed by ``main.py`` at startup: the resolved text is wrapped in a
+    ``UserFeedback`` and passed into the graph via the input state, where it
+    flows into the existing ``{feedback}`` prompt slot of update and review.
+    """
+
+    # Inline feedback text.
+    text: Optional[str] = None
+    # Path to a text/markdown file with feedback. Used only when ``text`` is
+    # absent (``text`` wins when both are set).
+    file: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -135,6 +159,7 @@ class Settings:
     taxonomy: TaxonomySettings = field(default_factory=TaxonomySettings)
     summarization: SummarizationSettings = field(default_factory=SummarizationSettings)
     labeling: LabelingSettings = field(default_factory=LabelingSettings)
+    feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
     output: OutputSettings = field(default_factory=OutputSettings)
     visualization: VisualizationSettings = field(default_factory=VisualizationSettings)
 
@@ -157,6 +182,15 @@ def _build_pipeline(raw: dict) -> PipelineSettings:
         sample_size=raw.get("sample_size", PipelineSettings.sample_size),
         batch_size=raw.get("batch_size", PipelineSettings.batch_size),
         random_seed=raw.get("random_seed", PipelineSettings.random_seed),
+        mode=raw.get("mode", PipelineSettings.mode),
+        taxonomy_input=raw.get("taxonomy_input", PipelineSettings.taxonomy_input),
+    )
+
+
+def _build_feedback(raw: dict) -> FeedbackSettings:
+    return FeedbackSettings(
+        text=raw.get("text", FeedbackSettings.text),
+        file=raw.get("file", FeedbackSettings.file),
     )
 
 
@@ -250,6 +284,7 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         taxonomy=_build_taxonomy(raw.get("taxonomy", {})),
         summarization=_build_summarization(raw.get("summarization", {})),
         labeling=_build_labeling(raw.get("labeling", {})),
+        feedback=_build_feedback(raw.get("feedback", {})),
         output=_build_output(raw.get("output", {})),
         visualization=_build_visualization(raw.get("visualization", {})),
     )

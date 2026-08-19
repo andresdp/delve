@@ -50,11 +50,17 @@ class UserFeedback(BaseModel):
 @dataclass
 class InputState:
     """Defines the input state for the agent, representing initial configuration parameters.
-    
+
     Pass a list of documents (as Doc objects or dicts with 'id' and 'content' keys)
     via the `documents` field. Use ``strings_to_docs()`` to convert raw strings.
+    Optionally pass ``external_feedback`` to inject external feedback (e.g. from
+    the CLI ``--feedback`` flag or the ``feedback`` config section) into
+    taxonomy refinement prompts. This channel is persistent for the whole run —
+    unlike ``state.user_feedback``, which the automated saturation critic owns
+    and overwrites.
     """
     documents: List[Doc] = field(default_factory=list)
+    external_feedback: Optional[UserFeedback] = field(default=None)
 
 
 @dataclass
@@ -66,6 +72,7 @@ class OutputState:
     documents: List[Doc] = field(default_factory=list)
     selected_clusters: List[List[Dict]] = field(default_factory=list)
     dropped_dimensions: List[Dict] = field(default_factory=list)
+    delta_summary: Optional[Dict] = field(default=None)
 
 
 @dataclass

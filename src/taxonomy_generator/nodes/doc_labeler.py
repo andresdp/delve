@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import List
+from typing import Dict, List, Optional
 
 from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
@@ -36,6 +36,7 @@ def _format_results(docs: List[Doc]) -> str:
     for doc in docs:
         content = _get_field(doc, "content", "")
         category = _get_field(doc, "category", "N/A")
+        value = _get_field(doc, "value", None)
         score = _get_field(doc, "score", None)
         preview = content[:400].replace('\n', ' ').strip()
         if len(content) > 200:
@@ -43,6 +44,8 @@ def _format_results(docs: List[Doc]) -> str:
 
         score_str = f" ({score:.2f})" if score is not None else ""
         result += f"🔖 Category: {category}{score_str}\n"
+        if value:
+            result += f"   Value: {value}\n"
         result += f"📄 Document: {preview}\n"
         result += "─" * 80 + "\n\n"
 
@@ -71,6 +74,31 @@ async def _label_single_doc(labeling_chain, doc_content: str, taxonomy_json: str
             "content": doc_content,
             "taxonomy_json": taxonomy_json,
         })
+
+
+def _resolve_value_label(latest_clusters: List[Dict], label_result: LabelOutput, fallback_category: str) -> Optional[str]:
+    """Resolve the value text for a labeled document.
+
+    Prefers the chosen existing value's label (looked up by ``value_id`` in the
+    chosen category). Falls back to the proposed label when the model flagged
+    that no existing value fits. Returns None for fallback-category documents
+    and value-less matches.
+    """
+    if label_result.category == fallback_category:
+        return None
+    if label_result.value_id:
+        for cluster in latest_clusters:
+            if isinstance(cluster, dict) and cluster.get("name") == label_result.category:
+                for value in cluster.get("values") or []:
+                    if isinstance(value, dict) and value.get("id") == label_result.value_id:
+                        return value.get("label")
+                break
+        # Unknown value_id — fall through to the proposal if present.
+        logger.warning(
+            "Labeler returned unknown value_id %r for category %r",
+            label_result.value_id, label_result.category,
+        )
+    return label_result.proposed_value_label or None
 
 
 async def label_documents(
@@ -117,7 +145,7 @@ async def label_documents(
     ]
     labeled_results: List[LabelOutput] = await asyncio.gather(*tasks)
 
-    # Update documents with labels, scores, and reasoning
+    # Update documents with labels, scores, reasoning, and values
     updated_docs = [
         Doc(
             id=doc["id"] if isinstance(doc, dict) else doc.id,
@@ -125,6 +153,9 @@ async def label_documents(
             summary=doc.get("summary", "") if isinstance(doc, dict) else (doc.summary or ""),
             explanation=label_result.reasoning,
             category=label_result.category,
+            value=_resolve_value_label(
+                latest_clusters, label_result, configuration.fallback_category
+            ),
             score=label_result.score,
         )
         for doc, label_result in zip(state.documents, labeled_results)

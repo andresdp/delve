@@ -55,7 +55,37 @@ STEP_INFO = {
     "consolidate_values": ("🧲", "Consolidating values"),
     "select_dimensions": ("🎯", "Selecting dimensions"),
     "label_documents": ("🏷️", "Labeling documents"),
+    "aggregate_new_values": ("🧩", "Aggregating new values"),
 }
+
+
+def _resolve_feedback_text(args: argparse.Namespace, settings) -> Optional[str]:
+    """Resolve external feedback text with CLI-over-config precedence.
+
+    Precedence: ``--feedback`` > ``--feedback-file`` > config ``feedback.text``
+    > config ``feedback.file`` > None.
+    """
+    if getattr(args, "feedback", None):
+        return args.feedback
+    if getattr(args, "feedback_file", None):
+        with open(args.feedback_file) as f:
+            text = f.read().strip()
+        if text:
+            return text
+        logger.warning("Feedback file %s is empty — ignoring.", args.feedback_file)
+        return None
+    fb = getattr(settings, "feedback", None)
+    if fb is None:
+        return None
+    if fb.text:
+        return fb.text
+    if fb.file:
+        with open(fb.file) as f:
+            text = f.read().strip()
+        if text:
+            return text
+        logger.warning("Configured feedback file %s is empty — ignoring.", fb.file)
+    return None
 
 
 class TokenTracker(BaseCallbackHandler):
@@ -142,6 +172,39 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Path to a corpus file (.txt or .json). Required.",
+    )
+    input_group.add_argument(
+        "--taxonomy",
+        type=str,
+        default=None,
+        help="Path to a saved taxonomy JSON to start from (its final iteration "
+             "is seeded as the starting taxonomy). Required for --mode test.",
+    )
+
+    # Run mode
+    mode_group = parser.add_argument_group("Run mode")
+    mode_group.add_argument(
+        "--mode",
+        choices=["train", "test"],
+        default=None,
+        help="train (default): build/update the taxonomy. test: freeze the "
+             "seeded taxonomy's dimensions, classify new documents against "
+             "them, append deduplicated new values, and report a delta summary.",
+    )
+    feedback_group = mode_group.add_mutually_exclusive_group()
+    feedback_group.add_argument(
+        "--feedback",
+        type=str,
+        default=None,
+        help="Feedback text injected into taxonomy refinement prompts "
+             "(update/review). Mutually exclusive with --feedback-file.",
+    )
+    feedback_group.add_argument(
+        "--feedback-file",
+        type=str,
+        default=None,
+        help="Path to a text/markdown file with feedback for taxonomy "
+             "refinement. Mutually exclusive with --feedback.",
     )
 
     # Configuration
@@ -248,7 +311,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _display_taxonomy(clusters: list, explanations: list, configuration: Configuration) -> None:
+def _display_taxonomy(
+    clusters: list, explanations: list, configuration: Configuration, mode: str = "train"
+) -> None:
     """Display the generated taxonomy as a rich table."""
     if not clusters:
         return
@@ -295,19 +360,27 @@ def _display_taxonomy(clusters: list, explanations: list, configuration: Configu
     if explanations and any(explanations):
         n = len(explanations)
         tail_labels = {}
-        if n >= 1:
-            tail_labels[n - 1] = "Selection"
-        if n >= 2:
-            tail_labels[n - 2] = "Consolidation"
-        if n >= 3:
-            tail_labels[n - 3] = "Review"
+        if mode == "test":
+            # Test mode: seed iteration + aggregation only.
+            tail_labels = {0: "Seed"}
+            if n >= 2:
+                tail_labels[n - 1] = "Aggregation"
+        else:
+            if n >= 1:
+                tail_labels[n - 1] = "Selection"
+            if n >= 2:
+                tail_labels[n - 2] = "Consolidation"
+            if n >= 3:
+                tail_labels[n - 3] = "Review"
         parts = []
         for i, explanation in enumerate(explanations):
             if explanation:
-                if i == 0:
-                    label = "Generation"
-                elif i in tail_labels:
+                if i in tail_labels:
                     label = tail_labels[i]
+                elif mode == "test":
+                    label = "Update"
+                elif i == 0:
+                    label = "Generation"
                 else:
                     label = "Update"
                 parts.append(f"[bold cyan]{i+1}. {label}:[/bold cyan] {explanation}")
@@ -663,6 +736,48 @@ async def _run_report(args: argparse.Namespace) -> None:
     console.print(f"\n  [bold green]✅ Report saved to:[/bold green] {out_path}\n")
 
 
+def _display_delta_summary(delta: dict, configuration: Configuration) -> None:
+    """Render the test-mode delta summary as a rich panel."""
+    if not delta:
+        return
+    new_values = delta.get("new_values") or []
+    fallback_docs = delta.get("fallback_documents") or []
+
+    lines: List[str] = []
+    if new_values:
+        table = Table(
+            show_lines=False,
+            border_style="cyan",
+            title_style="bold cyan",
+            expand=False,
+        )
+        table.add_column("Dimension", style="magenta bold", max_width=40)
+        table.add_column("New Value", style="green bold", max_width=40)
+        table.add_column("Docs", style="dim", justify="right")
+        for nv in new_values:
+            table.add_row(
+                str(nv.get("dimension", "?")),
+                str(nv.get("value", "?")),
+                str(len(nv.get("supporting_doc_ids", []))),
+            )
+        lines.append(table)
+    else:
+        lines.append("[dim]No new values discovered — all documents fit existing values.[/dim]")
+
+    if fallback_docs:
+        lines.append(f"[bold]Fallback ({configuration.fallback_category}) documents:[/bold] {len(fallback_docs)}")
+        for fd in fallback_docs:
+            preview = (fd.get("preview") or "").replace("\n", " ")
+            lines.append(f"  [dim]📄 {preview}[/dim]")
+
+    console.print()
+    console.print(Panel(
+        "\n".join(str(x) for x in lines),
+        title=f"[bold bright_cyan]🧩 Test-Mode Delta Summary[/bold bright_cyan]",
+        border_style="bright_cyan",
+    ))
+
+
 async def run(args: argparse.Namespace) -> None:
     if not args.corpus:
         logger.error("--corpus is required")
@@ -682,8 +797,28 @@ async def run(args: argparse.Namespace) -> None:
     ))
     invoke_input = {"documents": strings_to_docs(texts)}
 
+    # Run mode / seeding / external feedback (CLI over config).
+    mode = args.mode or settings.pipeline.mode
+    taxonomy_input = args.taxonomy or settings.pipeline.taxonomy_input
+    if mode == "test" and not taxonomy_input:
+        console.print("[bold red]❌ Error: --mode test requires --taxonomy (a saved taxonomy JSON).[/bold red]")
+        sys.exit(1)
+    feedback_text = _resolve_feedback_text(args, settings)
+    if feedback_text:
+        from taxonomy_generator.state import UserFeedback
+        invoke_input["external_feedback"] = UserFeedback(
+            decision="modify",
+            explanation="External feedback provided for this run (CLI flag/file or config).",
+            feedback=feedback_text,
+        )
+        logger.info("External feedback injected (%d chars)", len(feedback_text))
+
     # Build config overrides from CLI flags
     configurable = {}
+    if mode:
+        configurable["mode"] = mode
+    if taxonomy_input:
+        configurable["taxonomy_input"] = taxonomy_input
     if args.model:
         configurable["model"] = args.model
         logger.info("Overriding main model: %s", args.model)
@@ -705,16 +840,29 @@ async def run(args: argparse.Namespace) -> None:
     # Show model info (always visible, even in quiet mode)
     taxonomy_name = effective_config.name
     max_dims_str = str(effective_config.max_num_clusters) if effective_config.max_num_clusters else "unlimited (LLM decides)"
+    seed_info = ""
+    if taxonomy_input:
+        seed_dimensions = "unknown"
+        try:
+            from taxonomy_generator.utils import load_seed_taxonomy
+            seed_dimensions = str(len(load_seed_taxonomy(taxonomy_input)))
+        except ValueError as e:
+            console.print(f"[bold red]❌ Error loading --taxonomy file: {e}[/bold red]")
+            sys.exit(1)
+        seed_info = f"[dim]Seed:[/dim] [cyan]{taxonomy_input}[/cyan] [dim]({seed_dimensions} dimensions)[/dim]\n"
+
     console.print(Panel(
         f"[bold]Starting taxonomy generation pipeline...[/bold]\n\n"
         f"[dim]Taxonomy:[/dim] [cyan]{taxonomy_name}[/cyan]\n"
+        f"[dim]Mode:[/dim] [cyan]{mode}[/cyan]\n"
+        f"{seed_info}"
         f"[dim]Max dimensions:[/dim] [cyan]{max_dims_str}[/cyan]\n"
         f"[dim]Model:[/dim] [cyan]{effective_config.model}[/cyan]\n"
         f"[dim]Fast LLM:[/dim] [cyan]{effective_config.fast_llm}[/cyan]",
         title="[bold bright_blue]🚀 Delve[/bold bright_blue]",
         border_style="bright_blue",
     ))
-    logger.info("Starting taxonomy generation pipeline")
+    logger.info("Starting taxonomy generation pipeline (mode=%s)", mode)
 
     # Export graph diagram when not in quiet mode
     if not args.quiet:
@@ -738,6 +886,7 @@ async def run(args: argparse.Namespace) -> None:
     explanations: list = []
     documents: list = []
     messages: list = []
+    delta_summary: Optional[dict] = None
     total_minibatches = None
 
     # Token tracking callback
@@ -783,6 +932,8 @@ async def run(args: argparse.Namespace) -> None:
                     selected_clusters = node_output["selected_clusters"]
                 if "dropped_dimensions" in node_output:
                     dropped_dimensions = node_output["dropped_dimensions"]
+                if "delta_summary" in node_output:
+                    delta_summary = node_output["delta_summary"]
                 if "saturation_history" in node_output:
                     saturation_history.extend(node_output["saturation_history"])
                 if "explanations" in node_output:
@@ -815,7 +966,10 @@ async def run(args: argparse.Namespace) -> None:
 
     if clusters:
         logger.info("Generated taxonomy with %d categories (%d iterations)", len(clusters[-1]), len(clusters))
-        _display_taxonomy(clusters, explanations, effective_config)
+        _display_taxonomy(clusters, explanations, effective_config, mode=mode)
+
+    if delta_summary is not None:
+        _display_delta_summary(delta_summary, effective_config)
 
     if documents:
         logger.info("Labeling results: %d documents categorized", len(documents))
@@ -875,6 +1029,8 @@ async def run(args: argparse.Namespace) -> None:
             taxonomy_data["selected_clusters"] = selected_clusters[-1]
         if dropped_dimensions:
             taxonomy_data["dropped_dimensions"] = dropped_dimensions
+        if delta_summary is not None:
+            taxonomy_data["delta_summary"] = delta_summary
         for i, iteration_clusters in enumerate(clusters):
             entry = {
                 "explanation": explanations[i] if i < len(explanations) else "",
