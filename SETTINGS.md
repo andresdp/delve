@@ -64,6 +64,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `review_taxonomy` | `model` | Core reasoning — quality review |
 | `consolidate_values` | `model` (LLM adjudication only) | Embeddings do the merging; the LLM only adjudicates borderline pairs |
 | `select_dimensions` | `model` | Core reasoning — use-case relevance filtering |
+| `aggregate_new_values` | `model` | Test mode only — merges labeling-proposed new values into the frozen dimensions |
 | `label_documents` | `fast_llm` | Repetitive classification task |
 
 ### 2.2 Pipeline
@@ -74,6 +75,8 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `pipeline.sample_size` | `int` | `50` | Number of documents to randomly sample after capping. `0` = use all (after max_runs cap). |
 | `pipeline.batch_size` | `int` | `200` | Size of minibatches for iterative taxonomy processing. Also used as default for document labeling batches. |
 | `pipeline.random_seed` | `int` or `null` | `42` | Random seed for reproducibility. Affects minibatch shuffling, document sampling, and review sampling. `null` = non-deterministic. |
+| `pipeline.mode` | `str` | `"train"` | Run mode. `"train"` (default) progressively builds and updates the taxonomy. `"test"` freezes the seeded taxonomy's dimensions and only labels new documents against them (new values may be appended via `aggregate_new_values`; no-fit documents go to `labeling.fallback_category`). Override via `--mode` CLI flag. |
+| `pipeline.taxonomy_input` | `str` or `null` | `null` | Path to a saved taxonomy JSON (e.g. `output/taxonomy_<timestamp>.json`) used as the run's starting taxonomy. **Required for `--mode test`**; in train mode it seeds refinement instead of generating from scratch. `null` = generate from scratch (current behavior). Override via `--taxonomy` CLI flag. |
 
 ### 2.3 Taxonomy
 
@@ -92,7 +95,16 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `taxonomy.consolidate_values` | `bool` | `true` | When `false`, value consolidation is disabled: the `consolidate_values` node passes the reviewed taxonomy through unchanged (no embeddings, no LLM adjudication), and visualization places every value at a unitary distance on its dimension axis. |
 | `taxonomy.review_sample_size` | `int` or `null` | `null` | Number of documents to sample for the final taxonomy review. `null` = use `batch_size`. |
 
-### 2.4 Summarization
+### 2.4 Feedback
+
+| YAML Key | Type | Default | Description |
+|---|---|---|---|
+| `feedback.text` | `str` or `null` | `null` | Inline feedback text injected into taxonomy refinement prompts (update/review). Wins over `feedback.file` when both are set. Override via `--feedback` CLI flag. |
+| `feedback.file` | `str` or `null` | `null` | Path to a text/markdown file with feedback for taxonomy refinement. Used only when `feedback.text` is absent. Override via `--feedback-file` CLI flag. |
+
+> **Feedback resolution order:** `--feedback` > `--feedback-file` > `feedback.text` > `feedback.file` > none. The resolved text is wrapped in a `UserFeedback` object and passed to the graph via the input state, flowing into the existing `{feedback}` prompt slot of update and review nodes.
+
+### 2.5 Summarization
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
@@ -101,13 +113,13 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `summarization.summary_explanation_length` | `int` | `30` | Max words for document summary explanations. |
 | `summarization.max_concurrency` | `int` | `5` | Max concurrent LLM requests during summarization. Acts as a semaphore to prevent API rate limit errors. |
 
-### 2.5 Labeling
+### 2.6 Labeling
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
 | `labeling.fallback_category` | `str` | `"Other"` | Category assigned when no taxonomy category fits a document. |
 
-### 2.6 Output
+### 2.7 Output
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
@@ -117,7 +129,7 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | `output.max_docs_per_category_tree` | `int` | `5` | Max documents shown per category in the taxonomy tree view. |
 | `output.content_preview_length` | `int` | `100` | Character length for content previews in the display table. |
 
-### 2.7 Visualization
+### 2.8 Visualization
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
@@ -211,6 +223,7 @@ models:
 | Argument | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--corpus` | `str` | — | **Yes** | Path to a corpus file. Supports `.txt` (one document per line, blank lines skipped) or `.json` (JSON array of strings or objects with a `content` field). |
+| `--taxonomy` | `str` | `None` | Yes (with `--mode test`) | Path to a saved taxonomy JSON to start from (its final iteration is seeded as the starting taxonomy). Sets `pipeline.taxonomy_input`. |
 
 ### 4.2 Configuration
 
@@ -218,20 +231,33 @@ models:
 |---|---|---|---|
 | `--config` | `str` | `None` (uses `./config.yaml`) | Path to a YAML configuration file. If not provided, defaults to `./config.yaml` in the project root. |
 
-### 4.3 Taxonomy
+### 4.3 Run Mode
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--mode` | `{train, test}` | `train` | Run mode. `train` builds/updates the taxonomy progressively. `test` freezes the seeded taxonomy's dimensions and only labels new documents against them. Sets `pipeline.mode`. Requires `--taxonomy`. |
+
+### 4.4 Feedback
+
+| Argument | Type | Default | Description |
+|---|---|---|---|
+| `--feedback` | `str` | `None` | Feedback text injected into taxonomy refinement prompts (update/review). Mutually exclusive with `--feedback-file`. |
+| `--feedback-file` | `str` | `None` | Path to a text/markdown file with feedback for taxonomy refinement. Mutually exclusive with `--feedback`. |
+
+### 4.5 Taxonomy
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `--name` | `str` | `None` | Override the taxonomy name (`taxonomy.name`). Shown in CLI output and included in JSON files. |
 
-### 4.4 Model Overrides
+### 4.6 Model Overrides
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
 | `--model` | `str` | `None` | Override the main LLM model (`models.model`). Format: `provider/model-name`. |
 | `--fast-model` | `str` | `None` | Override the fast LLM model (`models.fast_llm`). Format: `provider/model-name`. |
 
-### 4.5 Output
+### 4.7 Output
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
@@ -287,7 +313,7 @@ These values are embedded directly in the source code and **cannot be changed wi
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `user_feedback` | `UserFeedback` | `None` | Supports `"continue"` or `"modify"` decisions. No CLI mechanism to provide feedback. |
+| `user_feedback` | `UserFeedback` | `None` | Supports `"continue"` or `"modify"` decisions. Can be seeded externally via `--feedback`/`--feedback-file`/`feedback.*` config (resolved in `main.py`). |
 | `is_last_step` | `IsLastStep` | `False` | Managed by LangGraph; not user-facing. |
 
 ---
@@ -331,6 +357,8 @@ For all other settings:
 | **Pipeline** | Documents to sample | `pipeline.sample_size` | `50` |
 | **Pipeline** | Minibatch size | `pipeline.batch_size` | `200` |
 | **Pipeline** | Random seed | `pipeline.random_seed` | `42` |
+| **Pipeline** | Run mode | `pipeline.mode` | `"train"` |
+| **Pipeline** | Starting taxonomy JSON path | `pipeline.taxonomy_input` | `null` |
 | **Taxonomy** | Taxonomy name | `taxonomy.name` | `"taxonomy"` |
 | **Taxonomy** | Use case description | `taxonomy.use_case` | User intent classification |
 | **Taxonomy** | Max categories | `taxonomy.max_num_clusters` | `25` |
@@ -343,6 +371,8 @@ For all other settings:
 | **Taxonomy** | Value merge borderline band | `taxonomy.value_merge_borderline_band` | `0.08` |
 | **Taxonomy** | Review sample size | `taxonomy.review_sample_size` | `null` (uses `batch_size`) |
 | **Taxonomy** | Value consolidation enabled | `taxonomy.consolidate_values` | `true` |
+| **Feedback** | Inline feedback text | `feedback.text` | `null` |
+| **Feedback** | Feedback file path | `feedback.file` | `null` |
 | **Summarization** | Skip summarization | `summarization.skip` | `false` |
 | **Summarization** | Summary length (words) | `summarization.summary_length` | `20` |
 | **Summarization** | Summary explanation length (words) | `summarization.summary_explanation_length` | `30` |
@@ -373,6 +403,10 @@ Renders a PCA biplot from a saved taxonomy JSON without running the pipeline. Cl
 | Taxonomy name | `--name` | — | `taxonomy.name` |
 | Main model | `--model` | `LLM_MODEL` | `models.model` |
 | Fast model | `--fast-model` | `LLM_FAST_MODEL` | `models.fast_llm` |
+| Run mode | `--mode` | — | `pipeline.mode` |
+| Starting taxonomy | `--taxonomy` | — | `pipeline.taxonomy_input` |
+| Feedback (inline) | `--feedback` | — | `feedback.text` |
+| Feedback (file) | `--feedback-file` | — | `feedback.file` |
 | Config file path | `--config` | — | — |
 | Corpus file | `--corpus` | — | — |
 | Output folder | `--output` | — | — |

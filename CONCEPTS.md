@@ -4,7 +4,7 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 
 ## Relationships
 
-A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary.
+A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow.
 
 ## Taxonomy
 
@@ -41,6 +41,22 @@ The use-case-relevant subset of an Iteration's Dimensions, chosen by a dedicated
 ## Grounded Theory Report
 
 A self-contained markdown document rendering one Taxonomy view (a specific Iteration, Selected Dimensions, or the latest Iteration) for a reader who never ran the pipeline: a Narrative Summary, a relationship diagram of Dimensions and their Relations, a catalog of each Dimension's Values, and — whenever the pipeline recorded at least one dimension the selection step excluded — a Discarded Dimensions section naming each and why. Everything except the Narrative Summary is rendered verbatim from the Taxonomy data — never reworded by a model.
+
+## Train Mode
+
+The run mode in which the Taxonomy — seeded from a saved Taxonomy or built from scratch — is refined through the open-coding → update → saturation loop. The existing default mode; a run with no Taxonomy input behaves exactly as before.
+
+## Test Mode
+
+The run mode in which a Seeded Taxonomy's Dimensions are frozen: no dimension is added, renamed, merged, split, or dropped. New documents are classified into existing Dimensions; a document that fits no Dimension goes to the predefined fallback category ("Other"), and a document whose decision matches no existing Value may append a new Value to its Dimension, recording the triggering documents as supporting evidence.
+
+## Seeded Taxonomy
+
+The final (or only) Iteration of a saved Taxonomy JSON, loaded as the starting Taxonomy of a new run. In Train Mode it is the basis for further refinement; in Test Mode it is the frozen classification framework.
+
+## Delta Summary
+
+The test-mode output that reports what changed relative to the Seeded Taxonomy: the new Values appended per Dimension, and the list of documents that landed in the fallback bucket.
 
 ## Narrative Summary
 

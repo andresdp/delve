@@ -210,7 +210,12 @@ def format_taxonomy(clusters: List[Dict[str, str]], include_values: bool = True)
 
 
 def format_feedback(state: State) -> str:
-    """Format user feedback from state into a string for taxonomy prompts.
+    """Format feedback from state into a string for taxonomy prompts.
+
+    Merges both feedback channels when present: external feedback
+    (``state.external_feedback``, persistent for the whole run — CLI flag,
+    feedback file, or config text) first, then the automated saturation
+    critic's content (``state.user_feedback``, rewritten every iteration).
 
     Returns ``"None."`` when no feedback is present so the LLM receives
     a clear signal to proceed with standard clustering.
@@ -221,12 +226,76 @@ def format_feedback(state: State) -> str:
     Returns:
         Formatted feedback string.
     """
-    if not state.user_feedback:
+    parts: List[str] = []
+
+    external = getattr(state, "external_feedback", None)
+    if external and external.feedback:
+        parts.append(f"User feedback: {external.feedback}")
+        if external.explanation:
+            parts.append(f"Reason for modification: {external.explanation}")
+
+    if state.user_feedback:
+        parts.append(f"Previous user feedback: {state.user_feedback.feedback}")
+        if state.user_feedback.explanation:
+            parts.append(f"Reason for modification: {state.user_feedback.explanation}")
+
+    if not parts:
         return "None."
-    parts = [f"Previous user feedback: {state.user_feedback.feedback}"]
-    if state.user_feedback.explanation:
-        parts.append(f"Reason for modification: {state.user_feedback.explanation}")
     return "\n".join(parts)
+
+
+def load_seed_taxonomy(path: str) -> List[Dict]:
+    """Load a saved taxonomy JSON as the clusters of a starting taxonomy.
+
+    Accepts either the format written by ``--output`` (a dict with an
+    ``iterations`` list — the **final** iteration's clusters are loaded and
+    ``selected_clusters`` is deliberately ignored, per the bootstrap decision)
+    or a bare list of cluster dicts.
+
+    Args:
+        path: Path to the saved taxonomy JSON file.
+
+    Returns:
+        List[Dict]: The cluster list to seed the run with.
+
+    Raises:
+        ValueError: If the file is missing, has no iterations, or the resolved
+            cluster list is empty or malformed.
+    """
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except FileNotFoundError as e:
+        raise ValueError(f"Taxonomy input file not found: {path}") from e
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Taxonomy input file is not valid JSON: {path} ({e})") from e
+
+    if isinstance(data, list):
+        clusters = data
+        source = "bare cluster list"
+    elif isinstance(data, dict):
+        iterations = data.get("iterations") or []
+        if not iterations:
+            raise ValueError(
+                f"Taxonomy input file has no iterations: {path} "
+                "(expected an 'iterations' list or a bare cluster list)"
+            )
+        clusters = iterations[-1].get("clusters") or []
+        source = f"iteration {len(iterations)} (final)"
+    else:
+        raise ValueError(
+            f"Taxonomy input file is malformed: {path} "
+            "(expected an object or a list at the top level)"
+        )
+
+    if not clusters or not all(isinstance(c, dict) for c in clusters):
+        raise ValueError(
+            f"Taxonomy input file has no usable clusters: {path} "
+            f"(resolved from {source})"
+        )
+
+    logger.info("Loaded seed taxonomy from %s (%s): %d dimensions", path, source, len(clusters))
+    return clusters
 
 
 # ---------------------------------------------------------------------------

@@ -7,11 +7,12 @@ applies ``max_runs`` and ``sample_size`` limits from the configuration.
 
 import logging
 import random
+from typing import Dict
 
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.state import State, Doc
-from taxonomy_generator.utils import docs_from_dicts
+from taxonomy_generator.utils import docs_from_dicts, load_seed_taxonomy
 from taxonomy_generator.configuration import Configuration
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,20 @@ async def load_corpus(state: State, config: RunnableConfig) -> dict:
 
     configuration = Configuration.from_runnable_config(config)
 
+    if configuration.mode == "test" and not configuration.taxonomy_input:
+        logger.error("Test mode requires a taxonomy input")
+        raise ValueError(
+            "Test mode requires a seeded taxonomy — pass a saved taxonomy JSON "
+            "via pipeline.taxonomy_input (config.yaml) or --taxonomy (CLI)."
+        )
+
     # Log effective configuration
     logger.info(
-        "Corpus loader config: max_runs=%d, sample_size=%d, random_seed=%s",
+        "Corpus loader config: max_runs=%d, sample_size=%d, random_seed=%s, mode=%s",
         configuration.max_runs,
         configuration.sample_size,
         configuration.random_seed,
+        configuration.mode,
     )
 
     normalized = docs_from_dicts(state.documents)
@@ -81,7 +90,24 @@ async def load_corpus(state: State, config: RunnableConfig) -> dict:
 
     status_message = f"Using {len(normalized)} documents (direct corpus input)."
     logger.info("Corpus loaded: %d documents (original: %d)", len(normalized), original_count)
-    return {
+
+    result: Dict = {
         "documents": normalized,
         "status": [status_message],
     }
+
+    # Seed the taxonomy when an input file is configured: the loaded final
+    # iteration becomes clusters[0], which both makes train-mode refinement
+    # start at update_taxonomy (existing routing) and provides test mode's
+    # frozen dimension set.
+    if configuration.taxonomy_input:
+        seed_clusters = load_seed_taxonomy(configuration.taxonomy_input)
+        result["clusters"] = [seed_clusters]
+        result["explanations"] = [
+            f"Seeded taxonomy from {configuration.taxonomy_input} ({len(seed_clusters)} dimensions)."
+        ]
+        logger.info(
+            "Seeded taxonomy from %s: %d dimensions", configuration.taxonomy_input, len(seed_clusters)
+        )
+
+    return result

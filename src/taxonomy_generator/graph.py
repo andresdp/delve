@@ -9,6 +9,7 @@ from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.routing.should_review import should_review
 from taxonomy_generator.routing.should_summarize import should_summarize
 from taxonomy_generator.routing.should_generate_or_update import should_generate_or_update
+from taxonomy_generator.routing.should_aggregate_values import should_aggregate_values
 from taxonomy_generator.state import InputState, OutputState, State
 from taxonomy_generator.nodes.corpus_loader import load_corpus
 from taxonomy_generator.nodes.taxonomy_generator import generate_taxonomy
@@ -21,6 +22,7 @@ from taxonomy_generator.nodes.value_consolidator import consolidate_values
 from taxonomy_generator.nodes.dimension_selector import select_dimensions
 from taxonomy_generator.nodes.summary_generator import generate_summaries
 from taxonomy_generator.nodes.doc_labeler import label_documents
+from taxonomy_generator.nodes.value_aggregator import aggregate_new_values
 
 
 builder = StateGraph(State, input_schema=InputState, output_schema=OutputState, context_schema=Configuration)
@@ -37,6 +39,7 @@ builder.add_node("review_taxonomy", review_taxonomy)
 builder.add_node("consolidate_values", consolidate_values)
 builder.add_node("select_dimensions", select_dimensions)
 builder.add_node("label_documents", label_documents)
+builder.add_node("aggregate_new_values", aggregate_new_values)
 
 # Add edges
 builder.add_edge(START, "load_corpus")
@@ -46,6 +49,8 @@ builder.add_conditional_edges(
     {
         "summarize": "summarize",
         "get_minibatches": "get_minibatches",
+        # Test mode: classify directly against the seeded frozen taxonomy.
+        "label_documents": "label_documents",
     }
 )
 builder.add_edge("summarize", "get_minibatches")
@@ -84,7 +89,18 @@ builder.add_conditional_edges(
 builder.add_edge("review_taxonomy", "consolidate_values")
 builder.add_edge("consolidate_values", "select_dimensions")
 builder.add_edge("select_dimensions", "label_documents")
-builder.add_edge("label_documents", END)
+
+# After labeling: train mode ends; test mode aggregates proposed new values
+# into the frozen dimensions and emits the delta summary.
+builder.add_conditional_edges(
+    "label_documents",
+    should_aggregate_values,
+    {
+        "aggregate_new_values": "aggregate_new_values",
+        "__end__": END,
+    }
+)
+builder.add_edge("aggregate_new_values", END)
 
 graph = builder.compile()
 graph.name = "Taxonomy Generation"

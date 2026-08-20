@@ -1,4 +1,4 @@
-"""Routing logic for the summarization step."""
+"""Routing logic after corpus load: summarize, skip, or label (test mode)."""
 
 import logging
 from typing import Literal
@@ -14,14 +14,22 @@ logger = logging.getLogger(__name__)
 def should_summarize(
     state: State,
     config: RunnableConfig,
-) -> Literal["summarize", "get_minibatches"]:
-    """Determine whether to summarize documents or skip to minibatch generation.
+) -> Literal["summarize", "get_minibatches", "label_documents"]:
+    """Route after corpus load.
 
-    When ``skip_summarization`` is ``True``, documents pass through without
-    LLM-generated summaries and raw content is used for taxonomy generation
-    instead.
+    Three outcomes:
+
+    - ``test`` mode classifies directly against the seeded frozen taxonomy —
+      summarization and minibatching are skipped because the labeler reads raw
+      document content and no taxonomy refinement happens in this mode.
+    - ``train`` mode (default) keeps the existing two-way behavior: skip
+      summarization when ``skip_summarization`` is true, else summarize.
     """
     configuration = Configuration.from_runnable_config(config)
+
+    if configuration.mode == "test":
+        logger.info("Test mode: routing directly to document labeling")
+        return "label_documents"
 
     if configuration.skip_summarization:
         logger.warning(
