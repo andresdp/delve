@@ -239,6 +239,37 @@ class Configuration:
         metadata={"description": "Directory for chart files (defaults to the output dir)."},
     )
 
+    # ── Evaluation ──────────────────────────────────────────────────────
+    evaluation_enabled: bool = field(
+        default=None,
+        metadata={"description": "Enable the taxonomy evaluation scoreboard (default true)."},
+    )
+
+    evaluation_judge_model: Optional[str] = field(
+        default=None,
+        metadata={"description": "Judge model override for evaluation (defaults to the main model)."},
+    )
+
+    evaluation_threshold: float = field(
+        default=None,
+        metadata={"description": "Score threshold (0-1) for display-only pass/fail flags."},
+    )
+
+    evaluation_consistency_threshold: float = field(
+        default=None,
+        metadata={"description": "Embedding-distance cutoff for automatic dimension alignment in consistency comparison."},
+    )
+
+    evaluation_consistency_borderline_band: float = field(
+        default=None,
+        metadata={"description": "Distance band above the cutoff routed to judge adjudication for dimension alignment."},
+    )
+
+    evaluation_max_documents: int = field(
+        default=None,
+        metadata={"description": "Max documents sampled for the data-grounded coverage criterion."},
+    )
+
     # ── LangGraph integration ──────────────────────────────────────────
 
     @classmethod
@@ -312,4 +343,11 @@ class Configuration:
             "visualization_every_iteration": s.visualization.every_iteration,
             "visualization_dimensions": s.visualization.dimensions,
             "visualization_output_dir": s.visualization.output_dir,
+            # Evaluation
+            "evaluation_enabled": s.evaluation.enabled,
+            "evaluation_judge_model": s.evaluation.judge_model,
+            "evaluation_threshold": s.evaluation.threshold,
+            "evaluation_consistency_threshold": s.evaluation.consistency_threshold,
+            "evaluation_consistency_borderline_band": s.evaluation.consistency_borderline_band,
+            "evaluation_max_documents": s.evaluation.max_documents,
         }
