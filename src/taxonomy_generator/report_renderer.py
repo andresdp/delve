@@ -282,6 +282,51 @@ def render_discarded_dimensions(dropped: List[Cluster], all_clusters: List[Clust
     return "\n".join(lines)
 
 
+def render_evaluation(scoreboard: Dict[str, Any] | None) -> str:
+    """Render the stored evaluation scoreboard as a deterministic markdown section.
+
+    Verbatim rendering of stored scores — no model calls. Returns "" when
+    there is nothing to render (``None``, empty, or unavailable — the
+    section is omitted rather than rendered as failed).
+    """
+    if not scoreboard or scoreboard.get("unavailable"):
+        return ""
+
+    criteria = scoreboard.get("criteria") or []
+    if not criteria:
+        return ""
+
+    out = [
+        "## Evaluation",
+        "",
+        f"_Observe-only LLM-as-judge scoreboard (judge: {scoreboard.get('model') or 'default'}). "
+        "Pass flags are display-only — nothing gates on them._",
+        "",
+        "| Criterion | Score | Pass | Reason |",
+        "|---|---|---|---|",
+    ]
+    for row in criteria:
+        name = str(row.get("name") or "?")
+        if row.get("evaluated", True):
+            score = row.get("score")
+            score_str = f"{score:.2f}" if score is not None else "—"
+            passed = row.get("passed")
+            pass_str = "✓" if passed else ("✗" if passed is not None else "—")
+            reason = " ".join(str(row.get("reason") or "").split())
+        else:
+            score_str = "—"
+            pass_str = "—"
+            reason = "Not evaluated — no documents provided."
+        out.append(f"| {name} | {score_str} | {pass_str} | {reason} |")
+
+    overall = scoreboard.get("overall")
+    if overall is not None:
+        out.append("")
+        out.append(f"**Overall score:** {overall:.2f} (mean of evaluated criteria)")
+
+    return "\n".join(out)
+
+
 def _format_dimensions_for_prompt(clusters: List[Cluster]) -> str:
     """Format dimension names and descriptions for the narrative-summary prompt."""
     lines = []
@@ -352,6 +397,7 @@ def assemble_report(
     narrative_summary_or_none: str | None,
     dropped_dimensions: List[Cluster] | None = None,
     all_clusters_for_dropped: List[Cluster] | None = None,
+    evaluation: Dict[str, Any] | None = None,
 ) -> str:
     """Combine the narrative summary, diagram, catalog, and discarded-dimension list into one document.
 
@@ -403,6 +449,11 @@ def assemble_report(
         lines.append("")
         lines.append(discarded)
 
+    evaluation_section = render_evaluation(evaluation)
+    if evaluation_section:
+        lines.append("")
+        lines.append(evaluation_section)
+
     return "\n".join(lines)
 
 
@@ -413,6 +464,7 @@ async def generate_and_write_report(
     out_path: Path,
     dropped_dimensions: List[Cluster] | None = None,
     all_clusters_for_dropped: List[Cluster] | None = None,
+    evaluation: Dict[str, Any] | None = None,
 ) -> str | None:
     """Generate the narrative summary, assemble the report, and write it to disk.
 
@@ -434,6 +486,8 @@ async def generate_and_write_report(
         what to tell the operator.
     """
     narrative = await generate_narrative_summary(clusters, explanation, configuration)
-    report_markdown = assemble_report(clusters, narrative, dropped_dimensions, all_clusters_for_dropped)
+    report_markdown = assemble_report(
+        clusters, narrative, dropped_dimensions, all_clusters_for_dropped, evaluation
+    )
     out_path.write_text(report_markdown)
     return narrative
