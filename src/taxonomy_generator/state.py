@@ -73,6 +73,9 @@ class OutputState:
     selected_clusters: List[List[Dict]] = field(default_factory=list)
     dropped_dimensions: List[Dict] = field(default_factory=list)
     delta_summary: Optional[Dict] = field(default=None)
+    # Observe-only evaluation scoreboard (deepeval GEval criteria). Flat
+    # dict with replace semantics — set once by the evaluate_taxonomy node.
+    evaluation: Optional[Dict] = field(default=None)
 
 
 @dataclass
