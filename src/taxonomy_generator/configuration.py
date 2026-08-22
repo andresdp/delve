@@ -6,16 +6,15 @@ supports runtime overrides via the LangGraph ``RunnableConfig`` mechanism.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field, fields
-from typing import Annotated, Optional
+from typing import Annotated
 
 from langchain_core.runnables import RunnableConfig, ensure_config
 
 from taxonomy_generator.settings import Settings, load_settings
 
 # Module-level cache — populated once at first import or on explicit reload.
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def _get_settings() -> Settings:
@@ -26,7 +25,7 @@ def _get_settings() -> Settings:
     return _settings
 
 
-def init_settings(config_path: Optional[str] = None) -> Settings:
+def init_settings(config_path: str | None = None) -> Settings:
     """Load (or reload) settings from the given YAML path.
 
     Called from ``main.py`` before the pipeline starts so that the
@@ -89,7 +88,7 @@ class Configuration:
         metadata={"description": "Minibatch size for iterative processing."},
     )
 
-    random_seed: Optional[int] = field(
+    random_seed: int | None = field(
         default=None,
         metadata={"description": "Random seed for reproducibility (null = random)."},
     )
@@ -99,7 +98,7 @@ class Configuration:
         metadata={"description": "Run mode: 'train' (build/update taxonomy) or 'test' (frozen dimensions, label only)."},
     )
 
-    taxonomy_input: Optional[str] = field(
+    taxonomy_input: str | None = field(
         default=None,
         metadata={"description": "Path to a saved taxonomy JSON used as the starting taxonomy."},
     )
@@ -110,7 +109,7 @@ class Configuration:
         metadata={"description": "Name identifying this taxonomy."},
     )
 
-    max_num_clusters: Optional[int] = field(
+    max_num_clusters: int | None = field(
         default=None,
         metadata={"description": "Maximum number of taxonomy dimensions. None = LLM determines the count from the data."},
     )
@@ -187,7 +186,7 @@ class Configuration:
         metadata={"description": "Fallback category when no taxonomy match."},
     )
 
-    review_sample_size: Optional[int] = field(
+    review_sample_size: int | None = field(
         default=None,
         metadata={"description": "Review sample size (null = uses batch_size)."},
     )
@@ -234,7 +233,7 @@ class Configuration:
         metadata={"description": "PCA projection dimensions for charts: 2 or 3."},
     )
 
-    visualization_output_dir: Optional[str] = field(
+    visualization_output_dir: str | None = field(
         default=None,
         metadata={"description": "Directory for chart files (defaults to the output dir)."},
     )
@@ -245,7 +244,7 @@ class Configuration:
         metadata={"description": "Enable the taxonomy evaluation scoreboard (default true)."},
     )
 
-    evaluation_judge_model: Optional[str] = field(
+    evaluation_judge_model: str | None = field(
         default=None,
         metadata={"description": "Judge model override for evaluation (defaults to the main model)."},
     )
@@ -274,7 +273,7 @@ class Configuration:
 
     @classmethod
     def from_runnable_config(
-        cls, config: Optional[RunnableConfig] = None
+        cls, config: RunnableConfig | None = None
     ) -> Configuration:
         """Create a Configuration instance from a RunnableConfig object.
 

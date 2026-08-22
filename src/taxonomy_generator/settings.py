@@ -11,13 +11,11 @@ tunable parameters live in the YAML file.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import yaml
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 

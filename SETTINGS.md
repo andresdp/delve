@@ -142,6 +142,19 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 >
 > **Caveat:** merge decisions are never made from the projected 2D/3D coordinates — only from full-dimensional embedding distance. The chart reports explained variance and flags itself as a weak proxy when captured variance is low.
 
+### 2.9 Evaluation
+
+| YAML Key | Type | Default | Description |
+|---|---|---|---|
+| `evaluation.enabled` | `bool` | `true` | Master on/off switch for the taxonomy evaluation scoreboard (deepeval GEval). When `false`, the `evaluate_taxonomy` node is skipped and the pipeline topology matches pre-evaluation behavior exactly. |
+| `evaluation.judge_model` | `str` or `null` | `null` | Judge model override in `provider/model` format. Falls back to `models.model`. OpenAI (or OpenAI-compatible) models only — deepeval's built-in OpenAI integration is used directly; a non-OpenAI provider raises a clear error naming the documented future-wrapper path (`evaluation/judge.py`). |
+| `evaluation.threshold` | `float` | `0.5` | Display-only pass threshold (0-1) per criterion. Pass flags never gate anything — the scoreboard is observe-only. |
+| `evaluation.consistency_threshold` | `float` | `0.25` | Embedding-distance cutoff (Euclidean on L2-normalized vectors) below which dimensions from different taxonomies align automatically during consistency comparison. |
+| `evaluation.consistency_borderline_band` | `float` | `0.08` | Distance band above the cutoff routed to judge adjudication instead of auto-align or auto-reject. |
+| `evaluation.max_documents` | `int` | `20` | Max documents sampled for the data-grounded coverage criterion. Without documents the coverage row is listed as "not evaluated". |
+
+> **Scoreboard semantics:** seven criteria judged via deepeval `GEval` — six structural (orthogonality, clarity, completeness, use case alignment, no catch-alls, axis vs. value) judged against the use case, plus one data-grounded coverage criterion judged against sampled document contents. Each row carries a 0-1 score, pass flag, and the judge's rationale. Anonymous deepeval telemetry is always opted out programmatically.
+
 ### Example `config.yaml`
 
 ```yaml
@@ -387,6 +400,27 @@ For all other settings:
 | **Visualization** | Render every iteration | `visualization.every_iteration` | `false` |
 | **Visualization** | PCA dimensions | `visualization.dimensions` | `2` |
 | **Visualization** | Chart output directory | `visualization.output_dir` | `null` (uses `output.default_output_dir`) |
+| **Evaluation** | Evaluation enabled | `evaluation.enabled` | `true` |
+| **Evaluation** | Judge model override | `evaluation.judge_model` | `null` (uses `models.model`; OpenAI models only — see below) |
+| **Evaluation** | Display pass threshold (0-1) | `evaluation.threshold` | `0.5` |
+| **Evaluation** | Consistency alignment threshold | `evaluation.consistency_threshold` | `0.25` |
+| **Evaluation** | Consistency borderline band | `evaluation.consistency_borderline_band` | `0.08` |
+| **Evaluation** | Max documents for coverage criterion | `evaluation.max_documents` | `20` |
+
+### 🎯 Standalone evaluation command
+
+```bash
+# Judge scoreboard for one saved taxonomy (coverage "not evaluated" without --corpus):
+python main.py --evaluate <path/to/taxonomy.json> [--corpus <path>] [--output DIR]
+
+# With a corpus (activates the data-grounded coverage criterion):
+python main.py --evaluate <taxonomy.json> --corpus <corpus.json|corpus.txt> [--config <cfg.yaml>] [--output DIR]
+
+# Consistency comparison across two or more saved taxonomies (same corpus):
+python main.py --evaluate <tax1.json> <tax2.json> [<tax3.json> ...] [--output DIR]
+```
+
+Evaluates saved taxonomy JSONs without re-running the pipeline. One file runs the judge scoreboard (optionally with `--corpus`, which activates the coverage criterion; `--iteration N` selects the view exactly as in `--visualize`/`--report`); two or more files run the consistency comparison (embedding-based dimension alignment with judge adjudication of borderline pairs, reporting recurring dimensions, one-offs, and an agreement score). Results render in the terminal and are saved as `{name}_evaluation_{timestamp}.json`. Mutually exclusive with `--visualize` and `--report`.
 
 ### 📊 Standalone biplot command
 

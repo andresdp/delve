@@ -16,7 +16,7 @@ degrades to exact-name matching with a logged warning.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -50,7 +50,7 @@ def _dimension_label(cluster: Dict, file_index: int, dim_index: int) -> Dict:
     }
 
 
-async def _adjudicate_same_dimension(prompt: str, model: Optional[str]) -> bool:
+async def _adjudicate_same_dimension(prompt: str, model: str | None) -> bool:
     """Ask the judge one same-dimension question; any failure rejects."""
     from openai import AsyncOpenAI
 
@@ -65,7 +65,7 @@ async def _adjudicate_same_dimension(prompt: str, model: Optional[str]) -> bool:
     return answer.startswith("YES")
 
 
-def _cross_distances(vectors: "np.ndarray") -> "np.ndarray":
+def _cross_distances(vectors: np.ndarray) -> np.ndarray:
     """Full pairwise Euclidean distance matrix for normalized row vectors."""
     sq = np.sum(vectors ** 2, axis=1)
     sq_dists = sq[:, None] + sq[None, :] - 2.0 * (vectors @ vectors.T)
@@ -102,7 +102,7 @@ async def compare_taxonomies(
     max_count = max((len(c or []) for c in taxonomies), default=0)
 
     try:
-        fallback: Optional[str] = None
+        fallback: str | None = None
         distances = None
         try:
             if texts:

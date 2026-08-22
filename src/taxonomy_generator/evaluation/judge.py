@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ os.environ.setdefault("DEEPEVAL_TELEMETRY_OPT_OUT", "1")
 _SUPPORTED_PROVIDER = "openai"
 
 
-def resolve_judge_model(model_name: Optional[str]) -> Optional[str]:
+def resolve_judge_model(model_name: str | None) -> str | None:
     """Resolve the configured judge model into a deepeval model argument.
 
     Args:

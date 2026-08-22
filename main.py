@@ -836,7 +836,7 @@ def _display_delta_summary(delta: dict, configuration: Configuration) -> None:
     console.print()
     console.print(Panel(
         "\n".join(str(x) for x in lines),
-        title=f"[bold bright_cyan]🧩 Test-Mode Delta Summary[/bold bright_cyan]",
+        title="[bold bright_cyan]🧩 Test-Mode Delta Summary[/bold bright_cyan]",
         border_style="bright_cyan",
     ))
 

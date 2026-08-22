@@ -343,6 +343,32 @@ python main.py --corpus examples/product_reviews.json --name "Laptop Reviews" --
 python main.py --corpus examples/customer_support.txt --model groq/llama-3.3-70b-versatile --quiet
 ```
 
+## Example: Evaluating a Saved Taxonomy
+
+The evaluation suite scores a saved taxonomy with LLM-as-judge criteria (observe-only) and can compare multiple taxonomies from runs on the same corpus for consistency.
+
+### Judge scoreboard (structural criteria only)
+
+```bash
+python main.py --evaluate examples/campus-bike/campus-bike_taxonomy_20260817_110113.json --output output/
+```
+
+Seven criteria are scored (0-1 with rationale); the data-grounded coverage row is listed as "not evaluated" because no `--corpus` was supplied. Results print in the terminal panel and are saved as `evaluation_<timestamp>.json`.
+
+### Judge scoreboard with corpus (coverage scored)
+
+```bash
+python main.py --evaluate examples/campus-bike/campus-bike_taxonomy_20260817_110113.json --corpus examples/das-p1-2023/das-p1-2023_architecture_decisions.json --config examples/das-p1-2023/das-p1-2023_config.yaml --output output/
+```
+
+### Consistency across runs
+
+```bash
+python main.py --evaluate examples/campus-bike/campus-bike_taxonomy_20260817_101247.json examples/campus-bike/campus-bike_taxonomy_20260817_104940.json examples/campus-bike/campus-bike_taxonomy_20260817_110113.json --output output/
+```
+
+Dimensions are aligned across files via embeddings (judge adjudicates borderline pairs); recurring dimensions, one-offs, and an agreement score are reported in the terminal and saved as one JSON artifact.
+
 ### Verbose Mode (with Logging)
 
 Without `--quiet`, detailed logging is shown alongside the rich output:

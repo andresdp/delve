@@ -181,6 +181,20 @@ When `--output` is specified, four JSON files are saved to the folder with a tim
 - `messages_<timestamp>.json` — Formatted result messages
 - `clusters_<timestamp>.json` — Final taxonomy as a tree: clusters with nested documents
 
+### Evaluating taxonomies
+
+Runs also produce an observe-only evaluation scoreboard (deepeval LLM-as-judge over the review criteria: orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, and data-grounded coverage) shown in the terminal, saved inside the taxonomy JSON, and rendered in the grounded-theory report. Disable it with `evaluation.enabled: false` in `config.yaml`.
+
+You can also evaluate any saved taxonomy without re-running the pipeline:
+
+```bash
+# Judge scoreboard for one saved taxonomy (optionally with --corpus to score the coverage criterion)
+python main.py --evaluate output/taxonomy_<timestamp>.json --corpus my_corpus.txt
+
+# Consistency comparison across runs on the same corpus (recurring vs one-off dimensions, agreement score)
+python main.py --evaluate output/tax1.json output/tax2.json output/tax3.json
+```
+
 All files include a `taxonomy_name` field at the top level (set via `taxonomy.name` in `config.yaml` or `--name` CLI flag; defaults to `"taxonomy"`).
 
 All `.env` variables are automatically loaded via `python-dotenv`. For the full list of configurable settings, see [SETTINGS.md](SETTINGS.md).

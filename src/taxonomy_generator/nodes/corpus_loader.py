@@ -11,9 +11,9 @@ from typing import Dict
 
 from langchain_core.runnables import RunnableConfig
 
-from taxonomy_generator.state import State, Doc
-from taxonomy_generator.utils import docs_from_dicts, load_seed_taxonomy
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.state import State
+from taxonomy_generator.utils import docs_from_dicts, load_seed_taxonomy
 
 logger = logging.getLogger(__name__)
 

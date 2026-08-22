@@ -9,7 +9,7 @@ column into everyday-language judging instructions. All criteria use only
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 from deepeval.metrics import GEval
 from deepeval.test_case import SingleTurnParams
@@ -99,7 +99,7 @@ COVERAGE_CRITERION = Criterion(
 
 
 def build_metrics(
-    model: Optional[str], threshold: float, include_coverage: bool
+    model: str | None, threshold: float, include_coverage: bool
 ) -> List[GEval]:
     """Build the GEval instances for a scoreboard run.
 

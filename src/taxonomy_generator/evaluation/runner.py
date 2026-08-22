@@ -10,7 +10,7 @@ marked unavailable scoreboard — they never fail an enclosing pipeline run.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from deepeval.test_case import LLMTestCase
 
@@ -31,7 +31,7 @@ def _doc_content(doc: object) -> str:
 
 async def run_scoreboard(
     clusters: List[Dict],
-    documents: Optional[List[object]],
+    documents: List[object] | None,
     configuration: Configuration,
 ) -> Dict:
     """Score a taxonomy view against the judge criteria.

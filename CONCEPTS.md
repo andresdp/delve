@@ -4,7 +4,7 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 
 ## Relationships
 
-A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow.
+A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus.
 
 ## Taxonomy
 
@@ -57,6 +57,18 @@ The final (or only) Iteration of a saved Taxonomy JSON, loaded as the starting T
 ## Delta Summary
 
 The test-mode output that reports what changed relative to the Seeded Taxonomy: the new Values appended per Dimension, and the list of documents that landed in the fallback bucket.
+
+## Scoreboard
+
+The evaluation result for one Taxonomy view: a per-criterion score plus the judge's rationale for each quality criterion (orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, coverage). Structural criteria always judge the view alone; data-grounded criteria (coverage) run only when documents are available and are marked "not evaluated" otherwise. Judge metrics are LLM-as-judge metrics built on deepeval.
+
+## Consistency Comparison
+
+The evaluation of two or more saved Taxonomies from runs on the same corpus: Dimensions are aligned across the Taxonomies (embedding-based matching with judge adjudication of borderline pairs), then reported as recurring or one-off, together with an overall agreement signal. Post-hoc only — it reads saved JSONs and never orchestrates the runs it compares.
+
+## Observe-Only Evaluation
+
+The in-graph evaluation contract: the Scoreboard is produced during a run but never routes the graph, alters termination, or modifies the Taxonomy. An evaluation failure degrades to a clearly marked unavailable state rather than failing the run.
 
 ## Narrative Summary
 
