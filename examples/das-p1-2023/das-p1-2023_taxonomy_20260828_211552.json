@@ -1,0 +1,1092 @@
+{
+  "taxonomy_name": "das-p1-2023",
+  "consolidated": true,
+  "iterations": [
+    {
+      "explanation": "Five orthogonal dimensions: gateway entry routing, state propagation, payments interface/routing, domain decomposition, and optimization strategy selection.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Microservice Request Entry Routing",
+          "description": "How incoming PC/mobile/API requests reach internal microservices. Distinguishes central API-Gateway routing from domain-specific routing choices.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Gateway-based entry routing determines how Payments endpoints are exposed/forwarded."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Central gateway for all PC/mobile HTTP routing",
+              "description": "Create a dedicated API Gateway that fronts all PC/mobile HTTP/REST traffic to microservices.",
+              "supporting_doc_ids": [
+                "8e48cd94-b450-443c-879a-7ec401e9d379"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Gateway routes Customers and Orders",
+              "description": "API Gateway routes client requests specifically to Customers and Orders microservices.",
+              "supporting_doc_ids": [
+                "09222e3f-f35b-4b9a-99eb-69646f9f2440"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Gateway routes Statistics and Incidents",
+              "description": "API Gateway routes requests to Statistics and Incidents microservices.",
+              "supporting_doc_ids": [
+                "533c3bd3-36a4-436e-9675-84d1666810aa"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Inter-Service State Propagation Mechanisms",
+          "description": "How domain state changes flow to other modules. Separates push/event-observer propagation from synchronous or query-based approaches.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Event-driven state propagation complements gateway-centered request entry for non-critical modules."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer/event mechanism for Statistics updates",
+              "description": "Use internal observer/event patterns to push state changes into the Statistics microservice.",
+              "supporting_doc_ids": [
+                "7de41a66-455b-4247-afcc-7b2ac44bf75d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "External Payments Integration Interface Design",
+          "description": "How the system exposes and routes to third-party Payments. Separates abstraction/facade design from routing gateway exposure.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Payments typically requires gateway exposure/entry while still being abstracted behind a stable interface."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Facade wraps internal Payments behind simplified interface",
+              "description": "Expose Payments capabilities via a facade so OrderManager and other modules use a stable simplified contract.",
+              "supporting_doc_ids": [
+                "007e125f-b478-46d1-99be-b3bfe21aac9f"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Gateway routes payment requests",
+              "description": "API Gateway forwards payment-related requests to an external Payments service.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Domain-Aligned Microservice Decomposition Basis",
+          "description": "How the monolith is decomposed into microservices. Separates domain-module-aligned boundaries from other possible structuring approaches.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Domain-aligned services imply distinct microservice endpoints that the gateway routes to."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Decompose by business modules",
+              "description": "Split monolith into microservices aligned to Customers, Orders, Delivery & Routing, Statistics, Incidents, and Payments.",
+              "supporting_doc_ids": [
+                "668bad7d-7f7f-43d3-91d2-158836039fc6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Routing and Optimization Strategy Selection",
+          "description": "How Delivery routing algorithms are chosen and executed. Distinguishes strategy-class selection for optimization from fixed algorithm wiring.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Delivery & Routing microservice decomposition enables internal strategy selection for truck delay/routing."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy pattern for delivery delay optimization",
+              "description": "Delivery module selects among optimization strategy classes based on routing/truck-delay needs.",
+              "supporting_doc_ids": [
+                "1debc484-c3e5-47d7-94b9-6f985a5d13e0"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Added dimensions for orthogonal concerns revealed: data access ownership (per-service SQL repositories) and incident reliability (event sourcing). Refined existing gateway routing by adding Payments routing value; refined decomposition by explicitly separating Statistics and Incidents. Added microkernel plugin strategy value; preserved prior dimensions/relations.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Microservice Request Entry Routing",
+          "description": "How incoming PC/mobile/API requests reach internal microservices. Separates gateway-based entry routing from domain/external routing choices.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Gateway entry routing typically exposes/forwards Payments-related requests through the external integration path."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Central gateway for all PC/mobile HTTP routing",
+              "description": "Create a dedicated API Gateway that fronts all PC/mobile HTTP/REST traffic to microservices, including customer/order APIs and management concerns.",
+              "supporting_doc_ids": [
+                "8e48cd94-b450-443c-879a-7ec401e9d379",
+                "1763a0b2-2665-4ea7-9abd-26116434416a",
+                "11a5167f-e054-4f68-82a7-73a96f6263cc"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Gateway routes Customers and Orders",
+              "description": "API Gateway routes client requests specifically to Customers and Orders microservices, typically with CRUD-facing boundaries.",
+              "supporting_doc_ids": [
+                "09222e3f-f35b-4b9a-99eb-69646f9f2440",
+                "13c0e422-4b3e-4b19-962b-c77c2347a296",
+                "1763a0b2-2665-4ea7-9abd-26116434416a"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Gateway routes Statistics and Incidents",
+              "description": "API Gateway routes requests to Statistics and Incidents microservices (or their separately decomposed successors).",
+              "supporting_doc_ids": [
+                "533c3bd3-36a4-436e-9675-84d1666810aa"
+              ]
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Gateway routes third-party Payments integration",
+              "description": "API Gateway is used as the centralized routing path for external Payments integration access/management.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93",
+                "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Inter-Service State Propagation Mechanisms",
+          "description": "How domain state changes flow to other modules. Separates push/event mechanisms from synchronous/query-based approaches.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Event-driven propagation complements gateway-centered request entry for non-critical modules such as Statistics updates."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer/event mechanism for Statistics updates",
+              "description": "Use internal observer/event patterns to push state changes into the Statistics microservice.",
+              "supporting_doc_ids": [
+                "7de41a66-455b-4247-afcc-7b2ac44bf75d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "External Payments Integration Interface Design",
+          "description": "How the system exposes and routes to third-party Payments. Separates facade/abstraction choices from gateway exposure/routing choices.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Payments typically relies on gateway routing while still being abstracted behind a stable facade for internal callers."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Facade wraps internal Payments behind simplified interface",
+              "description": "Expose Payments capabilities via a facade so OrderManager and other modules use a stable simplified contract.",
+              "supporting_doc_ids": [
+                "007e125f-b478-46d1-99be-b3bfe21aac9f"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Gateway routes payment requests",
+              "description": "API Gateway forwards payment-related requests to an external Payments service.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93",
+                "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Domain-Aligned Microservice Decomposition Basis",
+          "description": "How the monolith is decomposed into microservices. Separates business-module-aligned boundaries from other structuring approaches and clarifies fine-grained module splitting.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Domain-aligned services imply distinct microservice endpoints that the gateway routes to."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Decompose by business modules",
+              "description": "Split monolith into microservices aligned to business modules (Customers, Orders, Delivery & Routing, Payments), including separating Statistics from Incidents when required for migration readiness.",
+              "supporting_doc_ids": [
+                "668bad7d-7f7f-43d3-91d2-158836039fc6",
+                "f9b46803-92f9-409c-915d-2850171c9736"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Split Statistics and Incidents into separate microservices",
+              "description": "Keep Statistics and Incidents as distinct microservices rather than a combined module, improving encapsulation for migration readiness and responsibility isolation.",
+              "supporting_doc_ids": [
+                "f9b46803-92f9-409c-915d-2850171c9736"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Routing and Optimization Strategy Selection",
+          "description": "How delivery routing algorithms are chosen and executed. Distinguishes pluggable/strategy selection mechanisms from fixed wiring of algorithms.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Delivery & Routing microservice decomposition enables internal strategy selection for truck delay/routing."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy pattern for delivery delay optimization",
+              "description": "Delivery module selects among optimization strategy classes based on routing/truck-delay needs.",
+              "supporting_doc_ids": [
+                "1debc484-c3e5-47d7-94b9-6f985a5d13e0"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Microkernel plugins for delivery routing algorithms",
+              "description": "Use microkernel architecture where delivery/routing optimization algorithms are implemented as plugins around a shared core.",
+              "supporting_doc_ids": [
+                "1a7890b1-8adf-4f4a-9c56-8b479186b673"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Access Ownership and Storage Design",
+          "description": "How microservices persist and access data. Separates service-owned repository patterns from shared database/shared access layers.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Service-owned data repositories typically follow domain-aligned decomposition into Customers and Orders services with their own storage."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Per-service SQL repositories for data access",
+              "description": "Each microservice uses its own service-owned SQL repository for its domain data access (e.g., Customers and Orders).",
+              "supporting_doc_ids": [
+                "39f62727-a8f7-4415-a82e-dff0799f068d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Incident History Reliability Mechanisms",
+          "description": "How the system preserves and reconstructs critical incident history. Separates event-sourcing auditability from other persistence/recovery approaches.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Incident reliability requirements often motivate event-based representations that can also support downstream propagation."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Event sourcing for critical incident history",
+              "description": "Use event sourcing to preserve a reliable, replayable history of critical incidents for audit/resilience needs.",
+              "supporting_doc_ids": [
+                "74ba58ff-e9b3-4c29-8b4e-3070a4cb8dab"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "No changes. Taxonomy covers all sample decisions (gateway routing, event propagation, Payments facade/integration, domain decomposition, strategy/plugin optimization, per-service SQL, incident event sourcing) and dimensions are orthogonal. Q2: No changes needed; dimensions already map sample decisions cleanly with orthogonality.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Client Request Entry Routing",
+          "description": "How PC/mobile requests enter the microservice system (gateway vs direct) and how routing boundaries map to domain areas, excluding external Payments facade choices.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "When Payments is exposed via the external integration path, gateway routing typically governs how those requests enter the Payments subsystem."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Central gateway for all PC/mobile HTTP routing",
+              "description": "Dedicated API Gateway fronts all PC/mobile HTTP/REST traffic and forwards to internal microservices and management endpoints.",
+              "supporting_doc_ids": [
+                "8e48cd94-b450-443c-879a-7ec401e9d379",
+                "1763a0b2-2665-4ea7-9abd-26116434416a",
+                "11a5167f-e054-4f68-82a7-73a96f6263cc"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Gateway routes Customers and Orders",
+              "description": "Gateway forwards client requests to Customers and Orders microservices with CRUD-oriented boundaries.",
+              "supporting_doc_ids": [
+                "09222e3f-f35b-4b9a-99eb-69646f9f2440",
+                "13c0e422-4b3e-4b19-962b-c77c2347a296",
+                "1763a0b2-2665-4ea7-9abd-26116434416a"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Gateway routes Statistics and Incidents",
+              "description": "Gateway forwards requests to Statistics and Incidents microservices (or their separately decomposed successors).",
+              "supporting_doc_ids": [
+                "533c3bd3-36a4-436e-9675-84d1666810aa"
+              ]
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Gateway routes third-party Payments integration",
+              "description": "Gateway is the centralized routing path for external Payments integration request entry/forwarding.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93",
+                "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Inter-Service State Propagation Mechanisms",
+          "description": "How domain state changes disseminate across services (push/event vs pull/query), distinguishing propagation style from request entry routing and external integration.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Event-driven propagation often complements gateway-centered request entry for non-critical modules like Statistics."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer/event mechanism for Statistics updates",
+              "description": "Use internal observer/event patterns to push state changes into the Statistics microservice.",
+              "supporting_doc_ids": [
+                "7de41a66-455b-4247-afcc-7b2ac44bf75d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "External Payments Integration Interface Design",
+          "description": "How third-party Payments capabilities are exposed to internal modules (facade/abstraction) and how external routing is reached, separate from general client entry routing.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Payments integration commonly relies on gateway routing while internal callers remain protected behind a stable facade."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Facade wraps internal Payments behind simplified interface",
+              "description": "Expose Payments capabilities via a facade so OrderManager and other modules use a stable simplified contract.",
+              "supporting_doc_ids": [
+                "007e125f-b478-46d1-99be-b3bfe21aac9f"
+              ]
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Gateway routes payment requests",
+              "description": "API Gateway forwards payment-related requests to an external Payments service.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93",
+                "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Domain-Aligned Microservice Decomposition Basis",
+          "description": "How the monolith is decomposed into microservices via business-module boundaries, including whether Statistics and Incidents remain separate.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Domain-aligned services imply distinct microservice endpoints that the gateway routes to."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Decompose by business modules",
+              "description": "Split monolith into microservices aligned to business modules (Customers, Orders, Delivery & Routing, Payments), including separating Statistics from Incidents when needed for migration readiness.",
+              "supporting_doc_ids": [
+                "668bad7d-7f7f-43d3-91d2-158836039fc6",
+                "f9b46803-92f9-409c-915d-2850171c9736"
+              ]
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Split Statistics and Incidents into separate microservices",
+              "description": "Keep Statistics and Incidents as distinct microservices rather than a combined module, improving encapsulation and responsibility isolation.",
+              "supporting_doc_ids": [
+                "f9b46803-92f9-409c-915d-2850171c9736"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Delivery and Routing Optimization Strategy Selection",
+          "description": "How delivery routing/truck-delay optimization algorithms are chosen and executed (strategy classes vs plugin architecture), distinct from routing entry and data persistence.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "A Delivery & Routing microservice decomposition enables internal strategy/plugin selection for routing decisions."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy pattern for delivery delay optimization",
+              "description": "Delivery module selects among optimization strategy classes based on routing/truck-delay needs.",
+              "supporting_doc_ids": [
+                "1debc484-c3e5-47d7-94b9-6f985a5d13e0"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Microkernel plugins for delivery routing algorithms",
+              "description": "Use a microkernel architecture where delivery/routing optimization algorithms are implemented as plugins around a shared core.",
+              "supporting_doc_ids": [
+                "1a7890b1-8adf-4f4a-9c56-8b479186b673"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Access Ownership and Storage Design",
+          "description": "How microservices own/persist data and access repositories (service-owned vs shared/shared-access layers), independent of routing, integration, or algorithm choice.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Service-owned data repositories typically follow domain-aligned decomposition into services with separate storage."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Per-service SQL repositories for data access",
+              "description": "Each microservice uses its own service-owned SQL repository for its domain data (e.g., Customers and Orders).",
+              "supporting_doc_ids": [
+                "39f62727-a8f7-4415-a82e-dff0799f068d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Incident History Reliability Mechanisms",
+          "description": "How critical incident history is recorded and made reconstructable (e.g., event sourcing vs other persistence/recovery), separate from general state propagation.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Incident reliability requirements often motivate event-based representations that can also support downstream propagation."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Event sourcing for critical incident history",
+              "description": "Use event sourcing to preserve a reliable, replayable history of critical incidents for audit/resilience needs.",
+              "supporting_doc_ids": [
+                "74ba58ff-e9b3-4c29-8b4e-3070a4cb8dab"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 13 draft values. Merge decisions (threshold 0.200, borderline band 0.080): [1] kept 1.1 as-is; [1] kept 1.2 as-is; [1] kept 1.3 as-is; [1] kept 1.4 as-is; [3] kept 3.1 as-is; [3] kept 3.2 as-is; [4] kept 4.1 as-is; [4] kept 4.2 as-is; [5] kept 5.1 as-is; [5] kept 5.2 as-is",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Client Request Entry Routing",
+          "description": "How PC/mobile requests enter the microservice system (gateway vs direct) and how routing boundaries map to domain areas, excluding external Payments facade choices.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "When Payments is exposed via the external integration path, gateway routing typically governs how those requests enter the Payments subsystem."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Central gateway for all PC/mobile HTTP routing",
+              "description": "Dedicated API Gateway fronts all PC/mobile HTTP/REST traffic and forwards to internal microservices and management endpoints.",
+              "supporting_doc_ids": [
+                "8e48cd94-b450-443c-879a-7ec401e9d379",
+                "1763a0b2-2665-4ea7-9abd-26116434416a",
+                "11a5167f-e054-4f68-82a7-73a96f6263cc"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Gateway routes Customers and Orders",
+              "description": "Gateway forwards client requests to Customers and Orders microservices with CRUD-oriented boundaries.",
+              "supporting_doc_ids": [
+                "09222e3f-f35b-4b9a-99eb-69646f9f2440",
+                "13c0e422-4b3e-4b19-962b-c77c2347a296",
+                "1763a0b2-2665-4ea7-9abd-26116434416a"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Gateway routes Statistics and Incidents",
+              "description": "Gateway forwards requests to Statistics and Incidents microservices (or their separately decomposed successors).",
+              "supporting_doc_ids": [
+                "533c3bd3-36a4-436e-9675-84d1666810aa"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Gateway routes third-party Payments integration",
+              "description": "Gateway is the centralized routing path for external Payments integration request entry/forwarding.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93",
+                "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Inter-Service State Propagation Mechanisms",
+          "description": "How domain state changes disseminate across services (push/event vs pull/query), distinguishing propagation style from request entry routing and external integration.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Event-driven propagation often complements gateway-centered request entry for non-critical modules like Statistics."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Observer/event mechanism for Statistics updates",
+              "description": "Use internal observer/event patterns to push state changes into the Statistics microservice.",
+              "supporting_doc_ids": [
+                "7de41a66-455b-4247-afcc-7b2ac44bf75d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "External Payments Integration Interface Design",
+          "description": "How third-party Payments capabilities are exposed to internal modules (facade/abstraction) and how external routing is reached, separate from general client entry routing.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Payments integration commonly relies on gateway routing while internal callers remain protected behind a stable facade."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Facade wraps internal Payments behind simplified interface",
+              "description": "Expose Payments capabilities via a facade so OrderManager and other modules use a stable simplified contract.",
+              "supporting_doc_ids": [
+                "007e125f-b478-46d1-99be-b3bfe21aac9f"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Gateway routes payment requests",
+              "description": "API Gateway forwards payment-related requests to an external Payments service.",
+              "supporting_doc_ids": [
+                "c418da85-adcb-40eb-9739-06af78644f93",
+                "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Domain-Aligned Microservice Decomposition Basis",
+          "description": "How the monolith is decomposed into microservices via business-module boundaries, including whether Statistics and Incidents remain separate.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Domain-aligned services imply distinct microservice endpoints that the gateway routes to."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Decompose by business modules",
+              "description": "Split monolith into microservices aligned to business modules (Customers, Orders, Delivery & Routing, Payments), including separating Statistics from Incidents when needed for migration readiness.",
+              "supporting_doc_ids": [
+                "668bad7d-7f7f-43d3-91d2-158836039fc6",
+                "f9b46803-92f9-409c-915d-2850171c9736"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Split Statistics and Incidents into separate microservices",
+              "description": "Keep Statistics and Incidents as distinct microservices rather than a combined module, improving encapsulation and responsibility isolation.",
+              "supporting_doc_ids": [
+                "f9b46803-92f9-409c-915d-2850171c9736"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Delivery and Routing Optimization Strategy Selection",
+          "description": "How delivery routing/truck-delay optimization algorithms are chosen and executed (strategy classes vs plugin architecture), distinct from routing entry and data persistence.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "A Delivery & Routing microservice decomposition enables internal strategy/plugin selection for routing decisions."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Strategy pattern for delivery delay optimization",
+              "description": "Delivery module selects among optimization strategy classes based on routing/truck-delay needs.",
+              "supporting_doc_ids": [
+                "1debc484-c3e5-47d7-94b9-6f985a5d13e0"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Microkernel plugins for delivery routing algorithms",
+              "description": "Use a microkernel architecture where delivery/routing optimization algorithms are implemented as plugins around a shared core.",
+              "supporting_doc_ids": [
+                "1a7890b1-8adf-4f4a-9c56-8b479186b673"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Access Ownership and Storage Design",
+          "description": "How microservices own/persist data and access repositories (service-owned vs shared/shared-access layers), independent of routing, integration, or algorithm choice.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Service-owned data repositories typically follow domain-aligned decomposition into services with separate storage."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Per-service SQL repositories for data access",
+              "description": "Each microservice uses its own service-owned SQL repository for its domain data (e.g., Customers and Orders).",
+              "supporting_doc_ids": [
+                "39f62727-a8f7-4415-a82e-dff0799f068d"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Incident History Reliability Mechanisms",
+          "description": "How critical incident history is recorded and made reconstructable (e.g., event sourcing vs other persistence/recovery), separate from general state propagation.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Incident reliability requirements often motivate event-based representations that can also support downstream propagation."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Event sourcing for critical incident history",
+              "description": "Use event sourcing to preserve a reliable, replayable history of critical incidents for audit/resilience needs.",
+              "supporting_doc_ids": [
+                "74ba58ff-e9b3-4c29-8b4e-3070a4cb8dab"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All open codes are covered by existing taxonomy dimensions: (1) API Gateway / request entry routing variants map to “Microservice Request Entry Routing” (values 1.1–1.3), including dedicated gateway for all PC/mobile, routing to Customers/Orders, routing to Statistics/Incidents, and routing payment requests. (2) Payments interface wrapping maps to “External Payments Integration Interface Design” (value 3.1). (3) Domain-module-aligned decomposition maps to “Domain-Aligned Microservice Decomposition Basis” (value 4.1). (4) Internal observer/event propagation to Statistics maps to “Inter-Service State Propagation Mechanisms” (value 2.1). (5) Delivery delay/routing optimization selection via Strategy pattern maps to “Routing and Optimization Strategy Selection” (value 5.1). Therefore no genuinely new architectural axes or concepts are introduced by the minibatch beyond the existing dimensions’ captured variation."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All open codes map cleanly onto existing taxonomy dimensions:\n- Statistics/Incidents separation → covered by Domain-Aligned Microservice Decomposition Basis (4.2) and (4.1) for migration-ready encapsulation.\n- Migration-ready encapsulation via module boundaries → covered by Domain-Aligned Microservice Decomposition Basis (4.1).\n- Delivery/routing microkernel + plugins → covered by Routing and Optimization Strategy Selection (5.2).\n- API Gateway for customer/order exposure and client request routing (including centralized management/routing) → covered by Microservice Request Entry Routing (1.1 and 1.2 and 1.4 for Payments exposure/routing; also gateway management is encompassed by the gateway-role descriptions).\n- Route third-party Payments integration through API Gateway → covered by Microservice Request Entry Routing (1.4) and External Payments Integration Interface Design (3.2).\n- Separate CRUD microservices for Customers and Orders → covered by Domain-Aligned Microservice Decomposition Basis (4.1) and Microservice Request Entry Routing (1.2).\n- Event sourcing for critical incident history → covered by Incident History Reliability Mechanisms (7.1).\n- Per-service SQL repositories for data access / service-owned Customer & Order data → covered by Data Access Ownership and Storage Design (6.1).\nSince every relevant minibatch code is absorbed by at least one existing dimension axis without forcing axis conflation, the taxonomy is theoretically saturated for this minibatch."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "4",
+      "name": "Domain-Aligned Microservice Decomposition Basis",
+      "description": "How the monolith is decomposed into microservices via business-module boundaries, including whether Statistics and Incidents remain separate.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "consequence",
+          "rationale": "Domain-aligned services imply distinct microservice endpoints that the gateway routes to."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Decompose by business modules",
+          "description": "Split monolith into microservices aligned to business modules (Customers, Orders, Delivery & Routing, Payments), including separating Statistics from Incidents when needed for migration readiness.",
+          "supporting_doc_ids": [
+            "668bad7d-7f7f-43d3-91d2-158836039fc6",
+            "f9b46803-92f9-409c-915d-2850171c9736"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Split Statistics and Incidents into separate microservices",
+          "description": "Keep Statistics and Incidents as distinct microservices rather than a combined module, improving encapsulation and responsibility isolation.",
+          "supporting_doc_ids": [
+            "f9b46803-92f9-409c-915d-2850171c9736"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "name": "Client Request Entry Routing",
+      "description": "How PC/mobile requests enter the microservice system (gateway vs direct) and how routing boundaries map to domain areas, excluding external Payments facade choices.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "constrains",
+          "rationale": "When Payments is exposed via the external integration path, gateway routing typically governs how those requests enter the Payments subsystem."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Central gateway for all PC/mobile HTTP routing",
+          "description": "Dedicated API Gateway fronts all PC/mobile HTTP/REST traffic and forwards to internal microservices and management endpoints.",
+          "supporting_doc_ids": [
+            "8e48cd94-b450-443c-879a-7ec401e9d379",
+            "1763a0b2-2665-4ea7-9abd-26116434416a",
+            "11a5167f-e054-4f68-82a7-73a96f6263cc"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Gateway routes Customers and Orders",
+          "description": "Gateway forwards client requests to Customers and Orders microservices with CRUD-oriented boundaries.",
+          "supporting_doc_ids": [
+            "09222e3f-f35b-4b9a-99eb-69646f9f2440",
+            "13c0e422-4b3e-4b19-962b-c77c2347a296",
+            "1763a0b2-2665-4ea7-9abd-26116434416a"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Gateway routes Statistics and Incidents",
+          "description": "Gateway forwards requests to Statistics and Incidents microservices (or their separately decomposed successors).",
+          "supporting_doc_ids": [
+            "533c3bd3-36a4-436e-9675-84d1666810aa"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Gateway routes third-party Payments integration",
+          "description": "Gateway is the centralized routing path for external Payments integration request entry/forwarding.",
+          "supporting_doc_ids": [
+            "c418da85-adcb-40eb-9739-06af78644f93",
+            "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Data Access Ownership and Storage Design",
+      "description": "How microservices own/persist data and access repositories (service-owned vs shared/shared-access layers), independent of routing, integration, or algorithm choice.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "Service-owned data repositories typically follow domain-aligned decomposition into services with separate storage."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Per-service SQL repositories for data access",
+          "description": "Each microservice uses its own service-owned SQL repository for its domain data (e.g., Customers and Orders).",
+          "supporting_doc_ids": [
+            "39f62727-a8f7-4415-a82e-dff0799f068d"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Delivery and Routing Optimization Strategy Selection",
+      "description": "How delivery routing/truck-delay optimization algorithms are chosen and executed (strategy classes vs plugin architecture), distinct from routing entry and data persistence.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "A Delivery & Routing microservice decomposition enables internal strategy/plugin selection for routing decisions."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Strategy pattern for delivery delay optimization",
+          "description": "Delivery module selects among optimization strategy classes based on routing/truck-delay needs.",
+          "supporting_doc_ids": [
+            "1debc484-c3e5-47d7-94b9-6f985a5d13e0"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Microkernel plugins for delivery routing algorithms",
+          "description": "Use a microkernel architecture where delivery/routing optimization algorithms are implemented as plugins around a shared core.",
+          "supporting_doc_ids": [
+            "1a7890b1-8adf-4f4a-9c56-8b479186b673"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "External Payments Integration Interface Design",
+      "description": "How third-party Payments capabilities are exposed to internal modules (facade/abstraction) and how external routing is reached, separate from general client entry routing.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "co_occurring",
+          "rationale": "Payments integration commonly relies on gateway routing while internal callers remain protected behind a stable facade."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Facade wraps internal Payments behind simplified interface",
+          "description": "Expose Payments capabilities via a facade so OrderManager and other modules use a stable simplified contract.",
+          "supporting_doc_ids": [
+            "007e125f-b478-46d1-99be-b3bfe21aac9f"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Gateway routes payment requests",
+          "description": "API Gateway forwards payment-related requests to an external Payments service.",
+          "supporting_doc_ids": [
+            "c418da85-adcb-40eb-9739-06af78644f93",
+            "9b68098f-cbbe-4496-a725-77fb20c0ecdc"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Incident History Reliability Mechanisms",
+      "description": "How critical incident history is recorded and made reconstructable (e.g., event sourcing vs other persistence/recovery), separate from general state propagation.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "Incident reliability requirements often motivate event-based representations that can also support downstream propagation."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Event sourcing for critical incident history",
+          "description": "Use event sourcing to preserve a reliable, replayable history of critical incidents for audit/resilience needs.",
+          "supporting_doc_ids": [
+            "74ba58ff-e9b3-4c29-8b4e-3070a4cb8dab"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Inter-Service State Propagation Mechanisms",
+      "description": "How domain state changes disseminate across services (push/event vs pull/query), distinguishing propagation style from request entry routing and external integration.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "co_occurring",
+          "rationale": "Event-driven propagation often complements gateway-centered request entry for non-critical modules like Statistics."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Observer/event mechanism for Statistics updates",
+          "description": "Use internal observer/event patterns to push state changes into the Statistics microservice.",
+          "supporting_doc_ids": [
+            "7de41a66-455b-4247-afcc-7b2ac44bf75d"
+          ]
+        }
+      ]
+    }
+  ]
+}

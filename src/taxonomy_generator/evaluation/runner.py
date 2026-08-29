@@ -84,6 +84,7 @@ async def run_scoreboard(
             await metric.a_measure(case, _show_indicator=False)
             row: Dict = {
                 "name": criterion.name,
+                "description": criterion.criteria,
                 "threshold": threshold,
                 "evaluated": True,
             }
@@ -107,6 +108,7 @@ async def run_scoreboard(
             criteria_rows.append(
                 {
                     "name": COVERAGE_CRITERION.name,
+                    "description": COVERAGE_CRITERION.criteria,
                     "threshold": threshold,
                     "score": None,
                     "passed": None,

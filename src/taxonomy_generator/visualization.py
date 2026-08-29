@@ -1,8 +1,23 @@
-"""Taxonomy biplot visualization utility (erdogant/pca based).
+"""Taxonomy biplot visualization utility (erdogant/pca + Plotly based).
 
-Renders PCA **biplots** of a taxonomy: *value* points positioned on their
-*dimension* axes (loading arrows) — a debugging/explanation view of the
-axial-coding structure.
+Renders interactive **biplots** of a taxonomy: *value* points positioned on
+their *dimension* axes — a debugging/explanation view of the axial-coding
+structure. Two rendering paths, chosen by dimension count vs.
+``visualization.dimensions``:
+
+- **Exact** (``_render_direct_scatter``): when the taxonomy has no more
+  dimensions than the configured chart size, each axis is one taxonomy
+  dimension, plotted directly — no projection, nothing lossy.
+- **PCA-reduced** (``_render_pca_biplot``): otherwise, the axis-coordinate
+  matrix is reduced via ``erdogant/pca`` to the configured number of
+  components, same as before. What changed is how the reduction is *drawn*:
+  each dimension's loading direction becomes one axis of a shared, fixed
+  radius, extending both ways through the origin (rather than a one-way
+  arrow scaled to its own data-dependent magnitude), and values are placed
+  on their own dimension's axis at a distance reflecting their axis
+  coordinate. The PCA fit itself is untouched — it still decides each
+  dimension's meaningful angle relative to the others; only the loading's
+  magnitude is discarded in favor of a shared radius.
 
 Axis semantics
 --------------
@@ -19,8 +34,12 @@ position along that axis:
 - ``uniform`` mode (consolidation disabled): every value of a dimension sits
   at a unitary coordinate ``1.0`` on its axis (pure one-hot row).
 
-All other columns are zero, so a value's PCA score lies along its dimension's
-loading direction at a distance reflecting its axis position.
+All other columns are zero, so a value's plotted position lies along its
+dimension's axis at a distance reflecting its axis position. Values whose
+own-axis coordinate lands at/near zero are nudged outward to a minimum
+radius (``_avoid_origin_matrix``) so they don't render on top of every other
+dimension's zero-valued values at the shared origin — display-only, the
+exported CSV keeps the untouched coordinates.
 
 Caveats built in (TAXONOMY_QUALITY_PLAN.md §7):
 
@@ -28,9 +47,13 @@ Caveats built in (TAXONOMY_QUALITY_PLAN.md §7):
   full-dimensional distance computed during consolidation decides merges.
   PCA is a lossy linear projection; two points can look close in projection
   while being far apart in the full embedding space, or vice versa.
-- Every chart reports the **explained variance ratio**. When 2–3 components
-  capture a low share of total variance, the plot is a weak proxy for true
-  distance and is labeled as such.
+- The PCA-reduced chart reports the **explained variance ratio**. When the
+  chosen components capture a low share of total variance, the plot is a
+  weak proxy for true distance and is labeled as such.
+
+Every chart is an interactive, self-contained HTML file (Plotly): hovering a
+value shows its full id/label/description/dimension, and the legend toggles
+a dimension's points on click.
 
 This is a shared utility, not a graph node, because an "iteration" spans
 multiple node types. It is called (optionally) from ``generate_taxonomy``,
@@ -40,6 +63,7 @@ the ``visualization.enabled`` config flag, and directly by the standalone
 """
 
 import logging
+import math
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -49,6 +73,12 @@ import numpy as np
 from taxonomy_generator.configuration import Configuration
 
 logger = logging.getLogger(__name__)
+
+# Below this, a PCA loading is treated as genuinely zero (not a rounding
+# artifact) — the axis matrix's columns are exactly orthogonal by
+# construction, so unrepresented dimensions land many orders of magnitude
+# below this in practice.
+MIN_LOADING_NORM = 1e-6
 
 
 def _sanitize_name(name: str) -> str:
@@ -223,9 +253,10 @@ def export_axis_matrix_csv(
     """Export the axis-coordinate design matrix to CSV next to the chart.
 
     The CSV carries identifying columns (``value_id``, ``dimension_id``,
-    ``label``) followed by one column per dimension — the exact vectors
-    fed to PCA — so the projection can be inspected or reproduced
-    externally. Fail-soft: never raises, returns None on failure.
+    ``label``) followed by one column per dimension — the exact axis-
+    coordinate vectors (PCA input when reduction applies) — so the chart can
+    be inspected or reproduced externally. Fail-soft: never raises, returns
+    None on failure.
     """
     out_dir = resolve_output_dir(configuration)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -248,8 +279,36 @@ def export_axis_matrix_csv(
     except Exception as e:
         logger.warning("Axis-matrix CSV export failed for stage=%s: %s", stage, e)
         return None
-    logger.info("PCA vectors written: %s (axis positions: %s)", out_path, mode)
+    logger.info("Axis vectors written: %s (axis positions: %s)", out_path, mode)
     return out_path
+
+
+def _avoid_origin_matrix(
+    matrix: np.ndarray,
+    points: List[Dict[str, Any]],
+    dims: List[Dict[str, Any]],
+    min_fraction: float = 0.15,
+) -> np.ndarray:
+    """Nudge each value's own-axis coordinate away from the shared origin.
+
+    Values whose axis coordinate lands at/near 0 would otherwise render on
+    top of every other dimension's zero-valued values at the shared center
+    point. Remaps each value's own-dimension coordinate to
+    ``sign * (min_fraction + (1 - min_fraction) * abs(value))`` — exact zero
+    deterministically maps to ``+min_fraction`` — preserving sign and
+    relative order within the dimension.
+
+    Display-only: returns a copy, so the raw matrix (e.g. the exported CSV
+    and the PCA fit) stays untouched.
+    """
+    dim_index = {d["id"]: i for i, d in enumerate(dims)}
+    out = matrix.copy()
+    for row, point in enumerate(points):
+        col = dim_index[point["dimension_id"]]
+        value = matrix[row, col]
+        sign = 1.0 if value >= 0 else -1.0
+        out[row, col] = sign * (min_fraction + (1 - min_fraction) * abs(value))
+    return out
 
 
 def _point_label(point: Dict, max_len: int = 25) -> str:
@@ -261,13 +320,40 @@ def _point_label(point: Dict, max_len: int = 25) -> str:
     return text
 
 
-def _dimension_color_map(dims: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Assign one color per dimension (tab10 for <=10 dims, else tab20)."""
-    import matplotlib.pyplot as plt
+def _hover_text(point: Dict[str, Any], dim_name: str) -> str:
+    """Full, untruncated hover text: id, label, description, dimension."""
+    label = str(point.get("label", "")).strip()
+    description = str(point.get("description", "")).strip()
+    lines = [f"<b>{point.get('value_id', '?')}</b>: {label}"]
+    if description:
+        lines.append(description)
+    lines.append(f"<i>Dimension {point.get('dimension_id', '?')}: {dim_name}</i>")
+    return "<br>".join(lines)
 
-    dim_ids = [d["id"] for d in dims]
-    cmap = plt.get_cmap("tab10" if len(dim_ids) <= 10 else "tab20")
-    return {d: cmap(i % cmap.N) for i, d in enumerate(dim_ids)}
+
+def _axis_angle_degrees(dx: float, dy: float) -> float:
+    """Text rotation (degrees) so a label crosses its axis at 90°, never upside-down.
+
+    2D only — used for dimension-name and value labels so they read across
+    their own axis rather than overlapping it lengthwise. Normalized to
+    ``(-90, 90]`` so text is always upright.
+    """
+    angle = -math.degrees(math.atan2(dy, dx)) + 90.0
+    if angle > 90:
+        angle -= 180
+    elif angle <= -90:
+        angle += 180
+    return angle
+
+
+def _dimension_color_map(dims: List[Dict[str, Any]]) -> Dict[str, str]:
+    """Assign one color per dimension (Plotly qualitative palette)."""
+    import plotly.express as px
+
+    palette = (
+        px.colors.qualitative.Plotly if len(dims) <= 10 else px.colors.qualitative.Alphabet
+    )
+    return {d["id"]: palette[i % len(palette)] for i, d in enumerate(dims)}
 
 
 def _uniform_mode_jitter(configuration: Configuration, coords: np.ndarray, mode: str) -> np.ndarray:
@@ -285,25 +371,20 @@ def _uniform_mode_jitter(configuration: Configuration, coords: np.ndarray, mode:
     return offsets
 
 
-def _save_biplot_figure(
-    fig: Any, configuration: Configuration, stage: str, iteration_index: int, kind: str
+def _save_biplot_html(
+    fig: Any, configuration: Configuration, stage: str, iteration_index: int, kind: str, n_dims: int
 ) -> Optional[Path]:
     """Save a rendered figure to the standard biplot filename. Fail-soft."""
     out_dir = resolve_output_dir(configuration)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / (
-        f"taxonomy_biplot_{_sanitize_name(configuration.name)}_{stage}_{iteration_index}.png"
+        f"taxonomy_biplot_{_sanitize_name(configuration.name)}_{stage}_{iteration_index}_{n_dims}d.html"
     )
     try:
-        fig.tight_layout()
-        fig.savefig(out_path, dpi=140)
+        fig.write_html(out_path, include_plotlyjs="cdn", full_html=True)
     except Exception as e:
         logger.warning("%s save failed for stage=%s: %s", kind, stage, e)
         return None
-    finally:
-        import matplotlib.pyplot as plt
-
-        plt.close(fig)
     return out_path
 
 
@@ -338,73 +419,309 @@ def _render_direct_scatter(
 ) -> Optional[Path]:
     """Plot values directly on the taxonomy's own dimension axes — no PCA.
 
-    Used when the taxonomy has exactly 2 or 3 dimensions: the axis-coordinate
-    matrix already has one column per dimension, so there is nothing to
-    reduce. Plotting the raw columns is exact (not a lossy projection), and
-    each axis is directly readable as one named dimension rather than an
-    abstract, rotated principal component — so there is no "explained
-    variance" to report and no loading arrows to draw (the axes already are
-    the dimensions).
+    Used when the taxonomy has no more dimensions than the configured chart
+    size (``visualization.dimensions``): the axis-coordinate matrix already
+    has one column per dimension, so there is nothing to reduce. Plotting
+    the raw columns is exact (not a lossy projection), and each axis is
+    directly readable as one named dimension rather than an abstract,
+    rotated principal component.
     """
     try:
-        import matplotlib
-
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
+        import plotly.graph_objects as go
     except ImportError as e:
         logger.warning("Scatter rendering skipped — missing optional dependency: %s", e)
         return None
 
     n_axis_dims = matrix.shape[1]
     dim_colors = _dimension_color_map(dims)
-    colors = [dim_colors[p["dimension_id"]] for p in points]
     offsets = _uniform_mode_jitter(configuration, matrix, mode)
+    # 2D only: dimension 0 is the horizontal axis, dimension 1 is the
+    # vertical axis — labels are rotated to cross their own axis at 90°
+    # (vertical text on the horizontal axis, horizontal text on the
+    # vertical axis) so they never overlap each other.
+    axis_angles = {dims[0]["id"]: 90.0, dims[1]["id"]: 0.0} if n_axis_dims == 2 else {}
+    annotations = []
 
-    fig = plt.figure(figsize=(9, 7))
-    if n_axis_dims >= 3:
-        ax = fig.add_subplot(projection="3d")
-        ax.scatter(
-            matrix[:, 0] + offsets[:, 0],
-            matrix[:, 1] + offsets[:, 1],
-            matrix[:, 2] + offsets[:, 2],
-            c=colors, s=48, alpha=0.85,
-        )
-        for i, point in enumerate(points):
-            ax.text(
-                matrix[i, 0] + offsets[i, 0],
-                matrix[i, 1] + offsets[i, 1],
-                matrix[i, 2] + offsets[i, 2],
-                _point_label(point),
-                fontsize=6, alpha=0.7,
-            )
-        ax.set_zlabel(f"{dims[2]['id']}: {dims[2]['name']}")
-    else:
-        ax = fig.add_subplot()
-        ax.scatter(matrix[:, 0] + offsets[:, 0], matrix[:, 1] + offsets[:, 1], c=colors, s=48, alpha=0.85)
-        for i, point in enumerate(points):
-            ax.annotate(
-                _point_label(point),
-                (matrix[i, 0] + offsets[i, 0], matrix[i, 1] + offsets[i, 1]),
-                fontsize=7, alpha=0.7, xytext=(3, 3), textcoords="offset points",
-            )
+    fig = go.Figure()
+    for dim in dims:
+        idxs = [row for row, p in enumerate(points) if p["dimension_id"] == dim["id"]]
+        if not idxs:
+            continue
+        color = dim_colors[dim["id"]]
+        xs = matrix[idxs, 0] + offsets[idxs, 0]
+        ys = matrix[idxs, 1] + offsets[idxs, 1]
+        hover = [_hover_text(points[row], dim["name"]) for row in idxs]
+        if n_axis_dims >= 3:
+            zs = matrix[idxs, 2] + offsets[idxs, 2]
+            labels = [_point_label(points[row]) for row in idxs]
+            fig.add_trace(go.Scatter3d(
+                x=xs, y=ys, z=zs, mode="markers+text",
+                marker=dict(color=color, size=5),
+                text=labels, textfont=dict(size=8),
+                hovertext=hover, hoverinfo="text",
+                name=f"{dim['id']}: {dim['name']}",
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=xs, y=ys, mode="markers",
+                marker=dict(color=color, size=9),
+                hovertext=hover, hoverinfo="text",
+                name=f"{dim['id']}: {dim['name']}",
+            ))
+            angle = axis_angles[dim["id"]]
+            for row, x, y in zip(idxs, xs, ys):
+                annotations.append(dict(
+                    x=x, y=y, text=_point_label(points[row]), textangle=angle,
+                    showarrow=False, font=dict(size=8, color=color),
+                    xanchor="center", yanchor="bottom", yshift=6,
+                ))
+            tip_x, tip_y = (matrix[:, 0].max() * 1.1, 0) if dim["id"] == dims[0]["id"] else (0, matrix[:, 1].max() * 1.1)
+            annotations.append(dict(
+                x=tip_x, y=tip_y, text=f"{dim['id']}: {dim['name']}", textangle=angle,
+                showarrow=False, font=dict(size=10, color=color),
+            ))
 
-    ax.set_xlabel(f"{dims[0]['id']}: {dims[0]['name']}")
-    ax.set_ylabel(f"{dims[1]['id']}: {dims[1]['name']}")
-    ax.set_title(
-        f"Taxonomy scatter — values on their own dimension axes — stage: {stage}, iteration: {iteration_index}\n"
-        f"Axis positions: {mode} · {n_axis_dims} dimensions plotted directly (no PCA — nothing to reduce)"
+    if annotations:
+        fig.update_layout(annotations=annotations)
+
+    title = (
+        f"Taxonomy scatter — values on their own dimension axes — stage: {stage}, iteration: {iteration_index}<br>"
+        f"<sup>Axis positions: {mode} · {n_axis_dims} dimensions plotted directly (no PCA — nothing to reduce)</sup>"
     )
+    if n_axis_dims >= 3:
+        fig.update_layout(
+            title=title,
+            template="plotly_white",
+            scene=dict(
+                xaxis_title=f"{dims[0]['id']}: {dims[0]['name']}",
+                yaxis_title=f"{dims[1]['id']}: {dims[1]['name']}",
+                zaxis_title=f"{dims[2]['id']}: {dims[2]['name']}",
+            ),
+        )
+    else:
+        # Dimension names are already drawn as rotated axis-tip annotations
+        # above; the zero-lines themselves double as each dimension's axis,
+        # colored and thickened to match (mirrors the PCA biplot's axes).
+        fig.update_layout(
+            title=title,
+            template="plotly_white",
+            xaxis=dict(zeroline=True, zerolinewidth=3, zerolinecolor=dim_colors[dims[0]["id"]]),
+            yaxis=dict(zeroline=True, zerolinewidth=3, zerolinecolor=dim_colors[dims[1]["id"]]),
+        )
 
-    handles = [
-        plt.Line2D([0], [0], marker="o", linestyle="", color=dim_colors[d["id"]],
-                   label=f"{d['id']}: {d['name']}")
-        for d in dims
-    ]
-    ax.legend(handles=handles, fontsize=8, loc="best")
-
-    out_path = _save_biplot_figure(fig, configuration, stage, iteration_index, kind="Scatter")
+    out_path = _save_biplot_html(fig, configuration, stage, iteration_index, kind="Scatter", n_dims=n_axis_dims)
     if out_path is not None:
         logger.info("Scatter written: %s (axis positions: %s, %d dimensions, no PCA)", out_path, mode, n_axis_dims)
+    return out_path
+
+
+def _render_pca_biplot(
+    configuration: Configuration,
+    points: List[Dict[str, Any]],
+    matrix: np.ndarray,
+    display_matrix: np.ndarray,
+    dims: List[Dict[str, Any]],
+    stage: str,
+    iteration_index: int,
+    mode: str,
+    n_target: int,
+) -> Optional[Path]:
+    """PCA-reduce the axis matrix, then plot on equal-radius, bidirectional axes.
+
+    The PCA fit runs on the raw ``matrix`` (unaffected by origin-avoidance)
+    so the resulting loading directions reflect the true geometry. Each
+    dimension's loading is then unit-normalized — direction kept, magnitude
+    discarded — and drawn as a full line of shared radius through the
+    origin. Values are placed on their own dimension's axis at a distance
+    given by their origin-avoided coordinate (``display_matrix``), not by
+    their raw PCA-projected score, so every value sits exactly on its own
+    axis regardless of how much that dimension's loading originally weighed.
+    """
+    try:
+        from pca import pca as ErdogantPCA
+    except ImportError as e:
+        logger.warning("Biplot rendering skipped — missing optional dependency: %s", e)
+        return None
+    try:
+        import plotly.graph_objects as go
+    except ImportError as e:
+        logger.warning("Biplot rendering skipped — missing optional dependency: %s", e)
+        return None
+
+    n_components = min(n_target, matrix.shape[0], matrix.shape[1])
+    if n_components < 2:
+        logger.debug("Skipping biplot render — not enough components for a chart")
+        return None
+
+    try:
+        pca_model = ErdogantPCA(n_components=n_components, normalize=False)
+        result = pca_model.fit_transform(matrix)
+    except Exception as e:
+        logger.warning("PCA fit failed for stage=%s iteration=%d: %s", stage, iteration_index, e)
+        return None
+
+    ratio_raw = result.get("variance_ratio")
+    if ratio_raw is not None:
+        ratios = np.asarray(
+            ratio_raw.values if hasattr(ratio_raw, "values") else ratio_raw, dtype=float
+        )
+        variance_share = float(np.sum(ratios)) if ratios.size else 0.0
+    else:
+        explained_raw = result.get("explained_var")
+        explained = (
+            np.asarray(explained_raw.values if hasattr(explained_raw, "values") else explained_raw, dtype=float)
+            if explained_raw is not None
+            else np.array([])
+        )
+        variance_share = float(explained[-1]) if explained.size else 0.0
+
+    loadings = _extract_loadings(result, matrix.shape[1], n_components)
+    if loadings is None:
+        logger.warning("PCA loadings unavailable for stage=%s iteration=%d — skipping biplot render", stage, iteration_index)
+        return None
+
+    # This axis matrix is block-orthogonal by construction (each value's row
+    # is nonzero only in its own dimension's column), so PCA routinely gives
+    # some dimensions a genuinely ~0 loading in the chosen components — not
+    # a rounding artifact, a real "not represented in this projection"
+    # result. Those dimensions get no axis/points (nothing meaningful to
+    # draw); they're still named in the legend so nothing silently vanishes.
+    norms = np.linalg.norm(loadings, axis=1)
+    active_mask = norms > MIN_LOADING_NORM
+    unit_directions = np.zeros_like(loadings)
+    unit_directions[active_mask] = loadings[active_mask] / norms[active_mask, None]
+
+    dim_index = {d["id"]: i for i, d in enumerate(dims)}
+    active_dims = [d for d, keep in zip(dims, active_mask) if keep]
+    omitted_dims = [d for d, keep in zip(dims, active_mask) if not keep]
+    active_ids = {d["id"] for d in active_dims}
+
+    radius = 1.0
+    active_row_mask = np.array([p["dimension_id"] in active_ids for p in points])
+    active_points = [p for p, keep in zip(points, active_row_mask) if keep]
+    active_display = display_matrix[active_row_mask]
+    plotted = np.zeros((len(active_points), n_components))
+    for i, point in enumerate(active_points):
+        col = dim_index[point["dimension_id"]]
+        plotted[i] = active_display[i, col] * radius * unit_directions[col]
+
+    offsets = _uniform_mode_jitter(configuration, plotted, mode)
+    dim_colors = _dimension_color_map(dims)
+    annotations = []
+
+    fig = go.Figure()
+
+    # Axis lines: full diameters, shared radius, solid, thick, one per active dimension.
+    for dim in active_dims:
+        direction = unit_directions[dim_index[dim["id"]]]
+        color = dim_colors[dim["id"]]
+        if n_components >= 3:
+            fig.add_trace(go.Scatter3d(
+                x=[-radius * direction[0], radius * direction[0]],
+                y=[-radius * direction[1], radius * direction[1]],
+                z=[-radius * direction[2], radius * direction[2]],
+                mode="lines",
+                line=dict(color=color, width=5),
+                hoverinfo="skip", showlegend=False,
+            ))
+            # Scene axis titles are hidden (they'd just read "PC1/PC2/PC3"),
+            # so the dimension name is placed as text at its own axis tip.
+            fig.add_trace(go.Scatter3d(
+                x=[radius * 1.08 * direction[0]],
+                y=[radius * 1.08 * direction[1]],
+                z=[radius * 1.08 * direction[2]],
+                mode="text",
+                text=[f"{dim['id']}: {dim['name']}"],
+                textfont=dict(size=10, color=color),
+                hoverinfo="skip", showlegend=False,
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=[-radius * direction[0], radius * direction[0]],
+                y=[-radius * direction[1], radius * direction[1]],
+                mode="lines",
+                line=dict(color=color, width=3),
+                hoverinfo="skip", showlegend=False,
+            ))
+            angle = _axis_angle_degrees(direction[0], direction[1])
+            annotations.append(dict(
+                x=radius * 1.08 * direction[0], y=radius * 1.08 * direction[1],
+                text=f"{dim['id']}: {dim['name']}", textangle=angle,
+                showarrow=False, font=dict(size=10, color=color),
+            ))
+
+    # Value points: one trace per active dimension (color + legend + click-to-toggle).
+    for dim in active_dims:
+        idxs = [i for i, p in enumerate(active_points) if p["dimension_id"] == dim["id"]]
+        if not idxs:
+            continue
+        color = dim_colors[dim["id"]]
+        xs = plotted[idxs, 0] + offsets[idxs, 0]
+        ys = plotted[idxs, 1] + offsets[idxs, 1]
+        hover = [_hover_text(active_points[i], dim["name"]) for i in idxs]
+        if n_components >= 3:
+            zs = plotted[idxs, 2] + offsets[idxs, 2]
+            labels = [_point_label(active_points[i]) for i in idxs]
+            fig.add_trace(go.Scatter3d(
+                x=xs, y=ys, z=zs, mode="markers+text",
+                marker=dict(color=color, size=5),
+                text=labels, textfont=dict(size=8),
+                hovertext=hover, hoverinfo="text",
+                name=f"{dim['id']}: {dim['name']}",
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=xs, y=ys, mode="markers",
+                marker=dict(color=color, size=9),
+                hovertext=hover, hoverinfo="text",
+                name=f"{dim['id']}: {dim['name']}",
+            ))
+            direction = unit_directions[dim_index[dim["id"]]]
+            angle = _axis_angle_degrees(direction[0], direction[1])
+            perp_x, perp_y = -direction[1] * 0.06, direction[0] * 0.06
+            for i, x, y in zip(idxs, xs, ys):
+                annotations.append(dict(
+                    x=x + perp_x, y=y + perp_y, text=_point_label(active_points[i]), textangle=angle,
+                    showarrow=False, font=dict(size=8, color=color),
+                ))
+
+    # Legend-only note for dimensions with ~0 loading in this projection —
+    # nothing plotted for them, but the legend says why they're missing.
+    for dim in omitted_dims:
+        note = dict(
+            x=[None], y=[None], mode="markers",
+            marker=dict(color=dim_colors[dim["id"]], size=8, symbol="x"),
+            name=f"{dim['id']}: {dim['name']} (not shown — ~0 loading here)",
+            hoverinfo="skip", showlegend=True,
+        )
+        fig.add_trace(go.Scatter3d(z=[None], **note) if n_components >= 3 else go.Scatter(**note))
+
+    weak_proxy = " (weak proxy — low captured variance)" if variance_share < 0.5 else ""
+    omitted_note = f" · {len(omitted_dims)} of {len(dims)} dimensions not shown (see legend)" if omitted_dims else ""
+    title = (
+        f"Taxonomy biplot — values on equal-radius dimension axes — stage: {stage}, iteration: {iteration_index}<br>"
+        f"<sup>Axis positions: {mode} · Explained variance (top {n_components} PCs): {variance_share:.0%}{weak_proxy}{omitted_note}</sup>"
+    )
+    if n_components >= 3:
+        fig.update_layout(
+            title=title,
+            template="plotly_white",
+            scene=dict(
+                xaxis_visible=False, yaxis_visible=False, zaxis_visible=False,
+            ),
+        )
+    else:
+        fig.update_layout(
+            title=title,
+            template="plotly_white",
+            xaxis=dict(visible=False, range=[-1.3, 1.3]),
+            yaxis=dict(visible=False, range=[-1.3, 1.3], scaleanchor="x"),
+            annotations=annotations,
+        )
+
+    out_path = _save_biplot_html(fig, configuration, stage, iteration_index, kind="Biplot", n_dims=n_components)
+    if out_path is not None:
+        logger.info("Biplot written: %s (axis positions: %s, explained variance %.0f%%)", out_path, mode, variance_share * 100)
     return out_path
 
 
@@ -415,10 +732,15 @@ async def render_taxonomy_biplot(
     iteration_index: int,
     axis_positions: str = "auto",
 ) -> Optional[Path]:
-    """Render one PCA biplot of the given taxonomy iteration's values.
+    """Render one biplot of the given taxonomy iteration's values.
 
-    Values are points placed on their dimension axes (loading arrows) of the
-    PCA projection of the axis-coordinate matrix (see module docstring).
+    Values are points placed on their own dimension's axis. When the
+    taxonomy has no more dimensions than ``visualization.dimensions``, axes
+    are the taxonomy's own dimensions, plotted exactly
+    (``_render_direct_scatter``). Otherwise the axis-coordinate matrix is
+    PCA-reduced to that many components and each dimension's loading
+    direction becomes an equal-radius, bidirectional axis
+    (``_render_pca_biplot``).
 
     Args:
         configuration: Effective run configuration.
@@ -430,8 +752,9 @@ async def render_taxonomy_biplot(
             ``_resolve_axis_positions``.
 
     Returns:
-        The path of the written PNG, or None when rendering was skipped or
-        failed (never raises — visualization must not break a pipeline run).
+        The path of the written HTML file, or None when rendering was
+        skipped or failed (never raises — visualization must not break a
+        pipeline run).
     """
     if not should_render(configuration, stage):
         return None
@@ -444,7 +767,7 @@ async def render_taxonomy_biplot(
     mode = _resolve_axis_positions(configuration, axis_positions)
     matrix, dims = await build_axis_matrix(points, mode, configuration)
 
-    # Export the exact PCA input vectors to CSV for external inspection.
+    # Export the exact axis-coordinate vectors to CSV for external inspection.
     export_axis_matrix_csv(
         configuration, points, matrix, dims, stage, iteration_index, mode
     )
@@ -453,129 +776,16 @@ async def render_taxonomy_biplot(
         logger.debug("Skipping biplot render — a single dimension gives a 1-D space")
         return None
 
-    if matrix.shape[1] in (2, 3):
-        # The taxonomy already has exactly as many dimensions as a 2D/3D plot
-        # has axes — nothing to reduce, so plot the raw axis coordinates
-        # directly instead of running PCA on an already-final space.
-        return _render_direct_scatter(configuration, points, matrix, dims, stage, iteration_index, mode)
+    display_matrix = _avoid_origin_matrix(matrix, points, dims)
 
-    try:
-        import matplotlib
+    n_target = int(configuration.visualization_dimensions or 2)
+    n_axis_dims = matrix.shape[1]
 
-        matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
-        from pca import pca as ErdogantPCA
-    except ImportError as e:
-        logger.warning("Biplot rendering skipped — missing optional dependency: %s", e)
-        return None
+    if n_axis_dims <= n_target:
+        # No more dimensions than the chart needs — nothing to reduce, plot
+        # the raw (origin-avoided) axis coordinates directly.
+        return _render_direct_scatter(configuration, points, display_matrix, dims, stage, iteration_index, mode)
 
-    n_dims = int(configuration.visualization_dimensions or 2)
-    n_components = min(n_dims, matrix.shape[0], matrix.shape[1])
-    if n_components < 2:
-        logger.debug("Skipping biplot render — not enough components for a chart")
-        return None
-
-    try:
-        pca_model = ErdogantPCA(n_components=n_components, normalize=False)
-        result = pca_model.fit_transform(matrix)
-        projected = np.asarray(result["PC"].values if hasattr(result["PC"], "values") else result["PC"])
-        explained = np.asarray(  # "explained_var" or "variance_ratio"
-            result["explained_var"].values
-            if hasattr(result["explained_var"], "values")
-            else result["explained_var"]
-        )
-    except Exception as e:
-        logger.warning("PCA fit failed for stage=%s iteration=%d: %s", stage, iteration_index, e)
-        return None
-
-    ratio_raw = result.get("variance_ratio")
-    if ratio_raw is not None:
-        ratios = np.asarray(
-            ratio_raw.values if hasattr(ratio_raw, "values") else ratio_raw, dtype=float
-        )
-        variance_share = float(np.sum(ratios)) if ratios.size else 0.0
-    else:
-        variance_share = float(explained[-1]) if explained.size else 0.0
-    loadings = _extract_loadings(result, matrix.shape[1], n_components)
-
-    dim_colors = _dimension_color_map(dims)
-    colors = [dim_colors[p["dimension_id"]] for p in points]
-    offsets = _uniform_mode_jitter(configuration, projected, mode)
-
-    fig = plt.figure(figsize=(9, 7))
-    if n_components >= 3:
-        ax = fig.add_subplot(projection="3d")
-        ax.scatter(
-            projected[:, 0] + offsets[:, 0],
-            projected[:, 1] + offsets[:, 1],
-            projected[:, 2] + offsets[:, 2],
-            c=colors, s=48, alpha=0.85,
-        )
-        for i, point in enumerate(points):
-            ax.text(
-                projected[i, 0] + offsets[i, 0],
-                projected[i, 1] + offsets[i, 1],
-                projected[i, 2] + offsets[i, 2],
-                _point_label(point),
-                fontsize=6, alpha=0.7,
-            )
-        ax.set_zlabel("PC3")
-    else:
-        ax = fig.add_subplot()
-        ax.scatter(projected[:, 0] + offsets[:, 0], projected[:, 1] + offsets[:, 1], c=colors, s=48, alpha=0.85)
-        for i, point in enumerate(points):
-            ax.annotate(
-                _point_label(point),
-                (projected[i, 0] + offsets[i, 0], projected[i, 1] + offsets[i, 1]),
-                fontsize=7,
-                alpha=0.7,
-                xytext=(3, 3),
-                textcoords="offset points",
-            )
-
-    ax.set_xlabel("PC1")
-    ax.set_ylabel("PC2")
-
-    # Dimension loading arrows (biplot). Scaled to a fraction of the score
-    # spread so arrows and points share the same visual frame. No per-arrow
-    # text labels — arrows are identified by color via the legend, which
-    # avoids overlapping texts when arrows sit close together.
-    if loadings is not None:
-        max_radius = float(np.max(np.linalg.norm(projected, axis=1))) if len(projected) else 0.0
-        max_arrow = float(np.max(np.linalg.norm(loadings, axis=1))) if loadings.size else 0.0
-        if max_arrow > 0 and max_radius > 0:
-            scale = 0.7 * max_radius / max_arrow
-            arrows = loadings * scale
-            for i, dim in enumerate(dims):
-                color = dim_colors[dim["id"]]
-                if n_components >= 3:
-                    ax.quiver(
-                        0, 0, 0, arrows[i, 0], arrows[i, 1], arrows[i, 2],
-                        color=color, linewidth=1.6, arrow_length_ratio=0.08,
-                    )
-                else:
-                    ax.annotate(
-                        "",
-                        xy=(arrows[i, 0], arrows[i, 1]),
-                        xytext=(0, 0),
-                        arrowprops=dict(arrowstyle="->", color=color, lw=1.6),
-                    )
-
-    weak_proxy = " (weak proxy — low captured variance)" if variance_share < 0.5 else ""
-    ax.set_title(
-        f"Taxonomy biplot — values on dimension axes — stage: {stage}, iteration: {iteration_index}\n"
-        f"Axis positions: {mode} · Explained variance (top {n_components} PCs): {variance_share:.0%}{weak_proxy}"
+    return _render_pca_biplot(
+        configuration, points, matrix, display_matrix, dims, stage, iteration_index, mode, n_target
     )
-
-    # Legend of dimensions.
-    handles = [
-        plt.Line2D([0], [0], marker="o", linestyle="", color=dim_colors[d["id"]],
-                   label=f"{d['id']}: {d['name']}")
-        for d in dims
-    ]
-    ax.legend(handles=handles, fontsize=8, loc="best")
-
-    out_path = _save_biplot_figure(fig, configuration, stage, iteration_index, kind="Biplot")
-    if out_path is not None:
-        logger.info("Biplot written: %s (axis positions: %s, explained variance %.0f%%)", out_path, mode, variance_share * 100)
-    return out_path

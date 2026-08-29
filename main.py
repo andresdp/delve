@@ -30,7 +30,7 @@ from typing import Any, List, Optional, Tuple
 
 from dotenv import load_dotenv
 from langchain_core.callbacks import BaseCallbackHandler
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -295,7 +295,8 @@ def parse_args() -> argparse.Namespace:
              "pipeline). One file runs the judge scoreboard (optionally with "
              "--corpus to activate the data-grounded coverage criterion); two "
              "or more files run the consistency comparison. Writes an "
-             "evaluation_*.json artifact. Mutually exclusive with --visualize "
+             "evaluation_*.json artifact next to the first taxonomy file, or "
+             "under --output if given. Mutually exclusive with --visualize "
              "and --report.",
     )
     visualize_group.add_argument(
@@ -672,8 +673,11 @@ async def _run_visualize(args: argparse.Namespace) -> None:
         # Force visualization on for this invocation; honor --output.
         "visualization_enabled": True,
     }
-    if args.output:
-        configurable["visualization_output_dir"] = args.output
+    # Default to the taxonomy file's own folder rather than the generic
+    # output dir, so 2D and 3D renders of the same file always land together.
+    configurable["visualization_output_dir"] = (
+        args.output if args.output else str(Path(args.visualize).resolve().parent)
+    )
     configuration = Configuration.from_runnable_config({"configurable": configurable})
 
     n_values = _count_values(clusters)
@@ -787,12 +791,19 @@ def _display_scoreboard(scoreboard: Optional[dict], configuration: Configuration
             reason = "Not evaluated — no documents provided."
         table.add_row(row.get("name", "?"), score_str, pass_str, reason)
 
+    legend_lines = [
+        f"• [bold]{row.get('name', '?')}[/bold] — {row.get('description')}"
+        for row in scoreboard.get("criteria") or []
+        if row.get("description")
+    ]
+    panel_body = Group(table, "", Text.from_markup("\n".join(legend_lines))) if legend_lines else table
+
     overall = scoreboard.get("overall")
     overall_str = f"{overall:.2f}" if overall is not None else "—"
     model = scoreboard.get("model") or "default"
     console.print()
     console.print(Panel(
-        table,
+        panel_body,
         title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
         subtitle=f"[dim]overall {overall_str} · judge {model} · threshold {configuration.evaluation_threshold}[/dim]",
         border_style="bright_magenta",
@@ -899,9 +910,14 @@ async def _run_evaluate(args: argparse.Namespace) -> None:
         configurable["visualization_output_dir"] = args.output
     configuration = Configuration.from_runnable_config({"configurable": configurable} or None)
 
-    from taxonomy_generator.visualization import resolve_output_dir
+    if args.output:
+        from taxonomy_generator.visualization import resolve_output_dir
 
-    out_dir = resolve_output_dir(configuration)
+        out_dir = resolve_output_dir(configuration)
+    else:
+        # Default to the evaluated taxonomy's own folder rather than the
+        # pipeline's generic output dir, so the report sits next to what it scores.
+        out_dir = Path(files[0]).resolve().parent
     out_dir.mkdir(parents=True, exist_ok=True)
     name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in configuration.name)
     name_prefix = f"{name_prefix}_" if name_prefix else ""
@@ -1019,6 +1035,12 @@ async def run(args: argparse.Namespace) -> None:
         # 0 means unlimited (None internally); any positive int caps the count
         configurable["max_num_clusters"] = args.max_clusters if args.max_clusters > 0 else None
         logger.info("Overriding max dimensions: %s", configurable["max_num_clusters"])
+    # Charts and PCA-vector CSVs otherwise default to config.yaml's
+    # default_output_dir ("output"), ignoring --output entirely. Default them
+    # to the corpus's own folder instead, so they sit next to its input.
+    configurable["visualization_output_dir"] = (
+        args.output if args.output else str(Path(args.corpus).resolve().parent)
+    )
     config = {"configurable": configurable} if configurable else {}
 
     # Resolve effective configuration for display
