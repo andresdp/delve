@@ -1,0 +1,149 @@
+{
+  "taxonomy_name": "cursor-git-at-scale",
+  "documents": [
+    {
+      "id": "5358b3b7-e4ed-4522-81b8-713da676ca3d",
+      "content": "# AI coding agents as the forcing function behind a new architecture  ## Context  Architectural rewr...",
+      "summary": "Text links AI coding agents to driving a new Git hosting architecture, implying architecture changes around agent-driven workflows.",
+      "explanation": "The document (as indicated by the title) is about how AI coding agents drive the creation of a new repository-hosting architecture. However, the provided excerpt contains no concrete architectural decision details that map to any specific taxonomy axis (e.g., repository source-of-truth placement, strong vs log-first consistency, replica count economics, tail-latency tradeoffs, WAL vs consensus ordering, maintenance placement, or client vs server responsibility partitioning). With only the high-level framing, no existing category/value can be confidently identified.",
+      "category": "Other",
+      "value": null,
+      "score": 0.15
+    },
+    {
+      "id": "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+      "content": "# Why Git is hard to distribute at server scale  ## Context  Git was designed in 2005 for a specific...",
+      "summary": "Explains why Git distribution is difficult at server scale, touching on architectural constraints affecting replication, consistency, and scaling.",
+      "explanation": "The document’s title and opening context indicate it focuses on why distributing Git at very large server scale is difficult—framing the scaling challenge in terms of replication/consistency constraints rather than, e.g., client-side virtualization or maintenance placement. That aligns best with the taxonomy dimension that explicitly captures “server-scale distribution constrained by replication/consistency requirements.”",
+      "category": "Distribution Scaling Mechanism and Constraints",
+      "value": "Replication/consistency constrained distribution at server scale",
+      "score": 0.74
+    },
+    {
+      "id": "c82e5b9f-4983-4123-930b-857382d99386",
+      "content": "# Decision: Cursor replaces consensus with a write-ahead log in S3  ## Context  Spokes had proven, f...",
+      "summary": "Cursor shifts from consensus-replicated Spokes to S3-based write-ahead logs for scaling Git repository hosting.",
+      "explanation": "The document describes Cursor replacing the prior consensus-based replication approach (Spokes) with a write-ahead log recorded first (in S3) and then deriving the authoritative repository state afterward. This directly matches the architecture shift to WAL-first semantics rather than consensus-first.",
+      "category": "Consistency and Replication Semantics",
+      "value": "Log-first operations with derived truth",
+      "score": 0.86
+    },
+    {
+      "id": "5738ae2b-20f6-4efe-9022-d9677f02dc9a",
+      "content": "# Decision (rejected): store Git objects in a distributed key-value store  ## Context  After filesys...",
+      "summary": "Rejected design: store Git objects in a distributed key-value store; classification focuses on source-of-truth location and replica/data consistency tradeoffs.",
+      "explanation": "The document is explicitly about the rejected architectural alternative: storing Git objects in a distributed key-value store. This directly matches the taxonomy axis for Repository Source-of-Truth Placement, specifically the value labeled as the rejected KV-store approach.",
+      "category": "Repository Source-of-Truth Placement",
+      "value": "Distributed KV store for Git objects (rejected)",
+      "score": 0.98
+    },
+    {
+      "id": "18eb1363-7e07-4901-9ea3-f1681d10af52",
+      "content": "# Decision (rejected): distribute the filesystem underneath Git  ## Context  Faced with the need to...",
+      "summary": "Rejected idea: distribute the filesystem underlying Git to scale repository hosting.",
+      "explanation": "The document is explicitly about rejecting an alternative architecture: distributing the filesystem underneath Git. In the taxonomy, this corresponds to the rejected option where the underlying filesystem/object storage is distributed rather than centralized as the authoritative source of truth. That aligns best with the repository source-of-truth placement axis, specifically the value representing “Centralized filesystem-backed object storage” as the non-rejected alternative; however the prompt states the decision is rejected. None of the provided values exactly says “distributed filesystem underneath Git” as a rejected value, but the closest match on the axis is the source-of-truth placement choices around filesystem/object storage centralization vs other storage splits/KV. Therefore the best-fitting category is Repository Source-of-Truth Placement, with the centralized object storage value as the intended alternative.",
+      "category": "Repository Source-of-Truth Placement",
+      "value": "Centralized filesystem-backed object storage",
+      "score": 0.45
+    },
+    {
+      "id": "0213a095-310b-4868-b9df-a7d3d76e5f4a",
+      "content": "# Decision: GitHub builds Spokes — consensus-replicated real Git repositories  ## Context  Having ru...",
+      "summary": "GitHub replaces early experiments with Spokes: consensus-replicated, real Git repositories, shifting scaling via replication and consistency.",
+      "explanation": "The document states that GitHub builds Spokes as “consensus-replicated real Git repositories,” which directly corresponds to the system using strong consensus replication to achieve correct, strong consistency across replicas. This aligns most closely with the taxonomy’s consistency/replication semantics axis rather than storage placement, replica count economics, or client/server partitioning.",
+      "category": "Consistency and Replication Semantics",
+      "value": "Consensus-based strong replication (Spokes)",
+      "score": 0.96
+    },
+    {
+      "id": "d9aa5880-483e-424d-8368-4e909d2ed0d6",
+      "content": "# Decision: Microsoft scales Git by virtualizing the client, not the server  ## Context  Where GitHu...",
+      "summary": "Microsoft scales Git by client-side virtualization (GVFS/Scalar), keeping server simpler; shifts caching/transfer/consistency responsibilities to clients.",
+      "explanation": "The document describes Microsoft scaling Git repositories by shifting work to the client via virtualization (GVFS/Scalar), rather than scaling the server-side responsibility. This aligns directly with the taxonomy axis about how responsibilities for caching/transfer/consistency are partitioned between client and server.",
+      "category": "Client vs Server Responsibility Partitioning",
+      "value": "Client-side virtualization (GVFS/Scalar)",
+      "score": 0.95
+    },
+    {
+      "id": "28e46367-3655-4e3b-891e-f0650a9879fd",
+      "content": "# Tradeoff: primary-only compaction trades replica CPU for replica bandwidth  ## Context  Git reposi...",
+      "summary": "Primary-only compaction shifts maintenance CPU to the primary, reducing work on replicas but increasing replica bandwidth usage.",
+      "explanation": "The document explicitly discusses a tradeoff for maintenance/compaction placement: performing compaction only on the primary to save replica CPU, which increases replica bandwidth usage. This directly matches the taxonomy axis about where replicated storage maintenance (compaction) runs.",
+      "category": "Replicated Storage Maintenance Responsibility Placement",
+      "value": "Primary-only compaction",
+      "score": 0.98
+    },
+    {
+      "id": "85c4fd47-0b67-44f3-ac02-4f544c6469a0",
+      "content": "# Tradeoff: a safe minimum replica count vs. the cost of millions of tiny repos  ## Context  Spokes'...",
+      "summary": "Spokes uses a safe minimum replica count, trading correctness/availability against the high cost of maintaining millions of tiny repos.",
+      "explanation": "The document centers on Spokes scaling economics: maintaining only a safe minimum number of replicas to control cost given millions of tiny repositories. This directly matches the taxonomy dimension about replica-count vs scale-cost tradeoffs, specifically the value describing “safe minimum replicas” driven by cost.",
+      "category": "Replica Count and Scale-Cost Tradeoffs",
+      "value": "Safe minimum replicas to reduce cost",
+      "score": 0.95
+    },
+    {
+      "id": "6077c5f1-e433-4bc9-844f-12708c422028",
+      "content": "# Tradeoff: strong consensus vs. tail-at-scale write latency (Spokes)  ## Context  Spokes' three-pha...",
+      "summary": "Spokes uses strong consensus replication, trading consistency guarantees against higher tail-at-scale write latency.",
+      "explanation": "The document explicitly frames a tradeoff in Spokes between using strong consensus replication for correctness and the resulting tail-at-scale write latency costs. This directly matches the taxonomy’s dimension about performance tail latency being traded against consistency guarantees.",
+      "category": "Replication Performance Tail Latency",
+      "value": "Accept tail-at-scale write latency for consistency",
+      "score": 0.96
+    },
+    {
+      "id": "655a03a6-e44f-48ed-97ac-8f4568a84d6e",
+      "content": "# Alternative considered and rejected: blob storage plus a relational database  ## Context  When jus...",
+      "summary": "Rejected approach: storing blobs in blob storage and metadata in a relational database for repository hosting; alternative considered but not chosen.",
+      "explanation": "The document explicitly discusses an alternative that was considered and rejected: “blob storage plus a relational database.” This corresponds directly to the taxonomy’s axis about splitting blob storage from relational metadata, which is listed as an explicitly rejected architecture alternative.",
+      "category": "Repository Source-of-Truth Placement",
+      "value": "Split blob store and relational metadata (rejected)",
+      "score": 0.98
+    },
+    {
+      "id": "f29da425-b54b-4dcc-9069-10937893aaf2",
+      "content": "# Alternative solutions, compared: five answers to one question  ## Context  Across its history, Git...",
+      "summary": "Text is a header referencing an “alternative solutions” comparison, implying discussion of multiple architectural approaches to scaling Git hosting over time.",
+      "explanation": "The provided text is only a fragment and does not describe a specific architectural decision (e.g., source-of-truth placement, replication/consistency semantics, replica count, tail-latency tradeoffs, write-path WAL vs consensus-first, maintenance responsibility, or client/server partitioning). With no concrete decision details, no taxonomy category can be confidently matched.",
+      "category": "Other",
+      "value": null,
+      "score": 0.0
+    },
+    {
+      "id": "48daba59-b13d-4b14-bc81-e91848f69918",
+      "content": "# Lesson learned: consensus replicas turn repositories into 'pets, not cattle'  ## Context  \"Pets, n...",
+      "summary": "Consensus-replicated hosting treats repositories as durable “pets,” prioritizing correctness over elastic “cattle” scaling assumptions.",
+      "explanation": "The document’s lesson centers on using consensus replication: repositories behave like “pets” rather than “cattle,” implying that strong consensus-based replication changes operational tradeoffs (e.g., replica management/availability/correctness margins). This aligns most directly with the taxonomy’s consistency/replication semantics category focused on consensus-based strong replication (Spokes). The text does not primarily discuss WAL-first, log-derived truth, or replica-count/cost specifics; it’s about the nature of consensus replicas.",
+      "category": "Consistency and Replication Semantics",
+      "value": "Consensus-based strong replication (Spokes)",
+      "score": 0.82
+    },
+    {
+      "id": "a4c5fdea-51ee-42c7-9e7b-de57e081833d",
+      "content": "# Lesson learned: Git clients cannot tolerate eventual consistency  ## Context  Eventual consistency...",
+      "summary": "Git repository hosting doesn’t tolerate eventual consistency; clients require strong, timely consistency to function correctly.",
+      "explanation": "The document’s lesson learned states that Git clients cannot tolerate eventual consistency, which directly targets the system-wide correctness requirement: strong, timely consistency versus eventual consistency. This best matches the taxonomy dimension about consistency and replication semantics rather than source-of-truth placement, replica count, tail latency, or maintenance placement. The exact replication mechanism (Spokes vs WAL-first) isn’t specified, so only the consistency requirement value fits.",
+      "category": "Consistency and Replication Semantics",
+      "value": "Strong, timely consistency required",
+      "score": 0.9
+    },
+    {
+      "id": "3f55c665-1fac-4185-9065-34d5aba136d3",
+      "content": "# Evolution of thinking: from 'agree before you act' to 'log first, derive truth after'  ## Context...",
+      "summary": "Shift from pre-consensus replication (“agree before you act”) to write-ahead logging and later derivation of truth (“log first, derive truth after”).",
+      "explanation": "The document headline and framing explicitly contrast two architectural models: (1) “agree before you act” (consensus/replication-first where operations take effect as authoritative state after agreement) versus (2) “log first, derive truth after” (write-ahead logging first, then deriving authoritative repository state). That matches the taxonomy’s dedicated axis for write-path source-of-truth and ordering, i.e., whether correctness is based on consensus-first vs WAL-first semantics. Since it centers on the evolution toward “log first, derive truth after,” the best value is the WAL-first option.",
+      "category": "Write Path Source of Truth and Ordering",
+      "value": "Log-first: write-ahead logging records before truth",
+      "score": 0.93
+    },
+    {
+      "id": "756397f8-40e0-4b61-a7f5-289f06498f3d",
+      "content": "# Evolution timeline: two decades of Git-hosting architecture  ## Context  The decisions and tradeof...",
+      "summary": "Request is to summarize an evolution timeline of Git-hosting architecture across major systems (GitHub, Google, Microsoft, Cursor).",
+      "explanation": "The provided document text is only a fragment of a high-level “evolution timeline” description and does not include any specific architectural decision details (e.g., consistency model, replica strategy, source-of-truth placement, write-ahead logging vs consensus-first, maintenance placement, or client/server partitioning). With no concrete cues, no taxonomy category can be confidently matched to a specific architectural axis.",
+      "category": "Other",
+      "value": null,
+      "score": 0.05
+    }
+  ]
+}

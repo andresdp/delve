@@ -1,16 +1,16 @@
 """Node for generating summaries of documents."""
 
 import logging
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 from uuid import uuid4
 
-from langchain_core.runnables import RunnableLambda, RunnablePassthrough, RunnableConfig
+from langchain_core.runnables import RunnableConfig, RunnableLambda, RunnablePassthrough
 
+from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.prompts import SUMMARY_GENERATION_PROMPT
+from taxonomy_generator.schemas import SummaryOutput
 from taxonomy_generator.state import State
 from taxonomy_generator.utils import load_chat_model
-from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.schemas import SummaryOutput
-from taxonomy_generator.prompts import SUMMARY_GENERATION_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,6 @@ async def generate_summaries(
     config: RunnableConfig,
 ) -> dict:
     """Generate summaries for a collection of documents."""
-
     configuration = Configuration.from_runnable_config(config)
     logger.info("Generating summaries for %d documents using model: %s", len(state.documents), configuration.fast_llm)
 

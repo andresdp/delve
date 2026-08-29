@@ -6,8 +6,8 @@ from typing import List
 
 from langchain_core.runnables import RunnableConfig
 
-from taxonomy_generator.state import State
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.state import State
 
 logger = logging.getLogger(__name__)
 

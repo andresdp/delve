@@ -30,7 +30,7 @@ from typing import Any, List, Optional, Tuple
 
 from dotenv import load_dotenv
 from langchain_core.callbacks import BaseCallbackHandler
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -55,6 +55,7 @@ STEP_INFO = {
     "consolidate_values": ("🧲", "Consolidating values"),
     "select_dimensions": ("🎯", "Selecting dimensions"),
     "label_documents": ("🏷️", "Labeling documents"),
+    "evaluate_taxonomy": ("🎯", "Evaluating taxonomy"),
     "aggregate_new_values": ("🧩", "Aggregating new values"),
 }
 
@@ -283,6 +284,20 @@ def parse_args() -> argparse.Namespace:
              "summary, relationship diagram, dimension catalog) from a saved "
              "taxonomy JSON file and exit (does not run the pipeline). Accepts "
              "any *_taxonomy_*.json output. Mutually exclusive with --visualize.",
+    )
+    standalone_mode.add_argument(
+        "--evaluate",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="TAXONOMY",
+        help="Evaluate saved taxonomy JSON file(s) and exit (does not run the "
+             "pipeline). One file runs the judge scoreboard (optionally with "
+             "--corpus to activate the data-grounded coverage criterion); two "
+             "or more files run the consistency comparison. Writes an "
+             "evaluation_*.json artifact next to the first taxonomy file, or "
+             "under --output if given. Mutually exclusive with --visualize "
+             "and --report.",
     )
     visualize_group.add_argument(
         "--iteration",
@@ -658,8 +673,11 @@ async def _run_visualize(args: argparse.Namespace) -> None:
         # Force visualization on for this invocation; honor --output.
         "visualization_enabled": True,
     }
-    if args.output:
-        configurable["visualization_output_dir"] = args.output
+    # Default to the taxonomy file's own folder rather than the generic
+    # output dir, so 2D and 3D renders of the same file always land together.
+    configurable["visualization_output_dir"] = (
+        args.output if args.output else str(Path(args.visualize).resolve().parent)
+    )
     configuration = Configuration.from_runnable_config({"configurable": configurable})
 
     n_values = _count_values(clusters)
@@ -726,14 +744,70 @@ async def _run_report(args: argparse.Namespace) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = out_dir / f"{name_prefix}report_{timestamp}.md"
 
+    stored_evaluation = data.get("evaluation") if isinstance(data, dict) else None
     narrative = await report_renderer.generate_and_write_report(
         clusters, explanation, configuration, out_path,
-        dropped_dimensions, all_clusters_for_dropped,
+        dropped_dimensions, all_clusters_for_dropped, stored_evaluation,
     )
     if narrative is None:
         console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
 
     console.print(f"\n  [bold green]✅ Report saved to:[/bold green] {out_path}\n")
+
+
+def _display_scoreboard(scoreboard: Optional[dict], configuration: Configuration) -> None:
+    """Render the evaluation scoreboard as a rich panel (observe-only results)."""
+    if not scoreboard:
+        return
+    if scoreboard.get("unavailable"):
+        console.print()
+        console.print(Panel(
+            f"[dim]Evaluation unavailable: {scoreboard.get('error', 'unknown error')}[/dim]",
+            title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+        return
+
+    table = Table(
+        show_lines=False,
+        border_style="bright_magenta",
+        title_style="bold bright_magenta",
+        expand=False,
+    )
+    table.add_column("Criterion", style="bold", max_width=28)
+    table.add_column("Score", style="cyan", width=6, justify="center")
+    table.add_column("Pass", width=4, justify="center")
+    table.add_column("Reason", style="dim", max_width=60)
+    for row in scoreboard.get("criteria") or []:
+        if row.get("evaluated", True):
+            score = row.get("score")
+            score_str = f"{score:.2f}" if score is not None else "—"
+            passed = row.get("passed")
+            pass_str = "✓" if passed else ("✗" if passed is not None else "—")
+            reason = (row.get("reason") or "").replace("\n", " ")
+        else:
+            score_str = "—"
+            pass_str = "—"
+            reason = "Not evaluated — no documents provided."
+        table.add_row(row.get("name", "?"), score_str, pass_str, reason)
+
+    legend_lines = [
+        f"• [bold]{row.get('name', '?')}[/bold] — {row.get('description')}"
+        for row in scoreboard.get("criteria") or []
+        if row.get("description")
+    ]
+    panel_body = Group(table, "", Text.from_markup("\n".join(legend_lines))) if legend_lines else table
+
+    overall = scoreboard.get("overall")
+    overall_str = f"{overall:.2f}" if overall is not None else "—"
+    model = scoreboard.get("model") or "default"
+    console.print()
+    console.print(Panel(
+        panel_body,
+        title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
+        subtitle=f"[dim]overall {overall_str} · judge {model} · threshold {configuration.evaluation_threshold}[/dim]",
+        border_style="bright_magenta",
+    ))
 
 
 def _display_delta_summary(delta: dict, configuration: Configuration) -> None:
@@ -773,9 +847,138 @@ def _display_delta_summary(delta: dict, configuration: Configuration) -> None:
     console.print()
     console.print(Panel(
         "\n".join(str(x) for x in lines),
-        title=f"[bold bright_cyan]🧩 Test-Mode Delta Summary[/bold bright_cyan]",
+        title="[bold bright_cyan]🧩 Test-Mode Delta Summary[/bold bright_cyan]",
         border_style="bright_cyan",
     ))
+
+
+def _display_consistency(comparison: dict) -> None:
+    """Render the consistency comparison as a rich panel."""
+    if not comparison:
+        return
+    if comparison.get("unavailable"):
+        console.print()
+        console.print(Panel(
+            f"[dim]Consistency comparison unavailable: {comparison.get('error', 'unknown error')}[/dim]",
+            title="[bold bright_magenta]🔁 Taxonomy Consistency[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+        return
+
+    lines: List[str] = []
+    agreement = comparison.get("agreement")
+    if agreement is not None:
+        lines.append(f"[bold]Agreement:[/bold] [cyan]{agreement:.2%}[/cyan] "
+                     f"([dim]aligned dimensions / max per-file dimensions[/dim])")
+    else:
+        lines.append("[dim]Agreement: n/a[/dim]")
+
+    recurring = comparison.get("recurring") or []
+    lines.append(f"[bold]Recurring dimensions:[/bold] {len(recurring)}")
+    for group in recurring:
+        names = ", ".join(
+            f"{d.get('name', '?')} [dim](file {d.get('file', '?')})[/dim]"
+            for d in group.get("dimensions") or []
+        )
+        lines.append(f"  • {names}")
+
+    one_offs = comparison.get("one_offs") or []
+    lines.append(f"[bold]One-off dimensions:[/bold] {len(one_offs)}")
+    for dim in one_offs:
+        lines.append(f"  • {dim.get('name', '?')} [dim](file {dim.get('file', '?')})[/dim]")
+
+    if comparison.get("fallback"):
+        lines.append(f"[dim]Alignment fallback in effect: {comparison['fallback']}[/dim]")
+    if comparison.get("adjudicated_pairs"):
+        lines.append(f"[dim]Borderline pairs adjudicated by judge: {comparison['adjudicated_pairs']}[/dim]")
+
+    console.print()
+    console.print(Panel(
+        "\n".join(lines),
+        title="[bold bright_magenta]🔁 Taxonomy Consistency[/bold bright_magenta]",
+        border_style="bright_magenta",
+    ))
+
+
+async def _run_evaluate(args: argparse.Namespace) -> None:
+    """Score or compare saved taxonomy JSONs and exit."""
+    init_settings(args.config)
+    files = args.evaluate
+
+    configurable: dict = {}
+    if args.output:
+        configurable["visualization_output_dir"] = args.output
+    configuration = Configuration.from_runnable_config({"configurable": configurable} or None)
+
+    if args.output:
+        from taxonomy_generator.visualization import resolve_output_dir
+
+        out_dir = resolve_output_dir(configuration)
+    else:
+        # Default to the evaluated taxonomy's own folder rather than the
+        # pipeline's generic output dir, so the report sits next to what it scores.
+        out_dir = Path(files[0]).resolve().parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in configuration.name)
+    name_prefix = f"{name_prefix}_" if name_prefix else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if len(files) == 1:
+        # Scoreboard mode - optionally with --corpus for the coverage tier.
+        data = _load_taxonomy_file(files[0])
+        clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+        documents: List[dict] = []
+        if args.corpus:
+            texts = load_corpus(args.corpus)
+            documents = [{"content": t} for t in texts]
+            console.print(f"[dim]Loaded {len(documents)} documents for the coverage criterion.[/dim]")
+
+        n_values = _count_values(clusters)
+        console.print(Panel(
+            f"[bold]File:[/bold] {files[0]}\n"
+            f"[bold]Iteration:[/bold] {iteration}\n"
+            f"[bold]Values:[/bold] {n_values}\n"
+            f"[bold]Dimensions:[/bold] {len(clusters)}\n"
+            f"[bold]Corpus:[/bold] {args.corpus or 'none (coverage criterion marked not evaluated)'}",
+            title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+
+        from taxonomy_generator.evaluation.runner import run_scoreboard
+
+        scoreboard = await run_scoreboard(clusters, documents, configuration)
+        _display_scoreboard(scoreboard, configuration)
+        if scoreboard.get("unavailable"):
+            raise SystemExit(1)
+
+        artifact = {"taxonomy_name": configuration.name, "source_file": files[0],
+                    "iteration": iteration, "scoreboard": scoreboard}
+    else:
+        # Consistency mode - compare two or more saved taxonomies.
+        if args.corpus:
+            console.print("[dim]--corpus is ignored in multi-file consistency mode.[/dim]")
+        views = []
+        for path in files:
+            data = _load_taxonomy_file(path)
+            clusters, _ = _select_clusters_for_visualize(data, args.iteration)
+            views.append(clusters)
+        console.print(Panel(
+            f"[bold]Files:[/bold] {len(views)}",
+            title="[bold bright_magenta]🔁 Taxonomy Consistency[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+
+        from taxonomy_generator.evaluation.consistency import compare_taxonomies
+
+        comparison = await compare_taxonomies(views, configuration)
+        _display_consistency(comparison)
+        artifact = {"taxonomy_name": configuration.name, "source_files": files,
+                    "consistency": comparison}
+
+    out_path = out_dir / f"{name_prefix}evaluation_{timestamp}.json"
+    with open(out_path, "w") as f:
+        json.dump(artifact, f, indent=2, ensure_ascii=False)
+    console.print(f"\n  [bold green]✅ Evaluation saved to:[/bold green] {out_path}\n")
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -832,6 +1035,12 @@ async def run(args: argparse.Namespace) -> None:
         # 0 means unlimited (None internally); any positive int caps the count
         configurable["max_num_clusters"] = args.max_clusters if args.max_clusters > 0 else None
         logger.info("Overriding max dimensions: %s", configurable["max_num_clusters"])
+    # Charts and PCA-vector CSVs otherwise default to config.yaml's
+    # default_output_dir ("output"), ignoring --output entirely. Default them
+    # to the corpus's own folder instead, so they sit next to its input.
+    configurable["visualization_output_dir"] = (
+        args.output if args.output else str(Path(args.corpus).resolve().parent)
+    )
     config = {"configurable": configurable} if configurable else {}
 
     # Resolve effective configuration for display
@@ -887,6 +1096,7 @@ async def run(args: argparse.Namespace) -> None:
     documents: list = []
     messages: list = []
     delta_summary: Optional[dict] = None
+    evaluation: Optional[dict] = None
     total_minibatches = None
 
     # Token tracking callback
@@ -934,6 +1144,8 @@ async def run(args: argparse.Namespace) -> None:
                     dropped_dimensions = node_output["dropped_dimensions"]
                 if "delta_summary" in node_output:
                     delta_summary = node_output["delta_summary"]
+                if "evaluation" in node_output:
+                    evaluation = node_output["evaluation"]
                 if "saturation_history" in node_output:
                     saturation_history.extend(node_output["saturation_history"])
                 if "explanations" in node_output:
@@ -970,6 +1182,9 @@ async def run(args: argparse.Namespace) -> None:
 
     if delta_summary is not None:
         _display_delta_summary(delta_summary, effective_config)
+
+    if evaluation is not None and not evaluation.get("unavailable"):
+        _display_scoreboard(evaluation, effective_config)
 
     if documents:
         logger.info("Labeling results: %d documents categorized", len(documents))
@@ -1031,6 +1246,8 @@ async def run(args: argparse.Namespace) -> None:
             taxonomy_data["dropped_dimensions"] = dropped_dimensions
         if delta_summary is not None:
             taxonomy_data["delta_summary"] = delta_summary
+        if evaluation is not None and not evaluation.get("unavailable"):
+            taxonomy_data["evaluation"] = evaluation
         for i, iteration_clusters in enumerate(clusters):
             entry = {
                 "explanation": explanations[i] if i < len(explanations) else "",
@@ -1143,7 +1360,7 @@ async def run(args: argparse.Namespace) -> None:
                     report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
                     narrative = await report_renderer.generate_and_write_report(
                         report_clusters, report_explanation, effective_config, report_path,
-                        report_dropped, report_all_clusters,
+                        report_dropped, report_all_clusters, evaluation,
                     )
                     if narrative is None:
                         logger.info("Narrative summary unavailable — report will omit it.")
@@ -1195,6 +1412,11 @@ def main() -> None:
     # Standalone report mode — render a markdown report from a saved taxonomy JSON and exit.
     if args.report:
         asyncio.run(_run_report(args))
+        return
+
+    # Standalone evaluation mode — score/compare saved taxonomy JSONs and exit.
+    if args.evaluate:
+        asyncio.run(_run_evaluate(args))
         return
 
     logger.info("Delve Taxonomy Generator starting")

@@ -31,7 +31,11 @@ from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.state import State
-from taxonomy_generator.utils import l2_normalize, load_embeddings_model, pairwise_euclidean
+from taxonomy_generator.utils import (
+    l2_normalize,
+    load_embeddings_model,
+    pairwise_euclidean,
+)
 
 logger = logging.getLogger(__name__)
 

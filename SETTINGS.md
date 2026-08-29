@@ -135,12 +135,25 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 |---|---|---|---|
 | `visualization.enabled` | `bool` | `false` | Master on/off switch for taxonomy biplot chart export. Off by default so normal runs pay no extra cost/latency. |
 | `visualization.every_iteration` | `bool` | `false` | If `false`, only render the final (post-consolidation) chart; if `true`, render at every stage (generate/update/review/consolidate). |
-| `visualization.dimensions` | `int` | `2` | PCA projection dimensions for charts: `2` or `3`. |
-| `visualization.output_dir` | `str` or `null` | `null` | Directory for chart files (`taxonomy_biplot_<name>_<stage>_<iter>.png`). `null` = use `output.default_output_dir` / `--output`. |
+| `visualization.dimensions` | `int` | `2` | Chart size: `2` or `3`. Taxonomies with no more dimensions than this render exactly (no PCA); taxonomies with more (including exactly 3 dimensions when this is `2`) are PCA-reduced to this many components. |
+| `visualization.output_dir` | `str` or `null` | `null` | Directory for chart files (`taxonomy_biplot_<name>_<stage>_<iter>.html`). `null` = use `output.default_output_dir` / `--output`. |
 
-> **Biplot semantics:** the design matrix has one row per *value* and one column per *dimension*. A value's entry in its own dimension's column encodes its position along that axis — derived from the same embedding geometry used by consolidation (reduced to 1-D via classical MDS within each dimension) when `taxonomy.consolidate_values` is `true`, or a unitary `1.0` otherwise. Dimension columns are drawn as loading arrows; each value's point lies on its dimension's arrow at a distance reflecting its axis position.
+> **Biplot semantics:** the design matrix has one row per *value* and one column per *dimension*. A value's entry in its own dimension's column encodes its position along that axis — derived from the same embedding geometry used by consolidation (reduced to 1-D via classical MDS within each dimension) when `taxonomy.consolidate_values` is `true`, or a unitary `1.0` otherwise. When a taxonomy has more dimensions than `visualization.dimensions`, the matrix is PCA-reduced to that many components; each dimension's loading direction is drawn as a full, equal-radius axis through the origin (not a one-way arrow scaled to its own magnitude), and each value's point sits on its own dimension's axis at a distance reflecting its axis position. Values landing at/near the origin are nudged outward (display-only) so they don't stack at the shared center. Charts are interactive HTML — hover a point for its full id/label/description, click a legend entry to toggle a dimension.
 >
-> **Caveat:** merge decisions are never made from the projected 2D/3D coordinates — only from full-dimensional embedding distance. The chart reports explained variance and flags itself as a weak proxy when captured variance is low.
+> **Caveat:** merge decisions are never made from the projected 2D/3D coordinates — only from full-dimensional embedding distance. The PCA-reduced chart reports explained variance and flags itself as a weak proxy when captured variance is low.
+
+### 2.9 Evaluation
+
+| YAML Key | Type | Default | Description |
+|---|---|---|---|
+| `evaluation.enabled` | `bool` | `true` | Master on/off switch for the taxonomy evaluation scoreboard (deepeval GEval). When `false`, the `evaluate_taxonomy` node is skipped and the pipeline topology matches pre-evaluation behavior exactly. |
+| `evaluation.judge_model` | `str` or `null` | `null` | Judge model override in `provider/model` format. Falls back to `models.model`. OpenAI (or OpenAI-compatible) models only — deepeval's built-in OpenAI integration is used directly; a non-OpenAI provider raises a clear error naming the documented future-wrapper path (`evaluation/judge.py`). |
+| `evaluation.threshold` | `float` | `0.5` | Display-only pass threshold (0-1) per criterion. Pass flags never gate anything — the scoreboard is observe-only. |
+| `evaluation.consistency_threshold` | `float` | `0.25` | Embedding-distance cutoff (Euclidean on L2-normalized vectors) below which dimensions from different taxonomies align automatically during consistency comparison. |
+| `evaluation.consistency_borderline_band` | `float` | `0.08` | Distance band above the cutoff routed to judge adjudication instead of auto-align or auto-reject. |
+| `evaluation.max_documents` | `int` | `20` | Max documents sampled for the data-grounded coverage criterion. Without documents the coverage row is listed as "not evaluated". |
+
+> **Scoreboard semantics:** seven criteria judged via deepeval `GEval` — six structural (orthogonality, clarity, completeness, use case alignment, no catch-alls, axis vs. value) judged against the use case, plus one data-grounded coverage criterion judged against sampled document contents. Each row carries a 0-1 score, pass flag, and the judge's rationale. Anonymous deepeval telemetry is always opted out programmatically.
 
 ### Example `config.yaml`
 
@@ -387,6 +400,27 @@ For all other settings:
 | **Visualization** | Render every iteration | `visualization.every_iteration` | `false` |
 | **Visualization** | PCA dimensions | `visualization.dimensions` | `2` |
 | **Visualization** | Chart output directory | `visualization.output_dir` | `null` (uses `output.default_output_dir`) |
+| **Evaluation** | Evaluation enabled | `evaluation.enabled` | `true` |
+| **Evaluation** | Judge model override | `evaluation.judge_model` | `null` (uses `models.model`; OpenAI models only — see below) |
+| **Evaluation** | Display pass threshold (0-1) | `evaluation.threshold` | `0.5` |
+| **Evaluation** | Consistency alignment threshold | `evaluation.consistency_threshold` | `0.25` |
+| **Evaluation** | Consistency borderline band | `evaluation.consistency_borderline_band` | `0.08` |
+| **Evaluation** | Max documents for coverage criterion | `evaluation.max_documents` | `20` |
+
+### 🎯 Standalone evaluation command
+
+```bash
+# Judge scoreboard for one saved taxonomy (coverage "not evaluated" without --corpus):
+python main.py --evaluate <path/to/taxonomy.json> [--corpus <path>] [--output DIR]
+
+# With a corpus (activates the data-grounded coverage criterion):
+python main.py --evaluate <taxonomy.json> --corpus <corpus.json|corpus.txt> [--config <cfg.yaml>] [--output DIR]
+
+# Consistency comparison across two or more saved taxonomies (same corpus):
+python main.py --evaluate <tax1.json> <tax2.json> [<tax3.json> ...] [--output DIR]
+```
+
+Evaluates saved taxonomy JSONs without re-running the pipeline. One file runs the judge scoreboard (optionally with `--corpus`, which activates the coverage criterion; `--iteration N` selects the view exactly as in `--visualize`/`--report`); two or more files run the consistency comparison (embedding-based dimension alignment with judge adjudication of borderline pairs, reporting recurring dimensions, one-offs, and an agreement score). Results render in the terminal and are saved as `{name}_evaluation_{timestamp}.json`. Mutually exclusive with `--visualize` and `--report`.
 
 ### 📊 Standalone biplot command
 

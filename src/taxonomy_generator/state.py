@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Annotated, List, Optional, Dict, Sequence, Literal
 import operator
+from dataclasses import dataclass, field
+from typing import Annotated, Dict, List, Literal, Optional, Sequence
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
 from langgraph.managed import IsLastStep
 from pydantic import BaseModel
+
 
 @dataclass
 class Doc:
@@ -73,6 +74,9 @@ class OutputState:
     selected_clusters: List[List[Dict]] = field(default_factory=list)
     dropped_dimensions: List[Dict] = field(default_factory=list)
     delta_summary: Optional[Dict] = field(default=None)
+    # Observe-only evaluation scoreboard (deepeval GEval criteria). Flat
+    # dict with replace semantics — set once by the evaluate_taxonomy node.
+    evaluation: Optional[Dict] = field(default=None)
 
 
 @dataclass

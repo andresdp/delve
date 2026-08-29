@@ -1,0 +1,1219 @@
+{
+  "taxonomy_name": "cursor-git-at-scale",
+  "consolidated": true,
+  "iterations": [
+    {
+      "explanation": "No user feedback. Dimensions split orthogonally by data placement, consistency semantics, replica economics, and explicitly stated tail-latency tradeoffs.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Repository Data Source-of-Truth Placement",
+          "description": "Where authoritative Git data is stored or logically centralized (filesystem, KV store, split blob/metadata). Distinct from replication/consistency mechanics.",
+          "relations": [],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Centralized filesystem-backed object storage",
+              "description": "Use a single authoritative filesystem/object store rather than distributing the underlying filesystem.",
+              "supporting_doc_ids": [
+                "18eb1363-7e07-4901-9ea3-f1681d10af52"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Distributed KV store for Git objects (rejected)",
+              "description": "Keep repository objects in a distributed key-value store, rejected as a design alternative.",
+              "supporting_doc_ids": [
+                "5738ae2b-20f6-4efe-9022-d9677f02dc9a"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Split blob store and relational metadata (rejected)",
+              "description": "Store blobs separately from metadata in different systems, rejected as an alternative architecture.",
+              "supporting_doc_ids": [
+                "655a03a6-e44f-48ed-97ac-8f4568a84d6e"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Consistency and Replication Semantics",
+          "description": "How the system ensures correctness across replicas (strong, timely consistency vs other semantics), independent of replica-count economics.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Stronger consistency typically increases write latency at scale and motivates careful replica-count control."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strong, timely consistency required",
+              "description": "Repository hosting must not tolerate eventual consistency; clients demand strong, timely consistency.",
+              "supporting_doc_ids": [
+                "a4c5fdea-51ee-42c7-9e7b-de57e081833d"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Consensus-based strong replication (Spokes)",
+              "description": "Spokes uses strong consensus replication to meet consistency requirements.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Count and Scale-Cost Tradeoffs",
+          "description": "How many replicas are maintained (minimum vs more) under cost constraints, trading correctness/availability against resource usage.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replicas to reduce cost",
+              "description": "Maintain a safe minimum replica count due to high cost from millions of tiny repos; trades correctness/availability.",
+              "supporting_doc_ids": [
+                "85c4fd47-0b67-44f3-ac02-4f544c6469a0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Maintenance of Replication Performance Tail Latency",
+          "description": "Which performance dimension is explicitly traded against correctness/consistency (e.g., tail write latency), orthogonal to replica count.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "The documented tradeoff is specifically between stronger consistency guarantees and higher tail-at-scale write latency."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Accept tail-at-scale write latency for consistency",
+              "description": "Trading consistency guarantees for higher tail write latency as the dominant operational cost.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Added orthogonal axes: (5) write-path ordering (consensus-first vs log-first), (6) maintenance placement (primary-only compaction), (7) client/server responsibility partitioning (GVFS/Scalar). Kept existing consistency/replica/latency dimensions; extended consistency with WAL-derived truth. Added (8) as a lightweight framing axis for server-scale distribution constraints to capture scaling-vs-distribution constraint narratives not covered by other dimensions. Modifications reflect new docs about WAL, S3-based WAL, primary-only compaction tradeoffs, and client virtualization while preserving prior consensus/replica/latency structure.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Repository Data Source-of-Truth Placement",
+          "description": "Where authoritative Git data is stored or logically centralized (filesystem, KV store, split blob/metadata). Distinct from replication/consistency mechanics.",
+          "relations": [],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Centralized filesystem-backed object storage",
+              "description": "Use a single authoritative filesystem/object store rather than distributing the underlying filesystem.",
+              "supporting_doc_ids": [
+                "18eb1363-7e07-4901-9ea3-f1681d10af52"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Distributed KV store for Git objects (rejected)",
+              "description": "Keep repository objects in a distributed key-value store, rejected as a design alternative.",
+              "supporting_doc_ids": [
+                "5738ae2b-20f6-4efe-9022-d9677f02dc9a"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Split blob store and relational metadata (rejected)",
+              "description": "Store blobs separately from metadata in different systems, rejected as an alternative architecture.",
+              "supporting_doc_ids": [
+                "655a03a6-e44f-48ed-97ac-8f4568a84d6e"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Consistency and Replication Semantics",
+          "description": "How the system ensures correctness across replicas (strong, timely consistency vs log-derived eventual truth), independent of replica-count economics.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            },
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Documented tradeoffs specifically connect stronger correctness to higher tail-at-scale write latency."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Log-first truth derivation changes the replication/consensus requirement for client-visible correctness compared to consensus-first designs."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strong, timely consistency required",
+              "description": "Repository hosting must not tolerate eventual consistency; clients demand strong, timely consistency.",
+              "supporting_doc_ids": [
+                "a4c5fdea-51ee-42c7-9e7b-de57e081833d",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Consensus-based strong replication (Spokes)",
+              "description": "Spokes uses strong consensus replication to meet consistency requirements.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028",
+                "0213a095-310b-4868-b9df-a7d3d76e5f4a",
+                "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Log-first operations with derived truth",
+              "description": "Use write-ahead logs to record operations first, then derive authoritative repository state after.",
+              "supporting_doc_ids": [
+                "3f55c665-1fac-4185-9065-34d5aba136d3",
+                "c82e5b9f-4983-4123-930b-857382d99386"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Count and Scale-Cost Tradeoffs",
+          "description": "How many replicas are maintained (minimum vs more) under cost constraints, trading correctness/availability against resource usage.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replicas to reduce cost",
+              "description": "Maintain a safe minimum replica count due to high cost from millions of tiny repos; trades correctness/availability.",
+              "supporting_doc_ids": [
+                "85c4fd47-0b67-44f3-ac02-4f544c6469a0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Maintenance of Replication Performance Tail Latency",
+          "description": "Which performance dimension is explicitly traded against correctness/consistency (e.g., tail write latency), orthogonal to replica count.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "The documented tradeoff is specifically between stronger consistency guarantees and higher tail-at-scale write latency."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Accept tail-at-scale write latency for consistency",
+              "description": "Trading consistency guarantees for higher tail write latency as the dominant operational cost.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Write Path Source of Truth and Ordering",
+          "description": "Whether client-visible correctness relies on pre-consensus application or on logging then deriving state; distinguishes consensus-first from WAL-first systems.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "WAL-first designs correspond to non-consensus-first semantics (log recorded before acting), weakening the need for immediate consensus-driven state application."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "WAL-first designs typically pair with object/log backends for the durable record of operations, though not strictly required."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Consensus-first: agree before acting",
+              "description": "Changes are applied based on agreeing via consensus/replication before they take effect as authoritative state.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028",
+                "0213a095-310b-4868-b9df-a7d3d76e5f4a"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Log-first: write-ahead logging records before truth",
+              "description": "Operations are first recorded in a write-ahead log, and authoritative repository truth is derived after.",
+              "supporting_doc_ids": [
+                "3f55c665-1fac-4185-9065-34d5aba136d3",
+                "c82e5b9f-4983-4123-930b-857382d99386"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Replicated Storage Maintenance Responsibility Placement",
+          "description": "Where maintenance/compaction work runs in a replicated system (e.g., primary-only vs distributed), trading CPU and bandwidth usage across nodes.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Compaction-placement strategies are most relevant when multiple replicas exist and synchronize derived/compacted results."
+            },
+            {
+              "target_id": "2",
+              "type": "co_occurring",
+              "rationale": "Both consensus-based and WAL-derived architectures may require background maintenance, but maintenance placement is a separate operational axis."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Primary-only compaction",
+              "description": "Compaction/maintenance is performed only on the primary, reducing replica CPU but shifting load to primary.",
+              "supporting_doc_ids": [
+                "28e46367-3655-4e3b-891e-f0650a9879fd"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Client vs Server Responsibility Partitioning",
+          "description": "How responsibilities for caching/transfer/consistency handling are divided between clients and the server, independently of storage or replication semantics.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Shifting consistency handling to clients reduces server-side complexity and changes where correctness work is performed, but does not fully determine consensus vs WAL semantics."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Client virtualization often accompanies server simplification, but source-of-truth placement can still vary independently."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Client-side virtualization (GVFS/Scalar)",
+              "description": "Scale by shifting caching/transfer/consistency handling to clients while keeping the Git server simpler.",
+              "supporting_doc_ids": [
+                "d9aa5880-483e-424d-8368-4e909d2ed0d6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Distribution Scaling Mechanism and Constraints",
+          "description": "What mechanism frames scaling difficulty or the dominant lever for server-scale distribution (replication/consistency constraints vs broader distribution constraints).",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "co_occurring",
+              "rationale": "Server-scale distribution constraints are repeatedly tied to replication/consistency decisions, especially in Spokes/WAL transitions."
+            },
+            {
+              "target_id": "5",
+              "type": "co_occurring",
+              "rationale": "The scaling story often aligns with whether the system is consensus-first or log-first."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Replication/consistency constrained distribution at server scale",
+              "description": "Server-scale repository distribution is framed as difficult because replication and consistency requirements constrain how distribution can work.",
+              "supporting_doc_ids": [
+                "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+                "c82e5b9f-4983-4123-930b-857382d99386",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "No changes needed. Dimensions are orthogonal (storage location vs semantics vs replica economics vs maintenance placement vs client/server partitioning). Sample documents map cleanly to existing axes (including rejected alternatives, Spokes consensus, WAL-first, and primary-only compaction). No catch-all dimension exists; no previous user feedback required integration.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Repository Source-of-Truth Placement",
+          "description": "Where authoritative Git data is stored or centralized (filesystem, KV store, blob/metadata split). Distinct from replica mechanics and maintenance placement.",
+          "relations": [],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Centralized filesystem-backed object storage",
+              "description": "Single authoritative filesystem/object store rather than distributing the underlying filesystem.",
+              "supporting_doc_ids": [
+                "18eb1363-7e07-4901-9ea3-f1681d10af52"
+              ]
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Distributed KV store for Git objects (rejected)",
+              "description": "Keep repository objects in a distributed key-value store, rejected as a design alternative.",
+              "supporting_doc_ids": [
+                "5738ae2b-20f6-4efe-9022-d9677f02dc9a"
+              ]
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Split blob store and relational metadata (rejected)",
+              "description": "Store blobs separately from metadata in different systems, rejected as an alternative architecture.",
+              "supporting_doc_ids": [
+                "655a03a6-e44f-48ed-97ac-8f4568a84d6e"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Consistency and Replication Semantics",
+          "description": "How the system ensures correctness across replicas (strong timely consistency vs log-derived derived truth), independent of replica-count economics.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            },
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Tradeoffs connect stronger correctness to higher tail-at-scale write latency."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Log-first truth derivation changes the replication/consensus requirement for client-visible correctness compared to consensus-first designs."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strong, timely consistency required",
+              "description": "Repository hosting must not tolerate eventual consistency; clients demand strong, timely consistency.",
+              "supporting_doc_ids": [
+                "a4c5fdea-51ee-42c7-9e7b-de57e081833d",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Consensus-based strong replication (Spokes)",
+              "description": "Spokes uses strong consensus replication to meet consistency requirements.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028",
+                "0213a095-310b-4868-b9df-a7d3d76e5f4a",
+                "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Log-first operations with derived truth",
+              "description": "Use write-ahead logs to record operations first, then derive authoritative repository state after.",
+              "supporting_doc_ids": [
+                "3f55c665-1fac-4185-9065-34d5aba136d3",
+                "c82e5b9f-4983-4123-930b-857382d99386"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Count and Scale-Cost Tradeoffs",
+          "description": "How many replicas are maintained (minimum vs more) under cost constraints, trading correctness/availability against resource usage.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replicas to reduce cost",
+              "description": "Maintain a safe minimum replica count due to high cost from millions of tiny repos; trades correctness/availability.",
+              "supporting_doc_ids": [
+                "85c4fd47-0b67-44f3-ac02-4f544c6469a0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Replication Performance Tail Latency",
+          "description": "Which performance dimension is explicitly traded against correctness/consistency, e.g., tail write latency; orthogonal to replica count.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "The documented tradeoff is specifically between stronger consistency guarantees and higher tail-at-scale write latency."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Accept tail-at-scale write latency for consistency",
+              "description": "Trade consistency guarantees for higher tail write latency as the dominant operational cost.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Write Path Source of Truth and Ordering",
+          "description": "Whether client-visible correctness relies on pre-consensus application or on logging then deriving state; distinguishes consensus-first from WAL-first systems.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "WAL-first designs correspond to non-consensus-first semantics (log recorded before acting), weakening immediate consensus-driven state application."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "WAL-first designs often pair with object/log backends for the durable operation record, though not strictly required."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Consensus-first: agree before acting",
+              "description": "Changes are applied based on agreeing via consensus/replication before they take effect as authoritative state.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028",
+                "0213a095-310b-4868-b9df-a7d3d76e5f4a"
+              ]
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Log-first: write-ahead logging records before truth",
+              "description": "Operations are first recorded in a write-ahead log, and authoritative repository truth is derived after.",
+              "supporting_doc_ids": [
+                "3f55c665-1fac-4185-9065-34d5aba136d3",
+                "c82e5b9f-4983-4123-930b-857382d99386"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Replicated Storage Maintenance Responsibility Placement",
+          "description": "Where background maintenance/compaction work runs in a replicated system (primary-only vs distributed), trading replica CPU/bandwidth usage.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Compaction-placement strategies matter when multiple replicas synchronize derived/compacted results."
+            },
+            {
+              "target_id": "2",
+              "type": "co_occurring",
+              "rationale": "Both consensus and WAL-derived architectures may need maintenance placement, but this is a separate operational axis."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Primary-only compaction",
+              "description": "Compaction/maintenance performed only on the primary, reducing replica CPU while shifting load to the primary.",
+              "supporting_doc_ids": [
+                "28e46367-3655-4e3b-891e-f0650a9879fd"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Client vs Server Responsibility Partitioning",
+          "description": "How responsibilities for caching/transfer/consistency handling are divided between clients and the server, independent of storage or replication semantics.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Shifting consistency handling to clients reduces server-side complexity and correctness work location, without fully determining consensus vs WAL semantics."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Client virtualization often accompanies server simplification, but source-of-truth placement can vary independently."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Client-side virtualization (GVFS/Scalar)",
+              "description": "Scale by shifting caching/transfer/consistency handling to clients while keeping the Git server simpler.",
+              "supporting_doc_ids": [
+                "d9aa5880-483e-424d-8368-4e909d2ed0d6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Distribution Scaling Mechanism and Constraints",
+          "description": "What mechanism frames server-scale distribution difficulty (replication/consistency constraints vs broader constraints), independent of the exact consistency model.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "co_occurring",
+              "rationale": "Server-scale distribution constraints are tied to replication/consistency decisions (e.g., Spokes/WAL transitions)."
+            },
+            {
+              "target_id": "5",
+              "type": "co_occurring",
+              "rationale": "The scaling story aligns with whether the system is consensus-first or log-first."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Replication/consistency constrained distribution at server scale",
+              "description": "Server-scale repository distribution is difficult because replication and consistency requirements constrain how distribution works.",
+              "supporting_doc_ids": [
+                "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+                "c82e5b9f-4983-4123-930b-857382d99386",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 13 draft values. Merge decisions (threshold 0.200, borderline band 0.080): [1] kept 1.1 as-is; [1] kept 1.2 as-is; [1] kept 1.3 as-is; [2] kept 2.1 as-is; [2] kept 2.2 as-is; [2] kept 2.3 as-is; [5] kept 5.1 as-is; [5] kept 5.2 as-is",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Repository Source-of-Truth Placement",
+          "description": "Where authoritative Git data is stored or centralized (filesystem, KV store, blob/metadata split). Distinct from replica mechanics and maintenance placement.",
+          "relations": [],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Centralized filesystem-backed object storage",
+              "description": "Single authoritative filesystem/object store rather than distributing the underlying filesystem.",
+              "supporting_doc_ids": [
+                "18eb1363-7e07-4901-9ea3-f1681d10af52"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Distributed KV store for Git objects (rejected)",
+              "description": "Keep repository objects in a distributed key-value store, rejected as a design alternative.",
+              "supporting_doc_ids": [
+                "5738ae2b-20f6-4efe-9022-d9677f02dc9a"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Split blob store and relational metadata (rejected)",
+              "description": "Store blobs separately from metadata in different systems, rejected as an alternative architecture.",
+              "supporting_doc_ids": [
+                "655a03a6-e44f-48ed-97ac-8f4568a84d6e"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Consistency and Replication Semantics",
+          "description": "How the system ensures correctness across replicas (strong timely consistency vs log-derived derived truth), independent of replica-count economics.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            },
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Tradeoffs connect stronger correctness to higher tail-at-scale write latency."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Log-first truth derivation changes the replication/consensus requirement for client-visible correctness compared to consensus-first designs."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strong, timely consistency required",
+              "description": "Repository hosting must not tolerate eventual consistency; clients demand strong, timely consistency.",
+              "supporting_doc_ids": [
+                "a4c5fdea-51ee-42c7-9e7b-de57e081833d",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Consensus-based strong replication (Spokes)",
+              "description": "Spokes uses strong consensus replication to meet consistency requirements.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028",
+                "0213a095-310b-4868-b9df-a7d3d76e5f4a",
+                "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Log-first operations with derived truth",
+              "description": "Use write-ahead logs to record operations first, then derive authoritative repository state after.",
+              "supporting_doc_ids": [
+                "3f55c665-1fac-4185-9065-34d5aba136d3",
+                "c82e5b9f-4983-4123-930b-857382d99386"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Count and Scale-Cost Tradeoffs",
+          "description": "How many replicas are maintained (minimum vs more) under cost constraints, trading correctness/availability against resource usage.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replicas to reduce cost",
+              "description": "Maintain a safe minimum replica count due to high cost from millions of tiny repos; trades correctness/availability.",
+              "supporting_doc_ids": [
+                "85c4fd47-0b67-44f3-ac02-4f544c6469a0"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Replication Performance Tail Latency",
+          "description": "Which performance dimension is explicitly traded against correctness/consistency, e.g., tail write latency; orthogonal to replica count.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "The documented tradeoff is specifically between stronger consistency guarantees and higher tail-at-scale write latency."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Accept tail-at-scale write latency for consistency",
+              "description": "Trade consistency guarantees for higher tail write latency as the dominant operational cost.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Write Path Source of Truth and Ordering",
+          "description": "Whether client-visible correctness relies on pre-consensus application or on logging then deriving state; distinguishes consensus-first from WAL-first systems.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "WAL-first designs correspond to non-consensus-first semantics (log recorded before acting), weakening immediate consensus-driven state application."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "WAL-first designs often pair with object/log backends for the durable operation record, though not strictly required."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Consensus-first: agree before acting",
+              "description": "Changes are applied based on agreeing via consensus/replication before they take effect as authoritative state.",
+              "supporting_doc_ids": [
+                "6077c5f1-e433-4bc9-844f-12708c422028",
+                "0213a095-310b-4868-b9df-a7d3d76e5f4a"
+              ],
+              "merged_from": []
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Log-first: write-ahead logging records before truth",
+              "description": "Operations are first recorded in a write-ahead log, and authoritative repository truth is derived after.",
+              "supporting_doc_ids": [
+                "3f55c665-1fac-4185-9065-34d5aba136d3",
+                "c82e5b9f-4983-4123-930b-857382d99386"
+              ],
+              "merged_from": []
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Replicated Storage Maintenance Responsibility Placement",
+          "description": "Where background maintenance/compaction work runs in a replicated system (primary-only vs distributed), trading replica CPU/bandwidth usage.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "co_occurring",
+              "rationale": "Compaction-placement strategies matter when multiple replicas synchronize derived/compacted results."
+            },
+            {
+              "target_id": "2",
+              "type": "co_occurring",
+              "rationale": "Both consensus and WAL-derived architectures may need maintenance placement, but this is a separate operational axis."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Primary-only compaction",
+              "description": "Compaction/maintenance performed only on the primary, reducing replica CPU while shifting load to the primary.",
+              "supporting_doc_ids": [
+                "28e46367-3655-4e3b-891e-f0650a9879fd"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Client vs Server Responsibility Partitioning",
+          "description": "How responsibilities for caching/transfer/consistency handling are divided between clients and the server, independent of storage or replication semantics.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Shifting consistency handling to clients reduces server-side complexity and correctness work location, without fully determining consensus vs WAL semantics."
+            },
+            {
+              "target_id": "1",
+              "type": "co_occurring",
+              "rationale": "Client virtualization often accompanies server simplification, but source-of-truth placement can vary independently."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Client-side virtualization (GVFS/Scalar)",
+              "description": "Scale by shifting caching/transfer/consistency handling to clients while keeping the Git server simpler.",
+              "supporting_doc_ids": [
+                "d9aa5880-483e-424d-8368-4e909d2ed0d6"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Distribution Scaling Mechanism and Constraints",
+          "description": "What mechanism frames server-scale distribution difficulty (replication/consistency constraints vs broader constraints), independent of the exact consistency model.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "co_occurring",
+              "rationale": "Server-scale distribution constraints are tied to replication/consistency decisions (e.g., Spokes/WAL transitions)."
+            },
+            {
+              "target_id": "5",
+              "type": "co_occurring",
+              "rationale": "The scaling story aligns with whether the system is consensus-first or log-first."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Replication/consistency constrained distribution at server scale",
+              "description": "Server-scale repository distribution is difficult because replication and consistency requirements constrain how distribution works.",
+              "supporting_doc_ids": [
+                "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+                "c82e5b9f-4983-4123-930b-857382d99386",
+                "48daba59-b13d-4b14-bc81-e91848f69918"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All open codes are covered by existing taxonomy dimensions: (1) Consistency requirements and Spokes’ consensus-based strong replication map directly to Dimension 2 (values 2.1 and 2.2). (2) The explicit tradeoff between stronger consistency and higher tail-at-scale write latency maps to Dimension 4 (value 4.1). (3) The rejected storage-placement alternatives—distributing the filesystem, using a distributed KV store for Git objects, and splitting blob storage vs relational metadata—map to Dimension 1’s “source-of-truth placement” variants (values 1.1–1.3) as rejected alternatives. (4) Spokes’ “safe minimum replica count” and the replica-count/cost vs correctness/availability tradeoff map to Dimension 3 (value 3.1). Therefore there are no remaining relevant uncovered architectural concepts revealed by this minibatch."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": true,
+      "uncovered_concepts": [],
+      "rationale": "All relevant open codes are subsumed by existing taxonomy dimensions: (1) server-scale distribution constrained by replication/consistency → covered by Dimension 8 (Distribution Scaling Mechanism and Constraints). (2) architectural tradeoff scaling distribution while preserving correctness across replicas → covered by Dimensions 2/4/8. (3–4) shift from pre-consensus replication to WAL-first plus deriving truth after logs → covered by Dimensions 2 (log-first operations), 5 (Log-first: write-ahead logging records before truth), and 8. (5–7) primary-only compaction and related tradeoffs (CPU/bandwidth) → covered by Dimension 6 (Replicated Storage Maintenance Responsibility Placement). (8,12,15) migration away from Spokes and consensus-replicated hosting → covered by Dimension 2 (Consensus-based strong replication) and 8. (9,10) S3-backed write-ahead logs and WAL as primary scaling mechanism → the taxonomic axis is the log-first model (Dimensions 2 and 5); specific “S3-backed” storage backend is not a distinct axis beyond source-of-durable-log mechanism already captured by the WAL/log-first dimensions. (11) Cursor-specific transition to Continuity/Origin → covered in substance by the WAL-first/log-derived architecture dimensions (2/5/8), even if the taxonomy doesn’t name the product. (13–14) “durable pets” / correctness-prioritized over elastic scaling assumptions → captured as the same correctness-vs-elasticity intent expressed by strong consistency requirements (Dimension 2) and by the correctness-first tradeoff context (Dimensions 2/4/8). (16–17) shift from early GitHub experiments to Spokes → covered by Dimension 2/8 framing (consensus vs other approaches). (18–19) real Git repositories replicated via consensus → covered by Dimension 2 (Consensus-based strong replication). (20) adding replication/enforcing consistency as scaling levers → covered by Dimension 2 and 3 (replica economics) plus 8. (21–22) GVFS/Scalar client-side virtualization and shifting caching/transfer/consistency responsibilities to clients → covered by Dimension 7 (Client vs Server Responsibility Partitioning)."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Repository Source-of-Truth Placement",
+      "description": "Where authoritative Git data is stored or centralized (filesystem, KV store, blob/metadata split). Distinct from replica mechanics and maintenance placement.",
+      "relations": [],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Centralized filesystem-backed object storage",
+          "description": "Single authoritative filesystem/object store rather than distributing the underlying filesystem.",
+          "supporting_doc_ids": [
+            "18eb1363-7e07-4901-9ea3-f1681d10af52"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Distributed KV store for Git objects (rejected)",
+          "description": "Keep repository objects in a distributed key-value store, rejected as a design alternative.",
+          "supporting_doc_ids": [
+            "5738ae2b-20f6-4efe-9022-d9677f02dc9a"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Split blob store and relational metadata (rejected)",
+          "description": "Store blobs separately from metadata in different systems, rejected as an alternative architecture.",
+          "supporting_doc_ids": [
+            "655a03a6-e44f-48ed-97ac-8f4568a84d6e"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Consistency and Replication Semantics",
+      "description": "How the system ensures correctness across replicas (strong timely consistency vs log-derived derived truth), independent of replica-count economics.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "consequence",
+          "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+        },
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "Tradeoffs connect stronger correctness to higher tail-at-scale write latency."
+        },
+        {
+          "target_id": "6",
+          "type": "constrains",
+          "rationale": "Log-first truth derivation changes the replication/consensus requirement for client-visible correctness compared to consensus-first designs."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Strong, timely consistency required",
+          "description": "Repository hosting must not tolerate eventual consistency; clients demand strong, timely consistency.",
+          "supporting_doc_ids": [
+            "a4c5fdea-51ee-42c7-9e7b-de57e081833d",
+            "48daba59-b13d-4b14-bc81-e91848f69918"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Consensus-based strong replication (Spokes)",
+          "description": "Spokes uses strong consensus replication to meet consistency requirements.",
+          "supporting_doc_ids": [
+            "6077c5f1-e433-4bc9-844f-12708c422028",
+            "0213a095-310b-4868-b9df-a7d3d76e5f4a",
+            "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+            "48daba59-b13d-4b14-bc81-e91848f69918"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Log-first operations with derived truth",
+          "description": "Use write-ahead logs to record operations first, then derive authoritative repository state after.",
+          "supporting_doc_ids": [
+            "3f55c665-1fac-4185-9065-34d5aba136d3",
+            "c82e5b9f-4983-4123-930b-857382d99386"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Write Path Source of Truth and Ordering",
+      "description": "Whether client-visible correctness relies on pre-consensus application or on logging then deriving state; distinguishes consensus-first from WAL-first systems.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "WAL-first designs correspond to non-consensus-first semantics (log recorded before acting), weakening immediate consensus-driven state application."
+        },
+        {
+          "target_id": "1",
+          "type": "co_occurring",
+          "rationale": "WAL-first designs often pair with object/log backends for the durable operation record, though not strictly required."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Consensus-first: agree before acting",
+          "description": "Changes are applied based on agreeing via consensus/replication before they take effect as authoritative state.",
+          "supporting_doc_ids": [
+            "6077c5f1-e433-4bc9-844f-12708c422028",
+            "0213a095-310b-4868-b9df-a7d3d76e5f4a"
+          ],
+          "merged_from": []
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Log-first: write-ahead logging records before truth",
+          "description": "Operations are first recorded in a write-ahead log, and authoritative repository truth is derived after.",
+          "supporting_doc_ids": [
+            "3f55c665-1fac-4185-9065-34d5aba136d3",
+            "c82e5b9f-4983-4123-930b-857382d99386"
+          ],
+          "merged_from": []
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Distribution Scaling Mechanism and Constraints",
+      "description": "What mechanism frames server-scale distribution difficulty (replication/consistency constraints vs broader constraints), independent of the exact consistency model.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "co_occurring",
+          "rationale": "Server-scale distribution constraints are tied to replication/consistency decisions (e.g., Spokes/WAL transitions)."
+        },
+        {
+          "target_id": "5",
+          "type": "co_occurring",
+          "rationale": "The scaling story aligns with whether the system is consensus-first or log-first."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Replication/consistency constrained distribution at server scale",
+          "description": "Server-scale repository distribution is difficult because replication and consistency requirements constrain how distribution works.",
+          "supporting_doc_ids": [
+            "e3600e2e-c08f-4f6b-a0ee-a731e576cb93",
+            "c82e5b9f-4983-4123-930b-857382d99386",
+            "48daba59-b13d-4b14-bc81-e91848f69918"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Replica Count and Scale-Cost Tradeoffs",
+      "description": "How many replicas are maintained (minimum vs more) under cost constraints, trading correctness/availability against resource usage.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "When using strong replication/consensus, limiting replicas can reduce availability/correctness margins."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Safe minimum replicas to reduce cost",
+          "description": "Maintain a safe minimum replica count due to high cost from millions of tiny repos; trades correctness/availability.",
+          "supporting_doc_ids": [
+            "85c4fd47-0b67-44f3-ac02-4f544c6469a0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Replication Performance Tail Latency",
+      "description": "Which performance dimension is explicitly traded against correctness/consistency, e.g., tail write latency; orthogonal to replica count.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "The documented tradeoff is specifically between stronger consistency guarantees and higher tail-at-scale write latency."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Accept tail-at-scale write latency for consistency",
+          "description": "Trade consistency guarantees for higher tail write latency as the dominant operational cost.",
+          "supporting_doc_ids": [
+            "6077c5f1-e433-4bc9-844f-12708c422028"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Replicated Storage Maintenance Responsibility Placement",
+      "description": "Where background maintenance/compaction work runs in a replicated system (primary-only vs distributed), trading replica CPU/bandwidth usage.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "co_occurring",
+          "rationale": "Compaction-placement strategies matter when multiple replicas synchronize derived/compacted results."
+        },
+        {
+          "target_id": "2",
+          "type": "co_occurring",
+          "rationale": "Both consensus and WAL-derived architectures may need maintenance placement, but this is a separate operational axis."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Primary-only compaction",
+          "description": "Compaction/maintenance performed only on the primary, reducing replica CPU while shifting load to the primary.",
+          "supporting_doc_ids": [
+            "28e46367-3655-4e3b-891e-f0650a9879fd"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Client vs Server Responsibility Partitioning",
+      "description": "How responsibilities for caching/transfer/consistency handling are divided between clients and the server, independent of storage or replication semantics.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "constrains",
+          "rationale": "Shifting consistency handling to clients reduces server-side complexity and correctness work location, without fully determining consensus vs WAL semantics."
+        },
+        {
+          "target_id": "1",
+          "type": "co_occurring",
+          "rationale": "Client virtualization often accompanies server simplification, but source-of-truth placement can vary independently."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Client-side virtualization (GVFS/Scalar)",
+          "description": "Scale by shifting caching/transfer/consistency handling to clients while keeping the Git server simpler.",
+          "supporting_doc_ids": [
+            "d9aa5880-483e-424d-8368-4e909d2ed0d6"
+          ]
+        }
+      ]
+    }
+  ]
+}

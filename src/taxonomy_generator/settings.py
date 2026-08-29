@@ -11,13 +11,11 @@ tunable parameters live in the YAML file.
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import yaml
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +149,32 @@ class VisualizationSettings:
 
 
 @dataclass(frozen=True)
+class EvaluationSettings:
+    """Taxonomy evaluation parameters (deepeval GEval-based scoreboard).
+
+    When enabled, runs score the final taxonomy through LLM-as-judge
+    criteria and surface a scoreboard (terminal panel, saved JSON, and a
+    grounded-theory report section).
+    """
+
+    enabled: bool = True
+    # Judge model override (provider/model format). None falls back to
+    # models.model (the main reasoning model, matching the review node).
+    judge_model: Optional[str] = None
+    # Score threshold (0-1) used for display-only pass/fail flags.
+    threshold: float = 0.5
+    # Embedding-distance cutoff (Euclidean on L2-normalized vectors) below
+    # which dimensions from different taxonomies align automatically during
+    # consistency comparison.
+    consistency_threshold: float = 0.25
+    # Distance band above the threshold routed to judge adjudication instead
+    # of auto-align or auto-reject.
+    consistency_borderline_band: float = 0.08
+    # Max documents sampled for the data-grounded coverage criterion.
+    max_documents: int = 20
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level settings container."""
 
@@ -162,6 +186,7 @@ class Settings:
     feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
     output: OutputSettings = field(default_factory=OutputSettings)
     visualization: VisualizationSettings = field(default_factory=VisualizationSettings)
+    evaluation: EvaluationSettings = field(default_factory=EvaluationSettings)
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +276,19 @@ def _build_visualization(raw: dict) -> VisualizationSettings:
     )
 
 
+def _build_evaluation(raw: dict) -> EvaluationSettings:
+    return EvaluationSettings(
+        enabled=raw.get("enabled", EvaluationSettings.enabled),
+        judge_model=raw.get("judge_model", EvaluationSettings.judge_model),
+        threshold=raw.get("threshold", EvaluationSettings.threshold),
+        consistency_threshold=raw.get("consistency_threshold", EvaluationSettings.consistency_threshold),
+        consistency_borderline_band=raw.get(
+            "consistency_borderline_band", EvaluationSettings.consistency_borderline_band
+        ),
+        max_documents=raw.get("max_documents", EvaluationSettings.max_documents),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -287,6 +325,7 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         feedback=_build_feedback(raw.get("feedback", {})),
         output=_build_output(raw.get("output", {})),
         visualization=_build_visualization(raw.get("visualization", {})),
+        evaluation=_build_evaluation(raw.get("evaluation", {})),
     )
 
     logger.debug("Loaded settings: %s", settings)
