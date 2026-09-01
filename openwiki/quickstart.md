@@ -7,7 +7,7 @@ tags: [quickstart, navigation, delve]
 
 # Delve code wiki quickstart
 
-Delve is a Python package and CLI that accepts a text or JSON corpus, optionally summarizes it, builds an LLM-generated taxonomy through open coding, minibatch refinement, saturation review, value consolidation, and dimension selection, then labels every document. The compiled LangGraph is the runtime center; `main.py` is the human-facing CLI and serializer.
+Delve is a Python package and CLI that accepts a text or JSON corpus, optionally summarizes it, builds an LLM-generated taxonomy through open coding, minibatch refinement, saturation review, value consolidation, and dimension selection, then labels every document. The compiled LangGraph is the runtime center; `main.py` is the human-facing CLI, serializer, and entrypoint for saved-taxonomy visualization and grounded-theory reports.
 
 ## Start here
 
@@ -20,6 +20,7 @@ Delve is a Python package and CLI that accepts a text or JSON corpus, optionally
 - [Configuration and settings](configuration/settings.md) — YAML, defaults, overrides, cache lifecycle, providers, consolidation, and visualization.
 - [Public Python API](interfaces/public-api.md) — `taxonomy_generator` exports, `graph.ainvoke`, packaging, and extension boundaries.
 - [CLI and output contracts](interfaces/cli-and-outputs.md) — flags, streaming behavior, graph export, selected views, and JSON files.
+- [Visualization and reports](interfaces/reporting-and-visualization.md) — saved-taxonomy charts, vector exports, grounded-theory reports, and automatic report generation.
 - [Prompt system](prompts/prompt-system.md) — Markdown-backed templates and their model/schema coupling.
 - [Examples and validation](examples-and-validation.md) — existing repository validation guidance.
 
@@ -55,6 +56,7 @@ Exact edges and reducers are in [Graph and orchestration](pipeline/graph.md).
 | Add or change a setting | [Configuration](configuration/settings.md) | `Settings`, `_build_*`, `Configuration`, `_defaults_from_settings`, `init_settings` | Load checked-in and temporary YAML; verify override mapping |
 | Change imports or installation behavior | [Public API](interfaces/public-api.md) | `__all__`, `pyproject.toml`, `langgraph.json`, `main:main` | Import/export list and graph import; package build conditional |
 | Change CLI flags, Rich display, graph PNG, or JSON files | [CLI/output](interfaces/cli-and-outputs.md) | `parse_args`, `run`, `TokenTracker`, display/serialization helpers | `python main.py --help`; local serializer/parser checks |
+| Change saved-taxonomy charts, report Markdown, or post-processing view selection | [Visualization and reports](interfaces/reporting-and-visualization.md) | `main._run_visualize`, `_run_report`, `_select_clusters_for_visualize`, `visualization.render_taxonomy_biplot`, `report_renderer.generate_and_write_report` | `python main.py --help`; synthetic saved-taxonomy checks; provider/embedding checks only when intentional |
 | Investigate tests, lint, or documentation automation | [Examples/validation](examples-and-validation.md) | `Makefile`, `.github/workflows/openwiki-update.yml` | Check advertised targets and workflow separately |
 
 ## Operational notes
