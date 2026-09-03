@@ -40,7 +40,15 @@ The use-case-relevant subset of an Iteration's Dimensions, chosen by a dedicated
 
 ## Grounded Theory Report
 
-A self-contained markdown document rendering one Taxonomy view (a specific Iteration, Selected Dimensions, or the latest Iteration) for a reader who never ran the pipeline: a Narrative Summary, a relationship diagram of Dimensions and their Relations, a catalog of each Dimension's Values, and — whenever the pipeline recorded at least one dimension the selection step excluded — a Discarded Dimensions section naming each and why. Everything except the Narrative Summary is rendered verbatim from the Taxonomy data — never reworded by a model.
+A self-contained markdown document rendering one Taxonomy view (a specific Iteration, Selected Dimensions, or the latest Iteration) for a reader who never ran the pipeline: a Narrative Summary, a relationship diagram of Dimensions and their Relations, a catalog of each Dimension's Values, and — whenever the pipeline recorded at least one dimension the selection step excluded — a Discarded Dimensions section naming each and why. Everything except the Narrative Summary is rendered verbatim from the Taxonomy data — never reworded by a model. A Unified HTML Report renders this same content alongside other Sibling Artifacts in one page.
+
+## Sibling Artifact
+
+A file written independently during or after a run — a Grounded Theory Report, a biplot chart, a Scoreboard, or a documents dump — that belongs to one specific Taxonomy run but carries no shared run identifier linking it to the others. Sibling Artifacts are discovered by matching heuristics (embedded timestamps, cross-referencing fields, numeric identifiers) rather than by ID lookup, and a missing or ambiguous match degrades gracefully rather than failing whatever is composing them.
+
+## Unified HTML Report
+
+A single self-contained HTML page composing one Taxonomy run's Sibling Artifacts — a run summary, the Grounded Theory Report's content, the biplot, and the Scoreboard — each section rendered independently and each showing its own "not available" state when its Sibling Artifact is missing, rather than failing the whole page.
 
 ## Train Mode
 
