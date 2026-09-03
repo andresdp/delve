@@ -12,6 +12,7 @@ corresponding page section to an explicit "not available" state.
 from __future__ import annotations
 
 import html as html_lib
+import importlib.resources
 import json
 import re
 from dataclasses import dataclass
@@ -175,6 +176,12 @@ class SiblingArtifacts:
     biplot: SiblingMatch | None
     evaluation: SiblingMatch | None
     documents: SiblingMatch | None
+
+
+def get_vendored_mermaid_js() -> str:
+    """Read the vendored Mermaid UMD build shipped with this package (U2, KTD4)."""
+    asset = importlib.resources.files("taxonomy_generator") / "assets" / "mermaid.min.js"
+    return asset.read_text(encoding="utf-8")
 
 
 def discover_siblings(taxonomy_path: Path, taxonomy_name: str, iteration: int) -> SiblingArtifacts:
