@@ -1236,6 +1236,13 @@ async def run(args: argparse.Namespace) -> None:
         taxonomy_data = {
             "taxonomy_name": effective_config.name,
             "consolidated": bool(effective_config.consolidate_values),
+            "mode": mode,
+            "run_metrics": {
+                "elapsed_seconds": round(elapsed, 1),
+                "total_tokens": token_tracker.total_tokens,
+                "prompt_tokens": token_tracker.prompt_tokens,
+                "completion_tokens": token_tracker.completion_tokens,
+            },
             "iterations": [],
         }
         if saturation_history:
