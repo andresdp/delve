@@ -94,14 +94,41 @@ def test_zero_discarded_and_zero_labeled_documents_render_none_found():
 
 def test_missing_documents_sibling_run_summary_shows_not_available():
     """A missing documents-JSON sibling: the labeling table is unavailable, the rest still renders."""
+    view_clusters = [{"id": "1", "name": "Dim", "values": []}]
     taxonomy_data = {
         "taxonomy_name": "solo",
         "mode": "train",
-        "iterations": [{"explanation": "seed", "clusters": [{"id": "1", "name": "Dim", "values": []}]}],
+        "iterations": [{"explanation": "seed", "clusters": view_clusters}],
     }
-    section = hr.render_run_summary(taxonomy_data, documents_data=None)
+    section = hr.render_run_summary(taxonomy_data, view_clusters, documents_data=None)
     assert "not available" in section
     assert "Dim" in section  # dimension table still rendered
+
+
+def test_run_summary_uses_selected_clusters_not_raw_last_iteration():
+    """Run summary's dimension table must match the same resolved view as Diagram/Catalog.
+
+    dimension_selector writes only to selected_clusters, never to
+    iterations[-1]["clusters"] -- so a run where selection actually dropped a
+    dimension must not show the pre-selection count/list in Run Summary while
+    Diagram/Catalog/Discarded show the post-selection view.
+    """
+    pre_selection_clusters = [
+        {"id": "1", "name": "Kept Dim", "values": []},
+        {"id": "2", "name": "Dropped Dim", "values": []},
+    ]
+    selected_clusters = [{"id": "1", "name": "Kept Dim", "values": []}]
+    taxonomy_data = {
+        "taxonomy_name": "solo",
+        "mode": "train",
+        "iterations": [{"explanation": "seed", "clusters": pre_selection_clusters}],
+        "selected_clusters": selected_clusters,
+    }
+    # The caller (main.py's _run_html_report) resolves view_clusters via
+    # _select_clusters_for_visualize, which prefers selected_clusters.
+    section = hr.render_run_summary(taxonomy_data, selected_clusters, documents_data=None)
+    assert "Total dimensions: <strong>1</strong>" in section
+    assert "Dropped Dim" not in section
 
 
 def test_narrative_extraction_stops_at_next_heading():
@@ -153,3 +180,10 @@ def test_catalog_shows_merged_from_consolidation_note():
     section = hr.render_catalog_section(clusters)
     assert "consolidated with 2 similar values" in section
     assert "Draft A" in section and "Draft B" in section
+
+
+def test_get_vendored_mermaid_js_resolves_the_packaged_asset():
+    """The packaged mermaid.min.js is actually resolvable via importlib.resources."""
+    js = hr.get_vendored_mermaid_js()
+    assert len(js) > 1000
+    assert "mermaid" in js.lower()

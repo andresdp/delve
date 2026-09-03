@@ -778,9 +778,12 @@ async def _run_html_report(args: argparse.Namespace) -> None:
     from taxonomy_generator.visualization import resolve_output_dir
 
     siblings = html_report.discover_siblings(taxonomy_path, taxonomy_name, iteration)
-    report_md_text = siblings.report.path.read_text() if siblings.report else None
-    biplot_html_text = siblings.biplot.path.read_text() if siblings.biplot else None
-    documents_data = json.loads(siblings.documents.path.read_text()) if siblings.documents else None
+    # A matched sibling can still fail to read (deleted or corrupted between
+    # discovery and read) — html_report's fail-soft readers degrade that
+    # section to "not available" instead of crashing the whole command.
+    report_md_text = html_report.read_sibling_text(siblings.report.path) if siblings.report else None
+    biplot_html_text = html_report.read_sibling_text(siblings.biplot.path) if siblings.biplot else None
+    documents_data = html_report.read_sibling_json(siblings.documents.path) if siblings.documents else None
     # resolve_evaluation_path already parsed this file to find the match —
     # reuse it instead of reading it from disk a second time.
     evaluation_data = siblings.evaluation.data if siblings.evaluation else None

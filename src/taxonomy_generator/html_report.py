@@ -83,13 +83,24 @@ def _pick_candidate(
     return SiblingMatch(best, approximate=True)
 
 
+def _resolve_by_name_suffix(
+    directory: Path, taxonomy_name: str, suffix: str, taxonomy_timestamp: str | None
+) -> SiblingMatch | None:
+    """Glob for ``<sanitized-name><suffix>`` and pick a candidate, per KTD1.
+
+    Shared by the report and documents resolvers, which differ only in the
+    filename suffix they glob for.
+    """
+    pattern = f"{sanitize_filename_component(taxonomy_name)}{suffix}"
+    candidates = sorted(directory.glob(pattern))
+    return _pick_candidate(candidates, preferred_timestamp=taxonomy_timestamp)
+
+
 def resolve_report_path(
     directory: Path, taxonomy_name: str, taxonomy_timestamp: str | None
 ) -> SiblingMatch | None:
     """Locate the sibling grounded-theory report ``.md`` for a taxonomy JSON."""
-    pattern = f"{sanitize_filename_component(taxonomy_name)}_report_*.md"
-    candidates = sorted(directory.glob(pattern))
-    return _pick_candidate(candidates, preferred_timestamp=taxonomy_timestamp)
+    return _resolve_by_name_suffix(directory, taxonomy_name, "_report_*.md", taxonomy_timestamp)
 
 
 def resolve_documents_path(
@@ -101,9 +112,7 @@ def resolve_documents_path(
     taxonomy JSON in the same call, so an exact-timestamp match (KTD1's
     general tie-break rule) is preferred here too, same as the report.
     """
-    pattern = f"{sanitize_filename_component(taxonomy_name)}_documents_*.json"
-    candidates = sorted(directory.glob(pattern))
-    return _pick_candidate(candidates, preferred_timestamp=taxonomy_timestamp)
+    return _resolve_by_name_suffix(directory, taxonomy_name, "_documents_*.json", taxonomy_timestamp)
 
 
 def _biplot_filename_re(taxonomy_name: str) -> re.Pattern:
@@ -218,6 +227,32 @@ def get_vendored_mermaid_js() -> str:
     return asset.read_text(encoding="utf-8")
 
 
+def read_sibling_text(path: Path) -> str | None:
+    """Read a matched sibling file's text, or None on any read failure.
+
+    A sibling can be deleted or become unreadable between discovery and
+    read (interrupted prior run, permission change). R2's fail-soft
+    contract applies to the read step too, not just the match step -- this
+    must degrade the section to "not available", never raise past the CLI.
+    """
+    try:
+        return path.read_text()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def read_sibling_json(path: Path) -> Dict[str, Any] | None:
+    """Read and parse a matched sibling JSON file, or None on any read/parse failure."""
+    text = read_sibling_text(path)
+    if text is None:
+        return None
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def discover_siblings(taxonomy_path: Path, taxonomy_name: str, iteration: int) -> SiblingArtifacts:
     """Resolve all four sibling artifacts for a saved taxonomy JSON (KTD1)."""
     directory = taxonomy_path.resolve().parent
@@ -330,9 +365,11 @@ def render_run_metrics_line(taxonomy_data: Dict[str, Any]) -> str:
     if not run_metrics:
         return '<p class="dg-unavailable">Run timing and token usage were not recorded for this run.</p>'
     elapsed = run_metrics.get("elapsed_seconds")
-    total_tokens = run_metrics.get("total_tokens", 0)
-    prompt_tokens = run_metrics.get("prompt_tokens", 0)
-    completion_tokens = run_metrics.get("completion_tokens", 0)
+    # `.get(key, 0)` only substitutes when the key is absent -- an explicit
+    # JSON `null` would still pass through and crash the `:,` format below.
+    total_tokens = run_metrics.get("total_tokens") or 0
+    prompt_tokens = run_metrics.get("prompt_tokens") or 0
+    completion_tokens = run_metrics.get("completion_tokens") or 0
     elapsed_str = f"{elapsed:.1f}s" if isinstance(elapsed, (int, float)) else "n/a"
     return (
         '<p class="dg-metrics">'
@@ -343,19 +380,27 @@ def render_run_metrics_line(taxonomy_data: Dict[str, Any]) -> str:
     )
 
 
-def render_run_summary(taxonomy_data: Dict[str, Any], documents_data: Dict[str, Any] | None) -> str:
-    """Compose the run-summary section: dimension table, rationale, labeling, run metrics (R3)."""
+def render_run_summary(
+    taxonomy_data: Dict[str, Any],
+    view_clusters: List[Dict[str, Any]],
+    documents_data: Dict[str, Any] | None,
+) -> str:
+    """Compose the run-summary section: dimension table, rationale, labeling, run metrics (R3).
+
+    ``view_clusters`` is the same resolved dimension view (``selected_clusters``
+    when present, else the last iteration -- main.py's `_select_clusters_for_visualize`
+    precedence) passed to the Diagram/Catalog/Discarded sections, so the
+    dimension table and "Total dimensions" count agree with the rest of the
+    page rather than re-deriving a possibly different (pre-selection) set.
+    """
     iterations = taxonomy_data.get("iterations") or []
-    final_clusters = (
-        iterations[-1]["clusters"] if iterations else (taxonomy_data.get("selected_clusters") or [])
-    )
     mode = taxonomy_data.get("mode") or "train"
     return (
         '<section id="run-summary" class="dg-section">'
         "<h2>Run Summary</h2>"
         f"{render_run_metrics_line(taxonomy_data)}"
-        f"{render_dimension_table(final_clusters)}"
-        f'<p class="dg-summary-line">Total dimensions: <strong>{len(final_clusters)}</strong> '
+        f"{render_dimension_table(view_clusters)}"
+        f'<p class="dg-summary-line">Total dimensions: <strong>{len(view_clusters)}</strong> '
         f"&middot; Iterations: <strong>{len(iterations)}</strong></p>"
         f"{render_rationale(iterations, mode)}"
         "<h3>Document Labeling Results</h3>"
@@ -755,7 +800,7 @@ def render_html_report(
     (KTD3/KTD4) so the page needs no network access (R5).
     """
     sections = {
-        "run-summary": render_run_summary(taxonomy_data, documents_data),
+        "run-summary": render_run_summary(taxonomy_data, view_clusters, documents_data),
         "dimension-diagram": render_diagram_section(view_clusters),
         "dimension-catalog": render_catalog_section(view_clusters),
         "discarded-dimensions": render_discarded_section(dropped_dimensions, all_clusters_for_dropped),
