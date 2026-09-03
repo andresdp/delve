@@ -387,30 +387,10 @@ def _display_taxonomy(
     # Show all explanations/rationale across iterations
     if explanations and any(explanations):
         n = len(explanations)
-        tail_labels = {}
-        if mode == "test":
-            # Test mode: seed iteration + aggregation only.
-            tail_labels = {0: "Seed"}
-            if n >= 2:
-                tail_labels[n - 1] = "Aggregation"
-        else:
-            if n >= 1:
-                tail_labels[n - 1] = "Selection"
-            if n >= 2:
-                tail_labels[n - 2] = "Consolidation"
-            if n >= 3:
-                tail_labels[n - 3] = "Review"
         parts = []
         for i, explanation in enumerate(explanations):
             if explanation:
-                if i in tail_labels:
-                    label = tail_labels[i]
-                elif mode == "test":
-                    label = "Update"
-                elif i == 0:
-                    label = "Generation"
-                else:
-                    label = "Update"
+                label = report_renderer.iteration_label(i, n, mode)
                 parts.append(f"[bold cyan]{i+1}. {label}:[/bold cyan] {explanation}")
         if parts:
             console.print(Panel(
@@ -801,7 +781,9 @@ async def _run_html_report(args: argparse.Namespace) -> None:
     report_md_text = siblings.report.path.read_text() if siblings.report else None
     biplot_html_text = siblings.biplot.path.read_text() if siblings.biplot else None
     documents_data = json.loads(siblings.documents.path.read_text()) if siblings.documents else None
-    evaluation_data = json.loads(siblings.evaluation.path.read_text()) if siblings.evaluation else None
+    # resolve_evaluation_path already parsed this file to find the match —
+    # reuse it instead of reading it from disk a second time.
+    evaluation_data = siblings.evaluation.data if siblings.evaluation else None
     for match, label in (
         (siblings.report, "report"), (siblings.biplot, "biplot"),
         (siblings.evaluation, "evaluation"), (siblings.documents, "documents"),
@@ -829,7 +811,7 @@ async def _run_html_report(args: argparse.Namespace) -> None:
 
     out_dir = resolve_output_dir(configuration)
     out_dir.mkdir(parents=True, exist_ok=True)
-    name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in configuration.name)
+    name_prefix = html_report.sanitize_filename_component(configuration.name)
     name_prefix = f"{name_prefix}_" if name_prefix else ""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = out_dir / f"{name_prefix}html_report_{timestamp}.html"

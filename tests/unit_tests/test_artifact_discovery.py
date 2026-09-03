@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from taxonomy_generator.html_report import discover_siblings
+from taxonomy_generator.html_report import discover_siblings, resolve_biplot_path
 
 FIXTURE_DIR = Path(__file__).resolve().parents[2] / "examples" / "cursor-git-at-scale"
 FIXTURE_TAXONOMY = FIXTURE_DIR / "cursor-git-at-scale_taxonomy_20260828_212329.json"
@@ -72,3 +72,21 @@ def test_ambiguous_report_no_exact_timestamp_prefers_timestamped_candidate(tmp_p
     assert result.report is not None
     assert result.report.approximate is True
     assert result.report.path.name == "ambiguous_report_20260102_010000.md"
+
+
+def test_biplot_iteration_number_is_not_matched_as_a_prefix(tmp_path):
+    """Requesting iteration 1 must not match a biplot file for iteration 10 (or 11, 19, ...)."""
+    decoy = tmp_path / "taxonomy_biplot_solo_standalone_10_2d.html"
+    decoy.write_text("<html></html>")
+
+    result = resolve_biplot_path(tmp_path, "solo", iteration=1)
+
+    assert result is None
+
+    real = tmp_path / "taxonomy_biplot_solo_standalone_1_2d.html"
+    real.write_text("<html></html>")
+
+    result = resolve_biplot_path(tmp_path, "solo", iteration=1)
+
+    assert result is not None
+    assert result.path.name == "taxonomy_biplot_solo_standalone_1_2d.html"

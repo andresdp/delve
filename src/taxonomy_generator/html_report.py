@@ -25,7 +25,7 @@ from taxonomy_generator.visualization import _sanitize_name
 _TIMESTAMP_RE = re.compile(r"(\d{8}_\d{6})")
 
 
-def _sanitize_report_name(name: str) -> str:
+def sanitize_filename_component(name: str) -> str:
     """Match main.py's inline sanitizer used for report/documents/taxonomy filenames."""
     return "".join(c if c.isalnum() or c in "-_" else "_" for c in (name or "taxonomy"))
 
@@ -38,10 +38,16 @@ def _extract_timestamp(path: Path) -> str | None:
 
 @dataclass
 class SiblingMatch:
-    """A resolved sibling artifact path, and whether the match was a best-effort tie-break."""
+    """A resolved sibling artifact path, and whether the match was a best-effort tie-break.
+
+    ``data`` carries the already-parsed JSON content when a resolver had to
+    read it to decide the match (currently only the evaluation resolver), so
+    a caller can reuse it instead of re-reading the file from disk.
+    """
 
     path: Path
     approximate: bool = False
+    data: Dict[str, Any] | None = None
 
 
 def _pick_candidate(
@@ -81,7 +87,7 @@ def resolve_report_path(
     directory: Path, taxonomy_name: str, taxonomy_timestamp: str | None
 ) -> SiblingMatch | None:
     """Locate the sibling grounded-theory report ``.md`` for a taxonomy JSON."""
-    pattern = f"{_sanitize_report_name(taxonomy_name)}_report_*.md"
+    pattern = f"{sanitize_filename_component(taxonomy_name)}_report_*.md"
     candidates = sorted(directory.glob(pattern))
     return _pick_candidate(candidates, preferred_timestamp=taxonomy_timestamp)
 
@@ -95,9 +101,23 @@ def resolve_documents_path(
     taxonomy JSON in the same call, so an exact-timestamp match (KTD1's
     general tie-break rule) is preferred here too, same as the report.
     """
-    pattern = f"{_sanitize_report_name(taxonomy_name)}_documents_*.json"
+    pattern = f"{sanitize_filename_component(taxonomy_name)}_documents_*.json"
     candidates = sorted(directory.glob(pattern))
     return _pick_candidate(candidates, preferred_timestamp=taxonomy_timestamp)
+
+
+def _biplot_filename_re(taxonomy_name: str) -> re.Pattern:
+    """Build a stem regex for ``taxonomy_biplot_<name>_<stage>_<iteration>_<dims>d``.
+
+    Matches the exact naming convention ``visualization._save_biplot_html``
+    writes. A glob or substring match on the iteration segment is not safe
+    here: iteration ``1`` is a substring of iteration ``10``/``11``/etc., so
+    the iteration segment must be matched as a whole number, not a fragment.
+    """
+    return re.compile(
+        rf"^taxonomy_biplot_{re.escape(_sanitize_name(taxonomy_name))}_"
+        r"(?P<stage>[A-Za-z]+)_(?P<iteration>\d+)_(?P<dims>\d+)d$"
+    )
 
 
 def resolve_biplot_path(
@@ -109,13 +129,17 @@ def resolve_biplot_path(
     2D and 3D variant match the same stage and iteration, prefers 3D as the
     richer view (KTD1).
     """
-    pattern = f"taxonomy_biplot_{_sanitize_name(taxonomy_name)}_*_{iteration}*.html"
-    candidates = sorted(directory.glob(pattern))
-    if not candidates:
+    stem_re = _biplot_filename_re(taxonomy_name)
+    matches = []
+    for candidate in sorted(directory.glob(f"taxonomy_biplot_{_sanitize_name(taxonomy_name)}_*.html")):
+        match = stem_re.match(candidate.stem)
+        if match and int(match.group("iteration")) == iteration:
+            matches.append((candidate, match))
+    if not matches:
         return None
 
-    standalone = [c for c in candidates if f"_standalone_{iteration}" in c.stem]
-    pool = standalone or candidates
+    standalone = [c for c, m in matches if m.group("stage") == "standalone"]
+    pool = standalone or [c for c, _m in matches]
 
     three_d = [c for c in pool if c.stem.endswith("_3d")]
     if three_d:
@@ -142,30 +166,40 @@ def resolve_evaluation_path(
     consistency-mode artifacts (``source_files``/``consistency`` shape, no
     ``source_file`` key) never match this resolver and correctly fall
     through to "no match" (KTD1).
+
+    No filename convention distinguishes an evaluation artifact from any
+    other JSON in the directory (standalone ``--evaluate`` runs name it from
+    the run's own configured name, not the taxonomy's), so every ``*.json``
+    file must be opened to check for a ``source_file`` key -- except the
+    taxonomy JSON itself, which the caller already has in memory and never
+    carries that key, so it is skipped without a read.
     """
-    single_file_candidates: List[Path] = []
+    resolved_taxonomy_path = taxonomy_path.resolve()
+    data_by_path: Dict[Path, Dict[str, Any]] = {}
     for candidate in sorted(directory.glob("*.json")):
+        if candidate.resolve() == resolved_taxonomy_path:
+            continue
         try:
             data = json.loads(candidate.read_text())
         except (json.JSONDecodeError, OSError, UnicodeDecodeError):
             continue
         if not isinstance(data, dict) or "source_file" not in data:
             continue
-        single_file_candidates.append((candidate, data))
+        data_by_path[candidate] = data
 
-    exact = [c for c, data in single_file_candidates if _evaluation_matches_source(data, taxonomy_path)]
-    if exact:
-        return _pick_candidate(sorted(exact))
-
-    fallback = [
+    exact = [c for c, data in data_by_path.items() if _evaluation_matches_source(data, taxonomy_path)]
+    pool = exact or [
         c
-        for c, data in single_file_candidates
+        for c, data in data_by_path.items()
         if data.get("taxonomy_name") == taxonomy_name and data.get("iteration") == iteration
     ]
-    if fallback:
-        return _pick_candidate(sorted(fallback))
+    if not pool:
+        return None
 
-    return None
+    match = _pick_candidate(sorted(pool))
+    if match is not None:
+        match.data = data_by_path.get(match.path)
+    return match
 
 
 @dataclass
@@ -208,36 +242,9 @@ def _e(value: Any) -> str:
     return html_lib.escape(str(value if value is not None else ""), quote=True)
 
 
-def _catalog_sort_key(cluster: Dict[str, Any]):
-    """Sort key placing dimensions in numeric id order, mirroring report_renderer._id_sort_key."""
-    cid = str(cluster.get("id") or "?")
-    try:
-        return (0, int(cid))
-    except ValueError:
-        return (1, cid)
 
 
 # ── Run summary ─────────────────────────────────────────────────────────
-
-
-def _iteration_label(index: int, count: int, mode: str) -> str:
-    """Mirror main.py's _display_taxonomy label logic for one iteration's rationale."""
-    if mode == "test":
-        if index == 0:
-            return "Seed"
-        if count >= 2 and index == count - 1:
-            return "Aggregation"
-        return "Update"
-    tail: Dict[int, str] = {}
-    if count >= 1:
-        tail[count - 1] = "Selection"
-    if count >= 2:
-        tail[count - 2] = "Consolidation"
-    if count >= 3:
-        tail[count - 3] = "Review"
-    if index in tail:
-        return tail[index]
-    return "Generation" if index == 0 else "Update"
 
 
 def render_dimension_table(clusters: List[Dict[str, Any]]) -> str:
@@ -273,7 +280,7 @@ def render_rationale(iterations: List[Dict[str, Any]], mode: str) -> str:
     for i, explanation in enumerate(explanations):
         if not explanation:
             continue
-        label = _iteration_label(i, count, mode)
+        label = report_renderer.iteration_label(i, count, mode)
         parts.append(f"<p><strong>{i + 1}. {_e(label)}:</strong> {_e(explanation)}</p>")
     if not parts:
         return ""
@@ -369,6 +376,8 @@ def render_diagram_section(clusters: List[Dict[str, Any]]) -> str:
             '<p class="dg-empty">No dimensions to diagram.</p>'
             "</section>"
         )
+    # render_diagram always wraps its output in a ```mermaid fence (report_renderer.py);
+    # unwrap it here rather than duplicating the diagram-building logic.
     diagram_md = report_renderer.render_diagram(clusters)
     lines = diagram_md.splitlines()
     if lines and lines[0].strip() == "```mermaid":
@@ -389,10 +398,7 @@ def render_diagram_section(clusters: List[Dict[str, Any]]) -> str:
 
 def _merged_from_note_html(value: Dict[str, Any]) -> str:
     """Render the inline note for a value consolidation folded into this one."""
-    merged_from = value.get("merged_from") or []
-    if not isinstance(merged_from, list) or not merged_from:
-        return ""
-    labels = [m.get("label") or m.get("id", "?") for m in merged_from if isinstance(m, dict)]
+    labels = report_renderer.merged_from_labels(value)
     if not labels:
         return ""
     quoted = ", ".join(f'"{label}"' for label in labels)
@@ -427,7 +433,7 @@ def render_catalog_section(clusters: List[Dict[str, Any]]) -> str:
         )
     clusters_by_id = {str(c.get("id") or "?"): c for c in clusters}
     cards = []
-    for cluster in sorted(clusters, key=_catalog_sort_key):
+    for cluster in sorted(clusters, key=report_renderer._id_sort_key):
         cid = str(cluster.get("id") or "?")
         values = cluster.get("values") or []
         value_items = [
@@ -488,7 +494,7 @@ def render_discarded_section(
         return ""
     clusters_by_id = {str(c.get("id") or "?"): c for c in all_clusters}
     items = []
-    for item in sorted(dropped, key=_catalog_sort_key):
+    for item in sorted(dropped, key=report_renderer._id_sort_key):
         did = str(item.get("id") or "?")
         source = clusters_by_id.get(did)
         name = (source.get("name") if source else None) or "Unnamed"

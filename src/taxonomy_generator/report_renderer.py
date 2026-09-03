@@ -132,14 +132,35 @@ def render_diagram(clusters: List[Cluster]) -> str:
     return "\n".join(lines)
 
 
-def _merged_from_note(value: Dict[str, Any]) -> str:
-    """Build the inline note for a value consolidation folded into this one.
+def merged_from_labels(value: Dict[str, Any]) -> List[str]:
+    """Extract the draft-value labels a consolidated value's ``merged_from`` stands in for.
 
     Value consolidation (when enabled) merges draft values judged to
     represent the same decision, keeping the nearest-to-centroid value's
-    label/description as canonical. The merged-away drafts are not silently
-    dropped — this renders which ones a catalog entry now stands in for, so
-    a reader sees the consolidation rather than an unexplained value count.
+    label/description as canonical. Shared by both the markdown catalog
+    (:func:`_merged_from_note`) and the HTML catalog (``html_report.py``),
+    so the "how do we read merged_from" rule has one owner.
+
+    Returns:
+        The merged-away drafts' labels (or id, if label is absent), or an
+        empty list when this value was not the product of a merge.
+    """
+    merged_from = value.get("merged_from") or []
+    if not isinstance(merged_from, list):
+        return []
+    return [
+        m.get("label") or m.get("id", "?")
+        for m in merged_from
+        if isinstance(m, dict)
+    ]
+
+
+def _merged_from_note(value: Dict[str, Any]) -> str:
+    """Build the inline note for a value consolidation folded into this one.
+
+    The merged-away drafts are not silently dropped — this renders which
+    ones a catalog entry now stands in for, so a reader sees the
+    consolidation rather than an unexplained value count.
 
     Args:
         value: A single value dict from a dimension's ``values`` list.
@@ -148,14 +169,7 @@ def _merged_from_note(value: Dict[str, Any]) -> str:
         A parenthetical markdown note, or "" when this value was not the
         product of a merge (``merged_from`` absent or empty).
     """
-    merged_from = value.get("merged_from") or []
-    if not isinstance(merged_from, list) or not merged_from:
-        return ""
-    labels = [
-        m.get("label") or m.get("id", "?")
-        for m in merged_from
-        if isinstance(m, dict)
-    ]
+    labels = merged_from_labels(value)
     if not labels:
         return ""
     quoted = ", ".join(f'"{label}"' for label in labels)
@@ -325,6 +339,35 @@ def render_evaluation(scoreboard: Dict[str, Any] | None) -> str:
         out.append(f"**Overall score:** {overall:.2f} (mean of evaluated criteria)")
 
     return "\n".join(out)
+
+
+def iteration_label(index: int, count: int, mode: str) -> str:
+    """Name one taxonomy iteration's rationale for display (console table or HTML report).
+
+    Shared by ``main.py``'s console rationale panel and ``html_report.py``'s
+    run-summary section so the label rule has one owner. ``train`` mode
+    labels the last iterations Selection/Consolidation/Review (in that
+    tail order) and the first Generation, everything else Update. ``test``
+    mode labels the first Seed and, when more than one iteration exists,
+    the last Aggregation, everything else Update.
+    """
+    if mode == "test":
+        if index == 0:
+            return "Seed"
+        if count >= 2 and index == count - 1:
+            return "Aggregation"
+        return "Update"
+
+    tail_labels: Dict[int, str] = {}
+    if count >= 1:
+        tail_labels[count - 1] = "Selection"
+    if count >= 2:
+        tail_labels[count - 2] = "Consolidation"
+    if count >= 3:
+        tail_labels[count - 3] = "Review"
+    if index in tail_labels:
+        return tail_labels[index]
+    return "Generation" if index == 0 else "Update"
 
 
 def _format_dimensions_for_prompt(clusters: List[Cluster]) -> str:
