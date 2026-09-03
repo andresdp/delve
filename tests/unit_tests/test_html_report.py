@@ -42,7 +42,7 @@ def test_full_data_present_renders_every_section_no_external_refs():
     )
 
     for heading in ["Run Summary", "Dimension Diagram", "Dimension Catalog", "Narrative Summary", "Biplot", "Evaluation"]:
-        assert f"<h2>{heading}</h2>" in page
+        assert f"{heading}</h2>" in page  # icon span precedes the title inside <h2>
 
     assert "flowchart TB" in page  # the diagram's mermaid syntax
     assert _MERMAID_JS_STUB in page  # vendored Mermaid JS inlined, not just absent CDN ref

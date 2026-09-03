@@ -277,6 +277,35 @@ def _e(value: Any) -> str:
     return html_lib.escape(str(value if value is not None else ""), quote=True)
 
 
+# (icon, title, accent color) per section, keyed by anchor id. One named
+# color per section gives the page visual variety and doubles as a quick
+# section-recognition cue in the nav -- not just decoration.
+_SECTION_META = {
+    "run-summary": ("\U0001f4ca", "Run Summary", "#2f6f9e"),
+    "dimension-diagram": ("\U0001f517", "Dimension Diagram", "#7b4fa6"),
+    "dimension-catalog": ("\U0001f4da", "Dimension Catalog", "#2f5233"),
+    "discarded-dimensions": ("\U0001f5d1️", "Discarded Dimensions", "#8a6d3b"),
+    "narrative-summary": ("\U0001f4ac", "Narrative Summary", "#b5407a"),
+    "biplot": ("\U0001f4c8", "Biplot", "#1f7a8c"),
+    "evaluation": ("\U0001f3af", "Evaluation", "#c0392b"),
+}
+
+
+def _section(anchor: str, body: str) -> str:
+    """Wrap a section body in its <section> shell with a colored icon-plus-title heading.
+
+    Centralizes the id/title/icon/color for every section so each
+    render_*_section function only builds its inner body.
+    """
+    icon, title, color = _SECTION_META[anchor]
+    return (
+        f'<section id="{anchor}" class="dg-section" style="--dg-section-color:{color}">'
+        f'<h2><span class="dg-icon" aria-hidden="true">{icon}</span> {_e(title)}</h2>'
+        f"{body}"
+        "</section>"
+    )
+
+
 
 
 # ── Run summary ─────────────────────────────────────────────────────────
@@ -395,9 +424,7 @@ def render_run_summary(
     """
     iterations = taxonomy_data.get("iterations") or []
     mode = taxonomy_data.get("mode") or "train"
-    return (
-        '<section id="run-summary" class="dg-section">'
-        "<h2>Run Summary</h2>"
+    body = (
         f"{render_run_metrics_line(taxonomy_data)}"
         f"{render_dimension_table(view_clusters)}"
         f'<p class="dg-summary-line">Total dimensions: <strong>{len(view_clusters)}</strong> '
@@ -405,8 +432,8 @@ def render_run_summary(
         f"{render_rationale(iterations, mode)}"
         "<h3>Document Labeling Results</h3>"
         f"{render_document_labeling(documents_data)}"
-        "</section>"
     )
+    return _section("run-summary", body)
 
 
 # ── Diagram ──────────────────────────────────────────────────────────────
@@ -415,12 +442,7 @@ def render_run_summary(
 def render_diagram_section(clusters: List[Dict[str, Any]]) -> str:
     """Embed the dimension-relationship diagram as an inline Mermaid block."""
     if not clusters:
-        return (
-            '<section id="dimension-diagram" class="dg-section">'
-            "<h2>Dimension Diagram</h2>"
-            '<p class="dg-empty">No dimensions to diagram.</p>'
-            "</section>"
-        )
+        return _section("dimension-diagram", '<p class="dg-empty">No dimensions to diagram.</p>')
     # render_diagram always wraps its output in a ```mermaid fence (report_renderer.py);
     # unwrap it here rather than duplicating the diagram-building logic.
     diagram_md = report_renderer.render_diagram(clusters)
@@ -430,12 +452,8 @@ def render_diagram_section(clusters: List[Dict[str, Any]]) -> str:
     if lines and lines[-1].strip() == "```":
         lines = lines[:-1]
     mermaid_source = "\n".join(lines)
-    return (
-        '<section id="dimension-diagram" class="dg-section">'
-        "<h2>Dimension Diagram</h2>"
-        f'<pre class="mermaid" aria-label="Dimension relationship diagram">{_e(mermaid_source)}</pre>'
-        "</section>"
-    )
+    body = f'<pre class="mermaid" aria-label="Dimension relationship diagram">{_e(mermaid_source)}</pre>'
+    return _section("dimension-diagram", body)
 
 
 # ── Catalog and discarded dimensions ────────────────────────────────────
@@ -470,12 +488,7 @@ def render_dimension_pull_quotes(clusters: List[Dict[str, Any]]) -> str:
 def render_catalog_section(clusters: List[Dict[str, Any]]) -> str:
     """Render the per-dimension catalog as styled cards (KTD2: HTML-native, not markdown-converted)."""
     if not clusters:
-        return (
-            '<section id="dimension-catalog" class="dg-section">'
-            "<h2>Dimension Catalog</h2>"
-            '<p class="dg-empty">No dimensions in this taxonomy.</p>'
-            "</section>"
-        )
+        return _section("dimension-catalog", '<p class="dg-empty">No dimensions in this taxonomy.</p>')
     clusters_by_id = {str(c.get("id") or "?"): c for c in clusters}
     cards = []
     for cluster in sorted(clusters, key=report_renderer._id_sort_key):
@@ -522,13 +535,8 @@ def render_catalog_section(clusters: List[Dict[str, Any]]) -> str:
             f"{relations_html}"
             "</article>"
         )
-    return (
-        '<section id="dimension-catalog" class="dg-section">'
-        "<h2>Dimension Catalog</h2>"
-        f"{render_dimension_pull_quotes(clusters)}"
-        f'<div class="dg-cards">{"".join(cards)}</div>'
-        "</section>"
-    )
+    body = f"{render_dimension_pull_quotes(clusters)}" f'<div class="dg-cards">{"".join(cards)}</div>'
+    return _section("dimension-catalog", body)
 
 
 def render_discarded_section(
@@ -545,14 +553,12 @@ def render_discarded_section(
         name = (source.get("name") if source else None) or "Unnamed"
         rationale = item.get("rationale") or "No rationale recorded."
         items.append(f"<li><strong>{_e(did)}. {_e(name)}</strong> &mdash; {_e(rationale)}</li>")
-    return (
-        '<section id="discarded-dimensions" class="dg-section">'
-        "<h2>Discarded Dimensions</h2>"
+    body = (
         "<p>Dimensions considered during taxonomy generation but excluded from this view during "
         "dimension selection, judged not relevant to the stated use case:</p>"
         f"<ul>{''.join(items)}</ul>"
-        "</section>"
     )
+    return _section("discarded-dimensions", body)
 
 
 # ── Evaluation ───────────────────────────────────────────────────────────
@@ -561,29 +567,14 @@ def render_discarded_section(
 def render_evaluation_section(evaluation_data: Dict[str, Any] | None) -> str:
     """Render the evaluation scoreboard. A missing sibling and `unavailable: true` render distinct text."""
     if evaluation_data is None:
-        return (
-            '<section id="evaluation" class="dg-section">'
-            "<h2>Evaluation</h2>"
-            '<p class="dg-unavailable">No evaluation was run for this taxonomy.</p>'
-            "</section>"
-        )
+        return _section("evaluation", '<p class="dg-unavailable">No evaluation was run for this taxonomy.</p>')
     scoreboard = evaluation_data.get("scoreboard") or {}
     if scoreboard.get("unavailable"):
         reason = scoreboard.get("error") or "unknown error"
-        return (
-            '<section id="evaluation" class="dg-section">'
-            "<h2>Evaluation</h2>"
-            f'<p class="dg-unavailable">Evaluation unavailable: {_e(reason)}</p>'
-            "</section>"
-        )
+        return _section("evaluation", f'<p class="dg-unavailable">Evaluation unavailable: {_e(reason)}</p>')
     criteria = scoreboard.get("criteria") or []
     if not criteria:
-        return (
-            '<section id="evaluation" class="dg-section">'
-            "<h2>Evaluation</h2>"
-            '<p class="dg-empty">No evaluation criteria were recorded.</p>'
-            "</section>"
-        )
+        return _section("evaluation", '<p class="dg-empty">No evaluation criteria were recorded.</p>')
     rows = []
     for row in criteria:
         name = row.get("name") or "?"
@@ -601,16 +592,14 @@ def render_evaluation_section(evaluation_data: Dict[str, Any] | None) -> str:
     overall = scoreboard.get("overall")
     overall_str = f"{overall:.2f}" if isinstance(overall, (int, float)) else "&mdash;"
     model = scoreboard.get("model") or "default"
-    return (
-        '<section id="evaluation" class="dg-section">'
-        "<h2>Evaluation</h2>"
+    body = (
         f'<p class="dg-summary-line">Overall score: <strong>{overall_str}</strong> &middot; judge {_e(model)}</p>'
         '<table class="dg-table">'
         "<thead><tr><th>Criterion</th><th>Score</th><th>Pass</th><th>Reason</th></tr></thead>"
         f"<tbody>{''.join(rows)}</tbody>"
         "</table>"
-        "</section>"
     )
+    return _section("evaluation", body)
 
 
 # ── Narrative summary ────────────────────────────────────────────────────
@@ -668,27 +657,19 @@ def render_narrative_section(report_md_text: str | None) -> str:
     """Render the narrative summary, extracted and normalized from the sibling report .md (KTD2)."""
     narrative = _extract_narrative_summary(report_md_text) if report_md_text is not None else None
     if not narrative:
-        return (
-            '<section id="narrative-summary" class="dg-section">'
-            "<h2>Narrative Summary</h2>"
-            '<p class="dg-unavailable">No narrative summary is available for this run.</p>'
-            "</section>"
+        return _section(
+            "narrative-summary", '<p class="dg-unavailable">No narrative summary is available for this run.</p>'
         )
     blocks = re.split(r"\n\s*\n", narrative)
-    body = "".join(_paragraph_or_list_html(block) for block in blocks)
+    narrative_html = "".join(_paragraph_or_list_html(block) for block in blocks)
     pull_quote = _first_sentence(narrative)
     pull_quote_html = (
         f'<blockquote class="dg-pull-quote">{_normalize_inline_markdown(pull_quote)}</blockquote>'
         if pull_quote
         else ""
     )
-    return (
-        '<section id="narrative-summary" class="dg-section">'
-        "<h2>Narrative Summary</h2>"
-        f"{pull_quote_html}"
-        f'<div class="dg-narrative">{body}</div>'
-        "</section>"
-    )
+    body = f"{pull_quote_html}" f'<div class="dg-narrative">{narrative_html}</div>'
+    return _section("narrative-summary", body)
 
 
 # ── Biplot ───────────────────────────────────────────────────────────────
@@ -709,18 +690,9 @@ def render_biplot_section(biplot_html_text: str | None) -> str:
     """Embed the biplot chart. Missing or malformed sibling both fall back to "not available" (KTD3)."""
     snippet = _extract_plotly_snippet(biplot_html_text) if biplot_html_text is not None else None
     if snippet is not None:
-        return (
-            '<section id="biplot" class="dg-section">'
-            "<h2>Biplot</h2>"
-            f'<div class="dg-biplot" role="img" aria-label="Taxonomy biplot chart">{snippet}</div>'
-            "</section>"
-        )
-    return (
-        '<section id="biplot" class="dg-section">'
-        "<h2>Biplot</h2>"
-        '<p class="dg-unavailable">No biplot is available for this run.</p>'
-        "</section>"
-    )
+        body = f'<div class="dg-biplot" role="img" aria-label="Taxonomy biplot chart">{snippet}</div>'
+        return _section("biplot", body)
+    return _section("biplot", '<p class="dg-unavailable">No biplot is available for this run.</p>')
 
 
 # ── Page shell ───────────────────────────────────────────────────────────
@@ -739,45 +711,54 @@ _PAGE_STYLE = """<style>
 :root{--dg-bg:#fdfcf9;--dg-fg:#1a1a1a;--dg-accent:#2f5233;--dg-muted:#6b6b6b;--dg-border:#e2ddd0;--dg-card:#ffffff;}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--dg-bg);color:var(--dg-fg);font-family:Georgia,'Iowan Old Style',serif;line-height:1.6;}
-.dg-layout{display:flex;max-width:1100px;margin:0 auto;}
-.dg-nav{position:sticky;top:0;align-self:flex-start;width:220px;padding:2.5rem 1rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:0.85rem;}
-.dg-nav a{display:block;padding:0.35rem 0 0.35rem 0.75rem;color:var(--dg-muted);text-decoration:none;border-left:2px solid transparent;}
-.dg-nav a:hover{color:var(--dg-accent);border-left-color:var(--dg-accent);}
+.dg-layout{display:flex;max-width:1320px;margin:0 auto;}
+.dg-nav{position:sticky;top:0;align-self:flex-start;width:230px;padding:2.5rem 1rem;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:0.85rem;}
+.dg-nav a{display:block;padding:0.35rem 0 0.35rem 0.75rem;color:var(--dg-muted);text-decoration:none;border-left:2px solid transparent;border-radius:0 4px 4px 0;transition:background-color .15s;}
+.dg-nav a:hover,.dg-nav a:focus{color:var(--dg-section-color,var(--dg-accent));border-left-color:var(--dg-section-color,var(--dg-accent));background:color-mix(in srgb, var(--dg-section-color,var(--dg-accent)) 8%, transparent);}
+.dg-nav .dg-icon{filter:saturate(1.15);}
 .dg-main{flex:1;padding:2.5rem 2rem 6rem;min-width:0;}
-.dg-hero h1{font-size:2.4rem;margin:0 0 0.5rem;}
+.dg-hero h1{font-size:2.4rem;margin:0 0 0.5rem;background:linear-gradient(90deg,#2f6f9e,#7b4fa6 35%,#1f7a8c 70%,#c0392b);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .dg-hero p{color:var(--dg-muted);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 .dg-section{margin:3rem 0;scroll-margin-top:1.5rem;}
-.dg-section h2{font-size:1.5rem;border-bottom:1px solid var(--dg-border);padding-bottom:0.4rem;}
-.dg-pull-quote{border-left:4px solid var(--dg-accent);margin:1.5rem 0;padding:0.25rem 0 0.25rem 1.25rem;font-size:1.25rem;font-style:italic;color:var(--dg-accent);}
+.dg-section h2{font-size:1.5rem;border-bottom:2px solid var(--dg-section-color,var(--dg-border));padding-bottom:0.4rem;color:var(--dg-section-color,var(--dg-fg));display:flex;align-items:center;gap:0.5rem;}
+.dg-icon{font-size:1.15em;line-height:1;}
+.dg-pull-quote{border-left:4px solid var(--dg-section-color,var(--dg-accent));margin:1.5rem 0;padding:0.25rem 0 0.25rem 1.25rem;font-size:1.25rem;font-style:italic;color:var(--dg-section-color,var(--dg-accent));}
 .dg-dimension-quotes{display:flex;flex-wrap:wrap;gap:1rem;margin:1rem 0 2rem;}
 .dg-dimension-quotes .dg-pull-quote{flex:1 1 220px;font-size:1rem;}
 .dg-table{width:100%;border-collapse:collapse;margin:1rem 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:0.92rem;}
 .dg-table th,.dg-table td{text-align:left;padding:0.5rem 0.75rem;border-bottom:1px solid var(--dg-border);vertical-align:top;}
-.dg-table th{color:var(--dg-muted);font-weight:600;}
+.dg-table th{color:var(--dg-section-color,var(--dg-muted));font-weight:600;}
 .dg-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem;}
-.dg-card{background:var(--dg-card);border:1px solid var(--dg-border);border-radius:8px;padding:1.25rem;}
+.dg-card{background:var(--dg-card);border:1px solid var(--dg-border);border-top:3px solid var(--dg-section-color,var(--dg-accent));border-radius:8px;padding:1.25rem;}
 .dg-card h4{font-size:0.8rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--dg-muted);margin-bottom:0.35rem;}
 .dg-merged-note{color:var(--dg-muted);font-size:0.85rem;}
 .dg-unavailable,.dg-empty{color:var(--dg-muted);font-style:italic;}
 .dg-metrics,.dg-summary-line{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--dg-muted);}
-.dg-biplot{width:100%;height:640px;}
+.dg-biplot{width:100%;height:860px;}
 .dg-narrative p{font-size:1.05rem;}
-pre.mermaid{background:var(--dg-card);border:1px solid var(--dg-border);border-radius:8px;padding:1.5rem;overflow-x:auto;}
+pre.mermaid{background:var(--dg-card);border:1px solid var(--dg-border);border-top:3px solid var(--dg-section-color,var(--dg-accent));border-radius:8px;padding:1.5rem;overflow-x:auto;}
 @media (max-width:720px){
   .dg-layout{flex-direction:column;}
   .dg-nav{position:static;width:auto;display:flex;overflow-x:auto;padding:1rem;border-bottom:1px solid var(--dg-border);}
-  .dg-nav a{padding:0.35rem 0.75rem;border-left:none;border-bottom:2px solid transparent;white-space:nowrap;}
-  .dg-nav a:hover{border-left-color:transparent;border-bottom-color:var(--dg-accent);}
+  .dg-nav a{padding:0.35rem 0.75rem;border-left:none;border-bottom:2px solid transparent;border-radius:0;white-space:nowrap;}
+  .dg-nav a:hover,.dg-nav a:focus{border-left-color:transparent;border-bottom-color:var(--dg-section-color,var(--dg-accent));}
+  .dg-biplot{height:520px;}
 }
 </style>"""
 
 
 def _render_nav(present_ids: set) -> str:
     """Render the sticky in-page navigation for whichever sections are present (KTD5)."""
-    links = "".join(
-        f'<a href="#{anchor}">{_e(label)}</a>' for anchor, label in _NAV_ITEMS if anchor in present_ids
-    )
-    return f'<nav class="dg-nav" aria-label="Section navigation">{links}</nav>'
+    links = []
+    for anchor, label in _NAV_ITEMS:
+        if anchor not in present_ids:
+            continue
+        icon, _title, color = _SECTION_META[anchor]
+        links.append(
+            f'<a href="#{anchor}" style="--dg-section-color:{color}">'
+            f'<span class="dg-icon" aria-hidden="true">{icon}</span> {_e(label)}</a>'
+        )
+    return f'<nav class="dg-nav" aria-label="Section navigation">{"".join(links)}</nav>'
 
 
 def render_html_report(
