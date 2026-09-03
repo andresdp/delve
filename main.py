@@ -759,9 +759,13 @@ async def _run_html_report(args: argparse.Namespace) -> None:
 
     name = data.get("taxonomy_name") if isinstance(data, dict) else None
     taxonomy_name = name or settings.taxonomy.name
-    configurable = {"name": taxonomy_name}
-    if args.output:
-        configurable["visualization_output_dir"] = args.output
+    # Default to the taxonomy file's own folder rather than the generic
+    # output dir, matching --visualize's convention, so the report lands
+    # next to the taxonomy JSON and its siblings without requiring --output.
+    configurable = {
+        "name": taxonomy_name,
+        "visualization_output_dir": args.output if args.output else str(taxonomy_path.resolve().parent),
+    }
     configuration = Configuration.from_runnable_config({"configurable": configurable})
 
     n_values = _count_values(clusters)

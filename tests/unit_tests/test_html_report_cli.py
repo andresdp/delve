@@ -83,6 +83,19 @@ def test_run_html_report_end_to_end_writes_self_contained_page(tmp_path):
     assert "plotly-graph-div" in content
 
 
+def test_run_html_report_without_output_writes_next_to_taxonomy_file(tmp_path):
+    """No --output: the report lands in the taxonomy file's own folder (matches --visualize)."""
+    taxonomy_path = _write_full_sibling_set(tmp_path)
+    args = argparse.Namespace(
+        html_report=str(taxonomy_path), output=None, iteration=None, config=None,
+    )
+
+    asyncio.run(main_module._run_html_report(args))
+
+    out_files = list(tmp_path.glob("*_html_report_*.html"))
+    assert len(out_files) == 1
+
+
 def test_run_html_report_with_no_siblings_still_writes_a_page(tmp_path):
     """A taxonomy JSON with no sibling artifacts at all still produces a page, not a crash."""
     taxonomy_path = tmp_path / f"lonely_taxonomy_{TIMESTAMP}.json"
