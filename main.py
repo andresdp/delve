@@ -299,12 +299,25 @@ def parse_args() -> argparse.Namespace:
              "under --output if given. Mutually exclusive with --visualize "
              "and --report.",
     )
+    standalone_mode.add_argument(
+        "--html-report",
+        type=str,
+        default=None,
+        metavar="TAXONOMY",
+        help="Render one self-contained, offline HTML page from a saved "
+             "taxonomy JSON and exit (does not run the pipeline). Combines "
+             "the run summary, grounded-theory report, biplot, and "
+             "evaluation scoreboard already saved alongside the taxonomy "
+             "file, when present. Accepts any *_taxonomy_*.json output. "
+             "Mutually exclusive with --visualize, --report, and --evaluate.",
+    )
     visualize_group.add_argument(
         "--iteration",
         type=int,
         default=None,
-        help="With --visualize or --report: 1-based taxonomy iteration to render. "
-             "Default: selected_clusters if present, else the last iteration.",
+        help="With --visualize, --report, or --html-report: 1-based taxonomy "
+             "iteration to render. Default: selected_clusters if present, "
+             "else the last iteration.",
     )
     visualize_group.add_argument(
         "--axis-positions",
@@ -374,30 +387,10 @@ def _display_taxonomy(
     # Show all explanations/rationale across iterations
     if explanations and any(explanations):
         n = len(explanations)
-        tail_labels = {}
-        if mode == "test":
-            # Test mode: seed iteration + aggregation only.
-            tail_labels = {0: "Seed"}
-            if n >= 2:
-                tail_labels[n - 1] = "Aggregation"
-        else:
-            if n >= 1:
-                tail_labels[n - 1] = "Selection"
-            if n >= 2:
-                tail_labels[n - 2] = "Consolidation"
-            if n >= 3:
-                tail_labels[n - 3] = "Review"
         parts = []
         for i, explanation in enumerate(explanations):
             if explanation:
-                if i in tail_labels:
-                    label = tail_labels[i]
-                elif mode == "test":
-                    label = "Update"
-                elif i == 0:
-                    label = "Generation"
-                else:
-                    label = "Update"
+                label = report_renderer.iteration_label(i, n, mode)
                 parts.append(f"[bold cyan]{i+1}. {label}:[/bold cyan] {explanation}")
         if parts:
             console.print(Panel(
@@ -753,6 +746,85 @@ async def _run_report(args: argparse.Namespace) -> None:
         console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
 
     console.print(f"\n  [bold green]✅ Report saved to:[/bold green] {out_path}\n")
+
+
+async def _run_html_report(args: argparse.Namespace) -> None:
+    """Render a unified, self-contained HTML report from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+    taxonomy_path = Path(args.html_report)
+    data = _load_taxonomy_file(args.html_report)
+
+    clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+    dropped_dimensions, all_clusters_for_dropped = _dropped_dimensions_for_view(data, args.iteration)
+
+    name = data.get("taxonomy_name") if isinstance(data, dict) else None
+    taxonomy_name = name or settings.taxonomy.name
+    # Default to the taxonomy file's own folder rather than the generic
+    # output dir, matching --visualize's convention, so the report lands
+    # next to the taxonomy JSON and its siblings without requiring --output.
+    configurable = {
+        "name": taxonomy_name,
+        "visualization_output_dir": args.output if args.output else str(taxonomy_path.resolve().parent),
+    }
+    configuration = Configuration.from_runnable_config({"configurable": configurable})
+
+    n_values = _count_values(clusters)
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.html_report}\n"
+        f"[bold]Iteration:[/bold] {iteration}\n"
+        f"[bold]Values:[/bold] {n_values}\n"
+        f"[bold]Dimensions:[/bold] {len(clusters)}",
+        title="[bold bright_blue]🌐 Unified HTML Report[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+
+    from taxonomy_generator import html_report
+    from taxonomy_generator.visualization import resolve_output_dir
+
+    siblings = html_report.discover_siblings(taxonomy_path, taxonomy_name, iteration)
+    # A matched sibling can still fail to read (deleted or corrupted between
+    # discovery and read) — html_report's fail-soft readers degrade that
+    # section to "not available" instead of crashing the whole command.
+    report_md_text = html_report.read_sibling_text(siblings.report.path) if siblings.report else None
+    biplot_html_text = html_report.read_sibling_text(siblings.biplot.path) if siblings.biplot else None
+    documents_data = html_report.read_sibling_json(siblings.documents.path) if siblings.documents else None
+    # resolve_evaluation_path already parsed this file to find the match —
+    # reuse it instead of reading it from disk a second time.
+    evaluation_data = siblings.evaluation.data if siblings.evaluation else None
+    for match, label in (
+        (siblings.report, "report"), (siblings.biplot, "biplot"),
+        (siblings.evaluation, "evaluation"), (siblings.documents, "documents"),
+    ):
+        if match is None:
+            console.print(f"  [dim]No {label} sibling found — that section will show as unavailable.[/dim]")
+        elif match.approximate:
+            console.print(f"  [dim]Multiple {label} candidates found — using the best match: {match.path.name}[/dim]")
+
+    import plotly.offline as pyo
+
+    page_html = html_report.render_html_report(
+        taxonomy_name=taxonomy_name,
+        taxonomy_data=data if isinstance(data, dict) else {},
+        view_clusters=clusters,
+        dropped_dimensions=dropped_dimensions,
+        all_clusters_for_dropped=all_clusters_for_dropped,
+        documents_data=documents_data,
+        report_md_text=report_md_text,
+        biplot_html_text=biplot_html_text,
+        evaluation_data=evaluation_data,
+        mermaid_js=html_report.get_vendored_mermaid_js(),
+        plotlyjs_js=pyo.get_plotlyjs(),
+    )
+
+    out_dir = resolve_output_dir(configuration)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name_prefix = html_report.sanitize_filename_component(configuration.name)
+    name_prefix = f"{name_prefix}_" if name_prefix else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = out_dir / f"{name_prefix}html_report_{timestamp}.html"
+    out_path.write_text(page_html, encoding="utf-8")
+
+    console.print(f"\n  [bold green]✅ HTML report saved to:[/bold green] {out_path}\n")
 
 
 def _display_scoreboard(scoreboard: Optional[dict], configuration: Configuration) -> None:
@@ -1236,6 +1308,13 @@ async def run(args: argparse.Namespace) -> None:
         taxonomy_data = {
             "taxonomy_name": effective_config.name,
             "consolidated": bool(effective_config.consolidate_values),
+            "mode": mode,
+            "run_metrics": {
+                "elapsed_seconds": round(elapsed, 1),
+                "total_tokens": token_tracker.total_tokens,
+                "prompt_tokens": token_tracker.prompt_tokens,
+                "completion_tokens": token_tracker.completion_tokens,
+            },
             "iterations": [],
         }
         if saturation_history:
@@ -1417,6 +1496,11 @@ def main() -> None:
     # Standalone evaluation mode — score/compare saved taxonomy JSONs and exit.
     if args.evaluate:
         asyncio.run(_run_evaluate(args))
+        return
+
+    # Standalone unified HTML report mode — combine sibling artifacts and exit.
+    if args.html_report:
+        asyncio.run(_run_html_report(args))
         return
 
     logger.info("Delve Taxonomy Generator starting")
