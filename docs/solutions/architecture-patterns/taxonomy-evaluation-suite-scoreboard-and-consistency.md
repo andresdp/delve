@@ -1,6 +1,7 @@
 ---
 title: Taxonomy Evaluation Suite with Scoreboard and Consistency Comparison
 date: 2026-08-21
+last_updated: 2026-09-05
 category: architecture-patterns
 module: taxonomy_generator
 problem_type: architecture_pattern
@@ -10,7 +11,8 @@ applies_when:
   - "You need to evaluate the quality of a generated taxonomy without rerunning the pipeline"
   - "You want to compare multiple saved taxonomies from the same corpus for run-to-run consistency"
   - "You want in-graph, observe-only evaluation that never routes or fails the pipeline"
-tags: [taxonomy-evaluation, scoreboard, consistency-comparison, deepeval, grounded-theory-report, evaluation-node, standalone-cli]
+  - "You are verifying that a plan's described graph wiring was actually completed, not just designed and partially built"
+tags: [taxonomy-evaluation, scoreboard, consistency-comparison, deepeval, grounded-theory-report, evaluation-node, standalone-cli, dead-code, graph-wiring-verification]
 ---
 
 # Taxonomy Evaluation Suite with Scoreboard and Consistency Comparison
@@ -262,6 +264,16 @@ Node implementation in `nodes/taxonomy_evaluator.py`:
 
 **Invariants:** the node never writes `clusters`, `selected_clusters`, or any routing fields; it is strictly observe-only and safe to insert without affecting graph control flow.
 
+### 4b. Postscript (2026-09-05): the graph.py edges were never actually added
+
+The heading above this postscript — "Add an observe-only in-graph evaluation node" — describes the node, state field, and routing functions (`routing/should_continue_after_evaluation.py`: `should_evaluate_after_selection`, `should_continue_after_evaluation`) exactly as originally designed for this suite: train mode `select_dimensions → evaluate_taxonomy → label_documents`, test mode `label_documents → evaluate_taxonomy → aggregate_new_values`. All of that was genuinely built by the commit that introduced it (`1519860`, "wire observe-only evaluate_taxonomy node into the graph"). What that commit's diff actually touched, though, was only `nodes/taxonomy_evaluator.py`, `routing/should_continue_after_evaluation.py`, and `state.py` — **`graph.py` itself was never edited to call `builder.add_node`/`builder.add_edge` for this node.** The routing functions above sat unimported and unused, and `evaluate_taxonomy` never ran on a single live pipeline invocation, from that commit until this doc's `last_updated` date — roughly two weeks.
+
+This went undetected for a structural reason, not an oversight in testing discipline: the node's own defining invariant — "observe-only, degrades gracefully, never fails the run" — means a *missing* node produces the exact same visible behavior as a *present-but-disabled* node. There was no crash, no failing test, no error to chase. The scoreboard panel/JSON/report code in `main.py` and `report_renderer.py` (Section 5 above) was fully built and worked correctly in isolation and via the standalone `--evaluate` CLI mode — it simply never received input from a live run, because nothing ever produced it.
+
+It was found and fixed on branch `feat/taxonomy-evaluation-feedback-integration` (commit `83dacf2` as of this writing) while implementing a follow-on feature (feeding evaluation results into `format_feedback` for `update_taxonomy`/`review_taxonomy`) that needed to build on top of this exact wiring — reading `graph.py` to find the existing insertion point revealed it was never inserted. `graph.py` now registers the node under two names (`evaluate_taxonomy` for a new per-iteration loop-feedback call, `evaluate_taxonomy_final` reusing the original design's routing functions verbatim for the post-selection/post-labeling scoreboard), completing the topology this section describes.
+
+**Lesson for future work in this codebase:** when a plan or a prior doc describes graph wiring ("node X is inserted between A and B"), verify the claim by reading `graph.py`'s actual `add_node`/`add_edge` calls directly — do not trust a commit message or a docstring alone, especially for an observe-only node, where "never wired in" and "wired in but doing nothing wrong" are indistinguishable from the outside.
+
 ### 5. Surface the scoreboard in the CLI and report
 
 Two surfaces reuse the same scoreboard dict shape.
@@ -366,5 +378,8 @@ It does **not** apply to changes that should gate or re-route the pipeline based
 ## Related
 
 - `docs/plans/2026-08-20-0031-feat-taxonomy-evaluation-suite-plan.md` — unified plan that defines the evaluation suite's requirements, key technical decisions, implementation units, and verification contract.
+- `docs/plans/2026-09-05-1905-feat-taxonomy-evaluation-feedback-integration-plan.md` — the follow-on plan that discovered and completed the missing `graph.py` wiring (see the postscript above) while adding per-iteration feedback into `format_feedback`.
 - `docs/solutions/architecture-patterns/surface-langgraph-node-output-through-state-schema-to-cli-and-report.md` — the four-step recipe this pattern reuses to surface the `evaluation` field into JSON and reports.
+- `docs/solutions/integration-issues/deepeval-geval-temperature-unsupported-on-newer-openai-models.md` — a bug in this suite's judge-model integration that stayed latent until the postscript above's fix made `evaluate_taxonomy` actually run for the first time.
+- `docs/solutions/logic-errors/html-report-ignores-embedded-evaluation-scoreboard.md` — a second gap this same live-run exposed: `--html-report` never read the taxonomy JSON's own embedded `evaluation` key.
 - `CONCEPTS.md` — entries for **Scoreboard**, **Consistency Comparison**, and **Observe-Only Evaluation** define the shared vocabulary this suite uses.
