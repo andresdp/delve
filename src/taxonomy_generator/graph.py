@@ -13,12 +13,17 @@ from taxonomy_generator.nodes.minibatches_generator import generate_minibatches
 from taxonomy_generator.nodes.open_coder import open_code_minibatch
 from taxonomy_generator.nodes.saturation_checker import check_saturation
 from taxonomy_generator.nodes.summary_generator import generate_summaries
+from taxonomy_generator.nodes.taxonomy_evaluator import evaluate_taxonomy
 from taxonomy_generator.nodes.taxonomy_generator import generate_taxonomy
 from taxonomy_generator.nodes.taxonomy_reviewer import review_taxonomy
 from taxonomy_generator.nodes.taxonomy_updater import update_taxonomy
 from taxonomy_generator.nodes.value_aggregator import aggregate_new_values
 from taxonomy_generator.nodes.value_consolidator import consolidate_values
 from taxonomy_generator.routing.should_aggregate_values import should_aggregate_values
+from taxonomy_generator.routing.should_continue_after_evaluation import (
+    should_continue_after_evaluation,
+    should_evaluate_after_selection,
+)
 from taxonomy_generator.routing.should_generate_or_update import (
     should_generate_or_update,
 )
@@ -35,6 +40,8 @@ builder.add_node("get_minibatches", generate_minibatches)
 builder.add_node("open_code_minibatch", open_code_minibatch)
 builder.add_node("generate_taxonomy", generate_taxonomy)
 builder.add_node("update_taxonomy", update_taxonomy)
+builder.add_node("evaluate_taxonomy", evaluate_taxonomy)
+builder.add_node("evaluate_taxonomy_final", evaluate_taxonomy)
 builder.add_node("check_saturation", check_saturation)
 builder.add_node("review_taxonomy", review_taxonomy)
 builder.add_node("consolidate_values", consolidate_values)
@@ -68,11 +75,14 @@ builder.add_conditional_edges(
     }
 )
 
-# Both axial-coding steps flow into the saturation check, which also
-# handles exhaustion (fewer remaining batches than the streak threshold,
-# e.g. a single-minibatch corpus) by routing on to review.
-builder.add_edge("generate_taxonomy", "check_saturation")
-builder.add_edge("update_taxonomy", "check_saturation")
+# Both axial-coding steps flow through the observe-only evaluator (loop
+# context — scores the current draft, feeding format_feedback for the next
+# iteration) before the saturation check, which also handles exhaustion
+# (fewer remaining batches than the streak threshold, e.g. a
+# single-minibatch corpus) by routing on to review.
+builder.add_edge("generate_taxonomy", "evaluate_taxonomy")
+builder.add_edge("update_taxonomy", "evaluate_taxonomy")
+builder.add_edge("evaluate_taxonomy", "check_saturation")
 
 # After each axial pass: continue open-coding the next batch, or move on to
 # review when saturated or when the minibatches are exhausted.
@@ -86,17 +96,37 @@ builder.add_conditional_edges(
 )
 
 # Post-review stages: value consolidation, use-case dimension selection,
-# then two-level labeling.
+# then two-level labeling. The observe-only evaluator (final context) scores
+# the settled view once here (train) — its scoreboard is what ends up in
+# state.evaluation, since this call always executes last.
 builder.add_edge("review_taxonomy", "consolidate_values")
 builder.add_edge("consolidate_values", "select_dimensions")
-builder.add_edge("select_dimensions", "label_documents")
+builder.add_conditional_edges(
+    "select_dimensions",
+    should_evaluate_after_selection,
+    {
+        "evaluate_taxonomy": "evaluate_taxonomy_final",
+        "label_documents": "label_documents",
+    }
+)
+builder.add_conditional_edges(
+    "evaluate_taxonomy_final",
+    should_continue_after_evaluation,
+    {
+        "label_documents": "label_documents",
+        "aggregate_new_values": "aggregate_new_values",
+    }
+)
 
-# After labeling: train mode ends; test mode aggregates proposed new values
-# into the frozen dimensions and emits the delta summary.
+# After labeling: train mode ends; test mode routes through the final
+# evaluator (frozen seed vs. new corpus, a drift signal) before aggregating
+# proposed new values into the frozen dimensions and emitting the delta
+# summary.
 builder.add_conditional_edges(
     "label_documents",
     should_aggregate_values,
     {
+        "evaluate_taxonomy": "evaluate_taxonomy_final",
         "aggregate_new_values": "aggregate_new_values",
         "__end__": END,
     }

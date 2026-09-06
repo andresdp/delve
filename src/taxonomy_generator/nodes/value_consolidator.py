@@ -68,12 +68,13 @@ def _merge_group(
     group_vectors: "np.ndarray",
     dimension_id: str,
     index_offset: int,
-) -> Tuple[Dict, str]:
+) -> Tuple[Dict, List[str]]:
     """Build one consolidated value from a merge group.
 
     The canonical label/description is taken from the value nearest to the
     group centroid (deterministic). Supporting doc ids are the union across
-    the group; merged-away ids are recorded in the returned provenance.
+    the group; merged-away labels are recorded in the returned provenance
+    (empty when the group has a single member — nothing was merged).
     """
     centroid = group_vectors.mean(axis=0)
     # Nearest to centroid among *normalized* vectors: smallest Euclidean distance.
@@ -102,12 +103,8 @@ def _merge_group(
         "merged_from": merged_from,
     }
 
-    merged_ids = [m["id"] for m in merged_from]
-    provenance = (
-        f"merged {canonical.get('id')} + {', '.join(merged_ids)}" if merged_ids
-        else f"kept {canonical.get('id')} as-is"
-    )
-    return consolidated, provenance
+    merged_labels = [m["label"] or m["id"] for m in merged_from]
+    return consolidated, merged_labels
 
 
 async def consolidate_values(
@@ -165,7 +162,8 @@ async def consolidate_values(
     borderline_upper = epsilon + band
 
     merge_chain = _setup_merge_chain(configuration)
-    merged_provenance: List[str] = []
+    merge_descriptions: List[str] = []
+    kept_as_is_count = 0
     # Global row of each draft value in the embedding matrix.
     global_ids = {v["id"]: i for i, v in enumerate(all_values)}
 
@@ -187,6 +185,7 @@ async def consolidate_values(
             ]
             new_cluster["values"] = renumbered
             consolidated_clusters.append(new_cluster)
+            kept_as_is_count += len(dim_values)
             continue
 
         dim_vector_rows = [global_ids[v["id"]] for v in dim_values]
@@ -252,16 +251,25 @@ async def consolidate_values(
 
         components = connected_components(len(dim_values), merge_edges)
 
+        dim_name = cluster.get("name") or dim_id
+
         # Step 6: canonical label per group (nearest-to-centroid).
         new_values: List[Dict] = []
         for offset, members in enumerate(components, start=1):
             group_values = [dim_values[m] for m in members]
             group_vectors = dim_vectors[members]
-            consolidated, provenance = _merge_group(
+            consolidated, merged_labels = _merge_group(
                 group_values, group_vectors, dim_id, offset
             )
             new_values.append(consolidated)
-            merged_provenance.append(f"[{dim_id}] {provenance}")
+            if merged_labels:
+                canonical_label = consolidated["label"] or consolidated["id"]
+                sources = ", ".join(f'"{label}"' for label in merged_labels)
+                merge_descriptions.append(
+                    f'[{dim_name}] {sources} → "{canonical_label}"'
+                )
+            else:
+                kept_as_is_count += 1
 
         new_cluster["values"] = new_values
         consolidated_clusters.append(new_cluster)
@@ -280,11 +288,23 @@ async def consolidate_values(
             stage="consolidate", iteration_index=len(state.clusters),
         )
 
-    explanation = (
-        f"Consolidated {len(all_values)} draft values. Merge decisions "
-        f"(threshold {epsilon:.3f}, borderline band {band:.3f}): "
-        + "; ".join(merged_provenance)
+    summary = (
+        f"Consolidated {len(all_values)} draft values across {len(reviewed)} dimensions "
+        f"(merge threshold {epsilon:.3f}, borderline band {band:.3f})."
     )
+    if merge_descriptions:
+        merges_text = "\n".join(f"  - {d}" for d in merge_descriptions)
+        explanation = (
+            f"{summary} Merged {len(merge_descriptions)} near-duplicate value"
+            f"{'s' if len(merge_descriptions) != 1 else ''}:\n{merges_text}"
+        )
+        if kept_as_is_count:
+            explanation += (
+                f"\nThe remaining {kept_as_is_count} value"
+                f"{'s were' if kept_as_is_count != 1 else ' was'} distinct enough to keep as generated."
+            )
+    else:
+        explanation = f"{summary} No values were merged — all {kept_as_is_count} remained distinct."
 
     return {
         "clusters": [consolidated_clusters],

@@ -99,9 +99,15 @@ class TaxonomyOutput(BaseModel):
     )
     explanation: str = Field(
         description=(
-            "Your rationale for this taxonomy: why you chose these categories, "
-            "how they capture the themes in the data, and what trade-offs you made. "
-            "Must not be empty."
+            "Your rationale for this taxonomy, in full sentences — not a clipped, "
+            "fragment-style list. Explicitly name every dimension you added, removed, "
+            "merged, split, or substantially reworded, and explain the change (e.g. "
+            "\"Added 'Payment Processing' because several documents described billing "
+            "flows no existing dimension covered; merged 'Bike Lifecycle' into 'Rental "
+            "Lifecycle' because they described the same underlying axis\"). Do not refer "
+            "to a dimension only by number or vague description — use its actual name. "
+            "Also explain how the categories capture the themes in the data and what "
+            "trade-offs you made. Must not be empty."
         ),
     )
 

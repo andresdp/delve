@@ -209,13 +209,50 @@ def format_taxonomy(clusters: List[Dict[str, str]], include_values: bool = True)
     return json.dumps(items, indent=2)
 
 
+def format_evaluation_summary(scoreboard: Dict) -> str:
+    """Format an evaluation scoreboard into a short, actionable feedback section.
+
+    Sorts scored criteria weakest-first so the model sees what to prioritize
+    first. Criteria marked ``"evaluated": False`` (no documents available for
+    a data-grounded criterion) are excluded — they carry no score to act on.
+
+    Args:
+        scoreboard: A scoreboard dict per ``evaluation/runner.py::run_scoreboard``
+            (``{"criteria": [...], "overall": ..., "model": ..., "unavailable": ...}``).
+
+    Returns:
+        A multi-line feedback section, or ``""`` if there is nothing scored.
+    """
+    criteria = [c for c in scoreboard.get("criteria", []) if c.get("evaluated") is not False]
+    if not criteria:
+        return ""
+
+    criteria = sorted(criteria, key=lambda c: c.get("score") if c.get("score") is not None else 1.0)
+    overall = scoreboard.get("overall")
+    overall_str = f"{overall:.2f}" if isinstance(overall, (int, float)) else "n/a"
+
+    lines = [f"Automated evaluation summary for the current taxonomy (overall {overall_str}):"]
+    for criterion in criteria:
+        score = criterion.get("score")
+        score_str = f"{score:.2f}" if isinstance(score, (int, float)) else "n/a"
+        lines.append(f"- {criterion.get('name', 'Unnamed criterion')}: {score_str}")
+    lines.append(
+        "Please prioritize improving the lowest-scoring criteria above, "
+        "while preserving dimensions that already score well."
+    )
+    return "\n".join(lines)
+
+
 def format_feedback(state: State) -> str:
     """Format feedback from state into a string for taxonomy prompts.
 
-    Merges both feedback channels when present: external feedback
+    Merges all feedback channels when present, in order: external feedback
     (``state.external_feedback``, persistent for the whole run — CLI flag,
-    feedback file, or config text) first, then the automated saturation
-    critic's content (``state.user_feedback``, rewritten every iteration).
+    feedback file, or config text), the automated saturation critic's
+    content (``state.user_feedback``, rewritten every iteration), then the
+    latest automated evaluation scoreboard (``state.evaluation_history``,
+    written by the observe-only ``evaluate_taxonomy`` node — omitted when
+    absent or marked unavailable).
 
     Returns ``"None."`` when no feedback is present so the LLM receives
     a clear signal to proceed with standard clustering.
@@ -238,6 +275,13 @@ def format_feedback(state: State) -> str:
         parts.append(f"Previous user feedback: {state.user_feedback.feedback}")
         if state.user_feedback.explanation:
             parts.append(f"Reason for modification: {state.user_feedback.explanation}")
+
+    history = getattr(state, "evaluation_history", None)
+    latest_evaluation = history[-1] if history else None
+    if latest_evaluation and not latest_evaluation.get("unavailable"):
+        evaluation_section = format_evaluation_summary(latest_evaluation)
+        if evaluation_section:
+            parts.append(evaluation_section)
 
     if not parts:
         return "None."

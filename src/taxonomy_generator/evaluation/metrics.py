@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import List
 
 from deepeval.metrics import GEval
+from deepeval.models import OpenAIModel
 from deepeval.test_case import SingleTurnParams
 
 # Module docstring carries the design rationale; entries below are adapted
@@ -118,6 +119,13 @@ def build_metrics(
     if include_coverage:
         criteria.append(COVERAGE_CRITERION)
 
+    # deepeval's OpenAIModel defaults to temperature=0.0, which newer
+    # reasoning-tier models (e.g. gpt-5.x) reject outright ("Only the
+    # default (1) value is supported"). temperature=1.0 is valid for both
+    # older and newer OpenAI models, so it is used unconditionally here
+    # rather than special-casing by model name.
+    judge_model = OpenAIModel(model=model, temperature=1.0)
+
     metrics: List[GEval] = []
     for criterion in criteria:
         metric = GEval(
@@ -128,7 +136,7 @@ def build_metrics(
                 SingleTurnParams.ACTUAL_OUTPUT,
             ],
             threshold=threshold,
-            model=model,
+            model=judge_model,
             async_mode=True,
         )
         # Stash the criterion metadata so the runner can map metric -> row.
