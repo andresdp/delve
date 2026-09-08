@@ -18,6 +18,16 @@ Good open codes:
 - Are **fine-grained**: one code per distinct concept; a rich document yields several codes, a sparse one may yield few or none.
 - Carry a **rationale** explaining why the code applies, judged against the use case.
 
+## Decision Status
+
+Every open code must also carry a `status`, classified from **the document's own framing** — not from what the analyst would choose:
+
+- `accepted` — the source content adopted this decision (e.g., "We chose Redis for the caching layer.").
+- `rejected` — the source content explicitly declined this decision (e.g., "We considered GraphQL but decided against it." — even if the document praises GraphQL's merits, this is still `rejected` because the document says it was not adopted).
+- `outcome` — the source content merely reports this as a trade-off or result, not a decision being made (e.g., "Latency dropped to 50ms after the change." is an outcome, not a decision).
+
+`status` is the **authoritative** field for downstream filtering and merging — it is what later stages use to decide, for example, whether a code represents an adopted decision. `rationale` still explains *why* the code applies, but its wording must not contradict `status` (e.g., do not write a rationale that reads as endorsing an option while marking it `rejected`).
+
 ## Requirements
 
 - Extract between 0 and 8 codes per document. Only extract what the document actually supports.
