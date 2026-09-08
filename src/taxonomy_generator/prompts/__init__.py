@@ -71,7 +71,7 @@ TAXONOMY_GENERATION_PROMPT = _load_prompt(
         "\n"
         "- You can ignore low quality or ambiguous data points.\n"
         "\n"
-        "## Q2. Why did you choose these dimensions? Explain your reasoning **within {explanation_length} words**. For each dimension, explain what axis of variation it captures and why it is orthogonal to the others. Describe the values you drafted and any relations you identified. Include how you addressed any user feedback."
+        "## Q2. Why did you choose these dimensions? Explain your reasoning **within {explanation_length} words**. For each dimension, explain what axis of variation it captures and why it is orthogonal to the others. Describe the values you drafted and any relations you identified. Include how you addressed any user feedback. Note any near-duplicate values you kept distinct because they carried different status (accepted, rejected, outcome)."
     ),
 )
 
@@ -102,7 +102,7 @@ TAXONOMY_UPDATE_PROMPT = _load_prompt(
         "\n"
         "- If an **\"Other\"** or catch-all dimension exists, try to minimize it by re-assigning documents to specific dimensions or creating new specific ones.\n"
         "\n"
-        "## Q2. What did you change and why? Explain your reasoning **within {explanation_length} words**. List each modification and its justification, including changes to values and relations."
+        "## Q2. What did you change and why? Explain your reasoning **within {explanation_length} words**. List each modification and its justification, including changes to values and relations. Note when adopted and rejected alternatives were kept as distinct values because of their differing status."
     ),
 )
 
