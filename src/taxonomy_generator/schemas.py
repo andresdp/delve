@@ -32,6 +32,13 @@ class OpenCode(BaseModel):
     doc_id: str = Field(description="Id of the document the code was extracted from.")
     label: str = Field(description="Concise open-code label naming the concept or decision found in the document.")
     rationale: str = Field(description="Why this code applies to the document, grounded in the use case.")
+    status: Literal["accepted", "rejected", "outcome"] = Field(
+        description=(
+            "accepted: the source content adopted this decision. rejected: the source "
+            "content explicitly declined this decision. outcome: the source content merely "
+            "reported this as a trade-off or outcome, not a decision made."
+        )
+    )
 
 
 class OpenCodesOutput(BaseModel):
@@ -70,6 +77,14 @@ class Value(BaseModel):
     supporting_doc_ids: List[str] = Field(
         default_factory=list,
         description="Ids of documents whose open codes support this value.",
+    )
+    status: Literal["accepted", "rejected", "outcome"] = Field(
+        default="accepted",
+        description=(
+            "accepted: the source content adopted this decision. rejected: the source "
+            "content explicitly declined this decision. outcome: the source content merely "
+            "reported this as a trade-off or outcome, not a decision made."
+        ),
     )
 
 
