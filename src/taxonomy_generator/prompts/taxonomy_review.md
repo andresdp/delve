@@ -35,6 +35,9 @@ Evaluate the taxonomy against these criteria:
 | **Use case alignment** | Does every dimension serve the stated use case? Remove dimensions that are irrelevant, even if they exist in the data. |
 | **No catch-alls** | Does the taxonomy contain an "Other", "Miscellaneous", or similar vague dimension? Can those documents be re-assigned to more specific dimensions instead? |
 | **Axis vs. value check** | Is each dimension truly an *axis of variation* rather than a single *value*? A dimension named "Bug Reports" might really be a value on an "Issue Type" axis that also includes "Feature Requests", "Questions", etc. |
+| **Quality-attribute grounding** | Does each dimension correspond to a recognizable quality attribute, constraint, or trade-off implied by the use case, rather than an arbitrary topical grouping? |
+| **Rejected-alternative handling** | Are `rejected`-status values kept distinct from `accepted` ones, never presented as equivalent peer values on the same axis? |
+| **Design-space gap awareness** | Given the existing dimensions and values, does the sampled data reveal an implied-but-unaddressed value combination the review sample suggests exists but no value currently names? |
 
 ## Allowed Adjustments
 
@@ -49,6 +52,7 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 | **Remove** | A dimension has no support in the data and is unlikely to be needed (use sparingly). |
 | **Add** | Documents in the sample reveal a fundamentally new axis of variation not captured by existing dimensions. Total must still not exceed **{max_num_clusters}**. |
 | **No change** | Valid outcome. If the taxonomy is well-structured as a set of orthogonal dimensions, return it as-is. Do not force modifications. |
+| **Reclassify value status** | The review sample provides direct evidence that a value's `status` is wrong (e.g., a value marked `accepted` is explicitly declined in the sampled documents). Change `status` only with direct evidence from the sample — never as a side effect of re-emitting the taxonomy. |
 
 ## Key Principle: Minimal Intervention
 
@@ -65,6 +69,7 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 ### Format
 - Each cluster has: **id** (number starting from 1, incremented), **name** (within {cluster_name_length} words, a noun-driven phrase that describes the *axis of variation* — use noun-based constructions like "Request Routing Strategy" rather than verb-based ones like "Route Requests"), **description** (within {cluster_description_length} words, explaining the range of documents along this dimension and what distinguishes it from other dimensions).
 - Total dimensions: **{max_num_clusters}**.
+- Each value's **status** (`accepted`, `rejected`, or `outcome`) must be preserved verbatim from the existing taxonomy unless a review adjustment genuinely reclassifies it — never let the field silently default to `accepted` on re-emission.
 - Output in **English** only.
 
 ### Quality

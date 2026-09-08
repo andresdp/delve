@@ -8,6 +8,7 @@ prompt template — append new ones here as later units add prompt content.
 from taxonomy_generator.prompts import (
     OPEN_CODING_PROMPT,
     TAXONOMY_GENERATION_PROMPT,
+    TAXONOMY_REVIEW_PROMPT,
     TAXONOMY_UPDATE_PROMPT,
 )
 
@@ -50,6 +51,33 @@ def test_taxonomy_generation_prompt_anchors_quality_attributes_and_status():
     lowered = system_text.lower()
     assert "status" in lowered
     assert "never group codes of different status into one value" in lowered
+
+
+def test_taxonomy_review_prompt_has_new_criteria_and_status_preservation():
+    messages = TAXONOMY_REVIEW_PROMPT.format_messages(
+        use_case="test use case",
+        feedback="no feedback",
+        cluster_name_length="5",
+        cluster_description_length="20",
+        explanation_length="200",
+        max_num_clusters="10",
+        data_json="[]",
+        taxonomy_json="[]",
+    )
+    system_text = messages[0].content
+
+    # R8/R10: new Review Criteria rows.
+    assert "Quality-attribute grounding" in system_text
+    assert "Rejected-alternative handling" in system_text
+    assert "Design-space gap awareness" in system_text
+
+    # R3: preserve each existing value's status verbatim unless a review
+    # adjustment genuinely reclassifies it — never silently default to
+    # "accepted" on re-emission.
+    lowered = system_text.lower()
+    assert "status" in lowered
+    assert "preserved verbatim" in lowered
+    assert "never let the field silently default to `accepted`" in lowered
 
 
 def test_taxonomy_update_prompt_anchors_quality_attributes_and_status():
