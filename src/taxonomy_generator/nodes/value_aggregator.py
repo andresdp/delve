@@ -198,6 +198,7 @@ async def aggregate_new_values(
                 "label": p["label"],
                 "description": f"New value discovered in test mode (from document {p['doc_id']}).",
                 "supporting_doc_ids": [p["doc_id"]],
+                "status": "accepted",
             }
             # Consume the id so consecutive appends within this loop stay unique.
             cluster.setdefault("values", []).append(new_value)

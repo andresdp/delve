@@ -6,13 +6,24 @@ Implements the value consolidation algorithm from
 1. Embed each draft value's ``label + description`` using the configured
    embedding model.
 2. L2-normalize the vectors before any distance computation.
-3. Compute pairwise distances **within each dimension only** — a value only
-   competes with other values on the same axis.
-4. Threshold-merge any pair below ``epsilon`` via union-find connected
+3. Partition each dimension's values by ``status`` (accepted / rejected /
+   outcome) before any distance computation — a value only ever competes
+   with other values that share its status. An accepted decision and a
+   rejected one never merge, no matter how close their embeddings are.
+4. Compute pairwise distances **within each status partition of each
+   dimension only** — a value only competes with other values on the same
+   axis and of the same status.
+5. Threshold-merge any pair below ``epsilon`` via union-find connected
    components (deterministic, no LLM cost).
-5. Borderline pairs (distance just above ``epsilon``, within the borderline
-   band) go to an LLM adjudication call.
-6. Canonical label per merged group: the nearest-to-centroid value.
+6. Borderline pairs (distance just above ``epsilon``, within the borderline
+   band) go to an LLM adjudication call — only ever run within a status
+   partition, so cross-status pairs are never sent to the LLM.
+7. Canonical label per merged group: the nearest-to-centroid value. The
+   consolidated value's ``status`` is copied from the canonical member
+   (every member of a group shares one status, by construction of step 3).
+8. Results from all status partitions of a dimension are concatenated and
+   ``id`` is renumbered as ``<dimension_id>.<n>`` once, across the whole
+   dimension — numbering does not restart per status partition.
 
 Nothing is silently deleted: merged-away values are recorded (id and
 label) on the consolidated value's ``merged_from`` field and logged for
@@ -101,6 +112,9 @@ def _merge_group(
         "description": canonical.get("description", ""),
         "supporting_doc_ids": supporting_ids,
         "merged_from": merged_from,
+        # Partitioning by status (consolidate_values) guarantees every member
+        # of this group shares one status — a direct copy is always correct.
+        "status": canonical.get("status", "accepted"),
     }
 
     merged_labels = [m["label"] or m["id"] for m in merged_from]
@@ -188,88 +202,111 @@ async def consolidate_values(
             kept_as_is_count += len(dim_values)
             continue
 
-        dim_vector_rows = [global_ids[v["id"]] for v in dim_values]
-        dim_vectors = vectors[dim_vector_rows]
-
-        # Step 3: pairwise distances within this dimension only.
-        dist_matrix = pairwise_euclidean(dim_vectors)
-
-        # Step 4: threshold merge edges (deterministic union-find).
-        merge_edges: List[Tuple[int, int]] = []
-        # Step 5: collect borderline pairs for LLM adjudication.
-        borderline_pairs: List[Tuple[int, int]] = []
-        for i in range(len(dim_values)):
-            for j in range(i + 1, len(dim_values)):
-                d = float(dist_matrix[i, j])
-                if d <= epsilon:
-                    merge_edges.append((i, j))
-                elif d <= borderline_upper:
-                    borderline_pairs.append((i, j))
-
-        # LLM adjudication for borderline pairs (bounded, sequential for clarity).
-        for i, j in borderline_pairs:
-            try:
-                verdict: ValueMergeOutput = await merge_chain.ainvoke(
-                    {
-                        "dimension_json": json.dumps({
-                            "id": dim_id,
-                            "name": cluster.get("name", ""),
-                            "description": cluster.get("description", ""),
-                        }, indent=2),
-                        "value_a_json": json.dumps({
-                            "id": dim_values[i]["id"],
-                            "label": dim_values[i].get("label", ""),
-                            "description": dim_values[i].get("description", ""),
-                            "supporting_doc_ids": dim_values[i].get("supporting_doc_ids", []),
-                        }, indent=2),
-                        "value_b_json": json.dumps({
-                            "id": dim_values[j]["id"],
-                            "label": dim_values[j].get("label", ""),
-                            "description": dim_values[j].get("description", ""),
-                            "supporting_doc_ids": dim_values[j].get("supporting_doc_ids", []),
-                        }, indent=2),
-                    }
-                )
-                if verdict.same_decision:
-                    merge_edges.append((i, j))
-                    logger.info(
-                        "Borderline merge approved by LLM within %s: %s + %s (d=%.3f) — %s",
-                        dim_id, dim_values[i]["id"], dim_values[j]["id"],
-                        float(dist_matrix[i, j]), verdict.rationale,
-                    )
-                else:
-                    logger.debug(
-                        "Borderline merge rejected by LLM within %s: %s vs %s (d=%.3f)",
-                        dim_id, dim_values[i]["id"], dim_values[j]["id"],
-                        float(dist_matrix[i, j]),
-                    )
-            except Exception as e:
-                logger.warning(
-                    "Borderline adjudication failed for %s/%s — keeping values separate: %s",
-                    dim_values[i]["id"], dim_values[j]["id"], e,
-                )
-
-        components = connected_components(len(dim_values), merge_edges)
-
         dim_name = cluster.get("name") or dim_id
 
-        # Step 6: canonical label per group (nearest-to-centroid).
-        new_values: List[Dict] = []
-        for offset, members in enumerate(components, start=1):
-            group_values = [dim_values[m] for m in members]
-            group_vectors = dim_vectors[members]
-            consolidated, merged_labels = _merge_group(
-                group_values, group_vectors, dim_id, offset
-            )
-            new_values.append(consolidated)
-            if merged_labels:
-                canonical_label = consolidated["label"] or consolidated["id"]
-                sources = ", ".join(f'"{label}"' for label in merged_labels)
-                merge_descriptions.append(
-                    f'[{dim_name}] {sources} → "{canonical_label}"'
+        # Step 3: partition by status — a value only ever competes with
+        # other values that share its status. Dict insertion order gives a
+        # deterministic partition order (first-seen status in dim_values).
+        status_groups: Dict[str, List[Dict]] = {}
+        for v in dim_values:
+            status_groups.setdefault(v.get("status", "accepted"), []).append(v)
+
+        # Run the existing pairwise-distance / threshold-merge / borderline
+        # LLM-adjudication / canonical-selection sequence independently per
+        # status partition, then concatenate before renumbering ids once
+        # across the whole dimension (below) — not restarted per partition.
+        raw_new_values: List[Dict] = []
+        for status_values in status_groups.values():
+            group_vector_rows = [global_ids[v["id"]] for v in status_values]
+            group_vectors_all = vectors[group_vector_rows]
+
+            # Step 4: pairwise distances within this status partition only.
+            dist_matrix = pairwise_euclidean(group_vectors_all)
+
+            # Step 5: threshold merge edges (deterministic union-find).
+            merge_edges: List[Tuple[int, int]] = []
+            # Step 6: collect borderline pairs for LLM adjudication.
+            borderline_pairs: List[Tuple[int, int]] = []
+            for i in range(len(status_values)):
+                for j in range(i + 1, len(status_values)):
+                    d = float(dist_matrix[i, j])
+                    if d <= epsilon:
+                        merge_edges.append((i, j))
+                    elif d <= borderline_upper:
+                        borderline_pairs.append((i, j))
+
+            # LLM adjudication for borderline pairs (bounded, sequential for
+            # clarity). Only same-status pairs ever reach this point.
+            for i, j in borderline_pairs:
+                try:
+                    verdict: ValueMergeOutput = await merge_chain.ainvoke(
+                        {
+                            "dimension_json": json.dumps({
+                                "id": dim_id,
+                                "name": cluster.get("name", ""),
+                                "description": cluster.get("description", ""),
+                            }, indent=2),
+                            "value_a_json": json.dumps({
+                                "id": status_values[i]["id"],
+                                "label": status_values[i].get("label", ""),
+                                "description": status_values[i].get("description", ""),
+                                "supporting_doc_ids": status_values[i].get("supporting_doc_ids", []),
+                            }, indent=2),
+                            "value_b_json": json.dumps({
+                                "id": status_values[j]["id"],
+                                "label": status_values[j].get("label", ""),
+                                "description": status_values[j].get("description", ""),
+                                "supporting_doc_ids": status_values[j].get("supporting_doc_ids", []),
+                            }, indent=2),
+                        }
+                    )
+                    if verdict.same_decision:
+                        merge_edges.append((i, j))
+                        logger.info(
+                            "Borderline merge approved by LLM within %s: %s + %s (d=%.3f) — %s",
+                            dim_id, status_values[i]["id"], status_values[j]["id"],
+                            float(dist_matrix[i, j]), verdict.rationale,
+                        )
+                    else:
+                        logger.debug(
+                            "Borderline merge rejected by LLM within %s: %s vs %s (d=%.3f)",
+                            dim_id, status_values[i]["id"], status_values[j]["id"],
+                            float(dist_matrix[i, j]),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "Borderline adjudication failed for %s/%s — keeping values separate: %s",
+                        status_values[i]["id"], status_values[j]["id"], e,
+                    )
+
+            components = connected_components(len(status_values), merge_edges)
+
+            # Step 7: canonical label per group (nearest-to-centroid). The id
+            # passed here is a placeholder — real ids are assigned once,
+            # across the whole dimension, after every status partition has
+            # been processed (step 8, below).
+            for members in components:
+                group_values = [status_values[m] for m in members]
+                group_vectors = group_vectors_all[members]
+                consolidated, merged_labels = _merge_group(
+                    group_values, group_vectors, dim_id, len(raw_new_values) + 1
                 )
-            else:
-                kept_as_is_count += 1
+                raw_new_values.append(consolidated)
+                if merged_labels:
+                    canonical_label = consolidated["label"] or consolidated["id"]
+                    sources = ", ".join(f'"{label}"' for label in merged_labels)
+                    merge_descriptions.append(
+                        f'[{dim_name}] {sources} → "{canonical_label}"'
+                    )
+                else:
+                    kept_as_is_count += 1
+
+        # Step 8: renumber ids once across the whole dimension, concatenating
+        # every status partition's results — numbering does not restart per
+        # status. Each value's status (set in _merge_group) is preserved.
+        new_values: List[Dict] = [
+            {**v, "id": f"{dim_id}.{i + 1}"} for i, v in enumerate(raw_new_values)
+        ]
 
         new_cluster["values"] = new_values
         consolidated_clusters.append(new_cluster)
