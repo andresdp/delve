@@ -125,6 +125,12 @@ GAP_AWARENESS_CRITERION = Criterion(
     needs_documents=True,
 )
 
+# Criteria requiring a document sample. build_metrics() includes these only
+# when documents are available; runner.py re-adds them as "not evaluated"
+# placeholder rows otherwise (R2 visibility), so both sides mirror the same
+# list rather than hardcoding the pairing independently.
+DOCUMENT_GROUNDED_CRITERIA = (COVERAGE_CRITERION, GAP_AWARENESS_CRITERION)
+
 
 def build_metrics(
     model: str | None, threshold: float, include_coverage: bool
@@ -144,8 +150,7 @@ def build_metrics(
     """
     criteria = list(STRUCTURAL_CRITERIA)
     if include_coverage:
-        criteria.append(COVERAGE_CRITERION)
-        criteria.append(GAP_AWARENESS_CRITERION)
+        criteria.extend(DOCUMENT_GROUNDED_CRITERIA)
 
     # deepeval's OpenAIModel defaults to temperature=0.0, which newer
     # reasoning-tier models (e.g. gpt-5.x) reject outright ("Only the

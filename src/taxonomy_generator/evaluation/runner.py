@@ -17,19 +17,12 @@ from deepeval.test_case import LLMTestCase
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.evaluation.judge import resolve_judge_model
 from taxonomy_generator.evaluation.metrics import (
-    COVERAGE_CRITERION,
-    GAP_AWARENESS_CRITERION,
+    DOCUMENT_GROUNDED_CRITERIA,
     build_metrics,
 )
 from taxonomy_generator.utils import format_taxonomy
 
 logger = logging.getLogger(__name__)
-
-# Document-grounded criteria excluded from build_metrics() when no document
-# sample is available. Kept as a tuple here (rather than filtering
-# STRUCTURAL_CRITERIA at import time) so the placeholder-row loop below has
-# an explicit, ordered list to mirror.
-DOCUMENT_GROUNDED_CRITERIA = (COVERAGE_CRITERION, GAP_AWARENESS_CRITERION)
 
 
 def _doc_content(doc: object) -> str:

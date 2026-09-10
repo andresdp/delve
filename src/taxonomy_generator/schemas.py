@@ -6,6 +6,15 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+# Shared by OpenCode.status and Value.status — kept as one alias so the
+# vocabulary and its description can't drift between the two schemas.
+DecisionStatus = Literal["accepted", "rejected", "outcome"]
+_DECISION_STATUS_DESCRIPTION = (
+    "accepted: the source content adopted this decision. rejected: the source "
+    "content explicitly declined this decision. outcome: the source content merely "
+    "reported this as a trade-off or outcome, not a decision made."
+)
+
 
 class SummaryOutput(BaseModel):
     """Structured output for document summarization."""
@@ -32,13 +41,7 @@ class OpenCode(BaseModel):
     doc_id: str = Field(description="Id of the document the code was extracted from.")
     label: str = Field(description="Concise open-code label naming the concept or decision found in the document.")
     rationale: str = Field(description="Why this code applies to the document, grounded in the use case.")
-    status: Literal["accepted", "rejected", "outcome"] = Field(
-        description=(
-            "accepted: the source content adopted this decision. rejected: the source "
-            "content explicitly declined this decision. outcome: the source content merely "
-            "reported this as a trade-off or outcome, not a decision made."
-        )
-    )
+    status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
 
 
 class OpenCodesOutput(BaseModel):
@@ -78,14 +81,7 @@ class Value(BaseModel):
         default_factory=list,
         description="Ids of documents whose open codes support this value.",
     )
-    status: Literal["accepted", "rejected", "outcome"] = Field(
-        default="accepted",
-        description=(
-            "accepted: the source content adopted this decision. rejected: the source "
-            "content explicitly declined this decision. outcome: the source content merely "
-            "reported this as a trade-off or outcome, not a decision made."
-        ),
-    )
+    status: DecisionStatus = Field(default="accepted", description=_DECISION_STATUS_DESCRIPTION)
 
 
 class Cluster(BaseModel):

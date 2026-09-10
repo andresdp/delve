@@ -21,9 +21,8 @@ Implements the value consolidation algorithm from
 7. Canonical label per merged group: the nearest-to-centroid value. The
    consolidated value's ``status`` is copied from the canonical member
    (every member of a group shares one status, by construction of step 3).
-8. Results from all status partitions of a dimension are concatenated and
-   ``id`` is renumbered as ``<dimension_id>.<n>`` once, across the whole
-   dimension — numbering does not restart per status partition.
+   Ids are assigned by a running counter across every status partition of
+   a dimension, so numbering does not restart per partition.
 
 Nothing is silently deleted: merged-away values are recorded (id and
 label) on the consolidated value's ``merged_from`` field and logged for
@@ -281,10 +280,13 @@ async def consolidate_values(
 
             components = connected_components(len(status_values), merge_edges)
 
-            # Step 7: canonical label per group (nearest-to-centroid). The id
-            # passed here is a placeholder — real ids are assigned once,
-            # across the whole dimension, after every status partition has
-            # been processed (step 8, below).
+            # Step 7: canonical label per group (nearest-to-centroid).
+            # ``len(raw_new_values) + 1`` is a running counter across every
+            # status partition of this dimension (it only ever grows, via
+            # the append below), so the id assigned here is already the
+            # final, dimension-wide sequential id — numbering does not
+            # restart per partition, with no separate renumbering pass
+            # needed afterward.
             for members in components:
                 group_values = [status_values[m] for m in members]
                 group_vectors = group_vectors_all[members]
@@ -301,12 +303,7 @@ async def consolidate_values(
                 else:
                     kept_as_is_count += 1
 
-        # Step 8: renumber ids once across the whole dimension, concatenating
-        # every status partition's results — numbering does not restart per
-        # status. Each value's status (set in _merge_group) is preserved.
-        new_values: List[Dict] = [
-            {**v, "id": f"{dim_id}.{i + 1}"} for i, v in enumerate(raw_new_values)
-        ]
+        new_values: List[Dict] = raw_new_values
 
         new_cluster["values"] = new_values
         consolidated_clusters.append(new_cluster)
