@@ -52,6 +52,11 @@ def test_taxonomy_generation_prompt_anchors_quality_attributes_and_status():
     assert "status" in lowered
     assert "never group codes of different status into one value" in lowered
 
+    # A dimension must name an axis, not a tradeoff or alternative-set.
+    assert "tradeoff" in lowered
+    assert "alternative" in lowered
+    assert "relations" in lowered
+
 
 def test_taxonomy_review_prompt_has_new_criteria_and_status_preservation():
     messages = TAXONOMY_REVIEW_PROMPT.format_messages(
@@ -79,6 +84,9 @@ def test_taxonomy_review_prompt_has_new_criteria_and_status_preservation():
     assert "preserved verbatim" in lowered
     assert "never let the field silently default to `accepted`" in lowered
 
+    # New Review Criteria row for tradeoff/alternative-shaped naming.
+    assert "Tradeoff/alternative-shaped naming" in system_text
+
 
 def test_taxonomy_update_prompt_anchors_quality_attributes_and_status():
     messages = TAXONOMY_UPDATE_PROMPT.format_messages(
@@ -101,3 +109,8 @@ def test_taxonomy_update_prompt_anchors_quality_attributes_and_status():
     lowered = system_text.lower()
     assert "status" in lowered
     assert "never group codes of different status into one value" in lowered
+
+    # A dimension must name an axis, not a tradeoff or alternative-set.
+    assert "tradeoff" in lowered
+    assert "alternative" in lowered
+    assert "relations" in lowered

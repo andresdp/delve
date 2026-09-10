@@ -21,6 +21,7 @@ Think of the taxonomy as a **design space**:
 - Each **category is a dimension** — an axis that captures a fundamentally different *kind* of variation among documents.
 - Each **document is a value** along exactly one dimension.
 - Dimensions must be **orthogonal** — each captures a different *type* of distinction.
+- **A dimension names one axis — never a tradeoff or a set of alternatives.** "X vs. Y Tradeoff" or "Alternative Approaches to X" is not itself an axis of variation: it is usually two dimensions whose interaction belongs in a **relation**, not one dimension named after the fact that a tradeoff exists. Every dimension has alternatives — that's what its values are — so "has alternatives" never distinguishes one dimension from another.
 
 ## Review Criteria
 
@@ -35,6 +36,7 @@ Evaluate the taxonomy against these criteria:
 | **Use case alignment** | Does every dimension serve the stated use case? Remove dimensions that are irrelevant, even if they exist in the data. |
 | **No catch-alls** | Does the taxonomy contain an "Other", "Miscellaneous", or similar vague dimension? Can those documents be re-assigned to more specific dimensions instead? |
 | **Axis vs. value check** | Is each dimension truly an *axis of variation* rather than a single *value*? A dimension named "Bug Reports" might really be a value on an "Issue Type" axis that also includes "Feature Requests", "Questions", etc. |
+| **Tradeoff/alternative-shaped naming** | Is any dimension named around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices" rather than the axis itself? These name the existence of a decision, not what distinguishes this axis — a genuine tradeoff usually means two dimensions belong here, linked by a `relations` entry, not one dimension named after the tradeoff. |
 | **Quality-attribute grounding** | Does each dimension correspond to a recognizable quality attribute, constraint, or trade-off implied by the use case, rather than an arbitrary topical grouping? |
 | **Rejected-alternative handling** | Are `rejected`-status values kept distinct from `accepted` ones, never presented as equivalent peer values on the same axis? |
 | **Design-space gap awareness** | Given the existing dimensions and values, does the sampled data reveal an implied-but-unaddressed value combination the review sample suggests exists but no value currently names? |
@@ -47,7 +49,7 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 |---|---|
 | **Merge dimensions** | Two or more dimensions are really different values on the same underlying axis — they should be one dimension whose description captures the full range. |
 | **Split dimension** | A dimension conflates two truly orthogonal axes of variation — documents along it actually differ along two fundamentally different types of distinction. |
-| **Rename** | A dimension name describes a specific value rather than the axis of variation, or is ambiguous. |
+| **Rename** | A dimension name describes a specific value rather than the axis of variation, is ambiguous, or is built around "Tradeoff(s)"/"Alternative(s)"/"Comparison"/"Options"/"Choices" instead of naming the axis itself. If the tradeoff is genuine, split into the two dimensions and relate them instead of renaming alone. |
 | **Refine description** | A description doesn't explain the range of values along the dimension or doesn't differentiate it from other dimensions. |
 | **Remove** | A dimension has no support in the data and is unlikely to be needed (use sparingly). |
 | **Add** | Documents in the sample reveal a fundamentally new axis of variation not captured by existing dimensions. Total must still not exceed **{max_num_clusters}**. |
@@ -78,3 +80,5 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 - Descriptions should explain the range of values along each dimension and differentiate it from other dimensions.
 - Dimensions should serve the given use case well.
 - Every dimension must be specific enough that a document clearly belongs or doesn't belong.
+- **No tradeoff- or alternative-shaped dimensions**: reject dimension names built around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices". If a genuine tradeoff is present, split it into the two dimensions being traded off and connect them with a `relations` entry instead.
+- **A value is one position, not a tradeoff between two dimensions**: if a value's label conjoins two distinct concerns (e.g., "X over Y", "X vs Y", "X at the cost of Y"), check whether X and Y are actually two different axes.

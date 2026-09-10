@@ -23,6 +23,7 @@ Think of the taxonomy as a **design space**:
 - Dimensions must be **orthogonal** — each captures a different *type* of distinction. If two categories are really just different values on the same axis (e.g., "Minor Bugs" vs "Critical Bugs" are both values of a "Bug Severity" axis), they should be one dimension, not two.
 - Each dimension carries **values** — the specific decisions or positions along its axis supported by the data. Values are points on the axis; the dimension is the axis itself.
 - Dimensions may be linked by typed **relations** (precondition, consequence, co_occurring, constrains). Only assert a relation when it holds because of the use case's logic, not because two concepts merely co-occur in the same documents.
+- **A dimension names one axis — never a tradeoff or a set of alternatives.** "X vs. Y Tradeoff" or "Alternative Approaches to X" is not itself an axis of variation: it is usually two dimensions whose interaction belongs in a **relation** (e.g. a `constrains` or `consequence` link between them), not one dimension named after the fact that a tradeoff exists. Every dimension has alternatives — that's what its values are — so "has alternatives" never distinguishes one dimension from another; name the dimension after what actually varies.
 - **Quality-attribute anchoring**: Before updating dimensions, name the quality attributes, constraints, or concerns the use case implies (e.g., performance, security, cost, compliance, maintainability — illustrative examples only, not an exhaustive list). Then check the new data and existing dimensions against that list, even when a fit isn't the most textually obvious grouping.
 
 ## Key Principle: Stability + Adaptability
@@ -71,3 +72,5 @@ Apply these **only when clearly justified** by the new data:
 - Descriptions should explain the range of values along each dimension and differentiate it from other dimensions.
 - Dimensions should serve the given use case well.
 - Every dimension must be specific enough that a document clearly belongs or doesn't belong.
+- **No tradeoff- or alternative-shaped dimensions**: reject dimension names built around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices" — these name the *existence* of a decision, not what makes this axis distinct from every other. If a genuine tradeoff is present, split it into the two dimensions being traded off and connect them with a `relations` entry instead.
+- **A value is one position, not a tradeoff between two dimensions**: if a value's label conjoins two distinct concerns (e.g., "X over Y", "X vs Y", "X at the cost of Y"), check whether X and Y are actually two different axes — the value likely belongs on one of two dimensions, not both at once.

@@ -22,6 +22,7 @@ Think of the taxonomy as a **design space**. In this framework:
 - A well-structured taxonomy lets you **characterize the full space** of documents by walking its dimensions, each offering a unique lens through which the data varies.
 - Each dimension carries **values** — the specific decisions or positions along its axis that the data supports (e.g., a "Caching Strategy" dimension may hold values like "cache everything", "cache reads only", "no caching"). Values are points on the axis; the dimension is the axis itself.
 - Dimensions may be linked by typed **relations** (precondition, consequence, co_occurring, constrains) — grounded theory's paradigm model. Only assert a relation when it holds because of the use case's logic, not because two concepts merely co-occur in the same documents.
+- **A dimension names one axis — never a tradeoff or a set of alternatives.** "X vs. Y Tradeoff" or "Alternative Approaches to X" is not itself an axis of variation: it is usually two dimensions whose interaction belongs in a **relation** (e.g. a `constrains` or `consequence` link between them), not one dimension named after the fact that a tradeoff exists. Every dimension has alternatives — that's what its values are — so "has alternatives" never distinguishes one dimension from another; name the dimension after what actually varies.
 - **Quality-attribute anchoring**: Before drafting dimensions, name the quality attributes, constraints, or concerns the use case implies (e.g., performance, security, cost, compliance, maintainability — illustrative examples only, not an exhaustive list). Then check whether the data supports a dimension for each one, even when that dimension isn't the most textually obvious grouping.
 
 ## Requirements
@@ -56,6 +57,8 @@ Think of the taxonomy as a **design space**. In this framework:
 - **Description** explains the range of documents (values) along this dimension and makes the boundary between this dimension and others explicit.
 - **Name** and **description** can accurately and consistently classify new data points without ambiguity.
 - **Name** and **description** are consistent with each other.
+- **No tradeoff- or alternative-shaped dimensions**: reject dimension names built around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices" — these name the *existence* of a decision, not what makes this axis distinct from every other. If a genuine tradeoff is present, split it into the two dimensions being traded off and connect them with a `relations` entry instead.
+- **A value is one position, not a tradeoff between two dimensions**: if a value's label conjoins two distinct concerns (e.g., "X over Y", "X vs Y", "X at the cost of Y"), check whether X and Y are actually two different axes — the value likely belongs on one of two dimensions, not both at once.
 
 # Data
 
