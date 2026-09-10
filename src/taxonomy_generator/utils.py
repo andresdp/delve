@@ -128,10 +128,12 @@ def format_open_codes_for_docs(docs: List[Doc], open_codes: List[Dict]) -> str:
 
     Args:
         docs: Documents in the minibatch.
-        open_codes: Accumulated open-code dicts (with ``doc_id``/``label``/``rationale``).
+        open_codes: Accumulated open-code dicts (with ``doc_id``/``label``/``rationale``/``status``).
 
     Returns:
-        str: JSON formatted open codes, one entry per document.
+        str: JSON formatted open codes, one entry per document. Each code
+        carries ``status`` (accepted/rejected/outcome) so axial coding can act
+        on it — see ``taxonomy_generation.md``/``taxonomy_update.md``.
     """
     codes_by_doc: Dict[str, List[Dict]] = {}
     for code in open_codes:
@@ -142,10 +144,12 @@ def format_open_codes_for_docs(docs: List[Doc], open_codes: List[Dict]) -> str:
             "doc_id": code.doc_id,
             "label": code.label,
             "rationale": code.rationale,
+            "status": code.status,
         }
         codes_by_doc.setdefault(doc_id, []).append({
             "label": entry.get("label", ""),
             "rationale": entry.get("rationale", ""),
+            "status": entry.get("status", "accepted"),
         })
 
     items = []
@@ -160,7 +164,7 @@ def format_open_codes_for_docs(docs: List[Doc], open_codes: List[Dict]) -> str:
                 summary = doc.get("summary") or doc.get("content", "")
             else:
                 summary = doc.summary or doc.content or ""
-            items.append({"id": doc_id, "codes": [{"label": summary, "rationale": "No open codes extracted; summary used."}]})
+            items.append({"id": doc_id, "codes": [{"label": summary, "rationale": "No open codes extracted; summary used.", "status": "accepted"}]})
     return json.dumps(items, indent=2)
 
 

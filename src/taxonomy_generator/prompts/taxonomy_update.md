@@ -7,7 +7,7 @@
 - **Existing taxonomy**:
 {taxonomy_json}
 
-- **New data**: A batch of documents in JSON format with their open codes (fine-grained concept/decision labels with rationales):
+- **New data**: A batch of documents in JSON format with their open codes (fine-grained concept/decision labels with rationales and a **status** — `accepted`, `rejected`, or `outcome` — already classified during open coding):
 {data_json}
 
 - **Use case**: {use_case}

@@ -6,7 +6,7 @@
 
 - **Data**: The input data is a list of documents in JSON format. Each item has:
   - **id**: document index.
-  - **codes**: the open codes extracted from that document — fine-grained concept/decision labels with rationales. These are the raw material you organize into dimensions and values (axial coding). When a document has no codes, its entry carries a single code holding the document summary instead.
+  - **codes**: the open codes extracted from that document — fine-grained concept/decision labels with rationales and a **status** (`accepted`, `rejected`, or `outcome`) already classified during open coding. These are the raw material you organize into dimensions and values (axial coding). When a document has no codes, its entry carries a single code holding the document summary instead.
 
 - **Use case**: {use_case}
 
