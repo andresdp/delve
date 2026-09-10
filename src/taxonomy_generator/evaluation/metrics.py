@@ -85,6 +85,22 @@ STRUCTURAL_CRITERIA: List[Criterion] = [
             "Type' axis that also includes feature requests and questions."
         ),
     ),
+    Criterion(
+        name="Quality-attribute grounding",
+        criteria=(
+            "Determine whether each dimension corresponds to a recognizable "
+            "quality attribute, constraint, or trade-off implied by the use "
+            "case, rather than an arbitrary topical grouping."
+        ),
+    ),
+    Criterion(
+        name="Rejected-alternative handling",
+        criteria=(
+            "Determine whether values with a 'rejected' status are kept "
+            "distinct from 'accepted' ones, rather than presented as "
+            "equivalent peer values on the same axis."
+        ),
+    ),
 ]
 
 COVERAGE_CRITERION = Criterion(
@@ -94,6 +110,17 @@ COVERAGE_CRITERION = Criterion(
         "at least one dimension of the taxonomy. Penalize documents that "
         "fit no dimension's axis of variation, naming the document themes "
         "that are left uncovered."
+    ),
+    needs_documents=True,
+)
+
+GAP_AWARENESS_CRITERION = Criterion(
+    name="Design-space gap awareness",
+    criteria=(
+        "Given the existing dimensions and values, determine whether the "
+        "sampled documents reveal an implied-but-unaddressed value "
+        "combination that the sample suggests exists but no value "
+        "currently names."
     ),
     needs_documents=True,
 )
@@ -118,6 +145,7 @@ def build_metrics(
     criteria = list(STRUCTURAL_CRITERIA)
     if include_coverage:
         criteria.append(COVERAGE_CRITERION)
+        criteria.append(GAP_AWARENESS_CRITERION)
 
     # deepeval's OpenAIModel defaults to temperature=0.0, which newer
     # reasoning-tier models (e.g. gpt-5.x) reject outright ("Only the
