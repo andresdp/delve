@@ -81,7 +81,7 @@ class Value(BaseModel):
         default_factory=list,
         description="Ids of documents whose open codes support this value.",
     )
-    status: DecisionStatus = Field(default="accepted", description=_DECISION_STATUS_DESCRIPTION)
+    status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
 
 
 class Cluster(BaseModel):
