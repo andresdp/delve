@@ -136,7 +136,7 @@ async def consolidate_values(
         if should_render(configuration, "consolidate"):
             await render_taxonomy_biplot(
                 configuration, reviewed, stage="consolidate",
-                iteration_index=len(state.clusters),
+                iteration_index=len(state.clusters) + 1,
             )
         return {
             "clusters": [reviewed],
@@ -319,7 +319,7 @@ async def consolidate_values(
     if should_render(configuration, "consolidate"):
         await render_taxonomy_biplot(
             configuration, consolidated_clusters,
-            stage="consolidate", iteration_index=len(state.clusters),
+            stage="consolidate", iteration_index=len(state.clusters) + 1,
         )
 
     summary = (

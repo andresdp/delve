@@ -67,7 +67,7 @@ async def review_taxonomy(
     if result.get("clusters"):
         await render_taxonomy_biplot(
             configuration, result["clusters"][0], stage="review",
-            iteration_index=len(state.clusters),
+            iteration_index=len(state.clusters) + 1,
         )
 
     return result
