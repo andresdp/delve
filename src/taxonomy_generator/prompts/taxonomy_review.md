@@ -40,6 +40,7 @@ Evaluate the taxonomy against these criteria:
 | **Quality-attribute grounding** | Does each dimension correspond to a recognizable quality attribute, constraint, or trade-off implied by the use case, rather than an arbitrary topical grouping? |
 | **Rejected-alternative handling** | Are `rejected`-status values kept distinct from `accepted` ones, never presented as equivalent peer values on the same axis? |
 | **Design-space gap awareness** | Given the existing dimensions and values, does the sampled data reveal an implied-but-unaddressed value combination the review sample suggests exists but no value currently names? |
+| **Value-label phrasing** | Is each value's `label` a noun phrase naming the decision or position, rather than a verb-driven sentence? Does any label redundantly restate its `status` as a text prefix (e.g., "Rejected: ...", "Accepted: ...")? |
 
 ## Allowed Adjustments
 
@@ -55,6 +56,7 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 | **Add** | Documents in the sample reveal a fundamentally new axis of variation not captured by existing dimensions. Total must still not exceed **{max_num_clusters}**. |
 | **No change** | Valid outcome. If the taxonomy is well-structured as a set of orthogonal dimensions, return it as-is. Do not force modifications. |
 | **Reclassify value status** | The review sample provides direct evidence that a value's `status` is wrong (e.g., a value marked `accepted` is explicitly declined in the sampled documents). Change `status` only with direct evidence from the sample — never as a side effect of re-emitting the taxonomy. |
+| **Relabel value** | A value's `label` restates its `status` as a text prefix, or is phrased as a verb-driven sentence rather than a noun phrase. Rewrite the `label` only — do not change `status`, `description`, or `supporting_doc_ids`. |
 
 ## Key Principle: Minimal Intervention
 
@@ -72,6 +74,7 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 - Each cluster has: **id** (number starting from 1, incremented), **name** (within {cluster_name_length} words, a noun-driven phrase that describes the *axis of variation* — use noun-based constructions like "Request Routing Strategy" rather than verb-based ones like "Route Requests"), **description** (within {cluster_description_length} words, explaining the range of documents along this dimension and what distinguishes it from other dimensions).
 - Total dimensions: **{max_num_clusters}**.
 - Each value's **status** (`accepted`, `rejected`, or `outcome`) must be preserved verbatim from the existing taxonomy unless a review adjustment genuinely reclassifies it — never let the field silently default to `accepted` on re-emission.
+- Each value's **label** must be preserved verbatim unless a review adjustment relabels it per the **Relabel value** operation below.
 - Output in **English** only.
 
 ### Quality
@@ -82,3 +85,4 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 - Every dimension must be specific enough that a document clearly belongs or doesn't belong.
 - **No tradeoff- or alternative-shaped dimensions**: reject dimension names built around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices". If a genuine tradeoff is present, split it into the two dimensions being traded off and connect them with a `relations` entry instead.
 - **A value is one position, not a tradeoff between two dimensions**: if a value's label conjoins two distinct concerns (e.g., "X over Y", "X vs Y", "X at the cost of Y"), check whether X and Y are actually two different axes.
+- **Value labels are noun phrases, not sentences**: a value's label names the decision or position (e.g., "S3-backed write-ahead log"), not a sentence describing what happened. Never prefix a label with its status (e.g., no "Rejected: ..." or "Accepted: ...") — status is already carried in the **status** field.

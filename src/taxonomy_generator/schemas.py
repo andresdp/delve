@@ -39,7 +39,14 @@ class OpenCode(BaseModel):
     """A fine-grained per-document concept or decision label (open coding)."""
 
     doc_id: str = Field(description="Id of the document the code was extracted from.")
-    label: str = Field(description="Concise open-code label naming the concept or decision found in the document.")
+    label: str = Field(
+        description=(
+            "Concise open-code label naming the concept or decision as a noun phrase "
+            "(e.g., 'Redis-backed caching layer', not 'chose Redis for caching'). Never "
+            "prefix the label with its status (e.g., no 'Rejected: ...' or 'Accepted: ...') "
+            "— status belongs only in the status field."
+        )
+    )
     rationale: str = Field(description="Why this code applies to the document, grounded in the use case.")
     status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
 
@@ -75,7 +82,14 @@ class Value(BaseModel):
 
     id: str = Field(description="Value identifier, unique within its dimension (e.g., '1.1').")
     dimension_id: str = Field(description="Id of the dimension this value belongs to.")
-    label: str = Field(description="Concise value label naming the specific decision or position.")
+    label: str = Field(
+        description=(
+            "Concise value label naming the specific decision or position as a noun phrase "
+            "(e.g., 'S3-backed write-ahead log', not 'Log writes to S3 before commit'). Never "
+            "prefix the label with its status (e.g., no 'Rejected: ...' or 'Accepted: ...') "
+            "— status belongs only in the status field."
+        )
+    )
     description: str = Field(description="What this value means along its dimension.")
     supporting_doc_ids: List[str] = Field(
         default_factory=list,

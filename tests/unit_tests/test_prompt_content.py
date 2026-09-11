@@ -30,6 +30,10 @@ def test_open_coding_prompt_documents_decision_status():
     lowered = system_text.lower()
     assert "authoritative" in lowered
 
+    # Value/code labels must be noun phrases, not status-prefixed sentences.
+    assert "noun phrase" in lowered
+    assert "rejected: " in lowered
+
 
 def test_taxonomy_generation_prompt_anchors_quality_attributes_and_status():
     messages = TAXONOMY_GENERATION_PROMPT.format_messages(
@@ -56,6 +60,10 @@ def test_taxonomy_generation_prompt_anchors_quality_attributes_and_status():
     assert "tradeoff" in lowered
     assert "alternative" in lowered
     assert "relations" in lowered
+
+    # Value labels must be noun phrases, never status-prefixed sentences.
+    assert "noun phrase" in lowered
+    assert "never prefix a label with its status" in lowered
 
 
 def test_taxonomy_review_prompt_has_new_criteria_and_status_preservation():
@@ -87,6 +95,12 @@ def test_taxonomy_review_prompt_has_new_criteria_and_status_preservation():
     # New Review Criteria row for tradeoff/alternative-shaped naming.
     assert "Tradeoff/alternative-shaped naming" in system_text
 
+    # R-value-label: new criterion, allowed adjustment, and preservation rule
+    # for value-label noun-phrase style / no status-prefix.
+    assert "Value-label phrasing" in system_text
+    assert "Relabel value" in system_text
+    assert "must be preserved verbatim unless a review adjustment relabels it" in lowered
+
 
 def test_taxonomy_update_prompt_anchors_quality_attributes_and_status():
     messages = TAXONOMY_UPDATE_PROMPT.format_messages(
@@ -114,3 +128,7 @@ def test_taxonomy_update_prompt_anchors_quality_attributes_and_status():
     assert "tradeoff" in lowered
     assert "alternative" in lowered
     assert "relations" in lowered
+
+    # Value labels must be noun phrases, never status-prefixed sentences.
+    assert "noun phrase" in lowered
+    assert "never prefix a label with its status" in lowered
