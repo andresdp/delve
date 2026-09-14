@@ -16,7 +16,10 @@ from deepeval.test_case import LLMTestCase
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.evaluation.judge import resolve_judge_model
-from taxonomy_generator.evaluation.metrics import COVERAGE_CRITERION, build_metrics
+from taxonomy_generator.evaluation.metrics import (
+    DOCUMENT_GROUNDED_CRITERIA,
+    build_metrics,
+)
 from taxonomy_generator.utils import format_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -102,20 +105,22 @@ async def run_scoreboard(
                 criterion.name, row["score"], row["passed"],
             )
 
-        # When documents were absent the coverage row is present but not
-        # evaluated (R2 visibility) — build_metrics excluded it, so add it.
+        # When documents were absent, every document-grounded criterion is
+        # present but not evaluated (R2 visibility) — build_metrics excluded
+        # them, so add them back as placeholder rows.
         if not include_coverage:
-            criteria_rows.append(
-                {
-                    "name": COVERAGE_CRITERION.name,
-                    "description": COVERAGE_CRITERION.criteria,
-                    "threshold": threshold,
-                    "score": None,
-                    "passed": None,
-                    "reason": "",
-                    "evaluated": False,
-                }
-            )
+            for criterion in DOCUMENT_GROUNDED_CRITERIA:
+                criteria_rows.append(
+                    {
+                        "name": criterion.name,
+                        "description": criterion.criteria,
+                        "threshold": threshold,
+                        "score": None,
+                        "passed": None,
+                        "reason": "",
+                        "evaluated": False,
+                    }
+                )
 
         overall = sum(scores) / len(scores) if scores else None
         return {

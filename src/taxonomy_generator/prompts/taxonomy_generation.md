@@ -6,7 +6,7 @@
 
 - **Data**: The input data is a list of documents in JSON format. Each item has:
   - **id**: document index.
-  - **codes**: the open codes extracted from that document — fine-grained concept/decision labels with rationales. These are the raw material you organize into dimensions and values (axial coding). When a document has no codes, its entry carries a single code holding the document summary instead.
+  - **codes**: the open codes extracted from that document — fine-grained concept/decision labels with rationales and a **status** (`accepted`, `rejected`, or `outcome`) already classified during open coding. These are the raw material you organize into dimensions and values (axial coding). When a document has no codes, its entry carries a single code holding the document summary instead.
 
 - **Use case**: {use_case}
 
@@ -22,6 +22,8 @@ Think of the taxonomy as a **design space**. In this framework:
 - A well-structured taxonomy lets you **characterize the full space** of documents by walking its dimensions, each offering a unique lens through which the data varies.
 - Each dimension carries **values** — the specific decisions or positions along its axis that the data supports (e.g., a "Caching Strategy" dimension may hold values like "cache everything", "cache reads only", "no caching"). Values are points on the axis; the dimension is the axis itself.
 - Dimensions may be linked by typed **relations** (precondition, consequence, co_occurring, constrains) — grounded theory's paradigm model. Only assert a relation when it holds because of the use case's logic, not because two concepts merely co-occur in the same documents.
+- **A dimension names one axis — never a tradeoff or a set of alternatives.** "X vs. Y Tradeoff" or "Alternative Approaches to X" is not itself an axis of variation: it is usually two dimensions whose interaction belongs in a **relation** (e.g. a `constrains` or `consequence` link between them), not one dimension named after the fact that a tradeoff exists. Every dimension has alternatives — that's what its values are — so "has alternatives" never distinguishes one dimension from another; name the dimension after what actually varies.
+- **Quality-attribute anchoring**: Before drafting dimensions, name the quality attributes, constraints, or concerns the use case implies (e.g., performance, security, cost, compliance, maintainability — illustrative examples only, not an exhaustive list). Then check whether the data supports a dimension for each one, even when that dimension isn't the most textually obvious grouping.
 
 ## Requirements
 
@@ -38,7 +40,7 @@ Think of the taxonomy as a **design space**. In this framework:
   - **id**: category number starting from 1, incremented.
   - **name**: dimension name within **{cluster_name_length} words**. A noun-driven phrase that describes the *axis of variation*, not a specific value. Use noun-based constructions (e.g., "Request Routing Strategy", "Data Access Pattern") rather than verb-based ones (e.g., "Route Requests", "Access Data").
   - **description**: dimension description within **{cluster_description_length} words**. Should explain what kind of documents (values) fall along this dimension and what fundamentally distinguishes this axis from other dimensions in the taxonomy.
-  - **values**: draft values along this dimension that the open codes support. Each value has an **id** (formatted as `<dimension_id>.<n>`, incremented), **dimension_id** (this cluster's id), **label** (concise decision label), **description**, and **supporting_doc_ids** (ids of documents whose open codes support it). Draft only values the data supports — a dimension may legitimately have no values yet.
+  - **values**: draft values along this dimension that the open codes support. Each value has an **id** (formatted as `<dimension_id>.<n>`, incremented), **dimension_id** (this cluster's id), **label** (concise decision label, as a noun phrase, e.g. "S3-backed write-ahead log", not a sentence like "Log writes to S3 before commit"; never prefix it with the status), **description**, **status** (`accepted`, `rejected`, or `outcome`, carried from its supporting codes), and **supporting_doc_ids** (ids of documents whose open codes support it). A value's supporting codes must share one status — never group codes of different status into one value; near-duplicate codes with different status become two distinct values on the axis, not one merged value. Draft only values the data supports — a dimension may legitimately have no values yet.
   - **relations**: typed links from this dimension to other dimensions, each with **target_id** (the other dimension's id), **type** (`precondition`, `consequence`, `co_occurring`, or `constrains`), and **rationale** judged against the use case. Omit when no genuine relation exists.
 
 - Total number of dimensions: **{max_num_clusters}**. Generate as many distinct, well-supported dimensions as the data warrants to maximize coverage. However, if fewer dimensions better represent the data, prefer quality over quantity.
@@ -55,6 +57,9 @@ Think of the taxonomy as a **design space**. In this framework:
 - **Description** explains the range of documents (values) along this dimension and makes the boundary between this dimension and others explicit.
 - **Name** and **description** can accurately and consistently classify new data points without ambiguity.
 - **Name** and **description** are consistent with each other.
+- **No tradeoff- or alternative-shaped dimensions**: reject dimension names built around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices" — these name the *existence* of a decision, not what makes this axis distinct from every other. If a genuine tradeoff is present, split it into the two dimensions being traded off and connect them with a `relations` entry instead.
+- **A value is one position, not a tradeoff between two dimensions**: if a value's label conjoins two distinct concerns (e.g., "X over Y", "X vs Y", "X at the cost of Y"), check whether X and Y are actually two different axes — the value likely belongs on one of two dimensions, not both at once.
+- **Value labels are noun phrases, not sentences**: a value's label names the decision or position (e.g., "S3-backed write-ahead log"), not a sentence describing what happened (e.g., "Log writes to S3 before commit"). Never prefix a label with its status (e.g., no "Rejected: ..." or "Accepted: ...") — status is already carried in the **status** field.
 
 # Data
 

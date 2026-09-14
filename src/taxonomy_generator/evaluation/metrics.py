@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import List
 
 from deepeval.metrics import GEval
+from deepeval.models import OpenAIModel
 from deepeval.test_case import SingleTurnParams
 
 # Module docstring carries the design rationale; entries below are adapted
@@ -84,6 +85,22 @@ STRUCTURAL_CRITERIA: List[Criterion] = [
             "Type' axis that also includes feature requests and questions."
         ),
     ),
+    Criterion(
+        name="Quality-attribute grounding",
+        criteria=(
+            "Determine whether each dimension corresponds to a recognizable "
+            "quality attribute, constraint, or trade-off implied by the use "
+            "case, rather than an arbitrary topical grouping."
+        ),
+    ),
+    Criterion(
+        name="Rejected-alternative handling",
+        criteria=(
+            "Determine whether values with a 'rejected' status are kept "
+            "distinct from 'accepted' ones, rather than presented as "
+            "equivalent peer values on the same axis."
+        ),
+    ),
 ]
 
 COVERAGE_CRITERION = Criterion(
@@ -96,6 +113,23 @@ COVERAGE_CRITERION = Criterion(
     ),
     needs_documents=True,
 )
+
+GAP_AWARENESS_CRITERION = Criterion(
+    name="Design-space gap awareness",
+    criteria=(
+        "Given the existing dimensions and values, determine whether the "
+        "sampled documents reveal an implied-but-unaddressed value "
+        "combination that the sample suggests exists but no value "
+        "currently names."
+    ),
+    needs_documents=True,
+)
+
+# Criteria requiring a document sample. build_metrics() includes these only
+# when documents are available; runner.py re-adds them as "not evaluated"
+# placeholder rows otherwise (R2 visibility), so both sides mirror the same
+# list rather than hardcoding the pairing independently.
+DOCUMENT_GROUNDED_CRITERIA = (COVERAGE_CRITERION, GAP_AWARENESS_CRITERION)
 
 
 def build_metrics(
@@ -116,7 +150,14 @@ def build_metrics(
     """
     criteria = list(STRUCTURAL_CRITERIA)
     if include_coverage:
-        criteria.append(COVERAGE_CRITERION)
+        criteria.extend(DOCUMENT_GROUNDED_CRITERIA)
+
+    # deepeval's OpenAIModel defaults to temperature=0.0, which newer
+    # reasoning-tier models (e.g. gpt-5.x) reject outright ("Only the
+    # default (1) value is supported"). temperature=1.0 is valid for both
+    # older and newer OpenAI models, so it is used unconditionally here
+    # rather than special-casing by model name.
+    judge_model = OpenAIModel(model=model, temperature=1.0)
 
     metrics: List[GEval] = []
     for criterion in criteria:
@@ -128,7 +169,7 @@ def build_metrics(
                 SingleTurnParams.ACTUAL_OUTPUT,
             ],
             threshold=threshold,
-            model=model,
+            model=judge_model,
             async_mode=True,
         )
         # Stash the criterion metadata so the runner can map metric -> row.

@@ -6,6 +6,15 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+# Shared by OpenCode.status and Value.status — kept as one alias so the
+# vocabulary and its description can't drift between the two schemas.
+DecisionStatus = Literal["accepted", "rejected", "outcome"]
+_DECISION_STATUS_DESCRIPTION = (
+    "accepted: the source content adopted this decision. rejected: the source "
+    "content explicitly declined this decision. outcome: the source content merely "
+    "reported this as a trade-off or outcome, not a decision made."
+)
+
 
 class SummaryOutput(BaseModel):
     """Structured output for document summarization."""
@@ -30,8 +39,16 @@ class OpenCode(BaseModel):
     """A fine-grained per-document concept or decision label (open coding)."""
 
     doc_id: str = Field(description="Id of the document the code was extracted from.")
-    label: str = Field(description="Concise open-code label naming the concept or decision found in the document.")
+    label: str = Field(
+        description=(
+            "Concise open-code label naming the concept or decision as a noun phrase "
+            "(e.g., 'Redis-backed caching layer', not 'chose Redis for caching'). Never "
+            "prefix the label with its status (e.g., no 'Rejected: ...' or 'Accepted: ...') "
+            "— status belongs only in the status field."
+        )
+    )
     rationale: str = Field(description="Why this code applies to the document, grounded in the use case.")
+    status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
 
 
 class OpenCodesOutput(BaseModel):
@@ -65,12 +82,20 @@ class Value(BaseModel):
 
     id: str = Field(description="Value identifier, unique within its dimension (e.g., '1.1').")
     dimension_id: str = Field(description="Id of the dimension this value belongs to.")
-    label: str = Field(description="Concise value label naming the specific decision or position.")
+    label: str = Field(
+        description=(
+            "Concise value label naming the specific decision or position as a noun phrase "
+            "(e.g., 'S3-backed write-ahead log', not 'Log writes to S3 before commit'). Never "
+            "prefix the label with its status (e.g., no 'Rejected: ...' or 'Accepted: ...') "
+            "— status belongs only in the status field."
+        )
+    )
     description: str = Field(description="What this value means along its dimension.")
     supporting_doc_ids: List[str] = Field(
         default_factory=list,
         description="Ids of documents whose open codes support this value.",
     )
+    status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
 
 
 class Cluster(BaseModel):
@@ -99,9 +124,15 @@ class TaxonomyOutput(BaseModel):
     )
     explanation: str = Field(
         description=(
-            "Your rationale for this taxonomy: why you chose these categories, "
-            "how they capture the themes in the data, and what trade-offs you made. "
-            "Must not be empty."
+            "Your rationale for this taxonomy, in full sentences — not a clipped, "
+            "fragment-style list. Explicitly name every dimension you added, removed, "
+            "merged, split, or substantially reworded, and explain the change (e.g. "
+            "\"Added 'Payment Processing' because several documents described billing "
+            "flows no existing dimension covered; merged 'Bike Lifecycle' into 'Rental "
+            "Lifecycle' because they described the same underlying axis\"). Do not refer "
+            "to a dimension only by number or vague description — use its actual name. "
+            "Also explain how the categories capture the themes in the data and what "
+            "trade-offs you made. Must not be empty."
         ),
     )
 

@@ -22,6 +22,10 @@ An axis of variation the Taxonomy captures — documents differ along a Dimensio
 
 A specific point or decision along one Dimension's axis, distinct from the Dimension itself. A Value is supported by the documents whose Open Coding results led to it.
 
+## Decision Status
+
+A Value's classification of the stance its supporting documents take toward the decision it names: `accepted` (the documents adopted it), `rejected` (the documents explicitly considered and declined it), or `outcome` (the documents report it as an observed trade-off or outcome, not a decision made). Named `outcome` rather than reusing a Relation's `consequence` type, which links two Dimensions and means something different. Open Coding assigns Decision Status per code; a Value's status must match every code that supports it — merging never combines Values of differing status, even when their labels are near-duplicates.
+
 ## Relation
 
 A typed, directed link from one Dimension to another, describing how the two interact rather than incidental co-occurrence. Types: `precondition`, `consequence`, `co_occurring`, `constrains`.

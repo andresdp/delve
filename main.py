@@ -791,12 +791,25 @@ async def _run_html_report(args: argparse.Namespace) -> None:
     # resolve_evaluation_path already parsed this file to find the match —
     # reuse it instead of reading it from disk a second time.
     evaluation_data = siblings.evaluation.data if siblings.evaluation else None
+    used_embedded_evaluation = False
+    if evaluation_data is None and isinstance(data, dict) and data.get("evaluation"):
+        # No standalone evaluation_*.json sibling matched (that mode is a
+        # separate --evaluate CLI run), but a live pipeline run with
+        # evaluation enabled embeds its own scoreboard directly in the
+        # taxonomy JSON — wrap it in the same shape render_evaluation_section
+        # expects from a sibling artifact rather than leaving it unused.
+        evaluation_data = {"scoreboard": data["evaluation"]}
+        used_embedded_evaluation = True
+
     for match, label in (
         (siblings.report, "report"), (siblings.biplot, "biplot"),
         (siblings.evaluation, "evaluation"), (siblings.documents, "documents"),
     ):
         if match is None:
-            console.print(f"  [dim]No {label} sibling found — that section will show as unavailable.[/dim]")
+            if label == "evaluation" and used_embedded_evaluation:
+                console.print("  [dim]No evaluation sibling found — using the evaluation embedded in the taxonomy JSON.[/dim]")
+            else:
+                console.print(f"  [dim]No {label} sibling found — that section will show as unavailable.[/dim]")
         elif match.approximate:
             console.print(f"  [dim]Multiple {label} candidates found — using the best match: {match.path.name}[/dim]")
 

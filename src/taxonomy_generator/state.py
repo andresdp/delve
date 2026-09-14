@@ -75,8 +75,15 @@ class OutputState:
     dropped_dimensions: List[Dict] = field(default_factory=list)
     delta_summary: Optional[Dict] = field(default=None)
     # Observe-only evaluation scoreboard (deepeval GEval criteria). Flat
-    # dict with replace semantics — set once by the evaluate_taxonomy node.
+    # dict with replace semantics — always ends the run holding the final
+    # (post-selection/post-labeling) evaluate_taxonomy call's scoreboard,
+    # since that call always executes last.
     evaluation: Optional[Dict] = field(default=None)
+    # Every evaluate_taxonomy call (mid-loop drafts and the final call),
+    # in execution order — unlike `evaluation`, this accumulates rather
+    # than replacing, so format_feedback can read the freshest entry at
+    # any point in the run, not just the final one.
+    evaluation_history: Annotated[List[Dict], operator.add] = field(default_factory=list)
 
 
 @dataclass
