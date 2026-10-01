@@ -20,6 +20,7 @@ Usage::
     python benchmark/fetch_sources.py benchmark/c1-ml-workflow
     python benchmark/fetch_sources.py benchmark/c2-rl-monitoring --only s3 s19 --force
     python benchmark/fetch_sources.py --reextract          # rebuild texts offline from raw files
+    python benchmark/fetch_sources.py --from-manifest      # restore deleted downloads (same URLs/snapshots)
 
 Requires: httpx, trafilatura, beautifulsoup4, lxml, and ``pdftotext`` (poppler).
 """
@@ -205,14 +206,21 @@ def quality_flags(text: str) -> List[str]:
     return flags
 
 
-def process(client: httpx.Client, row: Dict[str, str], out: Path, force: bool) -> Dict:
+def process(client: httpx.Client, row: Dict[str, str], out: Path, force: bool,
+            prior: Optional[Dict] = None) -> Dict:
     sid = row["id"]
     raw_dir, text_dir = out / "raw", out / "text"
     existing = list(raw_dir.glob(f"{sid}.*"))
     if existing and (text_dir / f"{sid}.md").exists() and not force:
         return {"id": sid, "status": "skipped (exists)"}
+    if prior and prior.get("via") == "manual":
+        # Saved by hand from a browser: cannot be re-fetched automatically.
+        return {**prior, "status": "needs manual save"}
 
     candidates: List[Tuple[str, str]] = []
+    if prior and prior.get("fetched_from") and prior.get("status") != "failed":
+        # --from-manifest: re-fetch exactly the URL recorded last time (same snapshot).
+        candidates.append((prior.get("via") or "manifest", prior["fetched_from"]))
     if row.get("fetch_override"):
         candidates.append(("override", row["fetch_override"]))
         if row.get("archive_timestamp"):
@@ -326,6 +334,9 @@ def main() -> int:
                     help="case directories containing sources.csv (default: C1 and C2)")
     ap.add_argument("--only", nargs="*", help="source ids to (re)fetch")
     ap.add_argument("--force", action="store_true", help="re-download even if files exist")
+    ap.add_argument("--from-manifest", action="store_true",
+                    help="re-fetch exactly the URL recorded in sources/manifest.json (same snapshot) before "
+                         "falling back to the normal order; use to restore deleted downloads")
     ap.add_argument("--reextract", action="store_true",
                     help="no network: rebuild texts from the saved raw files (after changing the extraction)")
     ap.add_argument("--delay", type=float, default=5.0,
@@ -361,8 +372,9 @@ def fetch_case(case_dir: Path, args: argparse.Namespace) -> None:
     headers = {"User-Agent": USER_AGENT, "Accept-Language": "en-US,en;q=0.9"}
     with httpx.Client(headers=headers, follow_redirects=True, timeout=60) as client:
         for row in rows:
-            entry = process(client, row, out, args.force)
-            skipped = entry.get("status") == "skipped (exists)"
+            prior = manifest.get(row["id"]) if args.from_manifest else None
+            entry = process(client, row, out, args.force, prior)
+            skipped = entry.get("status") in ("skipped (exists)", "needs manual save")
             if not skipped:
                 manifest[row["id"]] = entry
                 write_manifest(out, manifest)  # after every source, so interrupted runs keep their record
