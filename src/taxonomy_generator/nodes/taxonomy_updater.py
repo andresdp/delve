@@ -40,7 +40,7 @@ async def update_taxonomy(
     """Update taxonomy using the batch of documents just open-coded."""
     configuration = Configuration.from_runnable_config(config)
 
-    feedback = format_feedback(state)
+    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or ())
 
     update_chain = _setup_update_chain(configuration, feedback)
 

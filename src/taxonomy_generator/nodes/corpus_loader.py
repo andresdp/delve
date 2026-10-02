@@ -13,7 +13,7 @@ from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.state import State
-from taxonomy_generator.utils import docs_from_dicts, load_seed_taxonomy
+from taxonomy_generator.utils import docs_from_dicts, load_seed_taxonomy, resolve_seed_view
 
 logger = logging.getLogger(__name__)
 
@@ -96,12 +96,14 @@ async def load_corpus(state: State, config: RunnableConfig) -> dict:
         "status": [status_message],
     }
 
-    # Seed the taxonomy when an input file is configured: the loaded final
-    # iteration becomes clusters[0], which both makes train-mode refinement
-    # start at update_taxonomy (existing routing) and provides test mode's
-    # frozen dimension set.
+    # Seed the taxonomy when an input file is configured: the loaded view
+    # becomes clusters[0], which both makes train-mode refinement start at
+    # update_taxonomy (existing routing) and provides test mode's frozen
+    # dimension set. Test mode freezes the selected view by default (the
+    # reported design space); train mode refines the final iteration.
     if configuration.taxonomy_input:
-        seed_clusters = load_seed_taxonomy(configuration.taxonomy_input)
+        view = resolve_seed_view(configuration.taxonomy_input_view, configuration.mode)
+        seed_clusters = load_seed_taxonomy(configuration.taxonomy_input, view)
         result["clusters"] = [seed_clusters]
         result["explanations"] = [
             f"Seeded taxonomy from {configuration.taxonomy_input} ({len(seed_clusters)} dimensions)."

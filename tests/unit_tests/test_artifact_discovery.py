@@ -1,48 +1,46 @@
 """Tests for sibling-artifact discovery and matching (Plan U4, KTD1)."""
 
 import json
-from pathlib import Path
 
 from taxonomy_generator.html_report import discover_siblings, resolve_biplot_path
 
-FIXTURE_DIR = Path(__file__).resolve().parents[2] / "examples" / "cursor-git-at-scale"
-FIXTURE_TAXONOMY = FIXTURE_DIR / "cursor-git-at-scale_taxonomy_20260828_212329.json"
 
-
-def test_real_fixture_resolves_all_four_sibling_kinds():
-    """Against the real cursor-git-at-scale fixture, every sibling kind resolves."""
-    result = discover_siblings(FIXTURE_TAXONOMY, "cursor-git-at-scale", iteration=4)
+def test_full_run_folder_resolves_all_four_sibling_kinds(sibling_run_dir):
+    """In a complete run folder, every sibling kind resolves; same-timestamp files match exactly."""
+    taxonomy_path, name, iteration = sibling_run_dir
+    result = discover_siblings(taxonomy_path, name, iteration=iteration)
 
     assert result.report is not None
-    assert result.report.path.name == "cursor-git-at-scale_report_20260828_212329.md"
+    assert result.report.path.name == f"{name}_report_20260828_212329.md"  # not the older decoy
     assert result.report.approximate is False
 
     assert result.documents is not None
-    assert result.documents.path.name == "cursor-git-at-scale_documents_20260828_212329.json"
+    assert result.documents.path.name == f"{name}_documents_20260828_212329.json"
     assert result.documents.approximate is False
 
     assert result.biplot is not None
     assert result.evaluation is not None
 
 
-def test_multiple_evaluation_files_exact_match_same_taxonomy_tie_break():
+def test_multiple_evaluation_files_exact_match_same_taxonomy_tie_break(sibling_run_dir):
     """Two evaluation JSONs both exact-match source_file; the tie-break picks one via KTD1."""
-    result = discover_siblings(FIXTURE_TAXONOMY, "cursor-git-at-scale", iteration=4)
+    taxonomy_path, name, iteration = sibling_run_dir
+    result = discover_siblings(taxonomy_path, name, iteration=iteration)
 
     assert result.evaluation is not None
-    # Both taxonomy_evaluation_*.json in the fixture have source_file pointing
-    # at this exact taxonomy file, so this exercises the tie-break, not a
-    # single unambiguous match.
+    # Both taxonomy_evaluation_*.json have source_file pointing at this exact
+    # taxonomy file, so this exercises the tie-break, not a single unambiguous match.
     assert result.evaluation.approximate is True
     assert result.evaluation.path.name == "taxonomy_evaluation_20260828_213508.json"
 
 
-def test_biplot_2d_and_3d_both_present_prefers_3d():
+def test_biplot_2d_and_3d_both_present_prefers_3d(sibling_run_dir):
     """When both a 2D and 3D biplot match the same stage and iteration, 3D is selected."""
-    result = discover_siblings(FIXTURE_TAXONOMY, "cursor-git-at-scale", iteration=4)
+    taxonomy_path, name, iteration = sibling_run_dir
+    result = discover_siblings(taxonomy_path, name, iteration=iteration)
 
     assert result.biplot is not None
-    assert result.biplot.path.name == "taxonomy_biplot_cursor-git-at-scale_standalone_4_3d.html"
+    assert result.biplot.path.name == f"taxonomy_biplot_{name}_standalone_{iteration}_3d.html"
 
 
 def test_no_sibling_artifacts_returns_no_match_for_all(tmp_path):

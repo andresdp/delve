@@ -56,10 +56,13 @@ def test_successful_scoring_returns_single_item_history(monkeypatch):
     state = State(clusters=[[{"id": "c1", "name": "Billing", "description": "desc"}]])
     result = asyncio.run(evaluate_taxonomy(state, _config()))
 
-    assert result["evaluation"] == scoreboard
+    # The scoreboard is labeled with the view and iteration it scored.
+    assert result["evaluation"] == {
+        **scoreboard, "view": "loop draft, pre-selection", "iteration": 1, "dimensions": 1,
+    }
     # The node returns only this call's entry — the state reducer owns
     # accumulation, not the node itself.
-    assert result["evaluation_history"] == [scoreboard]
+    assert result["evaluation_history"] == [result["evaluation"]]
     assert "clusters" not in result
     assert "selected_clusters" not in result
     assert "documents" not in result

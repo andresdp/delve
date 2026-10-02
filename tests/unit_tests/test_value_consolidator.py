@@ -92,9 +92,9 @@ def test_same_status_pair_below_epsilon_merges_and_preserves_status(monkeypatch)
     assert len(new_values[0]["merged_from"]) == 1
 
 
-def test_different_status_pair_below_epsilon_does_not_merge(monkeypatch):
-    """Two values close enough to merge under the old algorithm, but of
-    different status, must stay separate under status-partitioned merging."""
+def test_different_status_pair_below_epsilon_does_not_merge_without_stance_merging(monkeypatch):
+    """With merge_value_stances off, two close values of different status stay
+    separate (values only compete within their exact status)."""
     values = [
         _value("1.1", "Accept refund", status="accepted"),
         _value("1.2", "Reject refund", status="rejected"),
@@ -105,7 +105,7 @@ def test_different_status_pair_below_epsilon_does_not_merge(monkeypatch):
 
     _patch_embeddings(monkeypatch, vectors)
     _patch_merge_chain(monkeypatch)
-    result = asyncio.run(consolidate_values(state, _config()))
+    result = asyncio.run(consolidate_values(state, _config(merge_value_stances=False)))
 
     new_values = result["clusters"][0][0]["values"]
     assert len(new_values) == 2
@@ -148,9 +148,9 @@ def test_three_statuses_far_apart_retain_status_and_renumber(monkeypatch):
     fake_chain.ainvoke.assert_not_called()
 
 
-def test_borderline_cross_status_pair_skips_llm_adjudication(monkeypatch):
-    """A borderline-distance pair of different status must never reach the
-    LLM adjudication call — partitioning happens before borderline pairing."""
+def test_borderline_cross_status_pair_skips_llm_adjudication_without_stance_merging(monkeypatch):
+    """With merge_value_stances off, a borderline pair of different status never
+    reaches the LLM adjudication call: partitioning happens before pairing."""
     values = [
         _value("1.1", "Accept refund", status="accepted"),
         _value("1.2", "Reject refund", status="rejected"),
@@ -166,7 +166,7 @@ def test_borderline_cross_status_pair_skips_llm_adjudication(monkeypatch):
 
     _patch_embeddings(monkeypatch, vectors)
     fake_chain = _patch_merge_chain(monkeypatch)
-    result = asyncio.run(consolidate_values(state, _config()))
+    result = asyncio.run(consolidate_values(state, _config(merge_value_stances=False)))
 
     new_values = result["clusters"][0][0]["values"]
     assert len(new_values) == 2  # not merged
@@ -215,3 +215,44 @@ def test_legacy_value_missing_status_key_treated_as_accepted(monkeypatch):
     new_values = result["clusters"][0][0]["values"]
     assert len(new_values) == 1
     assert new_values[0]["status"] == "accepted"
+
+
+# ── Stances: one candidate decision, adopted by some sources, rejected by others ──
+
+def test_accepted_and_rejected_values_of_one_decision_merge_into_mixed(monkeypatch):
+    values = [
+        {**_value("1.1", "Consensus replication", status="accepted"), "supporting_doc_ids": ["d1", "d2"]},
+        {**_value("1.2", "Consensus-based replication", status="rejected"), "supporting_doc_ids": ["d3"]},
+    ]
+    state = State(clusters=[[{"id": "1", "name": "Replication", "description": "d", "values": values}]])
+    _patch_embeddings(monkeypatch, [_unit(0), _unit(5)])  # well below epsilon
+    _patch_merge_chain(monkeypatch)
+    merged = asyncio.run(consolidate_values(state, _config()))["clusters"][0][0]["values"]
+    assert len(merged) == 1
+    assert merged[0]["status"] == "mixed"
+    assert merged[0]["stances"] == {"accepted": ["d1", "d2"], "rejected": ["d3"]}
+
+
+def test_identical_labels_merge_across_stances_even_when_embeddings_differ(monkeypatch):
+    values = [
+        {**_value("1.1", "Consensus replication", status="accepted"), "supporting_doc_ids": ["d1"]},
+        {**_value("1.2", "consensus  replication!", status="rejected"), "supporting_doc_ids": ["d2"]},
+    ]
+    state = State(clusters=[[{"id": "1", "name": "Replication", "description": "d", "values": values}]])
+    _patch_embeddings(monkeypatch, [_unit(0), _unit(90)])  # far apart
+    fake_chain = _patch_merge_chain(monkeypatch)
+    merged = asyncio.run(consolidate_values(state, _config()))["clusters"][0][0]["values"]
+    assert len(merged) == 1 and merged[0]["status"] == "mixed"
+    fake_chain.ainvoke.assert_not_called()
+
+
+def test_outcomes_never_merge_with_candidate_decisions(monkeypatch):
+    values = [
+        _value("1.1", "Consensus replication", status="accepted"),
+        _value("1.2", "Consensus replication", status="outcome"),
+    ]
+    state = State(clusters=[[{"id": "1", "name": "Replication", "description": "d", "values": values}]])
+    _patch_embeddings(monkeypatch, [_unit(0), _unit(1)])
+    _patch_merge_chain(monkeypatch)
+    merged = asyncio.run(consolidate_values(state, _config()))["clusters"][0][0]["values"]
+    assert sorted(v["status"] for v in merged) == ["accepted", "outcome"]

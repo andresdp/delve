@@ -6,23 +6,25 @@ Implements the value consolidation algorithm from
 1. Embed each draft value's ``label + description`` using the configured
    embedding model.
 2. L2-normalize the vectors before any distance computation.
-3. Partition each dimension's values by ``status`` (accepted / rejected /
-   outcome) before any distance computation — a value only ever competes
-   with other values that share its status. An accepted decision and a
-   rejected one never merge, no matter how close their embeddings are.
-4. Compute pairwise distances **within each status partition of each
-   dimension only** — a value only competes with other values on the same
-   axis and of the same status.
-5. Threshold-merge any pair below ``epsilon`` via union-find connected
-   components (deterministic, no LLM cost).
+3. Partition each dimension's values into candidate decisions (accepted /
+   rejected / mixed) and outcomes before any distance computation. A
+   candidate decision is one alternative answer to the dimension's question;
+   one source may adopt it and another reject it, so stances do not keep
+   candidates apart (``taxonomy.merge_value_stances``; when false, values
+   only compete within their exact status). Outcomes never merge with
+   candidate decisions.
+4. Compute pairwise distances **within each partition of each dimension
+   only** — a value only competes with other values on the same axis.
+5. Threshold-merge any pair below ``epsilon``, or with the same label
+   (ignoring case and punctuation), via union-find connected components
+   (deterministic, no LLM cost).
 6. Borderline pairs (distance just above ``epsilon``, within the borderline
-   band) go to an LLM adjudication call — only ever run within a status
-   partition, so cross-status pairs are never sent to the LLM.
-7. Canonical label per merged group: the nearest-to-centroid value. The
-   consolidated value's ``status`` is copied from the canonical member
-   (every member of a group shares one status, by construction of step 3).
-   Ids are assigned by a running counter across every status partition of
-   a dimension, so numbering does not restart per partition.
+   band) go to an LLM adjudication call, only ever within a partition.
+7. Canonical label per merged group: the nearest-to-centroid value. A merged
+   candidate decision keeps every member's stance as evidence (``stances``:
+   accepted / rejected document ids) and its status follows from them
+   (``mixed`` when members disagree). Ids are assigned by a running counter
+   across every partition of a dimension, so numbering does not restart.
 
 Nothing is silently deleted: merged-away values are recorded (id and
 label) on the consolidated value's ``merged_from`` field and logged for
@@ -32,17 +34,27 @@ value's catalog entry — see ``report_renderer.render_catalog``.
 
 import json
 import logging
+import re
 from typing import Dict, List, Tuple
 
 import numpy as np
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.nodes.dimension_merger import merge_dimensions
+from taxonomy_generator.nodes.evidence_linker import (
+    drop_unsupported_values,
+    initial_stances,
+    link_evidence,
+    status_from_stances,
+    status_group,
+)
 from taxonomy_generator.prompts import VALUE_MERGE_PROMPT
 from taxonomy_generator.schemas import ValueMergeOutput
 from taxonomy_generator.state import State
 from taxonomy_generator.utils import (
     connected_components,
+    ensure_unique_ids,
     l2_normalize,
     load_chat_model,
     load_embeddings_model,
@@ -59,6 +71,11 @@ def _setup_merge_chain(configuration: Configuration):
     structured_model = model.with_structured_output(ValueMergeOutput)
     prompt = VALUE_MERGE_PROMPT.partial(use_case=configuration.use_case)
     return (prompt | structured_model).with_config(run_name="AdjudicateValueMerge")
+
+
+def _norm_label(label) -> str:
+    """Label for exact-duplicate detection: lower case, punctuation and extra spaces removed."""
+    return re.sub(r"[^a-z0-9]+", " ", str(label or "").lower()).strip()
 
 
 def _flatten_values(clusters: List[Dict]) -> List[Dict]:
@@ -104,6 +121,18 @@ def _merge_group(
 
     supporting_ids = list(dict.fromkeys(supporting))  # stable dedupe
 
+    # Candidate decisions keep each member's stance as evidence; the merged
+    # status follows from it (``mixed`` when members disagree). Outcomes merge
+    # only with outcomes, so they keep their status.
+    status = canonical.get("status", "accepted")
+    stances: Dict[str, List[str]] = {}
+    if status_group(status) == "candidate":
+        for value in group_values:
+            for stance, docs in initial_stances(value).items():
+                stances.setdefault(stance, []).extend(docs)
+        stances = {k: list(dict.fromkeys(v)) for k, v in stances.items()}
+        status = status_from_stances(stances, status)
+
     consolidated = {
         "id": f"{dimension_id}.{index_offset}",
         "dimension_id": dimension_id,
@@ -111,28 +140,85 @@ def _merge_group(
         "description": canonical.get("description", ""),
         "supporting_doc_ids": supporting_ids,
         "merged_from": merged_from,
-        # Partitioning by status (consolidate_values) guarantees every member
-        # of this group shares one status — a direct copy is always correct.
-        "status": canonical.get("status", "accepted"),
+        "status": status,
     }
+    if stances:
+        consolidated["stances"] = stances
 
     merged_labels = [m["label"] or m["id"] for m in merged_from]
     return consolidated, merged_labels
+
+
+def _reviewed_taxonomy(state: State) -> List[Dict]:
+    """The reviewed taxonomy with unique dimension/value ids (values are looked up by id below)."""
+    reviewed = state.clusters[-1] if state.clusters else []
+    fixed, changes = ensure_unique_ids(reviewed)
+    if changes:
+        logger.warning("Fixed %d duplicate taxonomy ids before consolidation: %s", len(changes), "; ".join(changes))
+    return fixed
 
 
 async def consolidate_values(
     state: State,
     config: RunnableConfig,
 ) -> dict:
-    """Consolidate draft values within each dimension of the reviewed taxonomy."""
+    """Consolidate draft values, then link each value to the documents that support it.
+
+    Evidence linking runs here (not as a separate node) so the consolidated
+    taxonomy stays a single entry in ``state.clusters`` — reports and biplots
+    number iterations by that list's length.
+    """
     configuration = Configuration.from_runnable_config(config)
+    reviewed = _reviewed_taxonomy(state)
+
+    merge_notes: List[str] = []
+    if configuration.merge_dimensions:
+        before = len(reviewed)
+        reviewed, merge_notes = await merge_dimensions(reviewed, configuration)
+        reviewed, _ = ensure_unique_ids(reviewed)
+        if merge_notes:
+            merge_notes = [f"Merged near-duplicate dimensions ({before} -> {len(reviewed)}):"] + [
+                f"  - {n}" for n in merge_notes]
+
+    result = await _consolidate_values(state, configuration, reviewed)
+    if merge_notes:
+        note = "\n".join(merge_notes)
+        result["explanations"] = [note + "\n" + e for e in result.get("explanations", [])] or [note]
+        result["status"] = [merge_notes[0]] + list(result.get("status", []))
+
+    open_codes = getattr(state, "open_codes", None)
+    if not (configuration.link_evidence and open_codes and result.get("clusters")):
+        return result
+
+    linked, stats = await link_evidence(
+        result["clusters"][0], open_codes, configuration.embedding,
+        float(configuration.evidence_min_similarity),
+    )
+    note = (
+        f"Evidence linking: {stats['assigned']} of {stats['codes']} open codes assigned to a value "
+        f"(similarity >= {float(configuration.evidence_min_similarity):.2f}); "
+        f"{stats['documents_with_evidence']} of {stats['documents']} documents now support at least one value."
+    )
+    if stats.get("linked") and configuration.drop_unsupported_values:
+        linked, removed = drop_unsupported_values(linked)
+        if removed:
+            note += (f"\nRemoved {len(removed)} value{'s' if len(removed) != 1 else ''} with no supporting "
+                     f"document (kept as unsupported_values): " + "; ".join(removed))
+    result["clusters"] = [linked]
+    logger.info(note)
+    result["explanations"] = [result["explanations"][0] + "\n" + note] if result.get("explanations") else [note]
+    result["status"] = list(result.get("status", [])) + [note]
+    return result
+
+
+async def _consolidate_values(state: State, configuration: Configuration, reviewed: List[Dict]) -> dict:
+    """Consolidate draft values within each dimension of the reviewed taxonomy."""
 
     # Optional disable: pass the reviewed taxonomy through untouched (no
     # embeddings, no LLM adjudication). Visualization then places every value
     # at a unitary distance on its dimension axis.
     if not configuration.consolidate_values:
         logger.info("Value consolidation disabled — passing taxonomy through unchanged")
-        reviewed = state.clusters[-1] if state.clusters else []
         if should_render(configuration, "consolidate"):
             await render_taxonomy_biplot(
                 configuration, reviewed, stage="consolidate",
@@ -147,7 +233,6 @@ async def consolidate_values(
             "status": ["Value consolidation skipped (disabled)."],
         }
 
-    reviewed = state.clusters[-1] if state.clusters else []
     all_values = _flatten_values(reviewed)
 
     if not all_values:
@@ -203,12 +288,17 @@ async def consolidate_values(
 
         dim_name = cluster.get("name") or dim_id
 
-        # Step 3: partition by status — a value only ever competes with
-        # other values that share its status. Dict insertion order gives a
-        # deterministic partition order (first-seen status in dim_values).
+        # Step 3: partition. With merge_value_stances (default), candidate
+        # decisions (accepted/rejected/mixed) compete with each other — one
+        # source may adopt what another rejected, and that is still one
+        # candidate decision — while outcomes only compete with outcomes.
+        # Without it, values only compete within their exact status. Dict
+        # insertion order gives a deterministic partition order.
         status_groups: Dict[str, List[Dict]] = {}
         for v in dim_values:
-            status_groups.setdefault(v.get("status", "accepted"), []).append(v)
+            status = v.get("status", "accepted")
+            key = status_group(status) if configuration.merge_value_stances else status
+            status_groups.setdefault(key, []).append(v)
 
         # Run the existing pairwise-distance / threshold-merge / borderline
         # LLM-adjudication / canonical-selection sequence independently per
@@ -229,7 +319,8 @@ async def consolidate_values(
             for i in range(len(status_values)):
                 for j in range(i + 1, len(status_values)):
                     d = float(dist_matrix[i, j])
-                    if d <= epsilon:
+                    same_label = _norm_label(status_values[i].get("label")) == _norm_label(status_values[j].get("label"))
+                    if d <= epsilon or same_label:
                         merge_edges.append((i, j))
                     elif d <= borderline_upper:
                         borderline_pairs.append((i, j))
@@ -250,12 +341,14 @@ async def consolidate_values(
                                 "label": status_values[i].get("label", ""),
                                 "description": status_values[i].get("description", ""),
                                 "supporting_doc_ids": status_values[i].get("supporting_doc_ids", []),
+                                "status": status_values[i].get("status", "accepted"),
                             }, indent=2),
                             "value_b_json": json.dumps({
                                 "id": status_values[j]["id"],
                                 "label": status_values[j].get("label", ""),
                                 "description": status_values[j].get("description", ""),
                                 "supporting_doc_ids": status_values[j].get("supporting_doc_ids", []),
+                                "status": status_values[j].get("status", "accepted"),
                             }, indent=2),
                         }
                     )

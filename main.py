@@ -36,7 +36,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from taxonomy_generator import graph, report_renderer, strings_to_docs
+from taxonomy_generator import docs_from_dicts, graph, report_renderer, strings_to_docs
 from taxonomy_generator.configuration import Configuration, init_settings
 
 logger = logging.getLogger(__name__)
@@ -52,10 +52,11 @@ STEP_INFO = {
     "update_taxonomy": ("🔄", "Updating taxonomy"),
     "check_saturation": ("🧪", "Checking saturation"),
     "review_taxonomy": ("🔍", "Reviewing taxonomy"),
-    "consolidate_values": ("🧲", "Consolidating values"),
+    "consolidate_values": ("🧲", "Consolidating dimensions and values"),
     "select_dimensions": ("🎯", "Selecting dimensions"),
-    "label_documents": ("🏷️", "Labeling documents"),
-    "evaluate_taxonomy": ("🎯", "Evaluating taxonomy"),
+    "label_documents": ("🔖", "Labeling documents"),
+    "evaluate_taxonomy": ("📊", "Evaluating taxonomy"),
+    "evaluate_taxonomy_final": ("📊", "Evaluating final taxonomy"),
     "aggregate_new_values": ("🧩", "Aggregating new values"),
 }
 
@@ -159,6 +160,26 @@ def load_corpus(path: str) -> list[str]:
     except json.JSONDecodeError as e:
         logger.error("Failed to parse JSON corpus file: %s — %s", path, e)
         raise
+
+
+def load_corpus_documents(path: str) -> list:
+    """Load a corpus as ``Doc`` objects, keeping document ids when the corpus has them.
+
+    A JSON corpus whose items are all objects with ``id`` and ``content`` (e.g.
+    passages ``s03_p02`` built by ``benchmark/build_corpus.py``) keeps those ids,
+    so open codes, values and labels stay traceable to their source. Any other
+    corpus gets generated ids, as before.
+    """
+    if path.endswith(".json"):
+        with open(path) as f:
+            data = json.load(f)
+        if data and all(isinstance(i, dict) and "id" in i and "content" in i for i in data):
+            ids = [str(i["id"]) for i in data]
+            if len(set(ids)) != len(ids):
+                raise ValueError(f"Corpus {path} has duplicate document ids.")
+            logger.info("Loaded %d documents with ids from JSON corpus", len(data))
+            return docs_from_dicts([{"id": str(i["id"]), "content": i["content"]} for i in data])
+    return strings_to_docs(load_corpus(path))
 
 
 def parse_args() -> argparse.Namespace:
@@ -319,6 +340,14 @@ def parse_args() -> argparse.Namespace:
              "iteration to render. Default: selected_clusters if present, "
              "else the last iteration.",
     )
+    parser.add_argument(
+        "--all-iterations",
+        action="store_true",
+        help="With --evaluate on one file: score every saved iteration and the "
+             "selected view (re-scoring a past run with the current criteria), "
+             "and print the scores across iterations. Use --config for the run's "
+             "use case and --corpus for the data-grounded criteria.",
+    )
     visualize_group.add_argument(
         "--axis-positions",
         choices=["auto", "embeddings", "uniform"],
@@ -451,8 +480,17 @@ def _display_taxonomy_tree(clusters: list, documents: list, configuration: Confi
         description = cluster.get("description", "")
         category_docs = docs_by_category.get(name, [])
 
-        # Category branch: name + doc count + description
-        count_label = f"[dim]({len(category_docs)} docs)[/dim]"
+        # Category branch: name + counts + description. With single-label labeling a
+        # dimension can have evidence (open codes from several documents) but be no
+        # document's *main* topic, so both numbers are shown when evidence exists.
+        evidence = cluster.get("evidence") if isinstance(cluster.get("evidence"), dict) else None
+        if evidence:
+            count_label = (
+                f"[dim]({len(category_docs)} labeled · evidence: {evidence.get('documents', 0)} docs "
+                f"from {evidence.get('sources', 0)} sources)[/dim]"
+            )
+        else:
+            count_label = f"[dim]({len(category_docs)} docs)[/dim]"
         cat_branch = tree.add(
             f"[bold magenta]{name}[/bold magenta] {count_label}\n  [dim italic]{description}[/dim italic]"
         )
@@ -799,6 +837,8 @@ async def _run_html_report(args: argparse.Namespace) -> None:
         # taxonomy JSON — wrap it in the same shape render_evaluation_section
         # expects from a sibling artifact rather than leaving it unused.
         evaluation_data = {"scoreboard": data["evaluation"]}
+        if data.get("evaluation_history"):
+            evaluation_data["evaluation_history"] = data["evaluation_history"]
         used_embedded_evaluation = True
 
     for match, label in (
@@ -891,6 +931,50 @@ def _display_scoreboard(scoreboard: Optional[dict], configuration: Configuration
         panel_body,
         title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
         subtitle=f"[dim]overall {overall_str} · judge {model} · threshold {configuration.evaluation_threshold}[/dim]",
+        border_style="bright_magenta",
+    ))
+
+
+def _short_criterion(name: str) -> str:
+    """Column label: initials for multi-word names (UCA), else the first four letters (Orth)."""
+    words = name.replace("-", " ").replace(".", "").split()
+    return "".join(w[0] for w in words).upper() if len(words) > 1 else name[:4]
+
+
+def _display_evaluation_history(history: List[dict]) -> None:
+    """Render scores across a run's evaluations (one row per scoreboard).
+
+    Loop drafts are the raw axial-coding output of each iteration; the final
+    view is consolidated and selected, so it is not directly comparable.
+    """
+    rows = [h for h in history or [] if isinstance(h, dict) and not h.get("unavailable")]
+    if len(rows) < 2:
+        return
+    names: List[str] = []
+    for h in rows:
+        for c in h.get("criteria") or []:
+            if c.get("name") and c["name"] not in names:
+                names.append(c["name"])
+    table = Table(border_style="bright_magenta", expand=False)
+    table.add_column("Iter.", justify="right")
+    table.add_column("View", style="dim")
+    table.add_column("Dims", justify="right")
+    table.add_column("Overall", style="cyan", justify="center")
+    for name in names:
+        table.add_column(_short_criterion(name), justify="center")
+    for h in rows:
+        scores = {c.get("name"): c.get("score") for c in h.get("criteria") or []}
+        overall = h.get("overall")
+        table.add_row(
+            str(h.get("iteration", "?")), str(h.get("view", "")), str(h.get("dimensions", "")),
+            f"{overall:.2f}" if isinstance(overall, (int, float)) else "—",
+            *[f"{scores[n]:.1f}" if isinstance(scores.get(n), (int, float)) else "—" for n in names],
+        )
+    legend = " · ".join(f"{_short_criterion(n)} {n}" for n in names)
+    console.print()
+    console.print(Panel(
+        Group(table, "", Text(legend, style="dim")),
+        title="[bold bright_magenta]📈 Evaluation across iterations[/bold bright_magenta]",
         border_style="bright_magenta",
     ))
 
@@ -1010,34 +1094,57 @@ async def _run_evaluate(args: argparse.Namespace) -> None:
 
     if len(files) == 1:
         # Scoreboard mode - optionally with --corpus for the coverage tier.
-        data = _load_taxonomy_file(files[0])
-        clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
-        documents: List[dict] = []
-        if args.corpus:
-            texts = load_corpus(args.corpus)
-            documents = [{"content": t} for t in texts]
-            console.print(f"[dim]Loaded {len(documents)} documents for the coverage criterion.[/dim]")
+        from taxonomy_generator.evaluation.runner import run_scoreboard, sample_documents
 
-        n_values = _count_values(clusters)
+        data = _load_taxonomy_file(files[0])
+        documents: List[object] = []
+        if args.corpus:
+            # Keep passage ids and draw the same seeded, source-stratified sample
+            # the pipeline's evaluator uses, so scores are comparable with a run's.
+            documents = sample_documents(
+                load_corpus_documents(args.corpus),
+                configuration.evaluation_max_documents,
+                configuration.random_seed,
+            )
+            console.print(f"[dim]Sampled {len(documents)} documents for the data-grounded criteria.[/dim]")
+
+        if args.all_iterations:
+            if not isinstance(data, dict) or not data.get("iterations"):
+                raise SystemExit("--all-iterations needs a taxonomy JSON with saved iterations")
+            views = [(i + 1, f"iteration {i + 1}", it.get("clusters") or [])
+                     for i, it in enumerate(data["iterations"])]
+            if data.get("selected_clusters"):
+                views.append((len(data["iterations"]), "selected view", data["selected_clusters"]))
+        else:
+            clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+            views = [(iteration, f"iteration {iteration}", clusters)]
+
+        clusters = views[-1][2]
         console.print(Panel(
             f"[bold]File:[/bold] {files[0]}\n"
-            f"[bold]Iteration:[/bold] {iteration}\n"
-            f"[bold]Values:[/bold] {n_values}\n"
+            f"[bold]Views:[/bold] {', '.join(label for _, label, _ in views)}\n"
+            f"[bold]Values:[/bold] {_count_values(clusters)}\n"
             f"[bold]Dimensions:[/bold] {len(clusters)}\n"
-            f"[bold]Corpus:[/bold] {args.corpus or 'none (coverage criterion marked not evaluated)'}",
+            f"[bold]Corpus:[/bold] {args.corpus or 'none (data-grounded criteria marked not evaluated)'}",
             title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
             border_style="bright_magenta",
         ))
 
-        from taxonomy_generator.evaluation.runner import run_scoreboard
-
-        scoreboard = await run_scoreboard(clusters, documents, configuration)
+        history = []
+        for iteration, label, view in views:
+            console.print(f"[dim]Scoring {label} ({len(view)} dimensions)…[/dim]")
+            board = await run_scoreboard(view, documents, configuration)
+            history.append({**board, "view": label, "iteration": iteration, "dimensions": len(view)})
+        scoreboard = history[-1]
         _display_scoreboard(scoreboard, configuration)
+        _display_evaluation_history(history)
         if scoreboard.get("unavailable"):
             raise SystemExit(1)
 
         artifact = {"taxonomy_name": configuration.name, "source_file": files[0],
-                    "iteration": iteration, "scoreboard": scoreboard}
+                    "iteration": views[-1][0], "scoreboard": scoreboard}
+        if len(history) > 1:
+            artifact["evaluation_history"] = history
     else:
         # Consistency mode - compare two or more saved taxonomies.
         if args.corpus:
@@ -1076,14 +1183,14 @@ async def run(args: argparse.Namespace) -> None:
     settings = init_settings(args.config)
 
     logger.info("Using corpus file mode: %s", args.corpus)
-    texts = load_corpus(args.corpus)
-    logger.info("Loaded %d documents from corpus", len(texts))
+    documents = load_corpus_documents(args.corpus)
+    logger.info("Loaded %d documents from corpus", len(documents))
     console.print(Panel(
-        f"[bold]File:[/bold] {args.corpus}\n[bold]Documents:[/bold] {len(texts)}",
+        f"[bold]File:[/bold] {args.corpus}\n[bold]Documents:[/bold] {len(documents)}",
         title="[bold cyan]📂 Loading Corpus[/bold cyan]",
         border_style="cyan",
     ))
-    invoke_input = {"documents": strings_to_docs(texts)}
+    invoke_input = {"documents": documents}
 
     # Run mode / seeding / external feedback (CLI over config).
     mode = args.mode or settings.pipeline.mode
@@ -1138,8 +1245,9 @@ async def run(args: argparse.Namespace) -> None:
     if taxonomy_input:
         seed_dimensions = "unknown"
         try:
-            from taxonomy_generator.utils import load_seed_taxonomy
-            seed_dimensions = str(len(load_seed_taxonomy(taxonomy_input)))
+            from taxonomy_generator.utils import load_seed_taxonomy, resolve_seed_view
+            seed_view = resolve_seed_view(effective_config.taxonomy_input_view, effective_config.mode)
+            seed_dimensions = f"{len(load_seed_taxonomy(taxonomy_input, seed_view))}, {seed_view} view"
         except ValueError as e:
             console.print(f"[bold red]❌ Error loading --taxonomy file: {e}[/bold red]")
             sys.exit(1)
@@ -1180,8 +1288,10 @@ async def run(args: argparse.Namespace) -> None:
     explanations: list = []
     documents: list = []
     messages: list = []
+    open_codes: list = []
     delta_summary: Optional[dict] = None
     evaluation: Optional[dict] = None
+    evaluation_history: list = []
     total_minibatches = None
 
     # Token tracking callback
@@ -1195,7 +1305,7 @@ async def run(args: argparse.Namespace) -> None:
     async for event in graph.astream(invoke_input, config=run_config, stream_mode="updates"):
         for node_name, node_output in event.items():
             # Display the step to the user
-            emoji, label = STEP_INFO.get(node_name, ("⚙️", node_name))
+            emoji, label = STEP_INFO.get(node_name, ("🔧", node_name))
 
             # Track minibatch count for update_taxonomy progress display
             if node_name == "get_minibatches":
@@ -1231,6 +1341,8 @@ async def run(args: argparse.Namespace) -> None:
                     delta_summary = node_output["delta_summary"]
                 if "evaluation" in node_output:
                     evaluation = node_output["evaluation"]
+                if node_output.get("evaluation_history"):
+                    evaluation_history.extend(node_output["evaluation_history"])
                 if "saturation_history" in node_output:
                     saturation_history.extend(node_output["saturation_history"])
                 if "explanations" in node_output:
@@ -1239,6 +1351,8 @@ async def run(args: argparse.Namespace) -> None:
                     documents = node_output["documents"]
                 if "messages" in node_output:
                     messages.extend(node_output["messages"])
+                if "open_codes" in node_output:
+                    open_codes.extend(node_output["open_codes"])
 
                 # Keep a reference to the full output for any fields we might need
                 result.update(node_output)
@@ -1270,6 +1384,8 @@ async def run(args: argparse.Namespace) -> None:
 
     if evaluation is not None and not evaluation.get("unavailable"):
         _display_scoreboard(evaluation, effective_config)
+    if effective_config.evaluation_save_history:
+        _display_evaluation_history(evaluation_history)
 
     if documents:
         logger.info("Labeling results: %d documents categorized", len(documents))
@@ -1277,7 +1393,8 @@ async def run(args: argparse.Namespace) -> None:
 
     # Display taxonomy tree (categories with their documents)
     if clusters and documents:
-        _display_taxonomy_tree(clusters, documents, effective_config)
+        # Same view the documents were labeled against (selected dimensions when present).
+        _display_taxonomy_tree(selected_clusters or clusters, documents, effective_config)
 
     if messages:
         _display_messages(messages)
@@ -1340,6 +1457,10 @@ async def run(args: argparse.Namespace) -> None:
             taxonomy_data["delta_summary"] = delta_summary
         if evaluation is not None and not evaluation.get("unavailable"):
             taxonomy_data["evaluation"] = evaluation
+        if evaluation_history and effective_config.evaluation_save_history:
+            # Every scoreboard of the run, in order (loop drafts, then the final
+            # view), each labeled with the view and iteration it scored.
+            taxonomy_data["evaluation_history"] = evaluation_history
         for i, iteration_clusters in enumerate(clusters):
             entry = {
                 "explanation": explanations[i] if i < len(explanations) else "",
@@ -1363,9 +1484,19 @@ async def run(args: argparse.Namespace) -> None:
             json.dump(msgs_data, f, indent=2, ensure_ascii=False)
         logger.info("Messages saved to: %s", msgs_path)
 
+        # Save open codes (the evidence behind every value; needed for grounding analysis)
+        if open_codes:
+            codes_path = output_dir / f"{name_prefix}open_codes_{timestamp}.json"
+            with open(codes_path, "w") as f:
+                json.dump({"taxonomy_name": effective_config.name, "open_codes": open_codes},
+                          f, indent=2, ensure_ascii=False)
+            logger.info("Open codes saved to: %s", codes_path)
+
         # Save taxonomy tree (clusters with their categorized documents)
         if clusters and documents:
-            final_taxonomy = clusters[-1]
+            # Same view the documents were labeled against: the selected dimensions
+            # when selection ran, else the full final taxonomy.
+            final_taxonomy = selected_clusters[-1] if selected_clusters and selected_clusters[-1] else clusters[-1]
 
             # Group documents by category
             docs_by_cat = {}
@@ -1398,6 +1529,7 @@ async def run(args: argparse.Namespace) -> None:
                     "id": cluster.get("id"),
                     "name": name,
                     "description": cluster.get("description", ""),
+                    "evidence": cluster.get("evidence"),
                     "documents": [
                         {
                             "id": (

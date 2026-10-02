@@ -17,7 +17,9 @@ node is wired into the graph at two call sites (see ``graph.py``):
   in the run, so its scoreboard is what ends up in ``state.evaluation``.
 
 The node returns ``{"evaluation": scoreboard, "evaluation_history": [...],
-"status": [...]}`` from every call; it never writes clusters,
+"status": [...]}`` from every call; each scoreboard records the ``view`` it
+scored, the ``iteration`` (number of taxonomy snapshots so far) and the number
+of ``dimensions``, and the run saves the whole history; it never writes clusters,
 selected_clusters, or routing-relevant state, and an evaluation failure
 degrades to the unavailable scoreboard without failing the run.
 """
@@ -30,7 +32,7 @@ from typing import Dict, List
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.evaluation.runner import run_scoreboard
+from taxonomy_generator.evaluation.runner import run_scoreboard, sample_documents
 from taxonomy_generator.state import State
 
 logger = logging.getLogger(__name__)
@@ -78,9 +80,13 @@ async def evaluate_taxonomy(
             "status": ["Evaluation skipped — no taxonomy view available."],
         }
 
-    documents: List[object] = list(state.documents or [])[
-        : configuration.evaluation_max_documents
-    ]
+    # The same seeded, source-stratified sample at every call, so scores from
+    # different iterations are judged on the same passages.
+    documents: List[object] = sample_documents(
+        list(state.documents or []),
+        configuration.evaluation_max_documents,
+        configuration.random_seed,
+    )
     if configuration.mode == "test":
         mode_label = "frozen seed (drift)"
     elif state.selected_clusters:
@@ -95,6 +101,15 @@ async def evaluate_taxonomy(
     scoreboard = await run_scoreboard(view, documents, configuration)
     if scoreboard.get("unavailable"):
         logger.warning("Taxonomy evaluation unavailable: %s", scoreboard.get("error"))
+    # Which view was scored, so the saved history can be read per iteration:
+    # loop drafts are the raw axial-coding output, the final view is the
+    # consolidated and selected taxonomy (not directly comparable).
+    scoreboard = {
+        **scoreboard,
+        "view": mode_label,
+        "iteration": len(state.clusters),
+        "dimensions": len(view),
+    }
 
     return {
         "evaluation": scoreboard,

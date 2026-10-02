@@ -1,20 +1,16 @@
 """Tests for the HTML section-rendering module (Plan U3)."""
 
 import json
-from pathlib import Path
 
 from taxonomy_generator import html_report as hr
-
-FIXTURE_DIR = Path(__file__).resolve().parents[2] / "examples" / "cursor-git-at-scale"
-FIXTURE_TAXONOMY = FIXTURE_DIR / "cursor-git-at-scale_taxonomy_20260828_212329.json"
 
 _MERMAID_JS_STUB = "/* mermaid stub */"
 _PLOTLYJS_STUB = "/* plotly stub */"
 
 
-def _load_real_fixture():
-    taxonomy_data = json.loads(FIXTURE_TAXONOMY.read_text())
-    siblings = hr.discover_siblings(FIXTURE_TAXONOMY, "cursor-git-at-scale", iteration=4)
+def _load_run(taxonomy_path, name, iteration):
+    taxonomy_data = json.loads(taxonomy_path.read_text())
+    siblings = hr.discover_siblings(taxonomy_path, name, iteration=iteration)
     report_text = siblings.report.path.read_text() if siblings.report else None
     biplot_text = siblings.biplot.path.read_text() if siblings.biplot else None
     documents_data = json.loads(siblings.documents.path.read_text()) if siblings.documents else None
@@ -23,12 +19,15 @@ def _load_real_fixture():
     return taxonomy_data, view_clusters, report_text, biplot_text, documents_data, evaluation_data
 
 
-def test_full_data_present_renders_every_section_no_external_refs():
+def test_full_data_present_renders_every_section_no_external_refs(sibling_run_dir):
     """With all four siblings present, every section renders in order with no external refs."""
-    taxonomy_data, view_clusters, report_text, biplot_text, documents_data, evaluation_data = _load_real_fixture()
+    taxonomy_path, name, iteration = sibling_run_dir
+    taxonomy_data, view_clusters, report_text, biplot_text, documents_data, evaluation_data = _load_run(
+        taxonomy_path, name, iteration
+    )
 
     page = hr.render_html_report(
-        "cursor-git-at-scale",
+        name,
         taxonomy_data,
         view_clusters,
         dropped_dimensions=[],

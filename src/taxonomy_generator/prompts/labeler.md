@@ -31,7 +31,8 @@
 ## Rules
 
 - Choose **exactly one** category per document.
-- If no category fits the document well, use the fallback category: **{fallback_category}**.
-- The category name in your response must **exactly match** a category name from the taxonomy.
+- If no category fits the document well, use the fallback category: **{fallback_category}** (with `category_id` null).
+- Return the chosen category's `id` as `category_id`, **exactly as listed** in the taxonomy, and its name as `category`.
+- The category name in your response must **exactly match** a category name from the taxonomy; never paraphrase it.
 - The value id in your response (when not null) must **exactly match** a value id listed under the chosen category.
 - `proposed_value_label` must be null when `value_id` is set, when the chosen category has no values at all, and when the fallback category **{fallback_category}** was used.

@@ -599,7 +599,42 @@ def render_evaluation_section(evaluation_data: Dict[str, Any] | None) -> str:
         f"<tbody>{''.join(rows)}</tbody>"
         "</table>"
     )
+    body += _render_evaluation_history(evaluation_data.get("evaluation_history") or [])
     return _section("evaluation", body)
+
+
+def _render_evaluation_history(history: List[Dict[str, Any]]) -> str:
+    """Scores of every evaluation in the run (loop drafts, then the final view); empty for fewer than two."""
+    rows = [h for h in history if isinstance(h, dict) and not h.get("unavailable")]
+    if len(rows) < 2:
+        return ""
+    names: List[str] = []
+    for h in rows:
+        for c in h.get("criteria") or []:
+            if c.get("name") and c["name"] not in names:
+                names.append(c["name"])
+    head = "".join(f"<th>{_e(n)}</th>" for n in names)
+    body_rows = []
+    for h in rows:
+        scores = {c.get("name"): c.get("score") for c in h.get("criteria") or []}
+        overall = h.get("overall")
+        cells = "".join(
+            f"<td>{scores[n]:.1f}</td>" if isinstance(scores.get(n), (int, float)) else "<td>&mdash;</td>"
+            for n in names
+        )
+        overall_str = f"{overall:.2f}" if isinstance(overall, (int, float)) else "&mdash;"
+        body_rows.append(
+            f"<tr><td>{_e(str(h.get('iteration', '?')))}</td><td>{_e(str(h.get('view', '')))}</td>"
+            f"<td>{_e(str(h.get('dimensions', '')))}</td><td>{overall_str}</td>{cells}</tr>"
+        )
+    return (
+        '<h3>Across iterations</h3>'
+        '<p class="dg-summary-line">Loop drafts are the raw output of each axial-coding iteration; '
+        "the final view is consolidated and selected, so it is not directly comparable.</p>"
+        '<div style="overflow-x:auto"><table class="dg-table">'
+        f"<thead><tr><th>Iteration</th><th>View</th><th>Dimensions</th><th>Overall</th>{head}</tr></thead>"
+        f"<tbody>{''.join(body_rows)}</tbody></table></div>"
+    )
 
 
 # ── Narrative summary ────────────────────────────────────────────────────

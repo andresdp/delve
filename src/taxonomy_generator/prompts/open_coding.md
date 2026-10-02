@@ -26,6 +26,8 @@ Every open code must also carry a `status`, classified from **the document's own
 - `rejected` — the source content explicitly declined this decision (e.g., "We considered GraphQL but decided against it." — even if the document praises GraphQL's merits, this is still `rejected` because the document says it was not adopted).
 - `outcome` — the source content merely reports this as a trade-off or result, not a decision being made (e.g., "Latency dropped to 50ms after the change." is an outcome, not a decision).
 
+`outcome` is only for **effects**: results, costs, measurements and side effects (latency, cost, complexity, risk, operational burden). A description of **how** something is done (a mechanism, technique, architecture or process, e.g. "changes are recorded in a write-ahead log before they are applied") is a decision, `accepted` or `rejected`, even when the document mentions it in passing or while describing its effects.
+
 `status` is the **authoritative** field for downstream filtering and merging — it is what later stages use to decide, for example, whether a code represents an adopted decision. `rationale` still explains *why* the code applies, but its wording must not contradict `status` (e.g., do not write a rationale that reads as endorsing an option while marking it `rejected`). Never restate `status` as a text prefix in the `label` itself (e.g., no "Rejected: GraphQL for the API" — write the label as "GraphQL for the API" and set `status` to `rejected` separately); the label names the concept, the field carries the status.
 
 ## Requirements

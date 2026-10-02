@@ -18,13 +18,29 @@ One snapshot of the Taxonomy's Dimensions captured at a specific point in its ge
 
 An axis of variation the Taxonomy captures — documents differ along a Dimension's axis, and a well-formed Dimension is orthogonal to every other Dimension (it captures a distinct *type* of distinction, not a value dressed up as an axis).
 
+In a design space, a Dimension is a *decision point*: a topic phrased as one question that requires a choice, whose Values are the candidate decisions (the alternative answers to that question). A Dimension whose Values answer different questions is a broad topic that bundles several decision points: it is split when each part keeps at least two candidate decisions, otherwise its Values move to the decision points whose questions they answer. A Dimension with a single candidate decision is merged into the decision point its Value answers, never filled with invented alternatives.
+
 ## Value
 
 A specific point or decision along one Dimension's axis, distinct from the Dimension itself. A Value is supported by the documents whose Open Coding results led to it.
 
+## Evidence Linking
+
+The step, run right after value consolidation, that records which documents support each Value. Every Open Coding result is assigned to its most similar Value of the same Decision Status (by embedding similarity, above `taxonomy.evidence_min_similarity`). The Value's `supporting_doc_ids` become those codes' documents, plus any valid ids the LLM cited. Each Value also gets an `evidence_code_count`, and each Dimension an `evidence` summary (codes, documents, sources). Evidence describes support from the data. It is independent of labeling, which assigns each document to a single Dimension.
+
+## Dimension Merging
+
+An optional step (`taxonomy.merge_dimensions`) at the start of value consolidation. It combines Dimensions that name the same design decision under different wording. Pairs that are close in embedding space go to an LLM judge, which merges only when the options of both answer one choice: detecting and mitigating a problem stay separate. The merged Dimension keeps every member's Values (value consolidation then removes duplicates), records the merged ones in `merged_from`, and its Relations are redirected.
+
+## Minimum Support
+
+A rule applied at dimension selection (`taxonomy.min_dimension_sources`): a Dimension whose evidence comes from fewer sources than the minimum is dropped from the selected taxonomy, with a recorded rationale. This is grounded theory's requirement that a category recur across incidents.
+
 ## Decision Status
 
-A Value's classification of the stance its supporting documents take toward the decision it names: `accepted` (the documents adopted it), `rejected` (the documents explicitly considered and declined it), or `outcome` (the documents report it as an observed trade-off or outcome, not a decision made). Named `outcome` rather than reusing a Relation's `consequence` type, which links two Dimensions and means something different. Open Coding assigns Decision Status per code; a Value's status must match every code that supports it — merging never combines Values of differing status, even when their labels are near-duplicates.
+How the evidence stands toward a Value. Open Coding classifies each code from its document's own framing: `accepted` (the document adopted the decision), `rejected` (it explicitly considered and declined it), or `outcome` (it reports an effect, such as a result, cost or side effect, not a decision; a description of *how* something is done is a decision, not an outcome). Named `outcome` rather than reusing a Relation's `consequence` type, which links two Dimensions and means something different.
+
+A Value is either a *candidate decision* (an alternative answer to its Dimension's question) or an outcome. A candidate decision's status comes from its evidence: its `stances` record which documents accept it and which reject it. Its status is `accepted` or `rejected` when the sources agree, and `mixed` when some sources adopt it and others reject it (e.g. one system uses consensus replication, another moved away from it). Consolidation therefore merges accepted and rejected Values that name the same decision (`taxonomy.merge_value_stances`), but never merges an outcome with a candidate decision.
 
 ## Relation
 
@@ -36,7 +52,7 @@ The per-document, fine-grained concept-extraction step that runs before a batch 
 
 ## Saturation
 
-The condition under which the Taxonomy stops growing from new document batches: reached when a configured streak of batches in a row add no concept not already covered by an existing Dimension. Reaching Saturation (or exhausting all batches) ends the open-coding/update cycle and moves the Taxonomy into review.
+The condition under which the Taxonomy stops growing from new document batches: reached when a configured streak of batches in a row add no concept not already covered by an existing Dimension. Each batch is tested as new data: its open codes are compared with the Taxonomy as it was before that batch was incorporated, never with the Taxonomy just updated from it (which covers them by construction), and the batch a Taxonomy was generated from is not counted. Optionally (`taxonomy.saturation_min_corpus_fraction`), Saturation may end the cycle only once a minimum share of the corpus has been open-coded; Saturation reached earlier is recorded, but must still hold at that point. Reaching Saturation (or exhausting all batches) ends the open-coding/update cycle and moves the Taxonomy into review.
 
 ## Selected Dimensions
 
@@ -64,7 +80,7 @@ The run mode in which a Seeded Taxonomy's Dimensions are frozen: no dimension is
 
 ## Seeded Taxonomy
 
-The final (or only) Iteration of a saved Taxonomy JSON, loaded as the starting Taxonomy of a new run. In Train Mode it is the basis for further refinement; in Test Mode it is the frozen classification framework.
+A saved Taxonomy loaded as the starting Taxonomy of a new run. In Train Mode it is the final (or only) Iteration, the basis for further refinement; in Test Mode it is the Selected Dimensions (the reported design space, with Relations to dropped Dimensions removed), the frozen classification framework. `pipeline.taxonomy_input_view` overrides the choice.
 
 ## Delta Summary
 
@@ -72,7 +88,7 @@ The test-mode output that reports what changed relative to the Seeded Taxonomy: 
 
 ## Scoreboard
 
-The evaluation result for one Taxonomy view: a per-criterion score plus the judge's rationale for each quality criterion (orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, coverage). Structural criteria always judge the view alone; data-grounded criteria (coverage) run only when documents are available and are marked "not evaluated" otherwise. Judge metrics are LLM-as-judge metrics built on deepeval.
+The evaluation result for one Taxonomy view: a per-criterion score plus the judge's rationale for each quality criterion (orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, one decision point with quality-attribute grounding as a secondary preference, rejected-alternative handling, dimensional and candidate-decision coverage). Each criterion is judged with fixed steps, and its rationale names the Dimensions and Values at fault and the change that fixes them. During the update loop, the weakest criteria and their rationales are passed to the next update and review pass as feedback, except the criteria in `evaluation.feedback_exclude` (by default Completeness, which is judged against the use case alone and would push for topics the data does not support). Feedback never justifies adding a Dimension or Value that no open code supports. Every Scoreboard of a run is saved (unless `evaluation.save_history` is off), labeled with the view it scored (loop draft or final view). Structural criteria always judge the view alone; data-grounded criteria (coverage) run only when documents are available and are marked "not evaluated" otherwise. Judge metrics are LLM-as-judge metrics built on deepeval.
 
 ## Consistency Comparison
 

@@ -1,0 +1,2706 @@
+{
+  "taxonomy_name": "cursor-git-at-scale",
+  "consolidated": true,
+  "mode": "train",
+  "run_metrics": {
+    "elapsed_seconds": 554.3,
+    "total_tokens": 183125,
+    "prompt_tokens": 159890,
+    "completion_tokens": 23235
+  },
+  "iterations": [
+    {
+      "explanation": "Three orthogonal dimensions cover scaling locus, consistency model, and replica footprint; values retain statuses; consistency constrains replication; no feedback existed.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Architectural Scaling Locus",
+          "description": "Axis describing whether repository scaling is implemented through client behavior, server storage, server replication, or an underlying distributed filesystem.",
+          "relations": [],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Client-side repository access virtualization",
+              "description": "Moves the primary scaling mechanism into client-side repository access behavior.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Server-side storage redesign",
+              "description": "Redesigns server-side repository storage as the scaling mechanism.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Server-side replication redesign",
+              "description": "Redesigns server-side replication architecture to scale Git repositories.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Places a distributed filesystem beneath Git as the repository-hosting substrate.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Repository Consistency Model",
+          "description": "Axis describing the required consistency of repository views and the acceptability of stale or divergent reads to Git clients.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Strong repository-view consistency limits which replica arrangements can safely serve Git clients; eventual consistency is rejected because it causes client failures."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strongly consistent repository views",
+              "description": "Requires repository reads to present a strongly consistent view to Git clients.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Eventual-consistency repository views",
+              "description": "Allows repository reads to converge over time rather than being immediately consistent.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Git client failures under eventual consistency",
+              "description": "Reports client failures as an outcome of serving eventually consistent repository views.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Storage consistency tradeoffs",
+              "description": "Reports consistency consequences exposed by distributing the filesystem beneath Git.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Footprint Strategy",
+          "description": "Axis describing how repository replicas are sized and operated to balance safety, repository population, and infrastructure burden.",
+          "relations": [],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replica count",
+              "description": "Uses the minimum replica count judged sufficient to preserve repository safety without unnecessary replication.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Millions of tiny repository replicas",
+              "description": "Supports replication at the scale of millions of small repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Repository replication infrastructure cost",
+              "description": "Reports infrastructure cost as an outcome of replicating large populations of repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Added commit durability; split storage from scaling locus; moved filesystem; added alternatives and maintenance; consolidated consensus; revised relations.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Architectural Scaling Locus",
+          "description": "Axis describing whether scaling responsibility resides primarily in clients, server-side storage, or server-side replication.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "The scaling locus determines which component must enforce repository-view consistency for clients."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Client-side repository access virtualization",
+              "description": "Uses client behavior to virtualize repository access and reduce the need for server-side scaling.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Server-side storage redesign",
+              "description": "Uses redesigned server-side repository storage as the primary scaling mechanism.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Server-side replication redesign",
+              "description": "Uses redesigned server-side replication architecture to scale repository hosting.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Repository Consistency Model",
+          "description": "Axis describing required repository-view consistency and whether Git clients may observe stale, divergent, or converging state.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Strong consistency requirements restrict which replica counts and arrangements can safely serve Git clients."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "The required consistency level restricts acceptable replication-coordination mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strongly consistent repository views",
+              "description": "Requires repository reads to present a strongly consistent view to Git clients.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563",
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Eventual-consistency repository views",
+              "description": "Allows repository reads to converge over time rather than being immediately consistent.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Git client failures under eventual consistency",
+              "description": "Reports client failures caused by serving eventually consistent repository views.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Storage consistency tradeoffs",
+              "description": "Reports consistency consequences exposed by distributing the filesystem beneath Git.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Footprint Strategy",
+          "description": "Axis describing replica sizing and operation as a balance among safety, repository population, correctness, and infrastructure burden.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Replica-footprint requirements constrain the coordination and replication mechanisms that are operationally viable."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replica count",
+              "description": "Uses the minimum replica count judged sufficient to preserve repository safety without unnecessary replication.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Millions of tiny repository replicas",
+              "description": "Supports replication at the scale of millions of small repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Repository replication infrastructure cost",
+              "description": "Reports infrastructure cost resulting from replicating large populations of repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Repository State Storage Model",
+          "description": "Axis describing where repository truth resides and whether Git state is stored directly, distributed, or derived from another durable representation.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "The storage model constrains which durability and commit-ordering strategies can serve as the repository source of truth."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Filesystem-based repository storage",
+              "description": "Keeps repository storage in a filesystem-based representation.",
+              "supporting_doc_ids": [
+                "624105f1-282e-4449-a726-4bd5360e2894"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Places a distributed filesystem beneath Git as the repository-hosting substrate.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Distributed key-value store for Git objects",
+              "description": "Stores Git objects in a distributed key-value store as the repository representation.",
+              "supporting_doc_ids": [
+                "624105f1-282e-4449-a726-4bd5360e2894"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Blob storage combined with relational database",
+              "description": "Combines blob storage for repository content with relational storage for metadata.",
+              "supporting_doc_ids": [
+                "e536c15b-75ff-4461-b1fe-77b6a0bc0f86"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Real Git repository storage",
+              "description": "Preserves the real Git repository as the hosted data model rather than replacing it with an abstraction.",
+              "supporting_doc_ids": [
+                "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Derived repository truth",
+              "description": "Derives repository truth from recorded state instead of maintaining only a directly authoritative mutable replica.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Replication Coordination Strategy",
+          "description": "Axis describing how repository replicas coordinate state changes, including consensus mechanisms and their operational consequences.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Replication coordination determines when changes may be committed and which durability mechanism is required."
+            },
+            {
+              "target_id": "7",
+              "type": "consequence",
+              "rationale": "Coordination choices affect the operational burden of maintaining, replacing, and scaling repository replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Consensus-replicated Spokes hosting",
+              "description": "Uses Spokes-style consensus replication to provide scalable, consistent hosting of real Git repositories.",
+              "supporting_doc_ids": [
+                "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7",
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strong consensus replication",
+              "description": "Uses strong consensus replication to maintain correctness and consistency across repository replicas.",
+              "supporting_doc_ids": [
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Consensus-based replication",
+              "description": "Identifies consensus replication as a proposed approach that was not retained in the described architecture.",
+              "supporting_doc_ids": [
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Higher tail-at-scale write latency",
+              "description": "Reports increased tail write latency as a consequence of strong consensus replication.",
+              "supporting_doc_ids": [
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Stateful repository replicas",
+              "description": "Reports stateful repository instances as a consequence of consensus replication.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Pet-like repository infrastructure",
+              "description": "Reports costly, stateful, non-interchangeable repository infrastructure under consensus replication.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Complicated horizontal scaling",
+              "description": "Reports difficulty adding capacity horizontally for stateful consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Complicated replica replacement",
+              "description": "Reports difficulty replacing stateful consensus-replicated repository instances.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.9",
+              "dimension_id": "5",
+              "label": "Complicated repository maintenance",
+              "description": "Reports increased maintenance difficulty caused by stateful consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.10",
+              "dimension_id": "5",
+              "label": "High operational cost of consensus replication",
+              "description": "Reports resource and operational burden resulting from consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Commit Durability Strategy",
+          "description": "Axis describing whether repository actions are coordinated before execution or made durable through a write-ahead record.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Commit-durability choices determine how repository truth can be reconstructed or derived from durable state."
+            },
+            {
+              "target_id": "7",
+              "type": "constrains",
+              "rationale": "Durability and commit ordering determine where subsequent repository maintenance work can safely occur."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Consensus-before-action architecture",
+              "description": "Establishes consensus before repository actions proceed.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Write-ahead logging",
+              "description": "Records repository changes before applying them to the repository representation.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737",
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "S3-backed write-ahead log",
+              "description": "Stores the write-ahead log in S3 as the durable persistence layer for repository change history.",
+              "supporting_doc_ids": [
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Repository Maintenance Distribution",
+          "description": "Axis describing where compaction and repository maintenance execute and how resulting computation and data-transfer burdens are allocated.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Maintenance placement changes the compute and bandwidth burden associated with operating repository replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Primary-only compaction",
+              "description": "Performs compaction only on the primary replica rather than independently across replicas.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Distributed maintenance",
+              "description": "Distributes repository maintenance work across participating components.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Reduced replica CPU usage",
+              "description": "Reports lower replica computation as an outcome of primary-only compaction.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Increased compacted-data distribution bandwidth",
+              "description": "Reports higher bandwidth requirements when compacted repository data is distributed from the primary.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Revised rejected-alternative descriptions and clarified generic versus adopted consensus replication; all dimensions remain orthogonal and sample coverage is preserved.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Architectural Scaling Locus",
+          "description": "Axis describing whether scaling responsibility resides primarily in clients, server-side storage, or server-side replication.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "The scaling locus determines which component must enforce repository-view consistency for clients."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Client-side repository access virtualization",
+              "description": "Uses client behavior to virtualize repository access and reduce the need for server-side scaling.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Server-side storage redesign",
+              "description": "Considers but declines redesigned server-side repository storage as the primary scaling mechanism.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Server-side replication redesign",
+              "description": "Considers but declines redesigned server-side replication architecture as the primary scaling mechanism.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Repository Consistency Model",
+          "description": "Axis describing required repository-view consistency and whether Git clients may observe stale, divergent, or converging state.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Strong consistency requirements restrict which replica counts and arrangements can safely serve Git clients."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "The required consistency level restricts acceptable replication-coordination mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strongly consistent repository views",
+              "description": "Requires repository reads to present a strongly consistent view to Git clients.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563",
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Eventual-consistency repository views",
+              "description": "Considers but declines repository views that converge over time rather than providing immediate consistency.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Git client failures under eventual consistency",
+              "description": "Reports client failures caused by serving eventually consistent repository views.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Storage consistency tradeoffs",
+              "description": "Reports consistency consequences exposed by distributing the filesystem beneath Git.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Footprint Strategy",
+          "description": "Axis describing replica sizing and operation as a balance among safety, repository population, correctness, and infrastructure burden.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Replica-footprint requirements constrain the coordination and replication mechanisms that are operationally viable."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replica count",
+              "description": "Uses the minimum replica count judged sufficient to preserve repository safety without unnecessary replication.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Millions of tiny repository replicas",
+              "description": "Supports replication at the scale of millions of small repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Repository replication infrastructure cost",
+              "description": "Reports infrastructure cost resulting from replicating large populations of repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Repository State Storage Model",
+          "description": "Axis describing where repository truth resides and whether Git state is stored directly, distributed, or derived from another durable representation.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "The storage model constrains which durability and commit-ordering strategies can serve as the repository source of truth."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Filesystem-based repository storage",
+              "description": "Keeps repository storage in a filesystem-based representation.",
+              "supporting_doc_ids": [
+                "624105f1-282e-4449-a726-4bd5360e2894"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Considers but declines placing a distributed filesystem beneath Git as the repository-hosting substrate.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Distributed key-value store for Git objects",
+              "description": "Considers but declines storing Git objects in a distributed key-value store as the repository representation.",
+              "supporting_doc_ids": [
+                "624105f1-282e-4449-a726-4bd5360e2894"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Blob storage combined with relational database",
+              "description": "Considers but declines combining blob storage for repository content with relational storage for metadata.",
+              "supporting_doc_ids": [
+                "e536c15b-75ff-4461-b1fe-77b6a0bc0f86"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Real Git repository storage",
+              "description": "Preserves the real Git repository as the hosted data model rather than replacing it with an abstraction.",
+              "supporting_doc_ids": [
+                "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Derived repository truth",
+              "description": "Derives repository truth from recorded state instead of maintaining only a directly authoritative mutable replica.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Replication Coordination Strategy",
+          "description": "Axis describing how repository replicas coordinate state changes, including consensus mechanisms and their operational consequences.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Replication coordination determines when changes may be committed and which durability mechanism is required."
+            },
+            {
+              "target_id": "7",
+              "type": "consequence",
+              "rationale": "Coordination choices affect the operational burden of maintaining, replacing, and scaling repository replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Consensus-replicated Spokes hosting",
+              "description": "Uses Spokes-style consensus replication to provide scalable, consistent hosting of real Git repositories.",
+              "supporting_doc_ids": [
+                "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7",
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strong consensus replication",
+              "description": "Uses strong consensus replication to maintain correctness and consistency across repository replicas.",
+              "supporting_doc_ids": [
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Consensus-based replication",
+              "description": "A generic consensus-replication proposal considered but not retained, distinct from the adopted strong-consensus implementation.",
+              "supporting_doc_ids": [
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Higher tail-at-scale write latency",
+              "description": "Reports increased tail write latency as a consequence of strong consensus replication.",
+              "supporting_doc_ids": [
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Stateful repository replicas",
+              "description": "Reports stateful repository instances as a consequence of consensus replication.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Pet-like repository infrastructure",
+              "description": "Reports costly, stateful, non-interchangeable repository infrastructure under consensus replication.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Complicated horizontal scaling",
+              "description": "Reports difficulty adding capacity horizontally for stateful consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Complicated replica replacement",
+              "description": "Reports difficulty replacing stateful consensus-replicated repository instances.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.9",
+              "dimension_id": "5",
+              "label": "Complicated repository maintenance",
+              "description": "Reports increased maintenance difficulty caused by stateful consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.10",
+              "dimension_id": "5",
+              "label": "High operational cost of consensus replication",
+              "description": "Reports resource and operational burden resulting from consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Commit Durability Strategy",
+          "description": "Axis describing whether repository actions are coordinated before execution or made durable through a write-ahead record.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Commit-durability choices determine how repository truth can be reconstructed or derived from durable state."
+            },
+            {
+              "target_id": "7",
+              "type": "constrains",
+              "rationale": "Durability and commit ordering determine where subsequent repository maintenance work can safely occur."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Consensus-before-action architecture",
+              "description": "Establishes consensus before repository actions proceed.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Write-ahead logging",
+              "description": "Records repository changes before applying them to the repository representation.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737",
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "S3-backed write-ahead log",
+              "description": "Stores the write-ahead log in S3 as the durable persistence layer for repository change history.",
+              "supporting_doc_ids": [
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Repository Maintenance Distribution",
+          "description": "Axis describing where compaction and repository maintenance execute and how resulting computation and data-transfer burdens are allocated.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Maintenance placement changes the compute and bandwidth burden associated with operating repository replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Primary-only compaction",
+              "description": "Performs compaction only on the primary replica rather than independently across replicas.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Distributed maintenance",
+              "description": "Distributes repository maintenance work across participating components.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Reduced replica CPU usage",
+              "description": "Reports lower replica computation as an outcome of primary-only compaction.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Increased compacted-data distribution bandwidth",
+              "description": "Reports higher bandwidth requirements when compacted repository data is distributed from the primary.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 33 draft values across 7 dimensions (merge threshold 0.350, borderline band 0.400). No values were merged — all 33 remained distinct.\nEvidence linking: 41 of 41 open codes assigned to a value (similarity >= 0.50); 13 of 13 documents now support at least one value.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Architectural Scaling Locus",
+          "description": "Axis describing whether scaling responsibility resides primarily in clients, server-side storage, or server-side replication.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "The scaling locus determines which component must enforce repository-view consistency for clients."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Client-side repository access virtualization",
+              "description": "Uses client behavior to virtualize repository access and reduce the need for server-side scaling.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Server-side storage redesign",
+              "description": "Considers but declines redesigned server-side repository storage as the primary scaling mechanism.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Server-side replication redesign",
+              "description": "Considers but declines redesigned server-side replication architecture as the primary scaling mechanism.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "3ed2b99e-3e0d-439e-a007-5daf3553b842"
+                ]
+              },
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 3,
+            "documents": 1,
+            "sources": 1
+          }
+        },
+        {
+          "id": "2",
+          "name": "Repository Consistency Model",
+          "description": "Axis describing required repository-view consistency and whether Git clients may observe stale, divergent, or converging state.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Strong consistency requirements restrict which replica counts and arrangements can safely serve Git clients."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "The required consistency level restricts acceptable replication-coordination mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Strongly consistent repository views",
+              "description": "Requires repository reads to present a strongly consistent view to Git clients.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563",
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "ca2afeb4-595f-4263-9074-d00641d36563",
+                  "f2e26294-5da3-41e8-970c-accacc17552d"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Eventual-consistency repository views",
+              "description": "Considers but declines repository views that converge over time rather than providing immediate consistency.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "ca2afeb4-595f-4263-9074-d00641d36563"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Git client failures under eventual consistency",
+              "description": "Reports client failures caused by serving eventually consistent repository views.",
+              "supporting_doc_ids": [
+                "ca2afeb4-595f-4263-9074-d00641d36563"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Storage consistency tradeoffs",
+              "description": "Reports consistency consequences exposed by distributing the filesystem beneath Git.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 2
+            }
+          ],
+          "evidence": {
+            "codes": 5,
+            "documents": 3,
+            "sources": 3
+          }
+        },
+        {
+          "id": "3",
+          "name": "Replica Footprint Strategy",
+          "description": "Axis describing replica sizing and operation as a balance among safety, repository population, correctness, and infrastructure burden.",
+          "relations": [
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Replica-footprint requirements constrain the coordination and replication mechanisms that are operationally viable."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Safe minimum replica count",
+              "description": "Uses the minimum replica count judged sufficient to preserve repository safety without unnecessary replication.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "e9ae107a-0590-493a-9c31-5ce3975de499"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Millions of tiny repository replicas",
+              "description": "Supports replication at the scale of millions of small repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "e9ae107a-0590-493a-9c31-5ce3975de499"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Repository replication infrastructure cost",
+              "description": "Reports infrastructure cost resulting from replicating large populations of repositories.",
+              "supporting_doc_ids": [
+                "e9ae107a-0590-493a-9c31-5ce3975de499"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 3,
+            "documents": 1,
+            "sources": 1
+          }
+        },
+        {
+          "id": "4",
+          "name": "Repository State Storage Model",
+          "description": "Axis describing where repository truth resides and whether Git state is stored directly, distributed, or derived from another durable representation.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "The storage model constrains which durability and commit-ordering strategies can serve as the repository source of truth."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Filesystem-based repository storage",
+              "description": "Keeps repository storage in a filesystem-based representation.",
+              "supporting_doc_ids": [
+                "624105f1-282e-4449-a726-4bd5360e2894"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "624105f1-282e-4449-a726-4bd5360e2894"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Considers but declines placing a distributed filesystem beneath Git as the repository-hosting substrate.",
+              "supporting_doc_ids": [
+                "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Distributed key-value store for Git objects",
+              "description": "Considers but declines storing Git objects in a distributed key-value store as the repository representation.",
+              "supporting_doc_ids": [
+                "624105f1-282e-4449-a726-4bd5360e2894"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "624105f1-282e-4449-a726-4bd5360e2894"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Blob storage combined with relational database",
+              "description": "Considers but declines combining blob storage for repository content with relational storage for metadata.",
+              "supporting_doc_ids": [
+                "e536c15b-75ff-4461-b1fe-77b6a0bc0f86"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "e536c15b-75ff-4461-b1fe-77b6a0bc0f86"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Real Git repository storage",
+              "description": "Preserves the real Git repository as the hosted data model rather than replacing it with an abstraction.",
+              "supporting_doc_ids": [
+                "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Derived repository truth",
+              "description": "Derives repository truth from recorded state instead of maintaining only a directly authoritative mutable replica.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "0dbfa881-5dad-4941-9714-d1ff1a087737"
+                ]
+              },
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 6,
+            "documents": 5,
+            "sources": 5
+          }
+        },
+        {
+          "id": "5",
+          "name": "Replication Coordination Strategy",
+          "description": "Axis describing how repository replicas coordinate state changes, including consensus mechanisms and their operational consequences.",
+          "relations": [
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Replication coordination determines when changes may be committed and which durability mechanism is required."
+            },
+            {
+              "target_id": "7",
+              "type": "consequence",
+              "rationale": "Coordination choices affect the operational burden of maintaining, replacing, and scaling repository replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Consensus-replicated Spokes hosting",
+              "description": "Uses Spokes-style consensus replication to provide scalable, consistent hosting of real Git repositories.",
+              "supporting_doc_ids": [
+                "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7",
+                "62381173-9a6f-4470-84f1-57524df771c0",
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7",
+                  "62381173-9a6f-4470-84f1-57524df771c0",
+                  "f2e26294-5da3-41e8-970c-accacc17552d"
+                ]
+              },
+              "evidence_code_count": 4
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Strong consensus replication",
+              "description": "Uses strong consensus replication to maintain correctness and consistency across repository replicas.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0",
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "62381173-9a6f-4470-84f1-57524df771c0",
+                  "f2e26294-5da3-41e8-970c-accacc17552d"
+                ]
+              },
+              "evidence_code_count": 2
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Consensus-based replication",
+              "description": "A generic consensus-replication proposal considered but not retained, distinct from the adopted strong-consensus implementation.",
+              "supporting_doc_ids": [
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Higher tail-at-scale write latency",
+              "description": "Reports increased tail write latency as a consequence of strong consensus replication.",
+              "supporting_doc_ids": [
+                "f2e26294-5da3-41e8-970c-accacc17552d"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Stateful repository replicas",
+              "description": "Reports stateful repository instances as a consequence of consensus replication.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Pet-like repository infrastructure",
+              "description": "Reports costly, stateful, non-interchangeable repository infrastructure under consensus replication.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Complicated horizontal scaling",
+              "description": "Reports difficulty adding capacity horizontally for stateful consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "3ed2b99e-3e0d-439e-a007-5daf3553b842",
+                "5d4c7206-81f9-40f1-9d15-ce4bb9765a7f",
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 3
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Complicated replica replacement",
+              "description": "Reports difficulty replacing stateful consensus-replicated repository instances.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.9",
+              "dimension_id": "5",
+              "label": "Complicated repository maintenance",
+              "description": "Reports increased maintenance difficulty caused by stateful consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.10",
+              "dimension_id": "5",
+              "label": "High operational cost of consensus replication",
+              "description": "Reports resource and operational burden resulting from consensus-replicated repositories.",
+              "supporting_doc_ids": [
+                "62381173-9a6f-4470-84f1-57524df771c0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 16,
+            "documents": 6,
+            "sources": 6
+          }
+        },
+        {
+          "id": "6",
+          "name": "Commit Durability Strategy",
+          "description": "Axis describing whether repository actions are coordinated before execution or made durable through a write-ahead record.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "consequence",
+              "rationale": "Commit-durability choices determine how repository truth can be reconstructed or derived from durable state."
+            },
+            {
+              "target_id": "7",
+              "type": "constrains",
+              "rationale": "Durability and commit ordering determine where subsequent repository maintenance work can safely occur."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Consensus-before-action architecture",
+              "description": "Establishes consensus before repository actions proceed.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "0dbfa881-5dad-4941-9714-d1ff1a087737"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Write-ahead logging",
+              "description": "Records repository changes before applying them to the repository representation.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737",
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "0dbfa881-5dad-4941-9714-d1ff1a087737",
+                  "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "S3-backed write-ahead log",
+              "description": "Stores the write-ahead log in S3 as the durable persistence layer for repository change history.",
+              "supporting_doc_ids": [
+                "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+                ]
+              },
+              "evidence_code_count": 2
+            }
+          ],
+          "evidence": {
+            "codes": 4,
+            "documents": 2,
+            "sources": 2
+          }
+        },
+        {
+          "id": "7",
+          "name": "Repository Maintenance Distribution",
+          "description": "Axis describing where compaction and repository maintenance execute and how resulting computation and data-transfer burdens are allocated.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "consequence",
+              "rationale": "Maintenance placement changes the compute and bandwidth burden associated with operating repository replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Primary-only compaction",
+              "description": "Performs compaction only on the primary replica rather than independently across replicas.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "df9415b1-b722-431d-8426-b253c196e0de"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Distributed maintenance",
+              "description": "Distributes repository maintenance work across participating components.",
+              "supporting_doc_ids": [
+                "0dbfa881-5dad-4941-9714-d1ff1a087737"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "0dbfa881-5dad-4941-9714-d1ff1a087737"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Reduced replica CPU usage",
+              "description": "Reports lower replica computation as an outcome of primary-only compaction.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Increased compacted-data distribution bandwidth",
+              "description": "Reports higher bandwidth requirements when compacted repository data is distributed from the primary.",
+              "supporting_doc_ids": [
+                "df9415b1-b722-431d-8426-b253c196e0de"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 4,
+            "documents": 2,
+            "sources": 2
+          }
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": false,
+      "checker_is_saturated": null,
+      "coverage": null,
+      "codes": 14,
+      "streak": 0,
+      "uncovered_concepts": [],
+      "rationale": "Not tested: the taxonomy was generated from this minibatch."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": false,
+      "checker_is_saturated": false,
+      "coverage": 0.37,
+      "codes": 27,
+      "streak": 0,
+      "uncovered_concepts": [
+        "Consensus-before-action architecture",
+        "Write-ahead logging",
+        "Derived repository truth",
+        "Distributed maintenance",
+        "Blob storage combined with relational database",
+        "Filesystem-based repository storage",
+        "Distributed key-value store for Git objects",
+        "Strong consensus replication",
+        "Primary-only compaction",
+        "Reduced replica CPU usage",
+        "Increased compacted-data distribution bandwidth",
+        "Consensus-based replication",
+        "Write-ahead log for repository durability",
+        "S3-backed write-ahead log",
+        "Consensus-replicated repositories",
+        "Consensus-replicated repository state",
+        "Stateful repository replicas"
+      ],
+      "rationale": "The taxonomy covers broad scaling locus, required consistency, and replica-footprint tradeoffs, so codes about strong consistency as an objective, replica count, infrastructure cost, and the resulting scaling burden are subsumed. However, it does not yet capture several distinct architectural axes: the mechanism used to achieve consistency and coordinate actions (for example, consensus-before-action versus a write-ahead log); where authoritative repository truth and persistence reside (filesystem, blob-plus-relational storage, distributed key-value storage, or an S3-backed log); whether repository state is directly authoritative or derived from an append-only record; and how maintenance and compaction are placed across replicas. These are consequential design differences in the stated use case and cannot be added without conflating them with consistency requirements, scaling locus, or replica count."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "4",
+      "name": "Repository State Storage Model",
+      "description": "Axis describing where repository truth resides and whether Git state is stored directly, distributed, or derived from another durable representation.",
+      "relations": [
+        {
+          "target_id": "6",
+          "type": "constrains",
+          "rationale": "The storage model constrains which durability and commit-ordering strategies can serve as the repository source of truth."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Filesystem-based repository storage",
+          "description": "Keeps repository storage in a filesystem-based representation.",
+          "supporting_doc_ids": [
+            "624105f1-282e-4449-a726-4bd5360e2894"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "624105f1-282e-4449-a726-4bd5360e2894"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Distributed filesystem beneath Git",
+          "description": "Considers but declines placing a distributed filesystem beneath Git as the repository-hosting substrate.",
+          "supporting_doc_ids": [
+            "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Distributed key-value store for Git objects",
+          "description": "Considers but declines storing Git objects in a distributed key-value store as the repository representation.",
+          "supporting_doc_ids": [
+            "624105f1-282e-4449-a726-4bd5360e2894"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "624105f1-282e-4449-a726-4bd5360e2894"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Blob storage combined with relational database",
+          "description": "Considers but declines combining blob storage for repository content with relational storage for metadata.",
+          "supporting_doc_ids": [
+            "e536c15b-75ff-4461-b1fe-77b6a0bc0f86"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "e536c15b-75ff-4461-b1fe-77b6a0bc0f86"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Real Git repository storage",
+          "description": "Preserves the real Git repository as the hosted data model rather than replacing it with an abstraction.",
+          "supporting_doc_ids": [
+            "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.6",
+          "dimension_id": "4",
+          "label": "Derived repository truth",
+          "description": "Derives repository truth from recorded state instead of maintaining only a directly authoritative mutable replica.",
+          "supporting_doc_ids": [
+            "0dbfa881-5dad-4941-9714-d1ff1a087737"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "0dbfa881-5dad-4941-9714-d1ff1a087737"
+            ]
+          },
+          "evidence_code_count": 1
+        }
+      ],
+      "evidence": {
+        "codes": 6,
+        "documents": 5,
+        "sources": 5
+      }
+    },
+    {
+      "id": "5",
+      "name": "Replication Coordination Strategy",
+      "description": "Axis describing how repository replicas coordinate state changes, including consensus mechanisms and their operational consequences.",
+      "relations": [
+        {
+          "target_id": "6",
+          "type": "constrains",
+          "rationale": "Replication coordination determines when changes may be committed and which durability mechanism is required."
+        },
+        {
+          "target_id": "7",
+          "type": "consequence",
+          "rationale": "Coordination choices affect the operational burden of maintaining, replacing, and scaling repository replicas."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Consensus-replicated Spokes hosting",
+          "description": "Uses Spokes-style consensus replication to provide scalable, consistent hosting of real Git repositories.",
+          "supporting_doc_ids": [
+            "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7",
+            "62381173-9a6f-4470-84f1-57524df771c0",
+            "f2e26294-5da3-41e8-970c-accacc17552d"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "4c51d861-a8b0-47fa-b7c4-4f9e9164b1e7",
+              "62381173-9a6f-4470-84f1-57524df771c0",
+              "f2e26294-5da3-41e8-970c-accacc17552d"
+            ]
+          },
+          "evidence_code_count": 4
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Strong consensus replication",
+          "description": "Uses strong consensus replication to maintain correctness and consistency across repository replicas.",
+          "supporting_doc_ids": [
+            "62381173-9a6f-4470-84f1-57524df771c0",
+            "f2e26294-5da3-41e8-970c-accacc17552d"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "62381173-9a6f-4470-84f1-57524df771c0",
+              "f2e26294-5da3-41e8-970c-accacc17552d"
+            ]
+          },
+          "evidence_code_count": 2
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Consensus-based replication",
+          "description": "A generic consensus-replication proposal considered but not retained, distinct from the adopted strong-consensus implementation.",
+          "supporting_doc_ids": [
+            "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Higher tail-at-scale write latency",
+          "description": "Reports increased tail write latency as a consequence of strong consensus replication.",
+          "supporting_doc_ids": [
+            "f2e26294-5da3-41e8-970c-accacc17552d"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.5",
+          "dimension_id": "5",
+          "label": "Stateful repository replicas",
+          "description": "Reports stateful repository instances as a consequence of consensus replication.",
+          "supporting_doc_ids": [
+            "62381173-9a6f-4470-84f1-57524df771c0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.6",
+          "dimension_id": "5",
+          "label": "Pet-like repository infrastructure",
+          "description": "Reports costly, stateful, non-interchangeable repository infrastructure under consensus replication.",
+          "supporting_doc_ids": [
+            "62381173-9a6f-4470-84f1-57524df771c0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.7",
+          "dimension_id": "5",
+          "label": "Complicated horizontal scaling",
+          "description": "Reports difficulty adding capacity horizontally for stateful consensus-replicated repositories.",
+          "supporting_doc_ids": [
+            "3ed2b99e-3e0d-439e-a007-5daf3553b842",
+            "5d4c7206-81f9-40f1-9d15-ce4bb9765a7f",
+            "62381173-9a6f-4470-84f1-57524df771c0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 3
+        },
+        {
+          "id": "5.8",
+          "dimension_id": "5",
+          "label": "Complicated replica replacement",
+          "description": "Reports difficulty replacing stateful consensus-replicated repository instances.",
+          "supporting_doc_ids": [
+            "62381173-9a6f-4470-84f1-57524df771c0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.9",
+          "dimension_id": "5",
+          "label": "Complicated repository maintenance",
+          "description": "Reports increased maintenance difficulty caused by stateful consensus-replicated repositories.",
+          "supporting_doc_ids": [
+            "62381173-9a6f-4470-84f1-57524df771c0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.10",
+          "dimension_id": "5",
+          "label": "High operational cost of consensus replication",
+          "description": "Reports resource and operational burden resulting from consensus-replicated repositories.",
+          "supporting_doc_ids": [
+            "62381173-9a6f-4470-84f1-57524df771c0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        }
+      ],
+      "evidence": {
+        "codes": 16,
+        "documents": 6,
+        "sources": 6
+      }
+    },
+    {
+      "id": "6",
+      "name": "Commit Durability Strategy",
+      "description": "Axis describing whether repository actions are coordinated before execution or made durable through a write-ahead record.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "consequence",
+          "rationale": "Commit-durability choices determine how repository truth can be reconstructed or derived from durable state."
+        },
+        {
+          "target_id": "7",
+          "type": "constrains",
+          "rationale": "Durability and commit ordering determine where subsequent repository maintenance work can safely occur."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Consensus-before-action architecture",
+          "description": "Establishes consensus before repository actions proceed.",
+          "supporting_doc_ids": [
+            "0dbfa881-5dad-4941-9714-d1ff1a087737"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "0dbfa881-5dad-4941-9714-d1ff1a087737"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Write-ahead logging",
+          "description": "Records repository changes before applying them to the repository representation.",
+          "supporting_doc_ids": [
+            "0dbfa881-5dad-4941-9714-d1ff1a087737",
+            "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "0dbfa881-5dad-4941-9714-d1ff1a087737",
+              "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "S3-backed write-ahead log",
+          "description": "Stores the write-ahead log in S3 as the durable persistence layer for repository change history.",
+          "supporting_doc_ids": [
+            "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "13109d54-fa2e-4a25-95b0-7475e2594b6f"
+            ]
+          },
+          "evidence_code_count": 2
+        }
+      ],
+      "evidence": {
+        "codes": 4,
+        "documents": 2,
+        "sources": 2
+      }
+    },
+    {
+      "id": "2",
+      "name": "Repository Consistency Model",
+      "description": "Axis describing required repository-view consistency and whether Git clients may observe stale, divergent, or converging state.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "constrains",
+          "rationale": "Strong consistency requirements restrict which replica counts and arrangements can safely serve Git clients."
+        },
+        {
+          "target_id": "5",
+          "type": "constrains",
+          "rationale": "The required consistency level restricts acceptable replication-coordination mechanisms."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Strongly consistent repository views",
+          "description": "Requires repository reads to present a strongly consistent view to Git clients.",
+          "supporting_doc_ids": [
+            "ca2afeb4-595f-4263-9074-d00641d36563",
+            "f2e26294-5da3-41e8-970c-accacc17552d"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "ca2afeb4-595f-4263-9074-d00641d36563",
+              "f2e26294-5da3-41e8-970c-accacc17552d"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Eventual-consistency repository views",
+          "description": "Considers but declines repository views that converge over time rather than providing immediate consistency.",
+          "supporting_doc_ids": [
+            "ca2afeb4-595f-4263-9074-d00641d36563"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "ca2afeb4-595f-4263-9074-d00641d36563"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Git client failures under eventual consistency",
+          "description": "Reports client failures caused by serving eventually consistent repository views.",
+          "supporting_doc_ids": [
+            "ca2afeb4-595f-4263-9074-d00641d36563"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Storage consistency tradeoffs",
+          "description": "Reports consistency consequences exposed by distributing the filesystem beneath Git.",
+          "supporting_doc_ids": [
+            "5495dfd3-52ee-413e-a53e-f5c4891ebf9c"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 2
+        }
+      ],
+      "evidence": {
+        "codes": 5,
+        "documents": 3,
+        "sources": 3
+      }
+    },
+    {
+      "id": "7",
+      "name": "Repository Maintenance Distribution",
+      "description": "Axis describing where compaction and repository maintenance execute and how resulting computation and data-transfer burdens are allocated.",
+      "relations": [
+        {
+          "target_id": "3",
+          "type": "consequence",
+          "rationale": "Maintenance placement changes the compute and bandwidth burden associated with operating repository replicas."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Primary-only compaction",
+          "description": "Performs compaction only on the primary replica rather than independently across replicas.",
+          "supporting_doc_ids": [
+            "df9415b1-b722-431d-8426-b253c196e0de"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "df9415b1-b722-431d-8426-b253c196e0de"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Distributed maintenance",
+          "description": "Distributes repository maintenance work across participating components.",
+          "supporting_doc_ids": [
+            "0dbfa881-5dad-4941-9714-d1ff1a087737"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "0dbfa881-5dad-4941-9714-d1ff1a087737"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Reduced replica CPU usage",
+          "description": "Reports lower replica computation as an outcome of primary-only compaction.",
+          "supporting_doc_ids": [
+            "df9415b1-b722-431d-8426-b253c196e0de"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Increased compacted-data distribution bandwidth",
+          "description": "Reports higher bandwidth requirements when compacted repository data is distributed from the primary.",
+          "supporting_doc_ids": [
+            "df9415b1-b722-431d-8426-b253c196e0de"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        }
+      ],
+      "evidence": {
+        "codes": 4,
+        "documents": 2,
+        "sources": 2
+      }
+    }
+  ],
+  "dropped_dimensions": [
+    {
+      "id": "1",
+      "rationale": "Insufficient evidence: supported by 1 source(s) (1 document(s)); at least 2 required."
+    },
+    {
+      "id": "3",
+      "rationale": "Insufficient evidence: supported by 1 source(s) (1 document(s)); at least 2 required."
+    }
+  ],
+  "evaluation": {
+    "criteria": [
+      {
+        "name": "Orthogonality",
+        "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.7,
+        "passed": true,
+        "reason": "Most dimensions ask distinct questions: id 4 covers repository truth and representation, id 2 covers client-visible consistency, and id 7 covers maintenance placement. The main overlap is between id 5, \"Replication Coordination Strategy,\" and id 6, \"Commit Durability Strategy\": value 6.1, \"Consensus-before-action architecture,\" is effectively another answer about replica coordination already represented by 5.1 and 5.2. Revise id 6 to focus solely on durable change recording (for example, WAL versus another persistence mechanism), and move or remove 6.1. There is also a weaker overlap between id 4.6, \"Derived repository truth,\" and id 6.2/6.3 because WAL-backed state can describe where truth is derived, so clarify id 4 as the repository representation and id 6 as the change-durability mechanism."
+      },
+      {
+        "name": "Clarity",
+        "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.7,
+        "passed": true,
+        "reason": "Most dimensions clearly state an architectural question and their values are generally distinguishable, especially 2 (Repository Consistency Model) and 7 (Repository Maintenance Distribution). However, dimension 4 has overlapping values 4.1 (Filesystem-based repository storage) and 4.5 (Real Git repository storage); rename or redefine them so one describes the physical substrate and the other the authoritative data model. In dimension 5, 5.1 (Consensus-replicated Spokes hosting) and 5.2 (Strong consensus replication) are difficult to distinguish because Spokes is presented as a specific form of strong consensus; make one explicitly implementation-specific and the other mechanism-level, or merge them. Dimension 6's 6.3 (S3-backed write-ahead log) is a storage-location variant of 6.2 rather than a clearly separate durability strategy; clarify that the axis includes log placement or move it under a separate persistence-medium question. Value 2.4 (Storage consistency tradeoffs) is vague and does not identify a concrete outcome; rename it to the specific consistency effect it represents."
+      },
+      {
+        "name": "Completeness",
+        "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.6,
+        "passed": true,
+        "reason": "The taxonomy covers several major areas with multiple candidates: Repository State Storage Model (4), Repository Consistency Model (2), Replication Coordination Strategy (5), Commit Durability Strategy (6), and Repository Maintenance Distribution (7). However, it lacks a decision point for how replica count trades off against cost, availability, and correctness; add a dimension such as “Replica Cardinality and Cost Strategy” with alternatives like single-primary, fixed quorum, and elastic replicas. It also omits the explicit client-versus-server responsibility boundary highlighted by GVFS/Scalar; add a dimension such as “Repository Workload Placement” with client-side virtualization, server-side hosting, and split-responsibility alternatives."
+      },
+      {
+        "name": "Use case alignment",
+        "description": "Every dimension serves the stated use case; none is out of its scope.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 1.0,
+        "passed": true,
+        "reason": "All five dimensions are within scope of the use case's architectural evolution of Git hosting at scale. Repository State Storage Model covers filesystem, distributed, and derived truth; Replication Coordination Strategy covers Spokes, consensus, replica costs, and scaling consequences; Commit Durability Strategy covers consensus-before-action and Cursor's S3-backed write-ahead log; Repository Consistency Model addresses strong versus eventual consistency and client failures; and Repository Maintenance Distribution covers primary-only versus distributed compaction and their resource tradeoffs. No dimension is unrelated to the stated subject, lifecycle, or architectural decision kind."
+      },
+      {
+        "name": "No catch-alls",
+        "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 1.0,
+        "passed": true,
+        "reason": "No dimension or value is a catch-all bucket. The dimensions use specific architectural axes, such as id 4 \"Repository State Storage Model,\" id 5 \"Replication Coordination Strategy,\" and id 7 \"Repository Maintenance Distribution,\" while values describe concrete alternatives or outcomes. Broad-sounding labels such as \"Distributed maintenance\" and \"Storage consistency tradeoffs\" remain tied to specific architectural decisions rather than serving as miscellaneous categories. No change is needed for the catch-all criterion."
+      },
+      {
+        "name": "Axis vs. value",
+        "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.6,
+        "passed": true,
+        "reason": "Several dimensions are valid decision axes, including repository state storage (4), consistency model (2), and maintenance distribution (7), and outcomes are correctly represented with status 'outcome'. However, dimension 6 mixes distinct decisions: 'Consensus-before-action architecture' (6.1) belongs under replication coordination (5), while 'Write-ahead logging' (6.2) is a durability mechanism. Split dimension 6 into separate coordination and durability questions, or move 6.1 to dimension 5. 'S3-backed write-ahead log' (6.3) is a sub-choice about WAL persistence location rather than a peer to WAL itself; move it to a new storage-location dimension or make it subordinate to 6.2. Likewise, 'Consensus-replicated Spokes hosting' (5.1) is a concrete implementation of 'Strong consensus replication' (5.2); consolidate these at one level or move Spokes to a separate implementation dimension."
+      },
+      {
+        "name": "One decision point",
+        "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.6,
+        "passed": true,
+        "reason": "Most dimensions have at least two candidate decisions and are reasonably coherent: dimension 2 contrasts strong versus eventual consistency, and dimension 7 contrasts primary-only versus distributed maintenance. However, dimension 6, \"Commit Durability Strategy,\" mixes different questions: 6.1 is a coordination timing choice, while 6.2 is a durability mechanism and 6.3 is the storage location for that mechanism. Split it into separate dimensions such as \"When is an action authorized?\" and \"How is committed state durably recorded?\", moving 6.3 under the latter. Dimension 4, \"Repository State Storage Model,\" also combines representation choices (4.1, 4.2, 4.3, 4.4, 4.5) with the derived-versus-authoritative truth distinction in 4.6; split or rename it to make that single decision question explicit. Dimension 5 is mostly coherent, but 5.1, 5.2, and 5.3 are overlapping levels of specificity; consolidate them or distinguish the implementation choice from the general replication protocol."
+      },
+      {
+        "name": "Rejected-alternative handling",
+        "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.8,
+        "passed": true,
+        "reason": "The taxonomy consistently uses valid statuses, and rejected values such as 4.2 Distributed filesystem beneath Git and 2.2 Eventual-consistency repository views are explicitly described as declined, while outcomes such as 5.4 Higher tail-at-scale write latency and 7.3 Reduced replica CPU usage are correctly framed as effects rather than choices. The main issue is dimension 5, Replication Coordination Strategy: 5.3 Consensus-based replication is rejected even though 5.1 Consensus-replicated Spokes hosting and 5.2 Strong consensus replication are accepted variants of the same candidate decision, creating a duplicated decision under conflicting statuses. Replace 5.3 with a genuinely distinct rejected coordination strategy, or merge/refine these consensus values so the generic option is not simultaneously accepted and rejected."
+      },
+      {
+        "name": "Dimensional coverage",
+        "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.9,
+        "passed": true,
+        "reason": "Most decision-bearing passages map directly to the taxonomy: rejected distributed filesystem, key-value store, and blob/relational alternatives map to 4.2-4.4; Spokes, consensus, WAL/S3, consistency, and compaction map to dimensions 2, 4, 5, 6, and 7. The main uncovered passage is 3ed2b99e-3e0d-439e-a007-5daf3553b842, which decides to scale Git by virtualizing the client rather than the server; neither 4 (Repository State Storage Model) nor 5 (Replication Coordination Strategy) represents this deployment-placement choice. Add a dimension such as \"Where is Git scaling performed?\" with client-side virtualization and server-side scaling values. Passage e9ae107a-0590-493a-9c31-5ce3975de499 discusses choosing a safe minimum replica count versus the cost of millions of tiny repositories; 5 does not include replication factor as a decision. Add an accepted replica-count value to 5 or split out a replication-factor dimension, with the cost represented as an outcome."
+      },
+      {
+        "name": "Candidate-decision coverage",
+        "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.8,
+        "passed": true,
+        "reason": "The taxonomy names most explicit storage, consistency, consensus, WAL/S3, compaction, and tradeoff options, including the rejected distributed filesystem, distributed key-value store, and blob-plus-relational database alternatives. It misses the scaling-locus decision in [3ed2b99e3-3e0d-439e-a007-5daf3553b842] (and likely the comparable alternatives in [f9c56011-b463-4479-be42-4796e06015ad]): add dimension 3, such as 'Where is Git scaled or virtualized?', with values for client virtualization and server-side virtualization. It also misses the adopted safe minimum replica-count option in [e9ae107a-0590-493a-9c31-5ce3975de499]; add a 'Replica Count Strategy' dimension with the safe minimum replication factor value. The existing relations reference dimension 3, but that dimension and its decision values are absent."
+      }
+    ],
+    "overall": 0.7699999999999999,
+    "model": "openai/gpt-5.6-luna",
+    "unavailable": false,
+    "view": "final view",
+    "iteration": 4,
+    "dimensions": 5
+  },
+  "evaluation_history": [
+    {
+      "criteria": [
+        {
+          "name": "Orthogonality",
+          "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "The three dimensions ask distinct questions: dimension 1 (Architectural Scaling Locus) identifies where scaling responsibility resides, dimension 2 (Repository Consistency Model) identifies the required consistency behavior, and dimension 3 (Replica Footprint Strategy) identifies replica count and operational sizing. Although replication appears in both dimensions 1 and 3, the values distinguish location/mechanism from footprint, so they are not overlapping answers. No dimension pair requires merging or splitting under the specified overlap criterion."
+        },
+        {
+          "name": "Clarity",
+          "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "Most dimensions clearly state their axes and their values are distinguishable: dimension 1 separates client virtualization, server storage, server replication, and distributed-filesystem approaches; dimension 2 separates strong versus eventual consistency and identifies the client-failure outcome; dimension 3 distinguishes minimum safe replication from millions of small-repository replicas and their cost. The main weakness is value 2.4, \"Storage consistency tradeoffs\": its label is vague and its description does not name a concrete outcome, so rename it to a specific consequence such as \"Git-visible failures from filesystem inconsistency.\" Also consider making 3.1's \"safety\" criterion more explicit in its description."
+        },
+        {
+          "name": "Completeness",
+          "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "The taxonomy covers several major areas with multiple candidates: dimension 1, \"Architectural Scaling Locus,\" includes client-side, server-side, replication, and distributed-filesystem alternatives; dimension 2, \"Repository Consistency Model,\" includes strong versus eventual consistency; and dimension 3, \"Replica Footprint Strategy,\" includes safe minimum replication versus millions of tiny replicas. However, it lacks a decision point for the explicitly requested location of the repository source of truth, and it lacks one for how compaction and maintenance are distributed. Add a dimension such as \"Repository Source-of-Truth Location\" with alternatives for filesystem, distributed object store, consensus-replicated service, and client-side state, and add \"Compaction and Maintenance Responsibility\" with client-, server-, replica-, and shared-distribution alternatives."
+        },
+        {
+          "name": "Use case alignment",
+          "description": "Every dimension serves the stated use case; none is out of its scope.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.9,
+          "passed": true,
+          "reason": "All three dimensions are directly within scope of the use case: Architectural Scaling Locus (1) addresses client, server, replication, and filesystem scaling approaches; Repository Consistency Model (2) covers replica consistency and the tradeoffs relevant to Git hosting; and Replica Footprint Strategy (3) addresses replica counts, safety, repository population, and infrastructure cost. The outcome values in dimensions 2 and 3 also describe in-scope effects of those architectural choices. No dimension is tangential or out of scope; the taxonomy could simply be expanded to cover other stated axes such as source-of-truth location and maintenance/compaction responsibility."
+        },
+        {
+          "name": "No catch-alls",
+          "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "No dimension or value is a catch-all bucket. The dimensions use specific axes such as scaling locus, consistency model, and replica footprint, while values like \"Storage consistency tradeoffs\" and \"Repository replication infrastructure cost\" identify concrete outcomes rather than miscellaneous categories. No catch-all needs to be removed or split."
+        },
+        {
+          "name": "Axis vs. value",
+          "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "The taxonomy largely follows the required structure: dimensions 1–3 represent architectural decision axes, while values such as 2.3, 2.4, and 3.3 are explicitly marked as outcomes rather than decisions. The main structural issue is value 3.2, “Millions of tiny repository replicas,” which describes a repository population/scale characteristic rather than a clear alternative in the replica-footprint strategy decision; revise it into an actual strategy choice or model it as an outcome. Value 2.4, “Storage consistency tradeoffs,” is also a broad consequence rather than a concrete outcome, so it should be replaced with a specific effect or removed. No dimension is clearly just a single option of another broader dimension."
+        },
+        {
+          "name": "One decision point",
+          "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Dimensions 1 and 2 are well-formed decision points: their values consistently answer where scaling occurs and whether repository views are strongly consistent or eventual, with outcome values correctly excluded. Dimension 3 is problematic: “Safe minimum replica count” (per-repository redundancy) and “Millions of tiny repository replicas” (repository population/scale) answer different questions despite both concerning replication. Split dimension 3 into a replica-count/safety question and a repository-population or footprint question, or replace 3.2 with an alternative replica-count strategy. The dimensions otherwise reflect relevant use-case tradeoffs around client/server responsibility, consistency, and replication cost."
+        },
+        {
+          "name": "Rejected-alternative handling",
+          "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All values use valid statuses, and the descriptions align with those statuses. Rejected candidates in dimensions 1 and 2 describe alternatives without presenting them as adopted; accepted candidates describe adopted choices; and values 2.3, 2.4, and 3.3 are clearly framed as outcomes rather than alternatives. No candidate decision is duplicated under conflicting statuses, and no shortcoming requires correction."
+        },
+        {
+          "name": "Dimensional coverage",
+          "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.9,
+          "passed": true,
+          "reason": "Most decision-bearing passages map to the taxonomy: client virtualization, server storage and replication redesigns, distributed filesystems, consistency requirements, replica counts, and replication costs are covered by dimensions 1–3 and their values. The main gap is [87c9e97e-a987-4e8d-a905-e3838b9e85c8], which discusses an architecture decision driven by AI coding agents and cannot be placed under Architectural Scaling Locus (1), Repository Consistency Model (2), or Replica Footprint Strategy (3). Add a dimension for the architectural/workflow model imposed by AI coding agents, or add an appropriate value if it is specifically a repository architecture choice."
+        },
+        {
+          "name": "Candidate-decision coverage",
+          "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.5,
+          "passed": true,
+          "reason": "The taxonomy covers several explicit options: client-side virtualization from [3ed2b99e-3e0d-439e-a007-5daf3553b842] via 1.1, distributed filesystem rejection from [5495dfd3-52ee-413e-a53e-f5c4891ebf9c] via 1.4, strong versus eventual consistency from [f2e26294-5da3-41e8-970c-accacc17552d] and [ca2afeb4-595f-4263-9074-d00641d36563] via 2.1 and 2.2, and the replica choices in [e9ae107a-0590-493a-9c31-5ce3975de499] via 3.1 and 3.2. It misses the accepted write-ahead log in S3/log-first approach from [13109d54-fa2e-4a25-95b0-7475e2594b6f] and [0dbfa881-5dad-4941-9714-d1ff1a087737]; add that value to a coordination or commit-ordering dimension. It also does not name the rejected distributed key-value store from [624105f1-282e-4449-a726-4bd5360e2894] or blob-storage-plus-relational-database option from [e536c15b-75ff-4461-b1fe-77b6a0bc0f86]; add those as explicit storage-substrate values rather than relying on generic 1.2. Finally, add an explicit primary-only compaction value for the decision in [df9415b1-b722-431d-8426-b253c196e0de]."
+        }
+      ],
+      "overall": 0.82,
+      "model": "openai/gpt-5.6-luna",
+      "unavailable": false,
+      "view": "loop draft, pre-selection",
+      "iteration": 1,
+      "dimensions": 3
+    },
+    {
+      "criteria": [
+        {
+          "name": "Orthogonality",
+          "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "Most dimensions ask distinct questions: dimension 4 covers where repository truth is stored, 2 covers the required consistency model, 3 covers replica footprint, and 7 covers maintenance placement. The main overlap is between dimension 5, \"Replication Coordination Strategy,\" and dimension 6, \"Commit Durability Strategy\": value 6.1, \"Consensus-before-action architecture,\" is a coordination mechanism and is equally valid under dimension 5. Move 6.1 to dimension 5 or narrow dimension 6 to durability-recording mechanisms such as 6.2 and 6.3. A lesser overlap exists between dimension 1's \"Server-side storage redesign\"/\"Server-side replication redesign\" and dimensions 4 and 5; clarify dimension 1 as strictly the locus of scaling responsibility or remove those implementation-specific values."
+        },
+        {
+          "name": "Clarity",
+          "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "The taxonomy generally provides clear question-like dimensions and distinguishable alternatives for client virtualization, consistency, repository storage, WAL durability, and maintenance distribution, covering the stated Git hosting scaling decisions. The main revisions are: merge or redefine values 5.1 \"Consensus-replicated Spokes hosting,\" 5.2 \"Strong consensus replication,\" and 5.3 \"Consensus-based replication,\" since their descriptions do not make them distinct alternatives; clarify dimension 4 values 4.1 \"Filesystem-based repository storage\" and 4.5 \"Real Git repository storage,\" which substantially overlap; and replace the vague 2.4 \"Storage consistency tradeoffs\" and 3.3 \"Repository replication infrastructure cost\" descriptions with specific, observable outcomes. Dimension 3's description should also state more directly what replica-sizing question 3.1 and 3.2 answer."
+        },
+        {
+          "name": "Completeness",
+          "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All major decision areas in the use case have decision points with multiple candidate decisions: scaling responsibility is covered by dimension 1, source-of-truth/storage alternatives by dimension 4, consistency by dimension 2, replica count and cost tradeoffs by dimension 3, coordination by dimension 5, WAL versus consensus durability by dimension 6, and maintenance/compaction placement by dimension 7. Each has at least two candidate values, including the filesystem, distributed store, Spokes, client virtualization, and write-ahead-log approaches. No shortcoming applies under this criterion."
+        },
+        {
+          "name": "Use case alignment",
+          "description": "Every dimension serves the stated use case; none is out of its scope.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All seven dimensions are within the use case’s scope of repository-hosting scaling decisions and tradeoffs. They directly cover client/server scaling responsibility (1), consistency across replicas (2), replica count and infrastructure burden (3), repository source of truth and storage representation (4), Spokes and consensus coordination (5), consensus versus WAL durability in Cursor Continuity/Origin (6), and distribution of compaction and maintenance work (7). No dimension is out of scope or merely tangential."
+        },
+        {
+          "name": "No catch-alls",
+          "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "No catch-all dimensions or values are present. The seven dimensions use specific decision axes—such as Repository State Storage Model (4), Replication Coordination Strategy (5), Commit Durability Strategy (6), and Repository Maintenance Distribution (7)—and their values describe concrete alternatives or outcomes rather than buckets like “Other,” “Miscellaneous,” or “General considerations.” No change is needed for this criterion."
+        },
+        {
+          "name": "Axis vs. value",
+          "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "The taxonomy mostly represents genuine decision axes for the filesystem, Spokes, GVFS/Scalar, and WAL-based architectures, with outcomes correctly separated from accepted or rejected alternatives. The main hierarchy problems are that value 5.1, \"Consensus-replicated Spokes hosting,\" is a concrete system-specific instance of the more general 5.2, \"Strong consensus replication,\" and value 6.3, \"S3-backed write-ahead log,\" is an implementation detail of 6.2, \"Write-ahead logging.\" Consolidate those pairs or move the specific choices into separate dimensions such as replication implementation and durable-log storage substrate. Value 3.2, \"Millions of tiny repository replicas,\" describes repository population or operating scale more than a replica-footprint alternative; move it to a dedicated scale/granularity dimension or recast it as an outcome/context value."
+        },
+        {
+          "name": "One decision point",
+          "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "Most dimensions have at least two candidate decisions answering a coherent question, and dimensions 2, 5, and 7 are well grounded in consistency, coordination, and maintenance tradeoffs relevant to the Git-hosting scaling case. However, dimension 4, \"Repository State Storage Model,\" combines different questions about storage substrate (filesystem, distributed key-value store, blob plus relational database) and source-of-truth semantics (real Git repository versus derived truth); split it into separate dimensions. Dimension 6, \"Commit Durability Strategy,\" mixes coordination timing (consensus-before-action), durability mechanism (write-ahead logging), and backend choice (S3-backed WAL); split these questions or move the S3 value to a storage-substrate dimension. Dimension 3, \"Replica Footprint Strategy,\" also mixes a safety-driven replica-count rule with repository-population scale; separate replica-count policy from workload/population scaling."
+        },
+        {
+          "name": "Rejected-alternative handling",
+          "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.4,
+          "passed": false,
+          "reason": "Several rejected candidate values are described as adopted: dimension 1 values 1.2 \"Server-side storage redesign\" and 1.3 \"Server-side replication redesign,\" dimension 2 value 2.2 \"Eventual-consistency repository views,\" and dimension 4 values 4.2, 4.3, and 4.4. Revise each description to state that the approach was considered and declined, or change its status if it was adopted. Dimension 5 also duplicates the consensus alternative: 5.2 \"Strong consensus replication\" is accepted while 5.3 \"Consensus-based replication\" is rejected without a meaningful distinction; merge or differentiate them so one candidate does not appear under conflicting statuses. All statuses are otherwise valid, and the outcome values are generally phrased as effects rather than alternatives."
+        },
+        {
+          "name": "Dimensional coverage",
+          "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All decision-bearing passages can be placed under at least one dimension. The rejected storage alternatives map to 4.2-4.4, Spokes and real Git repositories map to 4.5 and 5.1, client virtualization maps to 1.1, consistency and eventual-consistency failures map to 2.1-2.3, replica-count tradeoffs map to 3.1-3.3, consensus latency and operational consequences map to 5.2-5.10, the consensus-versus-write-ahead-log evolution maps to 6.1-6.3, and compaction tradeoffs map to 7.1-7.4. No decision-bearing passage is left without a corresponding dimension or value."
+        },
+        {
+          "name": "Candidate-decision coverage",
+          "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "The taxonomy names the specific adopted and rejected options across the decision passages, including client-side virtualization (1.1), filesystem, distributed-filesystem, key-value-store, and blob-plus-database storage alternatives (4.1–4.4), Spokes and consensus replication (5.1–5.3), write-ahead logging with S3 (6.2–6.3), consistency choices and client failures (2.2–2.3), replica-count tradeoffs (3.1–3.3), and primary-only compaction with its CPU and bandwidth consequences (7.1–7.4). No missing design options are apparent under the specified coverage criterion."
+        }
+      ],
+      "overall": 0.8300000000000001,
+      "model": "openai/gpt-5.6-luna",
+      "unavailable": false,
+      "view": "loop draft, pre-selection",
+      "iteration": 2,
+      "dimensions": 7
+    },
+    {
+      "criteria": [
+        {
+          "name": "Orthogonality",
+          "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Most dimensions ask distinct questions: id 4 covers repository truth and representation, id 2 covers client-visible consistency, and id 7 covers maintenance placement. The main overlap is between id 5, \"Replication Coordination Strategy,\" and id 6, \"Commit Durability Strategy\": value 6.1, \"Consensus-before-action architecture,\" is effectively another answer about replica coordination already represented by 5.1 and 5.2. Revise id 6 to focus solely on durable change recording (for example, WAL versus another persistence mechanism), and move or remove 6.1. There is also a weaker overlap between id 4.6, \"Derived repository truth,\" and id 6.2/6.3 because WAL-backed state can describe where truth is derived, so clarify id 4 as the repository representation and id 6 as the change-durability mechanism."
+        },
+        {
+          "name": "Clarity",
+          "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Most dimensions clearly state an architectural question and their values are generally distinguishable, especially 2 (Repository Consistency Model) and 7 (Repository Maintenance Distribution). However, dimension 4 has overlapping values 4.1 (Filesystem-based repository storage) and 4.5 (Real Git repository storage); rename or redefine them so one describes the physical substrate and the other the authoritative data model. In dimension 5, 5.1 (Consensus-replicated Spokes hosting) and 5.2 (Strong consensus replication) are difficult to distinguish because Spokes is presented as a specific form of strong consensus; make one explicitly implementation-specific and the other mechanism-level, or merge them. Dimension 6's 6.3 (S3-backed write-ahead log) is a storage-location variant of 6.2 rather than a clearly separate durability strategy; clarify that the axis includes log placement or move it under a separate persistence-medium question. Value 2.4 (Storage consistency tradeoffs) is vague and does not identify a concrete outcome; rename it to the specific consistency effect it represents."
+        },
+        {
+          "name": "Completeness",
+          "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "The taxonomy covers several major areas with multiple candidates: Repository State Storage Model (4), Repository Consistency Model (2), Replication Coordination Strategy (5), Commit Durability Strategy (6), and Repository Maintenance Distribution (7). However, it lacks a decision point for how replica count trades off against cost, availability, and correctness; add a dimension such as “Replica Cardinality and Cost Strategy” with alternatives like single-primary, fixed quorum, and elastic replicas. It also omits the explicit client-versus-server responsibility boundary highlighted by GVFS/Scalar; add a dimension such as “Repository Workload Placement” with client-side virtualization, server-side hosting, and split-responsibility alternatives."
+        },
+        {
+          "name": "Use case alignment",
+          "description": "Every dimension serves the stated use case; none is out of its scope.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All five dimensions are within scope of the use case's architectural evolution of Git hosting at scale. Repository State Storage Model covers filesystem, distributed, and derived truth; Replication Coordination Strategy covers Spokes, consensus, replica costs, and scaling consequences; Commit Durability Strategy covers consensus-before-action and Cursor's S3-backed write-ahead log; Repository Consistency Model addresses strong versus eventual consistency and client failures; and Repository Maintenance Distribution covers primary-only versus distributed compaction and their resource tradeoffs. No dimension is unrelated to the stated subject, lifecycle, or architectural decision kind."
+        },
+        {
+          "name": "No catch-alls",
+          "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "No dimension or value is a catch-all bucket. The dimensions use specific architectural axes, such as id 4 \"Repository State Storage Model,\" id 5 \"Replication Coordination Strategy,\" and id 7 \"Repository Maintenance Distribution,\" while values describe concrete alternatives or outcomes. Broad-sounding labels such as \"Distributed maintenance\" and \"Storage consistency tradeoffs\" remain tied to specific architectural decisions rather than serving as miscellaneous categories. No change is needed for the catch-all criterion."
+        },
+        {
+          "name": "Axis vs. value",
+          "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "Several dimensions are valid decision axes, including repository state storage (4), consistency model (2), and maintenance distribution (7), and outcomes are correctly represented with status 'outcome'. However, dimension 6 mixes distinct decisions: 'Consensus-before-action architecture' (6.1) belongs under replication coordination (5), while 'Write-ahead logging' (6.2) is a durability mechanism. Split dimension 6 into separate coordination and durability questions, or move 6.1 to dimension 5. 'S3-backed write-ahead log' (6.3) is a sub-choice about WAL persistence location rather than a peer to WAL itself; move it to a new storage-location dimension or make it subordinate to 6.2. Likewise, 'Consensus-replicated Spokes hosting' (5.1) is a concrete implementation of 'Strong consensus replication' (5.2); consolidate these at one level or move Spokes to a separate implementation dimension."
+        },
+        {
+          "name": "One decision point",
+          "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "Most dimensions have at least two candidate decisions and are reasonably coherent: dimension 2 contrasts strong versus eventual consistency, and dimension 7 contrasts primary-only versus distributed maintenance. However, dimension 6, \"Commit Durability Strategy,\" mixes different questions: 6.1 is a coordination timing choice, while 6.2 is a durability mechanism and 6.3 is the storage location for that mechanism. Split it into separate dimensions such as \"When is an action authorized?\" and \"How is committed state durably recorded?\", moving 6.3 under the latter. Dimension 4, \"Repository State Storage Model,\" also combines representation choices (4.1, 4.2, 4.3, 4.4, 4.5) with the derived-versus-authoritative truth distinction in 4.6; split or rename it to make that single decision question explicit. Dimension 5 is mostly coherent, but 5.1, 5.2, and 5.3 are overlapping levels of specificity; consolidate them or distinguish the implementation choice from the general replication protocol."
+        },
+        {
+          "name": "Rejected-alternative handling",
+          "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "The taxonomy consistently uses valid statuses, and rejected values such as 4.2 Distributed filesystem beneath Git and 2.2 Eventual-consistency repository views are explicitly described as declined, while outcomes such as 5.4 Higher tail-at-scale write latency and 7.3 Reduced replica CPU usage are correctly framed as effects rather than choices. The main issue is dimension 5, Replication Coordination Strategy: 5.3 Consensus-based replication is rejected even though 5.1 Consensus-replicated Spokes hosting and 5.2 Strong consensus replication are accepted variants of the same candidate decision, creating a duplicated decision under conflicting statuses. Replace 5.3 with a genuinely distinct rejected coordination strategy, or merge/refine these consensus values so the generic option is not simultaneously accepted and rejected."
+        },
+        {
+          "name": "Dimensional coverage",
+          "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.9,
+          "passed": true,
+          "reason": "Most decision-bearing passages map directly to the taxonomy: rejected distributed filesystem, key-value store, and blob/relational alternatives map to 4.2-4.4; Spokes, consensus, WAL/S3, consistency, and compaction map to dimensions 2, 4, 5, 6, and 7. The main uncovered passage is 3ed2b99e-3e0d-439e-a007-5daf3553b842, which decides to scale Git by virtualizing the client rather than the server; neither 4 (Repository State Storage Model) nor 5 (Replication Coordination Strategy) represents this deployment-placement choice. Add a dimension such as \"Where is Git scaling performed?\" with client-side virtualization and server-side scaling values. Passage e9ae107a-0590-493a-9c31-5ce3975de499 discusses choosing a safe minimum replica count versus the cost of millions of tiny repositories; 5 does not include replication factor as a decision. Add an accepted replica-count value to 5 or split out a replication-factor dimension, with the cost represented as an outcome."
+        },
+        {
+          "name": "Candidate-decision coverage",
+          "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "The taxonomy names most explicit storage, consistency, consensus, WAL/S3, compaction, and tradeoff options, including the rejected distributed filesystem, distributed key-value store, and blob-plus-relational database alternatives. It misses the scaling-locus decision in [3ed2b99e3-3e0d-439e-a007-5daf3553b842] (and likely the comparable alternatives in [f9c56011-b463-4479-be42-4796e06015ad]): add dimension 3, such as 'Where is Git scaled or virtualized?', with values for client virtualization and server-side virtualization. It also misses the adopted safe minimum replica-count option in [e9ae107a-0590-493a-9c31-5ce3975de499]; add a 'Replica Count Strategy' dimension with the safe minimum replication factor value. The existing relations reference dimension 3, but that dimension and its decision values are absent."
+        }
+      ],
+      "overall": 0.7699999999999999,
+      "model": "openai/gpt-5.6-luna",
+      "unavailable": false,
+      "view": "final view",
+      "iteration": 4,
+      "dimensions": 5
+    }
+  ]
+}

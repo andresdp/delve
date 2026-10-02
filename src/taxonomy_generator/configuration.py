@@ -103,6 +103,11 @@ class Configuration:
         metadata={"description": "Path to a saved taxonomy JSON used as the starting taxonomy."},
     )
 
+    taxonomy_input_view: str | None = field(
+        default=None,
+        metadata={"description": "View of taxonomy_input that seeds the run: auto (selected in test mode, final iteration in train mode), selected, or final."},
+    )
+
     # ── Taxonomy ────────────────────────────────────────────────────────
     name: str = field(
         default=None,
@@ -159,6 +164,61 @@ class Configuration:
         metadata={"description": "Consolidate semantically duplicate values within dimensions (default true)."},
     )
 
+    merge_value_stances: bool = field(
+        default=None,
+        metadata={"description": "Merge accepted and rejected values naming the same candidate decision (default true)."},
+    )
+
+    link_evidence: bool = field(
+        default=None,
+        metadata={"description": "Link each value to its supporting documents from the open codes (default true)."},
+    )
+
+    evidence_min_similarity: float = field(
+        default=None,
+        metadata={"description": "Minimum cosine similarity for an open code to count as evidence for a value."},
+    )
+
+    drop_unsupported_values: bool = field(
+        default=None,
+        metadata={"description": "Remove values no document supports after evidence linking (default true)."},
+    )
+
+    min_candidate_decisions: int = field(
+        default=None,
+        metadata={"description": "Minimum candidate decisions (accepted/rejected values) a dimension needs (0 = no rule)."},
+    )
+
+    merge_dimensions: bool = field(
+        default=None,
+        metadata={"description": "Merge near-duplicate dimensions before value consolidation (default false)."},
+    )
+
+    dimension_merge_distance_threshold: float = field(
+        default=None,
+        metadata={"description": "Embedding-distance cutoff for automatic dimension merges."},
+    )
+
+    dimension_merge_borderline_band: float = field(
+        default=None,
+        metadata={"description": "Distance band above the cutoff where an LLM judges dimension merges."},
+    )
+
+    min_dimension_sources: int = field(
+        default=None,
+        metadata={"description": "Minimum number of evidence sources a dimension needs (0 = no rule)."},
+    )
+
+    saturation_min_coverage: float = field(
+        default=None,
+        metadata={"description": "Share of a minibatch's codes that must be covered to count as saturated (1.0 = strict)."},
+    )
+
+    saturation_min_corpus_fraction: float = field(
+        default=None,
+        metadata={"description": "Minimum share of the corpus's documents open-coded before saturation may end the update loop (0 = off)."},
+    )
+
     # ── Summarization ──────────────────────────────────────────────────
     skip_summarization: bool = field(
         default=None,
@@ -178,6 +238,12 @@ class Configuration:
     summary_max_concurrency: int = field(
         default=None,
         metadata={"description": "Max concurrent LLM requests during summarization."},
+    )
+
+    # ── Open coding ─────────────────────────────────────────────────────
+    open_coding_input: str = field(
+        default=None,
+        metadata={"description": "What open coding reads per document: 'summary' (default) or 'content'."},
     )
 
     # ── Labeling ────────────────────────────────────────────────────────
@@ -269,6 +335,16 @@ class Configuration:
         metadata={"description": "Max documents sampled for the data-grounded coverage criterion."},
     )
 
+    evaluation_feedback_exclude: tuple = field(
+        default=None,
+        metadata={"description": "Evaluation criteria scored and reported but not fed back to update/review."},
+    )
+
+    evaluation_save_history: bool = field(
+        default=None,
+        metadata={"description": "Save every scoreboard of a run (evaluation_history) and show scores across iterations."},
+    )
+
     # ── LangGraph integration ──────────────────────────────────────────
 
     @classmethod
@@ -311,6 +387,7 @@ class Configuration:
             # Pipeline — run modes / seeding
             "mode": s.pipeline.mode,
             "taxonomy_input": s.pipeline.taxonomy_input,
+            "taxonomy_input_view": s.pipeline.taxonomy_input_view,
             # Taxonomy
             "name": s.taxonomy.name,
             "max_num_clusters": s.taxonomy.max_num_clusters,
@@ -323,11 +400,24 @@ class Configuration:
             "value_merge_distance_threshold": s.taxonomy.value_merge_distance_threshold,
             "value_merge_borderline_band": s.taxonomy.value_merge_borderline_band,
             "consolidate_values": s.taxonomy.consolidate_values,
+            "merge_value_stances": s.taxonomy.merge_value_stances,
+            "link_evidence": s.taxonomy.link_evidence,
+            "evidence_min_similarity": s.taxonomy.evidence_min_similarity,
+            "drop_unsupported_values": s.taxonomy.drop_unsupported_values,
+            "min_candidate_decisions": s.taxonomy.min_candidate_decisions,
+            "merge_dimensions": s.taxonomy.merge_dimensions,
+            "dimension_merge_distance_threshold": s.taxonomy.dimension_merge_distance_threshold,
+            "dimension_merge_borderline_band": s.taxonomy.dimension_merge_borderline_band,
+            "min_dimension_sources": s.taxonomy.min_dimension_sources,
+            "saturation_min_coverage": s.taxonomy.saturation_min_coverage,
+            "saturation_min_corpus_fraction": s.taxonomy.saturation_min_corpus_fraction,
             # Summarization
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,
             "summary_explanation_length": s.summarization.explanation_length,
             "summary_max_concurrency": s.summarization.max_concurrency,
+            # Open coding
+            "open_coding_input": s.open_coding.input,
             # Labeling
             "fallback_category": s.labeling.fallback_category,
             "review_sample_size": s.labeling.review_sample_size,
@@ -349,4 +439,6 @@ class Configuration:
             "evaluation_consistency_threshold": s.evaluation.consistency_threshold,
             "evaluation_consistency_borderline_band": s.evaluation.consistency_borderline_band,
             "evaluation_max_documents": s.evaluation.max_documents,
+            "evaluation_save_history": s.evaluation.save_history,
+            "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
         }

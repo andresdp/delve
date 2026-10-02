@@ -174,6 +174,15 @@ class SelectionOutput(BaseModel):
     )
 
 
+class DimensionMergeOutput(BaseModel):
+    """LLM adjudication for one candidate dimension-merge pair."""
+
+    same_decision: bool = Field(
+        description="True when both dimensions name the same design decision (their values are options for one choice)."
+    )
+    rationale: str = Field(description="Why the two dimensions are or are not the same decision, judged against the use case.")
+
+
 class ValueMergeOutput(BaseModel):
     """LLM adjudication for one borderline value-merge pair."""
 
@@ -189,8 +198,15 @@ class LabelOutput(BaseModel):
     reasoning: str = Field(
         description="Chain of reasoning for why the category was selected."
     )
+    category_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The id of the single most relevant category, exactly as listed in the "
+            "taxonomy. Null only when the fallback category is used."
+        ),
+    )
     category: str = Field(
-        description="The single most relevant category name from the taxonomy."
+        description="The name of that category, exactly as listed in the taxonomy (or the fallback category)."
     )
     score: float = Field(
         description=(

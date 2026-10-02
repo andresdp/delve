@@ -181,26 +181,43 @@ C1 and C2 fit because they follow **the procedure Delve automates** on a **close
 (29 sources each) and publish **machine-readable models**. They also form a natural pair for contamination:
 C1 (2021) is probably in the models' training data; C2 (2026) probably is not.
 
-**C1 specifics — ground-truth scope**: the article describes only a *subset* of the modeled ADDs (data
-ingestion/processing, model building, AutoML). It explicitly omits deployment, CI/CD, MLOps and development
-environments, although sources s20–s29 (MLOps, monitoring, Jupyter) feed exactly those parts. Therefore:
-- the **primary GT is the full model in the replication package**, and the use case is written from the
-  study's overall scope (the ML workflow), not from the article's subset;
-- the **article subset** is reported as a secondary view (recall on the ADDs the article details);
-- source links are 2021 TinyURLs pointing to archived copies; check recovery on day 1.
+**Two ground-truth views per study (decided 2026-10-01).** Every metric is computed against both, and
+both are reported side by side:
+- **Paper view** (`gt_paper.json`): the decisions, options, drivers and relations as **reported in the
+  published paper** (text, tables and figures). It is what a reader can check against the article.
+- **Model view** (`gt_model.json`): the **full model in the replication package** (CodeableModels). It is
+  the complete expert model.
 
-**C2 specifics**: the paper reports 57 options / 72 drivers in the abstract but 53 / 59 in §3. Use the
-replication-package model as the authority and report the discrepancy. The package also classifies sources
-as primary/supporting/confirming (useful for E5).
+The two differ, and the differences are documented in the benchmark datasheet (B5) and reported in the
+paper. A crosswalk records, for every element, whether it appears in the paper, the model, or both. The use
+case is the same for both views: it is written from the study's overall scope, never from either view's
+content.
+
+**C1 specifics**: the article describes only a *subset* of the modelled ADDs (data ingestion/processing,
+model building, AutoML). It explicitly omits deployment, CI/CD, MLOps and development environments,
+although sources s20–s29 (MLOps, monitoring, Jupyter) feed exactly those parts. So the paper view is much
+smaller than the model view. Source links are 2021 TinyURLs pointing to archived copies (all 29
+recovered).
+
+**C2 specifics**: the paper's Table 2 lists 57 options (ADD 2: 16, ADD 6: 9) and quotes 59/72 drivers; the
+model has 62 options (ADD 2: 15, ADD 6: 15) and 43 forces. Both views are kept as they are; the differences
+are reported. The package also classifies sources as primary/supporting/confirming (useful for E5).
 
 **Threat to state**: both GT studies come from the same research group (single-group bias). The kit is
 designed to be extended; name candidate studies as future work.
 
 ### 4.2 Terminology mapping: Delve ↔ the papers (C1/C2) ↔ Straussian GT ↔ Shaw
 
-The paper will use one vocabulary consistently. **Proposed convention for the paper's text**: *design
-decision* (= Delve dimension), *option* (= Delve value), *driver*, *impact*, *relation*. Delve identifiers
-(`Cluster`, `Value`, …) appear only in the Approach section and the replication package.
+The paper will use one vocabulary consistently. **Proposed convention for the paper's text**:
+- *decision point* (= Delve dimension = the papers' ADD/"decision"): a topic phrased as one question that
+  requires a choice;
+- *candidate decision* (= Delve value = the papers' "option"): an alternative answer to that question;
+- *driver*, *impact*, *relation*.
+
+A well-formed decision point passes one test: all its candidate decisions are alternative answers to one
+question. A broad topic whose values answer different questions bundles several decision points and is
+misleading (agreed 2026-10-01; enforced in the generation, update, review and selection prompts). Delve
+identifiers (`Cluster`, `Value`, …) appear only in the Approach section and the replication package.
 
 #### 4.2.1 Core model elements (these are what get matched)
 
@@ -281,9 +298,48 @@ study in B1.
    Tolerance") is a sign of a driver promoted to a decision. The matcher checks such dimensions against GT
    drivers as well (§5.1 M4), and they count as a granularity finding, not a hit.
 
+#### 4.2.5 Ground-truth structure and comparison levels (worked out on C2)
+
+The papers present more levels than their machine-readable models contain. Only some levels are matched.
+
+| Level in the paper (C2) | Count | What it is | Delve equivalent | Compared? |
+|---|---|---|---|---|
+| **Layers** (Fig. 2 boxes: Safe Exploration, Detection, Reward Hacking) | 3 | Presentation groupings of ADDs | none (Delve is flat) | No (optional sanity check, level 6) |
+| **ADDs** (e.g. "Reward Degradation Test Statistic Selection") | 7 | A decision point: one question requiring a choice | **dimension** | Yes, primary |
+| **Option families** (italic in the prose, e.g. *Agent-Internal Signals*) | a few | Analytical groupings of options, only in the paper text; they can span ADDs | none | No; used to explain partial matches |
+| **Decision options** (bold CamelCase, e.g. *CUSUMSequentialTest*) | 62 in the model | Candidate decisions | **value** (accepted / rejected / mixed) | Yes, primary |
+| **Decision drivers / forces** (e.g. *SafetyConstraints*) with `+`/`-` impacts on options | 43 in the model | Forces that favour or disfavour options | drivers and impacts (§8 P7); until then Delve's `outcome` values are the closest counterpart | Yes, secondary |
+| **ADD relations** («Constrains», «Mandatory Next», «Feeds Into Via Trigger», …) | 6 links | Dependencies between decisions | relations (`enables` / `constrains` / `complements`, §8 P17) | Yes, secondary |
+
+**The machine-readable model is flat** (`replication_package/src/model/model.py`, CodeableModels):
+- `CClass(decision, …)` for the 7 ADDs;
+- options linked directly via `add_decision_option_link`;
+- forces linked to options with `+`/`-` stereotypes;
+- typed `next decision` links between ADDs.
+
+It has no layers and no families. It is the **model view** of the ground truth; the paper's own reporting
+is the **paper view** (§4.1). Both are used.
+
+**Counts differ between paper and model** (report in the paper):
+- Paper Table 2 lists 57 options (ADD 2: 16, ADD 6: 9); the model has 62 (ADD 2: 15, ADD 6: 15).
+- The paper quotes 59/72 drivers; the model defines 43 forces.
+
+**Comparison levels**, from most to least important (metrics in §5.1, M3–M7):
+1. **Decision ↔ dimension, option ↔ value**: options are matched across the whole model first; decisions are then aligned mainly through shared options. Lenient alignment credits granularity differences:
+   - **split**: Delve divides one ADD into several dimensions (e.g. ADD 2's 15 signals into dimensions resembling the paper's own families);
+   - **merge**: one Delve dimension spans two ADDs.
+2. **Option recall regardless of dimension**: how many of the 62 options Delve found anywhere, plus the placement-aware variant (the option also sits under the aligned dimension). The most robust metric against granularity differences.
+3. **Structure agreement**: over matched options, do Delve and the experts group them into decisions the same way (Adjusted Rand Index, naming-independent)?
+4. **Drivers and impacts**: until P7, driver-mention recall (expert forces found among Delve's outcome values or descriptions, labelled as weaker); with P7, driver matching and `+`/`-` impact agreement.
+5. **Relations**: for aligned decision pairs, a Delve relation of the same coarse type (§4.2.3).
+6. **Layer coverage** (optional sanity check, not a reported result): do Delve's dimensions cover all 3 layers?
+
+**Note for the paper's wording:** some ADDs are "select several" decisions. ADD 2 (which signals to monitor) and ADD 6 (detection strategy) are realized as a *set* of options. For them, candidate decisions are combinable options rather than mutually exclusive alternatives. Matching is unaffected, but the paper should not describe every decision point as "pick exactly one".
+
 ### 4.3 Construction steps (see §8 items B1–B4)
 
-1. Download packages; convert CodeableModels ADD models into normalized JSON (§8 B1).
+1. Download packages; convert the CodeableModels ADD models into normalized JSON (model view), transcribe
+   what the paper reports into the same schema (paper view), and record the crosswalk between them (§8 B1).
 2. Re-collect every source (archived URLs, Wayback for dead links); log recovery coverage (B2).
 3. Segment sources into passages with `source_id` provenance (B3 + P1).
 4. Write each study's **use case** from its stated RQs and scope, never from its results (B4).
@@ -394,14 +450,14 @@ Tune nothing on C4.
 
 ### 5.1 Fidelity (RQ1/RQ2): matching protocol
 
-Goal: score any system's output (Delve, baselines, ablations) against the expert ADD model of C1 and C2 with
-**one** procedure. The procedure is fixed before any C1/C2 output is inspected, validated against a
+Goal: score any system's output (Delve, baselines, ablations) against the expert ADD models of C1 and C2,
+in **both ground-truth views** (paper view and model view, §4.1), with **one** procedure. The procedure is fixed before any C1/C2 output is inspected, validated against a
 human-made gold alignment, and applied identically to every system.
 
 #### M0 — Pre-registration
 
 Commit the following to the repository **before** the first C1/C2 run:
-- the comparison view (§4.2.1);
+- the comparison view (§4.2.1) and the two ground-truth views with their crosswalk (§4.1);
 - the status routing (accepted/rejected → options; outcome → drivers/impacts);
 - the relation vocabulary and the GT type map (§4.2.3);
 - the text serialization (M1) and the judge prompt (M3);
@@ -414,6 +470,9 @@ Any later change is logged as a deviation in the replication package.
 
 - Every system's output is converted into the same JSON shape as the GT (§4.3, B1):
   `decisions[] → options[] → impacts[]`, `drivers[]`, `relations[]`.
+- **Ground truth in two views**: `gt_paper.json` (as reported in the paper) and `gt_model.json` (full
+  replication-package model), sharing element ids. A crosswalk marks each element `paper+model`,
+  `model only` or `paper only`.
 - **Adapters**:
   - **Delve**: dimensions → decisions; accepted/rejected values → options; outcome values → the
     `outcomes[]` list; `Driver` / `impacts` / `relations` as is.
@@ -430,8 +489,8 @@ Any later change is logged as a deviation in the replication package.
 #### M2 — Enrich the ground truth (once, before any output is seen)
 
 GT options and drivers are often bare CamelCase names. Two authors write a **one-sentence description**
-for each, taken from the paper's text or the package's evidence, not from memory, and cross-check each
-other's. The enriched GT is frozen with the benchmark (SHA-256 manifest). The same enrichment serves all
+for each element of **both views** (the union, so a `paper+model` element has one shared description),
+taken from the paper's text or the package's evidence, not from memory, and cross-check each other's. The enriched GT is frozen with the benchmark (SHA-256 manifest). The same enrichment serves all
 systems, so it cannot favour one.
 
 #### M3 — Option matching (global, across decisions)
@@ -527,7 +586,17 @@ Let G_o be the GT options, S_o the system options (outcome values excluded), and
 | Relation recall / precision | type-agnostic, type-aware, direction-aware (M6) |
 | "Related" rate | share of GT options whose best edge is only `related` (near misses; reported, never counted as hits) |
 
-Report every metric per study (C1, C2) as mean ± sd over seeds, plus C1's secondary "article subset" view.
+**Two views.** Every metric is computed per study (C1, C2) **and per ground-truth view** (paper, model), as
+mean ± sd over seeds. Matching (M3–M6) runs once against the union of both views; each view's metrics are
+then computed from that one alignment:
+- **Recall** in a view counts only that view's elements.
+- **Precision in the paper view** does not count as wrong a system item that matches a `model only` element:
+  it is correct, just not reported in the paper. Such items are excluded from the paper-view precision
+  denominator, and their number is reported.
+- `paper only` elements (reported in the paper but absent from the model) count only in the paper view.
+
+Report the two views side by side, plus the share of each system's matches that fall in `model only`
+elements (how much a system finds beyond what the paper reports).
 
 #### M8 — Review of unmatched system items (adjusted precision)
 
@@ -544,8 +613,8 @@ Report every metric per study (C1, C2) as mean ± sd over seeds, plus C1's secon
 #### M9 — Human gold alignment and matcher validation
 
 1. **Gold alignment**: for **seed 1** of (a) full Delve and (b) the long-context baseline L1, per study, two
-   authors independently align the output with the GT at option level (M3 labels) and decision level (M4
-   classes), in a spreadsheet generated by the tooling. Then they reconcile disagreements. Including L1
+   authors independently align the output with the GT (the union of both views) at option level (M3 labels)
+   and decision level (M4 classes), in a spreadsheet generated by the tooling. Then they reconcile disagreements. Including L1
    ensures the matcher is validated on a competitor's output, not only on Delve's.
    Rough size: ~50–70 GT options × ~50–80 system options, reduced to top-5 candidates per item, so a few
    hours per study and system.
@@ -709,6 +778,12 @@ After each saturation check, the agent re-ranks the *remaining* minibatches by s
 A web-searching source-acquisition agent (true theoretical sampling over the open web) breaks
 comparability with fixed GT source lists. Mention it as future work.
 
+### 6.5 Exploring a design space (side idea, not in paper scope)
+
+Exporting a run as a queryable graph + wiki with a CLI is analyzed separately in
+`docs/DESIGN_SPACE_EXPLORATION.md`. For the paper, at most a one-line tool-support mention, and only if
+it is built and used to analyze C1/C2 before the deadline.
+
 ---
 
 ## 7. Aligning Delve's procedure with Straussian grounded theory
@@ -787,7 +862,7 @@ regression test that loads an old saved taxonomy JSON.
 
 | ID | Pri | Deliverable | Notes | Effort |
 |---|---|---|---|---|
-| B1 | M | `benchmark/gt_convert.py`: CodeableModels (Python) → `benchmark/<study>/gt_model.json` `{decisions[{id,name,description,options[{id,name,impacts[{driver,effect}]}]}], drivers[], relations[{source,target,type}]}` | For C1 and C2 (and the DT dev set if used). For C1, also tag which ADDs the article details (secondary "article subset" view). Import the model modules directly if runnable, otherwise parse. Hand-check against the paper tables. Includes **GT enrichment (§5.1 M2)**: one-sentence descriptions for options and drivers, the C1 "considerations/practices" rule (§4.2.2), and the **inventory of relation stereotypes** in both packages with their mapping to Delve's types (§4.2.3; this gates P17), all frozen before any run | 1 d (+0.5 d for M2 enrichment) |
+| B1 | M | `benchmark/gt_convert.py`: CodeableModels (Python) → `benchmark/<study>/gt_model.json` `{decisions[{id,name,description,options[{id,name,impacts[{driver,effect}]}]}], drivers[], relations[{source,target,type}]}`; plus `gt_paper.json` (same schema, transcribed from the paper's text, tables and figures) and `gt_crosswalk.csv` (each element: `paper+model` / `model only` / `paper only`) | For C1 and C2 (and the DT dev set if used). Element ids are shared across the two views. Import the model modules directly if runnable, otherwise parse. Hand-check against the paper tables. Includes **GT enrichment (§5.1 M2)**: one-sentence descriptions for options and drivers, the C1 "considerations/practices" rule (§4.2.2), and the **inventory of relation stereotypes** in both packages with their mapping to Delve's types (§4.2.3; this gates P17), all frozen before any run | 1 d (+0.5 d for M2 enrichment) |
 | B2 | M | `benchmark/fetch_sources.py`: download each source URL (fallback: Wayback), extract main text (e.g. `trafilatura`), store `sources/<sid>.txt` + `manifest.json` (url, archive url, retrieval date, sha256, status) | Start on day 1 (link rot is the critical path). Legal note: store only in the private workspace; release URLs + scripts, not full text, if licensing is unclear | 1 d |
 | B3 | M | `benchmark/build_corpus.py`: sources → passages (P1) → Delve corpus JSON per study | Same segmentation for all systems (fairness) | 0.25 d |
 | B4 | M | `benchmark/<study>/config.yaml` + `use_case.md`: use case from the study's RQs and scope only | Two authors agree on the wording; frozen before runs | 0.25 d |
@@ -844,6 +919,38 @@ B2 + P1 ─> B6 (C3 corpora) ─> B7 (passage→system map) ─> A9 ─> E9   (B
 P6, P10, A5 (should, only if on schedule)
 ```
 
+### 8.7 Progress log
+
+- **2026-10-01: B2 done.** `benchmark/fetch_sources.py`. C1 29/29 sources and C2 27/29 (s5 needs a manual
+  save, s10's page is gone); verified against the analysts' memo quotes.
+- **2026-10-01: B3 and P1 done (builder-side) and P2 done.**
+  - `benchmark/build_corpus.py` writes passage corpora (~300 words, ids `sNN_pKK`) to
+    `examples/c1-ml-workflow/` (265 passages) and `examples/c2-rl-monitoring/` (243 passages).
+  - P1 is implemented in the corpus builder rather than as a pipeline node; the passage id carries the
+    source id.
+  - `main.load_corpus_documents` keeps corpus ids.
+  - New setting `open_coding.input: summary | content` (default `summary`; the C1/C2 configs use `content`
+    with summarization skipped).
+- **2026-10-01: first C1/C2 runs, and fixes they prompted.** The runs produced 34 (C1) and 43 (C2)
+  dimensions; several had no labeled documents. Fixed:
+  - the labeler now classifies against the *selected* taxonomy;
+  - it returns a dimension id, which is validated (one retry, then the fallback);
+  - dimension and value ids are made unique;
+  - **evidence linking** (`nodes/evidence_linker.py`) rebuilds each value's supporting documents
+    deterministically from the open codes (before, 77% of C2 passages supported no value);
+  - open codes are now saved per run (`*_open_codes_*.json`).
+
+  Labeling stays single-label (option (a)).
+- **2026-10-01: fragmentation controls** (all behind settings; enabled in the C1/C2 configs):
+  - dimension merging before value consolidation (`nodes/dimension_merger.py`; embedding candidates
+    plus an LLM judge on "same design decision"; thresholds calibrated on the C2 run, where
+    near-duplicates sit at distance 0.58–0.75);
+  - a minimum-support rule at selection (≥ 2 sources, from the new evidence);
+  - tolerant saturation (`saturation_min_coverage: 0.9`) and critic feedback that prefers adding
+    options to existing dimensions over new ones.
+- **B4 drafted:** use cases in `examples/c1-ml-workflow/c1_ml_workflow_config.yaml` and
+  `examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`, still to be agreed by two authors.
+
 ---
 
 ## 9. Experiment protocol
@@ -884,8 +991,9 @@ P6, P10, A5 (should, only if on schedule)
 - Runs: full Delve × 2 GT studies (C1, C2) × 5 seeds.
 - Metrics: §5.1 (strict and lenient), grounding precision, hallucinated-evidence rate, adjusted precision
   (expert ratings, A7).
-- C1 is reported against the full package model and, secondarily, the article subset.
-- Artifacts: **Table 3** (per study: ADD/option/driver/relation P-R-F1, mean ± sd); **Fig. 4** (per-ADD
+- Every result is reported in both ground-truth views (paper view, model view), side by side (§5.1 M7).
+- Artifacts: **Table 3** (per study and per view: ADD/option/driver/relation P-R-F1, mean ± sd, plus the
+  share of matches in `model only` elements); **Fig. 4** (per-ADD
   option recall heat map for the RL study); qualitative box with 2 correct, 1 missed, 1 "valid but absent
   from GT" example.
 
@@ -984,6 +1092,31 @@ P6, P10, A5 (should, only if on schedule)
   placement accuracy if the thesis has a system classification.
 - Artifacts: one row in Table 3 (or a short subsection); otherwise the replication package.
 
+**E11 — Possible: generalization and data stability (RQ4, optional; idea 2026-10-02, not scheduled)**
+- Question: do the dimensions inferred in train mode cover unseen sources (not overfitted), and do the same
+  dimensions emerge from different sources (data stability, as opposed to the seed stability of E6)?
+- Splits are **by source, never by passage** (passages of one article share vocabulary and decisions, so a
+  passage split leaks), seeded and stratified by source type; corpus files
+  `<case>_corpus_train.json` / `_test.json` with the source lists recorded.
+- **Train/test (70/30):** train mode on the train sources, then test mode (`--taxonomy <train run>`) on the
+  test sources. Test mode freezes the **selected view** (`pipeline.taxonomy_input_view: auto`, fixed
+  2026-10-02), labels each test passage and appends new values; it does not re-run open coding, so it
+  measures **coverage of unseen data**, not re-derivation. Overfitting = the **gap** between train
+  passages (labeled at the end of the train run) and test passages on: fallback ("Other") rate, test
+  sources reaching each dimension, rate of appended values, mean label score; plus the judge's coverage
+  criteria on a test sample. Forced single-label labeling can hide misfits, hence label scores, not only
+  "Other". Test sets are small (C1 ≈ 9, C2 ≈ 8 sources): report per-dimension results by source counts and,
+  budget permitting, repeat with 2–3 splits.
+- **Split-half (50/50):** train mode on each half, then the consistency comparison
+  (`--evaluate runA.json runB.json`): recurring dimensions are data-stable, one-offs are candidates for
+  overfitting to particular sources. Read against E6's cross-seed agreement on the full corpus to separate
+  data-driven from pipeline-driven variation.
+- Kept separate from E1: training on a subset lowers recall against the ground truth, so fidelity is always
+  measured on full-corpus runs.
+- To build if scheduled: a source-level split option in `benchmark/build_corpus.py` and a small script
+  comparing train vs. test labeling statistics.
+- Artifacts: a short table (train vs. test gap per case) and the split-half recurring/one-off counts.
+
 ### 9.3 Run budget
 
 | Experiment | Runs (C1, C2 × 5 seeds unless noted) |
@@ -998,6 +1131,7 @@ P6, P10, A5 (should, only if on schedule)
 | E8 | 10 |
 | E9 | 10 (C3-raw + C3-curated) |
 | E10 (stretch) | ~15 (C4 if go) |
+| E11 (possible) | 8 per split (C1, C2: 1 train + 1 test + 2 split-half trains each); not in the total |
 | **Total** | **≈ 250** |
 
 Estimate cost after E0. If the budget is exceeded, cut in this order: E3 to 3 seeds; drop LLooM; drop the
@@ -1114,7 +1248,8 @@ E4 model-diversity arm; drop C3-curated.
 4. **Human experts**: 2–3 people × ~2 h (unmatched-item ratings, HITL critique); two authors for κ labeling.
 5. **Contacting the GT-study authors** for coding data: useful; consider double-blind and conflict of interest.
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
-7. **C1 ground-truth scope**: full package model as primary GT (proposed), article subset as secondary?
+7. ~~**C1 ground-truth scope**~~ **Decided (2026-10-01):** both studies are compared against two views, the
+   paper as reported and the full replication-package model, side by side (§4.1, §5.1 M7).
 8. **Dev set**: use the Digital Twins study as a private, unreported development set (proposed, if its
    package is usable), or tune on C3-raw only?
 9. **C3 design**: C3-raw as primary with C3-curated as sensitivity (proposed)? Write the optional silver

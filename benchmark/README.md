@@ -31,6 +31,18 @@ python benchmark/fetch_sources.py benchmark/c2-rl-monitoring --only s19 --force
 Fetch order: `fetch_override` → the authors' archived snapshot (raw `id_` mode) → live URL → closest
 Wayback snapshot. Sources flagged `short`, `paywall` or `bot_block` in the manifest need a manual check.
 
+## Building the Delve corpora
+
+```bash
+python benchmark/build_corpus.py          # writes examples/<case>/<case>_corpus.json for C1 and C2
+```
+
+`build_corpus.py` strips the provenance header and markdown noise (links, images, URLs, empty bullets,
+ligatures; PDF text is reflowed) and splits each source into passages of about 300 words at paragraph and
+heading boundaries (code blocks are never split; passages under 80 words are merged into a neighbour).
+Each passage is one Delve document with id `sNN_pKK`. Run configs and instructions are in
+`examples/c1-ml-workflow/` and `examples/c2-rl-monitoring/`.
+
 ## Verification status (2026-10-01)
 
 Checks:
