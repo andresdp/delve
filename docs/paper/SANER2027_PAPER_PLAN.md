@@ -627,6 +627,14 @@ elements (how much a system finds beyond what the paper reports).
    κ on labels, decision-class accuracy). The acceptance target is agreement close to the human–human κ.
    If it falls clearly short, report the gold (manual) numbers for seed 1 as the primary result, and the
    matcher numbers as supporting evidence for the remaining seeds and systems.
+5. **Candidate-stage recall** (added 2026-10-03): for every gold match, check that the embedding stage put
+   the gold partner among the candidates sent to the judge (recall@5 of the candidate list). The judge
+   cannot recover a pair the candidate stage never surfaced; low candidate recall is fixed by widening the
+   candidate list, not by tuning the judge.
+6. **Judge stress test**: ~20 distractor pairs per study that share words but not meaning (e.g. "drift
+   detection" vs. "drift compensation") and ~20 paraphrase pairs with little word overlap. The matcher must
+   reject the first and accept the second; report both rates. LLM judges are known to be swayed by query-term
+   overlap.
 
 #### M10 — Fairness rules
 
@@ -684,16 +692,46 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
   seeds), not as significance-hunting. Wilcoxon signed-rank only as a secondary indication.
 - If a comparison is decisive for a claim (Delve vs. long-context LLM), raise the seeds for those two
   configurations to 10.
+- **Units of analysis** (added 2026-10-03): GT elements (ADDs, options) are the paired units when comparing
+  systems on the same study: for each GT option, recovered or not by each system. Use paired bootstrap CIs
+  over GT elements (and McNemar for two systems) in addition to the spread over seeds. With ~60 options per
+  study, small differences are not detectable; state the minimum detectable difference instead of implying
+  precision.
+- **Multiplicity**: the ablation table compares many variants with the full system; control it (Holm or
+  Benjamini–Hochberg) and report effect sizes with CIs, never p-values alone.
+- **Absolute points**: report differences in absolute F1/recall points (e.g. "+0.08 option recall"), not
+  relative gains of means.
 
 ### 5.4 Validity safeguards
 
-- **Judge from a different model family** than the generator (needs §8 P9).
+- **Judge from a different model family** than the generator (needs §8 P9). This covers **every** judge: the
+  matcher's judge, the human-validation aids, **and the in-loop scoreboard** (today `evaluation.judge_model:
+  null` falls back to the generator model, so the pipeline grades its own family). Record the judge's model,
+  version, prompt and temperature for every judged number.
 - **Matcher calibration**: two authors independently label ~100 alignment pairs; report Cohen's κ
   (human–human and human–matcher).
 - **Contamination probe**: ask the generator for each ADD model *without sources* and score it with the
   same metrics (§9 E8).
 - **Pinned models, seeds and cached outputs**; configs committed; full replication package.
 - **Budget-matched comparisons** whenever a variant uses more LLM calls.
+- **Freeze the evaluation frame before the first scored run** (added 2026-10-03): corpus versions (passage
+  files + manifest hashes), GT files and views, use cases, matcher thresholds (cross-fitted), judge model
+  and prompts, metric definitions and cutoffs, seeds. Anything changed after seeing GT scores is reported
+  as such.
+- **Measure each stage, not only the end** (A10): where are GT options lost: never open-coded, coded but
+  not turned into a value, dropped during the loop (collapse), merged away at consolidation, dropped at
+  selection, or present but unmatched? The fix depends on the stage; end-to-end F1 alone hides it.
+- **Outputs outside the GT are "unjudged", not false**: the GT reflects one research group's analysis, like
+  a shallow pool. Report the share of each system's options that are matched, expert-rated (A7, a sample is
+  enough), or unjudged, and give precision both strict (unmatched = wrong) and adjusted (rated valid =
+  right). Systems whose outputs differ most from the experts' wording are penalized most by strict precision.
+- **Rival hypotheses for every headline gain** (state and check each): more LLM calls (budget), memorized GT
+  (contamination probe), matcher leniency toward LLM-phrased items (judge stress test, M10 serialization),
+  use-case wording that leaks GT terms (use cases written from the studies' RQs only), and seed luck
+  (seed spread).
+- **Evidence-link check** (A11): on a sample, verify that linked passages support their value, with a slice
+  for `rejected` stances (dense similarity is weak on negation: a passage rejecting X is close to one
+  adopting X).
 
 ### 5.5 Threats to validity (to write up)
 
@@ -903,6 +941,8 @@ regression test that loads an old saved taxonomy JSON.
 | A6 | M | **Gold-alignment and calibration kit (§5.1 M9)**: generate alignment spreadsheets (top-5 candidates per item) for seed 1 of full Delve and L1 per study; κ scripts (Cohen's for gold, Fleiss' for M8); cross-fitted threshold fitting (C1 → C2, C2 → C1); matcher-vs-gold report. Plus ~60 grounding items for the human grounding check | Two authors, a few hours per study and system | 1 d |
 | A7 | S | Expert-rating kit for unmatched items (anonymized, randomized, one sheet per rater) | For adjusted precision | 0.25 d |
 | A8 | — | **Out of scope (future work, with P8).** `evaluation/persona_provenance.py`: per value, which personas' codes support it (via `supporting_doc_ids` + `open_codes[*].persona`); per-persona unique GT options (with A1); code-volume and near-duplicate rates; persona agreement per passage (embedding-matched Jaccard of code labels) | For E4 and Fig. 5; post-hoc, no schema change | — |
+| A10 | M | **Stage-wise recall diagnosis** (added 2026-10-03): for each GT option recovered or missed, trace the pipeline stage where it appears or is lost (open codes → loop iterations → consolidated → selected → matched), from the saved open codes, iterations and match file. Output: a per-study stage funnel | Answers *why* recall is what it is; decides between pipeline fixes (e.g. the value-collapse fix) with evidence; a candidate figure | 0.5 d |
+| A11 | S | **Evidence-link check** (added 2026-10-03): sample ~40 value–passage links per study (stratified by stance, oversampling `rejected`), label support by hand; report precision overall and per stance | Validates the deterministic evidence linking that grounding claims rest on | 0.25 d + labeling |
 | A9 | M | `evaluation/placement_matrix.py`: from labeled passages (`label_documents`) + `passage_systems.csv` → system × dimension matrix (the value each system takes per dimension, with evidence counts), plus distinguishability (pairwise system distance) and unoccupied-combination listing. Plus the expert-rating kit for C3 (dimensions and values) | For E9 / Fig. 8 | 0.75 d |
 
 ### 8.4 Baselines (L) — new `baselines/` directory
@@ -936,6 +976,33 @@ A3 (harness) ─> L1, L2, L3, L5 ───────────────�
 B2 + P1 ─> B6 (C3 corpora) ─> B7 (passage→system map) ─> A9 ─> E9   (B6 also feeds the E0 pilots)
 P10, A5 (should, only if on schedule); P6, P8/A8/E4 out of scope
 ```
+
+### 8.6b Next work units (re-prioritized 2026-10-03, following the IR evaluation guidelines)
+
+Principles applied: freeze the evaluation frame before scoring; measure first, then fix, and fix the stage
+where recall is lost; keep judges independent of the generator and validated by humans; strong, fair
+baselines; paired units and effect sizes; rival hypotheses checked before claims.
+
+| Order | Work unit | Why now | Effort |
+|---|---|---|---|
+| 1 | **B1** GT conversion (C1, C2; both views; crosswalk; M2 descriptions) + **freeze the evaluation frame** (corpus manifests, use cases agreed by two authors, metric definitions) | Nothing is measurable without it; the frame must be fixed before any score is seen | 1–1.5 d |
+| 2 | **P9** provider-agnostic judge, and set a judge from another family for the matcher **and** the in-loop scoreboard | Removes the circularity (the generator grades itself today); needed before any judged number counts | 0.5 d |
+| 3 | **A1 (minimal)** matcher: candidate stage + judge, decision alignment, P/R/F1 per view, `match.json` | RQ1/RQ2 numbers; reuse `consistency.py` patterns | 1.5 d |
+| 4 | **E0 on the existing runs** (C1 `20261002_185546`, C2 `20261002_211657`) + **A10 stage funnel** | First real numbers; shows where options are lost (expected: the value collapse) | 0.75 d |
+| 5 | **A6 gold alignment** on E0 outputs (two authors, κ) + **matcher validation** (candidate recall, judge stress test) | Validates the matcher before it scores the main runs | 0.5 d + labeling |
+| 6 | **Fix the stage A10 identifies.** If it is the collapse: the tool-based update (`docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`); re-run E0 and compare the funnel | Evidence-driven fix of the biggest loss | ≈ 2 d |
+| 7 | **L1** long-context + **L5** contamination probe (same model as Delve, same corpus, budget recorded) | The baselines reviewers expect first; L5 tests the memorization rival | 0.75 d |
+| 8 | **P13** run provenance (config, SHA, models incl. judge, prompts hash, seeds, tokens) | Versioning rule; cheap | 0.25 d |
+| 9 | Light **A3/A4** harness and analysis (paired bootstrap over GT elements, effect sizes) | Produces Tables 3–5 | 1 d |
+| 10 | **Freeze** (target 10-09), then main runs | | |
+| S | **L2** BERTopic, tuned on C3 only (never on GT), + topic metrics (NPMI, diversity) | Strong, non-LLM baseline; topic-modeling reviewers | 1–2 d |
+| S | **A7** expert rating of a sample of unmatched items; **A11** evidence-link check | Adjusted precision; grounding validity | 0.5 d + labeling |
+| S | Reduced **P12** ablations (no open coding = TnT-style/L3, no judge feedback, no review, rewrite vs. tools) with Holm/BH control | RQ3 | 1 d + runs |
+
+Proposed cuts and scope decisions (pending, §12 items 6–10): RQ1 limited to decisions and options (P4, P7,
+P17 → future work; drivers and relations qualitative); P3/A2 replaced by the evidence-link check (A11) and a
+sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduced); 3 seeds for main runs,
+1–2 for ablations; P5, P10, A5, E5, E11 → future work.
 
 ### 8.7 Progress log
 
@@ -1242,6 +1309,12 @@ C3-curated.
 
 ## 11. Timeline
 
+> **Revised 2026-10-03** (the original table below is kept for reference): 10-03 → 10-05 B1 + frame freeze,
+> P9, A1 minimal; 10-06 → 10-08 E0 + A10 funnel, A6 gold + κ, fix the lossy stage (tool-based update), L1/L5,
+> P13, harness; **FREEZE 10-09**; 10-09 → 10-13 main runs (3 seeds) + L2/ablations if on time; 10-14 → 10-16
+> analysis and results, abstract final; 10-17 → 10-23 writing, replication package, submit. Order of work:
+> §8.6b.
+
 | Dates | Implementation (§8) | Experiments (§9) | Writing (§10) |
 |---|---|---|---|
 | **09-26 → 09-29** | B2 fetch sources for C1, C2, C3 (day 1; C1's 2021 links first); P1, P2, P3; B1 GT convert; B7 passage→system mapping for C3 | — | Outline; Table 1 literature pass |
@@ -1261,6 +1334,13 @@ C3-curated.
 3. **Main configuration**: single coder agent (decided 2026-10-02).
 4. **Human experts**: 2–3 people × ~2 h (unmatched-item ratings, HITL critique); two authors for κ labeling.
 5. **Contacting the GT-study authors** for coding data: useful; consider double-blind and conflict of interest.
+6. **RQ1 scope** (proposed 2026-10-03): decisions and options only; drivers/forces and relations reported
+   qualitatively (P4, P7, P17 → future work)?
+7. **Collapse fix**: tool-based update (≈ 2 d) or a quick safety net, decided after the A10 stage funnel.
+8. **Baselines**: L1 + L5 only, or also L2 BERTopic (+1–2 d)?
+9. **C3**: qualitative running example only (no expert ratings, no placement matrix)?
+10. **Seeds**: 3 for main runs, 1–2 for ablations (instead of 5); judge family for the matcher and scoreboard
+    (e.g. an Anthropic model via P9).
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
 7. ~~**C1 ground-truth scope**~~ **Decided (2026-10-01):** both studies are compared against two views, the
    paper as reported and the full replication-package model, side by side (§4.1, §5.1 M7).
