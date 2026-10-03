@@ -1,6 +1,10 @@
-# Delve — Complete Settings & Configuration Reference
+<p align="center">
+  <img src="images/delvedspace-icon.svg" alt="DelveDSpace" width="96">
+</p>
 
-> A comprehensive inventory of every configurable parameter, environment variable, CLI argument, and hardcoded value in the Delve taxonomy generator pipeline.
+# DelveDSpace — Complete Settings & Configuration Reference
+
+> A comprehensive inventory of every configurable parameter, environment variable, CLI argument, and hardcoded value in the DelveDSpace taxonomy generator pipeline.
 
 ---
 
@@ -18,7 +22,7 @@
 
 ## 1. Overview
 
-Settings in Delve are organized in a layered configuration system:
+Settings in DelveDSpace are organized in a layered configuration system:
 
 | Layer | Mechanism | Editable at runtime? | Source file(s) |
 |---|---|---|---|

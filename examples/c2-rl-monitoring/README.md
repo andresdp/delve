@@ -1,6 +1,6 @@
 # C2 — ADDs for Monitoring Deployed RL Systems (ADD-Bench case)
 
-Delve run folder for the SANER 2027 evaluation (see `docs/paper/SANER2027_PAPER_PLAN.md`).
+DelveDSpace run folder for the SANER 2027 evaluation (see `docs/paper/SANER2027_PAPER_PLAN.md`).
 Ground truth: Fang, Warnett & Zdun, 2026. Corpus: 27 of 29 sources (s5, s10 unavailable), 243 passages of ~300 words each.
 
 ## Build the corpus
@@ -16,7 +16,7 @@ This writes `c2-rl-monitoring_corpus.json` (gitignored: third-party text) and `c
 (index without text). Passage ids look like `s03_p02` (source 3, passage 2), so every open code,
 value and label stays traceable to its source.
 
-## Run Delve
+## Run DelveDSpace
 
 All commands run from the repository root, in the `taxonomy` conda env. The OpenAI API key is read
 from the repository's `.env` file.
