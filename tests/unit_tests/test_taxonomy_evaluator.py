@@ -79,3 +79,36 @@ def test_judge_failure_degrades_to_unavailable_scoreboard(monkeypatch):
 
     assert result["evaluation"]["unavailable"] is True
     assert result["evaluation_history"] == [result["evaluation"]]
+
+
+def _counting_scoreboard(calls):
+    async def _fake(view, documents, configuration):
+        calls.append(len(view))
+        return {"criteria": [], "overall": None, "model": "m", "unavailable": False}
+    return _fake
+
+
+def _loop_state(drafts, batch_index, batches=10):
+    return State(clusters=[[{"id": "1", "name": "D", "description": ""}]] * drafts,
+                 minibatches=[[i] for i in range(batches)], open_code_batch_index=batch_index)
+
+
+def test_every_n_iterations_scores_drafts_1_4_7_and_the_last_batch(monkeypatch):
+    calls = []
+    monkeypatch.setattr(evaluator_module, "run_scoreboard", _counting_scoreboard(calls))
+    scored = []
+    for draft in range(1, 11):
+        result = asyncio.run(evaluate_taxonomy(
+            _loop_state(draft, batch_index=draft), _config(evaluation_every_n_iterations=3)))
+        if result["evaluation_history"]:
+            scored.append(draft)
+    assert scored == [1, 4, 7, 10]  # 10 is the last minibatch
+
+
+def test_every_n_iterations_never_skips_the_final_view(monkeypatch):
+    calls = []
+    monkeypatch.setattr(evaluator_module, "run_scoreboard", _counting_scoreboard(calls))
+    state = _loop_state(3, batch_index=3)
+    state.selected_clusters = [[{"id": "1", "name": "D", "description": ""}]]
+    result = asyncio.run(evaluate_taxonomy(state, _config(evaluation_every_n_iterations=3)))
+    assert result["evaluation_history"] and calls == [1]

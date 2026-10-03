@@ -340,6 +340,11 @@ class Configuration:
         metadata={"description": "Evaluation criteria scored and reported but not fed back to update/review."},
     )
 
+    evaluation_every_n_iterations: int = field(
+        default=None,
+        metadata={"description": "Score the loop's drafts every N iterations (1 = every iteration); the last draft and the final view are always scored."},
+    )
+
     evaluation_save_history: bool = field(
         default=None,
         metadata={"description": "Save every scoreboard of a run (evaluation_history) and show scores across iterations."},
@@ -441,4 +446,5 @@ class Configuration:
             "evaluation_max_documents": s.evaluation.max_documents,
             "evaluation_save_history": s.evaluation.save_history,
             "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
+            "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
         }

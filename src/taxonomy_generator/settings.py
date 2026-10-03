@@ -231,6 +231,9 @@ class EvaluationSettings:
     # is judged against the use case alone (the judge sees no data), so in the
     # loop it pushes for use-case topics the corpus may not support.
     feedback_exclude: Tuple[str, ...] = ("Completeness",)
+    # Score the loop's drafts every N iterations (1 = every iteration). The
+    # draft of the last minibatch and the final view are always scored.
+    every_n_iterations: int = 1
 
 
 @dataclass(frozen=True)
@@ -375,6 +378,7 @@ def _build_evaluation(raw: dict) -> EvaluationSettings:
         max_documents=raw.get("max_documents", EvaluationSettings.max_documents),
         save_history=raw.get("save_history", EvaluationSettings.save_history),
         feedback_exclude=tuple(raw.get("feedback_exclude", EvaluationSettings.feedback_exclude) or ()),
+        every_n_iterations=raw.get("every_n_iterations", EvaluationSettings.every_n_iterations),
     )
 
 

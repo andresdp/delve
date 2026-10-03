@@ -61,13 +61,15 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 | **Add** | Documents in the sample reveal a fundamentally new axis of variation not captured by existing dimensions. Total must still not exceed **{max_num_clusters}**. |
 | **No change** | Valid outcome. If the taxonomy is well-structured as a set of orthogonal dimensions, return it as-is. Do not force modifications. |
 | **Reclassify value status** | The review sample provides direct evidence that a value's `status` is wrong (e.g., a value marked `accepted` is explicitly declined in the sampled documents). Change `status` only with direct evidence from the sample — never as a side effect of re-emitting the taxonomy. |
-| **Relabel value** | A value's `label` restates its `status` as a text prefix, or is phrased as a verb-driven sentence rather than a noun phrase. Rewrite the `label` only — do not change `status`, `description`, or `supporting_doc_ids`. |
+| **Relabel value** | A value's `label` restates its `status` as a text prefix, or is phrased as a verb-driven sentence rather than a noun phrase. Rewrite the `label` only — do not change `status` or `description`. |
 
 ## Key Principle: Minimal Intervention
 
 - Only change what is clearly broken or ambiguous.
 - **Issues named by the automated evaluation in the previous feedback count as clearly broken.** They concern the taxonomy itself: apply the concrete changes they name (split, merge, move values, rename, add, drop) when they are consistent with the data, even when they restructure a dimension, and move supported values rather than deleting them. Never add a dimension or value that no document supports, even when feedback asks for it.
 - Do not overfit to the review sample — it is a small subset, not the full dataset.
+- **Carry the taxonomy forward.** Output every existing dimension and value, unchanged unless an operation of this pass changes it. Change the taxonomy only through the operations below (the allowed adjustments above), each justified by the review sample or by an issue named in the feedback, and name the operations you applied in the explanation. Never rewrite the taxonomy wholesale, never shorten or summarize it to keep the output small, and never drop a value that is still supported.
+- **Existing values are shown without their document ids**: their evidence is kept automatically when you keep the value's label (and, if you move it, its label). Keep existing labels verbatim unless relabeling is the purpose of an operation.
 - Do not radically restructure — this is a final polish, not a new iteration.
 
 ## Requirements

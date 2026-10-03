@@ -56,6 +56,24 @@ def _resolve_view(state: State, mode: str) -> List[Dict]:
     return list(state.clusters[-1]) if state.clusters else []
 
 
+def _skip_loop_draft(state: State, configuration: Configuration) -> bool:
+    """Whether this loop call skips scoring (``evaluation.every_n_iterations``).
+
+    Drafts 1, 1+N, 1+2N, … are scored, and so is the draft of the last
+    minibatch (so review gets fresh feedback when the batches run out). The
+    final call (after selection, or in test mode) is never skipped. A run
+    that stops on saturation between scored drafts reviews without
+    evaluation feedback, since feedback about an older draft would name ids
+    and structure that no longer exist.
+    """
+    every = configuration.evaluation_every_n_iterations or 1
+    if every <= 1 or configuration.mode == "test" or state.selected_clusters:
+        return False
+    if state.minibatches and state.open_code_batch_index >= len(state.minibatches):
+        return False
+    return (len(state.clusters) - 1) % every != 0
+
+
 async def evaluate_taxonomy(
     state: State,
     config: RunnableConfig,
@@ -69,6 +87,14 @@ async def evaluate_taxonomy(
             "evaluation": None,
             "evaluation_history": [],
             "status": ["Evaluation disabled (evaluation.enabled: false)."],
+        }
+
+    if _skip_loop_draft(state, configuration):
+        every = configuration.evaluation_every_n_iterations
+        logger.info("Skipping evaluation of draft %d (scored every %d iterations)", len(state.clusters), every)
+        return {
+            "evaluation_history": [],
+            "status": [f"Evaluation skipped for draft {len(state.clusters)} (every {every} iterations)."],
         }
 
     view = _resolve_view(state, configuration.mode)

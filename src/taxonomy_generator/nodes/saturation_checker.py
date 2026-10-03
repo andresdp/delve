@@ -19,7 +19,7 @@ from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import SATURATION_CHECK_PROMPT
 from taxonomy_generator.schemas import SaturationCheckOutput
 from taxonomy_generator.state import State, UserFeedback
-from taxonomy_generator.utils import format_taxonomy, load_chat_model
+from taxonomy_generator.utils import format_taxonomy, load_chat_model, taxonomy_prompt_view
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ async def check_saturation(
         }
 
     taxonomy = state.clusters[-2]
-    taxonomy_json = format_taxonomy(taxonomy)
+    taxonomy_json = format_taxonomy(taxonomy_prompt_view(taxonomy))
 
     logger.info(
         "Checking saturation — minibatch %d/%d, %d codes vs %d dimensions before this batch (model: %s)",

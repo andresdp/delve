@@ -76,7 +76,7 @@ python main.py --evaluate examples/c1-ml-workflow/c1-ml-workflow_taxonomy_<times
 With `evaluation.save_history: true` (the default), a run saves every evaluation scoreboard in `evaluation_history` of the taxonomy JSON (one per
 iteration, then the final view) and prints them in an "Evaluation across iterations" table. To score
 the saved iterations of an existing run with the current criteria (about 10 judge calls per
-iteration):
+scored iteration; this config scores every 3rd draft, `evaluation.every_n_iterations: 3`):
 
 ```bash
 python main.py --evaluate "$(ls -t examples/c1-ml-workflow/c1-ml-workflow_taxonomy_*.json | head -1)" \

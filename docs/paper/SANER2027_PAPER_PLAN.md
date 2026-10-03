@@ -115,9 +115,10 @@ freeze, only bug fixes are allowed, and every fix is logged in the replication p
    "monitoring") rather than *decisions with alternatives*; a single long-context prompt yields plausible
    but untraceable, unstable models. A motivating example (Fig. 1) contrasts a BERTopic topic, a
    single-prompt output, and an expert ADD for the same sources.
-3. **Idea**: treat the GT procedure itself as the agent architecture. Each Straussian step is an agent role
-   with explicit artifacts (codes, memos, a paradigm-model taxonomy) and feedback loops (saturation critic,
-   quality judge, human expert).
+3. **Idea**: treat the GT procedure itself as the agent architecture. Each Straussian phase is carried by
+   agent roles with explicit artifacts (codes, memos, a paradigm-model taxonomy) and feedback loops: Coder
+   (open coding), Taxonomist ⇄ Critic (axial coding until saturation), Integrator (selective coding), plus
+   optional human feedback.
 4. **Evidence**: on two published expert studies (ML workflow and RL monitoring), Delve recovers X% of
    expert decisions and Y% of options with Z% grounding precision. It beats topic mining, matches or beats
    the long-context LLM on recall while being more traceable and stable, and ablations show which
@@ -138,9 +139,9 @@ match against the expert option. This becomes the figure a reader remembers (Fig
 
 ### 3.4 Contributions (as they will appear in the introduction)
 
-1. **Delve**: a multi-agent workflow that operationalizes Straussian GT for design-space mining. The roles
-   are coder agents (personas), taxonomist, saturation monitor with theoretical sampling, critic, judge, and
-   an optional human expert.
+1. **Delve**: a multi-agent workflow that operationalizes Straussian GT for design-space mining. Four agents
+   map to the GT phases: a Coder (open coding), a tool-using Taxonomist and a Critic in the axial-coding
+   loop, and an Integrator (selective coding); a human expert can give feedback between runs.
 2. **ADD-Bench**: an evaluation kit seeded with two published Straussian-GT ADD studies (sources,
    passages, expert ADD models as JSON), with a matching protocol and metrics, designed to be extended with
    further studies.
@@ -154,7 +155,7 @@ match against the expert option. This becomes the figure a reader remembers (Fig
 |---|---|---|
 | RQ1 Fidelity | How closely do Delve-mined design spaces reproduce expert GT-derived ADD models from the same sources? | P/R/F1 at ADD, option, driver, relation level; grounding precision; expert validity of unmatched items |
 | RQ2 Baselines | How does Delve compare with topic modeling and LLM baselines? | Same metrics for BERTopic, TnT-LLM-style, long-context LLM (+ LLooM) |
-| RQ3 Components | Which agentic and Straussian components contribute to quality? | Ablations; personas; theoretical sampling |
+| RQ3 Components | Which agentic and Straussian components contribute to quality? | Ablations |
 | RQ4 Stability and cost | How stable and how costly is Delve? | Cross-seed agreement, tokens, $, wall-clock |
 | RQ5 Human-in-the-loop (optional) | Does one round of expert feedback improve the model? | ΔF1 run 1 → run 2 |
 | RQ6 Beyond ground truth | Does Delve produce a valid, useful design space for a single-source engineering narrative with no expert model? | Expert assessment; system × dimension placement (Shaw's Table 1 analogue); stability; sensitivity to corpus preparation |
@@ -238,14 +239,14 @@ identifiers (`Cluster`, `Value`, …) appear only in the Approach section and th
 | Delve term (code) | Papers' term | Straussian GT | Use in the evaluation |
 |---|---|---|---|
 | **Document / passage** (`Doc`; planned passage id `"{source_id}#p{k}"` with `source_id`) | **Knowledge source** (C1/C2: s1–s29; practitioner articles, blogs, videos, forums) | Data / incidents | Passages always map back to a source id, so provenance can be compared per source |
-| **Open code** (`OpenCode`: label, rationale, status, planned `evidence`, `kind`, `persona`) | Codes from open coding (not part of the published model; C1's package includes coding data) | Open code / concept | Not matched in the main evaluation; optional step-level analysis for C1 |
+| **Open code** (`OpenCode`: label, rationale, status, planned `evidence`, `kind`) | Codes from open coding (not part of the published model; C1's package includes coding data) | Open code / concept | Not matched in the main evaluation; optional step-level analysis for C1 |
 | **Supporting documents / evidence** (`Value.supporting_doc_ids`; planned verbatim `evidence`) | **Evidences** (C1 Table 2: "Evidences (from Practitioner sources)"); "grounded in verbatim evidence" (C2) | Grounding | Grounding precision; optional *source overlap*: do Delve and the experts cite the same sources for a matched option? |
 | **Use case** (`use_case`) | Research questions and study scope | Research question | Written from the paper's RQs and scope only (B4) |
 | **Saturation** (`check_saturation`, streak; planned structural saturation) | **Theoretical saturation** (C2: the last eleven sources confirmed the model) | Theoretical saturation | E5: when Delve stops vs. when the experts report saturation |
 | **Source role** (planned, §8 A5) | **Primary / supporting / confirming** sources (C2 Table 1) | Theoretical sampling / saturation | E5 bonus comparison |
 | **Memo trail** (`explanations`, §8 P11) | Memos | Memoing | Qualitative only |
 | **Selected dimensions** (`select_dimensions`) | The study's **reporting scope** (e.g. C1's article details only a subset of the modeled ADDs) | *Not* selective coding (no core category) | Secondary comparison view only |
-| **Persona** (planned `OpenCode.persona`) | The analysts (paper authors) | Coder | E4 only |
+| **Persona** (future work) | The analysts (paper authors) | Coder | — (future work) |
 | *(no equivalent)* | **Option families** (C2: analytical groupings of options, e.g. *Agent-Internal Signals*) | Subcategories | Metadata only: explains partial or broader matches; not a matching target |
 | *(to confirm when converting C1, B1)* | C1's model elements **"considerations"** and **"practices"** (listed next to options in its abstract) | — | Provisional rule, fixed in B1 before any matching: elements a practitioner *chooses* count as options; elements that *motivate* a choice count as drivers. Record the final rule in the benchmark datasheet |
 | *(C3 only)* design point / unoccupied combination | — | — | Shaw's design point: one system = one combination of options (E9) |
@@ -692,7 +693,7 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
 - **Contamination probe**: ask the generator for each ADD model *without sources* and score it with the
   same metrics (§9 E8).
 - **Pinned models, seeds and cached outputs**; configs committed; full replication package.
-- **Budget-matched comparisons** whenever a variant uses more LLM calls (personas vs. seeds).
+- **Budget-matched comparisons** whenever a variant uses more LLM calls.
 
 ### 5.5 Threats to validity (to write up)
 
@@ -709,20 +710,36 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
 
 ### 6.1 Roles (reframing, backed by ablations)
 
-> **Coder agents** (open coding; one agent per persona when personas are configured) → **Taxonomist**
-> (axial coding) → **Quality judge** (scoreboard fed into the next iteration) → **Saturation monitor**
-> (decides when to stop; theoretical sampling picks what to read next; uncovered concepts fed back) →
-> **Critic** (review) → **Human expert** (between-run feedback)
+Four agents (decided 2026-10-02), each a role grouping consecutive LangGraph nodes with one
+responsibility and one permission on the shared theory:
 
-Without personas there is a single coder agent (today's behaviour). Every role must be backed by an
-ablation (RQ3), so the framing is evidenced rather than asserted.
+> **Coder** (open coding: writes codes) → **Taxonomist** (axial coding and final revision: edits the
+> theory through tools) ⇄ **Critic** (judges drafts, feeds back issues and uncovered concepts, decides
+> saturation, assesses the final view: reads and judges only) → **Integrator** (selective coding:
+> consolidates, delimits and validates the theory)
 
-### 6.2 Multi-persona coder agents (open coding)
+| Agent | Nodes |
+|---|---|
+| Coder | `open_code_minibatch` |
+| Taxonomist | `generate_taxonomy`, `update_taxonomy`, `review_taxonomy` |
+| Critic | `evaluate_taxonomy`, `check_saturation` (+ `should_review`), `evaluate_taxonomy_final` |
+| Integrator | `consolidate_values`, `select_dimensions`, `label_documents` |
+
+There is a single Coder; persona coders are future work (§6.2). External user feedback is an input, not an
+agent. Ablations are per mechanism, not per agent (RQ3), so the framing is evidenced rather than asserted.
+
+The full agent model (responsibilities, grounded-theory phases, permissions, autonomy levels, coding
+operations as tools, Mermaid workflow diagram, storyline) is in
+`docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md` ("The agentic model of the pipeline").
+
+### 6.2 Multi-persona coder agents — out of scope (future work, decided 2026-10-02)
+
+Not part of the paper: open coding uses a single coder agent. The design below is kept for future work.
 
 Rationale: GT triangulation via multiple coders and theoretical sensitivity. The track explicitly lists
 multi-agent workflows with coordination.
 
-**Scope (decided)**: personas apply to **open coding only**. The change is local and needs **no change to
+**Scope (if built)**: personas apply to **open coding only**. The change is local and needs **no change to
 `graph.py`** (implementation in §8 P8):
 - add a `{persona}` slot to `prompts/open_coding.md` (empty by default, so a config without personas
   produces exactly today's prompt);
@@ -768,10 +785,12 @@ contribution statistics and report badges without touching the taxonomy schema.
 **Out of scope (future work)**: persona agents at axial coding (one taxonomist per persona plus a
 reconciliation node) and at review. Mention them in the paper's future work.
 
-### 6.3 Theoretical sampling agent
+### 6.3 Theoretical sampling agent — out of scope (future work, decided 2026-10-02)
 
-After each saturation check, the agent re-ranks the *remaining* minibatches by similarity to the reported
-`uncovered_concepts` and reads the most relevant next (implementation in §8 P6). It is testable (§9 E5).
+Not part of the paper: the corpus is read in fixed, shuffled minibatches, and the paper states this as an
+approximation of grounded theory (threats to validity). Kept as future work: after each saturation check,
+an agent would re-rank the *remaining* minibatches by similarity to the reported `uncovered_concepts` and
+read the most relevant next (former backlog item P6).
 
 ### 6.4 Deferred
 
@@ -812,13 +831,13 @@ Making Delve more Straussian therefore **also makes its output directly comparab
 | Incidents / open coding | Per-document codes over *summaries*; label + rationale + status | No passages, no verbatim evidence, no code typing | P1, P2, P3, P4 |
 | Constant comparison | Minibatch-level in update; value merge in consolidation | Open coder does not see the existing codebook | P5 |
 | Paradigm model (axial) | Dimension-level `Relation` (types that mix sequencing and consequences) | No drivers/conditions or consequences; relation types collide with paradigm terms | P7 (drivers + impacts), P17 (ADD relation vocabulary) |
-| Theoretical sampling | Fixed shuffled minibatches | Absent | P6 |
+| Theoretical sampling | Fixed shuffled minibatches | Absent | Out of scope (future work; P6); stated as an approximation |
 | Theoretical saturation | Concept-coverage streak | Ignores properties, relations, drivers | P10 |
 | Memoing | `explanations` accumulated in state | Not rendered as a memo trail | P11 |
 | Selective coding | `select_dimensions` = relevance filter | No core category or storyline; misleading name | P14 (could) |
 | Theoretical sensitivity | `use_case` + QA anchoring in prompt | No explicit sensitizing-concepts input | P15 (could) |
 | Source roles | — | Primary / supporting / confirming (as in the Zdun studies) | A5 |
-| Multiple coders (triangulation) | Single prompt and model at every stage | No independent coding perspectives | P8 (open-coding personas); axial/review personas are future work |
+| Multiple coders (triangulation) | Single prompt and model at every stage | No independent coding perspectives | Out of scope (future work: persona coders, P8) |
 
 ---
 
@@ -841,9 +860,9 @@ Priority key: **M** = must (before freeze), **S** = should, **C** = could / post
 | P3 | M | **Verbatim evidence per code.** `OpenCode.evidence: str` (≤ 40 words, verbatim); prompt demands a verbatim quote; post-check marks `evidence_verified` by normalized-substring match against the passage | `schemas.py::OpenCode`; `prompts/open_coding.md`; `nodes/open_coder.py` | `open_coding.require_evidence: false` | substring verifier; schema | 0.5 d | grounding precision, hallucinated-evidence rate |
 | P4 | M | **Paradigm-typed codes.** `OpenCode.kind ∈ {decision_option, driver, condition, consequence}`; axial prompts use kinds to build options vs. drivers vs. impacts | `schemas.py`; `prompts/open_coding.md`; `utils.py::format_open_codes_for_docs`; `prompts/taxonomy_generation.md`, `taxonomy_update.md` | `open_coding.paradigm_kinds: false` | schema + prompt-content tests | 0.5 d | RQ1 drivers, RQ3 |
 | P5 | M | **Codebook-aware open coding (constant comparison).** Pass the top-K existing code labels (and current dimension/value names) into the open-coding prompt; instruct reuse over invention | `nodes/open_coder.py` (read `state.open_codes`, `state.clusters[-1]`); `prompts/open_coding.md` (+`{codebook}` slot) | `open_coding.codebook_context: false`, `open_coding.codebook_max: 60` | codebook formatting, cap | 0.5 d | stability (RQ4), RQ3 |
-| P6 | S | **Theoretical sampling.** After `check_saturation`, reorder `state.minibatches[open_code_batch_index:]` by mean embedding similarity between their passages and `uncovered_concepts` (fallback: unchanged order). Log the chosen order | `nodes/saturation_checker.py` (or new node `select_next_batch` between `check_saturation` and `open_code_minibatch` in `graph.py`); `state.py` (+`sampling_log`) | `pipeline.theoretical_sampling: false` | reordering deterministic given embeddings; no-op when saturated | 1 d | E5, agentic story |
+| P6 | — | **Out of scope (future work, 2026-10-02).** ~~Theoretical sampling.~~ After `check_saturation`, reorder `state.minibatches[open_code_batch_index:]` by mean embedding similarity between their passages and `uncovered_concepts` (fallback: unchanged order). Log the chosen order | `nodes/saturation_checker.py` (or new node `select_next_batch` between `check_saturation` and `open_code_minibatch` in `graph.py`); `state.py` (+`sampling_log`) | `pipeline.theoretical_sampling: false` | reordering deterministic given embeddings; no-op when saturated | — | — |
 | P7 | M | **Drivers and consequences first-class.** `Driver{id, name, description, supporting_doc_ids}` on `TaxonomyOutput` (taxonomy-level list); `Value.impacts: List[{driver_id, effect: positive\|negative\|mixed, rationale}]`. Propagate through generation/update/review prompts, `format_taxonomy`, consolidation (union impacts on merge; conflicting signs → `mixed`), GT report catalog, HTML report, JSON serialization | `schemas.py`; `prompts/taxonomy_generation.md`, `taxonomy_update.md`, `taxonomy_review.md`; `utils.py::format_taxonomy`; `nodes/value_consolidator.py::_merge_group`; `report_renderer.py::render_catalog`; `html_report.py`; `main.py` serializers; `state.py` if drivers are kept outside `clusters` | `taxonomy.drivers: false` | schema; merge-impact union; format/round-trip; report rendering | 2 d (largest item) | RQ1 drivers/impacts, Straussian story |
-| P8 | M | **Persona coder agents (open coding only; no `graph.py` change).** `personas:` list in settings (id, lens, attend_to, de_emphasize, optional model). `{persona}` slot in `open_coding.md`, empty by default so no personas → byte-identical prompt. `_setup_open_coding_chain` builds one chain per persona (per-persona model via `load_chat_model`). `open_code_minibatch` fans out persona × passage under the existing semaphore, in deterministic persona-id order. `OpenCode.persona: Optional[str]`. Persona ids are **not** shown to the taxonomist (`format_open_codes_for_docs` unchanged) to avoid biasing axial coding. For the budget-matched control: `open_coding.samples_per_doc: 1` (k > 1 = k persona-less codings per passage) | `settings.py` (+`PersonaSettings`); `configuration.py`; `nodes/open_coder.py`; `prompts/open_coding.md`; `schemas.py::OpenCode` | `personas: []`, `open_coding.samples_per_doc: 1` | no personas → identical prompt and one call per passage; N personas → N× calls, each code tagged; deterministic order; per-persona model routing; `samples_per_doc` fan-out | 1 d | E4 |
+| P8 | — | **Out of scope (future work, 2026-10-02).** ~~Persona coder agents (open coding only; no `graph.py` change).~~ `personas:` list in settings (id, lens, attend_to, de_emphasize, optional model). `{persona}` slot in `open_coding.md`, empty by default so no personas → byte-identical prompt. `_setup_open_coding_chain` builds one chain per persona (per-persona model via `load_chat_model`). `open_code_minibatch` fans out persona × passage under the existing semaphore, in deterministic persona-id order. `OpenCode.persona: Optional[str]`. Persona ids are **not** shown to the taxonomist (`format_open_codes_for_docs` unchanged) to avoid biasing axial coding. For the budget-matched control: `open_coding.samples_per_doc: 1` (k > 1 = k persona-less codings per passage) | `settings.py` (+`PersonaSettings`); `configuration.py`; `nodes/open_coder.py`; `prompts/open_coding.md`; `schemas.py::OpenCode` | `personas: []`, `open_coding.samples_per_doc: 1` | no personas → identical prompt and one call per passage; N personas → N× calls, each code tagged; deterministic order; per-persona model routing; `samples_per_doc` fan-out | — | — |
 | P9 | M | **Provider-agnostic judge.** A deepeval `DeepEvalBaseLLM` wrapper around `utils.load_chat_model`; `consistency.py` adjudication via `load_chat_model` instead of `AsyncOpenAI` | `evaluation/judge.py`, `evaluation/metrics.py::build_metrics`, `evaluation/consistency.py` | `evaluation.judge_model: anthropic/…` etc. | wrapper contract; fallback | 0.5 d | cross-family judge (validity) |
 | P10 | S | **Structural saturation.** Compute a round-over-round diff (dimensions/values/drivers/relations added, removed, renamed) between `clusters[-2]` and `clusters[-1]`; saturated only if concept coverage holds **and** diff ≤ threshold | `nodes/saturation_checker.py`; `state.py` (`saturation_history` gains `diff`) | `taxonomy.structural_saturation: false`, `taxonomy.saturation_max_edits: 1` | diff function on fixtures | 0.5 d | Straussian fidelity, E5 |
 | P11 | M | **Memo trail.** Render every iteration's `explanations` (and saturation rationales) as an "Evolution of the theory" section in the GT report / HTML report | `report_renderer.py` (new `render_memo_trail`), `html_report.py` | always on | rendering | 0.5 d | Approach figure, qualitative results |
@@ -883,7 +902,7 @@ regression test that loads an old saved taxonomy JSON.
 | A5 | S | `evaluation/source_roles.py`: primary/supporting/confirming per source from the order in which sources first contributed new decisions/options/drivers (uses `open_codes` + `clusters` history) | Compare with the RL study's Table 1 classes | 0.5 d |
 | A6 | M | **Gold-alignment and calibration kit (§5.1 M9)**: generate alignment spreadsheets (top-5 candidates per item) for seed 1 of full Delve and L1 per study; κ scripts (Cohen's for gold, Fleiss' for M8); cross-fitted threshold fitting (C1 → C2, C2 → C1); matcher-vs-gold report. Plus ~60 grounding items for the human grounding check | Two authors, a few hours per study and system | 1 d |
 | A7 | S | Expert-rating kit for unmatched items (anonymized, randomized, one sheet per rater) | For adjusted precision | 0.25 d |
-| A8 | S | `evaluation/persona_provenance.py`: per value, which personas' codes support it (via `supporting_doc_ids` + `open_codes[*].persona`); per-persona unique GT options (with A1); code-volume and near-duplicate rates; persona agreement per passage (embedding-matched Jaccard of code labels) | For E4 and Fig. 5; post-hoc, no schema change | 0.5 d |
+| A8 | — | **Out of scope (future work, with P8).** `evaluation/persona_provenance.py`: per value, which personas' codes support it (via `supporting_doc_ids` + `open_codes[*].persona`); per-persona unique GT options (with A1); code-volume and near-duplicate rates; persona agreement per passage (embedding-matched Jaccard of code labels) | For E4 and Fig. 5; post-hoc, no schema change | — |
 | A9 | M | `evaluation/placement_matrix.py`: from labeled passages (`label_documents`) + `passage_systems.csv` → system × dimension matrix (the value each system takes per dimension, with evidence counts), plus distinguishability (pairwise system distance) and unoccupied-combination listing. Plus the expert-rating kit for C3 (dimensions and values) | For E9 / Fig. 8 | 0.75 d |
 
 ### 8.4 Baselines (L) — new `baselines/` directory
@@ -914,9 +933,8 @@ P7 (drivers) + P17 (relations) ─────────────┐       
 P9, P11, P12, P13 ──────────────────────────┤                  │
 B1 (GT convert; stereotype inventory gates P17) ─> A1 (matcher) ─> A6 ┘                  │
 A3 (harness) ─> L1, L2, L3, L5 ────────────────────────────────┘
-P8 (open-coding personas) ─> A8 ────────────────────────────> E4
 B2 + P1 ─> B6 (C3 corpora) ─> B7 (passage→system map) ─> A9 ─> E9   (B6 also feeds the E0 pilots)
-P6, P10, A5 (should, only if on schedule)
+P10, A5 (should, only if on schedule); P6, P8/A8/E4 out of scope
 ```
 
 ### 8.7 Progress log
@@ -967,9 +985,7 @@ P6, P10, A5 (should, only if on schedule)
   - `segment: true`, `open_coding.input: content`, `require_evidence: true`, `paradigm_kinds: true`;
   - `codebook_context: true`, `drivers: true`, `evaluation.feedback_in_loop: true`;
   - `consolidate_values: true`, `review.enabled: true`;
-  - `theoretical_sampling` per E5; `personas: []` in the main E1–E3 runs (single coder), with personas
-    evaluated separately in E4. Switch the main configuration to personas only if the E0 pilot shows a
-    clear gain, decided before the main runs;
+  - a single coder agent (personas are future work);
   - `max_num_clusters: null`.
 - **Outputs**: every run stores the taxonomy JSON (with P13 provenance), open codes, saturation history,
   scoreboard, and tokens/$.
@@ -1022,7 +1038,8 @@ P6, P10, A5 (should, only if on schedule)
 - Runs: C1, C2 × 5 seeds per variant (≈ 110 runs). If the budget is tight, 3 seeds, stated plainly.
 - Artifacts: **Table 5** (ΔF1 option/ADD/driver, Δgrounding, Δtokens vs. full; effect sizes).
 
-**E4 — Persona coder agents in open coding (RQ3b)** (requires P8)
+**E4 — Persona coder agents in open coding — out of scope (future work, decided 2026-10-02)**
+- Not run for the paper; the design is kept for future work.
 - Hypotheses:
   - (H1) persona coders raise option and driver recall compared with a single coder **at equal
     open-coding budget**;
@@ -1046,12 +1063,11 @@ P6, P10, A5 (should, only if on schedule)
 - Artifacts: **Fig. 5** (UpSet plot of expert options recovered via each persona's codes vs. the
   budget-matched samples); **Table 5b** (variants × recall/precision/cost).
 
-**E5 — Theoretical sampling and saturation (RQ3c)** (only if P6/P10 land)
-- Hypothesis: gap-directed ordering reaches saturation with fewer passages at no loss of recall; structural
-  saturation stops later but more completely.
+**E5 — Saturation (RQ3c)** (only if P10 lands; the theoretical-sampling variant is out of scope, see §6.3)
+- Hypothesis: structural saturation stops later but more completely than concept saturation.
 - Measure: recall-vs-passages-read curves; passages read at stop; final recall.
-- Artifacts: **Fig. 6** (recall vs. passages consumed: fixed shuffle vs. theoretical sampling, with and
-  without structural saturation).
+- Artifacts: **Fig. 6** (recall vs. passages consumed, with and without structural saturation; fixed
+  shuffled order).
 - Bonus: compare Delve's source-role classification (A5) with C2's primary/supporting/confirming labels.
 
 **E6 — Stability and cost (RQ4)**
@@ -1082,7 +1098,7 @@ P6, P10, A5 (should, only if on schedule)
   4. cross-seed stability;
   5. C3-raw vs. C3-curated agreement (sensitivity to corpus preparation);
   6. (optional) recall of the author-written silver decision list, labeled as indicative.
-- Also shows the memo trail (P11): how the theory evolved as the saturation monitor read passages.
+- Also shows the memo trail (P11): how the theory evolved as the Taxonomist read passages and the Critic judged each draft.
 - Artifacts: **Fig. 8** (system × dimension matrix, Shaw Table 1 style); short expert-rating summary
   table or paragraph; one qualitative contrast with the long-context and BERTopic outputs.
 
@@ -1125,17 +1141,17 @@ P6, P10, A5 (should, only if on schedule)
 | E1 | 10 |
 | E2 | 30 (+10 LLooM) + 10 on C3-raw |
 | E3 | ~110 |
-| E4 | ~30–40 (3–4 variants; open coding ≈ 3× cost) |
-| E5 | ~20 |
+| E4 | — (future work) |
+| E5 | ~10 (structural saturation only) |
 | E7 | 4 |
 | E8 | 10 |
 | E9 | 10 (C3-raw + C3-curated) |
 | E10 (stretch) | ~15 (C4 if go) |
 | E11 (possible) | 8 per split (C1, C2: 1 train + 1 test + 2 split-half trains each); not in the total |
-| **Total** | **≈ 250** |
+| **Total** | **≈ 205** |
 
-Estimate cost after E0. If the budget is exceeded, cut in this order: E3 to 3 seeds; drop LLooM; drop the
-E4 model-diversity arm; drop C3-curated.
+Estimate cost after E0. If the budget is exceeded, cut in this order: E3 to 3 seeds; drop LLooM; drop
+C3-curated.
 
 ---
 
@@ -1148,13 +1164,13 @@ E4 model-diversity arm; drop C3-curated.
 | — | Abstract | — | Problem, approach, benchmark, headline numbers, artifact | — |
 | I | Introduction | 1.25 | Motivation (design spaces, ADD models, cost of GT); naive approaches fail (Fig. 1); idea: GT procedure as agent architecture; RQs; contributions | **Fig. 1** motivating example |
 | II | Background and related work | 1.0 | Design spaces (Shaw); ADD modeling and GT in SE (Zdun group, Stol et al.); computational/LLM-assisted GT (Nelson; LLM-QDA mapping); taxonomy/topic mining (BERTopic, TnT-LLM, LLooM); LLM agents for SE analysis | Table 1: positioning vs. related approaches |
-| III | Delve: a multi-agent Straussian GT workflow | 2.0 | Roles and loops; Straussian step ↔ agent ↔ artifact mapping; paradigm-model schema (decisions, options, drivers, impacts, relations); evidence and memos; persona coder agents in open coding (lens block, provenance); theoretical sampling; HITL | **Fig. 2** architecture; **Table 2** GT step ↔ agent ↔ artifact; **Fig. 3** running-example trace |
+| III | Delve: a multi-agent Straussian GT workflow | 2.0 | Roles and loops; Straussian step ↔ agent ↔ artifact mapping; paradigm-model schema (decisions, options, drivers, impacts, relations); evidence and memos; HITL | **Fig. 2** architecture; **Table 2** GT step ↔ agent ↔ artifact; **Fig. 3** running-example trace |
 | IV | Cases and ADD-Bench | 0.75 | C1/C2 (GT) and C3 (no GT); source recovery, passages, GT conversion (C1 scope), use cases, matching protocol, metrics, calibration (κ, cross-fitted) | Table: case statistics (sources, passages, ADDs/options/drivers) |
 | V | Study design | 0.75 | RQs → experiments, systems, baselines, models, seeds, statistics | — |
 | VI | Results | 2.75 | RQ1–RQ5 on C1/C2, each with a "finding" box; RQ6: C3 case study (~0.5 page) | **Tables 3–5**, **Figs. 4–6**, **Fig. 8** |
 | VII | Discussion | 0.6 | What the agents get right/wrong (granularity, drivers, rare options); agents as instruments in human-led GT; implications for researchers and practitioners; cost | — |
 | VIII | Threats to validity | 0.4 | §5.5 | — |
-| IX | Conclusion and future work | 0.25 | Web-search theoretical sampling, hierarchical spaces, unoccupied-point exploration, axial personas | — |
+| IX | Conclusion and future work | 0.25 | Theoretical sampling (gap-directed reading order, web-search source acquisition), hierarchical spaces, unoccupied-point exploration, persona coder agents (open and axial coding, review) | — |
 | — | Data availability | — | Anonymized package | — |
 
 ### 10.2 Figures and tables checklist
@@ -1162,13 +1178,13 @@ E4 model-diversity arm; drop C3-curated.
 | ID | What | Source |
 |---|---|---|
 | Fig. 1 | Same sources → BERTopic topic vs. long-context output vs. expert ADD (one decision) | E2 outputs + GT |
-| Fig. 2 | Architecture: agent roles, loops (judge, saturation critic, theoretical sampling, human) over the LangGraph | hand-drawn from `graph.py` |
+| Fig. 2 | Architecture: agent roles, loops (judge, saturation critic, human) over the LangGraph | hand-drawn from `graph.py` |
 | Fig. 3 | Running-example trace: passage → evidence code (kind) → option → driver impact → GT match | E1 RL-study run |
 | Fig. 4 | Per-ADD option-recall heat map (RL study; seeds as columns) | A4 |
-| Fig. 5 | UpSet plot: GT options recovered via each persona's codes vs. budget-matched samples | E4 |
-| Table 5b | Persona variants vs. single coder and budget-matched control | E4 |
+| ~~Fig. 5~~ | ~~UpSet plot of persona contributions~~ — future work (E4 out of scope) | — |
+| ~~Table 5b~~ | ~~Persona variants~~ — future work (E4 out of scope) | — |
 | Fig. 8 | C3: system × dimension matrix (Shaw Table 1 style), unoccupied combinations highlighted | E9 |
-| Fig. 6 | Recall vs. passages read (sampling/saturation variants) | E5 |
+| Fig. 6 | Recall vs. passages read (saturation variants) | E5 |
 | Table 1 | Positioning vs. related work (unit of analysis, output structure, grounding, GT fidelity, agentic loops) | literature |
 | Table 2 | Straussian step ↔ Delve agent ↔ artifact ↔ config switch | §7 + §8 |
 | Table 3 | Fidelity per study | E1 |
@@ -1185,31 +1201,29 @@ E4 model-diversity arm; drop C3-curated.
 | Competitive with or better than long-context LLMs | E2 vs. L1, E6 stability | "comparable recall, with higher traceability and stability" |
 | The GT-specific agentic components matter | E3 TnT-style vs. Straussian; the largest ablation deltas | name the components that matter, report the null ones |
 | Delve works without ground truth, in another genre | E9 expert ratings, placement matrix | "plausible and traceable; experts flagged X" |
-| Persona coder agents help | E4 H1/H3 vs. budget-matched control | "gains come from more coding samples, not from lenses" if the control ≈ personas; a negative result is reported as such (a contribution to the prompt-sensitivity debate) |
 | The results are not memorization | E8 | "the RL study (post-cutoff) confirms…" |
 
 ### 10.4 Anticipated reviewer objections and prepared answers
 
 | Objection | Answer (and where it is in the paper) |
 |---|---|
-| "This is a pipeline, not an agent." | Roles with feedback loops, autonomous stopping and theoretical sampling; ablations show each loop's contribution (Table 5). The track also lists multi-agent workflows |
+| "This is a pipeline, not an agent." | Roles with feedback loops and autonomous stopping; ablations show each loop's contribution (Table 5). The track also lists multi-agent workflows |
 | "Why not just prompt a long-context model?" | L1 baseline; grounding and stability results; cost at scale; traceability for human-led GT |
 | "LLM judge evaluating LLM output." | Cross-family judge, κ calibration, exact hallucinated-evidence metric, expert ratings |
 | "Ground truth is one group's opinion." | Expert validity of unmatched items; lenient matching; threat discussed; benchmark open for extension |
 | "Contamination." | E8 probe; C1 (2021) vs. C2 (2026) contrast; C2 and C3 likely post-date training cut-offs |
-| "Personas are just role-play / prompt noise." | Persona sources from established frameworks; identical base prompt; noise floor and budget-matched control (E4 variant 2) isolate lens effects |
 | "Only two ground-truth studies." | Each has 29 sources and hundreds of passages; 5 seeds (10 for the decisive comparison); per-study effect sizes with CIs; a third case (C3) in a different genre; the evaluation kit is released and extensible |
-| "Is it really Straussian GT?" | Table 2 mapping; explicit about what is approximated (theoretical sampling within a fixed corpus; selective coding as future work) |
+| "Is it really Straussian GT?" | Table 2 mapping; explicit about what is approximated (no theoretical sampling: a fixed corpus read in shuffled minibatches; selective coding as future work) |
 
 ### 10.5 Abstract draft (placeholders in brackets)
 
 > Architectural design decision (ADD) models and design spaces help practitioners reason about
 > alternatives. Building them rigorously, typically through Straussian grounded theory over dozens of
 > gray-literature sources, takes experts months per domain. We present Delve, a multi-agent workflow that
-> operationalizes the Straussian procedure. Coder agents extract evidence-backed, paradigm-typed codes; a
-> taxonomist agent organizes them into decisions, options, drivers and consequences; a saturation monitor
-> decides what to read next and when to stop; and critic and judge agents refine the model, optionally with
-> human feedback. To evaluate it, we pair [58] recovered sources from [two] published grounded-theory ADD
+> operationalizes the Straussian procedure. A Coder agent extracts evidence-backed, paradigm-typed codes; a
+> tool-using Taxonomist organizes them into decisions, options, drivers and consequences while a Critic
+> judges each draft and decides when the theory is saturated; and an Integrator consolidates and validates
+> the model, optionally with human feedback. To evaluate it, we pair [58] recovered sources from [two] published grounded-theory ADD
 > studies (ML workflow; RL monitoring) with the experts' models. Delve recovers [X]% of expert decisions and
 > [Y]% of options, with [Z]% of cited evidence supporting the extracted options. It outperforms topic
 > modeling ([BERTopic]) and a TnT-LLM-style pipeline, and matches a long-context LLM on recall while being
@@ -1232,8 +1246,8 @@ E4 model-diversity arm; drop C3-curated.
 |---|---|---|---|
 | **09-26 → 09-29** | B2 fetch sources for C1, C2, C3 (day 1; C1's 2021 links first); P1, P2, P3; B1 GT convert; B7 passage→system mapping for C3 | — | Outline; Table 1 literature pass |
 | **09-30 → 10-03** | B8 C4 go/no-go (by 10-01); P4, P5, P7 (drivers) + P17 (relation vocabulary), P9, P11, P12, P13; A1 matcher; A3 harness; L1, L2, L5 | E0 pilots on C3-raw (+ DT dev set if used) | §II related work draft |
-| **10-04 → 10-06** | P8 + A8; P6, P10, A5 if on schedule; tests; **FREEZE + tag** | E0 calibration (κ, thresholds); budget estimate | §III approach draft, Fig. 2, Table 2 |
-| **10-07 → 10-12** | bug fixes only | E1, E2, E3, E8; E4, E5 | §IV benchmark, §V study design |
+| **10-04 → 10-06** | P10, A5 if on schedule; tests; **FREEZE + tag** | E0 calibration (κ, thresholds); budget estimate | §III approach draft, Fig. 2, Table 2 |
+| **10-07 → 10-12** | bug fixes only | E1, E2, E3, E8; E5 | §IV benchmark, §V study design |
 | **10-13 → 10-16** | A4 analysis, A7 + A9 expert kits | E6 analysis, E7 HITL, E9 C3 analysis, expert ratings (C1/C2 unmatched items + C3) | §VI results; Figs. 1, 3–6; **abstract final 10-16** |
 | **10-17 → 10-23** | H2, H3 replication package | re-checks only | Abstract submitted **10-19**; full draft 10-20; internal review 10-21; polish; submit **10-23** |
 
@@ -1241,10 +1255,10 @@ E4 model-diversity arm; drop C3-curated.
 
 ## 12. Open decisions
 
-1. **Personas**: open coding only (decided). Which persona source for E4 variant 3: framework-based
-   (proposed: 3–4 ISO 25010 lens groups) or stakeholder roles? Include the model-diversity arm?
-2. **Scope before freeze**: the M items (now including P8) only, or also S (P6, P10, A5)?
-3. **Main configuration**: single coder (proposed) or personas, decided after the E0 pilot.
+1. **Personas**: ~~open coding only~~ — **future work, not in the paper (decided 2026-10-02)**; a single coder
+   agent is used.
+2. **Scope before freeze**: the M items only, or also S (P10, A5)? (P6 and P8 are out of scope.)
+3. **Main configuration**: single coder agent (decided 2026-10-02).
 4. **Human experts**: 2–3 people × ~2 h (unmatched-item ratings, HITL critique); two authors for κ labeling.
 5. **Contacting the GT-study authors** for coding data: useful; consider double-blind and conflict of interest.
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
@@ -1272,9 +1286,8 @@ E4 model-diversity arm; drop C3-curated.
 | Only two GT studies weakens generality | Per-study reporting with CIs; C3 in another genre; extensible kit; DT as dev set keeps both GT studies clean |
 | P7 (drivers) takes longer than 2 days | Ship P7 behind a switch; if late, report drivers from a post-hoc extraction pass and label it as such |
 | Pipeline changes eat evaluation time | Hard freeze 10-06; S items dropped first |
-| Personas add noise, not perspective | Noise-floor test + budget-matched baseline; a negative result is reportable |
 | Judge circularity | Cross-family judge (P9) + κ + exact evidence metric |
-| "Not agentic enough" | Role framing backed by ablations; theoretical sampling; HITL |
+| "Not agentic enough" | Role framing backed by ablations; HITL |
 | API budget overrun | E0 estimate; the cut order in §9.3 |
 
 ---

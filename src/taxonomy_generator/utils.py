@@ -329,7 +329,12 @@ def format_feedback(state: State, exclude_criteria: Iterable[str] = ()) -> str:
 
     history = getattr(state, "evaluation_history", None)
     latest_evaluation = history[-1] if history else None
-    if latest_evaluation and not latest_evaluation.get("unavailable"):
+    # Only a scoreboard of the current draft is actionable: with
+    # evaluation.every_n_iterations > 1 the latest one may describe an older
+    # draft whose ids and structure no longer exist.
+    scored_iteration = (latest_evaluation or {}).get("iteration")
+    current = scored_iteration is None or scored_iteration == len(state.clusters or [])
+    if latest_evaluation and current and not latest_evaluation.get("unavailable"):
         evaluation_section = format_evaluation_summary(latest_evaluation, exclude_criteria)
         if evaluation_section:
             parts.append(evaluation_section)
@@ -574,6 +579,69 @@ def ensure_unique_ids(clusters: List[Dict]) -> Tuple[List[Dict], List[str]]:
     return fixed, changes
 
 
+# Provenance fields the update/review prompts never show: evidence linking
+# rebuilds them from the open codes after the loop, and re-emitting them made
+# every full-taxonomy rewrite long enough that the model dropped values.
+PROVENANCE_FIELDS = (
+    "supporting_doc_ids", "stances", "evidence", "evidence_code_count",
+    "merged_from", "unsupported_values",
+)
+
+
+def taxonomy_prompt_view(clusters: List[Dict]) -> List[Dict]:
+    """The taxonomy without provenance fields, for prompts that rewrite it."""
+    view = []
+    for cluster in clusters or []:
+        if not isinstance(cluster, dict):
+            view.append(cluster)
+            continue
+        cluster = {k: v for k, v in cluster.items() if k not in PROVENANCE_FIELDS}
+        if cluster.get("values"):
+            cluster["values"] = [
+                {k: v for k, v in value.items() if k not in PROVENANCE_FIELDS}
+                if isinstance(value, dict) else value
+                for value in cluster["values"]
+            ]
+        view.append(cluster)
+    return view
+
+
+def _value_key(label: str) -> str:
+    return " ".join("".join(ch if ch.isalnum() else " " for ch in (label or "").lower()).split())
+
+
+def carry_over_evidence(previous: List[Dict], updated: List[Dict]) -> List[Dict]:
+    """Restore the supporting documents of values the model kept.
+
+    The model sees existing values without their document ids, so it only
+    cites documents of the new batch. A kept value is recognized by its label
+    (normalized), or else by its id within a dimension of the same name; its
+    previous ids are unioned back in. Mutates and returns ``updated``.
+    """
+    by_label: Dict[str, set] = {}
+    by_id: Dict[Tuple[str, str], set] = {}
+    for cluster in previous or []:
+        if not isinstance(cluster, dict):
+            continue
+        for value in cluster.get("values") or []:
+            if not isinstance(value, dict):
+                continue
+            ids = set(value.get("supporting_doc_ids") or [])
+            by_label.setdefault(_value_key(value.get("label", "")), set()).update(ids)
+            by_id.setdefault((cluster.get("name", ""), str(value.get("id"))), set()).update(ids)
+    for cluster in updated or []:
+        if not isinstance(cluster, dict):
+            continue
+        for value in cluster.get("values") or []:
+            if not isinstance(value, dict):
+                continue
+            kept = by_label.get(_value_key(value.get("label", "")))
+            if kept is None:
+                kept = by_id.get((cluster.get("name", ""), str(value.get("id"))), set())
+            value["supporting_doc_ids"] = sorted(set(value.get("supporting_doc_ids") or []) | kept)
+    return updated
+
+
 async def invoke_taxonomy_chain(
     chain: Runnable,
     state: State,
@@ -598,7 +666,7 @@ async def invoke_taxonomy_chain(
             data_json = format_docs(minibatch)
 
         previous_taxonomy = state.clusters[-1] if state.clusters else []
-        taxonomy_json = format_taxonomy(previous_taxonomy)
+        taxonomy_json = format_taxonomy(taxonomy_prompt_view(previous_taxonomy))
 
         logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(minibatch))
         # When max_num_clusters is None, let the LLM determine the count from data
@@ -623,6 +691,7 @@ async def invoke_taxonomy_chain(
 
         # Convert Pydantic model to dict list for state
         clusters_list, id_changes = ensure_unique_ids([c.model_dump() for c in result.clusters])
+        clusters_list = carry_over_evidence(previous_taxonomy, clusters_list)
         if id_changes:
             logger.warning("Fixed %d duplicate taxonomy ids: %s", len(id_changes), "; ".join(id_changes))
         num_clusters = len(clusters_list)
