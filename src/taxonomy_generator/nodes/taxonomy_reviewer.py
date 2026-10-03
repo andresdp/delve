@@ -41,7 +41,7 @@ async def review_taxonomy(
     """Review and finalize taxonomy using a random sample of documents."""
     configuration = Configuration.from_runnable_config(config)
 
-    feedback = format_feedback(state)
+    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or ())
 
     review_chain = _setup_review_chain(configuration, feedback)
 

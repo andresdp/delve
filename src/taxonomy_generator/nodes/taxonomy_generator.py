@@ -42,7 +42,7 @@ async def generate_taxonomy(
     # NOTE: Feedback for the initial taxonomy must come from external sources —
     # either pre-populated in the initial state or injected via human-in-the-loop.
     # In the standard pipeline flow, no feedback is available at this stage.
-    feedback = format_feedback(state)
+    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or ())
     logger.info("Generating initial taxonomy from first minibatch (%d documents)", len(state.minibatches[0]))
 
     taxonomy_chain = _setup_taxonomy_chain(configuration, feedback)

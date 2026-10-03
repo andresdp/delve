@@ -1,9 +1,13 @@
 """Node for checking theoretical saturation of the taxonomy.
 
-Runs after each ``update_taxonomy`` pass: compares the current minibatch's
-open codes against the existing taxonomy and records whether they are
-subsumed (saturated) or reveal uncovered concepts. Feeds its verdict back
-into the existing feedback mechanism as an automated critic.
+Runs after each ``generate_taxonomy``/``update_taxonomy`` pass. Saturation
+asks whether *new* data still brings new concepts, so the latest minibatch's
+open codes are compared against the taxonomy as it was **before** that
+minibatch was incorporated (``clusters[-2]``), not against the taxonomy just
+updated with them (which would cover them by construction). The minibatch a
+taxonomy was generated from (no earlier taxonomy) is never counted as
+saturated. Uncovered concepts feed back into the existing feedback mechanism
+as an automated critic.
 """
 
 import json
@@ -15,7 +19,7 @@ from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import SATURATION_CHECK_PROMPT
 from taxonomy_generator.schemas import SaturationCheckOutput
 from taxonomy_generator.state import State, UserFeedback
-from taxonomy_generator.utils import format_taxonomy, load_chat_model
+from taxonomy_generator.utils import format_taxonomy, load_chat_model, taxonomy_prompt_view
 
 logger = logging.getLogger(__name__)
 
@@ -41,22 +45,53 @@ def _codes_for_batch(state: State, batch_idx: int) -> list:
     ]
 
 
+def saturation_coverage(n_codes: int, n_uncovered: int) -> float:
+    """Share of a minibatch's open codes the taxonomy already covers (1.0 when there are no codes)."""
+    if n_codes <= 0:
+        return 1.0
+    return 1.0 - min(n_uncovered, n_codes) / n_codes
+
+
 async def check_saturation(
     state: State,
     config: RunnableConfig,
 ) -> dict:
-    """Check saturation of the latest taxonomy against the latest open codes."""
+    """Check whether the latest minibatch's open codes were new to the taxonomy."""
     configuration = Configuration.from_runnable_config(config)
 
     # The batch just open-coded and axially processed is at index
     # (open_code_batch_index - 1) because open coding advances the index.
     batch_idx = max(state.open_code_batch_index - 1, 0)
     codes = _codes_for_batch(state, batch_idx)
-    taxonomy = state.clusters[-1] if state.clusters else []
-    taxonomy_json = format_taxonomy(taxonomy)
+
+    # Test against the taxonomy before this batch was incorporated. Without one
+    # (the batch the taxonomy was generated from), there is nothing to test.
+    if len(state.clusters) < 2:
+        logger.info(
+            "Saturation not tested for minibatch %d/%d — the taxonomy was generated from it",
+            batch_idx + 1, len(state.minibatches),
+        )
+        return {
+            "saturation_history": [{
+                "batch_index": batch_idx,
+                "is_saturated": False,
+                "checker_is_saturated": None,
+                "coverage": None,
+                "codes": len(codes),
+                "streak": 0,
+                "uncovered_concepts": [],
+                "rationale": "Not tested: the taxonomy was generated from this minibatch.",
+            }],
+            "saturation_streak": 0,
+            "user_feedback": None,
+            "status": [f"Saturation not tested for minibatch {batch_idx + 1} (generation batch)."],
+        }
+
+    taxonomy = state.clusters[-2]
+    taxonomy_json = format_taxonomy(taxonomy_prompt_view(taxonomy))
 
     logger.info(
-        "Checking saturation — minibatch %d/%d, %d codes vs %d dimensions (model: %s)",
+        "Checking saturation — minibatch %d/%d, %d codes vs %d dimensions before this batch (model: %s)",
         batch_idx + 1, len(state.minibatches), len(codes), len(taxonomy), configuration.fast_llm,
     )
 
@@ -68,11 +103,19 @@ async def check_saturation(
         }
     )
 
-    streak = state.saturation_streak + 1 if result.is_saturated else 0
+    coverage = saturation_coverage(len(codes), len(result.uncovered_concepts))
+    min_coverage = float(configuration.saturation_min_coverage if configuration.saturation_min_coverage is not None else 1.0)
+    # Saturated when the checker says so, or (tolerant mode, min_coverage < 1)
+    # when enough of the minibatch's codes are already covered: with detailed
+    # passages almost every minibatch has *something* new, so the strict rule
+    # never stops and the taxonomy keeps growing.
+    saturated = result.is_saturated or (min_coverage < 1.0 and coverage >= min_coverage)
+    streak = state.saturation_streak + 1 if saturated else 0
 
     logger.info(
-        "Saturation verdict: %s (streak %d/%d, uncovered: %s)",
-        "saturated" if result.is_saturated else "not saturated",
+        "Saturation verdict: %s (coverage %.2f, min %.2f, streak %d/%d, uncovered: %s)",
+        "saturated" if saturated else "not saturated",
+        coverage, min_coverage,
         streak,
         configuration.saturation_streak_threshold,
         result.uncovered_concepts,
@@ -83,24 +126,31 @@ async def check_saturation(
     # is nothing to report, clear the slot so stale critic feedback does not
     # accumulate across iterations.
     feedback_update = None
-    if not result.is_saturated and result.uncovered_concepts:
+    if not saturated and result.uncovered_concepts:
         uncovered = "; ".join(result.uncovered_concepts)
         feedback_update = UserFeedback(
             decision="modify",
             explanation=(
-                "Automated saturation critic: the current minibatch's open codes "
-                "reveal concepts the taxonomy does not cover."
+                "Automated saturation critic: the latest minibatch's open codes "
+                "revealed concepts the taxonomy did not cover before that minibatch."
             ),
             feedback=(
-                f"The following concepts from the latest minibatch are not covered by any "
-                f"existing dimension: {uncovered}. Extend or adjust the taxonomy to cover them."
+                f"The following concepts from the latest minibatch were not covered by any "
+                f"dimension before it was incorporated: {uncovered}. Check that the taxonomy "
+                f"now covers them, preferring to add them as values of an existing dimension "
+                f"when they are options for a decision it already names; add a new dimension "
+                f"only for a genuinely different design decision."
             ),
         )
 
     return {
         "saturation_history": [{
             "batch_index": batch_idx,
-            "is_saturated": result.is_saturated,
+            "is_saturated": saturated,
+            "checker_is_saturated": result.is_saturated,
+            "coverage": round(coverage, 3),
+            "codes": len(codes),
+            "streak": streak,
             "uncovered_concepts": result.uncovered_concepts,
             "rationale": result.rationale,
         }],
@@ -108,6 +158,7 @@ async def check_saturation(
         "user_feedback": feedback_update,
         "status": [
             f"Saturation check for minibatch {batch_idx + 1}: "
-            f"{'saturated' if result.is_saturated else 'not saturated'} (streak {streak})."
+            f"{'saturated' if saturated else 'not saturated'} "
+            f"(coverage {coverage:.0%}, streak {streak})."
         ],
     }

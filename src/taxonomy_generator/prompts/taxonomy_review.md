@@ -23,6 +23,8 @@ Think of the taxonomy as a **design space**:
 - Dimensions must be **orthogonal** — each captures a different *type* of distinction.
 - **A dimension names one axis — never a tradeoff or a set of alternatives.** "X vs. Y Tradeoff" or "Alternative Approaches to X" is not itself an axis of variation: it is usually two dimensions whose interaction belongs in a **relation**, not one dimension named after the fact that a tradeoff exists. Every dimension has alternatives — that's what its values are — so "has alternatives" never distinguishes one dimension from another.
 
+- **A dimension is a decision point: a topic phrased as one question that requires a choice.** Its values are the candidate decisions, i.e. the alternative answers to that question (e.g. dimension "Drift Detection Test", question *which test detects degradation?*, values "CUSUM", "Covariance-weighted mean test"). Check every dimension: can all its values be read as alternative answers to one question? If they answer different questions, the topic is too broad (a theme such as "Governance" or "Robustness Mechanisms") and misleading: split it into the decision points it contains when each keeps at least two candidate decisions, otherwise move its values to the decision points whose questions they answer. Prefer decision points with several candidate decisions over many narrow ones with a single candidate. Values with status `outcome` are effects of decisions, not candidate decisions: a decision point needs at least two candidate decisions (`accepted` or `rejected`). A topic whose values are only outcomes is not a decision point; attach its outcomes to the decision point they result from.
+
 ## Review Criteria
 
 Evaluate the taxonomy against these criteria:
@@ -35,11 +37,12 @@ Evaluate the taxonomy against these criteria:
 | **Completeness** | Are all major axes of variation from the data captured? Are there recurring patterns of variation that no dimension represents? |
 | **Use case alignment** | Does every dimension serve the stated use case? Remove dimensions that are irrelevant, even if they exist in the data. |
 | **No catch-alls** | Does the taxonomy contain an "Other", "Miscellaneous", or similar vague dimension? Can those documents be re-assigned to more specific dimensions instead? |
+| **One decision point** | Can all of a dimension's candidate decisions be read as alternative answers to one question? If they answer different questions, the dimension is a broad topic bundling several decision points, which is misleading. A decision point needs at least two candidate decisions. |
 | **Axis vs. value check** | Is each dimension truly an *axis of variation* rather than a single *value*? A dimension named "Bug Reports" might really be a value on an "Issue Type" axis that also includes "Feature Requests", "Questions", etc. |
 | **Tradeoff/alternative-shaped naming** | Is any dimension named around "Tradeoff(s)", "Alternative(s)", "Comparison", "Options", or "Choices" rather than the axis itself? These name the existence of a decision, not what distinguishes this axis — a genuine tradeoff usually means two dimensions belong here, linked by a `relations` entry, not one dimension named after the tradeoff. |
-| **Quality-attribute grounding** | Does each dimension correspond to a recognizable quality attribute, constraint, or trade-off implied by the use case, rather than an arbitrary topical grouping? |
-| **Rejected-alternative handling** | Are `rejected`-status values kept distinct from `accepted` ones, never presented as equivalent peer values on the same axis? |
-| **Design-space gap awareness** | Given the existing dimensions and values, does the sampled data reveal an implied-but-unaddressed value combination the review sample suggests exists but no value currently names? |
+| **Quality-attribute grounding** (secondary preference) | Where the use case names quality attributes, forces or concerns, is each decision point's choice driven by recognizable quality attributes, constraints or trade-offs, rather than being an arbitrary topical grouping? This refines *One decision point*; never split, merge or drop a well-formed decision point only because no quality attribute is named. |
+| **Rejected-alternative handling** | Is each candidate decision listed once with its stance (`accepted`, `rejected`, or `mixed` when sources disagree), rather than duplicated per status, and is a rejected alternative never presented as adopted? Outcomes (status `outcome`, effects of decisions) are valid values but are kept apart from the candidate decisions. |
+| **Candidate-decision coverage** | Do the options that the sampled documents adopt or reject appear as values of the right dimension? Add a missing option as a value of the dimension whose question it answers. |
 | **Value-label phrasing** | Is each value's `label` a noun phrase naming the decision or position, rather than a verb-driven sentence? Does any label redundantly restate its `status` as a text prefix (e.g., "Rejected: ...", "Accepted: ...")? |
 
 ## Allowed Adjustments
@@ -48,20 +51,25 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 
 | Operation | When to use |
 |---|---|
-| **Merge dimensions** | Two or more dimensions are really different values on the same underlying axis — they should be one dimension whose description captures the full range. |
+| **Merge dimensions** | Two or more dimensions are really different values on the same underlying axis — they should be one dimension whose description captures the full range. Merge only when both dimensions ask *the same* question. When they ask different questions but share values, move each shared value to the dimension whose question it answers instead: merging two different questions creates a broad topic. |
 | **Split dimension** | A dimension conflates two truly orthogonal axes of variation — documents along it actually differ along two fundamentally different types of distinction. |
 | **Rename** | A dimension name describes a specific value rather than the axis of variation, is ambiguous, or is built around "Tradeoff(s)"/"Alternative(s)"/"Comparison"/"Options"/"Choices" instead of naming the axis itself. If the tradeoff is genuine, split into the two dimensions and relate them instead of renaming alone. |
 | **Refine description** | A description doesn't explain the range of values along the dimension or doesn't differentiate it from other dimensions. |
+| **Split broad topic** | A dimension's values answer different questions. Split it into the decision points it contains only when each part keeps at least two candidate decisions; otherwise move each value to the decision point whose question it answers, then remove it. This is a clear issue, so it is allowed despite the minimal-intervention principle. |
+| **Merge single-candidate dimensions** | A dimension has only one candidate decision. Merge it into the decision point whose question its value answers, or merge sibling dimensions that answer the same question. Never invent alternatives to fill it. This is a clear issue, so it is allowed despite the minimal-intervention principle. |
 | **Remove** | A dimension has no support in the data and is unlikely to be needed (use sparingly). |
 | **Add** | Documents in the sample reveal a fundamentally new axis of variation not captured by existing dimensions. Total must still not exceed **{max_num_clusters}**. |
 | **No change** | Valid outcome. If the taxonomy is well-structured as a set of orthogonal dimensions, return it as-is. Do not force modifications. |
 | **Reclassify value status** | The review sample provides direct evidence that a value's `status` is wrong (e.g., a value marked `accepted` is explicitly declined in the sampled documents). Change `status` only with direct evidence from the sample — never as a side effect of re-emitting the taxonomy. |
-| **Relabel value** | A value's `label` restates its `status` as a text prefix, or is phrased as a verb-driven sentence rather than a noun phrase. Rewrite the `label` only — do not change `status`, `description`, or `supporting_doc_ids`. |
+| **Relabel value** | A value's `label` restates its `status` as a text prefix, or is phrased as a verb-driven sentence rather than a noun phrase. Rewrite the `label` only — do not change `status` or `description`. |
 
 ## Key Principle: Minimal Intervention
 
 - Only change what is clearly broken or ambiguous.
+- **Issues named by the automated evaluation in the previous feedback count as clearly broken.** They concern the taxonomy itself: apply the concrete changes they name (split, merge, move values, rename, add, drop) when they are consistent with the data, even when they restructure a dimension, and move supported values rather than deleting them. Never add a dimension or value that no document supports, even when feedback asks for it.
 - Do not overfit to the review sample — it is a small subset, not the full dataset.
+- **Carry the taxonomy forward.** Output every existing dimension and value, unchanged unless an operation of this pass changes it. Change the taxonomy only through the operations below (the allowed adjustments above), each justified by the review sample or by an issue named in the feedback, and name the operations you applied in the explanation. Never rewrite the taxonomy wholesale, never shorten or summarize it to keep the output small, and never drop a value that is still supported.
+- **Existing values are shown without their document ids**: their evidence is kept automatically when you keep the value's label (and, if you move it, its label). Keep existing labels verbatim unless relabeling is the purpose of an operation.
 - Do not radically restructure — this is a final polish, not a new iteration.
 
 ## Requirements
@@ -73,7 +81,7 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 ### Format
 - Each cluster has: **id** (number starting from 1, incremented), **name** (within {cluster_name_length} words, a noun-driven phrase that describes the *axis of variation* — use noun-based constructions like "Request Routing Strategy" rather than verb-based ones like "Route Requests"), **description** (within {cluster_description_length} words, explaining the range of documents along this dimension and what distinguishes it from other dimensions).
 - Total dimensions: **{max_num_clusters}**.
-- Each value's **status** (`accepted`, `rejected`, or `outcome`) must be preserved verbatim from the existing taxonomy unless a review adjustment genuinely reclassifies it — never let the field silently default to `accepted` on re-emission.
+- Each value's **status** (`accepted`, `rejected`, `mixed`, or `outcome`) must be preserved verbatim from the existing taxonomy unless a review adjustment genuinely reclassifies it — never let the field silently default to `accepted` on re-emission.
 - Each value's **label** must be preserved verbatim unless a review adjustment relabels it per the **Relabel value** operation below.
 - Output in **English** only.
 

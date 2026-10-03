@@ -22,6 +22,7 @@
 - Say **same decision** when the two values name interchangeable positions along the dimension — merging them loses nothing relevant to the use case.
 - Say **different decisions** when each value captures a distinct position that the use case might need to distinguish (even if they are related).
 - Do not be fooled by surface wording: identical wording can still name different decisions if their supporting evidence differs; different wording can name the same decision.
+- A different `status` (accepted vs. rejected) is **not** a reason to keep them apart: the same candidate decision can be adopted by one source and rejected by another, and the merged value keeps both stances as evidence.
 - When uncertain, prefer keeping them separate (different decisions) — over-merging loses information.
 
 ## Output

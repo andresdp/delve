@@ -3,8 +3,8 @@
 # Use with: python main.py --corpus examples/das-p1-2023/das-p1-2023_architecture_decisions.json --config examples/das-p1-2023/das-p1-2023_config.yaml --output examples/das-p1-2023/
 
 models:
-  model: "openai/gpt-5.4-nano"
-  fast_llm: "openai/gpt-5.4-nano"
+  model: "openai/gpt-5.6-luna"
+  fast_llm: "openai/gpt-5.6-luna"
 
   # Embedding model — used for value consolidation and taxonomy biplot
   # axis positions. Supported providers: openai/<model>, ollama/<model>.
@@ -30,16 +30,68 @@ taxonomy:
   # Embedding-distance cutoff (epsilon, Euclidean on L2-normalized vectors)
   # below which two values within the same dimension are merged automatically.
   # Calibrated for openai/text-embedding-3-small; tune when changing models.
-  value_merge_distance_threshold: 0.2
+  value_merge_distance_threshold: 0.35
 
   # Distance band above the cutoff routed to LLM adjudication instead of
   # auto-merge or auto-reject.
-  value_merge_borderline_band: 0.08
+  value_merge_borderline_band: 0.40
 
   # Value consolidation: merge semantically duplicate values within each
   # dimension (embedding distance + LLM adjudication). When false, values
   # pass through unchanged and visualization uses unitary axis positions.
   consolidate_values: true
+  # A candidate decision can be adopted by one source and rejected by another:
+  # merge such values into one, keeping both stances as evidence (status "mixed").
+  # False = values only merge within their exact status.
+  merge_value_stances: true
+
+  # Evidence linking after consolidation: assign every open code to its most similar
+  # value (same decision status) and record the supporting documents on that value.
+  link_evidence: true
+  # Minimum cosine similarity for a code to count as evidence (text-embedding-3-small;
+  # calibrated on C1: the best code-option similarity has median 0.57, so 0.35 accepted
+  # 99% of codes and 0.5 accepts ~70%).
+  evidence_min_similarity: 0.5
+  # Remove values no document supports after evidence linking (kept inspectable on
+  # their dimension as unsupported_values).
+  drop_unsupported_values: true
+
+  # ── Fragmentation controls ─────────────────────────────────────────
+  # Keep the taxonomy from splitting one design decision into many overlapping
+  # dimensions.
+
+  # Merge near-duplicate dimensions (the same design decision under different
+  # names) before value consolidation. Pairs below the distance threshold merge
+  # automatically; pairs within the band above it go to an LLM judge, which merges
+  # only when both dimensions' options answer one choice (detecting vs. mitigating
+  # a problem stay separate). Distances are Euclidean on L2-normalized embeddings of
+  # "name. description Options: ..."; with text-embedding-3-small, near-duplicates
+  # sit around 0.55-0.90 and unrelated dimensions around 1.0. Set false to disable.
+  merge_dimensions: true
+  dimension_merge_distance_threshold: 0.45
+  dimension_merge_borderline_band: 0.45
+
+  # Minimum support: at dimension selection, drop (with a recorded rationale)
+  # dimensions whose evidence comes from fewer than this many sources. A source is
+  # the document a passage comes from (passage ids "sNN_pKK"), or the document
+  # itself for other corpora. Needs link_evidence. 0 disables the rule.
+  min_dimension_sources: 2
+
+  # Decision points need alternatives: drop (with a recorded rationale) dimensions with
+  # fewer than this many candidate decisions (accepted/rejected values; outcomes, i.e. effects
+  # of decisions, do not count). 0 disables the rule.
+  min_candidate_decisions: 2
+
+  # Tolerant saturation: a minibatch also counts as saturated when at least this
+  # share of its open codes is already covered by the taxonomy. 1.0 = strict
+  # (every relevant code covered), which with detailed documents almost never
+  # triggers, so the update loop keeps adding dimensions until the data runs out.
+  saturation_min_coverage: 0.9
+  # Minimum share of the corpus's documents open-coded before saturation may end the
+  # update loop. Batches are random, so a few early batches can agree by chance;
+  # saturation reached earlier is recorded but must still hold once this share is
+  # reached. 0 = saturation alone decides.
+  saturation_min_corpus_fraction: 0.7
 
   use_case: >-
     Classify software architecture design decisions for a food delivery
@@ -65,6 +117,13 @@ summarization:
   summary_length: 20
   explanation_length: 30
   max_concurrency: 5
+
+
+open_coding:
+  # What the open coder reads per document: "summary" (the summary when one
+  # exists, else the content) or "content" (always the full document text, so
+  # codes stay grounded in the source even when summarization is on).
+  input: "summary"
 
 labeling:
   fallback_category: "Other"

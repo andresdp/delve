@@ -82,7 +82,10 @@ def test_taxonomy_review_prompt_has_new_criteria_and_status_preservation():
     # R8/R10: new Review Criteria rows.
     assert "Quality-attribute grounding" in system_text
     assert "Rejected-alternative handling" in system_text
-    assert "Design-space gap awareness" in system_text
+    assert "Candidate-decision coverage" in system_text
+    assert "count as clearly broken" in system_text
+    assert "Merge single-candidate dimensions" in system_text
+    assert "Merge only when both dimensions ask *the same* question" in system_text
 
     # R3: preserve each existing value's status verbatim unless a review
     # adjustment genuinely reclassifies it — never silently default to

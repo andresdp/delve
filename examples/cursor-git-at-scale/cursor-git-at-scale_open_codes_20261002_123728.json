@@ -1,0 +1,281 @@
+{
+  "taxonomy_name": "cursor-git-at-scale",
+  "open_codes": [
+    {
+      "doc_id": "cc5ed95d-1d81-4fcf-bad0-f3269609580d",
+      "label": "S3-backed write-ahead log",
+      "rationale": "The document identifies an S3-backed write-ahead log as the adopted mechanism for repository durability and scaling.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "cc5ed95d-1d81-4fcf-bad0-f3269609580d",
+      "label": "Consensus replication",
+      "rationale": "The document states that consensus replication is replaced, indicating that this previously used replication approach is no longer adopted in the described design.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+      "label": "Strong consistency for Git clients",
+      "rationale": "The document states that Git clients require strong consistency, establishing it as the consistency model needed for reliable repository access.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+      "label": "Eventual-consistency repository design",
+      "rationale": "The document presents eventual consistency as an unsuitable design for Git repository hosting because it can expose clients to stale state and unreliable operations.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+      "label": "Stale repository state",
+      "rationale": "Stale repository state is identified as a risk resulting from eventual-consistency designs, directly affecting the correctness of client-visible repository data.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+      "label": "Unreliable repository operations",
+      "rationale": "The document identifies unreliable operations as a consequence of eventual consistency, indicating an operational correctness and reliability cost.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "6a73692f-ca11-45af-9560-6b86f3a89328",
+      "label": "Server-scale Git repository distribution challenges",
+      "rationale": "The document identifies the architectural challenges involved in distributing Git repositories at server scale, which is directly relevant to the design space of repository-hosting architectures.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "948d9850-f046-4afc-a14d-f93b93e2d791",
+      "label": "Consensus-before-action architecture",
+      "rationale": "The document identifies an earlier repository-hosting architecture in which consensus is established before an action proceeds.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "948d9850-f046-4afc-a14d-f93b93e2d791",
+      "label": "Log-first operation recording",
+      "rationale": "The document identifies a later architectural approach that records operations in a log before deriving repository state from them.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "948d9850-f046-4afc-a14d-f93b93e2d791",
+      "label": "Post hoc truth derivation",
+      "rationale": "The document describes deriving repository truth after the fact from logged operations, marking a distinct source-of-truth and consistency approach.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "c247d568-1470-4991-9451-5ff67b786cfb",
+      "label": "Safe minimum replica count",
+      "rationale": "The document identifies maintaining a safe minimum number of replicas as a core Spokes design consideration for repository durability and correctness.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "c247d568-1470-4991-9451-5ff67b786cfb",
+      "label": "Replication cost for tiny repositories",
+      "rationale": "The document frames the operational expense of replicating millions of small repositories as a trade-off that Spokes must manage.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Consensus-replicated repository architecture",
+      "rationale": "The document describes repositories whose state is replicated through consensus, making replication strategy a central architectural characteristic.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Stateful repository replicas",
+      "rationale": "Consensus replication causes repository instances to retain significant state rather than functioning as stateless interchangeable workers.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Pet-style infrastructure",
+      "rationale": "The document explicitly characterizes consensus-replicated repositories as costly “pets,” indicating individually managed, non-fungible infrastructure.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Replica non-interchangeability",
+      "rationale": "The contrast with interchangeable replicas identifies the inability to treat repository replicas as equivalent replacement units.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Scaling complexity",
+      "rationale": "The document reports that stateful pet-like repositories complicate scaling compared with interchangeable replicas.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Replica replacement complexity",
+      "rationale": "The document identifies replacement as more difficult when repositories are stateful and individually managed.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Maintenance burden",
+      "rationale": "The pet-like nature of consensus-replicated repositories is reported to complicate ongoing maintenance.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "25cb20eb-7213-4899-b11b-3659d18cd513",
+      "label": "Higher repository operating cost",
+      "rationale": "The document explicitly describes consensus-replicated repositories as costly relative to interchangeable replicas.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "f4be69bf-ca35-4f97-844e-7b3931604a82",
+      "label": "Primary-only compaction",
+      "rationale": "Compaction is performed only by the primary replica, defining where maintenance work occurs in the replicated Git hosting architecture.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "f4be69bf-ca35-4f97-844e-7b3931604a82",
+      "label": "Reduced replica CPU usage",
+      "rationale": "Limiting compaction to the primary reduces the amount of compaction processing required on replicas.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "f4be69bf-ca35-4f97-844e-7b3931604a82",
+      "label": "Increased synchronization bandwidth requirements",
+      "rationale": "Primary-only compaction increases the bandwidth needed to synchronize replicas.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "71d49115-c7c5-4bf9-b3b6-588463e6a003",
+      "label": "Blob storage combined with relational database",
+      "rationale": "The document explicitly evaluates and rejects a hybrid repository-hosting architecture that combines blob storage with a relational database.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+      "label": "Consensus-replicated Git repositories",
+      "rationale": "The document identifies Spokes as using consensus replication for real Git repositories, establishing replication and consistency as core architectural mechanisms.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+      "label": "Real Git repository hosting",
+      "rationale": "Spokes is described as hosting actual Git repositories rather than an abstracted or alternate repository representation.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+      "label": "Hosting reliability improvement",
+      "rationale": "Improving hosting reliability is explicitly given as a purpose of building Spokes.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+      "label": "Repository consistency improvement",
+      "rationale": "The document explicitly frames consistency improvement as a benefit sought through consensus-replicated repositories.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+      "label": "Operational scalability improvement",
+      "rationale": "Operational scalability is explicitly identified as a target benefit of the Spokes architecture.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "744b2d0b-5d83-499f-8805-11294f2f590d",
+      "label": "Distributed filesystem beneath Git",
+      "rationale": "The document identifies a proposal to distribute the filesystem layer beneath Git as a way to address repository-hosting scalability, but explicitly states that the proposal was rejected.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+      "label": "Client-side Git virtualization through GVFS/Scalar",
+      "rationale": "The document identifies GVFS/Scalar as Microsoft's adopted approach to scaling Git by virtualizing the client rather than changing repository storage on the server.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+      "label": "Reduced local checkout cost",
+      "rationale": "The document presents lowering the cost of local checkouts as the result of client-side virtualization.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+      "label": "Redesign of server-side repository storage",
+      "rationale": "The document contrasts the adopted client-virtualization strategy with redesigning server-side repository storage, indicating that the latter was not pursued in this approach.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Filesystem-based repository distribution",
+      "rationale": "GitHub’s early architecture distributed repositories through the filesystem, representing a source-of-truth and scaling choice in the historical comparison.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Distributed object-store repository hosting",
+      "rationale": "Google’s historical approach attempted to use a distributed object store as the repository-hosting foundation, making storage placement and scaling a central architectural decision.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Consensus-replicated repository storage",
+      "rationale": "GitHub’s Spokes system used consensus replication, making agreement among replicas the mechanism for maintaining consistency.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Client-side filesystem virtualization",
+      "rationale": "Microsoft’s GVFS and Scalar architecture moved repository virtualization responsibilities to the client, providing a distinct client-versus-server scaling strategy.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Write-ahead-log-based repository architecture",
+      "rationale": "Cursor’s Continuity/Origin system used a write-ahead log as a foundational mechanism for recording repository changes and supporting its hosting architecture.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Consensus-based replica consistency",
+      "rationale": "The comparison identifies consistency across replicas as an independent architectural dimension, with consensus serving as one way to coordinate replicated repository state.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Client-server responsibility allocation",
+      "rationale": "The architectures differ in whether repository-management and virtualization responsibilities are carried by hosting infrastructure or shifted toward clients, especially in the GVFS/Scalar design.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+      "label": "Replica scaling tradeoff",
+      "rationale": "Replication is compared in relation to scaling and tradeoffs, indicating that replica count and replication strategy affect both architectural behavior and operational costs.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "d8c24866-1355-4396-b1d7-6faac8b8116e",
+      "label": "Distributed key-value store for Git objects",
+      "rationale": "The document identifies storing Git objects in a distributed key-value store as a proposal that was explicitly rejected, making it a declined alternative for repository source-of-truth storage.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "d8c24866-1355-4396-b1d7-6faac8b8116e",
+      "label": "Filesystem-based Git object storage",
+      "rationale": "The rejected proposal was evaluated against filesystem-based storage, indicating that filesystem storage remained the adopted approach for storing Git objects.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "18a2da1f-7030-4d1d-a860-4a5be253833a",
+      "label": "Strong consensus replication",
+      "rationale": "Spokes is described as exploring strong consensus replication, making consensus-based coordination the system's central replication mechanism.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "18a2da1f-7030-4d1d-a860-4a5be253833a",
+      "label": "Consistency and correctness priority",
+      "rationale": "The design explicitly trades in favor of preserving consistency and correctness across replicas.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "18a2da1f-7030-4d1d-a860-4a5be253833a",
+      "label": "Higher tail write latency",
+      "rationale": "The document reports increased tail write latency at scale as the cost of the replication approach.",
+      "status": "outcome"
+    }
+  ]
+}

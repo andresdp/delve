@@ -1,0 +1,3116 @@
+{
+  "taxonomy_name": "cursor-git-at-scale",
+  "consolidated": true,
+  "mode": "train",
+  "run_metrics": {
+    "elapsed_seconds": 664.7,
+    "total_tokens": 211245,
+    "prompt_tokens": 184868,
+    "completion_tokens": 26377
+  },
+  "iterations": [
+    {
+      "explanation": "Consistency Model, Truth Formation Strategy, and Replica Topology are orthogonal; values retain statuses, relations encode constraints, and no feedback existed.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Consistency Model",
+          "description": "This dimension distinguishes client-visible consistency requirements and the correctness consequences of choosing strong or eventual repository state.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Strong client consistency constrains truth-formation designs to provide coordinated, durable ordering rather than exposing stale derived state."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Strong consistency constrains replica architectures toward coordinated state management instead of independently interchangeable replicas."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Strong consistency for Git clients",
+              "description": "Repository operations expose coordinated, current state to Git clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Eventual-consistency repository design",
+              "description": "Repository state may lag across locations, making it unsuitable for reliable Git client operations.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Stale repository state",
+              "description": "Client-visible repository data can be outdated when consistency is eventual.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Unreliable repository operations",
+              "description": "Eventual consistency can cause repository operations to behave unreliably for clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Truth Formation Strategy",
+          "description": "This dimension distinguishes how repository truth is established, recorded, and derived, independently of replica topology or client-visible consistency requirements.",
+          "relations": [],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Consensus-before-action architecture",
+              "description": "An operation proceeds only after consensus establishes the required state transition.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Log-first operation recording",
+              "description": "Operations are durably recorded before repository state is derived from them.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Post hoc truth derivation",
+              "description": "Repository truth is reconstructed or computed after operations have been recorded.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "S3-backed write-ahead log",
+              "description": "An S3-backed durable log records repository operations as the foundation for scalable repository state.",
+              "supporting_doc_ids": [
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Replica Topology",
+          "description": "This dimension distinguishes replica coordination, statefulness, minimum counts, interchangeability, and the operational cost of repository replicas.",
+          "relations": [],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Consensus-replicated repository architecture",
+              "description": "Repository state is maintained across replicas through consensus coordination.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Consensus replication",
+              "description": "Consensus replication is explicitly replaced by another durability and scaling approach.",
+              "supporting_doc_ids": [
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Stateful repository replicas",
+              "description": "Replicas retain substantial repository state rather than acting as stateless interchangeable workers.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Pet-style infrastructure",
+              "description": "Replicas are individually managed, costly, and non-fungible infrastructure units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Safe minimum replica count",
+              "description": "The architecture maintains a minimum replica population needed for repository durability and correctness.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Replica non-interchangeability",
+              "description": "Stateful repository replicas cannot be treated as equivalent replacement units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "3.7",
+              "dimension_id": "3",
+              "label": "Scaling complexity",
+              "description": "Stateful, individually managed replicas make repository scaling more difficult.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "3.8",
+              "dimension_id": "3",
+              "label": "Replica replacement complexity",
+              "description": "Replacing replicas is more difficult when they retain unique repository state.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "3.9",
+              "dimension_id": "3",
+              "label": "Maintenance burden",
+              "description": "Individually managed stateful replicas increase ongoing maintenance work.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "3.10",
+              "dimension_id": "3",
+              "label": "Higher repository operating cost",
+              "description": "Consensus-replicated, stateful repositories impose higher operating costs than interchangeable replicas.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "3.11",
+              "dimension_id": "3",
+              "label": "Replication cost for tiny repositories",
+              "description": "Replicating very large numbers of small repositories creates substantial operational expense.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Split Truth Formation into Coordination, Derivation, Storage; added Client Responsibility; moved values; retained rejected alternatives; refined Replica Topology and relations.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Consistency Model",
+          "description": "This dimension distinguishes client-visible consistency guarantees and the correctness, reliability, and latency consequences of repository-state coordination.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Strong consistency requires coordinated replica state and therefore constrains the available coordination strategies."
+            },
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "Consistency requirements constrain when repository changes become authoritative and how derived state may be exposed."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Strong consistency for Git clients",
+              "description": "Repository operations expose coordinated, current state to Git clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Eventual-consistency repository design",
+              "description": "Repository state may lag across locations, making it unsuitable for reliable Git client operations.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Stale repository state",
+              "description": "Client-visible repository data can be outdated when consistency is eventual.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Unreliable repository operations",
+              "description": "Eventual consistency can cause repository operations to behave unreliably for clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Consistency-and-correctness priority",
+              "description": "The architecture explicitly prioritizes preserving consistency and correctness across replicas.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.6",
+              "dimension_id": "1",
+              "label": "Higher tail write latency",
+              "description": "Strong coordination produces increased tail write latency at scale.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.7",
+              "dimension_id": "1",
+              "label": "Repository consistency improvement",
+              "description": "Consensus-replicated repositories are intended to improve repository consistency.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.8",
+              "dimension_id": "1",
+              "label": "Hosting reliability improvement",
+              "description": "The architecture is intended to improve the reliability of repository hosting.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Replica Coordination Strategy",
+          "description": "This dimension distinguishes how replicas coordinate agreement and whether operations require consensus before repository state changes proceed.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Replica coordination choices determine the consistency guarantees and latency consequences visible to Git clients."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Consensus coordination constrains replica operations toward stateful, coordinated infrastructure and a sufficient replica population."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Consensus-before-action architecture",
+              "description": "An operation proceeds only after consensus establishes the required state transition.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Consensus-replicated repository architecture",
+              "description": "Repository state is maintained across replicas through consensus coordination.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513",
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Strong consensus replication",
+              "description": "Strong consensus replication coordinates repository replicas and emphasizes agreement before accepting changes.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Consensus replication",
+              "description": "Consensus replication was explicitly replaced by another durability and scaling approach.",
+              "supporting_doc_ids": [
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "2.5",
+              "dimension_id": "2",
+              "label": "Consensus-based replica consistency",
+              "description": "Consensus serves as the mechanism for coordinating consistency across repository replicas.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Repository Source-of-Truth Storage",
+          "description": "This dimension distinguishes the storage substrate that holds repository objects or durable operation records and anchors repository truth.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "co_occurring",
+              "rationale": "Storage substrates interact with whether repository state is derived from durable operation records or materialized through another process."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "The storage substrate determines how much repository-management responsibility remains in hosting infrastructure versus client virtualization."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Filesystem-based repository storage",
+              "description": "Repositories or Git objects are distributed and stored through filesystem-based infrastructure.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+                "d8c24866-1355-4396-b1d7-6faac8b8116e"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Distributed object-store repository hosting",
+              "description": "A distributed object store serves as the foundation for repository hosting.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "S3-backed write-ahead log",
+              "description": "An S3-backed durable write-ahead log records repository operations as the foundation for repository state.",
+              "supporting_doc_ids": [
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Blob storage with relational database",
+              "description": "A hybrid architecture combining blob storage with a relational database was evaluated and rejected.",
+              "supporting_doc_ids": [
+                "71d49115-c7c5-4bf9-b3b6-588463e6a003"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Distributing the filesystem layer beneath Git was proposed as a repository-scaling approach but rejected.",
+              "supporting_doc_ids": [
+                "744b2d0b-5d83-499f-8805-11294f2f590d"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Distributed key-value Git-object storage",
+              "description": "Storing Git objects in a distributed key-value store was evaluated and rejected as the repository source of truth.",
+              "supporting_doc_ids": [
+                "d8c24866-1355-4396-b1d7-6faac8b8116e"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "State Derivation Strategy",
+          "description": "This dimension distinguishes whether repository truth is established before action, recorded in a log first, or reconstructed after operations are recorded.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "The point at which state is derived determines when coordination must establish an authoritative transition."
+            },
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Log-first and post hoc derivation impose different requirements on the storage substrate used to retain operations or state."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Log-first operation recording",
+              "description": "Operations are durably recorded before repository state is derived from them.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Post hoc truth derivation",
+              "description": "Repository truth is reconstructed or computed after operations have been recorded.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Write-ahead-log-based repository architecture",
+              "description": "A write-ahead log is used as the foundational mechanism for recording repository changes and supporting hosting.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Replica Operations and Population",
+          "description": "This dimension captures replica statefulness, infrastructure individuality, population requirements, maintenance placement, and resulting scaling or operating costs.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Coordination choices produce corresponding requirements for replica state, minimum population, and operational management."
+            },
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Replica population and maintenance decisions affect reliability, consistency, bandwidth, and client-visible performance."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Stateful repository replicas",
+              "description": "Replicas retain substantial repository state rather than acting as stateless interchangeable workers.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Pet-style infrastructure",
+              "description": "Replicas are individually managed, costly, and non-fungible infrastructure units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Safe minimum replica count",
+              "description": "The architecture maintains a minimum replica population needed for repository durability and correctness.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Replica non-interchangeability",
+              "description": "Stateful repository replicas cannot be treated as equivalent replacement units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Scaling complexity",
+              "description": "Stateful, individually managed replicas make repository scaling more difficult.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Replica replacement complexity",
+              "description": "Replacing replicas is more difficult when they retain unique repository state.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Maintenance burden",
+              "description": "Individually managed stateful replicas increase ongoing maintenance work.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.8",
+              "dimension_id": "5",
+              "label": "Higher repository operating cost",
+              "description": "Consensus-replicated, stateful repositories impose higher operating costs than interchangeable replicas.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.9",
+              "dimension_id": "5",
+              "label": "Replication cost for tiny repositories",
+              "description": "Replicating very large numbers of small repositories creates substantial operational expense.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.10",
+              "dimension_id": "5",
+              "label": "Primary-only compaction",
+              "description": "Compaction is performed only by the primary replica, defining where maintenance work occurs.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.11",
+              "dimension_id": "5",
+              "label": "Reduced replica CPU usage",
+              "description": "Primary-only compaction reduces compaction processing performed by replicas.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.12",
+              "dimension_id": "5",
+              "label": "Increased synchronization bandwidth requirements",
+              "description": "Primary-only compaction increases bandwidth required to synchronize replicas.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.13",
+              "dimension_id": "5",
+              "label": "Operational scalability improvement",
+              "description": "The architecture is intended to improve the scalability of repository operations.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.14",
+              "dimension_id": "5",
+              "label": "Replica scaling tradeoff",
+              "description": "Replica count and replication strategy affect architectural behavior and operating costs.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Client-Server Responsibility",
+          "description": "This dimension distinguishes whether repository scaling and virtualization responsibilities remain server-side or shift to Git clients.",
+          "relations": [
+            {
+              "target_id": "3",
+              "type": "constrains",
+              "rationale": "Shifting responsibility to clients reduces the need to redesign server-side repository storage."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Client-side virtualization changes the server replica and infrastructure requirements for repository access."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Client-side Git virtualization",
+              "description": "GVFS and Scalar virtualize repository access at the client rather than redesigning server-side storage.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Server-side repository-storage redesign",
+              "description": "Redesigning server-side repository storage was considered as an alternative to client virtualization but not pursued.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Reduced local checkout cost",
+              "description": "Client-side virtualization lowers the cost of local repository checkouts.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Client-server responsibility allocation",
+              "description": "Architectures differ in whether repository-management and virtualization responsibilities reside in hosting infrastructure or clients.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Merged Consistency Model with Replica Coordination Strategy; moved WAL values into Repository State Derivation and retained Replica Lifecycle and Operations as the maintenance axis.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Replica Consistency and Coordination",
+          "description": "This dimension distinguishes client-visible consistency guarantees and the coordination mechanisms used to establish agreement across repository replicas.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "Consistency and coordination determine when repository operations become authoritative and whether state is derived before or after action."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Coordination mechanisms constrain replica statefulness, population requirements, and operational behavior."
+            },
+            {
+              "target_id": "6",
+              "type": "co_occurring",
+              "rationale": "Consistency requirements and client-server responsibility jointly shape how reliable repository access is provided."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Strong consistency for Git clients",
+              "description": "Repository operations expose coordinated, current state to Git clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Eventual-consistency repository design",
+              "description": "Repository state may lag across locations, making it unsuitable for reliable Git client operations.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Stale repository state",
+              "description": "Client-visible repository data can be outdated when consistency is eventual.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Unreliable repository operations",
+              "description": "Eventual consistency can cause repository operations to behave unreliably for clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Consistency-and-correctness priority",
+              "description": "The architecture explicitly prioritizes preserving consistency and correctness across replicas.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.6",
+              "dimension_id": "1",
+              "label": "Higher tail write latency",
+              "description": "Strong coordination produces increased tail write latency at scale.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.7",
+              "dimension_id": "1",
+              "label": "Repository consistency improvement",
+              "description": "Consensus-replicated repositories are intended to improve repository consistency.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.8",
+              "dimension_id": "1",
+              "label": "Hosting reliability improvement",
+              "description": "The architecture is intended to improve the reliability of repository hosting.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "1.9",
+              "dimension_id": "1",
+              "label": "Consensus-before-action architecture",
+              "description": "An operation proceeds only after consensus establishes the required state transition.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.10",
+              "dimension_id": "1",
+              "label": "Consensus-replicated repository architecture",
+              "description": "Repository state is maintained across replicas through consensus coordination.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513",
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.11",
+              "dimension_id": "1",
+              "label": "Strong consensus replication",
+              "description": "Strong consensus replication coordinates repository replicas and emphasizes agreement before accepting changes.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.12",
+              "dimension_id": "1",
+              "label": "Consensus replication",
+              "description": "Consensus replication was explicitly replaced by another durability and scaling approach.",
+              "supporting_doc_ids": [
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.13",
+              "dimension_id": "1",
+              "label": "Consensus-based replica consistency",
+              "description": "Consensus serves as the mechanism for coordinating consistency across repository replicas.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Repository Storage Substrate",
+          "description": "This dimension distinguishes the physical or logical storage substrate used to hold Git objects, repository data, or durable source-of-truth records.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "The storage substrate determines which repository state-derivation and durable-recording strategies are practical."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Storage placement affects how much repository-management responsibility remains server-side versus shifting to clients."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Filesystem-based repository storage",
+              "description": "Repositories or Git objects are distributed and stored through filesystem-based infrastructure.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+                "d8c24866-1355-4396-b1d7-6faac8b8116e"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Distributed object-store repository hosting",
+              "description": "A distributed object store serves as the foundation for repository hosting.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Blob storage with relational database",
+              "description": "A hybrid architecture combining blob storage with a relational database was evaluated and rejected.",
+              "supporting_doc_ids": [
+                "71d49115-c7c5-4bf9-b3b6-588463e6a003"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "2.5",
+              "dimension_id": "2",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Distributing the filesystem layer beneath Git was proposed as a repository-scaling approach but rejected.",
+              "supporting_doc_ids": [
+                "744b2d0b-5d83-499f-8805-11294f2f590d"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "2.6",
+              "dimension_id": "2",
+              "label": "Distributed key-value Git-object storage",
+              "description": "Storing Git objects in a distributed key-value store was evaluated and rejected as the repository source of truth.",
+              "supporting_doc_ids": [
+                "d8c24866-1355-4396-b1d7-6faac8b8116e"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Repository State Derivation",
+          "description": "This dimension distinguishes whether repository truth is established before action, recorded durably first, or reconstructed after operations are recorded.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "The point at which state becomes authoritative determines when coordination must establish a valid transition."
+            },
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "State derivation requires a suitable substrate for retaining operations or materialized repository state."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Log-first operation recording",
+              "description": "Operations are durably recorded before repository state is derived from them.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Post hoc truth derivation",
+              "description": "Repository truth is reconstructed or computed after operations have been recorded.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "S3-backed write-ahead log",
+              "description": "An S3-backed durable write-ahead log records repository operations as the foundation for repository state.",
+              "supporting_doc_ids": [
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Replica Lifecycle and Operations",
+          "description": "This dimension distinguishes replica statefulness, individuality, population, replacement, scaling, and placement of recurring repository maintenance work.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Coordination choices produce corresponding requirements for replica state, population, maintenance, and operational management."
+            },
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Storage and replication architecture determine replica lifecycle and maintenance requirements."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Stateful repository replicas",
+              "description": "Replicas retain substantial repository state rather than acting as stateless interchangeable workers.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Pet-style infrastructure",
+              "description": "Replicas are individually managed, costly, and non-fungible infrastructure units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Safe minimum replica count",
+              "description": "The architecture maintains a minimum replica population needed for repository durability and correctness.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Replica non-interchangeability",
+              "description": "Stateful repository replicas cannot be treated as equivalent replacement units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Scaling complexity",
+              "description": "Stateful, individually managed replicas make repository scaling more difficult.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Replica replacement complexity",
+              "description": "Replacing replicas is more difficult when they retain unique repository state.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.7",
+              "dimension_id": "4",
+              "label": "Maintenance burden",
+              "description": "Individually managed stateful replicas increase ongoing maintenance work.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.8",
+              "dimension_id": "4",
+              "label": "Higher repository operating cost",
+              "description": "Consensus-replicated, stateful repositories impose higher operating costs than interchangeable replicas.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.9",
+              "dimension_id": "4",
+              "label": "Replication cost for tiny repositories",
+              "description": "Replicating very large numbers of small repositories creates substantial operational expense.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.10",
+              "dimension_id": "4",
+              "label": "Primary-only compaction",
+              "description": "Compaction is performed only by the primary replica, defining where maintenance work occurs.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.11",
+              "dimension_id": "4",
+              "label": "Reduced replica CPU usage",
+              "description": "Primary-only compaction reduces compaction processing performed by replicas.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.12",
+              "dimension_id": "4",
+              "label": "Increased synchronization bandwidth requirements",
+              "description": "Primary-only compaction increases bandwidth required to synchronize replicas.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.13",
+              "dimension_id": "4",
+              "label": "Operational scalability improvement",
+              "description": "The architecture is intended to improve the scalability of repository operations.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "4.14",
+              "dimension_id": "4",
+              "label": "Replica scaling tradeoff",
+              "description": "Replica count and replication strategy affect architectural behavior and operating costs.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Client-Server Responsibility Allocation",
+          "description": "This dimension distinguishes whether repository scaling and virtualization responsibilities remain in hosting infrastructure or shift to Git clients.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Client-side responsibility reduces the need to redesign server-side repository storage."
+            },
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "Client-side virtualization changes server replica and infrastructure requirements for repository access."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Client-side Git virtualization",
+              "description": "GVFS and Scalar virtualize repository access at the client rather than redesigning server-side storage.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Server-side repository-storage redesign",
+              "description": "Redesigning server-side repository storage was considered as an alternative to client virtualization but not pursued.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Reduced local checkout cost",
+              "description": "Client-side virtualization lowers the cost of local repository checkouts.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Client-server responsibility allocation",
+              "description": "Architectures differ in whether repository-management and virtualization responsibilities reside in hosting infrastructure or clients.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "explanation": "Consolidated 39 draft values across 5 dimensions (merge threshold 0.350, borderline band 0.400). Merged 1 near-duplicate value:\n  - [Replica Consistency and Coordination] \"Consensus-replicated repository architecture\", \"Strong consensus replication\" → \"Consensus-based replica consistency\"\nThe remaining 36 values were distinct enough to keep as generated.\nEvidence linking: 46 of 46 open codes assigned to a value (similarity >= 0.50); 14 of 14 documents now support at least one value.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Replica Consistency and Coordination",
+          "description": "This dimension distinguishes client-visible consistency guarantees and the coordination mechanisms used to establish agreement across repository replicas.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "Consistency and coordination determine when repository operations become authoritative and whether state is derived before or after action."
+            },
+            {
+              "target_id": "5",
+              "type": "constrains",
+              "rationale": "Coordination mechanisms constrain replica statefulness, population requirements, and operational behavior."
+            },
+            {
+              "target_id": "6",
+              "type": "co_occurring",
+              "rationale": "Consistency requirements and client-server responsibility jointly shape how reliable repository access is provided."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Strong consistency for Git clients",
+              "description": "Repository operations expose coordinated, current state to Git clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+                  "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+                ]
+              },
+              "evidence_code_count": 2
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Eventual-consistency repository design",
+              "description": "Repository state may lag across locations, making it unsuitable for reliable Git client operations.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Consistency-and-correctness priority",
+              "description": "The architecture explicitly prioritizes preserving consistency and correctness across replicas.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "18a2da1f-7030-4d1d-a860-4a5be253833a"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Consensus-before-action architecture",
+              "description": "An operation proceeds only after consensus establishes the required state transition.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "948d9850-f046-4afc-a14d-f93b93e2d791"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Consensus-based replica consistency",
+              "description": "Consensus serves as the mechanism for coordinating consistency across repository replicas.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a",
+                "25cb20eb-7213-4899-b11b-3659d18cd513",
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "merged_from": [
+                {
+                  "id": "1.10",
+                  "label": "Consensus-replicated repository architecture"
+                },
+                {
+                  "id": "1.11",
+                  "label": "Strong consensus replication"
+                }
+              ],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "18a2da1f-7030-4d1d-a860-4a5be253833a",
+                  "25cb20eb-7213-4899-b11b-3659d18cd513",
+                  "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+                  "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+                ]
+              },
+              "evidence_code_count": 3
+            },
+            {
+              "id": "1.6",
+              "dimension_id": "1",
+              "label": "Consensus replication",
+              "description": "Consensus replication was explicitly replaced by another durability and scaling approach.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a",
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+              ],
+              "merged_from": [],
+              "status": "mixed",
+              "stances": {
+                "rejected": [
+                  "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+                ],
+                "accepted": [
+                  "18a2da1f-7030-4d1d-a860-4a5be253833a"
+                ]
+              },
+              "evidence_code_count": 2
+            },
+            {
+              "id": "1.7",
+              "dimension_id": "1",
+              "label": "Stale repository state",
+              "description": "Client-visible repository data can be outdated when consistency is eventual.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.8",
+              "dimension_id": "1",
+              "label": "Unreliable repository operations",
+              "description": "Eventual consistency can cause repository operations to behave unreliably for clients.",
+              "supporting_doc_ids": [
+                "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.9",
+              "dimension_id": "1",
+              "label": "Higher tail write latency",
+              "description": "Strong coordination produces increased tail write latency at scale.",
+              "supporting_doc_ids": [
+                "18a2da1f-7030-4d1d-a860-4a5be253833a"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.10",
+              "dimension_id": "1",
+              "label": "Repository consistency improvement",
+              "description": "Consensus-replicated repositories are intended to improve repository consistency.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "1.11",
+              "dimension_id": "1",
+              "label": "Hosting reliability improvement",
+              "description": "The architecture is intended to improve the reliability of repository hosting.",
+              "supporting_doc_ids": [
+                "6a73692f-ca11-45af-9560-6b86f3a89328",
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 2
+            }
+          ],
+          "evidence": {
+            "codes": 16,
+            "documents": 8,
+            "sources": 8
+          }
+        },
+        {
+          "id": "2",
+          "name": "Repository Storage Substrate",
+          "description": "This dimension distinguishes the physical or logical storage substrate used to hold Git objects, repository data, or durable source-of-truth records.",
+          "relations": [
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "The storage substrate determines which repository state-derivation and durable-recording strategies are practical."
+            },
+            {
+              "target_id": "6",
+              "type": "constrains",
+              "rationale": "Storage placement affects how much repository-management responsibility remains server-side versus shifting to clients."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Filesystem-based repository storage",
+              "description": "Repositories or Git objects are distributed and stored through filesystem-based infrastructure.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+                "d8c24866-1355-4396-b1d7-6faac8b8116e"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+                  "d8c24866-1355-4396-b1d7-6faac8b8116e"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Distributed object-store repository hosting",
+              "description": "A distributed object store serves as the foundation for repository hosting.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Blob storage with relational database",
+              "description": "A hybrid architecture combining blob storage with a relational database was evaluated and rejected.",
+              "supporting_doc_ids": [
+                "71d49115-c7c5-4bf9-b3b6-588463e6a003"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "71d49115-c7c5-4bf9-b3b6-588463e6a003"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Distributed filesystem beneath Git",
+              "description": "Distributing the filesystem layer beneath Git was proposed as a repository-scaling approach but rejected.",
+              "supporting_doc_ids": [
+                "744b2d0b-5d83-499f-8805-11294f2f590d"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "744b2d0b-5d83-499f-8805-11294f2f590d"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "2.5",
+              "dimension_id": "2",
+              "label": "Distributed key-value Git-object storage",
+              "description": "Storing Git objects in a distributed key-value store was evaluated and rejected as the repository source of truth.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+                "d8c24866-1355-4396-b1d7-6faac8b8116e"
+              ],
+              "merged_from": [],
+              "status": "mixed",
+              "stances": {
+                "rejected": [
+                  "d8c24866-1355-4396-b1d7-6faac8b8116e"
+                ],
+                "accepted": [
+                  "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+                  "d8c24866-1355-4396-b1d7-6faac8b8116e"
+                ]
+              },
+              "evidence_code_count": 3
+            }
+          ],
+          "evidence": {
+            "codes": 7,
+            "documents": 5,
+            "sources": 5
+          }
+        },
+        {
+          "id": "3",
+          "name": "Repository State Derivation",
+          "description": "This dimension distinguishes whether repository truth is established before action, recorded durably first, or reconstructed after operations are recorded.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "constrains",
+              "rationale": "The point at which state becomes authoritative determines when coordination must establish a valid transition."
+            },
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "State derivation requires a suitable substrate for retaining operations or materialized repository state."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Log-first operation recording",
+              "description": "Operations are durably recorded before repository state is derived from them.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "948d9850-f046-4afc-a14d-f93b93e2d791"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Post hoc truth derivation",
+              "description": "Repository truth is reconstructed or computed after operations have been recorded.",
+              "supporting_doc_ids": [
+                "948d9850-f046-4afc-a14d-f93b93e2d791"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "948d9850-f046-4afc-a14d-f93b93e2d791"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "S3-backed write-ahead log",
+              "description": "An S3-backed durable write-ahead log records repository operations as the foundation for repository state.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+                "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+                  "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+                ]
+              },
+              "evidence_code_count": 2
+            }
+          ],
+          "evidence": {
+            "codes": 4,
+            "documents": 3,
+            "sources": 3
+          }
+        },
+        {
+          "id": "4",
+          "name": "Replica Lifecycle and Operations",
+          "description": "This dimension distinguishes replica statefulness, individuality, population, replacement, scaling, and placement of recurring repository maintenance work.",
+          "relations": [
+            {
+              "target_id": "1",
+              "type": "consequence",
+              "rationale": "Coordination choices produce corresponding requirements for replica state, population, maintenance, and operational management."
+            },
+            {
+              "target_id": "2",
+              "type": "consequence",
+              "rationale": "Storage and replication architecture determine replica lifecycle and maintenance requirements."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Stateful repository replicas",
+              "description": "Replicas retain substantial repository state rather than acting as stateless interchangeable workers.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "25cb20eb-7213-4899-b11b-3659d18cd513"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Pet-style infrastructure",
+              "description": "Replicas are individually managed, costly, and non-fungible infrastructure units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "25cb20eb-7213-4899-b11b-3659d18cd513"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Safe minimum replica count",
+              "description": "The architecture maintains a minimum replica population needed for repository durability and correctness.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "c247d568-1470-4991-9451-5ff67b786cfb"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Primary-only compaction",
+              "description": "Compaction is performed only by the primary replica, defining where maintenance work occurs.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "f4be69bf-ca35-4f97-844e-7b3931604a82"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Replica non-interchangeability",
+              "description": "Stateful repository replicas cannot be treated as equivalent replacement units.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Scaling complexity",
+              "description": "Stateful, individually managed replicas make repository scaling more difficult.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.7",
+              "dimension_id": "4",
+              "label": "Replica replacement complexity",
+              "description": "Replacing replicas is more difficult when they retain unique repository state.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.8",
+              "dimension_id": "4",
+              "label": "Maintenance burden",
+              "description": "Individually managed stateful replicas increase ongoing maintenance work.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 0
+            },
+            {
+              "id": "4.9",
+              "dimension_id": "4",
+              "label": "Higher repository operating cost",
+              "description": "Consensus-replicated, stateful repositories impose higher operating costs than interchangeable replicas.",
+              "supporting_doc_ids": [
+                "25cb20eb-7213-4899-b11b-3659d18cd513"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 2
+            },
+            {
+              "id": "4.10",
+              "dimension_id": "4",
+              "label": "Replication cost for tiny repositories",
+              "description": "Replicating very large numbers of small repositories creates substantial operational expense.",
+              "supporting_doc_ids": [
+                "c247d568-1470-4991-9451-5ff67b786cfb"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.11",
+              "dimension_id": "4",
+              "label": "Reduced replica CPU usage",
+              "description": "Primary-only compaction reduces compaction processing performed by replicas.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.12",
+              "dimension_id": "4",
+              "label": "Increased synchronization bandwidth requirements",
+              "description": "Primary-only compaction increases bandwidth required to synchronize replicas.",
+              "supporting_doc_ids": [
+                "f4be69bf-ca35-4f97-844e-7b3931604a82"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.13",
+              "dimension_id": "4",
+              "label": "Operational scalability improvement",
+              "description": "The architecture is intended to improve the scalability of repository operations.",
+              "supporting_doc_ids": [
+                "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "4.14",
+              "dimension_id": "4",
+              "label": "Replica scaling tradeoff",
+              "description": "Replica count and replication strategy affect architectural behavior and operating costs.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 14,
+            "documents": 5,
+            "sources": 5
+          }
+        },
+        {
+          "id": "5",
+          "name": "Client-Server Responsibility Allocation",
+          "description": "This dimension distinguishes whether repository scaling and virtualization responsibilities remain in hosting infrastructure or shift to Git clients.",
+          "relations": [
+            {
+              "target_id": "2",
+              "type": "constrains",
+              "rationale": "Client-side responsibility reduces the need to redesign server-side repository storage."
+            },
+            {
+              "target_id": "4",
+              "type": "constrains",
+              "rationale": "Client-side virtualization changes server replica and infrastructure requirements for repository access."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Client-side Git virtualization",
+              "description": "GVFS and Scalar virtualize repository access at the client rather than redesigning server-side storage.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "merged_from": [],
+              "status": "accepted",
+              "stances": {
+                "accepted": [
+                  "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+                  "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+                ]
+              },
+              "evidence_code_count": 2
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Server-side repository-storage redesign",
+              "description": "Redesigning server-side repository storage was considered as an alternative to client virtualization but not pursued.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+              ],
+              "merged_from": [],
+              "status": "rejected",
+              "stances": {
+                "rejected": [
+                  "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+                ]
+              },
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Reduced local checkout cost",
+              "description": "Client-side virtualization lowers the cost of local repository checkouts.",
+              "supporting_doc_ids": [
+                "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Client-server responsibility allocation",
+              "description": "Architectures differ in whether repository-management and virtualization responsibilities reside in hosting infrastructure or clients.",
+              "supporting_doc_ids": [
+                "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+              ],
+              "merged_from": [],
+              "status": "outcome",
+              "evidence_code_count": 1
+            }
+          ],
+          "evidence": {
+            "codes": 5,
+            "documents": 2,
+            "sources": 2
+          }
+        }
+      ]
+    }
+  ],
+  "saturation_history": [
+    {
+      "batch_index": 0,
+      "is_saturated": false,
+      "checker_is_saturated": null,
+      "coverage": null,
+      "codes": 20,
+      "streak": 0,
+      "uncovered_concepts": [],
+      "rationale": "Not tested: the taxonomy was generated from this minibatch."
+    },
+    {
+      "batch_index": 1,
+      "is_saturated": false,
+      "checker_is_saturated": false,
+      "coverage": 0.5,
+      "codes": 26,
+      "streak": 0,
+      "uncovered_concepts": [
+        "Primary-only compaction",
+        "Reduced replica CPU usage",
+        "Increased synchronization bandwidth requirements",
+        "Blob storage combined with relational database",
+        "Distributed filesystem beneath Git",
+        "Distributed object-store repository hosting",
+        "Client-side Git virtualization through GVFS/Scalar",
+        "Redesign of server-side repository storage",
+        "Filesystem-based repository distribution",
+        "Distributed key-value store for Git objects",
+        "Filesystem-based Git object storage",
+        "Client-side filesystem virtualization",
+        "Client-server responsibility allocation"
+      ],
+      "rationale": "The taxonomy covers consistency, truth formation, and replica topology, including consensus, replication costs, and replica interchangeability. However, several relevant codes expose three additional architectural axes. First, the taxonomy does not capture where repository source of truth and Git objects reside—the storage substrate or placement axis distinguishing filesystem storage, distributed filesystems, object stores, key-value stores, and hybrid blob/database designs. Second, it does not capture where repository virtualization and scaling responsibility is allocated between clients and servers, as illustrated by GVFS/Scalar versus server-side storage redesigns. Third, it does not explicitly model the distribution of maintenance and compaction work across replicas. The CPU and bandwidth codes are consequences of that maintenance-placement choice. Other codes, such as consensus consistency, reliability, scalability, correctness, replica tradeoffs, and tail write latency, are outcomes or positions already subsumable under the existing consistency and replica-topology dimensions."
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Replica Consistency and Coordination",
+      "description": "This dimension distinguishes client-visible consistency guarantees and the coordination mechanisms used to establish agreement across repository replicas.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "constrains",
+          "rationale": "Consistency and coordination determine when repository operations become authoritative and whether state is derived before or after action."
+        },
+        {
+          "target_id": "5",
+          "type": "constrains",
+          "rationale": "Coordination mechanisms constrain replica statefulness, population requirements, and operational behavior."
+        },
+        {
+          "target_id": "6",
+          "type": "co_occurring",
+          "rationale": "Consistency requirements and client-server responsibility jointly shape how reliable repository access is provided."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Strong consistency for Git clients",
+          "description": "Repository operations expose coordinated, current state to Git clients.",
+          "supporting_doc_ids": [
+            "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+            "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "12aba6bc-9210-4e75-ac35-c0cd36326bc0",
+              "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+            ]
+          },
+          "evidence_code_count": 2
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Eventual-consistency repository design",
+          "description": "Repository state may lag across locations, making it unsuitable for reliable Git client operations.",
+          "supporting_doc_ids": [
+            "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Consistency-and-correctness priority",
+          "description": "The architecture explicitly prioritizes preserving consistency and correctness across replicas.",
+          "supporting_doc_ids": [
+            "18a2da1f-7030-4d1d-a860-4a5be253833a"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "18a2da1f-7030-4d1d-a860-4a5be253833a"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Consensus-before-action architecture",
+          "description": "An operation proceeds only after consensus establishes the required state transition.",
+          "supporting_doc_ids": [
+            "948d9850-f046-4afc-a14d-f93b93e2d791"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "948d9850-f046-4afc-a14d-f93b93e2d791"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.5",
+          "dimension_id": "1",
+          "label": "Consensus-based replica consistency",
+          "description": "Consensus serves as the mechanism for coordinating consistency across repository replicas.",
+          "supporting_doc_ids": [
+            "18a2da1f-7030-4d1d-a860-4a5be253833a",
+            "25cb20eb-7213-4899-b11b-3659d18cd513",
+            "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+          ],
+          "merged_from": [
+            {
+              "id": "1.10",
+              "label": "Consensus-replicated repository architecture"
+            },
+            {
+              "id": "1.11",
+              "label": "Strong consensus replication"
+            }
+          ],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "18a2da1f-7030-4d1d-a860-4a5be253833a",
+              "25cb20eb-7213-4899-b11b-3659d18cd513",
+              "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+              "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+            ]
+          },
+          "evidence_code_count": 3
+        },
+        {
+          "id": "1.6",
+          "dimension_id": "1",
+          "label": "Consensus replication",
+          "description": "Consensus replication was explicitly replaced by another durability and scaling approach.",
+          "supporting_doc_ids": [
+            "18a2da1f-7030-4d1d-a860-4a5be253833a",
+            "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+          ],
+          "merged_from": [],
+          "status": "mixed",
+          "stances": {
+            "rejected": [
+              "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+            ],
+            "accepted": [
+              "18a2da1f-7030-4d1d-a860-4a5be253833a"
+            ]
+          },
+          "evidence_code_count": 2
+        },
+        {
+          "id": "1.7",
+          "dimension_id": "1",
+          "label": "Stale repository state",
+          "description": "Client-visible repository data can be outdated when consistency is eventual.",
+          "supporting_doc_ids": [
+            "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.8",
+          "dimension_id": "1",
+          "label": "Unreliable repository operations",
+          "description": "Eventual consistency can cause repository operations to behave unreliably for clients.",
+          "supporting_doc_ids": [
+            "12aba6bc-9210-4e75-ac35-c0cd36326bc0"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.9",
+          "dimension_id": "1",
+          "label": "Higher tail write latency",
+          "description": "Strong coordination produces increased tail write latency at scale.",
+          "supporting_doc_ids": [
+            "18a2da1f-7030-4d1d-a860-4a5be253833a"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.10",
+          "dimension_id": "1",
+          "label": "Repository consistency improvement",
+          "description": "Consensus-replicated repositories are intended to improve repository consistency.",
+          "supporting_doc_ids": [
+            "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "1.11",
+          "dimension_id": "1",
+          "label": "Hosting reliability improvement",
+          "description": "The architecture is intended to improve the reliability of repository hosting.",
+          "supporting_doc_ids": [
+            "6a73692f-ca11-45af-9560-6b86f3a89328",
+            "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 2
+        }
+      ],
+      "evidence": {
+        "codes": 16,
+        "documents": 8,
+        "sources": 8
+      }
+    },
+    {
+      "id": "2",
+      "name": "Repository Storage Substrate",
+      "description": "This dimension distinguishes the physical or logical storage substrate used to hold Git objects, repository data, or durable source-of-truth records.",
+      "relations": [
+        {
+          "target_id": "4",
+          "type": "constrains",
+          "rationale": "The storage substrate determines which repository state-derivation and durable-recording strategies are practical."
+        },
+        {
+          "target_id": "6",
+          "type": "constrains",
+          "rationale": "Storage placement affects how much repository-management responsibility remains server-side versus shifting to clients."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Filesystem-based repository storage",
+          "description": "Repositories or Git objects are distributed and stored through filesystem-based infrastructure.",
+          "supporting_doc_ids": [
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+            "d8c24866-1355-4396-b1d7-6faac8b8116e"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+              "d8c24866-1355-4396-b1d7-6faac8b8116e"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Distributed object-store repository hosting",
+          "description": "A distributed object store serves as the foundation for repository hosting.",
+          "supporting_doc_ids": [
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Blob storage with relational database",
+          "description": "A hybrid architecture combining blob storage with a relational database was evaluated and rejected.",
+          "supporting_doc_ids": [
+            "71d49115-c7c5-4bf9-b3b6-588463e6a003"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "71d49115-c7c5-4bf9-b3b6-588463e6a003"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Distributed filesystem beneath Git",
+          "description": "Distributing the filesystem layer beneath Git was proposed as a repository-scaling approach but rejected.",
+          "supporting_doc_ids": [
+            "744b2d0b-5d83-499f-8805-11294f2f590d"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "744b2d0b-5d83-499f-8805-11294f2f590d"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "2.5",
+          "dimension_id": "2",
+          "label": "Distributed key-value Git-object storage",
+          "description": "Storing Git objects in a distributed key-value store was evaluated and rejected as the repository source of truth.",
+          "supporting_doc_ids": [
+            "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+            "d8c24866-1355-4396-b1d7-6faac8b8116e"
+          ],
+          "merged_from": [],
+          "status": "mixed",
+          "stances": {
+            "rejected": [
+              "d8c24866-1355-4396-b1d7-6faac8b8116e"
+            ],
+            "accepted": [
+              "72d5f761-1e96-4e5a-af57-fa268bcd4ad7",
+              "d8c24866-1355-4396-b1d7-6faac8b8116e"
+            ]
+          },
+          "evidence_code_count": 3
+        }
+      ],
+      "evidence": {
+        "codes": 7,
+        "documents": 5,
+        "sources": 5
+      }
+    },
+    {
+      "id": "3",
+      "name": "Repository State Derivation",
+      "description": "This dimension distinguishes whether repository truth is established before action, recorded durably first, or reconstructed after operations are recorded.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "constrains",
+          "rationale": "The point at which state becomes authoritative determines when coordination must establish a valid transition."
+        },
+        {
+          "target_id": "2",
+          "type": "constrains",
+          "rationale": "State derivation requires a suitable substrate for retaining operations or materialized repository state."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Log-first operation recording",
+          "description": "Operations are durably recorded before repository state is derived from them.",
+          "supporting_doc_ids": [
+            "948d9850-f046-4afc-a14d-f93b93e2d791"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "948d9850-f046-4afc-a14d-f93b93e2d791"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Post hoc truth derivation",
+          "description": "Repository truth is reconstructed or computed after operations have been recorded.",
+          "supporting_doc_ids": [
+            "948d9850-f046-4afc-a14d-f93b93e2d791"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "948d9850-f046-4afc-a14d-f93b93e2d791"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "S3-backed write-ahead log",
+          "description": "An S3-backed durable write-ahead log records repository operations as the foundation for repository state.",
+          "supporting_doc_ids": [
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+            "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "9f2ef01c-a1de-4db4-8177-032cd95d4f01",
+              "cc5ed95d-1d81-4fcf-bad0-f3269609580d"
+            ]
+          },
+          "evidence_code_count": 2
+        }
+      ],
+      "evidence": {
+        "codes": 4,
+        "documents": 3,
+        "sources": 3
+      }
+    },
+    {
+      "id": "4",
+      "name": "Replica Lifecycle and Operations",
+      "description": "This dimension distinguishes replica statefulness, individuality, population, replacement, scaling, and placement of recurring repository maintenance work.",
+      "relations": [
+        {
+          "target_id": "1",
+          "type": "consequence",
+          "rationale": "Coordination choices produce corresponding requirements for replica state, population, maintenance, and operational management."
+        },
+        {
+          "target_id": "2",
+          "type": "consequence",
+          "rationale": "Storage and replication architecture determine replica lifecycle and maintenance requirements."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Stateful repository replicas",
+          "description": "Replicas retain substantial repository state rather than acting as stateless interchangeable workers.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "25cb20eb-7213-4899-b11b-3659d18cd513"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Pet-style infrastructure",
+          "description": "Replicas are individually managed, costly, and non-fungible infrastructure units.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "25cb20eb-7213-4899-b11b-3659d18cd513"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Safe minimum replica count",
+          "description": "The architecture maintains a minimum replica population needed for repository durability and correctness.",
+          "supporting_doc_ids": [
+            "c247d568-1470-4991-9451-5ff67b786cfb"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "c247d568-1470-4991-9451-5ff67b786cfb"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Primary-only compaction",
+          "description": "Compaction is performed only by the primary replica, defining where maintenance work occurs.",
+          "supporting_doc_ids": [
+            "f4be69bf-ca35-4f97-844e-7b3931604a82"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "f4be69bf-ca35-4f97-844e-7b3931604a82"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Replica non-interchangeability",
+          "description": "Stateful repository replicas cannot be treated as equivalent replacement units.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.6",
+          "dimension_id": "4",
+          "label": "Scaling complexity",
+          "description": "Stateful, individually managed replicas make repository scaling more difficult.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.7",
+          "dimension_id": "4",
+          "label": "Replica replacement complexity",
+          "description": "Replacing replicas is more difficult when they retain unique repository state.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.8",
+          "dimension_id": "4",
+          "label": "Maintenance burden",
+          "description": "Individually managed stateful replicas increase ongoing maintenance work.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 0
+        },
+        {
+          "id": "4.9",
+          "dimension_id": "4",
+          "label": "Higher repository operating cost",
+          "description": "Consensus-replicated, stateful repositories impose higher operating costs than interchangeable replicas.",
+          "supporting_doc_ids": [
+            "25cb20eb-7213-4899-b11b-3659d18cd513"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 2
+        },
+        {
+          "id": "4.10",
+          "dimension_id": "4",
+          "label": "Replication cost for tiny repositories",
+          "description": "Replicating very large numbers of small repositories creates substantial operational expense.",
+          "supporting_doc_ids": [
+            "c247d568-1470-4991-9451-5ff67b786cfb"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.11",
+          "dimension_id": "4",
+          "label": "Reduced replica CPU usage",
+          "description": "Primary-only compaction reduces compaction processing performed by replicas.",
+          "supporting_doc_ids": [
+            "f4be69bf-ca35-4f97-844e-7b3931604a82"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.12",
+          "dimension_id": "4",
+          "label": "Increased synchronization bandwidth requirements",
+          "description": "Primary-only compaction increases bandwidth required to synchronize replicas.",
+          "supporting_doc_ids": [
+            "f4be69bf-ca35-4f97-844e-7b3931604a82"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.13",
+          "dimension_id": "4",
+          "label": "Operational scalability improvement",
+          "description": "The architecture is intended to improve the scalability of repository operations.",
+          "supporting_doc_ids": [
+            "72d5f761-1e96-4e5a-af57-fa268bcd4ad7"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "4.14",
+          "dimension_id": "4",
+          "label": "Replica scaling tradeoff",
+          "description": "Replica count and replication strategy affect architectural behavior and operating costs.",
+          "supporting_doc_ids": [
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        }
+      ],
+      "evidence": {
+        "codes": 14,
+        "documents": 5,
+        "sources": 5
+      }
+    },
+    {
+      "id": "5",
+      "name": "Client-Server Responsibility Allocation",
+      "description": "This dimension distinguishes whether repository scaling and virtualization responsibilities remain in hosting infrastructure or shift to Git clients.",
+      "relations": [
+        {
+          "target_id": "2",
+          "type": "constrains",
+          "rationale": "Client-side responsibility reduces the need to redesign server-side repository storage."
+        },
+        {
+          "target_id": "4",
+          "type": "constrains",
+          "rationale": "Client-side virtualization changes server replica and infrastructure requirements for repository access."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Client-side Git virtualization",
+          "description": "GVFS and Scalar virtualize repository access at the client rather than redesigning server-side storage.",
+          "supporting_doc_ids": [
+            "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+          ],
+          "merged_from": [],
+          "status": "accepted",
+          "stances": {
+            "accepted": [
+              "5edb9c3e-f438-4564-9b9f-c9433a18867a",
+              "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+            ]
+          },
+          "evidence_code_count": 2
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Server-side repository-storage redesign",
+          "description": "Redesigning server-side repository storage was considered as an alternative to client virtualization but not pursued.",
+          "supporting_doc_ids": [
+            "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+          ],
+          "merged_from": [],
+          "status": "rejected",
+          "stances": {
+            "rejected": [
+              "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+            ]
+          },
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Reduced local checkout cost",
+          "description": "Client-side virtualization lowers the cost of local repository checkouts.",
+          "supporting_doc_ids": [
+            "5edb9c3e-f438-4564-9b9f-c9433a18867a"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Client-server responsibility allocation",
+          "description": "Architectures differ in whether repository-management and virtualization responsibilities reside in hosting infrastructure or clients.",
+          "supporting_doc_ids": [
+            "9f2ef01c-a1de-4db4-8177-032cd95d4f01"
+          ],
+          "merged_from": [],
+          "status": "outcome",
+          "evidence_code_count": 1
+        }
+      ],
+      "evidence": {
+        "codes": 5,
+        "documents": 2,
+        "sources": 2
+      }
+    }
+  ],
+  "evaluation": {
+    "criteria": [
+      {
+        "name": "Orthogonality",
+        "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.7,
+        "passed": true,
+        "reason": "Most dimensions ask different questions: consistency/coordination (1), storage substrate (2), replica lifecycle and maintenance (4), and client-versus-server responsibility (5) are generally separable. The main overlap is between dimension 3, \"Repository State Derivation,\" and dimension 2, \"Repository Storage Substrate\": value 3.3, \"S3-backed write-ahead log,\" is a storage-substrate answer and should be moved to dimension 2 or reframed as a purely temporal derivation choice. Dimension 3 also partially overlaps dimension 1 because \"Log-first operation recording\" and \"Consensus-before-action architecture\" both classify when operations become authoritative relative to action; rename or restructure dimension 3 to focus strictly on derivation timing and move mechanism-specific values out of it."
+      },
+      {
+        "name": "Clarity",
+        "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.4,
+        "passed": false,
+        "reason": "Several dimensions are understandable, but important axes and values are overloaded or indistinguishable. Dimension 1, \"Replica Consistency and Coordination,\" asks both about client-visible guarantees and coordination mechanisms; values 1.1, 1.3, 1.4, and 1.5 substantially overlap. Split it into separate guarantee and coordination questions, moving each existing value to the applicable dimension. Dimension 4, \"Replica Lifecycle and Operations,\" combines statefulness, replica identity, replica count, replacement, scaling, and compaction; split or reorganize it into narrower questions using its existing values. Dimension 3, \"Repository State Derivation,\" also mixes temporal derivation semantics with the specific S3 implementation: 3.1 and 3.2 are not clearly distinct, while 3.3 does not describe the same level of alternative. Rename or split the dimension so the derivation alternatives are separated from the S3-backed implementation. Dimension 5.4 repeats the dimension name and is too broad to distinguish a specific outcome; rename it to state the concrete responsibility-allocation effect."
+      },
+      {
+        "name": "Completeness",
+        "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 1.0,
+        "passed": true,
+        "reason": "All major decision areas in the use case have decision points with multiple candidate decisions: dimension 2 (Repository Storage Substrate) covers source-of-truth alternatives such as filesystem and distributed object-store hosting; dimension 1 (Replica Consistency and Coordination) covers strong, eventual, and consensus-based approaches; dimension 4 (Replica Lifecycle and Operations) covers replica count, statefulness, and primary-only compaction; dimension 5 (Client-Server Responsibility Allocation) contrasts client-side virtualization with server-side redesign; and dimension 3 (Repository State Derivation) covers log-first and post hoc derivation approaches. No major area lacks a multi-candidate decision point, so no reorganization is required under this criterion."
+      },
+      {
+        "name": "Use case alignment",
+        "description": "Every dimension serves the stated use case; none is out of its scope.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 1.0,
+        "passed": true,
+        "reason": "All five dimensions are within the use-case scope: 1 covers replica consistency and consensus, 2 covers filesystem, object-store, and other repository source-of-truth substrates, 3 covers Continuity/Origin's write-ahead-log and state derivation, 4 covers replica count, statefulness, cost, replacement, and compaction maintenance, and 5 covers GVFS/Scalar's client-versus-server responsibility split. No dimension is out of scope or merely tangential, so no reorganization is needed for this criterion."
+      },
+      {
+        "name": "No catch-alls",
+        "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.7,
+        "passed": true,
+        "reason": "Most dimensions are specific architectural axes, and there are no explicit labels such as 'Other' or 'Miscellaneous'. However, dimension 4, 'Replica Lifecycle and Operations', is a catch-all: its description bundles statefulness, individuality, population, replacement, scaling, placement of maintenance, and several unrelated outcomes. Reorganize dimension 4 by separating the existing replica-model values (4.1–4.3) from maintenance-placement values such as 4.4, using more focused dimension names rather than the broad 'Lifecycle and Operations' bucket."
+      },
+      {
+        "name": "Axis vs. value",
+        "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.4,
+        "passed": false,
+        "reason": "The taxonomy captures several relevant axes, especially storage substrate for GitHub's filesystem experiments and Google's object-store attempt, and client/server responsibility for GVFS/Scalar. However, dimension 1, \"Replica Consistency and Coordination,\" combines two decisions—client-visible consistency guarantees and replica-agreement mechanisms—so it should be split into separate consistency and coordination dimensions, moving values 1.4–1.6 to the latter. Dimension 4, \"Replica Lifecycle and Operations,\" bundles replica statefulness, replica population, and maintenance placement; reorganize 4.1–4.3 under a replica lifecycle/population question and remove or relocate 4.4, \"Primary-only compaction,\" because it answers a separate maintenance-placement question. Value 3.3, \"S3-backed write-ahead log,\" is a concrete storage/durability implementation rather than an answer to the state-derivation question; move it to the storage/source-of-truth dimension. These structural issues obscure the distinctions between Spokes consensus replication and Continuity/Origin's WAL-based approach."
+      },
+      {
+        "name": "One decision point",
+        "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.4,
+        "passed": false,
+        "reason": "Dimensions 2, Repository Storage Substrate, and 5, Client-Server Responsibility Allocation, are coherent and each has at least two candidate decisions relevant to the filesystem/object-store and GVFS/Scalar alternatives. However, dimension 1, Replica Consistency and Coordination, mixes client-visible guarantees (1.1, 1.2), priorities (1.3), coordination mechanisms (1.4, 1.5), and historical replacement (1.6); split it into guarantee and coordination questions, moving 1.3 to the question it actually answers. Dimension 4, Replica Lifecycle and Operations, combines statefulness, pet infrastructure, replica count, and compaction placement; retain 4.1-4.3 under a clearly scoped replica-management question and move 4.4 to a maintenance/compaction decision point, or reorganize these values so each resulting question has at least two candidates. Dimension 3, Repository State Derivation, mostly addresses log-first versus post hoc derivation, but 3.3 is a specific S3 implementation rather than an alternative answer; merge it with the log-first value or move it to the storage-substrate decision. These mixed questions substantially weaken the requested orthogonal decision-point taxonomy despite the strong storage and responsibility dimensions."
+      },
+      {
+        "name": "Rejected-alternative handling",
+        "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 0.7,
+        "passed": true,
+        "reason": "Most values use valid statuses, and rejected candidates such as 1.2, 2.3, 2.4, and 5.2 are not described as adopted; outcomes are generally expressed as effects. However, dimension 1 duplicates the consensus-replication decision in 1.5 (accepted) and 1.6 (mixed); merge them and retain one status. The mixed descriptions for 1.6 and 2.5 state that the approaches were replaced or rejected, so revise them to acknowledge disagreement or use a non-mixed status. In dimension 5, outcome 5.4 is phrased as the alternative allocation decision itself rather than an effect; drop it or move/merge it with the candidate decisions 5.1 and 5.2."
+      },
+      {
+        "name": "Dimensional coverage",
+        "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 1.0,
+        "passed": true,
+        "reason": "All decision-bearing passages can be placed under the taxonomy. The Git storage alternatives in d8c24866, 744b2d0b, and 71d49115 map to dimension 2; the Cursor WAL and state-derivation decisions in cc5ed95d and 948d9850 map to dimension 3; Spokes consistency, latency, and replica tradeoffs in 72d5f761, 18a2da1f, f4be69bf, and c247d568 map to dimensions 1 and 4; and Microsoft's client virtualization in 5edb9c3e maps to dimension 5. The lessons and evolution passages are likewise covered by the corresponding accepted values and outcomes. No coverage shortcoming was identified."
+      },
+      {
+        "name": "Candidate-decision coverage",
+        "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+        "threshold": 0.5,
+        "evaluated": true,
+        "score": 1.0,
+        "passed": true,
+        "reason": "No material shortcomings found. The taxonomy names the specific adopted and rejected options across the decision passages: S3-backed write-ahead logging (3.3), consensus and eventual consistency alternatives (1.1–1.6), filesystem, object-store, blob-plus-relational, distributed-filesystem, and distributed-key-value storage (2.1–2.5), primary-only compaction and minimum replica count (4.3–4.4), and client-side Git virtualization versus server redesign (5.1–5.2). The remaining passages are background, tradeoff, or outcome discussions whose concrete options are likewise represented."
+      }
+    ],
+    "overall": 0.7300000000000001,
+    "model": "openai/gpt-5.6-luna",
+    "unavailable": false,
+    "view": "final view",
+    "iteration": 4,
+    "dimensions": 5
+  },
+  "evaluation_history": [
+    {
+      "criteria": [
+        {
+          "name": "Orthogonality",
+          "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "The dimensions are mostly distinct: dimension 1 asks about client-visible consistency, dimension 2 about how repository truth is formed, and dimension 3 about replica topology and operating consequences. The main overlap is between dimension 2, especially value 2.1 \"Consensus-before-action architecture,\" and dimension 3 values 3.1 \"Consensus-replicated repository architecture\" and 3.2 \"Consensus replication,\" which describe essentially the same consensus-based architectural choice. Consolidate these consensus alternatives in one dimension—preferably merge dimensions 2 and 3 or move the consensus values into a single truth/replication dimension—while retaining dimension 1 as the separate consistency-model question."
+        },
+        {
+          "name": "Clarity",
+          "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "Most dimensions state recognizable questions and many values are distinguishable, especially dimension 1's strong versus eventual consistency and dimension 3's stateful replicas, minimum counts, and cost outcomes. However, dimension 2 has overlapping values: 2.4 \"S3-backed write-ahead log\" is a specific implementation of 2.2 \"Log-first operation recording\" and should be merged into 2.2, while 2.3 \"Post hoc truth derivation\" should be renamed and described more explicitly as derived-state reconstruction to distinguish it from logging. In dimension 1, revise 1.2's description to define eventual consistency rather than asserting the consequence that it is unsuitable. In dimension 3, rename 3.2 \"Consensus replication\" to an explicit non-consensus alternative, and rename 3.4 \"Pet-style infrastructure\" to emphasize individually managed, non-fungible replicas so it is clearly distinct from 3.3."
+        },
+        {
+          "name": "Completeness",
+          "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.5,
+          "passed": true,
+          "reason": "Dimensions 1 (Consistency Model), 2 (Truth Formation Strategy), and 3 (Replica Topology) provide several candidate decisions for consistency, truth formation, and replica-related cost/correctness. However, the use case's major axis of where repository truth resides is not represented: values 2.1–2.4 describe recording or derivation mechanisms, not filesystem, object-store, server, or client-local authority. The distribution of compaction and maintenance is also missing; 3.9 Maintenance burden is only an outcome, not alternative maintenance strategies. Client-versus-server responsibility is likewise absent. Reorganize dimension 2 and its values 2.1–2.4 around the truth-location/formation question, and reorganize the maintenance-related outcomes under dimension 3 only if they can express existing alternative strategies; otherwise the current values cannot cover these areas without adding unsupported content."
+        },
+        {
+          "name": "Use case alignment",
+          "description": "Every dimension serves the stated use case; none is out of its scope.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All three dimensions are directly within the use case: Consistency Model covers client-visible consistency and correctness, Truth Formation Strategy covers consensus, operation logs, and the source of repository truth, and Replica Topology covers replica coordination, counts, statefulness, scaling, maintenance, and cost. These align with the specified architectural evolution and tradeoffs, including Spokes and Continuity/Origin. No dimension is out of scope or merely tangential."
+        },
+        {
+          "name": "No catch-alls",
+          "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "No catch-all buckets are present. The three dimensions—“Consistency Model,” “Truth Formation Strategy,” and “Replica Topology”—and their values describe specific architectural choices or outcomes rather than labels such as “Other,” “Miscellaneous,” or “General considerations.” No revision is needed for this criterion."
+        },
+        {
+          "name": "Axis vs. value",
+          "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "Most dimensions are valid decision axes, and the output appropriately represents Spokes-style consensus, Cursor's write-ahead log, consistency outcomes, and replica-management consequences. The main issue is in dimension 2, \"Truth Formation Strategy\": value 2.3, \"Post hoc truth derivation,\" is largely a consequence or phase of 2.2, \"Log-first operation recording,\" rather than a peer decision, while 2.4, \"S3-backed write-ahead log,\" is a concrete implementation of 2.2 rather than an independent alternative. Merge 2.3 and 2.4 into 2.2, retaining their details in its description."
+        },
+        {
+          "name": "One decision point",
+          "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.3,
+          "passed": false,
+          "reason": "Dimension 1, Consistency Model, is well formed: values 1.1 and 1.2 are competing answers to the same consistency question, while 1.3 and 1.4 are correctly marked outcomes. Dimension 2, Truth Formation Strategy, mixes distinct questions: 2.1 concerns consensus timing, 2.2 and 2.3 concern log/state derivation, and 2.4 is a specific storage implementation; reorganize these values into the existing decision points whose questions they answer rather than keeping one broad topic. Dimension 3, Replica Topology, is substantially overbroad: 3.1 and 3.2 address coordination, 3.3 addresses replica statefulness, 3.4 addresses infrastructure unit economics, and 3.5 addresses minimum replica count, with outcomes 3.6–3.11 spanning several of those axes. Move each value to the existing dimension matching its question, and merge sibling dimensions where applicable; do not split unless every resulting dimension retains at least two candidate decisions."
+        },
+        {
+          "name": "Rejected-alternative handling",
+          "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.8,
+          "passed": true,
+          "reason": "The taxonomy generally uses valid statuses and aligns descriptions with them: for example, 1.2 is clearly rejected, while 1.3 and 1.4 are properly framed as outcomes. The main violation is in dimension 3, where 3.1 \"Consensus-replicated repository architecture\" is accepted and 3.2 \"Consensus replication\" repeats the same candidate under rejected status. Drop 3.2 (or otherwise consolidate it with 3.1) so the candidate is not represented with conflicting statuses."
+        },
+        {
+          "name": "Dimensional coverage",
+          "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "The taxonomy covers decisions in cc5ed95d-1d81-4fcf-bad0-f3269609580d, 72d5f761-1e96-4e5a-af57-fa268bcd4ad7, c247d568-1470-4991-9451-5ff67b786cfb, 18a2da1f-7030-4d1d-a860-4a5be253833a, 25cb20eb-7213-4899-b11b-3659d18cd513, 12aba6bc-9210-4e75-ac35-c0cd36326bc0, 948d9850-f046-4afc-a14d-f93b93e2d791, and 3481b857-55e0-4d62-8101-1f49a92f1796 through consistency, truth formation, and replica topology. It cannot place 0ce1a233-ac78-4484-9890-f18af21860f0's AI-driven architecture choice, d8c24866-1355-4396-b1d7-6faac8b8116e's rejected distributed key-value store, 744b2d0b-5d83-499f-8805-11294f2f590d's rejected distributed filesystem, 5edb9c3e-f438-4564-9b9f-c9433a18867a's client virtualization, f4be69bf-ca35-4f97-844e-7b3931604a82's primary-only compaction tradeoff, or 71d49115-c7c5-4bf9-b3b6-588463e6a003's blob-storage-plus-relational-database alternative. Add a repository storage architecture dimension with values for distributed KV, distributed filesystem, and blob-plus-relational storage; add a client/server execution-placement value for client virtualization; and add a compaction-placement value under Replica Topology for primary-only compaction."
+        },
+        {
+          "name": "Candidate-decision coverage",
+          "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.5,
+          "passed": true,
+          "reason": "The taxonomy captures several central choices: strong versus eventual consistency (1.1, 1.2), consensus-before-action versus log-first truth formation (2.1–2.4), consensus-replicated Spokes (3.1), safe replica counts (3.5), and stateful/pet-style replicas. However, it misses several adopted or rejected options in the corpus: add a storage-substrate value such as “distributed key-value store for Git objects” to an appropriate dimension, supported by d8c24866-1355-4396-b1d7-6faac8b8116e; add “distributed filesystem underneath Git,” supported by 744b2d0b-5d83-499f-8805-11294f2f590d; add “blob storage plus relational database,” supported by 71d49115-c7c5-4bf9-b3b6-588463e6a003; add “client virtualization rather than server scaling,” supported by 5edb9c3e-f438-4564-9b9f-c9433a18867a; and add “primary-only compaction,” supported by f4be69bf-ca35-4f97-844e-7b3931604a82. These omissions leave many of the concrete alternatives discussed in the comparison and decision passages unnamed."
+        }
+      ],
+      "overall": 0.6799999999999999,
+      "model": "openai/gpt-5.6-luna",
+      "unavailable": false,
+      "view": "loop draft, pre-selection",
+      "iteration": 1,
+      "dimensions": 3
+    },
+    {
+      "criteria": [
+        {
+          "name": "Orthogonality",
+          "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.4,
+          "passed": false,
+          "reason": "Several dimensions are not cleanly separated. Dimensions 1, Consistency Model, and 2, Replica Coordination Strategy, overlap because the accepted values in 2 (2.1–2.3 and 2.5) are alternative mechanisms that directly express the strong consistency described by 1.1 and 1.5; merge 2 into 1 or move the coordination-specific values into a distinct mechanism axis. Dimensions 3, Repository Source-of-Truth Storage, and 4, State Derivation Strategy, also overlap around the WAL: 3.3 and 4.1–4.3 all describe the same log-based foundation, so move 3.3 to 4 and consolidate 4.1 and 4.3. Dimension 5, Replica Operations and Population, overlaps with 2 through stateful replicas and with the maintenance aspect of its own broad values; move 5.10–5.12 into a separate maintenance-placement question or merge them with the relevant existing dimension. Dimension 6 is comparatively distinct because it asks where virtualization responsibility resides."
+        },
+        {
+          "name": "Clarity",
+          "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.5,
+          "passed": true,
+          "reason": "The six dimensions generally state recognizable questions for Git-hosting scaling, and values such as filesystem storage (3.1), distributed object storage (3.2), WAL storage (3.3), and client-side virtualization (6.1) are distinguishable. However, dimension 2 has near-duplicate values 2.1, 2.2, 2.3, and 2.5, all describing consensus coordination; consolidate them into a single clearly scoped alternative and retain the rejected form 2.4 only if its distinction is explicit. Dimension 4 similarly overlaps: 4.1 and 4.3 both describe WAL/log-first recording, so merge them, leaving 4.2 as the contrasting derivation approach. In dimension 1, 1.1 and 1.5 substantially overlap, while broad outcomes 1.7 and 1.8 are difficult to distinguish from the general reliability/correctness claims; merge or sharpen these existing values around their specific effects. In dimension 5, vague outcomes 5.13 and 5.14 overlap with 5.5 and 5.8 and should be dropped or consolidated with those more specific outcomes."
+        },
+        {
+          "name": "Completeness",
+          "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All major use-case areas have decision points with multiple candidate decisions: source of truth in dimension 3 (six candidates), consistency and coordination in dimensions 1 and 2, replica population and operating tradeoffs in dimension 5 (including 5.1, 5.2, 5.3, and 5.10), and client/server responsibility in dimension 6 (6.1 and 6.2). State derivation and WAL-based approaches are also represented by multiple candidates in dimension 4. Outcomes such as stale state, cost, and maintenance burden are correctly distinct from candidate decisions. No shortcoming under this decision-point coverage criterion."
+        },
+        {
+          "name": "Use case alignment",
+          "description": "Every dimension serves the stated use case; none is out of its scope.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All six dimensions directly fit the use case: consistency and coordination cover replica correctness and latency; source-of-truth storage and state derivation cover filesystem, object-store, and WAL architectures; replica operations covers replica count, cost, correctness, and compaction/maintenance; and client-server responsibility covers GVFS/Scalar virtualization. The values also remain tied to the stated Git-hosting evolution, including GitHub, Google, Microsoft, and Cursor. No scope-related shortcomings require revision."
+        },
+        {
+          "name": "No catch-alls",
+          "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Most dimensions use specific architectural axes and avoid explicit 'Other' or 'Miscellaneous' buckets. However, dimension 5, 'Replica Operations and Population,' is a broad catch-all combining replica statefulness, population, maintenance placement, and operating costs; reorganize its existing values into narrower existing dimensions or drop the overly broad bucket. Value 5.14, 'Replica scaling tradeoff,' is a generic summary rather than a distinct decision or outcome and should be dropped. Value 6.4, 'Client-server responsibility allocation,' similarly restates a broad topic instead of providing a specific alternative or outcome and should be dropped."
+        },
+        {
+          "name": "Axis vs. value",
+          "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "The taxonomy largely uses valid decision dimensions for the Git-hosting scaling case, including source-of-truth storage (3), consistency (1), coordination (2), WAL derivation (4), and client/server responsibility (6). The main structural problem is dimension 5, \"Replica Operations and Population\": it combines several separate questions—replica statefulness and population (5.1–5.3), infrastructure fungibility and cost, and maintenance placement via \"Primary-only compaction\" (5.10). Reorganize dimension 5 around a single replica operating-model question and move or separately organize the compaction-placement content using the existing values. Also review 4.3, \"Write-ahead-log-based repository architecture,\" because it is a whole architecture and substantially duplicates 3.3 rather than being a distinct state-derivation alternative; merge or relocate it to the storage decision."
+        },
+        {
+          "name": "One decision point",
+          "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.5,
+          "passed": true,
+          "reason": "Dimensions 2, 3, 4, and 6 generally keep alternatives on a common axis: consensus coordination, repository truth storage, state derivation, and client-versus-server responsibility, covering Spokes, filesystem/object-store approaches, Cursor's WAL, and GVFS/Scalar. However, dimension 5, \"Replica Operations and Population,\" combines distinct questions: replica statefulness (5.1), infrastructure individuality (5.2), required replica count (5.3), and compaction placement (5.10). Split it only where each resulting dimension retains at least two candidate decisions; otherwise move or drop the odd values rather than treating this as one decision point. Dimension 1 also mixes consistency models (1.1 and 1.2) with a priority statement (1.5); remove 1.5 or reorganize it into an existing decision question it actually answers. These broad-topic mixtures substantially weaken the taxonomy even though every dimension has at least two non-outcome candidates."
+        },
+        {
+          "name": "Rejected-alternative handling",
+          "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.6,
+          "passed": true,
+          "reason": "Most values use valid statuses and their descriptions generally match: rejected options such as 1.2, 2.4, 3.4, and 6.2 are described as declined, while outcomes such as 1.6 and 5.5 describe effects. The main violation is in dimension 2, Replica Coordination Strategy: 2.2, 2.3, and 2.5 duplicate the consensus-replication decision while 2.4 presents the same decision as rejected. Merge the accepted consensus values into one candidate and remove or consolidate 2.4 so the decision does not occur under conflicting statuses. Also revise or relocate 6.4, Client-server responsibility allocation, because its description states an axis of variation rather than an effect despite its outcome status."
+        },
+        {
+          "name": "Dimensional coverage",
+          "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All decision-bearing passages can be placed under the taxonomy: storage alternatives and choices map to dimension 3 (including distributed key-value storage, distributed filesystem, blob-plus-relational storage, and S3 WAL); consensus versus log-first designs map to dimensions 1, 2, and 4; client virtualization maps to dimension 6; and replica count, compaction, cost, and pet-style operations map to dimension 5. The passages on eventual consistency, tail latency, and the historical evolution of Git hosting are also covered by the corresponding accepted, rejected, and outcome values. No unplaceable decision-bearing passage or concrete taxonomy change is evident."
+        },
+        {
+          "name": "Candidate-decision coverage",
+          "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "No shortcoming identified. The taxonomy names the specific adopted and rejected options across the decision passages, including Cursor's S3-backed write-ahead log (cc5ed95d-1d81-4fcf-bad0-f3269609580d), distributed key-value and filesystem alternatives (d8c24866-1355-4396-b1d7-6faac8b8116e; 744b2d0b-5d83-499f-8805-11294f2f590d), blob storage with a relational database (71d49115-c7c5-4bf9-b3b6-588463e6a003), Spokes' consensus replicas and related tradeoffs (72d5f761-1e96-4e5a-af57-fa268bcd4ad7; 18a2da1f-7030-4d1d-a860-4a5be253833a), client-side virtualization (5edb9c3e-f438-4564-9b9f-c9433a18867a), primary-only compaction (f4be69bf-ca35-4f97-844e-7b3931604a82), minimum replica population (c247d568-1470-4991-9451-5ff67b786cfb), and eventual consistency's rejection for Git clients (12aba6bc-9210-4e75-ac35-c0cd36326bc0)."
+        }
+      ],
+      "overall": 0.7299999999999999,
+      "model": "openai/gpt-5.6-luna",
+      "unavailable": false,
+      "view": "loop draft, pre-selection",
+      "iteration": 2,
+      "dimensions": 6
+    },
+    {
+      "criteria": [
+        {
+          "name": "Orthogonality",
+          "description": "Every dimension is a distinct decision point: no two dimensions ask the same question, and no dimension's candidate decisions are really options of another dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Most dimensions ask different questions: consistency/coordination (1), storage substrate (2), replica lifecycle and maintenance (4), and client-versus-server responsibility (5) are generally separable. The main overlap is between dimension 3, \"Repository State Derivation,\" and dimension 2, \"Repository Storage Substrate\": value 3.3, \"S3-backed write-ahead log,\" is a storage-substrate answer and should be moved to dimension 2 or reframed as a purely temporal derivation choice. Dimension 3 also partially overlaps dimension 1 because \"Log-first operation recording\" and \"Consensus-before-action architecture\" both classify when operations become authoritative relative to action; rename or restructure dimension 3 to focus strictly on derivation timing and move mechanism-specific values out of it."
+        },
+        {
+          "name": "Clarity",
+          "description": "Dimension names and descriptions make the decision question clear, and value labels and descriptions make the alternatives distinguishable, so a reader could tell which dimension and value a passage about a design decision belongs to.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.4,
+          "passed": false,
+          "reason": "Several dimensions are understandable, but important axes and values are overloaded or indistinguishable. Dimension 1, \"Replica Consistency and Coordination,\" asks both about client-visible guarantees and coordination mechanisms; values 1.1, 1.3, 1.4, and 1.5 substantially overlap. Split it into separate guarantee and coordination questions, moving each existing value to the applicable dimension. Dimension 4, \"Replica Lifecycle and Operations,\" combines statefulness, replica identity, replica count, replacement, scaling, and compaction; split or reorganize it into narrower questions using its existing values. Dimension 3, \"Repository State Derivation,\" also mixes temporal derivation semantics with the specific S3 implementation: 3.1 and 3.2 are not clearly distinct, while 3.3 does not describe the same level of alternative. Rename or split the dimension so the derivation alternatives are separated from the S3-backed implementation. Dimension 5.4 repeats the dimension name and is too broad to distinguish a specific outcome; rename it to state the concrete responsibility-allocation effect."
+        },
+        {
+          "name": "Completeness",
+          "description": "The taxonomy contains the major decision points implied by the use case, each with its main candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All major decision areas in the use case have decision points with multiple candidate decisions: dimension 2 (Repository Storage Substrate) covers source-of-truth alternatives such as filesystem and distributed object-store hosting; dimension 1 (Replica Consistency and Coordination) covers strong, eventual, and consensus-based approaches; dimension 4 (Replica Lifecycle and Operations) covers replica count, statefulness, and primary-only compaction; dimension 5 (Client-Server Responsibility Allocation) contrasts client-side virtualization with server-side redesign; and dimension 3 (Repository State Derivation) covers log-first and post hoc derivation approaches. No major area lacks a multi-candidate decision point, so no reorganization is required under this criterion."
+        },
+        {
+          "name": "Use case alignment",
+          "description": "Every dimension serves the stated use case; none is out of its scope.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All five dimensions are within the use-case scope: 1 covers replica consistency and consensus, 2 covers filesystem, object-store, and other repository source-of-truth substrates, 3 covers Continuity/Origin's write-ahead-log and state derivation, 4 covers replica count, statefulness, cost, replacement, and compaction maintenance, and 5 covers GVFS/Scalar's client-versus-server responsibility split. No dimension is out of scope or merely tangential, so no reorganization is needed for this criterion."
+        },
+        {
+          "name": "No catch-alls",
+          "description": "No dimension or value is a vague catch-all ('Other', 'Miscellaneous', 'General', 'Other approaches').",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Most dimensions are specific architectural axes, and there are no explicit labels such as 'Other' or 'Miscellaneous'. However, dimension 4, 'Replica Lifecycle and Operations', is a catch-all: its description bundles statefulness, individuality, population, replacement, scaling, placement of maintenance, and several unrelated outcomes. Reorganize dimension 4 by separating the existing replica-model values (4.1–4.3) from maintenance-placement values such as 4.4, using more focused dimension names rather than the broad 'Lifecycle and Operations' bucket."
+        },
+        {
+          "name": "Axis vs. value",
+          "description": "Each dimension is a decision point with alternatives, not a single option presented as a dimension; each value is an option, not a sub-topic.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.4,
+          "passed": false,
+          "reason": "The taxonomy captures several relevant axes, especially storage substrate for GitHub's filesystem experiments and Google's object-store attempt, and client/server responsibility for GVFS/Scalar. However, dimension 1, \"Replica Consistency and Coordination,\" combines two decisions—client-visible consistency guarantees and replica-agreement mechanisms—so it should be split into separate consistency and coordination dimensions, moving values 1.4–1.6 to the latter. Dimension 4, \"Replica Lifecycle and Operations,\" bundles replica statefulness, replica population, and maintenance placement; reorganize 4.1–4.3 under a replica lifecycle/population question and remove or relocate 4.4, \"Primary-only compaction,\" because it answers a separate maintenance-placement question. Value 3.3, \"S3-backed write-ahead log,\" is a concrete storage/durability implementation rather than an answer to the state-derivation question; move it to the storage/source-of-truth dimension. These structural issues obscure the distinctions between Spokes consensus replication and Continuity/Origin's WAL-based approach."
+        },
+        {
+          "name": "One decision point",
+          "description": "Each dimension is a single decision point: all its candidate decisions are alternative answers to one question, rather than a broad topic bundling several questions. Where the use case names quality attributes or forces, dimensions whose choice is driven by recognizable quality attributes or trade-offs are preferred (quality-attribute grounding).",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.4,
+          "passed": false,
+          "reason": "Dimensions 2, Repository Storage Substrate, and 5, Client-Server Responsibility Allocation, are coherent and each has at least two candidate decisions relevant to the filesystem/object-store and GVFS/Scalar alternatives. However, dimension 1, Replica Consistency and Coordination, mixes client-visible guarantees (1.1, 1.2), priorities (1.3), coordination mechanisms (1.4, 1.5), and historical replacement (1.6); split it into guarantee and coordination questions, moving 1.3 to the question it actually answers. Dimension 4, Replica Lifecycle and Operations, combines statefulness, pet infrastructure, replica count, and compaction placement; retain 4.1-4.3 under a clearly scoped replica-management question and move 4.4 to a maintenance/compaction decision point, or reorganize these values so each resulting question has at least two candidates. Dimension 3, Repository State Derivation, mostly addresses log-first versus post hoc derivation, but 3.3 is a specific S3 implementation rather than an alternative answer; merge it with the log-first value or move it to the storage-substrate decision. These mixed questions substantially weaken the requested orthogonal decision-point taxonomy despite the strong storage and responsibility dimensions."
+        },
+        {
+          "name": "Rejected-alternative handling",
+          "description": "For each candidate decision, the taxonomy makes clear whether sources adopted it, rejected it, or disagree (status 'accepted', 'rejected' or 'mixed'); a rejected alternative is never presented as adopted; each candidate decision appears once with its stance; outcomes (status 'outcome') are kept apart from candidate decisions.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 0.7,
+          "passed": true,
+          "reason": "Most values use valid statuses, and rejected candidates such as 1.2, 2.3, 2.4, and 5.2 are not described as adopted; outcomes are generally expressed as effects. However, dimension 1 duplicates the consensus-replication decision in 1.5 (accepted) and 1.6 (mixed); merge them and retain one status. The mixed descriptions for 1.6 and 2.5 state that the approaches were replaced or rejected, so revise them to acknowledge disagreement or use a non-mixed status. In dimension 5, outcome 5.4 is phrased as the alternative allocation decision itself rather than an effect; drop it or move/merge it with the candidate decisions 5.1 and 5.2."
+        },
+        {
+          "name": "Dimensional coverage",
+          "description": "Every sampled passage that discusses a design decision can be placed under at least one decision point (dimension) of the taxonomy.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "All decision-bearing passages can be placed under the taxonomy. The Git storage alternatives in d8c24866, 744b2d0b, and 71d49115 map to dimension 2; the Cursor WAL and state-derivation decisions in cc5ed95d and 948d9850 map to dimension 3; Spokes consistency, latency, and replica tradeoffs in 72d5f761, 18a2da1f, f4be69bf, and c247d568 map to dimensions 1 and 4; and Microsoft's client virtualization in 5edb9c3e maps to dimension 5. The lessons and evolution passages are likewise covered by the corresponding accepted values and outcomes. No coverage shortcoming was identified."
+        },
+        {
+          "name": "Candidate-decision coverage",
+          "description": "The options that the sampled passages adopt or reject are named as values (candidate decisions) of the right dimension.",
+          "threshold": 0.5,
+          "evaluated": true,
+          "score": 1.0,
+          "passed": true,
+          "reason": "No material shortcomings found. The taxonomy names the specific adopted and rejected options across the decision passages: S3-backed write-ahead logging (3.3), consensus and eventual consistency alternatives (1.1–1.6), filesystem, object-store, blob-plus-relational, distributed-filesystem, and distributed-key-value storage (2.1–2.5), primary-only compaction and minimum replica count (4.3–4.4), and client-side Git virtualization versus server redesign (5.1–5.2). The remaining passages are background, tradeoff, or outcome discussions whose concrete options are likewise represented."
+        }
+      ],
+      "overall": 0.7300000000000001,
+      "model": "openai/gpt-5.6-luna",
+      "unavailable": false,
+      "view": "final view",
+      "iteration": 4,
+      "dimensions": 5
+    }
+  ]
+}

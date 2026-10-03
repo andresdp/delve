@@ -35,11 +35,20 @@ async def _code_single_doc(chain, doc_id: str, content: str, semaphore: asyncio.
         return await chain.ainvoke({"doc_id": doc_id, "content": content})
 
 
-def _doc_input(doc) -> str:
-    """Prefer the summary (when present) over raw content, as axial coding does."""
+def _doc_input(doc, source: str = "summary") -> str:
+    """Return the text to open-code for one document.
+
+    ``source="summary"`` prefers the summary (when present) over raw content,
+    as axial coding does; ``source="content"`` always codes the full text, so
+    codes stay grounded in the source even when summarization is on.
+    """
     if isinstance(doc, dict):
-        return doc.get("summary") or doc.get("content", "")
-    return doc.summary or doc.content or ""
+        summary, content = doc.get("summary"), doc.get("content", "")
+    else:
+        summary, content = doc.summary, doc.content or ""
+    if source == "content":
+        return content or summary or ""
+    return summary or content
 
 
 async def open_code_minibatch(
@@ -57,9 +66,10 @@ async def open_code_minibatch(
     mb_indices = state.minibatches[batch_idx]
     minibatch = [state.documents[idx] for idx in mb_indices]
 
+    source = configuration.open_coding_input or "summary"
     logger.info(
-        "Open coding minibatch %d/%d (%d documents, model: %s)",
-        batch_idx + 1, len(state.minibatches), len(minibatch), configuration.fast_llm,
+        "Open coding minibatch %d/%d (%d documents, input: %s, model: %s)",
+        batch_idx + 1, len(state.minibatches), len(minibatch), source, configuration.fast_llm,
     )
 
     chain = _setup_open_coding_chain(configuration)
@@ -69,7 +79,7 @@ async def open_code_minibatch(
         _code_single_doc(
             chain,
             doc["id"] if isinstance(doc, dict) else doc.id,
-            _doc_input(doc),
+            _doc_input(doc, source),
             semaphore,
         )
         for doc in minibatch

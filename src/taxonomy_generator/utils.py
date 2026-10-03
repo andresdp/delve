@@ -1,7 +1,7 @@
 """Shared helpers: model loading, prompt formatting, and merge math."""
 import json
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 from langchain.chat_models import init_chat_model
@@ -213,41 +213,86 @@ def format_taxonomy(clusters: List[Dict[str, str]], include_values: bool = True)
     return json.dumps(items, indent=2)
 
 
-def format_evaluation_summary(scoreboard: Dict) -> str:
-    """Format an evaluation scoreboard into a short, actionable feedback section.
+MAX_FEEDBACK_CRITERIA = 5
+MAX_REASON_CHARS = 700
 
-    Sorts scored criteria weakest-first so the model sees what to prioritize
-    first. Criteria marked ``"evaluated": False`` (no documents available for
-    a data-grounded criterion) are excluded — they carry no score to act on.
+
+def _shorten(text: str, limit: int) -> str:
+    text = " ".join((text or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0]
+    return f"{cut} …"
+
+
+def format_evaluation_summary(scoreboard: Dict, exclude: Iterable[str] = ()) -> str:
+    """Format an evaluation scoreboard as actionable feedback for the next pass.
+
+    Criteria below the pass threshold come first, weakest first, each with the
+    judge's reason, which names the dimensions/values at fault and the change
+    that fixes them (see ``evaluation/metrics.py``). At most
+    ``MAX_FEEDBACK_CRITERIA`` reasons are included, each shortened to
+    ``MAX_REASON_CHARS``. When every criterion passes, the weakest one's reason
+    is still given. Passing criteria are listed by score only, to be preserved.
+    Criteria marked ``"evaluated": False`` (no documents for a data-grounded
+    criterion) are excluded — they carry no score to act on — and so are the
+    criteria named in ``exclude`` (scored and reported, but not fed back).
 
     Args:
         scoreboard: A scoreboard dict per ``evaluation/runner.py::run_scoreboard``
             (``{"criteria": [...], "overall": ..., "model": ..., "unavailable": ...}``).
+        exclude: Names of criteria to leave out of the feedback.
 
     Returns:
         A multi-line feedback section, or ``""`` if there is nothing scored.
     """
-    criteria = [c for c in scoreboard.get("criteria", []) if c.get("evaluated") is not False]
+    excluded = set(exclude or ())
+    criteria = [
+        c for c in scoreboard.get("criteria", [])
+        if c.get("evaluated") is not False and isinstance(c.get("score"), (int, float))
+        and c.get("name") not in excluded
+    ]
     if not criteria:
         return ""
 
-    criteria = sorted(criteria, key=lambda c: c.get("score") if c.get("score") is not None else 1.0)
+    criteria = sorted(criteria, key=lambda c: c["score"])
+    threshold = criteria[0].get("threshold")
+    if not isinstance(threshold, (int, float)):
+        threshold = 0.5
+    failing = [c for c in criteria if c["score"] < threshold]
+    to_fix = (failing or criteria[:1])[:MAX_FEEDBACK_CRITERIA]
+    also_failing = [c for c in failing if c not in to_fix]
+    to_keep = [c for c in criteria if c not in to_fix and c not in failing]
+
     overall = scoreboard.get("overall")
     overall_str = f"{overall:.2f}" if isinstance(overall, (int, float)) else "n/a"
-
-    lines = [f"Automated evaluation summary for the current taxonomy (overall {overall_str}):"]
-    for criterion in criteria:
-        score = criterion.get("score")
-        score_str = f"{score:.2f}" if isinstance(score, (int, float)) else "n/a"
-        lines.append(f"- {criterion.get('name', 'Unnamed criterion')}: {score_str}")
-    lines.append(
-        "Please prioritize improving the lowest-scoring criteria above, "
-        "while preserving dimensions that already score well."
-    )
+    lines = [
+        f"Automated evaluation summary for the current taxonomy (overall {overall_str}, "
+        f"pass threshold {threshold:.2f}).",
+        "These issues concern the existing taxonomy, not the new data: fix them in this pass "
+        "even if the new documents do not show them. Apply the concrete changes named below "
+        "(split, merge, move values, rename, add, drop) when they are consistent with the "
+        "data seen so far; move supported values rather than deleting them. Never add a "
+        "dimension or value that no open code supports, even when an issue asks for it.",
+        "Issues to fix (weakest criterion first):",
+    ]
+    for criterion in to_fix:
+        name = criterion.get("name", "Unnamed criterion")
+        reason = _shorten(criterion.get("reason", ""), MAX_REASON_CHARS)
+        line = f"- {name}: {criterion['score']:.2f}"
+        if reason:
+            line += f". Judge: {reason}"
+        lines.append(line)
+    if also_failing:
+        rest = ", ".join(f"{c.get('name', 'Unnamed criterion')} {c['score']:.2f}" for c in also_failing)
+        lines.append(f"Also below the threshold (address after the issues above): {rest}.")
+    if to_keep:
+        kept = ", ".join(f"{c.get('name', 'Unnamed criterion')} {c['score']:.2f}" for c in to_keep)
+        lines.append(f"Passing criteria (preserve what they reward): {kept}.")
     return "\n".join(lines)
 
 
-def format_feedback(state: State) -> str:
+def format_feedback(state: State, exclude_criteria: Iterable[str] = ()) -> str:
     """Format feedback from state into a string for taxonomy prompts.
 
     Merges all feedback channels when present, in order: external feedback
@@ -263,6 +308,8 @@ def format_feedback(state: State) -> str:
 
     Args:
         state: Current pipeline state.
+        exclude_criteria: Evaluation criteria left out of the feedback
+            (``evaluation.feedback_exclude``).
 
     Returns:
         Formatted feedback string.
@@ -282,8 +329,13 @@ def format_feedback(state: State) -> str:
 
     history = getattr(state, "evaluation_history", None)
     latest_evaluation = history[-1] if history else None
-    if latest_evaluation and not latest_evaluation.get("unavailable"):
-        evaluation_section = format_evaluation_summary(latest_evaluation)
+    # Only a scoreboard of the current draft is actionable: with
+    # evaluation.every_n_iterations > 1 the latest one may describe an older
+    # draft whose ids and structure no longer exist.
+    scored_iteration = (latest_evaluation or {}).get("iteration")
+    current = scored_iteration is None or scored_iteration == len(state.clusters or [])
+    if latest_evaluation and current and not latest_evaluation.get("unavailable"):
+        evaluation_section = format_evaluation_summary(latest_evaluation, exclude_criteria)
         if evaluation_section:
             parts.append(evaluation_section)
 
@@ -292,16 +344,56 @@ def format_feedback(state: State) -> str:
     return "\n".join(parts)
 
 
-def load_seed_taxonomy(path: str) -> List[Dict]:
+SEED_VIEWS = ("auto", "selected", "final")
+
+
+def resolve_seed_view(view: str | None, mode: str | None) -> str:
+    """Which view of a saved taxonomy seeds a run: ``"selected"`` or ``"final"``.
+
+    ``auto`` (default) uses the selected view in test mode, since that is the
+    design space a run reports (the final iteration still holds dimensions that
+    selection dropped), and the final iteration in train mode, where refinement
+    starts from the full taxonomy (the bootstrap decision).
+    """
+    view = view or "auto"
+    if view not in SEED_VIEWS:
+        raise ValueError(f"taxonomy_input_view must be one of {SEED_VIEWS}, got {view!r}")
+    if view == "auto":
+        return "selected" if mode == "test" else "final"
+    return view
+
+
+def _prune_relations(clusters: List[Dict]) -> List[Dict]:
+    """Drop relations whose target dimension is not in ``clusters``."""
+    ids = {str(c.get("id")) for c in clusters}
+    pruned = []
+    for cluster in clusters:
+        cluster = dict(cluster)
+        if cluster.get("relations"):
+            cluster["relations"] = [
+                r for r in cluster["relations"]
+                if not isinstance(r, dict) or str(r.get("target_id")) in ids
+            ]
+        pruned.append(cluster)
+    return pruned
+
+
+def load_seed_taxonomy(path: str, view: str = "final") -> List[Dict]:
     """Load a saved taxonomy JSON as the clusters of a starting taxonomy.
 
     Accepts either the format written by ``--output`` (a dict with an
-    ``iterations`` list — the **final** iteration's clusters are loaded and
-    ``selected_clusters`` is deliberately ignored, per the bootstrap decision)
-    or a bare list of cluster dicts.
+    ``iterations`` list) or a bare list of cluster dicts. For the dict format,
+    ``view`` picks the clusters (see ``resolve_seed_view``):
+
+    - ``"final"``: the final iteration's clusters (all dimensions, including
+      those that dimension selection dropped);
+    - ``"selected"``: ``selected_clusters`` (the reported design space), with
+      relations to dropped dimensions removed; falls back to the final
+      iteration, with a warning, when the file has no selected view.
 
     Args:
         path: Path to the saved taxonomy JSON file.
+        view: ``"final"`` or ``"selected"``.
 
     Returns:
         List[Dict]: The cluster list to seed the run with.
@@ -328,8 +420,16 @@ def load_seed_taxonomy(path: str) -> List[Dict]:
                 f"Taxonomy input file has no iterations: {path} "
                 "(expected an 'iterations' list or a bare cluster list)"
             )
-        clusters = iterations[-1].get("clusters") or []
-        source = f"iteration {len(iterations)} (final)"
+        if view == "selected" and data.get("selected_clusters"):
+            clusters = _prune_relations(data["selected_clusters"])
+            source = "selected view"
+        else:
+            if view == "selected":
+                logger.warning(
+                    "Taxonomy input %s has no selected view; using its final iteration instead", path
+                )
+            clusters = iterations[-1].get("clusters") or []
+            source = f"iteration {len(iterations)} (final)"
     else:
         raise ValueError(
             f"Taxonomy input file is malformed: {path} "
@@ -410,6 +510,138 @@ def connected_components(num_nodes: int, edges: List[Tuple[int, int]]) -> List[L
     return [sorted(members) for members in groups.values()]
 
 
+def ensure_unique_ids(clusters: List[Dict]) -> Tuple[List[Dict], List[str]]:
+    """Give every dimension a unique id and every value a unique ``<dim>.<n>`` id.
+
+    The LLM assigns ids while rewriting the taxonomy, and can reuse one (two
+    different dimensions both numbered ``37``). Downstream steps key on ids
+    (consolidation looks values up by id, the labeler returns a dimension id,
+    relations point at ids), so a collision silently mixes two dimensions.
+
+    The first dimension keeps a duplicated id; later ones get the next free
+    numeric id (or ``<id>-<k>`` for non-numeric ids). Values of a renamed
+    dimension are re-prefixed, and duplicate value ids within a dimension are
+    renumbered. Relations keep pointing at the first holder of an id.
+
+    Returns:
+        The fixed clusters (new dicts; the input is not mutated) and a list of
+        human-readable change notes (empty when nothing changed).
+    """
+    dims = [c for c in clusters or [] if isinstance(c, dict)]
+    numeric = [int(c["id"]) for c in dims if str(c.get("id", "")).isdigit()]
+    next_id = max(numeric, default=0) + 1
+    seen_dims: set = set()
+    changes: List[str] = []
+    fixed: List[Dict] = []
+    for cluster in clusters or []:
+        if not isinstance(cluster, dict):
+            fixed.append(cluster)
+            continue
+        cluster = dict(cluster)
+        old_id = str(cluster.get("id", "")).strip() or str(next_id)
+        new_id = old_id
+        if new_id in seen_dims:
+            if old_id.isdigit():
+                new_id = str(next_id)
+                next_id += 1
+            else:
+                k = 2
+                while f"{old_id}-{k}" in seen_dims:
+                    k += 1
+                new_id = f"{old_id}-{k}"
+            changes.append(f"dimension '{cluster.get('name', '?')}' id {old_id} -> {new_id} (duplicate)")
+        seen_dims.add(new_id)
+        cluster["id"] = new_id
+
+        values, seen_values = [], set()
+        for value in cluster.get("values") or []:
+            if not isinstance(value, dict):
+                values.append(value)
+                continue
+            value = dict(value)
+            vid = str(value.get("id", ""))
+            suffix = vid.split(".", 1)[1] if "." in vid else ""
+            candidate = f"{new_id}.{suffix}" if suffix else ""
+            if not candidate or candidate in seen_values:
+                n = 1
+                while f"{new_id}.{n}" in seen_values:
+                    n += 1
+                candidate = f"{new_id}.{n}"
+            if candidate != vid:
+                changes.append(f"value '{value.get('label', '?')}' id {vid or '(none)'} -> {candidate}")
+            seen_values.add(candidate)
+            value["id"] = candidate
+            value["dimension_id"] = new_id
+            values.append(value)
+        if "values" in cluster:
+            cluster["values"] = values
+        fixed.append(cluster)
+    return fixed, changes
+
+
+# Provenance fields the update/review prompts never show: evidence linking
+# rebuilds them from the open codes after the loop, and re-emitting them made
+# every full-taxonomy rewrite long enough that the model dropped values.
+PROVENANCE_FIELDS = (
+    "supporting_doc_ids", "stances", "evidence", "evidence_code_count",
+    "merged_from", "unsupported_values",
+)
+
+
+def taxonomy_prompt_view(clusters: List[Dict]) -> List[Dict]:
+    """The taxonomy without provenance fields, for prompts that rewrite it."""
+    view = []
+    for cluster in clusters or []:
+        if not isinstance(cluster, dict):
+            view.append(cluster)
+            continue
+        cluster = {k: v for k, v in cluster.items() if k not in PROVENANCE_FIELDS}
+        if cluster.get("values"):
+            cluster["values"] = [
+                {k: v for k, v in value.items() if k not in PROVENANCE_FIELDS}
+                if isinstance(value, dict) else value
+                for value in cluster["values"]
+            ]
+        view.append(cluster)
+    return view
+
+
+def _value_key(label: str) -> str:
+    return " ".join("".join(ch if ch.isalnum() else " " for ch in (label or "").lower()).split())
+
+
+def carry_over_evidence(previous: List[Dict], updated: List[Dict]) -> List[Dict]:
+    """Restore the supporting documents of values the model kept.
+
+    The model sees existing values without their document ids, so it only
+    cites documents of the new batch. A kept value is recognized by its label
+    (normalized), or else by its id within a dimension of the same name; its
+    previous ids are unioned back in. Mutates and returns ``updated``.
+    """
+    by_label: Dict[str, set] = {}
+    by_id: Dict[Tuple[str, str], set] = {}
+    for cluster in previous or []:
+        if not isinstance(cluster, dict):
+            continue
+        for value in cluster.get("values") or []:
+            if not isinstance(value, dict):
+                continue
+            ids = set(value.get("supporting_doc_ids") or [])
+            by_label.setdefault(_value_key(value.get("label", "")), set()).update(ids)
+            by_id.setdefault((cluster.get("name", ""), str(value.get("id"))), set()).update(ids)
+    for cluster in updated or []:
+        if not isinstance(cluster, dict):
+            continue
+        for value in cluster.get("values") or []:
+            if not isinstance(value, dict):
+                continue
+            kept = by_label.get(_value_key(value.get("label", "")))
+            if kept is None:
+                kept = by_id.get((cluster.get("name", ""), str(value.get("id"))), set())
+            value["supporting_doc_ids"] = sorted(set(value.get("supporting_doc_ids") or []) | kept)
+    return updated
+
+
 async def invoke_taxonomy_chain(
     chain: Runnable,
     state: State,
@@ -434,7 +666,7 @@ async def invoke_taxonomy_chain(
             data_json = format_docs(minibatch)
 
         previous_taxonomy = state.clusters[-1] if state.clusters else []
-        taxonomy_json = format_taxonomy(previous_taxonomy)
+        taxonomy_json = format_taxonomy(taxonomy_prompt_view(previous_taxonomy))
 
         logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(minibatch))
         # When max_num_clusters is None, let the LLM determine the count from data
@@ -458,7 +690,10 @@ async def invoke_taxonomy_chain(
         )
 
         # Convert Pydantic model to dict list for state
-        clusters_list = [c.model_dump() for c in result.clusters]
+        clusters_list, id_changes = ensure_unique_ids([c.model_dump() for c in result.clusters])
+        clusters_list = carry_over_evidence(previous_taxonomy, clusters_list)
+        if id_changes:
+            logger.warning("Fixed %d duplicate taxonomy ids: %s", len(id_changes), "; ".join(id_changes))
         num_clusters = len(clusters_list)
         logger.debug("Taxonomy chain returned %d clusters", num_clusters)
         return {

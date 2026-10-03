@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import yaml
 
@@ -55,6 +55,9 @@ class PipelineSettings:
     # Required for test mode; in train mode it seeds refinement instead of
     # generating from scratch. None = generate from scratch (today's behavior).
     taxonomy_input: Optional[str] = None
+    # Which view of taxonomy_input seeds the run: "auto" (selected view in test
+    # mode, final iteration in train mode), "selected" or "final".
+    taxonomy_input_view: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -75,15 +78,49 @@ class TaxonomySettings:
     saturation_streak_threshold: int = 2
     # Embedding-distance cutoff (Euclidean on L2-normalized vectors) below which
     # two values within the same dimension are merged automatically.
-    value_merge_distance_threshold: float = 0.2
+    value_merge_distance_threshold: float = 0.35
     # Distance band above the threshold routed to LLM adjudication instead of
     # auto-merge or auto-reject.
-    value_merge_borderline_band: float = 0.08
+    value_merge_borderline_band: float = 0.40
     # When False, value consolidation is disabled: the consolidate_values node
     # passes the reviewed taxonomy through unchanged (no embeddings, no LLM
     # adjudication), and visualization places all values of a dimension at a
     # unitary distance on the dimension axis.
     consolidate_values: bool = True
+    # Let accepted and rejected values merge when they name the same candidate
+    # decision (one source adopts it, another rejects it); the merged value keeps
+    # both stances as evidence and gets status "mixed". False = values only merge
+    # within their exact status.
+    merge_value_stances: bool = True
+    # Deterministic evidence linking after consolidation: assign every open code
+    # to its most similar value (same decision status) and record the supporting
+    # documents on that value, instead of relying on ids the LLM copied forward.
+    link_evidence: bool = True
+    # Minimum cosine similarity (L2-normalized embeddings) for a code to count as
+    # evidence for a value. Calibrated for openai/text-embedding-3-small.
+    evidence_min_similarity: float = 0.5
+    # Remove values no document supports after evidence linking (kept inspectable
+    # on their dimension as ``unsupported_values``).
+    drop_unsupported_values: bool = True
+    # Merge near-duplicate dimensions (same design decision under different
+    # names) before value consolidation: automatic below the distance threshold,
+    # LLM-judged within the band above it.
+    merge_dimensions: bool = False
+    dimension_merge_distance_threshold: float = 0.45
+    dimension_merge_borderline_band: float = 0.45
+    # Drop (with a recorded rationale) dimensions whose evidence comes from fewer
+    # than this many sources. 0 disables the rule.
+    min_dimension_sources: int = 0
+    # Drop (with a recorded rationale) dimensions with fewer than this many
+    # candidate decisions (accepted/rejected values; outcomes do not count).
+    # 0 disables the rule.
+    min_candidate_decisions: int = 0
+    # Saturation tolerance: a minibatch also counts as saturated when at least this
+    # share of its open codes is covered. 1.0 = strict (every relevant code covered).
+    saturation_min_coverage: float = 1.0
+    # Minimum share of the corpus's documents that must be open-coded before
+    # saturation may end the update loop (0 = saturation alone decides).
+    saturation_min_corpus_fraction: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -110,6 +147,20 @@ class SummarizationSettings:
     summary_length: int = 20
     explanation_length: int = 30
     max_concurrency: int = 5
+
+
+@dataclass(frozen=True)
+class OpenCodingSettings:
+    """Open coding parameters."""
+
+    # What the open coder reads per document: "summary" (the summarization
+    # output, falling back to content when absent — the original behavior) or
+    # "content" (the full document text, so codes stay grounded in the source
+    # even when summarization is on).
+    input: str = "summary"
+
+
+OPEN_CODING_INPUTS = ("summary", "content")
 
 
 @dataclass(frozen=True)
@@ -172,6 +223,17 @@ class EvaluationSettings:
     consistency_borderline_band: float = 0.08
     # Max documents sampled for the data-grounded coverage criterion.
     max_documents: int = 20
+    # Save every scoreboard of a run (taxonomy JSON "evaluation_history") and
+    # show the scores across iterations. The loop's feedback uses the scores
+    # either way.
+    save_history: bool = True
+    # Criteria scored and reported but not fed back to update/review. Completeness
+    # is judged against the use case alone (the judge sees no data), so in the
+    # loop it pushes for use-case topics the corpus may not support.
+    feedback_exclude: Tuple[str, ...] = ("Completeness",)
+    # Score the loop's drafts every N iterations (1 = every iteration). The
+    # draft of the last minibatch and the final view are always scored.
+    every_n_iterations: int = 1
 
 
 @dataclass(frozen=True)
@@ -182,6 +244,7 @@ class Settings:
     pipeline: PipelineSettings = field(default_factory=PipelineSettings)
     taxonomy: TaxonomySettings = field(default_factory=TaxonomySettings)
     summarization: SummarizationSettings = field(default_factory=SummarizationSettings)
+    open_coding: OpenCodingSettings = field(default_factory=OpenCodingSettings)
     labeling: LabelingSettings = field(default_factory=LabelingSettings)
     feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
     output: OutputSettings = field(default_factory=OutputSettings)
@@ -209,6 +272,7 @@ def _build_pipeline(raw: dict) -> PipelineSettings:
         random_seed=raw.get("random_seed", PipelineSettings.random_seed),
         mode=raw.get("mode", PipelineSettings.mode),
         taxonomy_input=raw.get("taxonomy_input", PipelineSettings.taxonomy_input),
+        taxonomy_input_view=raw.get("taxonomy_input_view", PipelineSettings.taxonomy_input_view),
     )
 
 
@@ -238,6 +302,23 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
             "value_merge_borderline_band", TaxonomySettings.value_merge_borderline_band
         ),
         consolidate_values=raw.get("consolidate_values", TaxonomySettings.consolidate_values),
+        merge_value_stances=raw.get("merge_value_stances", TaxonomySettings.merge_value_stances),
+        link_evidence=raw.get("link_evidence", TaxonomySettings.link_evidence),
+        evidence_min_similarity=raw.get("evidence_min_similarity", TaxonomySettings.evidence_min_similarity),
+        drop_unsupported_values=raw.get("drop_unsupported_values", TaxonomySettings.drop_unsupported_values),
+        merge_dimensions=raw.get("merge_dimensions", TaxonomySettings.merge_dimensions),
+        dimension_merge_distance_threshold=raw.get(
+            "dimension_merge_distance_threshold", TaxonomySettings.dimension_merge_distance_threshold
+        ),
+        dimension_merge_borderline_band=raw.get(
+            "dimension_merge_borderline_band", TaxonomySettings.dimension_merge_borderline_band
+        ),
+        min_dimension_sources=raw.get("min_dimension_sources", TaxonomySettings.min_dimension_sources),
+        min_candidate_decisions=raw.get("min_candidate_decisions", TaxonomySettings.min_candidate_decisions),
+        saturation_min_coverage=raw.get("saturation_min_coverage", TaxonomySettings.saturation_min_coverage),
+        saturation_min_corpus_fraction=raw.get(
+            "saturation_min_corpus_fraction", TaxonomySettings.saturation_min_corpus_fraction
+        ),
     )
 
 
@@ -248,6 +329,15 @@ def _build_summarization(raw: dict) -> SummarizationSettings:
         explanation_length=raw.get("explanation_length", SummarizationSettings.explanation_length),
         max_concurrency=raw.get("max_concurrency", SummarizationSettings.max_concurrency),
     )
+
+
+def _build_open_coding(raw: dict) -> OpenCodingSettings:
+    source = raw.get("input", OpenCodingSettings.input)
+    if source not in OPEN_CODING_INPUTS:
+        raise ValueError(
+            f"open_coding.input must be one of {OPEN_CODING_INPUTS}, got {source!r}"
+        )
+    return OpenCodingSettings(input=source)
 
 
 def _build_labeling(raw: dict) -> LabelingSettings:
@@ -286,6 +376,9 @@ def _build_evaluation(raw: dict) -> EvaluationSettings:
             "consistency_borderline_band", EvaluationSettings.consistency_borderline_band
         ),
         max_documents=raw.get("max_documents", EvaluationSettings.max_documents),
+        save_history=raw.get("save_history", EvaluationSettings.save_history),
+        feedback_exclude=tuple(raw.get("feedback_exclude", EvaluationSettings.feedback_exclude) or ()),
+        every_n_iterations=raw.get("every_n_iterations", EvaluationSettings.every_n_iterations),
     )
 
 
@@ -321,6 +414,7 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         pipeline=_build_pipeline(raw.get("pipeline", {})),
         taxonomy=_build_taxonomy(raw.get("taxonomy", {})),
         summarization=_build_summarization(raw.get("summarization", {})),
+        open_coding=_build_open_coding(raw.get("open_coding") or {}),
         labeling=_build_labeling(raw.get("labeling", {})),
         feedback=_build_feedback(raw.get("feedback", {})),
         output=_build_output(raw.get("output", {})),

@@ -174,6 +174,15 @@ VALUE_MERGE_PROMPT = _load_prompt(
 )
 
 # ---------------------------------------------------------------------------
+# Dimension merge adjudication (candidate near-duplicate dimension pairs)
+# ---------------------------------------------------------------------------
+
+DIMENSION_MERGE_PROMPT = _load_prompt(
+    "dimension_merge.md",
+    "Adjudicate whether the two candidate dimensions above are the same design decision.",
+)
+
+# ---------------------------------------------------------------------------
 # Dimension selection (selective coding as use-case relevance filtering)
 # ---------------------------------------------------------------------------
 
@@ -200,6 +209,7 @@ __all__ = [
     "OPEN_CODING_PROMPT",
     "SATURATION_CHECK_PROMPT",
     "VALUE_MERGE_PROMPT",
+    "DIMENSION_MERGE_PROMPT",
     "DIMENSION_SELECTION_PROMPT",
     "NARRATIVE_SUMMARY_PROMPT",
 ]
