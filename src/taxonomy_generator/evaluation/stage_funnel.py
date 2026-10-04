@@ -80,13 +80,19 @@ class OptionTrace:
 
 # ------------------------------------------------------------------ stages
 
-def label_iterations(iterations: Sequence[dict]) -> list[str]:
+CONSOLIDATION_MARKERS = ("Consolidated ", "Value consolidation disabled", "No values to consolidate",
+                         "Merged near-duplicate dimensions")
+
+
+def label_iterations(iterations: Sequence[dict], completed: bool = False) -> list[str]:
     """Stage names of the saved iterations: generate, update_<k>, review, consolidated.
 
-    The consolidation output is recognized by its provenance fields (``stances`` or
-    ``merged_from`` on values) or an explanation starting with "Consolidated"; the
-    review is the iteration just before it (or the last one when the run was not
-    consolidated). A run with one iteration has only ``generate``.
+    ``consolidate_values`` always appends one iteration (even when disabled), so in a
+    completed run (one with a selected view) the last iteration is the consolidation
+    output; otherwise it is recognized by ``stances`` on its values or by the
+    consolidator's explanation. The review is the iteration just before it (or the
+    last one when there is no consolidation output). A run with one iteration has only
+    ``generate``. ``merged_from`` is not a marker: tools-mode updates write it too.
     """
     n = len(iterations)
     names = ["generate"] + [f"update_{k}" for k in range(1, n)]
@@ -95,11 +101,11 @@ def label_iterations(iterations: Sequence[dict]) -> list[str]:
 
     def consolidated(it: dict) -> bool:
         values = [v for c in it.get("clusters") or [] for v in c.get("values") or [] if isinstance(v, dict)]
-        return (any("stances" in v or "merged_from" in v for v in values)
-                or (it.get("explanation") or "").lstrip().startswith("Consolidated"))
+        explanation = (it.get("explanation") or "").lstrip()
+        return any("stances" in v for v in values) or explanation.startswith(CONSOLIDATION_MARKERS)
 
     review_at = n - 1
-    if consolidated(iterations[-1]):
+    if completed or consolidated(iterations[-1]):
         names[-1] = "consolidated"
         review_at = n - 2
     if review_at >= 1:
@@ -130,7 +136,7 @@ def build_stages(run: dict, codes: Sequence[dict], include_outcomes: bool = Fals
     """Return the run's stages in pipeline order (open codes, iterations, selected view)."""
     stages = [Stage("open_codes", open_code_items(codes))]
     iterations = run.get("iterations") or []
-    for name, it in zip(label_iterations(iterations), iterations):
+    for name, it in zip(label_iterations(iterations, completed=bool(run.get("selected_clusters"))), iterations):
         stages.append(Stage(name, gt_match.system_values(it.get("clusters") or [], include_outcomes)))
     if run.get("selected_clusters"):
         stages.append(Stage("selected", gt_match.system_values(run["selected_clusters"], include_outcomes)))

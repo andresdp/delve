@@ -94,6 +94,18 @@ def test_label_iterations_without_consolidation_last_is_review():
     assert stage_funnel.label_iterations(its) == ["generate", "update_1", "review"]
 
 
+def test_label_iterations_completed_run_ends_with_consolidation():
+    its = [{"clusters": [], "explanation": "x"} for _ in range(3)]
+    assert stage_funnel.label_iterations(its, completed=True) == ["generate", "review", "consolidated"]
+
+
+def test_label_iterations_merged_from_is_not_a_consolidation_marker():
+    its = [{"clusters": [], "explanation": "x"},
+           {"clusters": [{"values": [{"id": "1.1", "merged_from": [{"id": "1.2", "label": "y"}]}]}],
+            "explanation": "Merged two values"}]
+    assert stage_funnel.label_iterations(its) == ["generate", "review"]
+
+
 def test_label_iterations_single_iteration():
     assert stage_funnel.label_iterations([{"clusters": []}]) == ["generate"]
 
@@ -264,12 +276,12 @@ def test_run_funnel_writes_outputs(tmp_path):
     result = asyncio.run(stage_funnel.run_funnel(
         str(tax), str(gt), _settings(tmp_path), embed=embed_by_keyword({"CUSUM": _unit(0), "Other": _unit(30)}),
         judge_model=RuleJudge(["CUSUM"])))
-    assert result["stages"] == ["open_codes", "generate", "review", "selected"]
-    assert result["summary"]["paper"]["loss_stage"] == {"review": 1}
+    assert result["stages"] == ["open_codes", "generate", "consolidated", "selected"]
+    assert result["summary"]["paper"]["loss_stage"] == {"consolidated": 1}
     for path in result["paths"].values():
         assert path.exists()
     data = json.loads(result["paths"]["json"].read_text())
-    assert data["options"][0]["loss_stage"] == "review"
+    assert data["options"][0]["loss_stage"] == "consolidated"
 
 
 def test_run_funnel_requires_open_codes(tmp_path):
