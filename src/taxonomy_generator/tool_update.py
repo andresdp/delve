@@ -14,11 +14,17 @@ import logging
 from collections import Counter
 from typing import Any, List, Literal
 
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from taxonomy_generator.schemas import DecisionStatus
+from taxonomy_generator.settings import TaxonomySettings
 from taxonomy_generator.taxonomy_editor import RELATION_TYPES, TaxonomyEditor
+from taxonomy_generator.utils import (
+    format_taxonomy_compact,
+    restore_dropped_values,
+    taxonomy_prompt_inputs,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +209,16 @@ async def _invoke(model: Any, bound: Any, parallel: bool, messages: list, config
         return None, bound, False, exc
 
 
+STOP_TEXT = {
+    "finish": "the model called finish",
+    "no_tool_call": "the model made no tool call",
+    "step_limit": "the step limit was reached",
+    "model_error": "a model call failed",
+}
+NO_CALL_NUDGE = ("You made no tool call. Continue with the tools, or call finish with your explanation if the "
+                 "update is complete.")
+
+
 def fallback_explanation(editor: TaxonomyEditor, stop: str) -> str:
     """Explanation built from the log when the model did not call ``finish``."""
     counts = Counter(op["tool"] for op in editor.operations)
@@ -213,45 +229,78 @@ def fallback_explanation(editor: TaxonomyEditor, stop: str) -> str:
         text = "No operations applied; the taxonomy is unchanged"
     if editor.rejected:
         text += f"; {len(editor.rejected)} calls were rejected"
-    return f"{text}. The update ended without finish: {stop}."
+    return f"{text}. The update ended without finish: {STOP_TEXT.get(stop, stop)}."
 
 
-async def run_tool_update(model: Any, editor: TaxonomyEditor, messages: List[BaseMessage], max_steps: int = 8,
+def _finish_reply(editor: TaxonomyEditor, args: Any, failed: int, reminded: bool) -> tuple[str, bool]:
+    """Reply to a finish call: refused while calls of the turn failed, reminded once of uncited documents."""
+    if editor.finished:
+        return "ignored: the update already finished", reminded
+    if failed:
+        return (f"not finished: {failed} call{'s' if failed != 1 else ''} of this turn failed; fix "
+                f"{'them' if failed != 1 else 'it'} (see the errors above), then call finish again"), reminded
+    uncited = editor.uncited_now()
+    if uncited and not reminded:
+        return (f"not finished: batch documents {', '.join(uncited)} are cited by no value. Cite their codes with "
+                "add_evidence or add_value, or call finish again if they are irrelevant to the use case"), True
+    return editor.apply("finish", args if isinstance(args, dict) else {})[1], reminded
+
+
+async def run_tool_update(model: Any, editor: TaxonomyEditor, messages: List[BaseMessage], max_steps: int,
                           config: Any = None) -> tuple[list[dict], str]:
-    """Run the tool loop on ``editor``; return the edited taxonomy and the explanation."""
+    """Run the tool loop on ``editor``; return the edited taxonomy and the explanation.
+
+    Within a turn, ``finish`` is handled after the other calls and honored only when
+    none of them failed; the first ``finish`` with uncited batch documents gets one
+    reminder. A turn without tool calls gets one nudge. ``editor.stop`` records why the
+    loop ended (``STOP_TEXT`` keys).
+    """
     messages = list(messages)
     parallel = True
     bound = _bind(model, parallel)
-    stop = f"step limit ({max_steps} turns) reached"
+    stop, reminded, nudged = "step_limit", False, False
     for step in range(max_steps):
         ai, bound, parallel, error = await _invoke(model, bound, parallel, messages, config)
         if ai is None:
             logger.warning("Tool update: model call failed at turn %d (%s: %s); keeping %d applied operations",
                            step + 1, type(error).__name__, error, len(editor.operations))
-            stop = f"model call failed ({type(error).__name__})"
+            stop = "model_error"
             break
         if not isinstance(ai, AIMessage):
             ai = AIMessage(content=str(getattr(ai, "content", ai)))
         messages.append(ai)
         calls, invalid = ai.tool_calls or [], ai.invalid_tool_calls or []
         if not calls and not invalid:
-            stop = "the model made no tool call"
-            break
+            if nudged:
+                stop = "no_tool_call"
+                break
+            nudged = True
+            messages.append(HumanMessage(NO_CALL_NUDGE))
+            continue
+        failed = 0
         for tc in calls:
-            if editor.finished:
-                msg = "ignored: the update already finished"
-            else:
-                _ok, msg = editor.apply(tc["name"], tc.get("args") or {})
+            if tc["name"] == "finish":
+                continue
+            ok, msg = editor.apply(tc["name"], tc.get("args") or {})
+            failed += not ok
             messages.append(ToolMessage(msg, tool_call_id=tc["id"]))
-        for bad in invalid:  # every tool call id needs a reply, or the next request fails
+        for bad in invalid:
             error = f"could not parse arguments: {bad.get('error') or 'invalid JSON'}"
             editor.log_rejected(bad.get("name") or "?", bad.get("args"), error)
-            messages.append(ToolMessage(f"error: {error}", tool_call_id=bad.get("id") or ""))
+            failed += 1
+            if bad.get("id"):  # every tool call id needs a reply, or the next request fails
+                messages.append(ToolMessage(f"error: {error}", tool_call_id=bad["id"]))
+        for tc in calls:
+            if tc["name"] == "finish":
+                msg, reminded = _finish_reply(editor, tc.get("args"), failed, reminded)
+                messages.append(ToolMessage(msg, tool_call_id=tc["id"]))
         if editor.finished:
+            stop = "finish"
             break
-    else:
+    if stop == "step_limit":
         logger.warning("Tool update reached the step limit (%d turns); keeping %d applied operations",
                        max_steps, len(editor.operations))
+    editor.stop = stop
     clusters = editor.result()
     explanation = editor.explanation if editor.finished else fallback_explanation(editor, stop)
     return clusters, explanation
@@ -269,14 +318,12 @@ async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, confi
     statuses without citing a document (its sample is the evidence).
     """
     review = node == "review_taxonomy"
-    from taxonomy_generator.utils import format_taxonomy_compact, taxonomy_prompt_inputs
-
     previous = state.clusters[-1] if state.clusters else []
     inputs = taxonomy_prompt_inputs(state, configuration, doc_indices, True, format_taxonomy_compact(previous))
     messages = prompt.format_messages(**inputs)
     editor = TaxonomyEditor(previous, [_doc_id(state.documents[i]) for i in doc_indices], review=review)
     clusters, explanation = await run_tool_update(model, editor, messages,
-                                                  max_steps=configuration.edit_max_steps or 8, config=config)
+                                                  max_steps=configuration.edit_max_steps or TaxonomySettings.edit_max_steps, config=config)
     entry = {"iteration": len(state.clusters) + 1, "node": node, "edit_mode": "tools", **editor.summary(),
              "explanation": explanation}
     status = (f"Taxonomy edited with tools: {len(editor.operations)} operations applied, "
@@ -287,8 +334,6 @@ async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, confi
 
 def restore_after_rewrite(result: dict, state: Any, node: str) -> dict:
     """``rewrite_restore`` mode: put back evidence-backed values the rewrite dropped, and log them."""
-    from taxonomy_generator.utils import restore_dropped_values
-
     previous = state.clusters[-1] if state.clusters else []
     if not result.get("clusters"):
         return result

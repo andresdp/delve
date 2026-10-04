@@ -11,6 +11,7 @@ from taxonomy_generator.prompts import (
     TAXONOMY_REVIEW_TOOLS_PROMPT,
 )
 from taxonomy_generator.schemas import TaxonomyOutput
+from taxonomy_generator.settings import TaxonomySettings
 from taxonomy_generator.state import State
 from taxonomy_generator.tool_update import restore_after_rewrite, tool_mode_node
 from taxonomy_generator.utils import (
@@ -55,7 +56,7 @@ async def review_taxonomy(
     indices = list(range(len(state.documents)))
     random.shuffle(indices)
     sample_indices = indices[:review_size]
-    edit_mode = configuration.edit_mode or "rewrite"
+    edit_mode = configuration.edit_mode or TaxonomySettings.edit_mode
     logger.info(
         "Reviewing taxonomy — sampling %d documents from %d (model: %s, edit mode: %s)",
         len(sample_indices), len(state.documents), configuration.generation_llm, edit_mode,

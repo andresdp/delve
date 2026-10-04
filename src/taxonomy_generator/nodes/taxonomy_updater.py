@@ -10,6 +10,7 @@ from taxonomy_generator.prompts import (
     TAXONOMY_UPDATE_TOOLS_PROMPT,
 )
 from taxonomy_generator.schemas import TaxonomyOutput
+from taxonomy_generator.settings import TaxonomySettings
 from taxonomy_generator.state import State
 from taxonomy_generator.tool_update import restore_after_rewrite, tool_mode_node
 from taxonomy_generator.utils import (
@@ -56,7 +57,7 @@ async def update_taxonomy(
     # the pre-existing schedule (first update = second minibatch, etc.).
     which_mb = max(state.open_code_batch_index - 1, 0)
     mb_indices = state.minibatches[which_mb]
-    edit_mode = configuration.edit_mode or "rewrite"
+    edit_mode = configuration.edit_mode or TaxonomySettings.edit_mode
     logger.info(
         "Updating taxonomy — iteration %d, minibatch %d (%d documents), model: %s, edit mode: %s",
         len(state.clusters), which_mb, len(mb_indices), configuration.generation_llm, edit_mode,

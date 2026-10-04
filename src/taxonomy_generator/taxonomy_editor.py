@@ -22,6 +22,7 @@ itself on its next turn.
 from __future__ import annotations
 
 import copy
+import re
 from collections.abc import Callable, Iterable
 from typing import Any, get_args
 
@@ -40,6 +41,8 @@ class EditError(ValueError):
 
 def _str(args: dict, key: str, required: bool = True) -> str:
     value = args.get(key)
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and key.endswith("_id"):
+        value = str(value)  # models sometimes send ids as numbers (3, 1.2)
     if value is None or (isinstance(value, str) and not value.strip()):
         if required:
             raise EditError(f"'{key}' is required")
@@ -76,6 +79,7 @@ class TaxonomyEditor:
         self.uncited: list[str] = []
         self.finished = False
         self.explanation = ""
+        self.stop = ""
         self._value_alias: dict[str, str] = {}
         self._dim_alias: dict[str, str] = {}
         self._split: dict[str, list[str]] = {}
@@ -101,13 +105,31 @@ class TaxonomyEditor:
             return self._reject(name, args, f"unknown tool '{name}'; available: {', '.join(self._tools)}")
         if not isinstance(args, dict):
             return self._reject(name, args, "arguments must be an object")
+        snapshot = self._snapshot()
         try:
             message = tool(args)
-        except EditError as exc:
-            return self._reject(name, args, str(exc))
+        except Exception as exc:  # a rejected call never leaves a half-applied change
+            self._restore(snapshot)
+            error = str(exc) if isinstance(exc, EditError) else f"internal error ({type(exc).__name__}: {exc})"
+            return self._reject(name, args, error)
         if name != "finish":
             self.operations.append({"tool": name, "args": args, "message": message})
         return True, f"ok: {message}"
+
+    _STATE = ("clusters", "_value_alias", "_dim_alias", "_split", "_retired_values", "_retired_dims",
+              "_created_dims", "finished", "explanation")
+
+    def _snapshot(self) -> dict[str, Any]:
+        return {k: copy.deepcopy(getattr(self, k)) for k in self._STATE}
+
+    def _restore(self, snapshot: dict[str, Any]) -> None:
+        for k, v in snapshot.items():
+            setattr(self, k, v)
+
+    def uncited_now(self) -> list[str]:
+        """Batch documents that no value cites yet."""
+        cited = {d for c in self.clusters for v in c["values"] for d in v.get("supporting_doc_ids") or []}
+        return [d for d in self.batch_doc_ids if d not in cited]
 
     def log_rejected(self, name: str, args: Any, error: str) -> None:
         """Record a call that never reached ``apply`` (e.g. unparsable arguments)."""
@@ -136,7 +158,8 @@ class TaxonomyEditor:
                 return c
         if dim_id in self._split:
             raise EditError(f"dimension {dim_id} was split into {', '.join(self._split[dim_id])}; use those ids")
-        raise EditError(f"unknown dimension id '{dim_id}'")
+        known = ", ".join(str(c.get("id")) for c in self.clusters)
+        raise EditError(f"unknown dimension id '{dim_id}'; dimensions are: {known}")
 
     def _value(self, value_id: str) -> tuple[dict, dict]:
         vid = self.resolve_value(str(value_id).strip())
@@ -144,6 +167,11 @@ class TaxonomyEditor:
             for v in c["values"]:
                 if str(v.get("id")) == vid:
                     return c, v
+        prefix = vid.split(".", 1)[0]
+        dim = next((c for c in self.clusters if str(c.get("id")) == prefix), None)
+        if dim is not None:
+            ids = ", ".join(str(v.get("id")) for v in dim["values"]) or "none"
+            raise EditError(f"unknown value id '{value_id}'; values of dimension {prefix} are: {ids}")
         raise EditError(f"unknown value id '{value_id}'")
 
     def _check_docs(self, doc_ids: list[str]) -> None:
@@ -264,7 +292,8 @@ class TaxonomyEditor:
         _dim, value = self._value(_str(args, "value_id"))
         status = self._status(args)
         reason = _str(args, "reason", required=False)
-        if not self.review and not any(d in reason for d in self.batch_doc_ids):
+        cited = {token.strip(".-#") for token in re.findall(r"[A-Za-z0-9_.#-]+", reason)}
+        if not self.review and not cited & set(self.batch_doc_ids):
             raise EditError("set_status outside the review needs direct evidence: cite the batch document id "
                             "(e.g. s01_p02) that adopts or declines the option in 'reason'")
         value["status"] = status
@@ -477,4 +506,5 @@ class TaxonomyEditor:
     def summary(self) -> dict[str, Any]:
         """Return the operation-log entry of this update (without iteration and node)."""
         return {"operations": self.operations, "rejected": self.rejected, "cleanup": self.cleanup,
-                "uncited": self.uncited, "explanation": self.explanation, "finished": self.finished}
+                "uncited": self.uncited, "explanation": self.explanation, "finished": self.finished,
+                "stop": self.stop}

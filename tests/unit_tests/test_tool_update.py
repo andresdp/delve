@@ -99,7 +99,9 @@ def test_invalid_call_error_reaches_the_model_and_the_correction_applies():
 def test_unparsable_tool_call_gets_an_error_reply_and_the_loop_continues():
     bad = AIMessage(content="", invalid_tool_calls=[
         {"name": "add_value", "args": "{not json", "id": "bad1", "error": "JSONDecodeError", "type": "invalid_tool_call"}])
-    model = ScriptedModel([bad, AIMessage(content="", tool_calls=[call("finish", {"explanation": "ok"}, "c2")])])
+    model = ScriptedModel([bad, AIMessage(content="", tool_calls=[
+        call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c1"),
+        call("finish", {"explanation": "ok"}, "c2")])])
     editor, _, explanation = _run(model)
     replies = [m for m in model.inputs[1] if isinstance(m, ToolMessage)]
     assert replies[0].tool_call_id == "bad1" and "could not parse" in replies[0].content
@@ -133,20 +135,22 @@ def test_model_error_after_a_turn_keeps_that_turns_operations():
 
 
 def test_parallel_tool_calls_rejected_by_the_api_rebinds_without_it():
-    model = ScriptedModel([AIMessage(content="", tool_calls=[call("finish", {"explanation": "ok"}, "c1")])],
+    model = ScriptedModel([AIMessage(content="", tool_calls=[
+        call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c0"),
+        call("finish", {"explanation": "ok"}, "c1")])],
                           reject_parallel=True)
     _editor, _, explanation = _run(model)
     assert explanation == "ok"
     assert model.bind_kwargs[-1].get("parallel_tool_calls") is None
 
 
-def test_calls_after_finish_are_answered_but_not_applied():
+def test_finish_is_handled_after_the_other_calls_of_its_turn():
     model = ScriptedModel([AIMessage(content="", tool_calls=[
         call("finish", {"explanation": "done"}, "c1"),
         call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c2")])])
-    editor, clusters, _ = _run(model)
-    assert clusters[0]["values"][0]["supporting_doc_ids"] == ["d1"]
-    assert editor.operations == []
+    editor, clusters, explanation = _run(model)
+    assert clusters[0]["values"][0]["supporting_doc_ids"] == ["d1", "d2"]
+    assert len(editor.operations) == 1 and explanation == "done"
 
 
 def test_the_node_config_reaches_every_model_call():
@@ -179,3 +183,61 @@ def test_openai_chat_models_are_bound_through_the_responses_api(monkeypatch):
     bound = _bind(ChatOpenAI(model="gpt-5.6-luna"), parallel=True)
     assert bound.bound.use_responses_api is True
     assert bound.kwargs["parallel_tool_calls"] is True and len(bound.kwargs["tools"]) == len(TOOL_SCHEMAS)
+
+
+# ---------------------------------------------------------------- review fixes
+
+
+def test_finish_is_refused_when_a_call_of_the_same_turn_failed():
+    model = ScriptedModel([
+        AIMessage(content="", tool_calls=[
+            call("finish", {"explanation": "early"}, "c0"),
+            call("add_evidence", {"value_id": "9.9", "doc_ids": ["d2"], "reason": "r"}, "c1"),
+            call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c2")]),
+        AIMessage(content="", tool_calls=[call("finish", {"explanation": "done"}, "c3")])])
+    editor, clusters, explanation = _run(model)
+    replies = {m.tool_call_id: m.content for m in model.inputs[1] if isinstance(m, ToolMessage)}
+    assert "not finished" in replies["c0"] and "1 call" in replies["c0"]
+    assert clusters[0]["values"][0]["supporting_doc_ids"] == ["d1", "d2"]  # the valid call still applied
+    assert explanation == "done" and editor.stop == "finish"
+
+
+def test_finish_with_uncited_documents_gets_one_reminder():
+    model = ScriptedModel([
+        AIMessage(content="", tool_calls=[call("finish", {"explanation": "first"}, "c1")]),
+        AIMessage(content="", tool_calls=[call("finish", {"explanation": "d2 is irrelevant"}, "c2")])])
+    editor, _, explanation = _run(model)
+    reply = next(m for m in model.inputs[1] if isinstance(m, ToolMessage)).content
+    assert "not finished" in reply and "d2" in reply
+    assert explanation == "d2 is irrelevant" and model_calls(model) == 2
+
+
+def model_calls(model):
+    return len(model.inputs)
+
+
+def test_a_turn_without_tool_calls_gets_one_nudge_then_ends():
+    model = ScriptedModel([AIMessage(content="thinking"), AIMessage(content="still nothing")])
+    editor, _, explanation = _run(model)
+    assert model_calls(model) == 2
+    assert any(isinstance(m, HumanMessage) and "finish" in m.content for m in model.inputs[1])
+    assert editor.stop == "no_tool_call" and "no tool call" in explanation
+
+
+def test_stop_reasons_are_recorded():
+    _editor, _, _ = _run(ScriptedModel([AIMessage(content="", tool_calls=[call("finish", {"explanation": "x"}, "c")])]))
+    turns = [AIMessage(content="", tool_calls=[call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"],
+                                                                    "reason": "r"}, f"c{i}")]) for i in range(3)]
+    editor, _, _ = _run(ScriptedModel(turns), max_steps=2)
+    assert editor.stop == "step_limit"
+    editor, _, _ = _run(ScriptedModel([], fail_at=1))
+    assert editor.stop == "model_error"
+
+
+def test_invalid_call_without_id_gets_no_reply_but_is_logged():
+    bad = AIMessage(content="", invalid_tool_calls=[
+        {"name": "add_value", "args": "{", "id": None, "error": "bad", "type": "invalid_tool_call"}])
+    model = ScriptedModel([bad, AIMessage(content="", tool_calls=[call("finish", {"explanation": "ok"}, "c2")])])
+    editor, _, _ = _run(model)
+    assert not [m for m in model.inputs[1] if isinstance(m, ToolMessage)]
+    assert editor.rejected[0]["tool"] == "add_value"

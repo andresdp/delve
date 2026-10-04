@@ -124,8 +124,10 @@ def _operation_log_line(entry: dict) -> str:
     """One-line summary of an operation-log entry (tools or rewrite_restore mode)."""
     if entry.get("edit_mode") == "rewrite_restore":
         return f"restored {len(entry.get('restored') or [])} dropped evidence-backed values"
-    return (f"{len(entry.get('operations') or [])} operations applied, {len(entry.get('rejected') or [])} rejected, "
+    line = (f"{len(entry.get('operations') or [])} operations applied, {len(entry.get('rejected') or [])} rejected, "
             f"{len(entry.get('uncited') or [])} batch documents uncited")
+    stop = entry.get("stop")
+    return f"{line} (ended: {stop})" if stop and stop != "finish" else line
 
 
 def _format_elapsed(seconds: float) -> str:

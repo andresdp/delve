@@ -348,3 +348,67 @@ def test_no_value_is_lost_without_a_logged_removal():
     current = {v["id"] for c in ed.clusters for v in c["values"]}
     for vid in previous:
         assert ed.resolve_value(vid) in current
+
+
+# ---------------------------------------------------------------- review fixes
+
+
+@pytest.mark.parametrize("name, args", [
+    ("merge_values", {"value_ids": ["1.1", "1.3"], "label": "", "description": "x", "reason": "r"}),
+    ("merge_dimensions", {"dimension_ids": ["2", "3"], "name": "R", "description": 5, "reason": "same q"}),
+    ("split_dimension", {"dimension_id": "1", "reason": "r", "parts": [
+        {"name": "A", "description": 7, "value_ids": ["1.1", "1.2"]},
+        {"name": "B", "description": "b", "value_ids": ["1.3", "1.4"]}]}),
+    ("rename_dimension", {"dimension_id": "2", "name": "Renamed", "description": 3, "reason": "r"}),
+    ("relabel_value", {"value_id": "1.3", "label": "New label", "description": 3, "reason": "r"}),
+])
+def test_a_rejected_call_leaves_the_taxonomy_unchanged(name, args):
+    ed = _editor()
+    before = copy.deepcopy(ed.clusters)
+    ok, _ = ed.apply(name, args)
+    assert not ok
+    assert ed.clusters == before
+    assert ed.resolve_value("1.3") == "1.3"
+
+
+def test_an_unexpected_error_inside_a_tool_is_rejected_and_rolled_back(monkeypatch):
+    ed = _editor()
+    before = copy.deepcopy(ed.clusters)
+
+    def broken(args):
+        ed.clusters[0]["values"].pop()
+        raise RuntimeError("boom")
+
+    monkeypatch.setitem(ed._tools, "add_evidence", broken)
+    ok, msg = ed.apply("add_evidence", {"value_id": "1.1", "doc_ids": ["d1"]})
+    assert not ok and "boom" in msg and ed.clusters == before
+
+
+def test_numeric_ids_are_accepted():
+    ok, msg = _editor().apply("add_evidence", {"value_id": 1.1, "doc_ids": ["d4"], "reason": "r"})
+    assert ok, msg
+    ok, msg = _editor().apply("rename_dimension", {"dimension_id": 2, "name": "Response Action", "reason": "r"})
+    assert ok, msg
+
+
+def test_unknown_ids_list_the_valid_ones():
+    _, msg = _editor().apply("add_value", {"dimension_id": "9", "label": "x", "description": "", "status": "accepted",
+                                           "doc_ids": ["d4"], "reason": "r"})
+    assert "1, 2, 3" in msg
+    _, msg = _editor().apply("add_evidence", {"value_id": "1.9", "doc_ids": ["d4"], "reason": "r"})
+    assert "1.1" in msg and "1.4" in msg
+
+
+def test_set_status_needs_a_whole_batch_document_id():
+    ed = _editor(batch=("d1",))
+    ok, _ = ed.apply("set_status", {"value_id": "1.3", "status": "rejected", "reason": "d10 declines it"})
+    assert not ok
+    ok, _ = ed.apply("set_status", {"value_id": "1.3", "status": "rejected", "reason": "d1 declines it."})
+    assert ok
+
+
+def test_uncited_now_tracks_batch_documents_without_a_value():
+    ed = _editor(batch=("d1", "d4"))
+    assert ed.uncited_now() == ["d4"]
+    ed.apply("add_evidence", {"value_id": "1.1", "doc_ids": ["d4"], "reason": "r"})
+    assert ed.uncited_now() == []
