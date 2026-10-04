@@ -79,6 +79,16 @@ def test_paper_only_id_without_prefix_and_unknown_status_are_reported():
     assert any("ghost" in e and "'maybe'" in e for e in errors)
 
 
+def test_duplicate_row_with_wrong_status_is_reported():
+    paper, model = _pair()
+    rows = gt_crosswalk.build_crosswalk(paper, model)
+    good = next(r for r in rows if r["id"] == "hotelling")
+    rows.insert(rows.index(good), dict(good, status="paper only"))
+    errors = gt_crosswalk.check_crosswalk(paper, model, rows)
+    assert any("hotelling" in e and "listed twice" in e for e in errors)
+    assert any("hotelling" in e and "not in the paper view" in e for e in errors)
+
+
 def test_csv_round_trip(tmp_path):
     paper, model = _pair()
     rows = gt_crosswalk.build_crosswalk(paper, model)

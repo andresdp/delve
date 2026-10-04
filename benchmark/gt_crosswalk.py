@@ -53,11 +53,13 @@ def check_crosswalk(paper: dict[str, Any], model: dict[str, Any], rows: list[dic
     seen = set()
     for kind, key in KINDS:
         in_paper, in_model = _ids(paper, key), _ids(model, key)
-        listed = {r["id"]: r for r in rows if r["kind"] == kind}
+        kind_rows = [r for r in rows if r["kind"] == kind]
+        listed = {r["id"] for r in kind_rows}
         for el_id in set(in_paper) | set(in_model):
             if el_id not in listed:
                 errors.append(f"{kind} '{el_id}' is missing from the crosswalk")
-        for el_id, row in listed.items():
+        for row in kind_rows:
+            el_id = row["id"]
             if (kind, el_id) in seen:
                 errors.append(f"{kind} '{el_id}' is listed twice")
             seen.add((kind, el_id))
