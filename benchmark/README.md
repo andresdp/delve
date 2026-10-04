@@ -172,6 +172,8 @@ benchmark/frame_thresholds.py --config examples/c2-rl-monitoring/c2_rl_monitorin
 - `auto`: beyond the upper threshold.
 - `auto_rank`: a borderline pair outside both items' nearest neighbours.
 - `judge`: labeled by the judge.
+- `judge_error`: the judge call failed. The pair counts as `different` and is not cached, so a rerun retries
+  it. If every judge call fails, the run stops instead.
 
 A pair labeled `different` without the judge is *unjudged*, not judged wrong. The candidate-recall check (paper
 plan §5.1 M9, A6) measures how many true matches the automatic labels miss.

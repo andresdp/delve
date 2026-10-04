@@ -420,7 +420,8 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
     """Label every (system value, ground-truth option) pair exactly once.
 
     ``label_source`` is ``auto`` (distance at or below the lower threshold, which
-    0 disables, or above the upper one), ``judge`` (borderline pair whose items are among each
+    0 disables, or above the upper one), ``judge_error`` (the judge call failed; labeled
+    ``different``, not cached), ``judge`` (borderline pair whose items are among each
     other's ``max_candidates`` nearest neighbours) or ``auto_rank`` (borderline
     pair outside those neighbourhoods, labeled ``different`` without the judge).
     """
@@ -471,9 +472,23 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
         return verdict
 
     keys = list(jobs)
-    verdicts = await asyncio.gather(*(judge(k, jobs[k][0][2], jobs[k][0][3]) for k in keys))
+    # A failed call does not abort the run: its pairs stay "different" with label source
+    # "judge_error" (not cached, so a rerun retries them); every successful verdict is kept.
+    verdicts = await asyncio.gather(*(judge(k, jobs[k][0][2], jobs[k][0][3]) for k in keys),
+                                    return_exceptions=True)
+    failures = [v for v in verdicts if isinstance(v, BaseException)]
+    if keys and len(failures) == len(keys):
+        raise MatcherError(f"every judge call failed ({len(keys)} calls); first error: "
+                           f"{type(failures[0]).__name__}: {failures[0]}")
+    if failures:
+        logger.warning("%d of %d judge calls failed; their pairs are labeled 'different' with label source "
+                       "'judge_error' and are retried on the next run", len(failures), len(keys))
     for key, verdict in zip(keys, verdicts):
         for record, order, _first, _second in jobs[key]:
+            if isinstance(verdict, BaseException):
+                record.update(label_source="judge_error", order=order,
+                              warning=f"judge call failed: {type(verdict).__name__}: {verdict}")
+                continue
             record.update(label=orient_label(verdict["label"], order), raw_label=verdict["label"],
                           label_source="judge", reason=verdict.get("reason", ""), order=order,
                           warning=verdict.get("warning", ""))
@@ -510,7 +525,7 @@ def label_pairs_by_distance(system: list[Item], options: list[Item], dist: np.nd
 
 
 def label_counts(pairs: Iterable[dict[str, Any]]) -> dict[str, int]:
-    """Count the pairs per label source (auto, auto_rank, judge, embedding)."""
+    """Count the pairs per label source (auto, auto_rank, judge, judge_error, embedding)."""
     return dict(Counter(p["label_source"] for p in pairs))
 
 

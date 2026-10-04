@@ -1165,6 +1165,9 @@ async def _run_match_gt(args: argparse.Namespace) -> None:
         f"label sources {result['label_sources']}; {labeler}; cosine thresholds "
         f"{s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
     )
+    if result["label_sources"].get("judge_error"):
+        console.print(f"[yellow]⚠ {result['label_sources']['judge_error']} pairs could not be judged "
+                      "(label source judge_error, counted as different); rerun to retry them.[/yellow]")
     for warning in s.get("llm_warnings", []):
         console.print(f"[yellow]⚠ {warning}[/yellow]")
     for kind, path in result["paths"].items():

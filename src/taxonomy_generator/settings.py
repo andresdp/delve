@@ -274,8 +274,10 @@ class MatcherSettings:
 
     Pairs of system values and ground-truth options are proposed by embedding
     distance (cosine distance, 1 - cosine similarity, lower is closer) and, in the
-    borderline band, labeled by an LLM judge that must be a different model
-    than the generator (``models.model``).
+    borderline band, labeled by an LLM judge: the matching LLM
+    (``models.matching_llm``), which should be a different model than the generation
+    LLM (``models.generation_llm``); a shared model is warned about, not refused
+    (``shared_llm_warnings``).
     """
 
     # Embedding model (provider/model); None uses models.embedding.

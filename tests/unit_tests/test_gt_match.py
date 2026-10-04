@@ -314,3 +314,43 @@ def test_shared_elements_take_their_text_from_the_paper_view_whatever_the_view_o
         assert cusum.description == "Cumulative sums"
         assert cusum.parent_name == "Reward Degradation Test"
         assert cusum.views == {"paper", "model"}
+
+
+class FlakyJudgeModel(FakeJudgeModel):
+    """Raises on the calls whose 0-based index is in ``fail_on``; answers ``same`` otherwise."""
+
+    def __init__(self, fail_on):
+        super().__init__([])
+        self.fail_on = set(fail_on)
+
+    async def a_generate(self, prompt, schema=None):
+        index = len(self.calls)
+        self.calls.append(prompt)
+        if index in self.fail_on:
+            raise RuntimeError("judge API down")
+        return schema(label="same", reason="ok"), 0.0
+
+
+def test_a_failed_judge_call_is_recorded_as_judge_error_and_the_run_continues(tmp_path):
+    config = _config(lower_threshold=0.0, upper_threshold=2.0, cache_path=str(tmp_path / "cache.json"))
+    cache = gt_match.JudgeCache(config.cache_path)
+    judge = FlakyJudgeModel(fail_on={0})
+    system = gt_match.system_values(CLUSTERS)
+    options = gt_match.ground_truth_options(GT)
+    pairs = asyncio.run(gt_match.label_pairs(system, options, fake_embedder(VECTORS), judge, config, cache=cache,
+                                             concurrency=1))
+    failed = [p for p in pairs if p["label_source"] == "judge_error"]
+    judged = [p for p in pairs if p["label_source"] == "judge"]
+    assert len(failed) == 1 and judged
+    assert failed[0]["label"] == "different" and "judge API down" in failed[0]["warning"]
+    assert all(p["label"] == "same" for p in judged)
+    assert len(cache.data) == len(judged)  # failures are not cached, so a rerun retries them
+
+
+def test_the_run_stops_when_every_judge_call_fails():
+    config = _config(lower_threshold=0.0, upper_threshold=2.0)
+    judge = FlakyJudgeModel(fail_on=range(100))
+    system = gt_match.system_values(CLUSTERS)
+    options = gt_match.ground_truth_options(GT)
+    with pytest.raises(gt_match.MatcherError, match="every judge call failed"):
+        asyncio.run(gt_match.label_pairs(system, options, fake_embedder(VECTORS), judge, config))

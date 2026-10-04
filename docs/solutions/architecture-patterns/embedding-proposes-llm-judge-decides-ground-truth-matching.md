@@ -57,6 +57,8 @@ It also prints the closest distinct pairs (`benchmark/frame_thresholds.py:46-68`
 - `auto`: beyond the upper threshold;
 - `auto_rank`: borderline, but outside both items' nearest neighbours;
 - `judge`: labeled by the judge;
+- `judge_error`: the judge call failed. The pair counts as `different` and is not cached, so a rerun retries
+  it. If every call fails, the run stops;
 - `embedding`: labeled in embeddings-only mode.
 
 The sources are defined at `gt_match.py:422-425` and `gt_match.py:508`, and the match file records the counts (`gt_match.py:512-514`, `gt_match.py:695`). This keeps a pair that was never judged distinguishable from a pair the judge called wrong (`benchmark/README.md:171-177`).
