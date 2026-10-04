@@ -79,3 +79,101 @@ Known content issue (left as is, because it is what the analysts coded): C2 s4 i
 - **C2 uses live pages (retrieved 2026-10)** with a Wayback fallback. The analysts coded them in early 2026,
   so pages may have changed since; compare against the memos in `replication_package/memos/` if in doubt.
 - Source texts are third-party content: they are not committed, and only URLs and scripts are released.
+
+## Evaluation frame
+
+What every ground-truth score rests on, fixed **before any run was scored** (R13). The frame is fixed at the
+commit that adds this section (`git log -- benchmark/README.md`); any later change is logged under "Changes"
+below, with the date and the reason. There are no hashes: the commit history is the record.
+
+### Use cases
+
+The use case each system run receives is `taxonomy.use_case` of the study's config, as committed at
+`afebe10` (2026-10-02):
+
+- **C1:** `examples/c1-ml-workflow/c1_ml_workflow_config.yaml`. The architectural design decisions of ML
+  systems along the ML workflow, from data ingestion and processing through model building and training to
+  production and operation, with options, forces and relations, from gray literature.
+- **C2:** `examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`. The architectural design decisions for
+  monitoring deployed RL agents, with options, forces and relations, from gray literature.
+
+Both name one design decision per dimension, with its options as values.
+
+**Agreed by:** *pending; two authors confirm the use cases here (name, date) before the scores are
+reported.*
+
+### Ground truth and views
+
+`benchmark/<study>/gt/`; see each study's README for sources, counts and discrepancies.
+
+| Study | Views scored | Options (attached) |
+|---|---|---|
+| C1 | paper (Table 2), model (Zenodo 10.5281/zenodo.5730291) | paper 43, model 121 |
+| C2 | paper, model (Zenodo 10.5281/zenodo.20305497) | paper 57, model 62 |
+
+Unattached model options are excluded. Matching runs once against the union of a study's views; metrics are
+computed per view.
+
+### Metric definitions
+
+| Level | Definition |
+|---|---|
+| **Pair labels** | Each pair of a system candidate value and a ground-truth option gets one label: `same`, `broader` (the value is more general), `narrower`, `related` or `different`. |
+| **Option level** (primary) | A hit is `same`, `broader` or `narrower`. **Precision**: share of system candidate values with a hit in the view. **Recall**: share of the view's options with a hit. **F1**: their harmonic mean. **Exact-option recall**: recall counting only `same`. **Related rate**: share of system values whose best label is `related`. |
+| **Decision level** | Alignment of system dimensions and expert decisions. Each pair has a share: the matched values and options between the two, over the smaller of their counts. Ties are broken by embedding distance. **Strict alignment**: one-to-one (`linear_sum_assignment`) over pairs with share ≥ `min_alignment_share`. **Lenient alignment**: every pair above that share (splits and merges count). Precision, recall and F1 are reported for each. |
+| **Placement** | Among matched values, the share whose dimension is aligned (lenient) with a decision that their matched option belongs to. |
+
+Outcome values are excluded from the system side (the candidates-only decision); a sensitivity run may
+include them (`matcher.include_outcomes`).
+
+**Per-view rules:**
+- Recall in a view counts only that view's options and decisions.
+- Paper-view precision leaves out system values matched only to `model only` options, and reports how many
+  there are.
+
+### Matcher settings
+
+| Setting | Value | How it was chosen |
+|---|---|---|
+| Serialization | `<decision or dimension> › <option or value>: <description>`, CamelCase split | paper plan §5.1 M1 |
+| Embedding model | `openai/text-embedding-3-small` | the pipeline's embedding model |
+| Distance | cosine distance (1 − cosine similarity); lower is closer | user decision (2026-10-03) |
+| `lower_threshold` | **0.0**: no pair is labeled `same` without the judge | ground truth only (below) |
+| `upper_threshold` | **0.60**: pairs farther apart are `different` without the judge | ground truth only (below) |
+| `max_candidates` | **5**: a borderline pair reaches the judge only if one item is among the other's 5 nearest | bounds judge calls |
+| Judge | the pipeline's `evaluation.judge_model` (or `matcher.judge_model`), never the generator (`models.model`); test runs use **`openai/gpt-5.4-mini`**; generator of the scored runs: `openai/gpt-5.6-luna` | user decision (2026-10-03): only OpenAI is available, so independence is partial; the judge is validated against human gold alignment later (A6) |
+| Judge instructions | `gt_match.JUDGE_STEPS` (version hash in every output). The judge compares the options regardless of their decisions; the two items appear as "Item 1" and "Item 2" in a seeded order, never as system or ground truth | plan KTD7 |
+| `seed` | 0 | – |
+
+**How the thresholds were chosen**, without looking at any system output (`python
+benchmark/frame_thresholds.py --config examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`, 2026-10-03):
+- the 184 attached ground-truth options (C1 121, C2 63) were embedded with the serialization above;
+- **Distinct options of the same study** (9,213 pairs): min 0.031, p1 0.177, p5 0.326, median 0.611.
+  - The closest pairs are *opposite* options of one decision with short descriptions: "No AutoML" vs.
+    "AutoML" (0.031), "Batch-based" vs. "Real-time" processing (0.047), "MLOps" vs. "No MLOps" (0.069).
+  - The shared decision prefix dominates. No distance cutoff separates `same` from `different`, so
+    `lower_threshold` is 0: every `same` comes from the judge.
+- **Options of different studies** (7,623 pairs; ML workflow vs. RL monitoring, so unrelated): min 0.416,
+  p0.5 0.536, p1 0.564, p2 0.600, p5 0.650.
+  - `upper_threshold` is 0.60, their 2nd percentile. Pairs farther apart than nearly all unrelated pairs are
+    labeled `different` without the judge.
+
+**Unjudged pairs:** every pair keeps its label source.
+- `auto`: beyond the upper threshold.
+- `auto_rank`: a borderline pair outside both items' nearest neighbours.
+- `judge`: labeled by the judge.
+
+A pair labeled `different` without the judge is *unjudged*, not judged wrong. The candidate-recall check (paper
+plan §5.1 M9, A6) measures how many true matches the automatic labels miss.
+
+### Runs to score
+
+The first scored runs are the DelveDSpace runs of 2026-10-02:
+- `examples/c1-ml-workflow/c1-ml-workflow_taxonomy_20261002_185546.json`;
+- `examples/c2-rl-monitoring/c2-rl-monitoring_taxonomy_20261002_211657.json`.
+
+Both are scored on their selected view.
+
+### Changes after scores were seen
+
+*None yet.*

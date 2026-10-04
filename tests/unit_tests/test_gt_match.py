@@ -194,6 +194,10 @@ def test_matcher_judge_model_from_yaml_reaches_the_matcher_and_never_falls_back(
     assert (config.judge_model, config.generator_model, config.embedding) == ("openai/judge", "openai/gen", "openai/emb")
     assert config.lower_threshold == 0.3
 
+    cfg.write_text("models:\n  model: openai/gen\nevaluation:\n  judge_model: openai/eval-judge\n")
+    config = gt_match.MatcherConfig.from_settings(load_settings(str(cfg)))
+    assert config.judge_model == "openai/eval-judge"  # the pipeline's configured judge
+
     cfg.write_text("models:\n  model: openai/gen\n")
     config = gt_match.MatcherConfig.from_settings(load_settings(str(cfg)))
     assert config.judge_model is None

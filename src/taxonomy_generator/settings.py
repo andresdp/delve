@@ -246,15 +246,16 @@ class MatcherSettings:
     than the generator (``models.model``).
     """
 
-    # Judge model (provider/model). No default and no fallback to models.model:
-    # the matcher refuses to run when it is unset or equal to the generator.
+    # Judge model override (provider/model). None uses evaluation.judge_model; never
+    # models.model: the matcher refuses to run when the judge is unset or equals the
+    # generator.
     judge_model: Optional[str] = None
     # Embedding model (provider/model); None uses models.embedding.
     embedding: Optional[str] = None
     # Distance at or below which a pair is labeled "same" without the judge.
-    lower_threshold: float = 0.10
+    lower_threshold: float = 0.0
     # Distance above which a pair is labeled "different" without the judge.
-    upper_threshold: float = 0.45
+    upper_threshold: float = 0.60
     # Pairs in the band reach the judge only when one item is among the other's
     # max_candidates nearest neighbours (bounds the number of judge calls).
     max_candidates: int = 5

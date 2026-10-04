@@ -16,7 +16,8 @@ another adapter) against the experts' design space (``benchmark/<study>/gt/``):
 
 The judge is a custom deepeval metric (``GradedMatchMetric``) with fixed
 instructions, served by an OpenAI model that must differ from the generator
-model (``matcher.judge_model``, no default, no fallback). It sees the two
+model (``matcher.judge_model``, else ``evaluation.judge_model``; never the
+generator, ``models.model``). It sees the two
 items as "Item 1" and "Item 2" in a seeded order, never which side is the
 ground truth, and compares the design options themselves regardless of the
 decision or dimension they sit under (placement is scored separately).
@@ -85,10 +86,14 @@ class MatcherConfig:
 
     @classmethod
     def from_settings(cls, settings: Any) -> "MatcherConfig":
-        """Build from ``Settings``: the ``matcher`` section plus the generator and embedding models."""
+        """Build from ``Settings``: the ``matcher`` section plus the generator and embedding models.
+
+        The judge is ``matcher.judge_model`` when set, else ``evaluation.judge_model`` (the
+        configured judge of the pipeline); never ``models.model`` (the generator).
+        """
         m = settings.matcher
         return cls(
-            judge_model=m.judge_model,
+            judge_model=m.judge_model or settings.evaluation.judge_model,
             generator_model=settings.models.model,
             embedding=m.embedding or settings.models.embedding,
             lower_threshold=float(m.lower_threshold),
@@ -108,8 +113,9 @@ def check_judge(judge_model: Optional[str], generator_model: Optional[str]) -> s
     """Refuse an unset judge, a judge equal to the generator, or a non-OpenAI judge; return the bare name."""
     if not judge_model:
         raise MatcherError(
-            "matcher.judge_model is not set: the matcher needs a judge model different from the generator "
-            "(models.model) and never falls back to it. Set matcher.judge_model in the YAML config."
+            "judge_model is not set: the matcher needs a judge model different from the generator "
+            "(models.model) and never falls back to it. Set evaluation.judge_model (or matcher.judge_model) "
+            "in the YAML config, or pass --judge-model."
         )
 
     def bare(name: Optional[str]) -> str:
@@ -117,13 +123,13 @@ def check_judge(judge_model: Optional[str], generator_model: Optional[str]) -> s
 
     if bare(judge_model) == bare(generator_model):
         raise MatcherError(
-            f"matcher.judge_model '{judge_model}' is the same model as the generator ('{generator_model}'); "
+            f"judge model '{judge_model}' is the same model as the generator ('{generator_model}'); "
             "choose a different judge model."
         )
     try:
         resolved = resolve_judge_model(judge_model)
     except ValueError as exc:
-        raise MatcherError(f"matcher.judge_model must be an OpenAI model: {exc}") from exc
+        raise MatcherError(f"the judge model must be an OpenAI model: {exc}") from exc
     return resolved or judge_model
 
 
