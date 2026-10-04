@@ -102,7 +102,8 @@ Ids:
   transcriber had, however, reviewed the DelveDSpace C2 runs of 2026-10-02 earlier in the same session. The
   transcription copies decisions and options as the paper and catalogue list them and leaves no room for
   choosing wording. The only judgment calls are listed in the discrepancies above (items 1, 3 and 4).
-- **Author check (R15):** *pending.*
+- **Author check (R15):** *pending.* Steps and decisions: [HUMAN_CHECKS.md](../../HUMAN_CHECKS.md),
+  check 1.
 
   | Who | Date | Checked against | Corrections |
   |---|---|---|---|

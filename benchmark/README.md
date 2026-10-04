@@ -82,6 +82,9 @@ Known content issue (left as is, because it is what the analysts coded): C2 s4 i
 
 ## Evaluation frame
 
+The checks only people can do (author checks of the transcriptions, use-case agreement, open evaluation
+decisions) are specified step by step in [HUMAN_CHECKS.md](HUMAN_CHECKS.md).
+
 What every ground-truth score rests on, fixed **before any run was scored** (R13). The frame is fixed at the
 commit that adds this section (`git log -- benchmark/README.md`); any later change is logged under "Changes"
 below, with the date and the reason. There are no hashes: the commit history is the record.

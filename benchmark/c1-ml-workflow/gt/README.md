@@ -151,7 +151,8 @@ link, except for the development-environment decision (discrepancy 1).
     DelveDSpace C1 runs of 2026-10-02 earlier in the same session.
   - The paper view copies Table 2 row by row and was checked mechanically against the PDF text, which leaves
     no room for choosing wording.
-- **Author check (R15):** *pending.*
+- **Author check (R15):** *pending.* Steps and decisions: [HUMAN_CHECKS.md](../../HUMAN_CHECKS.md),
+  check 2.
 
   | Who | Date | Checked against | Corrections |
   |---|---|---|---|
