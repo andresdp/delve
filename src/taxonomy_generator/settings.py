@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import yaml
 
@@ -32,11 +32,40 @@ _DEFAULT_CONFIG_PATH = "config.yaml"
 
 @dataclass(frozen=True)
 class ModelSettings:
-    """LLM model configuration."""
+    """The three LLM roles of the project, plus the embedding model.
 
-    model: str = "openai/gpt-5.4-nano"
-    fast_llm: str = "openai/gpt-5.4-nano"
+    - ``generation_llm`` builds the design space: open coding, summaries, taxonomy
+      generation/update/review, consolidation, dimension merging and selection,
+      document labeling and the report narrative.
+    - ``evaluation_llm`` judges it inside the pipeline: the evaluation scoreboard,
+      consistency adjudication and the saturation critic.
+    - ``matching_llm`` judges value-option pairs in ground-truth matching (``--match-gt``).
+
+    The roles should use different models; the same model may be configured for
+    several roles, which is reported as a warning (``shared_llm_warnings``).
+    """
+
+    generation_llm: str = "openai/gpt-5.4-nano"
+    evaluation_llm: str = "openai/gpt-5.4-mini"
+    matching_llm: str = "openai/gpt-4.1-mini"
     embedding: str = "openai/text-embedding-3-small"
+
+
+LLM_ROLES = ("generation_llm", "evaluation_llm", "matching_llm")
+
+
+def shared_llm_warnings(models: ModelSettings, roles: Tuple[str, ...] = LLM_ROLES) -> List[str]:
+    """Warnings for LLM roles (among ``roles``) configured with the same model."""
+    warnings = []
+    for i, first in enumerate(roles):
+        for second in roles[i + 1:]:
+            a, b = getattr(models, first), getattr(models, second)
+            if a and b and a.split("/", 1)[-1].strip().lower() == b.split("/", 1)[-1].strip().lower():
+                warnings.append(
+                    f"models.{first} and models.{second} are the same model ({a}): "
+                    f"the {second.split('_')[0]} is not independent of the {first.split('_')[0]}."
+                )
+    return warnings
 
 
 @dataclass(frozen=True)
@@ -209,9 +238,6 @@ class EvaluationSettings:
     """
 
     enabled: bool = True
-    # Judge model override (provider/model format). None falls back to
-    # models.model (the main reasoning model, matching the review node).
-    judge_model: Optional[str] = None
     # Score threshold (0-1) used for display-only pass/fail flags.
     threshold: float = 0.5
     # Embedding-distance cutoff (Euclidean on L2-normalized vectors) below
@@ -246,10 +272,6 @@ class MatcherSettings:
     than the generator (``models.model``).
     """
 
-    # Judge model override (provider/model). None uses evaluation.judge_model; never
-    # models.model: the matcher refuses to run when the judge is unset or equals the
-    # generator.
-    judge_model: Optional[str] = None
     # Embedding model (provider/model); None uses models.embedding.
     embedding: Optional[str] = None
     # Distance at or below which a pair is labeled "same" without the judge (0 disables:
@@ -300,10 +322,41 @@ class Settings:
 # Helpers to build each section from the raw YAML dict
 # ---------------------------------------------------------------------------
 
-def _build_models(raw: dict) -> ModelSettings:
+# Keys renamed in the unified LLM terminology: old location -> models.<role>.
+LEGACY_LLM_KEYS = {
+    ("models", "model"): "generation_llm",
+    ("evaluation", "judge_model"): "evaluation_llm",
+    ("matcher", "judge_model"): "matching_llm",
+}
+
+
+def _build_models(raw: dict, full: Optional[dict] = None) -> ModelSettings:
+    """Read models.<role>; accept the pre-unification keys with a deprecation warning.
+
+    ``models.model`` -> ``generation_llm``, ``evaluation.judge_model`` -> ``evaluation_llm``,
+    ``matcher.judge_model`` -> ``matching_llm``. ``models.fast_llm`` is ignored: its tasks
+    now run on ``generation_llm`` (open coding, summaries, labeling, report) and
+    ``evaluation_llm`` (saturation critic). A new key wins over its legacy key.
+    """
+    full = full if full is not None else {"models": raw}
+    values = {role: raw.get(role) for role in LLM_ROLES}
+    for (section, key), role in LEGACY_LLM_KEYS.items():
+        legacy = (full.get(section) or {}).get(key)
+        if legacy is None:
+            continue
+        if values[role] is None:
+            values[role] = legacy
+            logger.warning("Config key %s.%s is deprecated; use models.%s (read as models.%s = %s).",
+                           section, key, role, role, legacy)
+        else:
+            logger.warning("Config key %s.%s is deprecated and ignored: models.%s is set.", section, key, role)
+    if raw.get("fast_llm") is not None:
+        logger.warning("Config key models.fast_llm is deprecated and ignored: its tasks run on "
+                       "models.generation_llm (and the saturation critic on models.evaluation_llm).")
     return ModelSettings(
-        model=raw.get("model", ModelSettings.model),
-        fast_llm=raw.get("fast_llm", ModelSettings.fast_llm),
+        generation_llm=values["generation_llm"] or ModelSettings.generation_llm,
+        evaluation_llm=values["evaluation_llm"] or ModelSettings.evaluation_llm,
+        matching_llm=values["matching_llm"] or ModelSettings.matching_llm,
         embedding=raw.get("embedding", ModelSettings.embedding),
     )
 
@@ -413,7 +466,6 @@ def _build_visualization(raw: dict) -> VisualizationSettings:
 def _build_evaluation(raw: dict) -> EvaluationSettings:
     return EvaluationSettings(
         enabled=raw.get("enabled", EvaluationSettings.enabled),
-        judge_model=raw.get("judge_model", EvaluationSettings.judge_model),
         threshold=raw.get("threshold", EvaluationSettings.threshold),
         consistency_threshold=raw.get("consistency_threshold", EvaluationSettings.consistency_threshold),
         consistency_borderline_band=raw.get(
@@ -428,7 +480,6 @@ def _build_evaluation(raw: dict) -> EvaluationSettings:
 
 def _build_matcher(raw: dict) -> MatcherSettings:
     return MatcherSettings(
-        judge_model=raw.get("judge_model", MatcherSettings.judge_model),
         embedding=raw.get("embedding", MatcherSettings.embedding),
         lower_threshold=raw.get("lower_threshold", MatcherSettings.lower_threshold),
         upper_threshold=raw.get("upper_threshold", MatcherSettings.upper_threshold),
@@ -471,7 +522,7 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         raw: dict = yaml.safe_load(fh) or {}
 
     settings = Settings(
-        models=_build_models(raw.get("models", {})),
+        models=_build_models(raw.get("models") or {}, raw),
         pipeline=_build_pipeline(raw.get("pipeline", {})),
         taxonomy=_build_taxonomy(raw.get("taxonomy", {})),
         summarization=_build_summarization(raw.get("summarization", {})),

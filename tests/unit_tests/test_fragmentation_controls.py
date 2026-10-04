@@ -58,7 +58,7 @@ class _FakeChain:
 
 
 def _config(**kw):
-    base = dict(embedding="fake/e", model="fake/m", use_case="u", summary_max_concurrency=2,
+    base = dict(embedding="fake/e", generation_llm="fake/m", use_case="u", summary_max_concurrency=2,
                 dimension_merge_distance_threshold=0.1, dimension_merge_borderline_band=0.6)
     return SimpleNamespace(**{**base, **kw})
 

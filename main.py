@@ -38,6 +38,7 @@ from rich.tree import Tree
 
 from taxonomy_generator import docs_from_dicts, graph, report_renderer, strings_to_docs
 from taxonomy_generator.configuration import Configuration, init_settings
+from taxonomy_generator.settings import ModelSettings, shared_llm_warnings
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -241,16 +242,28 @@ def parse_args() -> argparse.Namespace:
     # Model configuration
     model_group = parser.add_argument_group("Model configuration")
     model_group.add_argument(
-        "--model",
+        "--generation-llm", "--model",
+        dest="generation_llm",
         type=str,
         default=None,
-        help="Override the main LLM model (format: provider/model-name).",
+        help="Override models.generation_llm, the LLM that builds the design space "
+             "(provider/model-name). --model is a deprecated alias.",
     )
     model_group.add_argument(
-        "--fast-model",
+        "--evaluation-llm",
+        dest="evaluation_llm",
         type=str,
         default=None,
-        help="Override the fast LLM model (format: provider/model-name).",
+        help="Override models.evaluation_llm, the LLM that judges the design space in the "
+             "pipeline: scoreboard, consistency, saturation critic (provider/model-name).",
+    )
+    model_group.add_argument(
+        "--matching-llm", "--judge-model",
+        dest="matching_llm",
+        type=str,
+        default=None,
+        help="Override models.matching_llm, the LLM that judges value-option pairs in "
+             "--match-gt (provider/model-name, OpenAI). --judge-model is a deprecated alias.",
     )
 
     # Taxonomy
@@ -359,13 +372,6 @@ def parse_args() -> argparse.Namespace:
         default=None,
         metavar="FOLDER",
         help="With --match-gt: the ground-truth folder (gt_paper.json and/or gt_model.json).",
-    )
-    parser.add_argument(
-        "--judge-model",
-        type=str,
-        default=None,
-        help="With --match-gt: judge model (provider/model), overriding matcher.judge_model "
-             "and evaluation.judge_model. Must differ from models.model.",
     )
     parser.add_argument(
         "--matcher-mode",
@@ -1118,7 +1124,7 @@ async def _run_match_gt(args: argparse.Namespace) -> None:
         sys.exit(2)
     settings = init_settings(args.config)
     try:
-        result = await run_match(args.match_gt, args.gt, settings, judge_override=args.judge_model,
+        result = await run_match(args.match_gt, args.gt, settings, matching_llm_override=args.matching_llm,
                                  mode_override=args.matcher_mode, out_dir=args.output, view=args.gt_view)
     except MatcherError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -1138,13 +1144,15 @@ async def _run_match_gt(args: argparse.Namespace) -> None:
                       f"{d['strict']['f1']:.2f}", f"{d['lenient']['f1']:.2f}", f"{d['jaccard']:.2f}",
                       "–" if p["accuracy"] is None else f"{p['accuracy']:.2f}")
     console.print(table)
-    labeler = (f"judge {s['judge_model']} (generator {s['generator_model']})" if s["mode"] == "judge"
+    labeler = (f"matching LLM {s['matching_llm']} (generation LLM {s['generation_llm']})" if s["mode"] == "judge"
                else f"embeddings only, same at cosine distance <= {s['same_threshold']}")
     console.print(
         f"[dim]{s['system_values']} system values x {s['ground_truth_options']} options; mode {s['mode']}; "
         f"label sources {result['label_sources']}; {labeler}; cosine thresholds "
         f"{s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
     )
+    for warning in s.get("llm_warnings", []):
+        console.print(f"[yellow]⚠ {warning}[/yellow]")
     for kind, path in result["paths"].items():
         console.print(f"[green]{kind}:[/green] {path}")
 
@@ -1294,12 +1302,10 @@ async def run(args: argparse.Namespace) -> None:
         configurable["mode"] = mode
     if taxonomy_input:
         configurable["taxonomy_input"] = taxonomy_input
-    if args.model:
-        configurable["model"] = args.model
-        logger.info("Overriding main model: %s", args.model)
-    if args.fast_model:
-        configurable["fast_llm"] = args.fast_llm
-        logger.info("Overriding fast model: %s", args.fast_model)
+    for role in ("generation_llm", "evaluation_llm", "matching_llm"):
+        if getattr(args, role):
+            configurable[role] = getattr(args, role)
+            logger.info("Overriding models.%s: %s", role, getattr(args, role))
     if args.name:
         configurable["name"] = args.name
         logger.info("Overriding taxonomy name: %s", args.name)
@@ -1339,8 +1345,13 @@ async def run(args: argparse.Namespace) -> None:
         f"[dim]Mode:[/dim] [cyan]{mode}[/cyan]\n"
         f"{seed_info}"
         f"[dim]Max dimensions:[/dim] [cyan]{max_dims_str}[/cyan]\n"
-        f"[dim]Model:[/dim] [cyan]{effective_config.model}[/cyan]\n"
-        f"[dim]Fast LLM:[/dim] [cyan]{effective_config.fast_llm}[/cyan]",
+        f"[dim]Generation LLM:[/dim] [cyan]{effective_config.generation_llm}[/cyan]\n"
+        f"[dim]Evaluation LLM:[/dim] [cyan]{effective_config.evaluation_llm}[/cyan]"
+        + "".join(f"\n[yellow]⚠ {w}[/yellow]" for w in shared_llm_warnings(
+            ModelSettings(generation_llm=effective_config.generation_llm,
+                          evaluation_llm=effective_config.evaluation_llm,
+                          matching_llm=effective_config.matching_llm),
+            ("generation_llm", "evaluation_llm"))),
         title="[bold bright_blue]🚀 Delve[/bold bright_blue]",
         border_style="bright_blue",
     ))

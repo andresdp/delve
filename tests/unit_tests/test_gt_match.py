@@ -48,7 +48,7 @@ def _unit(angle_deg):
 
 
 def _config(**overrides):
-    base = dict(judge_model="openai/judge-model", generator_model="openai/generator", embedding="openai/emb",
+    base = dict(matching_llm="openai/judge-model", generation_llm="openai/generator", embedding="openai/emb",
                 lower_threshold=0.02, upper_threshold=0.5, max_candidates=5, include_outcomes=False,
                 min_alignment_share=0.25, seed=0, cache_path=None, mode="judge", same_threshold=0.18,
                 embedding_one_to_one=True)
@@ -182,33 +182,42 @@ def test_outcome_values_are_excluded_by_default_and_included_with_the_option():
     assert ids == ["1.1", "1.2", "1.3"]
 
 
-@pytest.mark.parametrize("judge, generator, message", [
-    (None, "openai/gpt-x", "judge_model is not set"),
-    ("openai/gpt-x", "openai/gpt-x", "same model as the generator"),
-    ("anthropic/claude", "openai/gpt-x", "OpenAI"),
-])
-def test_unset_judge_or_judge_equal_to_generator_stops_the_run(judge, generator, message):
+@pytest.mark.parametrize("matching, message", [(None, "not set"), ("anthropic/claude", "OpenAI")])
+def test_unset_or_non_openai_matching_llm_stops_the_run(matching, message):
     with pytest.raises(gt_match.MatcherError, match=message):
-        gt_match.check_judge(judge, generator)
+        gt_match.check_matching_llm(matching)
 
 
-def test_matcher_judge_model_from_yaml_reaches_the_matcher_and_never_falls_back(tmp_path):
+def test_matching_llm_equal_to_another_role_runs_with_a_warning():
+    config = _config(matching_llm="openai/gpt-x", generation_llm="openai/gpt-x", evaluation_llm="openai/gpt-y")
+    assert gt_match.check_matching_llm(config.matching_llm) == "gpt-x"
+    warnings = gt_match.llm_warnings(config)
+    assert len(warnings) == 1 and "generation_llm and models.matching_llm" in warnings[0]
+    assert gt_match.llm_warnings(_config()) == []
+
+
+def test_llm_roles_from_yaml_reach_the_matcher(tmp_path):
     cfg = tmp_path / "c.yaml"
-    cfg.write_text("models:\n  model: openai/gen\n  embedding: openai/emb\n"
-                   "matcher:\n  judge_model: openai/judge\n  lower_threshold: 0.3\n")
+    cfg.write_text("models:\n  generation_llm: openai/gen\n  evaluation_llm: openai/eval\n"
+                   "  matching_llm: openai/match\n  embedding: openai/emb\nmatcher:\n  lower_threshold: 0.3\n")
     config = gt_match.MatcherConfig.from_settings(load_settings(str(cfg)))
-    assert (config.judge_model, config.generator_model, config.embedding) == ("openai/judge", "openai/gen", "openai/emb")
+    assert (config.matching_llm, config.generation_llm, config.evaluation_llm, config.embedding) == \
+        ("openai/match", "openai/gen", "openai/eval", "openai/emb")
     assert config.lower_threshold == 0.3
 
-    cfg.write_text("models:\n  model: openai/gen\nevaluation:\n  judge_model: openai/eval-judge\n")
-    config = gt_match.MatcherConfig.from_settings(load_settings(str(cfg)))
-    assert config.judge_model == "openai/eval-judge"  # the pipeline's configured judge
 
-    cfg.write_text("models:\n  model: openai/gen\n")
-    config = gt_match.MatcherConfig.from_settings(load_settings(str(cfg)))
-    assert config.judge_model is None
-    with pytest.raises(gt_match.MatcherError):
-        gt_match.check_judge(config.judge_model, config.generator_model)
+def test_legacy_model_keys_are_read_with_a_deprecation_warning_and_new_keys_win(tmp_path, caplog):
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text("models:\n  model: openai/gen\n  fast_llm: openai/fast\n"
+                   "evaluation:\n  judge_model: openai/eval\nmatcher:\n  judge_model: openai/match\n")
+    with caplog.at_level("WARNING"):
+        settings = load_settings(str(cfg))
+    m = settings.models
+    assert (m.generation_llm, m.evaluation_llm, m.matching_llm) == ("openai/gen", "openai/eval", "openai/match")
+    assert "deprecated" in caplog.text and "fast_llm" in caplog.text
+
+    cfg.write_text("models:\n  generation_llm: openai/new\n  model: openai/old\n")
+    assert load_settings(str(cfg)).models.generation_llm == "openai/new"
 
 
 def test_camel_case_names_are_serialized_with_spaces_and_their_parent():

@@ -15,9 +15,9 @@ another adapter) against the experts' design space (``benchmark/<study>/gt/``):
    matches (see ``align_dimensions`` and ``compute_metrics``).
 
 The judge is a custom deepeval metric (``GradedMatchMetric``) with fixed
-instructions, served by an OpenAI model that must differ from the generator
-model (``matcher.judge_model``, else ``evaluation.judge_model``; never the
-generator, ``models.model``). It sees the two
+instructions, served by the matching LLM (``models.matching_llm``, OpenAI). It
+should differ from the generation and evaluation LLMs; when it does not, the
+run says so and records the warning. It sees the two
 items as "Item 1" and "Item 2" in a seeded order, never which side is the
 ground truth, and compares the design options themselves regardless of the
 decision or dimension they sit under (placement is scored separately).
@@ -80,8 +80,8 @@ class MatcherError(ValueError):
 class MatcherConfig:
     """Resolved matcher settings for one scoring run."""
 
-    judge_model: str | None
-    generator_model: str | None
+    matching_llm: str | None
+    generation_llm: str | None
     embedding: str
     lower_threshold: float
     upper_threshold: float
@@ -90,21 +90,23 @@ class MatcherConfig:
     min_alignment_share: float
     seed: int
     cache_path: str | None
+    evaluation_llm: str | None = None
     mode: str = "judge"
     same_threshold: float = 0.18
     embedding_one_to_one: bool = True
 
     @classmethod
     def from_settings(cls, settings: Any) -> MatcherConfig:
-        """Build from ``Settings``: the ``matcher`` section plus the generator and embedding models.
+        """Build from ``Settings``: the ``matcher`` section plus ``models`` (LLM roles, embedding).
 
-        The judge is ``matcher.judge_model`` when set, else ``evaluation.judge_model`` (the
-        configured judge of the pipeline); never ``models.model`` (the generator).
+        ``generation_llm`` is the generator of the scored run (from the run's config), kept to
+        check and record the matching LLM's independence.
         """
         m = settings.matcher
         return cls(
-            judge_model=m.judge_model or settings.evaluation.judge_model,
-            generator_model=settings.models.model,
+            matching_llm=settings.models.matching_llm,
+            generation_llm=settings.models.generation_llm,
+            evaluation_llm=settings.models.evaluation_llm,
             embedding=m.embedding or settings.models.embedding,
             lower_threshold=float(m.lower_threshold),
             upper_threshold=float(m.upper_threshold),
@@ -133,28 +135,24 @@ def check_mode(mode: str) -> str:
     return mode
 
 
-def check_judge(judge_model: str | None, generator_model: str | None) -> str:
-    """Refuse an unset judge, a judge equal to the generator, or a non-OpenAI judge; return the bare name."""
-    if not judge_model:
-        raise MatcherError(
-            "judge_model is not set: the matcher needs a judge model different from the generator "
-            "(models.model) and never falls back to it. Set evaluation.judge_model (or matcher.judge_model) "
-            "in the YAML config, or pass --judge-model."
-        )
-
-    def bare(name: str | None) -> str:
-        return (name or "").split("/", 1)[-1].strip().lower()
-
-    if bare(judge_model) == bare(generator_model):
-        raise MatcherError(
-            f"judge model '{judge_model}' is the same model as the generator ('{generator_model}'); "
-            "choose a different judge model."
-        )
+def check_matching_llm(matching_llm: str | None) -> str:
+    """Require a configured OpenAI matching LLM; return the bare model name deepeval uses."""
+    if not matching_llm:
+        raise MatcherError("models.matching_llm is not set: set it in the YAML config or pass --matching-llm.")
     try:
-        resolved = resolve_judge_model(judge_model)
+        resolved = resolve_judge_model(matching_llm)
     except ValueError as exc:
-        raise MatcherError(f"the judge model must be an OpenAI model: {exc}") from exc
-    return resolved or judge_model
+        raise MatcherError(f"models.matching_llm must be an OpenAI model: {exc}") from exc
+    return resolved or matching_llm
+
+
+def llm_warnings(config: MatcherConfig) -> list[str]:
+    """Shared-model warnings of the matching LLM against the generation and evaluation LLMs."""
+    from taxonomy_generator.settings import ModelSettings, shared_llm_warnings
+
+    models = ModelSettings(generation_llm=config.generation_llm or "", evaluation_llm=config.evaluation_llm or "",
+                           matching_llm=config.matching_llm or "")
+    return [w for w in shared_llm_warnings(models) if "matching_llm" in w]
 
 
 # ------------------------------------------------------------------- items
@@ -731,7 +729,7 @@ def _git_commit(path: Path) -> str:
         return ""
 
 
-async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_override: str | None = None,
+async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, matching_llm_override: str | None = None,
                     mode_override: str | None = None,
                     out_dir: str | None = None, view: str = "selected",
                     embed: Callable[[list[str]], np.ndarray] | None = None,
@@ -740,12 +738,15 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_ove
     from taxonomy_generator.utils import load_seed_taxonomy
 
     config = MatcherConfig.from_settings(settings)
-    if judge_override:
-        config = MatcherConfig(**{**config.__dict__, "judge_model": judge_override})
+    if matching_llm_override:
+        config = MatcherConfig(**{**config.__dict__, "matching_llm": matching_llm_override})
     if mode_override:
         config = MatcherConfig(**{**config.__dict__, "mode": check_mode(mode_override)})
-    # The embeddings-only mode makes no LLM call, so it needs no judge.
-    bare_judge = check_judge(config.judge_model, config.generator_model) if config.mode == "judge" else ""
+    # The embeddings-only mode makes no LLM call, so it needs no matching LLM.
+    bare_judge = check_matching_llm(config.matching_llm) if config.mode == "judge" else ""
+    warnings = llm_warnings(config) if config.mode == "judge" else []
+    for warning in warnings:
+        logger.warning(warning)
 
     clusters = load_seed_taxonomy(taxonomy_path, view=view)
     views = load_gt_folder(gt_folder)
@@ -775,7 +776,7 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_ove
                      for i in range(len(dimensions)) for j in range(len(dec_ids))}
 
     metrics = compute_metrics(dimensions, values, views, options, pairs, config.min_alignment_share, tie_break)
-    record = {**config.as_record(), "taxonomy": str(taxonomy_path), "taxonomy_view": view,
+    record = {**config.as_record(), "llm_warnings": warnings, "taxonomy": str(taxonomy_path), "taxonomy_view": view,
               "ground_truth": str(gt_folder), "ground_truth_commit": _git_commit(Path(gt_folder)),
               "system_values": len(values), "ground_truth_options": len(options),
               "views": {name: sum(1 for o in options if name in o.views) for name in views}}

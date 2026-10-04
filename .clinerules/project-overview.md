@@ -39,17 +39,15 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - System prompts stored as `.md` files in `prompts/` package — loaded into `ChatPromptTemplate` at import time; human messages defined inline in `prompts/__init__.py`
 
 ## Environment variables
-- `LLM_MODEL` — main reasoning model (default: `openai/gpt-5.4-nano`)
-- `LLM_FAST_MODEL` — fast model for summaries/labeling (default: `openai/gpt-5.4-nano`)
 - `OPENAI_API_KEY` — required for default OpenAI models
 - `ANTHROPIC_API_KEY`, `FIREWORKS_API_KEY`, `GROQ_API_KEY` — optional alternative providers
 - Ollama runs locally (no API key) — use `ollama/<model>` format (e.g., `ollama/llama3.2`)
 
 ## Configuration system
-- Settings are loaded from `config.yaml` → env vars → CLI flags (highest priority wins)
+- Settings are loaded from `config.yaml` → CLI flags (highest priority wins); only API keys come from env vars
 - `init_settings(config_path)` must be called in `main.py` before pipeline invocation
 - Use `Configuration.from_runnable_config(config)` to access settings inside nodes
-- **Model assignment**: `model` (main reasoning) is used for taxonomy generation/update/review; `fast_llm` is used for summarization and labeling
+- **LLM roles** (`models` section; should be different models, a shared one warns): `generation_llm` builds the design space (open coding, summaries, generation/update/review, consolidation, merging, selection, labeling, report); `evaluation_llm` judges it in the pipeline (scoreboard, consistency, saturation critic); `matching_llm` judges value-option pairs in `--match-gt`
 - Key defaults: `batch_size=200`, `max_num_clusters=25`, `sample_size=0` (use all), `max_runs=0` (no limit)
 - New settings: `random_seed=42`, `use_case`, `summary_length=20`, `fallback_category="Other"`, `review_sample_size`, `skip_summarization=false`, `name="taxonomy"`, `max_docs_per_category_tree=5`
 - See `SETTINGS.md` for the complete settings reference
@@ -87,7 +85,7 @@ Delve is a taxonomy generator pipeline that classifies unstructured text data us
 - Chain setup is extracted into a private `_setup_*_chain()` helper in each node module
 - Use `Configuration.from_runnable_config(config)` to access settings inside nodes
 - Model names follow `provider/model` format (e.g., `openai/gpt-4o-mini`)
-- Taxonomy nodes (`generate`, `update`, `review`) use `configuration.model`; summarization and labeling use `configuration.fast_llm`
+- Generation nodes use `configuration.generation_llm`; `check_saturation` and the evaluation modules use `configuration.evaluation_llm`; the ground-truth matcher uses `models.matching_llm`
 - JSON-based prompt formatting for LLM inputs (documents, taxonomy clusters)
 - All LLM outputs use structured outputs via `with_structured_output()` with Pydantic schemas from `schemas.py`
 - No XML or regex parsing — Pydantic models handle output validation

@@ -25,7 +25,7 @@ def _setup_review_chain(configuration: Configuration, feedback: str):
         use_case=configuration.use_case,
         feedback=feedback,
     )
-    model = load_chat_model(configuration.model)
+    model = load_chat_model(configuration.generation_llm)
     structured_model = model.with_structured_output(TaxonomyOutput)
 
     return (
@@ -51,7 +51,7 @@ async def review_taxonomy(
     sample_indices = indices[:review_size]
     logger.info(
         "Reviewing taxonomy — sampling %d documents from %d (model: %s)",
-        len(sample_indices), len(state.documents), configuration.model,
+        len(sample_indices), len(state.documents), configuration.generation_llm,
     )
 
     result = await invoke_taxonomy_chain(

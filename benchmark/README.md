@@ -141,7 +141,7 @@ include them (`matcher.include_outcomes`).
 | `lower_threshold` | **0.0**: no pair is labeled `same` without the judge | ground truth only (below) |
 | `upper_threshold` | **0.60**: pairs farther apart are `different` without the judge | ground truth only (below) |
 | `max_candidates` | **5**: a borderline pair reaches the judge only if one item is among the other's 5 nearest | bounds judge calls |
-| Judge | the pipeline's `evaluation.judge_model` (or `matcher.judge_model`), never the generator (`models.model`); test runs use **`openai/gpt-5.4-mini`**; generator of the scored runs: `openai/gpt-5.6-luna` | user decision (2026-10-03): only OpenAI is available, so independence is partial; the judge is validated against human gold alignment later (A6) |
+| Judge | the matching LLM, `models.matching_llm` (key renamed on 2026-10-03, see "Changes"); test runs use **`openai/gpt-5.4-mini`**; generation LLM of the scored runs: `openai/gpt-5.6-luna` | user decision (2026-10-03): only OpenAI is available, so independence is partial; the judge is validated against human gold alignment later (A6) |
 | Judge instructions | `gt_match.JUDGE_STEPS` (version hash in every output). The judge compares the options regardless of their decisions; the two items appear as "Item 1" and "Item 2" in a seeded order, never as system or ground truth | plan KTD7 |
 | `seed` | 0 | – |
 
@@ -194,6 +194,18 @@ Both are scored on their selected view.
     needed. The threshold is **not** retuned on these scores, since that would fit it to the outcome. A
     non-trivial embeddings baseline needs a threshold from an independent source, such as the human gold
     alignment (A6).
+- **2026-10-03 — LLM roles unified** (user request; the frame values are unchanged).
+  - **Roles:** the project now names three LLM roles in `models`:
+    - `generation_llm`, formerly `models.model` and `models.fast_llm`;
+    - `evaluation_llm`, formerly `evaluation.judge_model`;
+    - `matching_llm`, the matcher's judge, formerly `matcher.judge_model` / `evaluation.judge_model`.
+  - **Same model in two roles:** the matcher no longer refuses a matching LLM equal to the generation LLM. It
+    runs, prints a warning and records it in the outputs (`llm_warnings`).
+  - **The C1/C2 configs:** they set `matching_llm: openai/gpt-5.4-mini`, the frame's judge, so judge labels
+    and the cache are unchanged.
+    - Their in-pipeline evaluation LLM is now `openai/gpt-5.4-nano`. It was previously `gpt-5.6-luna`, the
+      generation LLM itself, through the old fallback.
+    - Scoreboards of future runs are therefore judged by a different model than those of the 2026-10-02 runs.
 - **2026-10-03 — Jaccard added to the profile** (user request, after the first scores). It is additive; no
   existing metric changes.
   - **Option level:** matched / (|S| + |G| − matched), where matched is a maximum one-to-one matching of hit

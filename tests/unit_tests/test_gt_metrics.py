@@ -110,11 +110,11 @@ def test_outputs_contain_every_pair_with_distance_label_and_source(tmp_path):
               "label": "different", "label_source": "auto", "reason": "", "order": "", "warning": ""}]
     metrics = gt_match.compute_metrics(gt_match.system_dimensions(clusters), gt_match.system_values(clusters),
                                        VIEWS, gt_match.ground_truth_options(VIEWS), pairs, min_alignment_share=0.25)
-    paths = gt_match.write_outputs(tmp_path, "run", pairs, metrics, {"judge_model": "openai/j"})
+    paths = gt_match.write_outputs(tmp_path, "run", pairs, metrics, {"matching_llm": "openai/j"})
     match = json.loads(paths["match"].read_text())
     assert [(p["system_id"], p["gt_id"], p["distance"], p["label"], p["label_source"]) for p in match["pairs"]] == \
         [("1.1", "o1", 0.1, "same", "judge"), ("2.1", "o3", 0.7, "different", "auto")]
-    assert match["settings"]["judge_model"] == "openai/j"
+    assert match["settings"]["matching_llm"] == "openai/j"
     rows = list(csv.DictReader(paths["alignment"].open()))
     assert {"view", "alignment", "dimension_id", "decision_id", "share"} <= set(rows[0])
     assert json.loads(paths["metrics"].read_text())["paper"]["option"]["recall"] == pytest.approx(1 / 4, abs=1e-4)
@@ -134,7 +134,7 @@ def test_run_match_scores_a_saved_taxonomy_end_to_end_without_api_calls(tmp_path
     taxonomy = tmp_path / "run_taxonomy_1.json"
     taxonomy.write_text(json.dumps({"iterations": [{"clusters": clusters}], "selected_clusters": clusters}))
     cfg = tmp_path / "c.yaml"
-    cfg.write_text(f"models:\n  model: openai/gen\nevaluation:\n  judge_model: openai/judge\n"
+    cfg.write_text(f"models:\n  generation_llm: openai/gen\n  matching_llm: openai/judge\n"
                    f"matcher:\n  cache_path: {tmp_path / 'cache.json'}\n")
 
     def embed(texts):  # "CUSUM" texts close together, everything else spread apart
@@ -154,11 +154,14 @@ def test_run_match_scores_a_saved_taxonomy_end_to_end_without_api_calls(tmp_path
     result = asyncio.run(gt_match.run_match(str(taxonomy), str(gt), load_settings(str(cfg)), out_dir=str(tmp_path),
                                             embed=embed, judge_model=Judge()))
     assert result["metrics"]["paper"]["option"]["recall"] == pytest.approx(0.25, abs=1e-4)
-    assert result["settings"]["judge_model"] == "openai/judge"
+    assert result["settings"]["matching_llm"] == "openai/judge"
+    assert result["settings"]["llm_warnings"] == []
     assert all(p.exists() for p in result["paths"].values())
-    with pytest.raises(gt_match.MatcherError, match="same model"):
-        asyncio.run(gt_match.run_match(str(taxonomy), str(gt), load_settings(str(cfg)), judge_override="openai/gen",
-                                       embed=embed, judge_model=Judge()))
+    # The same model for matching and generation runs, with the warning recorded.
+    shared = asyncio.run(gt_match.run_match(str(taxonomy), str(gt), load_settings(str(cfg)),
+                                            matching_llm_override="openai/gen", out_dir=str(tmp_path),
+                                            embed=embed, judge_model=Judge()))
+    assert any("generation_llm and models.matching_llm" in w for w in shared["settings"]["llm_warnings"])
 
 
 def test_jaccard_uses_a_one_to_one_matching_at_option_and_decision_level():
@@ -196,7 +199,7 @@ def test_run_match_in_embeddings_mode_needs_no_judge_and_writes_separate_outputs
     taxonomy = tmp_path / "run_taxonomy_1.json"
     taxonomy.write_text(json.dumps({"iterations": [{"clusters": clusters}], "selected_clusters": clusters}))
     cfg = tmp_path / "c.yaml"
-    cfg.write_text("models:\n  model: openai/gen\nmatcher:\n  mode: embeddings\n")  # no judge anywhere
+    cfg.write_text("models:\n  generation_llm: openai/gen\nmatcher:\n  mode: embeddings\n")
 
     def embed(texts):
         return np.asarray([[1.0, 0.0] if "CUSUM" in t else [0.0, 1.0] for t in texts])

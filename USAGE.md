@@ -31,7 +31,7 @@ All settings live in one YAML file, passed with `--config` (default: `./config.y
 
 | Section | What it controls |
 |---|---|
-| `models` | Main model (generation, update, review, merge judges, selection; also the evaluation judge unless `evaluation.judge_model` is set), fast model (summaries, open coding, saturation check, labeling), embedding model (consolidation, evidence linking, dimension merging, biplots) |
+| `models` | Three LLM roles, which should be different models (a shared model runs with a warning): `generation_llm` builds the design space (open coding, summaries, generation, update, review, consolidation, merging, selection, labeling, report text); `evaluation_llm` judges it in the pipeline (scoreboard, consistency comparison, saturation critic); `matching_llm` judges value-option pairs in ground-truth matching (`--match-gt`). Plus `embedding` (consolidation, evidence linking, dimension merging, biplots, matching candidates) |
 | `pipeline` | `batch_size` (documents per minibatch), `random_seed`, `mode` (`train` / `test`), `taxonomy_input` and `taxonomy_input_view` (start from a saved run) |
 | `taxonomy` | `use_case` (**the most important setting**), `name`, `max_num_clusters` (`null` = no cap), saturation, value consolidation, evidence linking, fragmentation controls |
 | `feedback` | Your own feedback text or file, injected into update and review prompts |
@@ -63,7 +63,7 @@ Settings to look at first:
   - `evaluation.every_n_iterations`: e.g. 3 for corpora with many minibatches;
   - `evaluation.enabled: false`: skip the judge for cheap smoke tests.
 
-Command-line flags override a few settings: `--model`, `--fast-model`, `--name`, `--max-clusters`,
+Command-line flags override a few settings: `--generation-llm`, `--evaluation-llm`, `--matching-llm`, `--name`, `--max-clusters`,
 `--mode`, `--taxonomy`, `--feedback`, `--feedback-file`.
 
 ## Command-line reference
@@ -78,7 +78,7 @@ Command-line flags override a few settings: `--model`, `--fast-model`, `--name`,
 | `--mode train\|test` | `train` builds or refines a design space; `test` freezes the dimensions of `--taxonomy` and labels new documents |
 | `--taxonomy PATH` | Saved taxonomy JSON to start from (required in test mode) |
 | `--feedback TEXT`, `--feedback-file PATH` | Feedback for the update and review prompts, e.g. a critique of a previous run |
-| `--model`, `--fast-model` | Override the models (`provider/model-name`) |
+| `--generation-llm`, `--evaluation-llm`, `--matching-llm` | Override the LLM roles (`provider/model-name`) |
 | `--name`, `--max-clusters` | Override the taxonomy name and the dimension cap |
 | `--quiet` | Hide logs, show only the result panels |
 
@@ -117,6 +117,11 @@ python main.py --evaluate results/myproject_taxonomy_<timestamp>.json --all-iter
 
 # Compare several runs on the same corpus (recurring vs. one-off dimensions)
 python main.py --evaluate run1.json run2.json run3.json --config my_project.yaml
+
+# Score a saved design space against an expert ground truth (precision, recall, F1 and Jaccard of
+# options and decisions, placement; per ground-truth view). The matching LLM judges borderline
+# value-option pairs; --matcher-mode embeddings uses embedding distance alone (no LLM calls).
+python main.py --match-gt results/myproject_taxonomy_<timestamp>.json --gt benchmark/c2-rl-monitoring/gt --config my_project.yaml
 ```
 
 `--iteration N` renders or scores a specific iteration instead of the selected view.

@@ -30,8 +30,8 @@ The `--quiet` flag suppresses logging and shows only the rich-formatted pipeline
 │ Starting taxonomy generation pipeline...                  │
 │                                                           │
 │ Taxonomy: taxonomy                                        │
-│ Model: openai/gpt-5.4-nano                                │
-│ Fast LLM: openai/gpt-5.4-nano                             │
+│ Generation LLM: openai/gpt-5.4-nano                       │
+│ Evaluation LLM: openai/gpt-5.4-mini                       │
 ╰───────────────────────────────────────────────────────────╯
 ```
 
@@ -340,7 +340,7 @@ python main.py --corpus examples/product_reviews.json --name "Laptop Reviews" --
 ### Using a Different Model
 
 ```bash
-python main.py --corpus examples/customer_support.txt --model groq/llama-3.3-70b-versatile --quiet
+python main.py --corpus examples/customer_support.txt --generation-llm groq/llama-3.3-70b-versatile --quiet
 ```
 
 ## Example: Evaluating a Saved Taxonomy

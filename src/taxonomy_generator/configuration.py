@@ -48,19 +48,28 @@ class Configuration:
     """
 
     # ── Models ──────────────────────────────────────────────────────────
-    model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+    generation_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
         default=None,  # resolved lazily from Settings
         metadata={
-            "description": "Main reasoning model (provider/model-name). "
-            "Used for taxonomy generation and review."
+            "description": "Generation LLM (provider/model-name). Builds the design space: open "
+            "coding, summaries, taxonomy generation/update/review, consolidation, merging, selection, "
+            "labeling and the report narrative."
         },
     )
 
-    fast_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+    evaluation_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
         default=None,  # resolved lazily from Settings
         metadata={
-            "description": "Fast/lightweight model (provider/model-name). "
-            "Used for summarization, labeling, and taxonomy update."
+            "description": "Evaluation LLM (provider/model-name). Judges the design space in the "
+            "pipeline: evaluation scoreboard, consistency adjudication and the saturation critic."
+        },
+    )
+
+    matching_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+        default=None,  # resolved lazily from Settings
+        metadata={
+            "description": "Matching LLM (provider/model-name). Judges value-option pairs in "
+            "ground-truth matching (--match-gt)."
         },
     )
 
@@ -310,11 +319,6 @@ class Configuration:
         metadata={"description": "Enable the taxonomy evaluation scoreboard (default true)."},
     )
 
-    evaluation_judge_model: str | None = field(
-        default=None,
-        metadata={"description": "Judge model override for evaluation (defaults to the main model)."},
-    )
-
     evaluation_threshold: float = field(
         default=None,
         metadata={"description": "Score threshold (0-1) for display-only pass/fail flags."},
@@ -351,11 +355,6 @@ class Configuration:
     )
 
     # ── Ground-truth matcher (--match-gt) ──────────────────────────────
-    matcher_judge_model: str | None = field(
-        default=None,
-        metadata={"description": "Judge model of the ground-truth matcher; no default, must differ from the generator model."},
-    )
-
     matcher_embedding: str | None = field(
         default=None,
         metadata={"description": "Embedding model of the ground-truth matcher (defaults to the embedding model)."},
@@ -442,8 +441,9 @@ class Configuration:
         """Flatten the nested Settings into a flat dict matching field names."""
         return {
             # Models
-            "model": s.models.model,
-            "fast_llm": s.models.fast_llm,
+            "generation_llm": s.models.generation_llm,
+            "evaluation_llm": s.models.evaluation_llm,
+            "matching_llm": s.models.matching_llm,
             "embedding": s.models.embedding,
             # Pipeline
             "max_runs": s.pipeline.max_runs,
@@ -500,7 +500,6 @@ class Configuration:
             "visualization_output_dir": s.visualization.output_dir,
             # Evaluation
             "evaluation_enabled": s.evaluation.enabled,
-            "evaluation_judge_model": s.evaluation.judge_model,
             "evaluation_threshold": s.evaluation.threshold,
             "evaluation_consistency_threshold": s.evaluation.consistency_threshold,
             "evaluation_consistency_borderline_band": s.evaluation.consistency_borderline_band,
@@ -509,7 +508,6 @@ class Configuration:
             "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
             "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
             # Ground-truth matcher
-            "matcher_judge_model": s.matcher.judge_model,
             "matcher_embedding": s.matcher.embedding,
             "matcher_lower_threshold": s.matcher.lower_threshold,
             "matcher_upper_threshold": s.matcher.upper_threshold,

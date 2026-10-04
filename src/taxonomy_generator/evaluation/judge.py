@@ -38,7 +38,7 @@ def resolve_judge_model(model_name: str | None) -> str | None:
 
     Args:
         model_name: The judge model in this pipeline's ``provider/model``
-            format (from ``evaluation.judge_model`` or ``models.model``).
+            format (``models.evaluation_llm`` or ``models.matching_llm``).
 
     Returns:
         The bare model name when the provider is OpenAI (deepeval's built-in

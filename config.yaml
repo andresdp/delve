@@ -1,14 +1,19 @@
 # DelveDSpace Configuration
 # ─────────────────────
 # All tunable settings for the taxonomy generation pipeline.
-# Override via CLI flags: --model, --fast-model, --config <path>
+# Override via CLI flags: --generation-llm, --evaluation-llm, --matching-llm, --config <path>
 
 models:
-  # Main reasoning model — used for taxonomy generation and review.
-  model: "openai/gpt-5.6-luna"
-
-  # Fast/lightweight model — used for summarization, labeling, and taxonomy update.
-  fast_llm: "openai/gpt-5.6-luna"
+  # Three LLM roles; use a different model for each (the same model for several roles
+  # runs, with a warning: the judging is then not independent of the generation).
+  # Generation LLM: builds the design space (open coding, summaries, taxonomy
+  # generation/update/review, consolidation, merging, selection, labeling, report text).
+  generation_llm: "openai/gpt-5.6-luna"
+  # Evaluation LLM: judges it inside the pipeline (evaluation scoreboard, consistency
+  # adjudication, saturation critic).
+  evaluation_llm: "openai/gpt-5.4-nano"
+  # Matching LLM: judges value-option pairs in ground-truth matching (--match-gt; OpenAI).
+  matching_llm: "openai/gpt-5.4-mini"
 
   # Embedding model — used for value consolidation and taxonomy biplot axis positions.
   # Supported providers: openai/<model>, ollama/<model>.
@@ -213,9 +218,6 @@ evaluation:
   # pipeline topology is identical to pre-evaluation behavior.
   enabled: true
 
-  # Judge model override (provider/model format). Falls back to models.model
-  # (the main reasoning model, matching the review node's choice).
-  judge_model: null
 
   # Display-only pass threshold (0-1) per criterion. Nothing gates on it.
   threshold: 0.5
@@ -253,10 +255,7 @@ evaluation:
 # expert design space (benchmark/<study>/gt/). Uncomment to use.
 # ---------------------------------------------------------------------------
 # matcher:
-#   # Judge of borderline value-option pairs (provider/model, OpenAI only). null uses
-#   # evaluation.judge_model; never models.model: the judge must be set and differ from
-#   # the generator model.
-#   judge_model: null
+#   # The judge of borderline value-option pairs is models.matching_llm.
 #   # Embedding model; null uses models.embedding.
 #   embedding: null
 #   # Cosine distance between embeddings (1 - cosine similarity; lower is closer): at or below

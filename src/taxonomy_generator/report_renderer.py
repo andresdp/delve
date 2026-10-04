@@ -385,7 +385,7 @@ async def generate_narrative_summary(
     explanation: str,
     configuration: Configuration,
 ) -> str | None:
-    """Generate a readable narrative summary of the taxonomy via one fast-model call.
+    """Generate a readable narrative summary of the taxonomy via one generation-LLM call.
 
     Synthesizes the taxonomy's stored ``explanation`` and the in-scope
     dimensions' descriptions into a readable overview. The call may only
@@ -402,7 +402,7 @@ async def generate_narrative_summary(
             descriptions ground the summary.
         explanation: The taxonomy iteration's stored rationale text to
             synthesize alongside the dimension descriptions.
-        configuration: Pipeline configuration, used for ``fast_llm`` and
+        configuration: Pipeline configuration, used for ``generation_llm`` and
             ``use_case``.
 
     Returns:
@@ -410,7 +410,7 @@ async def generate_narrative_summary(
         model access is available.
     """
     try:
-        model = load_chat_model(configuration.fast_llm)
+        model = load_chat_model(configuration.generation_llm)
         narrative_prompt = NARRATIVE_SUMMARY_PROMPT.partial(
             use_case=configuration.use_case,
         )

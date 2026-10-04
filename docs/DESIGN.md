@@ -52,8 +52,9 @@ This project is a production-oriented implementation of the approach described i
 | **Orchestration** | LangGraph (`StateGraph`) | Directed graph execution with conditional routing |
 | **LLM Framework** | LangChain | Model invocation, prompt templates, structured outputs |
 | **Configuration** | YAML (`config.yaml`) | Centralized settings with `Settings` dataclasses (see [SETTINGS.md](SETTINGS.md)) |
-| **Primary LLM** | OpenAI GPT-5.4 nano (default) | Main reasoning model (configurable via `config.yaml` or `LLM_MODEL` env var) |
-| **Fast LLM** | OpenAI GPT-5.4 nano (default) | Summarization and lightweight tasks (configurable via `config.yaml` or `LLM_FAST_MODEL` env var) |
+| **Generation LLM** | OpenAI GPT-5.4 nano (default) | Builds the design space (`models.generation_llm`) |
+| **Evaluation LLM** | OpenAI GPT-5.4 mini (default) | Judges it in the pipeline: scoreboard, consistency, saturation critic (`models.evaluation_llm`) |
+| **Matching LLM** | OpenAI GPT-4.1 mini (default) | Judges value-option pairs in ground-truth matching (`models.matching_llm`) |
 | **Data Source** | Direct corpus input | Document ingestion via `.txt` or `.json` corpus files |
 | **Output Schema** | Pydantic models | Structured LLM outputs via `with_structured_output()` |
 | **Prompts** | Local (`prompts/` package) | System prompts stored as `.md` files, loaded into `ChatPromptTemplate` at import time |
@@ -298,7 +299,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Generate concise summaries and explanations for each document |
 | **Input** | `state.documents` |
 | **Output** | Updated `documents` with `summary` and `explanation` fields populated |
-| **Model** | Uses `configuration.fast_llm` (default: OpenAI GPT-5.4 nano) |
+| **Model** | Uses `configuration.generation_llm` (default: OpenAI GPT-5.4 nano) |
 | **Can be skipped** | Yes — set `summarization.skip: true` in `config.yaml` |
 
 **Behavior:**
@@ -345,7 +346,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Generate the initial label taxonomy from the first minibatch |
 | **Input** | `state.documents` (via first minibatch), `state.user_feedback` |
 | **Output** | `clusters` (initial taxonomy), `status` |
-| **Model** | Uses `configuration.model` (main reasoning) |
+| **Model** | Uses `configuration.generation_llm` |
 
 **Behavior:**
 1. Formats feedback from `state.user_feedback` (if any).
@@ -369,7 +370,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Refine the taxonomy by exposing it to the next minibatch |
 | **Input** | `state.documents`, `state.clusters`, `state.minibatches` |
 | **Output** | Updated `clusters`, `status` |
-| **Model** | Uses `configuration.model` (main reasoning) |
+| **Model** | Uses `configuration.generation_llm` |
 
 **Behavior:**
 1. Determines which minibatch to use: `which_mb = len(state.clusters) % len(state.minibatches)`.
@@ -394,7 +395,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Perform a final review and consolidation of the taxonomy |
 | **Input** | `state.documents`, `state.clusters` |
 | **Output** | Final `clusters`, `status` |
-| **Model** | Uses `configuration.model` (main reasoning) |
+| **Model** | Uses `configuration.generation_llm` |
 
 **Behavior:**
 1. Takes a random sample of `configuration.review_sample_size` documents (defaults to `batch_size`).
@@ -415,7 +416,7 @@ class LabelOutput(BaseModel):
 | **Purpose** | Classify all documents using the finalized taxonomy |
 | **Input** | `state.documents`, `state.clusters` |
 | **Output** | Labeled `documents`, `messages` (formatted results), `status` |
-| **Model** | Uses `configuration.fast_llm` |
+| **Model** | Uses `configuration.generation_llm` |
 
 **Behavior:**
 1. Retrieves the latest complete cluster set from `state.clusters`.
@@ -493,17 +494,17 @@ Settings are managed through a layered system: **YAML config file** → **enviro
 **Files:** `config.yaml`, `settings.py`, `configuration.py`
 
 **Resolution order** (highest priority wins):
-1. CLI flags (`--model`, `--fast-model`, `--name`)
-2. Environment variables (`LLM_MODEL`, `LLM_FAST_MODEL`)
-3. YAML config file (`config.yaml`)
-4. Built-in code defaults (`Settings` dataclass)
+1. CLI flags (`--generation-llm`, `--evaluation-llm`, `--matching-llm`, `--name`)
+2. YAML config file (`config.yaml`)
+3. Built-in code defaults (`Settings` dataclass)
 
 #### Models
 
 | Parameter | Type | Default | YAML Key | Description |
 |---|---|---|---|---|
-| `model` | `str` | `openai/gpt-5.4-nano` | `models.model` | Primary LLM for taxonomy generation, update, and review |
-| `fast_llm` | `str` | `openai/gpt-5.4-nano` | `models.fast_llm` | Lighter LLM for summarization and labeling |
+| `generation_llm` | `str` | `openai/gpt-5.4-nano` | `models.generation_llm` | Builds the design space (open coding, summaries, generation, update, review, consolidation, merging, selection, labeling) |
+| `evaluation_llm` | `str` | `openai/gpt-5.4-mini` | `models.evaluation_llm` | Judges it in the pipeline (scoreboard, consistency, saturation critic) |
+| `matching_llm` | `str` | `openai/gpt-4.1-mini` | `models.matching_llm` | Judges value-option pairs in ground-truth matching |
 
 #### Pipeline
 
@@ -661,12 +662,8 @@ Required environment variable (for default OpenAI models):
 OPENAI_API_KEY=<your-key>
 ```
 
-Optional model configuration (via `.env` file or environment variables):
-
-```
-LLM_MODEL=openai/gpt-5.4-nano          # Main reasoning model
-LLM_FAST_MODEL=openai/gpt-5.4-nano     # Fast model for summaries/labeling
-```
+Models are set in the `models` section of `config.yaml` (`generation_llm`, `evaluation_llm`,
+`matching_llm`, `embedding`), not in environment variables.
 
 Optional (for alternative providers):
 
@@ -679,9 +676,9 @@ GROQ_API_KEY=<your-key>                 # For Groq models
 Using Ollama (local models, no API key needed):
 
 ```
-# Ensure Ollama is running locally (ollama serve)
-LLM_MODEL=ollama/llama3.2
-LLM_FAST_MODEL=ollama/llama3.2
+# Ensure Ollama is running locally (ollama serve), then in config.yaml:
+models:
+  generation_llm: ollama/llama3.2
 ```
 
 ### CLI Features
