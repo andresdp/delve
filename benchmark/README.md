@@ -216,6 +216,19 @@ Both are scored on their selected view.
     - Their in-pipeline evaluation LLM is now `openai/gpt-5.4-nano`. It was previously `gpt-5.6-luna`, the
       generation LLM itself, through the old fallback.
     - Scoreboards of future runs are therefore judged by a different model than those of the 2026-10-02 runs.
+- **2026-10-04 — rescored with the configured matching LLM, `openai/gpt-5.6-luna`** (user decision, after the
+  `gpt-5.4-mini` scores were seen).
+  - **Outputs:** `examples/<case>/gt_luna/`. The `gpt-5.4-mini` outputs stay in `examples/<case>/`.
+  - **Settings:** frame settings otherwise.
+  - **Not independent:** luna also generated both runs, so the matching grades its own model. The warning is
+    recorded in the outputs (`llm_warnings`).
+  - **Option F1** (paper / model view): C1 0.58 / 0.60, previously 0.50 / 0.59; C2 0.43 / 0.45, previously
+    0.22 / 0.29.
+    - Luna is more lenient: C2 recall goes from 0.18 to 0.40.
+    - But luna rarely answers `same`, so exact recall drops: C1 paper from 0.47 to 0.14.
+  - **Decision F1, strict** (paper view): C1 0.67, previously 0.76; C2 0.35, unchanged.
+  - **Reading:** the judge choice alone moves C2's option F1 by about 0.2. Validating the judge against human
+    gold (A6) and using an independent judge are prerequisites for reporting these numbers.
 - **2026-10-03 — all three LLM roles set to `openai/gpt-5.6-luna` in every config, for now** (user
   decision).
   - **Scoreboards:** they are judged by the generation model again, as in the 2026-10-02 runs, so they stay

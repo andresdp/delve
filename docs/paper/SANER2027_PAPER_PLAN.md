@@ -1107,6 +1107,48 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
       judge's `same`, `related` and `different` pairs overlap almost fully in distance (C1 medians 0.44,
       0.49, 0.52). This is evidence for the rival-hypothesis section: distance alone cannot do the matching,
       so the judge is needed. Its leniency still has to be validated (A6).
+  - **2026-10-04 — rescored with the configured matching LLM `gpt-5.6-luna`** (also the generator, so not
+    independent; outputs in `examples/<case>/gt_luna/`; frame-note change log).
+
+    | Run | View | Option P / R / F1 | Jaccard | Exact R | Related | Decision F1 strict / lenient | Placement |
+    |---|---|---|---|---|---|---|---|
+    | C1 | paper | 0.52 / 0.65 / 0.58 | 0.26 | 0.14 | 0.26 | 0.67 / 0.84 | 0.77 |
+    | C1 | model | 0.65 / 0.55 / 0.60 | 0.29 | 0.17 | 0.33 | 0.68 / 0.83 | 0.88 |
+    | C2 | paper | 0.45 / 0.40 / 0.43 | 0.13 | 0.05 | 0.53 | 0.35 / 0.39 | 0.60 |
+    | C2 | model | 0.50 / 0.40 / 0.45 | 0.15 | 0.05 | 0.44 | 0.47 / 0.53 | 0.67 |
+
+    **Qualitative findings.**
+    - **C1:**
+      - 9 of the paper's 10 decisions are found (lenient). Strong: data ingestion 4/4, feature persistence
+        2/2, batch vs. real time 2/2. Weak: "when and how to train" 0/3, model building 1/3, AutoML 1/2,
+        triggers 3/6.
+      - 29 values match model-only options, in parts the paper omits: integration 6/7, serving 4/5,
+        CI/CD 4/4, testing 6/14. Most "extra" values are expert content beyond the paper.
+      - Matches are mostly `broader` / `narrower` (granularity mismatch), not `same`.
+      - 3 dimensions have no expert counterpart (model registry, federated learning, governance), which is
+        a case for the A7 rating.
+    - **C2:**
+      - The selected view keeps only 36 candidate values in 10 dimensions.
+      - Coverage is skewed. Good: monitoring signals 11/16, degradation tests 4/6, hacking detection 5/9.
+        Missed: safe exploration 0/3, false-alarm control 0/4. Nearly missed: automated response 1/9,
+        hacking mitigation 2/10.
+      - About half the values are `related` near misses.
+      - One dimension is misplaced ("Reward-Hacking Detection Methods" aligns with the experts'
+        monitoring-signal decision), so placement is 0.60.
+      - 5 of 10 dimensions align with no expert decision: audit evidence, runtime safety intervention,
+        reward-model training, lineage, policy adaptation.
+    - **Reading:**
+      - C2's deficit is recall. It matches the **value collapse** observed in the loop: values per
+        iteration 282 → 59 at iteration 9 (tool-based update plan §1).
+      - Whole decisions with no surviving options (safe exploration, false-alarm control) are what a
+        rewrite-style update loses when it compresses the taxonomy.
+      - This motivates the **tool-based (operation-based) taxonomy update**
+        (`docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`) as the candidate fix for the
+        stage A10 is expected to blame.
+      - Next: run the A10 stage funnel on C2 to confirm where options are lost. If the loop is confirmed,
+        implement the tool-based update and re-score with the same frame and judge.
+    - **Judge sensitivity:** `gpt-5.4-mini` → luna moves C2's option F1 from 0.22 to 0.43 and C1's exact
+      recall from 0.47 to 0.14. A6 must come before any reported number.
   - **Open definitional point:** the "related" rate is implemented as in the frame note (share of *system
     values* whose best label is `related`), whereas M7 above defines it over *GT options*. Decide which to
     report. A change is logged in the frame note's "Changes after scores were seen".
