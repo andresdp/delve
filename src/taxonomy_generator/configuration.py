@@ -228,6 +228,16 @@ class Configuration:
         metadata={"description": "Minimum share of the corpus's documents open-coded before saturation may end the update loop (0 = off)."},
     )
 
+    edit_mode: str = field(
+        default=None,
+        metadata={"description": "How update/review change the taxonomy: rewrite, rewrite_restore or tools."},
+    )
+
+    edit_max_steps: int = field(
+        default=None,
+        metadata={"description": "Tools mode: maximum model turns per update or review."},
+    )
+
     # ── Summarization ──────────────────────────────────────────────────
     skip_summarization: bool = field(
         default=None,
@@ -421,6 +431,8 @@ class Configuration:
             "min_dimension_sources": s.taxonomy.min_dimension_sources,
             "saturation_min_coverage": s.taxonomy.saturation_min_coverage,
             "saturation_min_corpus_fraction": s.taxonomy.saturation_min_corpus_fraction,
+            "edit_mode": s.taxonomy.edit_mode,
+            "edit_max_steps": s.taxonomy.edit_max_steps,
             # Summarization
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,

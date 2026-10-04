@@ -156,6 +156,13 @@ class TaxonomySettings:
     # Minimum share of the corpus's documents that must be open-coded before
     # saturation may end the update loop (0 = saturation alone decides).
     saturation_min_corpus_fraction: float = 0.0
+    # How update_taxonomy and review_taxonomy change the taxonomy (EDIT_MODES):
+    # "rewrite" re-emits the whole taxonomy (default); "rewrite_restore" also puts
+    # back evidence-backed values a rewrite dropped (an ablation control); "tools"
+    # edits it through validated coding operations (taxonomy_editor.py).
+    edit_mode: str = "rewrite"
+    # Tools mode: maximum model turns per update or review.
+    edit_max_steps: int = 8
 
 
 @dataclass(frozen=True)
@@ -196,6 +203,7 @@ class OpenCodingSettings:
 
 
 OPEN_CODING_INPUTS = ("summary", "content")
+EDIT_MODES = ("rewrite", "rewrite_restore", "tools")
 
 
 @dataclass(frozen=True)
@@ -389,7 +397,15 @@ def _build_feedback(raw: dict) -> FeedbackSettings:
 
 
 def _build_taxonomy(raw: dict) -> TaxonomySettings:
+    edit_mode = raw.get("edit_mode", TaxonomySettings.edit_mode)
+    if edit_mode not in EDIT_MODES:
+        raise ValueError(f"taxonomy.edit_mode must be one of {EDIT_MODES}, got {edit_mode!r}")
+    edit_max_steps = raw.get("edit_max_steps", TaxonomySettings.edit_max_steps)
+    if not isinstance(edit_max_steps, int) or edit_max_steps < 1:
+        raise ValueError(f"taxonomy.edit_max_steps must be a positive integer, got {edit_max_steps!r}")
     return TaxonomySettings(
+        edit_mode=edit_mode,
+        edit_max_steps=edit_max_steps,
         name=raw.get("name", TaxonomySettings.name),
         max_num_clusters=raw.get("max_num_clusters", TaxonomySettings.max_num_clusters),
         cluster_name_length=raw.get("cluster_name_length", TaxonomySettings.cluster_name_length),
