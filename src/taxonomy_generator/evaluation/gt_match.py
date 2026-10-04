@@ -640,6 +640,8 @@ def compute_metrics(dimensions: list[dict], values: list[Item], views: dict[str,
         outside = {d for d in dim_ids
                    if any(dim == d for dim, _ in union_alignment["lenient"])
                    and all(dec not in view_decs for dim, dec in union_alignment["lenient"] if dim == d)}
+        # A dimension aligned within the view stays in its pool (lenient covers strict), so precision <= 1.
+        outside -= {d for d, _ in alignment["lenient"]}
         decision: dict[str, Any] = {}
         dim_pool = [d for d in dim_ids if d not in outside]
         for kind in ("strict", "lenient"):

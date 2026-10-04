@@ -210,3 +210,39 @@ def test_run_match_in_embeddings_mode_needs_no_judge_and_writes_separate_outputs
     assert set(result["label_sources"]) == {"embedding"}
     assert result["metrics"]["paper"]["option"]["recall"] == pytest.approx(0.25, abs=1e-4)
     assert all("_emb_gt_" in p.name for p in result["paths"].values())
+
+
+def test_dimension_aligned_only_to_model_only_options_is_left_out_of_the_paper_precision_pool():
+    labels = {("1.1", "o1"): "same", ("3.1", "o5"): "same", ("3.2", "o6"): "same"}
+    paper = _metrics({"1": ["1.1"], "3": ["3.1", "3.2"]}, labels)["paper"]["decision"]
+    assert paper["dimensions_aligned_only_outside_view"] == 1
+    assert paper["strict"]["n_precision"] == 1 and paper["strict"]["tp_precision"] == 1   # dim 3 left out
+
+
+def test_dimension_aligned_in_the_view_stays_in_its_pool_even_if_the_union_aligns_it_elsewhere():
+    # d1 is shared but has extra model-only options, so in the union dim 1 aligns only with
+    # the model-only d3 (share 2/2) and not with d1 (1/4 < 0.3); in the paper view it aligns with d1 (1/1).
+    paper = _gt("paper", {"d1": "Drift Test"}, {"o1": ("CUSUM", ["d1"])})
+    model = _gt("model", {"d1": "Drift Test", "d3": "Hacking"},
+                {"o1": ("CUSUM", ["d1"]), "o7": ("A", ["d1"]), "o8": ("B", ["d1"]), "o9": ("C", ["d1"]),
+                 "o5": ("CoT", ["d3"]), "o6": ("Ensemble", ["d3"])})
+    views = {"paper": paper, "model": model}
+    clusters = _clusters({"1": ["1.1", "1.2", "1.3", "1.4"]})
+    labels = {("1.1", "o1"): "same", ("1.2", "o5"): "same", ("1.3", "o6"): "same"}
+    m = gt_match.compute_metrics(gt_match.system_dimensions(clusters), gt_match.system_values(clusters), views,
+                                 gt_match.ground_truth_options(views), _pairs(labels), min_alignment_share=0.3)
+    decision = m["paper"]["decision"]
+    assert m["paper"]["alignment"]["strict"] == [["1", "d1"]]
+    assert decision["dimensions_aligned_only_outside_view"] == 0
+    for kind in ("strict", "lenient"):
+        assert decision[kind]["tp_precision"] <= decision[kind]["n_precision"] == 1
+        assert decision[kind]["precision"] <= 1.0
+    assert decision["jaccard"] == 1.0
+
+
+def test_tie_break_distance_decides_the_strict_alignment_between_equal_shares():
+    shares = {("1", "a"): {"share": 0.5, "matched": 1}, ("1", "b"): {"share": 0.5, "matched": 1}}
+    to_b = gt_match.align_dimensions(shares, 0.25, tie_break={("1", "a"): 0.4, ("1", "b"): 0.1})
+    to_a = gt_match.align_dimensions(shares, 0.25, tie_break={("1", "a"): 0.1, ("1", "b"): 0.4})
+    assert to_b["strict"] == [("1", "b")] and to_a["strict"] == [("1", "a")]
+    assert to_b["lenient"] == to_a["lenient"] == [("1", "a"), ("1", "b")]

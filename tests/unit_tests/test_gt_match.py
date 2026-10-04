@@ -268,3 +268,37 @@ def test_embeddings_mode_one_to_one_keeps_one_same_pair_per_item():
 def test_unknown_mode_is_rejected():
     with pytest.raises(gt_match.MatcherError, match="mode"):
         gt_match.check_mode("fuzzy")
+
+
+# ------------------------------------------------------ judge-mode branches
+
+def test_borderline_pair_outside_both_neighbourhoods_is_auto_rank_different_without_the_judge():
+    # max_candidates=1: 1.1 <-> cusum and 1.2 <-> hotelling are mutual nearest neighbours.
+    config = _config(lower_threshold=0.0, upper_threshold=2.0, max_candidates=1)
+    pairs, judge = _run(config, judge_labels=["same"] * 10)
+    for sys_id, gt_id in (("1.1", "hotelling"), ("1.2", "cusum")):
+        p = _pair(pairs, sys_id, gt_id)
+        assert (p["label"], p["label_source"]) == ("different", "auto_rank")
+    judged = {(p["system_id"], p["gt_id"]) for p in pairs if p["label_source"] == "judge"}
+    assert judged == {("1.1", "cusum"), ("1.2", "hotelling")}
+    assert len(judge.calls) == 2
+
+
+def test_invalid_judge_label_retried_once_then_a_valid_label_is_kept_without_a_warning():
+    config = _config(lower_threshold=0.0, upper_threshold=2.0)
+    system = gt_match.system_values([dict(CLUSTERS[0], values=[CLUSTERS[0]["values"][1]])])
+    options = [o for o in gt_match.ground_truth_options(GT) if o.id == "hotelling"]
+    judge = FakeJudgeModel(["maybe", "same"])
+    pairs = asyncio.run(gt_match.label_pairs(system, options, fake_embedder(VECTORS), judge, config))
+    assert len(pairs) == 1
+    assert (pairs[0]["label"], pairs[0]["label_source"], pairs[0]["warning"]) == ("same", "judge", "")
+    assert len(judge.calls) == 2
+
+
+def test_judge_labels_are_oriented_from_the_system_value_side_end_to_end():
+    pairs, _ = _run(_config(lower_threshold=0.0, upper_threshold=2.0), judge_labels=["broader"] * 10)
+    judged = [p for p in pairs if p["label_source"] == "judge"]
+    assert judged
+    for p in judged:
+        assert p["raw_label"] == "broader"
+        assert p["label"] == gt_match.orient_label("broader", p["order"])
