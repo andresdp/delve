@@ -176,4 +176,31 @@ Both are scored on their selected view.
 
 ### Changes after scores were seen
 
-*None yet.*
+- **2026-10-03 — embeddings-only matcher mode added** (user request, after the first scores).
+  - **What:** `matcher.mode: embeddings` (CLI `--matcher-mode embeddings`) labels pairs from cosine distance
+    alone: `same` at or below `same_threshold`, `related` up to `upper_threshold`, otherwise `different`.
+    With `embedding_one_to_one: true`, only a one-to-one assignment of `same` pairs is kept. The default
+    mode stays `judge`, so the existing scores are unchanged. Outputs carry an `_emb` suffix.
+  - **Threshold:** `same_threshold` = 0.18, the 1st percentile of distances between distinct options of the
+    same study (0.177, from `frame_thresholds.py`). It was chosen from the ground truth alone, before any
+    embeddings-only score was seen.
+  - **Result on the 2026-10-02 runs: no `same` pair at all** (every metric is 0; C1 and C2).
+    - Every system value is at least 0.21 from its nearest option (C1 median 0.45; C2 median 0.45). The
+      0.18 cutoff comes from expert-vs-expert pairs, which share wording and decision prefixes, and does not
+      transfer to system-vs-expert pairs.
+    - The judge's labels overlap almost fully in distance. C1: `same` median 0.44 (0.21–0.58), `related`
+      0.49, `different` 0.52. C2: `same` 0.42, `related` 0.48, `different` 0.49.
+  - **Reading:** embedding distance alone does not separate matches from non-matches here, and the judge is
+    needed. The threshold is **not** retuned on these scores, since that would fit it to the outcome. A
+    non-trivial embeddings baseline needs a threshold from an independent source, such as the human gold
+    alignment (A6).
+- **2026-10-03 — Jaccard added to the profile** (user request, after the first scores). It is additive; no
+  existing metric changes.
+  - **Option level:** matched / (|S| + |G| − matched), where matched is a maximum one-to-one matching of hit
+    pairs. A generic value that hits several options counts once. It uses the same pools as precision and
+    recall: the paper-view pool leaves out values matched only to `model only` options.
+  - **Option level, `same` only** (`jaccard_same`).
+  - **Decision level:** from the strict alignment.
+
+  With one-to-one counting, Jaccard is lower than F1. Precision and recall count many-to-one hits; for
+  example, C1 paper view has F1 0.50 and Jaccard 0.24.

@@ -1089,6 +1089,22 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
     broader than "Human Review"). A6 must measure this before the numbers count.
   - **OpenAI embeddings are not bit-for-bit deterministic.** One C2 pair crossed the 0.60 boundary on a
     rerun. The judge cache keeps the judge labels reproducible.
+  - **Added the same day** (logged in the frame note's "Changes after scores were seen"):
+    - **Jaccard** at option level (one-to-one matching of hits; also `same` only) and decision level (strict
+      alignment). Judge-mode values:
+
+      | Run | View | Option J | Option J (same only) | Decision J |
+      |---|---|---|---|---|
+      | C1 | paper | 0.24 | 0.17 | 0.62 |
+      | C1 | model | 0.27 | 0.18 | 0.47 |
+      | C2 | paper | 0.09 | 0.06 | 0.21 |
+      | C2 | model | 0.11 | 0.08 | 0.31 |
+
+    - **An embeddings-only matcher mode** (`--matcher-mode embeddings`). With its ground-truth-derived
+      threshold (0.18) it finds **no match** in either run. System-vs-expert distances start at 0.21, and the
+      judge's `same`, `related` and `different` pairs overlap almost fully in distance (C1 medians 0.44,
+      0.49, 0.52). This is evidence for the rival-hypothesis section: distance alone cannot do the matching,
+      so the judge is needed. Its leniency still has to be validated (A6).
   - **Open definitional point:** the "related" rate is implemented as in the frame note (share of *system
     values* whose best label is `related`), whereas M7 above defines it over *GT options*. Decide which to
     report. A change is logged in the frame note's "Changes after scores were seen".
