@@ -1275,6 +1275,28 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
   comparing train vs. test labeling statistics.
 - Artifacts: a short table (train vs. test gap per case) and the split-half recurring/one-off counts.
 
+**E12 — Pending: wording sensitivity of the ground-truth views (RQ1 robustness; added 2026-10-04)**
+- **Question:** do the RQ1 conclusions depend on how richly the experts described their options?
+- **Headline setting:** an option shared by the paper and model views is matched, in both views, with the
+  paper view's text (`gt_match.VIEW_TEXT_PRECEDENCE`).
+  - For C2, that is the catalogue memo's description; the model's own link descriptions are shorter.
+  - So the paper-vs-model comparison isolates scope from wording.
+- **Rival hypothesis:** richer expert text makes matches easier and inflates absolute scores (both views
+  alike).
+- **Sensitivity run:**
+  - Score the model view on the model's own wording: precedence `("model", "paper")`, or the model view
+    alone.
+  - Same runs, same matching LLM, same thresholds.
+  - Report option and decision P/R/F1/Jaccard next to the headline numbers.
+- **Reading:**
+  - Conclusions that hold under both wordings are robust to description richness.
+  - Large drops point to a wording effect, to be reported as a limitation.
+- **Scope and cost:**
+  - Only C2 is affected (C1's views share text).
+  - Cost: new judge calls on the borderline C2 pairs, cached.
+- **To build if scheduled:** a `matcher.text_precedence` setting (or a `--gt-view model` restriction) passed
+  to `ground_truth_options`; log the run as a sensitivity analysis, not a frame change.
+
 ### 9.3 Run budget
 
 | Experiment | Runs (C1, C2 × 5 seeds unless noted) |
@@ -1290,6 +1312,7 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
 | E9 | 10 (C3-raw + C3-curated) |
 | E10 (stretch) | ~15 (C4 if go) |
 | E11 (possible) | 8 per split (C1, C2: 1 train + 1 test + 2 split-half trains each); not in the total |
+| E12 (pending) | 0 new pipeline runs (rescoring of existing C2 runs with the model's wording) |
 | **Total** | **≈ 205** |
 
 Estimate cost after E0. If the budget is exceeded, cut in this order: E3 to 3 seeds; drop LLooM; drop

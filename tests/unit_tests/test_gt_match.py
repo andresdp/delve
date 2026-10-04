@@ -302,3 +302,15 @@ def test_judge_labels_are_oriented_from_the_system_value_side_end_to_end():
     for p in judged:
         assert p["raw_label"] == "broader"
         assert p["label"] == gt_match.orient_label("broader", p["order"])
+
+
+def test_shared_elements_take_their_text_from_the_paper_view_whatever_the_view_order():
+    model = json.loads(json.dumps(GT["paper"]))
+    model["view"] = "model"
+    model["options"][0]["description"] = "short model text"
+    model["decisions"][0]["name"] = "Model Decision Name"
+    for views in ({"paper": GT["paper"], "model": model}, {"model": model, "paper": GT["paper"]}):
+        cusum = next(o for o in gt_match.ground_truth_options(views) if o.id == "cusum")
+        assert cusum.description == "Cumulative sums"
+        assert cusum.parent_name == "Reward Degradation Test"
+        assert cusum.views == {"paper", "model"}

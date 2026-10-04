@@ -219,10 +219,23 @@ def system_values(clusters: Sequence[dict], include_outcomes: bool = False) -> l
     return items
 
 
+# Text of an element shared by several views (same crosswalk id): taken from the first view in
+# this order, and used for every view, so view metrics differ only in which elements count
+# (scope), never in wording. The paper view comes first: for C2 its option descriptions are the
+# catalogue's (the richest author text); for C1 they equal the model's. Recorded in every output.
+VIEW_TEXT_PRECEDENCE = ("paper", "model")
+
+
+def _views_in_text_precedence(views: dict[str, dict]) -> list[tuple[str, dict]]:
+    """The views ordered by ``VIEW_TEXT_PRECEDENCE`` (other views after, in their given order)."""
+    rank = {name: i for i, name in enumerate(VIEW_TEXT_PRECEDENCE)}
+    return sorted(views.items(), key=lambda kv: rank.get(kv[0], len(rank)))
+
+
 def ground_truth_decisions(views: dict[str, dict]) -> dict[str, dict[str, Any]]:
-    """Union of the views' decisions, with the views each belongs to."""
+    """Union of the views' decisions, with the views each belongs to (text per ``VIEW_TEXT_PRECEDENCE``)."""
     decisions: dict[str, dict[str, Any]] = {}
-    for view_name, view in views.items():
+    for view_name, view in _views_in_text_precedence(views):
         for dec in view["decisions"]:
             entry = decisions.setdefault(dec["id"], {**dec, "views": set()})
             entry["views"].add(view_name)
@@ -230,10 +243,13 @@ def ground_truth_decisions(views: dict[str, dict]) -> dict[str, dict[str, Any]]:
 
 
 def ground_truth_options(views: dict[str, dict]) -> list[Item]:
-    """Union of the views' attached options (unattached ones are not scored), with view membership."""
+    """Union of the views' attached options (unattached ones are not scored), with view membership.
+
+    A shared option's name and description come from the first view in ``VIEW_TEXT_PRECEDENCE``.
+    """
     decisions = ground_truth_decisions(views)
     options: dict[str, Item] = {}
-    for view_name, view in views.items():
+    for view_name, view in _views_in_text_precedence(views):
         for opt in view["options"]:
             if not opt.get("decision_ids"):
                 continue
@@ -790,7 +806,8 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, matching_
     record = {**config.as_record(), "llm_warnings": warnings, "taxonomy": str(taxonomy_path), "taxonomy_view": view,
               "ground_truth": str(gt_folder), "ground_truth_commit": _git_commit(Path(gt_folder)),
               "system_values": len(values), "ground_truth_options": len(options),
-              "views": {name: sum(1 for o in options if name in o.views) for name in views}}
+              "views": {name: sum(1 for o in options if name in o.views) for name in views},
+              "gt_text_precedence": [name for name, _ in _views_in_text_precedence(views)]}
     names = {f"dim:{d['id']}": d["name"] for d in dimensions}
     names.update({f"dec:{d}": info["name"] for d, info in decisions.items()})
     stem = Path(taxonomy_path).stem.replace("_taxonomy_", "_") + ("_emb" if config.mode == "embeddings" else "")

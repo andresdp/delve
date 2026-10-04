@@ -114,6 +114,16 @@ reported.*
 Unattached model options are excluded. Matching runs once against the union of a study's views; metrics are
 computed per view.
 
+**Text of shared elements.** An option or decision present in both views (same crosswalk id) is matched with
+one text, the paper view's, in both views (`gt_match.VIEW_TEXT_PRECEDENCE`, recorded in every output as
+`gt_text_precedence`).
+- **Why:** the two views' metrics then differ only in *scope*, i.e. which elements count, never in wording,
+  and a crosswalked element cannot be "found" in one view and "missed" in the other.
+- **C2:** the paper view's option descriptions are the catalogue's, the richest author text. The model's own
+  link descriptions are shorter.
+- **C1:** the paper view uses the model's option text, so nothing differs.
+- **Pending sensitivity check:** the paper plan's E12 scores the model view on the model's own wording.
+
 ### Metric definitions
 
 | Level | Definition |
@@ -217,6 +227,13 @@ Both are scored on their selected view.
     - To reproduce the frame's scores, pass `--matching-llm openai/gpt-5.4-mini`.
     - Luna is also the generator of the scored runs, so a luna-judged match would grade its own family.
       Report it only as such.
+- **2026-10-04 — text precedence of shared elements made explicit** (code review finding #3; no score
+  change).
+  - **Before:** the first view loaded, the paper view, already supplied the text of shared elements, but
+    implicitly.
+  - **Now:** it is a declared rule, recorded in the outputs, and documented above.
+  - **Checked:** every expert text in the committed C1/C2 match files (31,882 pairs, judge and embeddings
+    modes) is identical under the rule.
 - **2026-10-03 — Jaccard added to the profile** (user request, after the first scores). It is additive; no
   existing metric changes.
   - **Option level:** matched / (|S| + |G| − matched), where matched is a maximum one-to-one matching of hit
