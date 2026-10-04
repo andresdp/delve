@@ -200,8 +200,17 @@ although sources s20–s29 (MLOps, monitoring, Jupyter) feed exactly those parts
 smaller than the model view. Source links are 2021 TinyURLs pointing to archived copies (all 29
 recovered).
 
-**C2 specifics**: the paper's Table 2 lists 57 options (ADD 2: 16, ADD 6: 9) and quotes 59/72 drivers; the
-model has 62 options (ADD 2: 15, ADD 6: 15) and 43 forces. Both views are kept as they are; the differences
+*Outcome (2026-10-03, B1).*
+- The Zenodo record holds the CodeableModels model, so C1 has **two views and a crosswalk**, like C2.
+- **Paper view:** Table 2, with 10 decisions, 43 options and 30 forces (151 impacts). It is checked against
+  the PDF text.
+- **Model view:** 28 decisions and 121 attached options (186 declared), parsed statically.
+- **Crosswalk:** 18 decisions are model-only. Details are in `benchmark/c1-ml-workflow/gt/README.md`.
+
+**C2 specifics**: the paper's Table 2 lists 57 options (ADD 2: 16, ADD 6: 9) and 72 drivers (p. 7 says 53 and
+59); the model links 62 options (ADD 2: 15, ADD 6: 15), declares a 63rd (Action Failure Rate Monitoring)
+without a decision, and has 43 forces. The model view matches the authors' generated views exactly
+(`benchmark/c2-rl-monitoring/gt/README.md`). Both views are kept as they are; the differences
 are reported. The package also classifies sources as primary/supporting/confirming (useful for E5).
 
 **Threat to state**: both GT studies come from the same research group (single-group bias). The kit is
@@ -704,7 +713,13 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
 
 ### 5.4 Validity safeguards
 
-- **Judge from a different model family** than the generator (needs §8 P9). This covers **every** judge: the
+- **Judge arrangement (decided 2026-10-03).** Only OpenAI models are available in this setup, so the judge is a
+  *different OpenAI model* than the generator (test runs: `gpt-5.4-mini` judging `gpt-5.6-luna` output),
+  configured through `evaluation.judge_model` (or `matcher.judge_model`). The matcher never falls back to
+  the generator and refuses a judge equal to it. Independence is therefore partial: the human gold alignment
+  (A6) validates the judge, and the paper states the arrangement as a limitation.
+- **Judge from a different model family** than the generator (needs §8 P9; not available in this setup, see
+  above). This covers **every** judge: the
   matcher's judge, the human-validation aids, **and the in-loop scoreboard** (today `evaluation.judge_model:
   null` falls back to the generator model, so the pipeline grades its own family). Record the judge's model,
   version, prompt and temperature for every judged number.
@@ -714,7 +729,8 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
   same metrics (§9 E8).
 - **Pinned models, seeds and cached outputs**; configs committed; full replication package.
 - **Budget-matched comparisons** whenever a variant uses more LLM calls.
-- **Freeze the evaluation frame before the first scored run** (added 2026-10-03): corpus versions (passage
+- **Freeze the evaluation frame before the first scored run** (added 2026-10-03; done as a written note
+  without hashes, `benchmark/README.md` "Evaluation frame", committed at `7c80399` before the first scores): corpus versions (passage
   files + manifest hashes), GT files and views, use cases, matcher thresholds (cross-fitted), judge model
   and prompts, metric definitions and cutoffs, seeds. Anything changed after seeing GT scores is reported
   as such.
@@ -901,7 +917,7 @@ Priority key: **M** = must (before freeze), **S** = should, **C** = could / post
 | P6 | — | **Out of scope (future work, 2026-10-02).** ~~Theoretical sampling.~~ After `check_saturation`, reorder `state.minibatches[open_code_batch_index:]` by mean embedding similarity between their passages and `uncovered_concepts` (fallback: unchanged order). Log the chosen order | `nodes/saturation_checker.py` (or new node `select_next_batch` between `check_saturation` and `open_code_minibatch` in `graph.py`); `state.py` (+`sampling_log`) | `pipeline.theoretical_sampling: false` | reordering deterministic given embeddings; no-op when saturated | — | — |
 | P7 | M | **Drivers and consequences first-class.** `Driver{id, name, description, supporting_doc_ids}` on `TaxonomyOutput` (taxonomy-level list); `Value.impacts: List[{driver_id, effect: positive\|negative\|mixed, rationale}]`. Propagate through generation/update/review prompts, `format_taxonomy`, consolidation (union impacts on merge; conflicting signs → `mixed`), GT report catalog, HTML report, JSON serialization | `schemas.py`; `prompts/taxonomy_generation.md`, `taxonomy_update.md`, `taxonomy_review.md`; `utils.py::format_taxonomy`; `nodes/value_consolidator.py::_merge_group`; `report_renderer.py::render_catalog`; `html_report.py`; `main.py` serializers; `state.py` if drivers are kept outside `clusters` | `taxonomy.drivers: false` | schema; merge-impact union; format/round-trip; report rendering | 2 d (largest item) | RQ1 drivers/impacts, Straussian story |
 | P8 | — | **Out of scope (future work, 2026-10-02).** ~~Persona coder agents (open coding only; no `graph.py` change).~~ `personas:` list in settings (id, lens, attend_to, de_emphasize, optional model). `{persona}` slot in `open_coding.md`, empty by default so no personas → byte-identical prompt. `_setup_open_coding_chain` builds one chain per persona (per-persona model via `load_chat_model`). `open_code_minibatch` fans out persona × passage under the existing semaphore, in deterministic persona-id order. `OpenCode.persona: Optional[str]`. Persona ids are **not** shown to the taxonomist (`format_open_codes_for_docs` unchanged) to avoid biasing axial coding. For the budget-matched control: `open_coding.samples_per_doc: 1` (k > 1 = k persona-less codings per passage) | `settings.py` (+`PersonaSettings`); `configuration.py`; `nodes/open_coder.py`; `prompts/open_coding.md`; `schemas.py::OpenCode` | `personas: []`, `open_coding.samples_per_doc: 1` | no personas → identical prompt and one call per passage; N personas → N× calls, each code tagged; deterministic order; per-persona model routing; `samples_per_doc` fan-out | — | — |
-| P9 | M | **Provider-agnostic judge.** A deepeval `DeepEvalBaseLLM` wrapper around `utils.load_chat_model`; `consistency.py` adjudication via `load_chat_model` instead of `AsyncOpenAI` | `evaluation/judge.py`, `evaluation/metrics.py::build_metrics`, `evaluation/consistency.py` | `evaluation.judge_model: anthropic/…` etc. | wrapper contract; fallback | 0.5 d | cross-family judge (validity) |
+| P9 | M | *(2026-10-03: OpenAI-only setup; the matcher's judge is a different OpenAI model from `evaluation.judge_model`, so the wrapper is not needed now)* **Provider-agnostic judge.** A deepeval `DeepEvalBaseLLM` wrapper around `utils.load_chat_model`; `consistency.py` adjudication via `load_chat_model` instead of `AsyncOpenAI` | `evaluation/judge.py`, `evaluation/metrics.py::build_metrics`, `evaluation/consistency.py` | `evaluation.judge_model: anthropic/…` etc. | wrapper contract; fallback | 0.5 d | cross-family judge (validity) |
 | P10 | S | **Structural saturation.** Compute a round-over-round diff (dimensions/values/drivers/relations added, removed, renamed) between `clusters[-2]` and `clusters[-1]`; saturated only if concept coverage holds **and** diff ≤ threshold | `nodes/saturation_checker.py`; `state.py` (`saturation_history` gains `diff`) | `taxonomy.structural_saturation: false`, `taxonomy.saturation_max_edits: 1` | diff function on fixtures | 0.5 d | Straussian fidelity, E5 |
 | P11 | M | **Memo trail.** Render every iteration's `explanations` (and saturation rationales) as an "Evolution of the theory" section in the GT report / HTML report | `report_renderer.py` (new `render_memo_trail`), `html_report.py` | always on | rendering | 0.5 d | Approach figure, qualitative results |
 | P12 | M | **Ablation switches** not yet available: (a) `open_coding.enabled: true` (false → axial coding directly on passages/summaries, i.e. TnT-style); (b) `review.enabled: true` (false → `review_taxonomy` passes through); (c) `evaluation.feedback_in_loop: true` (false → scoreboard computed but not injected via `format_feedback`); (d) `open_coding.decision_status: true` (false → status neutralized in prompts and ignored by consolidation) | `graph.py` / routing (`should_generate_or_update`), `nodes/taxonomy_reviewer.py`, `utils.py::format_feedback`, `prompts/*`, `nodes/value_consolidator.py` | as listed | one test per switch verifying pass-through | 1 d | RQ3 |
@@ -985,10 +1001,10 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
 
 | Order | Work unit | Why now | Effort |
 |---|---|---|---|
-| 1 | **B1** GT conversion (C1, C2; both views; crosswalk; M2 descriptions) + **freeze the evaluation frame** (corpus manifests, use cases agreed by two authors, metric definitions) | Nothing is measurable without it; the frame must be fixed before any score is seen | 1–1.5 d |
+| 1 | *(done 2026-10-03, author checks pending)* **B1** GT conversion (C1, C2; both views; crosswalk; M2 descriptions) + **freeze the evaluation frame** (corpus manifests, use cases agreed by two authors, metric definitions) | Nothing is measurable without it; the frame must be fixed before any score is seen | 1–1.5 d |
 | 2 | **P9** provider-agnostic judge, and set a judge from another family for the matcher **and** the in-loop scoreboard | Removes the circularity (the generator grades itself today); needed before any judged number counts | 0.5 d |
-| 3 | **A1 (minimal)** matcher: candidate stage + judge, decision alignment, P/R/F1 per view, `match.json` | RQ1/RQ2 numbers; reuse `consistency.py` patterns | 1.5 d |
-| 4 | **E0 on the existing runs** (C1 `20261002_185546`, C2 `20261002_211657`) + **A10 stage funnel** | First real numbers; shows where options are lost (expected: the value collapse) | 0.75 d |
+| 3 | *(done 2026-10-03)* **A1 (minimal)** matcher: candidate stage + judge, decision alignment, P/R/F1 per view, `match.json` | RQ1/RQ2 numbers; reuse `consistency.py` patterns | 1.5 d |
+| 4 | *(scores done 2026-10-03; A10 funnel pending)* **E0 on the existing runs** (C1 `20261002_185546`, C2 `20261002_211657`) + **A10 stage funnel** | First real numbers; shows where options are lost (expected: the value collapse) | 0.75 d |
 | 5 | **A6 gold alignment** on E0 outputs (two authors, κ) + **matcher validation** (candidate recall, judge stress test) | Validates the matcher before it scores the main runs | 0.5 d + labeling |
 | 6 | **Fix the stage A10 identifies.** If it is the collapse: the tool-based update (`docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`); re-run E0 and compare the funnel | Evidence-driven fix of the biggest loss | ≈ 2 d |
 | 7 | **L1** long-context + **L5** contamination probe (same model as Delve, same corpus, budget recorded) | The baselines reviewers expect first; L5 tests the memorization rival | 0.75 d |
@@ -1035,6 +1051,47 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
     options to existing dimensions over new ones.
 - **B4 drafted:** use cases in `examples/c1-ml-workflow/c1_ml_workflow_config.yaml` and
   `examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`, still to be agreed by two authors.
+- **2026-10-03: B1 and A1 (minimal) done** (`docs/plans/2026-10-03-1804-feat-ground-truth-conversion-and-matcher-plan.md`).
+  - **Ground-truth format and validator:** `benchmark/gt_format.py`.
+  - **Model views:** a general static CodeableModels parser, `benchmark/parse_code_model.py --study c1|c2`
+    (no CodeableModels install, no execution).
+  - **Paper views:** C2 from Table 2, Fig. 2 and the catalogue; C1 from Table 2.
+  - **Crosswalks:** `benchmark/gt_crosswalk.py`. The author checks of both transcriptions are **pending**
+    (study READMEs).
+  - **Evaluation frame:** fixed in `benchmark/README.md` before scoring.
+  - **Matcher:** `evaluation/gt_match.py`, run with `python main.py --match-gt <taxonomy> --gt
+    benchmark/<study>/gt --config <yaml>`.
+    - Cosine distance, lower threshold 0 (every `same` comes from the judge) and upper threshold 0.60,
+      chosen from ground-truth-only distances: distinct opposite options such as "AutoML"/"No AutoML" sit at
+      0.03.
+    - A graded deepeval judge, cached.
+    - Strict and lenient alignment, placement, per-view metrics.
+- **2026-10-03: first ground-truth scores (E0).** These are the selected views of the 2026-10-02 runs,
+  judged by `gpt-5.4-mini` with frame settings. The first numbers are not final: the author checks, the
+  use-case agreement and the matcher validation (A6) are pending.
+
+  | Run | View | Option P | Option R | Option F1 | Exact R | Related | Decision F1 strict / lenient | Placement |
+  |---|---|---|---|---|---|---|---|---|
+  | C1 (113 values) | paper | 0.39 | 0.67 | 0.50 | 0.47 | 0.24 | 0.76 / 0.86 | 0.76 |
+  | C1 | model | 0.60 | 0.57 | 0.59 | 0.37 | 0.27 | 0.64 / 0.84 | 0.81 |
+  | C2 (36 values) | paper | 0.31 | 0.18 | 0.22 | 0.12 | 0.58 | 0.35 / 0.39 | 0.70 |
+  | C2 | model | 0.39 | 0.23 | 0.29 | 0.15 | 0.53 | 0.47 / 0.53 | 0.64 |
+
+  Readings and caveats:
+  - **C2 recall is low.** Its selected view keeps only 36 candidate values, consistent with the value
+    collapse observed in the loop. The stage funnel (A10) is the next measurement.
+  - **C2's related rate is high (0.58).** Many values are near misses: the right concern, but not the experts'
+    option.
+  - **C1 paper-view precision is lower than model view (0.39 vs. 0.60).** 39 C1 values match only
+    model-only options, the parts the paper omits. They are left out of the paper-view denominator, as M7
+    defines.
+  - **Some judge "broader" hits are generous** (e.g. "multiple complementary monitoring metrics" judged
+    broader than "Human Review"). A6 must measure this before the numbers count.
+  - **OpenAI embeddings are not bit-for-bit deterministic.** One C2 pair crossed the 0.60 boundary on a
+    rerun. The judge cache keeps the judge labels reproducible.
+  - **Open definitional point:** the "related" rate is implemented as in the frame note (share of *system
+    values* whose best label is `related`), whereas M7 above defines it over *GT options*. Decide which to
+    report. A change is logged in the frame note's "Changes after scores were seen".
 
 ---
 
