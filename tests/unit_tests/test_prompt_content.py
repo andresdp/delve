@@ -135,3 +135,65 @@ def test_taxonomy_update_prompt_anchors_quality_attributes_and_status():
     # Value labels must be noun phrases, never status-prefixed sentences.
     assert "noun phrase" in lowered
     assert "never prefix a label with its status" in lowered
+
+
+# ---------------------------------------------------------------- tool-based updates (edit_mode: tools)
+
+_TOOLS_VARS = dict(use_case="u", feedback="f", taxonomy_json="[1] A — q", data_json="[]", suggestion_length=30,
+                   cluster_name_length=7, cluster_description_length=23, explanation_length=40,
+                   max_num_clusters="9")
+
+
+def _system(prompt):
+    return prompt.format_messages(**_TOOLS_VARS)[0].content
+
+
+def test_rewrite_prompts_are_the_files_verbatim():
+    from pathlib import Path
+
+    import taxonomy_generator.prompts as prompts
+
+    folder = Path(prompts.__file__).parent
+    for prompt, name in ((TAXONOMY_UPDATE_PROMPT, "taxonomy_update.md"), (TAXONOMY_REVIEW_PROMPT, "taxonomy_review.md")):
+        assert prompt.messages[0].prompt.template == (folder / name).read_text().strip()
+
+
+def test_tools_prompts_keep_the_framework_and_drop_the_output_instructions():
+    from taxonomy_generator.prompts import (
+        TAXONOMY_REVIEW_TOOLS_PROMPT,
+        TAXONOMY_UPDATE_TOOLS_PROMPT,
+    )
+
+    for prompt in (TAXONOMY_UPDATE_TOOLS_PROMPT, TAXONOMY_REVIEW_TOOLS_PROMPT):
+        text = _system(prompt)
+        assert "## Design Space Framework" in text
+        assert "### User Feedback Integration" in text
+        assert "### Format" not in text
+        assert "Carry the taxonomy forward" not in text
+        assert "Existing values are shown without their document ids" not in text
+        assert "### Tools" in text and "finish" in text and "add_evidence" in text
+        # non-output rules of the removed Format section, restated with their values
+        assert "7 words" in text and "23 words" in text and "9" in text
+        assert "same status" in text
+    assert "Dimension-Oriented Operations" in _system(TAXONOMY_UPDATE_TOOLS_PROMPT)
+    assert "Allowed Adjustments" in _system(TAXONOMY_REVIEW_TOOLS_PROMPT)
+    assert "keep each value's status and label" in _system(TAXONOMY_REVIEW_TOOLS_PROMPT)
+
+
+def test_tools_human_messages_ask_for_tool_calls():
+    from taxonomy_generator.prompts import TAXONOMY_UPDATE_TOOLS_PROMPT
+
+    human = TAXONOMY_UPDATE_TOOLS_PROMPT.format_messages(**_TOOLS_VARS)[1].content
+    assert "tools" in human and "finish" in human and "40 words" in human
+
+
+def test_tools_variant_fails_loudly_when_a_marker_is_missing():
+    import pytest
+
+    from taxonomy_generator.prompts import derive_tools_system_prompt
+
+    with pytest.raises(ValueError, match="### Format"):
+        derive_tools_system_prompt("# Instruction\n- **Carry the taxonomy forward.** x\n"
+                                   "- **Existing values are shown without their document ids**: y\n", "TOOLS")
+    with pytest.raises(ValueError, match="Carry the taxonomy forward"):
+        derive_tools_system_prompt("# Instruction\n### Format\n- a\n### Quality\n- b\n", "TOOLS")
