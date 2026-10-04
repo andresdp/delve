@@ -41,3 +41,38 @@ def test_roles_from_yaml_reach_the_pipeline_configuration(tmp_path):
         assert c.evaluation_llm == "openai/cli"
     finally:
         init_settings(None)
+
+
+def test_command_line_role_overrides_keep_only_the_flags_given():
+    import argparse
+
+    import main as main_module
+
+    args = argparse.Namespace(generation_llm=None, evaluation_llm="openai/eval-cli", matching_llm=None)
+    assert main_module._llm_role_overrides(args) == {"evaluation_llm": "openai/eval-cli"}
+    assert main_module._llm_role_overrides(argparse.Namespace()) == {}
+
+
+def test_evaluate_command_passes_the_evaluation_llm_flag_to_its_configuration(monkeypatch):
+    import argparse
+    import asyncio
+
+    import pytest
+
+    import main as main_module
+
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    def capture(config=None):
+        seen.update(config["configurable"])
+        raise Stop
+
+    monkeypatch.setattr(main_module.Configuration, "from_runnable_config", staticmethod(capture))
+    args = argparse.Namespace(config=None, evaluate=["t.json"], output=None, generation_llm=None,
+                              evaluation_llm="openai/eval-cli", matching_llm=None)
+    with pytest.raises(Stop):
+        asyncio.run(main_module._run_evaluate(args))
+    assert seen == {"evaluation_llm": "openai/eval-cli"}

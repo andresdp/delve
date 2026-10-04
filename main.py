@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import logging
 import sys
@@ -1116,6 +1117,15 @@ def _display_consistency(comparison: dict) -> None:
     ))
 
 
+def _llm_role_overrides(args: argparse.Namespace) -> dict:
+    """The LLM roles overridden on the command line (--generation-llm, --evaluation-llm, --matching-llm)."""
+    overrides = {role: getattr(args, role, None) for role in LLM_ROLES}
+    overrides = {role: model for role, model in overrides.items() if model}
+    for role, model in overrides.items():
+        logger.info("Overriding models.%s: %s", role, model)
+    return overrides
+
+
 async def _run_match_gt(args: argparse.Namespace) -> None:
     """Score a saved taxonomy against a study's ground truth and exit."""
     from taxonomy_generator.evaluation.gt_match import MatcherError, run_match
@@ -1124,8 +1134,11 @@ async def _run_match_gt(args: argparse.Namespace) -> None:
         console.print("[red]--match-gt needs --gt <ground-truth folder>.[/red]")
         sys.exit(2)
     settings = init_settings(args.config)
+    overrides = _llm_role_overrides(args)
+    if overrides:  # the role flags reach the matcher's models and its shared-model warnings
+        settings = dataclasses.replace(settings, models=dataclasses.replace(settings.models, **overrides))
     try:
-        result = await run_match(args.match_gt, args.gt, settings, matching_llm_override=args.matching_llm,
+        result = await run_match(args.match_gt, args.gt, settings,
                                  mode_override=args.matcher_mode, out_dir=args.output, view=args.gt_view)
     except MatcherError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -1163,7 +1176,7 @@ async def _run_evaluate(args: argparse.Namespace) -> None:
     init_settings(args.config)
     files = args.evaluate
 
-    configurable: dict = {}
+    configurable: dict = _llm_role_overrides(args)  # --evaluation-llm sets the scoreboard/consistency judge
     if args.output:
         configurable["visualization_output_dir"] = args.output
     configuration = Configuration.from_runnable_config({"configurable": configurable} or None)
@@ -1303,10 +1316,7 @@ async def run(args: argparse.Namespace) -> None:
         configurable["mode"] = mode
     if taxonomy_input:
         configurable["taxonomy_input"] = taxonomy_input
-    for role in LLM_ROLES:
-        if getattr(args, role):
-            configurable[role] = getattr(args, role)
-            logger.info("Overriding models.%s: %s", role, getattr(args, role))
+    configurable.update(_llm_role_overrides(args))
     if args.name:
         configurable["name"] = args.name
         logger.info("Overriding taxonomy name: %s", args.name)
