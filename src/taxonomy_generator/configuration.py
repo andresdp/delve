@@ -350,6 +350,52 @@ class Configuration:
         metadata={"description": "Save every scoreboard of a run (evaluation_history) and show scores across iterations."},
     )
 
+    # ── Ground-truth matcher (--match-gt) ──────────────────────────────
+    matcher_judge_model: str | None = field(
+        default=None,
+        metadata={"description": "Judge model of the ground-truth matcher; no default, must differ from the generator model."},
+    )
+
+    matcher_embedding: str | None = field(
+        default=None,
+        metadata={"description": "Embedding model of the ground-truth matcher (defaults to the embedding model)."},
+    )
+
+    matcher_lower_threshold: float = field(
+        default=None,
+        metadata={"description": "Distance at or below which a value-option pair is labeled 'same' without the judge."},
+    )
+
+    matcher_upper_threshold: float = field(
+        default=None,
+        metadata={"description": "Distance above which a value-option pair is labeled 'different' without the judge."},
+    )
+
+    matcher_max_candidates: int = field(
+        default=None,
+        metadata={"description": "Nearest neighbours per item whose borderline pairs reach the judge."},
+    )
+
+    matcher_include_outcomes: bool = field(
+        default=None,
+        metadata={"description": "Include outcome values as system values in ground-truth matching."},
+    )
+
+    matcher_min_alignment_share: float = field(
+        default=None,
+        metadata={"description": "Minimum share of matched values/options for a dimension-decision alignment."},
+    )
+
+    matcher_seed: int = field(
+        default=None,
+        metadata={"description": "Seed of the order in which the matcher's judge sees a pair."},
+    )
+
+    matcher_cache_path: str = field(
+        default=None,
+        metadata={"description": "Cache file of the matcher's judge results."},
+    )
+
     # ── LangGraph integration ──────────────────────────────────────────
 
     @classmethod
@@ -447,4 +493,14 @@ class Configuration:
             "evaluation_save_history": s.evaluation.save_history,
             "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
             "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
+            # Ground-truth matcher
+            "matcher_judge_model": s.matcher.judge_model,
+            "matcher_embedding": s.matcher.embedding,
+            "matcher_lower_threshold": s.matcher.lower_threshold,
+            "matcher_upper_threshold": s.matcher.upper_threshold,
+            "matcher_max_candidates": s.matcher.max_candidates,
+            "matcher_include_outcomes": s.matcher.include_outcomes,
+            "matcher_min_alignment_share": s.matcher.min_alignment_share,
+            "matcher_seed": s.matcher.seed,
+            "matcher_cache_path": s.matcher.cache_path,
         }

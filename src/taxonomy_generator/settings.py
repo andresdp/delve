@@ -237,6 +237,38 @@ class EvaluationSettings:
 
 
 @dataclass(frozen=True)
+class MatcherSettings:
+    """Ground-truth matcher parameters (``--match-gt``).
+
+    Pairs of system values and ground-truth options are proposed by embedding
+    distance (cosine distance, 1 - cosine similarity, lower is closer) and, in the
+    borderline band, labeled by an LLM judge that must be a different model
+    than the generator (``models.model``).
+    """
+
+    # Judge model (provider/model). No default and no fallback to models.model:
+    # the matcher refuses to run when it is unset or equal to the generator.
+    judge_model: Optional[str] = None
+    # Embedding model (provider/model); None uses models.embedding.
+    embedding: Optional[str] = None
+    # Distance at or below which a pair is labeled "same" without the judge.
+    lower_threshold: float = 0.10
+    # Distance above which a pair is labeled "different" without the judge.
+    upper_threshold: float = 0.45
+    # Pairs in the band reach the judge only when one item is among the other's
+    # max_candidates nearest neighbours (bounds the number of judge calls).
+    max_candidates: int = 5
+    # Include outcome values as system values (sensitivity run).
+    include_outcomes: bool = False
+    # Minimum share of matched values/options for a dimension-decision alignment.
+    min_alignment_share: float = 0.25
+    # Seed of the order in which the judge sees the two items of a pair.
+    seed: int = 0
+    # Judge results cache (keyed by judge model, instructions and pair).
+    cache_path: str = ".cache/gt_match_judge.json"
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level settings container."""
 
@@ -250,6 +282,7 @@ class Settings:
     output: OutputSettings = field(default_factory=OutputSettings)
     visualization: VisualizationSettings = field(default_factory=VisualizationSettings)
     evaluation: EvaluationSettings = field(default_factory=EvaluationSettings)
+    matcher: MatcherSettings = field(default_factory=MatcherSettings)
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +415,20 @@ def _build_evaluation(raw: dict) -> EvaluationSettings:
     )
 
 
+def _build_matcher(raw: dict) -> MatcherSettings:
+    return MatcherSettings(
+        judge_model=raw.get("judge_model", MatcherSettings.judge_model),
+        embedding=raw.get("embedding", MatcherSettings.embedding),
+        lower_threshold=raw.get("lower_threshold", MatcherSettings.lower_threshold),
+        upper_threshold=raw.get("upper_threshold", MatcherSettings.upper_threshold),
+        max_candidates=raw.get("max_candidates", MatcherSettings.max_candidates),
+        include_outcomes=raw.get("include_outcomes", MatcherSettings.include_outcomes),
+        min_alignment_share=raw.get("min_alignment_share", MatcherSettings.min_alignment_share),
+        seed=raw.get("seed", MatcherSettings.seed),
+        cache_path=raw.get("cache_path", MatcherSettings.cache_path),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -420,6 +467,7 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         output=_build_output(raw.get("output", {})),
         visualization=_build_visualization(raw.get("visualization", {})),
         evaluation=_build_evaluation(raw.get("evaluation", {})),
+        matcher=_build_matcher(raw.get("matcher") or {}),
     )
 
     logger.debug("Loaded settings: %s", settings)
