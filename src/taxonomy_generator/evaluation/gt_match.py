@@ -90,6 +90,9 @@ class MatcherConfig:
     min_alignment_share: float
     seed: int
     cache_path: str | None
+    mode: str = "judge"
+    same_threshold: float = 0.18
+    embedding_one_to_one: bool = True
 
     @classmethod
     def from_settings(cls, settings: Any) -> MatcherConfig:
@@ -110,11 +113,24 @@ class MatcherConfig:
             min_alignment_share=float(m.min_alignment_share),
             seed=int(m.seed),
             cache_path=m.cache_path,
+            mode=check_mode(m.mode),
+            same_threshold=float(m.same_threshold),
+            embedding_one_to_one=bool(m.embedding_one_to_one),
         )
 
     def as_record(self) -> dict[str, Any]:
         """Return the settings as recorded in every output, with the judge instructions version."""
         return {**self.__dict__, "judge_version": JUDGE_VERSION}
+
+
+MODES = ("judge", "embeddings")
+
+
+def check_mode(mode: str) -> str:
+    """Validate ``matcher.mode``: ``judge`` (embeddings + judge) or ``embeddings`` (distance only)."""
+    if mode not in MODES:
+        raise MatcherError(f"matcher.mode must be one of {MODES}, got {mode!r}")
+    return mode
 
 
 def check_judge(judge_model: str | None, generator_model: str | None) -> str:
@@ -395,6 +411,8 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
         return []
     vectors = embed([s.text for s in system] + [o.text for o in options])
     dist = pair_distances(vectors[: len(system)], vectors[len(system):])
+    if config.mode == "embeddings":
+        return label_pairs_by_distance(system, options, dist, config)
     k = max(1, config.max_candidates)
     near_sys = np.argsort(dist, axis=1)[:, :k]      # nearest options per value
     near_opt = np.argsort(dist, axis=0)[:k, :]      # nearest values per option
@@ -441,6 +459,37 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
             record.update(label=orient_label(verdict["label"], order), raw_label=verdict["label"],
                           label_source="judge", reason=verdict.get("reason", ""), order=order,
                           warning=verdict.get("warning", ""))
+    return pairs
+
+
+def label_pairs_by_distance(system: list[Item], options: list[Item], dist: np.ndarray,
+                            config: MatcherConfig) -> list[dict[str, Any]]:
+    """Embeddings-only labels (``matcher.mode: embeddings``), no LLM calls.
+
+    At or below ``same_threshold`` a pair is ``same``; up to ``upper_threshold`` it is
+    ``related``; beyond, ``different``. With ``embedding_one_to_one``, only a one-to-one
+    assignment of the ``same`` pairs (most pairs, then smallest distances) stays ``same``;
+    the other ``same`` pairs become ``related``, so a generic value cannot match many options.
+    """
+    from scipy.optimize import linear_sum_assignment
+
+    same = dist <= config.same_threshold
+    keep = same.copy()
+    if config.embedding_one_to_one and same.any():
+        cost = np.where(same, dist - 10.0, 0.0)  # every same pair beats any non-pair; then by distance
+        rows, cols = linear_sum_assignment(cost)
+        keep = np.zeros_like(same)
+        for r, c in zip(rows, cols):
+            keep[r, c] = same[r, c]
+    pairs = []
+    for i, value in enumerate(system):
+        for j, option in enumerate(options):
+            d = float(dist[i, j])
+            label = "same" if keep[i, j] else "related" if d <= config.upper_threshold else "different"
+            warning = "same by distance, not kept by the one-to-one assignment" if same[i, j] and not keep[i, j] else ""
+            pairs.append({"system_id": value.id, "system_text": value.text, "gt_id": option.id,
+                          "gt_text": option.text, "distance": round(d, 4), "label": label,
+                          "label_source": "embedding", "reason": "", "order": "", "warning": warning})
     return pairs
 
 
@@ -526,6 +575,27 @@ def align_dimensions(shares: dict[tuple, dict[str, Any]], min_share: float,
 
 # ----------------------------------------------------------------- metrics
 
+def matching_size(edges: set[tuple]) -> int:
+    """Size of a maximum one-to-one matching of (system, ground-truth) edges."""
+    from scipy.optimize import linear_sum_assignment
+
+    if not edges:
+        return 0
+    left = sorted({a for a, _ in edges})
+    right = sorted({b for _, b in edges})
+    weight = np.zeros((len(left), len(right)))
+    for a, b in edges:
+        weight[left.index(a), right.index(b)] = 1.0
+    rows, cols = linear_sum_assignment(-weight)
+    return int(weight[rows, cols].sum())
+
+
+def jaccard(matched: int, n_system: int, n_truth: int) -> float:
+    """Overlap over union, |S ∩ G| / |S ∪ G|, with ``matched`` one-to-one matched pairs."""
+    union = n_system + n_truth - matched
+    return round(matched / union, 4) if union > 0 else 0.0
+
+
 def compute_metrics(dimensions: list[dict], values: list[Item], views: dict[str, dict], options: list[Item],
                     pairs: list[dict[str, Any]], min_alignment_share: float,
                     tie_break: dict[tuple, float] | None = None) -> dict[str, Any]:
@@ -557,6 +627,13 @@ def compute_metrics(dimensions: list[dict], values: list[Item], views: dict[str,
         related_values = {s for s, o in related if o in view_opt_ids} - hit_values
         option["related_rate"] = round(len(related_values) / len(value_ids), 4) if value_ids else 0.0
         option["model_only_matched_values"] = len(only_other)
+        # Jaccard on one-to-one matchings (a generic value counts once), same pools as P and R.
+        pool = set(precision_pool)
+        option["jaccard"] = jaccard(matching_size({(s_, o) for s_, o in view_hits if s_ in pool}),
+                                    len(precision_pool), len(view_opts))
+        option["jaccard_same"] = jaccard(
+            matching_size({(s_, o) for s_, o in exact if o in view_opt_ids and s_ in pool}),
+            len(precision_pool), len(view_opts))
 
         # Decision level (alignment restricted to the view's decisions and options)
         shares = alignment_shares(dimensions, values, view_decs, view_opts, view_hits)
@@ -565,11 +642,13 @@ def compute_metrics(dimensions: list[dict], values: list[Item], views: dict[str,
                    if any(dim == d for dim, _ in union_alignment["lenient"])
                    and all(dec not in view_decs for dim, dec in union_alignment["lenient"] if dim == d)}
         decision: dict[str, Any] = {}
+        dim_pool = [d for d in dim_ids if d not in outside]
         for kind in ("strict", "lenient"):
             aligned = alignment[kind]
-            pool = [d for d in dim_ids if d not in outside]
-            decision[kind] = _prf(len({d for d, _ in aligned}), len(pool), len({c for _, c in aligned}), len(view_decs))
+            decision[kind] = _prf(len({d for d, _ in aligned}), len(dim_pool), len({c for _, c in aligned}),
+                                  len(view_decs))
         decision["dimensions_aligned_only_outside_view"] = len(outside)
+        decision["jaccard"] = jaccard(len(alignment["strict"]), len(dim_pool), len(view_decs))
 
         # Placement: matched values whose dimension is aligned (lenient) with a decision of a matched option
         lenient = set(alignment["lenient"])
@@ -653,6 +732,7 @@ def _git_commit(path: Path) -> str:
 
 
 async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_override: str | None = None,
+                    mode_override: str | None = None,
                     out_dir: str | None = None, view: str = "selected",
                     embed: Callable[[list[str]], np.ndarray] | None = None,
                     judge_model: Any = None) -> dict[str, Any]:
@@ -662,7 +742,10 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_ove
     config = MatcherConfig.from_settings(settings)
     if judge_override:
         config = MatcherConfig(**{**config.__dict__, "judge_model": judge_override})
-    bare_judge = check_judge(config.judge_model, config.generator_model)
+    if mode_override:
+        config = MatcherConfig(**{**config.__dict__, "mode": check_mode(mode_override)})
+    # The embeddings-only mode makes no LLM call, so it needs no judge.
+    bare_judge = check_judge(config.judge_model, config.generator_model) if config.mode == "judge" else ""
 
     clusters = load_seed_taxonomy(taxonomy_path, view=view)
     views = load_gt_folder(gt_folder)
@@ -670,7 +753,8 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_ove
     values = system_values(clusters, include_outcomes=config.include_outcomes)
     options = ground_truth_options(views)
     embed = embed or embedder_from_config(config)
-    judge_model = judge_model or openai_judge_model(bare_judge)
+    if judge_model is None and config.mode == "judge":
+        judge_model = openai_judge_model(bare_judge)
     cache = JudgeCache(config.cache_path)
     try:
         pairs = await label_pairs(values, options, embed, judge_model, config, cache=cache)
@@ -697,6 +781,6 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, judge_ove
               "views": {name: sum(1 for o in options if name in o.views) for name in views}}
     names = {f"dim:{d['id']}": d["name"] for d in dimensions}
     names.update({f"dec:{d}": info["name"] for d, info in decisions.items()})
-    stem = Path(taxonomy_path).stem.replace("_taxonomy_", "_")
+    stem = Path(taxonomy_path).stem.replace("_taxonomy_", "_") + ("_emb" if config.mode == "embeddings" else "")
     paths = write_outputs(out_dir or Path(taxonomy_path).parent, stem, pairs, metrics, record, names)
     return {"paths": paths, "metrics": metrics, "label_sources": label_counts(pairs), "settings": record}

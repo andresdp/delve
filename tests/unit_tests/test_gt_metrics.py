@@ -159,3 +159,51 @@ def test_run_match_scores_a_saved_taxonomy_end_to_end_without_api_calls(tmp_path
     with pytest.raises(gt_match.MatcherError, match="same model"):
         asyncio.run(gt_match.run_match(str(taxonomy), str(gt), load_settings(str(cfg)), judge_override="openai/gen",
                                        embed=embed, judge_model=Judge()))
+
+
+def test_jaccard_uses_a_one_to_one_matching_at_option_and_decision_level():
+    labels = {("1.1", "o1"): "same", ("1.2", "o2"): "same", ("2.1", "o3"): "same", ("2.2", "o4"): "same",
+              ("3.1", "o5"): "same", ("3.2", "o6"): "same"}
+    perfect = _metrics({"1": ["1.1", "1.2"], "2": ["2.1", "2.2"], "3": ["3.1", "3.2"]}, labels)["model"]
+    assert perfect["option"]["jaccard"] == 1.0 and perfect["option"]["jaccard_same"] == 1.0
+    assert perfect["decision"]["jaccard"] == 1.0
+
+    # one generic value hits three options: one-to-one counts it once
+    generic = _metrics({"1": ["1.1", "1.2"]}, {("1.1", "o1"): "broader", ("1.1", "o2"): "broader",
+                                              ("1.1", "o3"): "same"})["paper"]
+    # matched 1; |S| = 2, |G| = 4 -> 1 / (2 + 4 - 1)
+    assert generic["option"]["jaccard"] == pytest.approx(1 / 5, abs=1e-4)
+    assert generic["option"]["jaccard_same"] == pytest.approx(1 / 5, abs=1e-4)
+    # strict: dim 1 aligned with one decision; 1 dimension, 2 decisions -> 1 / (1 + 2 - 1)
+    assert generic["decision"]["jaccard"] == pytest.approx(1 / 2, abs=1e-4)
+
+
+def test_jaccard_is_zero_without_matches():
+    m = _metrics({"1": ["1.1"]}, {})["paper"]
+    assert m["option"]["jaccard"] == 0.0 and m["decision"]["jaccard"] == 0.0
+
+
+def test_run_match_in_embeddings_mode_needs_no_judge_and_writes_separate_outputs(tmp_path):
+    import asyncio
+
+    from taxonomy_generator.settings import load_settings
+
+    gt = tmp_path / "gt"
+    gt.mkdir()
+    (gt / "gt_paper.json").write_text(json.dumps(PAPER))
+    clusters = _clusters({"1": ["1.1"]})
+    clusters[0]["values"][0]["label"] = "CUSUM"
+    taxonomy = tmp_path / "run_taxonomy_1.json"
+    taxonomy.write_text(json.dumps({"iterations": [{"clusters": clusters}], "selected_clusters": clusters}))
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text("models:\n  model: openai/gen\nmatcher:\n  mode: embeddings\n")  # no judge anywhere
+
+    def embed(texts):
+        return np.asarray([[1.0, 0.0] if "CUSUM" in t else [0.0, 1.0] for t in texts])
+
+    result = asyncio.run(gt_match.run_match(str(taxonomy), str(gt), load_settings(str(cfg)), out_dir=str(tmp_path),
+                                            embed=embed))
+    assert result["settings"]["mode"] == "embeddings"
+    assert set(result["label_sources"]) == {"embedding"}
+    assert result["metrics"]["paper"]["option"]["recall"] == pytest.approx(0.25, abs=1e-4)
+    assert all("_emb_gt_" in p.name for p in result["paths"].values())

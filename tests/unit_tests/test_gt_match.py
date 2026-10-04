@@ -50,7 +50,8 @@ def _unit(angle_deg):
 def _config(**overrides):
     base = dict(judge_model="openai/judge-model", generator_model="openai/generator", embedding="openai/emb",
                 lower_threshold=0.02, upper_threshold=0.5, max_candidates=5, include_outcomes=False,
-                min_alignment_share=0.25, seed=0, cache_path=None)
+                min_alignment_share=0.25, seed=0, cache_path=None, mode="judge", same_threshold=0.18,
+                embedding_one_to_one=True)
     base.update(overrides)
     return gt_match.MatcherConfig(**base)
 
@@ -234,3 +235,27 @@ def test_ground_truth_options_merge_views_and_keep_view_membership():
     options = gt_match.ground_truth_options({"paper": GT["paper"], "model": model})
     views = {o.id: o.views for o in options}
     assert views == {"cusum": {"paper", "model"}, "hotelling": {"paper", "model"}, "naive": {"model"}}
+
+
+# ------------------------------------------------------- embeddings-only mode
+
+def test_embeddings_mode_labels_by_distance_alone_without_the_judge():
+    config = _config(mode="embeddings", same_threshold=0.05, upper_threshold=0.2, embedding_one_to_one=False)
+    pairs, judge = _run(config, judge_labels=["same"] * 10)
+    assert not judge.calls
+    assert (_pair(pairs, "1.1", "cusum")["label"], _pair(pairs, "1.1", "cusum")["label_source"]) == ("same", "embedding")
+    assert _pair(pairs, "1.2", "hotelling")["label"] == "related"     # 0.094: in the band
+    assert _pair(pairs, "1.1", "hotelling")["label"] == "different"   # 0.426: beyond upper
+
+
+def test_embeddings_mode_one_to_one_keeps_one_same_pair_per_item():
+    config = _config(mode="embeddings", same_threshold=0.15, upper_threshold=0.5, embedding_one_to_one=True)
+    pairs, _ = _run(config)
+    same = [(p["system_id"], p["gt_id"]) for p in pairs if p["label"] == "same"]
+    assert sorted(same) == [("1.1", "cusum"), ("1.2", "hotelling")]
+    assert _pair(pairs, "1.2", "cusum")["label"] == "related"   # 0.109 <= 0.15 but its option went to 1.1
+
+
+def test_unknown_mode_is_rejected():
+    with pytest.raises(gt_match.MatcherError, match="mode"):
+        gt_match.check_mode("fuzzy")

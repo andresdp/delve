@@ -396,6 +396,21 @@ class Configuration:
         metadata={"description": "Cache file of the matcher's judge results."},
     )
 
+    matcher_mode: str = field(
+        default=None,
+        metadata={"description": "Ground-truth matcher mode: 'judge' (embeddings + judge) or 'embeddings' (distance only)."},
+    )
+
+    matcher_same_threshold: float = field(
+        default=None,
+        metadata={"description": "Embeddings mode: distance at or below which a value-option pair is 'same'."},
+    )
+
+    matcher_embedding_one_to_one: bool = field(
+        default=None,
+        metadata={"description": "Embeddings mode: keep only a one-to-one assignment of 'same' pairs."},
+    )
+
     # ── LangGraph integration ──────────────────────────────────────────
 
     @classmethod
@@ -503,4 +518,7 @@ class Configuration:
             "matcher_min_alignment_share": s.matcher.min_alignment_share,
             "matcher_seed": s.matcher.seed,
             "matcher_cache_path": s.matcher.cache_path,
+            "matcher_mode": s.matcher.mode,
+            "matcher_same_threshold": s.matcher.same_threshold,
+            "matcher_embedding_one_to_one": s.matcher.embedding_one_to_one,
         }

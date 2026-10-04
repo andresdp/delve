@@ -368,6 +368,13 @@ def parse_args() -> argparse.Namespace:
              "and evaluation.judge_model. Must differ from models.model.",
     )
     parser.add_argument(
+        "--matcher-mode",
+        choices=["judge", "embeddings"],
+        default=None,
+        help="With --match-gt: 'judge' (embeddings propose pairs, an LLM judge labels them) or "
+             "'embeddings' (labels from embedding distance alone, no LLM calls). Overrides matcher.mode.",
+    )
+    parser.add_argument(
         "--gt-view",
         choices=["selected", "final"],
         default="selected",
@@ -1112,27 +1119,31 @@ async def _run_match_gt(args: argparse.Namespace) -> None:
     settings = init_settings(args.config)
     try:
         result = await run_match(args.match_gt, args.gt, settings, judge_override=args.judge_model,
-                                 out_dir=args.output, view=args.gt_view)
+                                 mode_override=args.matcher_mode, out_dir=args.output, view=args.gt_view)
     except MatcherError as exc:
         console.print(f"[red]{exc}[/red]")
         sys.exit(2)
 
     s = result["settings"]
     table = Table(title=f"Ground-truth match — {Path(args.match_gt).name} vs {args.gt}", show_lines=False)
-    # Option level: P, R, F1, exact recall, related rate; decision level: F1 strict / lenient.
-    for col in ("View", "P", "R", "F1", "Exact R", "Related", "Dec F1 s", "Dec F1 l", "Placement"):
+    # Option level: P, R, F1, Jaccard, exact recall, related rate; decision level: F1 strict /
+    # lenient, Jaccard (strict alignment).
+    for col in ("View", "P", "R", "F1", "J", "Exact R", "Related", "Dec F1 s", "Dec F1 l", "Dec J",
+                "Placement"):
         table.add_column(col, justify="right" if col != "View" else "left")
     for view, m in result["metrics"].items():
         o, d, p = m["option"], m["decision"], m["placement"]
         table.add_row(view, f"{o['precision']:.2f}", f"{o['recall']:.2f}", f"{o['f1']:.2f}",
-                      f"{o['exact_recall']:.2f}", f"{o['related_rate']:.2f}",
-                      f"{d['strict']['f1']:.2f}", f"{d['lenient']['f1']:.2f}",
+                      f"{o['jaccard']:.2f}", f"{o['exact_recall']:.2f}", f"{o['related_rate']:.2f}",
+                      f"{d['strict']['f1']:.2f}", f"{d['lenient']['f1']:.2f}", f"{d['jaccard']:.2f}",
                       "–" if p["accuracy"] is None else f"{p['accuracy']:.2f}")
     console.print(table)
+    labeler = (f"judge {s['judge_model']} (generator {s['generator_model']})" if s["mode"] == "judge"
+               else f"embeddings only, same at cosine distance <= {s['same_threshold']}")
     console.print(
-        f"[dim]{s['system_values']} system values x {s['ground_truth_options']} options; label sources "
-        f"{result['label_sources']}; judge {s['judge_model']} (generator {s['generator_model']}); "
-        f"cosine thresholds {s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
+        f"[dim]{s['system_values']} system values x {s['ground_truth_options']} options; mode {s['mode']}; "
+        f"label sources {result['label_sources']}; {labeler}; cosine thresholds "
+        f"{s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
     )
     for kind, path in result["paths"].items():
         console.print(f"[green]{kind}:[/green] {path}")

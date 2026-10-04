@@ -268,6 +268,15 @@ class MatcherSettings:
     seed: int = 0
     # Judge results cache (keyed by judge model, instructions and pair).
     cache_path: str = ".cache/gt_match_judge.json"
+    # "judge": embeddings propose pairs, the judge labels the borderline ones (default).
+    # "embeddings": labels from distance alone, no LLM calls (baseline / sensitivity mode).
+    mode: str = "judge"
+    # Embeddings mode: distance at or below which a pair is "same" (up to upper_threshold:
+    # "related"; beyond: "different").
+    same_threshold: float = 0.18
+    # Embeddings mode: keep only a one-to-one assignment of "same" pairs (others become
+    # "related"), so one generic value cannot match many options.
+    embedding_one_to_one: bool = True
 
 
 @dataclass(frozen=True)
@@ -428,6 +437,9 @@ def _build_matcher(raw: dict) -> MatcherSettings:
         min_alignment_share=raw.get("min_alignment_share", MatcherSettings.min_alignment_share),
         seed=raw.get("seed", MatcherSettings.seed),
         cache_path=raw.get("cache_path", MatcherSettings.cache_path),
+        mode=raw.get("mode", MatcherSettings.mode),
+        same_threshold=raw.get("same_threshold", MatcherSettings.same_threshold),
+        embedding_one_to_one=raw.get("embedding_one_to_one", MatcherSettings.embedding_one_to_one),
     )
 
 
