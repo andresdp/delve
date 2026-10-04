@@ -120,6 +120,14 @@ class TokenTracker(BaseCallbackHandler):
             logger.debug("Could not extract token usage from LLM response", exc_info=True)
 
 
+def _add_edit_record(taxonomy_data: dict, edit_mode: Optional[str], operation_log: list) -> None:
+    """Record the run's edit mode and, in tools / rewrite_restore modes, its operation log."""
+    taxonomy_data["edit_mode"] = edit_mode or "rewrite"
+    if operation_log:
+        # What each update and review changed, and why (tools), or which values were restored.
+        taxonomy_data["operation_log"] = list(operation_log)
+
+
 def _operation_log_line(entry: dict) -> str:
     """One-line summary of an operation-log entry (tools or rewrite_restore mode)."""
     if entry.get("edit_mode") == "rewrite_restore":
@@ -1566,10 +1574,7 @@ async def run(args: argparse.Namespace) -> None:
             },
             "iterations": [],
         }
-        taxonomy_data["edit_mode"] = effective_config.edit_mode or "rewrite"
-        if operation_log:
-            # Tools / rewrite_restore modes: what each update and review changed, and why.
-            taxonomy_data["operation_log"] = operation_log
+        _add_edit_record(taxonomy_data, effective_config.edit_mode, operation_log)
         if saturation_history:
             taxonomy_data["saturation_history"] = saturation_history
         if selected_clusters:

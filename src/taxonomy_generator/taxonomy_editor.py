@@ -26,13 +26,13 @@ import re
 from collections.abc import Callable, Iterable
 from typing import Any, get_args
 
-from taxonomy_generator.schemas import DecisionStatus, Relation
-from taxonomy_generator.utils import _value_key, ensure_unique_ids
+from taxonomy_generator.schemas import DecisionStatus, RelationType
+from taxonomy_generator.utils import ensure_unique_ids, value_key
 
 STATUSES = get_args(DecisionStatus)
 # Statuses that count as candidate decisions during coding ("mixed" only appears after consolidation).
 CODING_CANDIDATE_STATUSES = ("accepted", "rejected")
-RELATION_TYPES = get_args(Relation.model_fields["type"].annotation)
+RELATION_TYPES = get_args(RelationType)
 
 
 class EditError(ValueError):
@@ -188,9 +188,9 @@ class TaxonomyEditor:
 
     @staticmethod
     def _duplicate(dim: dict, label: str, status: str, exclude: dict | None = None) -> dict | None:
-        key = _value_key(label)
+        key = value_key(label)
         for v in dim["values"]:
-            if v is not exclude and _value_key(v.get("label", "")) == key and v.get("status") == status:
+            if v is not exclude and value_key(v.get("label", "")) == key and v.get("status") == status:
                 return v
         return None
 
@@ -311,9 +311,9 @@ class TaxonomyEditor:
     # ------------------------------------------------------------ dimensions
 
     def _check_dim_name(self, name: str, exclude: dict | None = None) -> None:
-        key = _value_key(name)
+        key = value_key(name)
         for c in self.clusters:
-            if c is not exclude and _value_key(c.get("name", "")) == key:
+            if c is not exclude and value_key(c.get("name", "")) == key:
                 raise EditError(f"dimension {c['id']} is already named '{c['name']}'")
 
     def _new_dim(self, name: str, description: str) -> dict:
@@ -367,7 +367,7 @@ class TaxonomyEditor:
                                 "a decision point needs at least 2. Do not split: move the values to the "
                                 "dimensions whose questions they answer instead")
         names = [_str(p, "name") for p in parts]
-        if len({_value_key(n) for n in names}) < len(names):
+        if len({value_key(n) for n in names}) < len(names):
             raise EditError("part names must differ")
         for n in names:
             self._check_dim_name(n, exclude=dim)
@@ -406,7 +406,7 @@ class TaxonomyEditor:
         keep, others = dims[0], dims[1:]
         name = _str(args, "name")
         for c in self.clusters:
-            if c not in dims and _value_key(c.get("name", "")) == _value_key(name):
+            if c not in dims and value_key(c.get("name", "")) == value_key(name):
                 raise EditError(f"dimension {c['id']} is already named '{c['name']}'")
         merged_ids = {str(d["id"]) for d in dims}
         relations = list(keep["relations"])

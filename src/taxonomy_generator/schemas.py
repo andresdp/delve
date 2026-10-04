@@ -59,11 +59,15 @@ class OpenCodesOutput(BaseModel):
     )
 
 
+# Shared by Relation.type and the tool-based update's add_relation tool.
+RelationType = Literal["precondition", "consequence", "co_occurring", "constrains"]
+
+
 class Relation(BaseModel):
     """A typed link between two dimensions (grounded theory paradigm model)."""
 
     target_id: str = Field(description="Id of the dimension this relation points to.")
-    type: Literal["precondition", "consequence", "co_occurring", "constrains"] = Field(
+    type: RelationType = Field(
         description=(
             "precondition: choosing a value on the target dimension is required before "
             "this dimension applies. consequence: choices on this dimension imply outcomes "

@@ -632,7 +632,7 @@ def format_taxonomy_compact(clusters: List[Dict]) -> str:
     return "\n".join(lines)
 
 
-def _value_key(label: str) -> str:
+def value_key(label: str) -> str:
     return " ".join("".join(ch if ch.isalnum() else " " for ch in (label or "").lower()).split())
 
 
@@ -653,7 +653,7 @@ def carry_over_evidence(previous: List[Dict], updated: List[Dict]) -> List[Dict]
             if not isinstance(value, dict):
                 continue
             ids = set(value.get("supporting_doc_ids") or [])
-            by_label.setdefault(_value_key(value.get("label", "")), set()).update(ids)
+            by_label.setdefault(value_key(value.get("label", "")), set()).update(ids)
             by_id.setdefault((cluster.get("name", ""), str(value.get("id"))), set()).update(ids)
     for cluster in updated or []:
         if not isinstance(cluster, dict):
@@ -661,7 +661,7 @@ def carry_over_evidence(previous: List[Dict], updated: List[Dict]) -> List[Dict]
         for value in cluster.get("values") or []:
             if not isinstance(value, dict):
                 continue
-            kept = by_label.get(_value_key(value.get("label", "")))
+            kept = by_label.get(value_key(value.get("label", "")))
             if kept is None:
                 kept = by_id.get((cluster.get("name", ""), str(value.get("id"))), set())
             value["supporting_doc_ids"] = sorted(set(value.get("supporting_doc_ids") or []) | kept)
@@ -707,10 +707,11 @@ def restore_dropped_values(previous: List[Dict], updated: List[Dict]) -> Tuple[L
     else into its previous dimension, recreated without its other values. Returns the
     taxonomy (new dicts, unique ids) and one record per restored value.
     """
-    kept = {_value_key(v.get("label", "")) for c in updated or [] if isinstance(c, dict)
+    kept = {value_key(v.get("label", "")) for c in updated or [] if isinstance(c, dict)
             for v in c.get("values") or [] if isinstance(v, dict)}
     clusters = [copy.deepcopy(c) for c in updated or []]
-    by_name = {_value_key(c.get("name", "")): c for c in clusters if isinstance(c, dict)}
+    by_name = {value_key(c.get("name", "")): c for c in clusters if isinstance(c, dict)}
+    previous_names = {str(c.get("id")): value_key(c.get("name", "")) for c in previous or [] if isinstance(c, dict)}
     restored: List[Dict] = []
     for dim in previous or []:
         if not isinstance(dim, dict):
@@ -718,18 +719,26 @@ def restore_dropped_values(previous: List[Dict], updated: List[Dict]) -> Tuple[L
         for value in dim.get("values") or []:
             if not isinstance(value, dict) or not value.get("supporting_doc_ids"):
                 continue
-            if _value_key(value.get("label", "")) in kept:
+            if value_key(value.get("label", "")) in kept:
                 continue
-            target = by_name.get(_value_key(dim.get("name", "")))
+            target = by_name.get(value_key(dim.get("name", "")))
             if target is None:
-                target = {k: copy.deepcopy(v) for k, v in dim.items() if k != "values"}
+                target = {k: copy.deepcopy(v) for k, v in dim.items() if k not in ("values", "relations")}
                 target["values"] = []
+                # Relations used the previous numbering: keep those whose target dimension still
+                # exists under the same name, re-pointed to its current id.
+                target["relations"] = []
+                for rel in dim.get("relations") or []:
+                    old = previous_names.get(str(rel.get("target_id")))
+                    current = by_name.get(old) if old is not None else None
+                    if current is not None:
+                        target["relations"].append({**rel, "target_id": str(current.get("id"))})
                 numeric = [int(c["id"]) for c in clusters if str(c.get("id", "")).isdigit()]
                 target["id"] = str(max(numeric, default=0) + 1)
                 clusters.append(target)
-                by_name[_value_key(dim.get("name", ""))] = target
+                by_name[value_key(dim.get("name", ""))] = target
             target.setdefault("values", []).append(copy.deepcopy(value))
-            kept.add(_value_key(value.get("label", "")))
+            kept.add(value_key(value.get("label", "")))
             restored.append({"id_before": value.get("id"), "label": value.get("label", ""),
                              "dimension": target.get("name", "")})
     if not restored:

@@ -162,3 +162,38 @@ def test_cli_summary_line_per_operation_log_entry():
     assert main_module._operation_log_line(tools) == "2 operations applied, 1 rejected, 1 batch documents uncited"
     restore = {"edit_mode": "rewrite_restore", "restored": [{"label": "x"}]}
     assert main_module._operation_log_line(restore) == "restored 1 dropped evidence-backed values"
+
+
+def test_saved_taxonomy_records_edit_mode_and_operation_log_in_order():
+    import main as main_module
+
+    data = {}
+    main_module._add_edit_record(data, None, [])
+    assert data == {"edit_mode": "rewrite"}
+    entries = [{"iteration": 2, "node": "update_taxonomy"}, {"iteration": 3, "node": "review_taxonomy"}]
+    main_module._add_edit_record(data, "tools", entries)
+    assert data["edit_mode"] == "tools" and [e["iteration"] for e in data["operation_log"]] == [2, 3]
+
+
+def test_review_in_rewrite_restore_mode_restores_and_logs():
+    rewritten = [{"id": "1", "name": "Drift Test", "description": "Which test?", "relations": [], "values": []}]
+    fake = {"clusters": [rewritten], "explanations": ["reviewed"], "status": ["s"]}
+    with patch.object(taxonomy_reviewer, "invoke_taxonomy_chain", new=AsyncMock(return_value=fake)):
+        result = asyncio.run(taxonomy_reviewer.review_taxonomy(_state(), _config(edit_mode="rewrite_restore")))
+    (entry,) = result["operation_log"]
+    assert entry["node"] == "review_taxonomy" and [r["label"] for r in entry["restored"]] == ["CUSUM chart"]
+
+
+def test_restored_dimension_keeps_only_relations_it_can_still_point_to():
+    previous = [
+        {"id": "1", "name": "Drift Test", "description": "q", "relations": [], "values": []},
+        {"id": "2", "name": "Response", "description": "q",
+         "relations": [{"target_id": "1", "type": "consequence", "rationale": "r"},
+                       {"target_id": "3", "type": "constrains", "rationale": "gone"}],
+         "values": [{"id": "2.1", "dimension_id": "2", "label": "Rollback", "description": "",
+                     "supporting_doc_ids": ["d1"], "status": "accepted"}]},
+        {"id": "3", "name": "Old Topic", "description": "q", "relations": [], "values": []}]
+    updated = [{"id": "7", "name": "Drift Test", "description": "q", "relations": [], "values": []}]
+    clusters, _ = restore_dropped_values(previous, updated)
+    response = next(c for c in clusters if c["name"] == "Response")
+    assert response["relations"] == [{"target_id": "7", "type": "consequence", "rationale": "r"}]

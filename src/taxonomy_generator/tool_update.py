@@ -12,14 +12,14 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from typing import Any, List, Literal
+from typing import Any, List
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
 
-from taxonomy_generator.schemas import DecisionStatus
+from taxonomy_generator.schemas import DecisionStatus, RelationType
 from taxonomy_generator.settings import TaxonomySettings
-from taxonomy_generator.taxonomy_editor import RELATION_TYPES, TaxonomyEditor
+from taxonomy_generator.taxonomy_editor import TaxonomyEditor
 from taxonomy_generator.utils import (
     format_taxonomy_compact,
     restore_dropped_values,
@@ -146,7 +146,10 @@ class AddRelation(BaseModel):
 
     source_id: str
     target_id: str
-    type: Literal[RELATION_TYPES] = Field(description="precondition, consequence, co_occurring or constrains.")  # type: ignore[valid-type]
+    type: RelationType = Field(description=(
+        "precondition: a choice on the target is required before the source applies; consequence: choices on "
+        "the source imply outcomes on the target; co_occurring: both appear together, neither causes the other; "
+        "constrains: the source restricts the target's available choices."))
     rationale: str
 
 
