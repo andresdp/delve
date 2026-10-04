@@ -7,7 +7,7 @@ Reinforcement Learning Systems* (2026) (`papers/spaces/`). Its replication packa
 
 | File | Content | Built by |
 |---|---|---|
-| `gt_model.json` | **Model view**: the authors' full CodeableModels model (`src/model/model.py`) | `python benchmark/parse_c2_model.py` (static `ast` parse, no execution, no CodeableModels) |
+| `gt_model.json` | **Model view**: the authors' full CodeableModels model (`src/model/model.py`) | `python benchmark/parse_code_model.py` (static `ast` parse, no execution, no CodeableModels) |
 | `gt_paper.json` | **Paper view**: the design space as the paper reports it | transcription (below) |
 | `gt_crosswalk.csv` | Status of every decision and option across both views (`paper+model`, `model only`, `paper only`) | `python benchmark/gt_crosswalk.py build benchmark/c2-rl-monitoring/gt` |
 
@@ -32,7 +32,7 @@ exactly: same 7 decisions, 63 options, 43 forces, 62 option links and 150 impact
 
 ## Sources per element
 
-**Model view** (`parse_c2_model.py`):
+**Model view** (`parse_code_model.py`):
 
 | Element | Source |
 |---|---|

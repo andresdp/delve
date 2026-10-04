@@ -156,6 +156,18 @@ def test_unknown_view_and_description_source_are_rejected():
     assert any("options[0]" in e and "'llm'" in e for e in errors)
 
 
+def test_solution_links_may_join_options_and_decisions_and_are_checked():
+    data = _minimal()
+    data["solution_links"] = [
+        {"from": "cusum", "to": "d2", "stereotypes": ["Consider If Not Decided Yet"], "label": "", "source": "m:1"},
+        {"from": "cusum", "to": "mean", "stereotypes": ["Can Use"], "label": "", "source": "m:2"},
+    ]
+    assert gt_format.validate(data)[0] == []
+    data["solution_links"].append({"from": "latency", "to": "mean", "stereotypes": ["Uses"], "label": "",
+                                   "source": "m:3"})
+    assert any("solution_links[2]" in e and "'latency'" in e for e in _errors(data))
+
+
 def test_missing_top_level_list_is_reported():
     data = _minimal()
     del data["forces"]

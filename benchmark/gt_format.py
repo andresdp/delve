@@ -19,7 +19,8 @@ kinds of the file) and a ``source`` reference (file and line, or page/table).
   "forces": [{"id", "name", "description", "description_source", "source"}],
   "decision_forces": [{"decision_id", "force_id", "text", "source"}],
   "impacts": [{"option_id", "force_id", "impact", "source"}],
-  "decision_links": [{"from", "to", "stereotypes": [...], "label", "source"}]
+  "decision_links": [{"from", "to", "stereotypes": [...], "label", "source"}],
+  "solution_links": [{"from", "to", "stereotypes": [...], "label", "source"}]   # optional
 }
 ```
 
@@ -34,6 +35,9 @@ kinds of the file) and a ``source`` reference (file and line, or page/table).
   by an LLM. An empty description is a warning.
 - ``decision_forces`` holds the per-decision text of a force (its driver text
   differs from decision to decision).
+- ``solution_links`` (optional) are links with an option at one end: an option
+  that makes a next decision relevant, or a dependency between options (e.g.
+  "Can Use", "Requires"). They are kept for traceability and not scored.
 - Impacts and link stereotypes use the vocabularies of the C2 guidance
   metamodel (CodeableModels), listed below.
 
@@ -89,6 +93,8 @@ def validate(data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
     if data.get("view") not in VIEWS:
         errors.append(f"view must be one of {VIEWS}, got {data.get('view')!r}")
     missing = [key for key in ELEMENT_LISTS + RELATION_LISTS if not isinstance(data.get(key), list)]
+    if not isinstance(data.get("solution_links", []), list):
+        missing.append("solution_links")
     for key in missing:
         errors.append(f"{key} must be a list")
     if missing:
@@ -166,11 +172,14 @@ def validate(data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
         if not str(rec.get("source", "")).strip():
             errors.append(f"{loc}: source reference is empty")
 
-    for i, link in enumerate(data["decision_links"]):
-        loc = f"decision_links[{i}]"
+    links = [("decision_links", i, lk, decisions, "decision") for i, lk in enumerate(data["decision_links"])]
+    links += [("solution_links", i, lk, decisions | options, "decision or option")
+              for i, lk in enumerate(data.get("solution_links", []))]
+    for key, i, link, known, what in links:
+        loc = f"{key}[{i}]"
         for end in ("from", "to"):
-            if link.get(end) not in decisions:
-                errors.append(f"{loc}: unknown decision '{link.get(end)}' ({end})")
+            if link.get(end) not in known:
+                errors.append(f"{loc}: unknown {what} '{link.get(end)}' ({end})")
         stereotypes = link.get("stereotypes")
         if not isinstance(stereotypes, list) or not stereotypes:
             errors.append(f"{loc}: stereotypes must be a non-empty list")

@@ -1,32 +1,39 @@
 #!/usr/bin/env python3
-"""Build C2's ground-truth model view by statically parsing the replication package.
+"""Build a ground-truth model view by statically parsing a CodeableModels design-space model.
 
-The C2 study (Fang, Warnett & Zdun) ships its design space as CodeableModels
-code (``src/model/model.py``). This script reads that file with Python's
-``ast`` module, without executing it or installing CodeableModels:
+ADD studies built with CodeableModels (e.g. C1: Warnett & Zdun, ML workflow;
+C2: Fang, Warnett & Zdun, RL monitoring) ship their design space as Python
+code. This script reads that code with Python's ``ast`` module, without
+executing it or installing CodeableModels:
 
 - ``x = CClass(<metaclass>, "Name")`` declares a decision, an option
-  (``practice``/``pattern``) or a force; ``x = y`` is an alias;
+  (``practice``, ``pattern``, ``do_nothing_design_solution``) or a force;
+  ``x = y`` is an alias; names may be literals joined with ``+``;
 - ``add_force_relations({option: {force: stereotype}})`` (inline or through a
   named dictionary) declares option-force impacts;
 - ``add_decision_option_link(decision, option, [option_name], option_description=...)``
   links an option to a decision;
-- ``add_links({a: b}, stereotype_instances=[...], label=...)`` links decisions.
+- ``add_links({a: b}, stereotype_instances=..., label=...)`` and
+  ``a.add_links(b, role_name="to"|"from", stereotype_instances=...)[0]`` link
+  decisions and options: links between two decisions become decision links,
+  links with an option at one end become solution links, and context links to
+  domain classes are counted and skipped.
 
-Stereotypes appear in the model only as variable names; the metamodel
-(``src/metamodels/guidance_metamodel.py``) is parsed the same way to map each
-variable to its label and kind (force impact, next-decision link, dependency).
+Stereotypes appear in a model only as variable names; the guidance metamodel
+(``guidance_metamodel.py``) is parsed the same way to map each variable to its
+label and kind (force impact, next-decision link, dependency, context).
 Descriptions come from the model (``description`` tagged value, or the
-positional ``option_name`` text), with the ADD catalogue memo
-(``memos/add-catalogue.md``) as fallback; the memo also gives each decision's
-question and each force's per-decision driver text. A construct the parser
-cannot read statically stops it (``UnsupportedConstruct``) instead of guessing.
+positional ``option_name`` text), with an ADD catalogue memo, when the study
+has one (C2: ``memos/add-catalogue.md``), as fallback; the memo also gives each
+decision's question and each force's per-decision driver text. A construct the
+parser cannot read statically stops it (``UnsupportedConstruct``) instead of
+guessing.
 
-The authors' generated PlantUML views (``_generated/rl_monitoring_adds/``) are an
-independent cross-check: every difference in decisions, options, forces,
-option links and impacts is listed.
+The authors' generated PlantUML views are an independent cross-check: every
+difference in the kinds those views show is listed. Study settings (package
+paths, memo, generated views, output) are in ``STUDIES``.
 
-Usage: ``python benchmark/parse_c2_model.py [--package DIR] [--out PATH]``
+Usage: ``python benchmark/parse_code_model.py --study c1|c2 [--package DIR] [--out PATH]``
 """
 
 from __future__ import annotations
@@ -64,6 +71,7 @@ KIND_BY_PARENT = {
     "solutions_to_next_decisions_relation_type": "next_decision",
     "design_solution_dependency_type": "dependency",
     "decision_type": "decision_type",
+    "context_relations_type": "context",
 }
 MODEL_CALLS = ("CClass", "add_decision_option_link", "add_force_relations", "add_links")
 HYPHENS = "‐‑‒–—−­"
@@ -103,7 +111,13 @@ def _name(node: ast.AST) -> Optional[str]:
 
 
 def _str(node: ast.AST) -> Optional[str]:
-    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
+    """A string literal, including literals joined with '+' ("a" + "b")."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _str(node.left), _str(node.right)
+        return left + right if left is not None and right is not None else None
+    return None
 
 
 def _call_name(node: ast.AST) -> Optional[str]:
@@ -151,7 +165,8 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
     dicts: Dict[str, ast.Dict] = {}
     option_links: List[Dict[str, Any]] = []
     impacts: List[Dict[str, Any]] = []
-    decision_links: List[Dict[str, Any]] = []
+    links: List[Dict[str, Any]] = []
+    context_links: List[int] = []
     handled: Set[int] = set()
 
     def resolve(node: ast.AST, what: str, line: int) -> str:
@@ -182,17 +197,53 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
                 impacts.append({"option": opt, "force": resolve(force_node, "impact force", line),
                                 "impact": st["label"], "line": force_node.lineno})
 
+    def read_link(src: ast.AST, dst: ast.AST, st_node: Optional[ast.AST], label_node: Optional[ast.AST],
+                  line: int) -> None:
+        st_nodes = st_node.elts if isinstance(st_node, (ast.List, ast.Tuple)) else [st_node] if st_node else []
+        kinds = [stereotype(node, line) for node in st_nodes]
+        if kinds and all(st["kind"] == "context" for st in kinds):
+            context_links.append(line)  # decision -> domain class; not design-space content
+            return
+        for st in kinds:
+            if st["kind"] not in ("next_decision", "dependency"):
+                raise UnsupportedConstruct(f"line {line}: {st['label']!r} is not a link stereotype")
+        label = _str(label_node) if label_node is not None else ""
+        links.append({"from": resolve(src, "link source", line), "to": resolve(dst, "link target", line),
+                      "stereotypes": [st["label"] for st in kinds], "label": label or "", "line": line})
+
+    def method_link(node: ast.AST) -> Optional[ast.Call]:
+        """``a.add_links(b, ...)`` or ``a.add_links(b, ...)[0]``."""
+        if isinstance(node, ast.Subscript):
+            node = node.value
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "add_links"):
+            return node
+        return None
+
     for stmt in tree.body:
         line = getattr(stmt, "lineno", 0)
+        value = stmt.value if isinstance(stmt, (ast.Assign, ast.Expr)) else None
+        call = method_link(value) if value is not None else None
+        if call is not None:
+            handled.add(id(call))
+            kwargs = {kw.arg: kw.value for kw in call.keywords}
+            role = _str(kwargs["role_name"]) if "role_name" in kwargs else "to"
+            if len(call.args) != 1 or role not in ("to", "from"):
+                raise UnsupportedConstruct(f"line {line}: add_links method call with unsupported arguments")
+            src, dst = call.func.value, call.args[0]
+            if role == "from":
+                src, dst = dst, src
+            read_link(src, dst, kwargs.get("stereotype_instances"), kwargs.get("label"), line)
+            continue
         if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
             target = stmt.targets[0].id
-            value = stmt.value
             if _call_name(value) == "CClass":
                 handled.add(id(value))
                 meta = _name(value.args[0]) if value.args else None
                 name = _str(value.args[1]) if len(value.args) > 1 else None
                 if meta not in KIND_BY_METACLASS or name is None:
                     raise UnsupportedConstruct(f"line {line}: CClass with unsupported arguments")
+                name = re.sub(r"\s+", " ", name).strip()  # stray spaces, as the generated views show them
                 elements[target] = {"var": target, "kind": KIND_BY_METACLASS[meta], "name": name, "line": line}
                 alias[target] = target
             elif isinstance(value, ast.Name) and value.id in alias:
@@ -227,30 +278,25 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
             mapping = call.args[0] if call.args else None
             if not isinstance(mapping, ast.Dict) or len(mapping.keys) != 1:
                 raise UnsupportedConstruct(f"line {line}: add_links needs a one-entry literal dict")
-            st_node = kwargs.get("stereotype_instances")
-            st_nodes = st_node.elts if isinstance(st_node, (ast.List, ast.Tuple)) else [st_node] if st_node else []
-            labels = []
-            for node in st_nodes:
-                st = stereotype(node, line)
-                if st["kind"] not in ("next_decision", "dependency"):
-                    raise UnsupportedConstruct(f"line {line}: {st['label']!r} is not a link stereotype")
-                labels.append(st["label"])
-            label = _str(kwargs["label"]) if "label" in kwargs else ""
-            decision_links.append({"from": resolve(mapping.keys[0], "link source", line),
-                                   "to": resolve(mapping.values[0], "link target", line),
-                                   "stereotypes": labels, "label": label or "", "line": line})
+            target = mapping.values[0]
+            # ``{a: b}`` or ``{a: [b, c]}``: one link per target
+            for dst in target.elts if isinstance(target, (ast.List, ast.Tuple)) else [target]:
+                read_link(mapping.keys[0], dst, kwargs.get("stereotype_instances"), kwargs.get("label"), line)
 
     # Every model call outside helper functions must have been read above.
     in_functions = _function_call_ids(tree)
     for node in ast.walk(tree):
-        if (_call_name(node) in MODEL_CALLS and id(node) not in handled and id(node) not in in_functions):
+        is_method_link = (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                          and node.func.attr == "add_links")
+        if ((_call_name(node) in MODEL_CALLS or is_method_link)
+                and id(node) not in handled and id(node) not in in_functions):
             raise UnsupportedConstruct(
-                f"line {node.lineno}: {_call_name(node)} call that cannot be read statically "
+                f"line {node.lineno}: {_call_name(node) or 'add_links'} call that cannot be read statically "
                 f"({ast.unparse(node)[:80]})"
             )
 
     return {"elements": elements, "option_links": option_links, "impacts": impacts,
-            "decision_links": decision_links}
+            "links": links, "context_links": len(context_links)}
 
 
 # ---------------------------------------------------------------------------- memo
@@ -301,18 +347,37 @@ def parse_memo(text: str) -> Dict[str, Dict[str, Any]]:
 # ----------------------------------------------------------------------- the view
 
 def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenance: Dict[str, Any],
-               model_ref: str = MODEL_REL, memo_ref: str = MEMO_REL) -> Dict[str, Any]:
+               model_ref: str = MODEL_REL, memo_ref: str = MEMO_REL,
+               study: str = "c2-rl-monitoring") -> Dict[str, Any]:
     """Assemble the ground-truth model view and record discrepancies in its provenance."""
     discrepancies: List[str] = []
-    elements = model["elements"]
+    elements = dict(model["elements"])  # copied: kinds may be corrected below
+    # An element used as the decision of an option link is a decision, whatever
+    # metaclass it was declared with (an authoring slip); report it.
+    for var in dict.fromkeys(lk["decision"] for lk in model["option_links"]):
+        el = elements[var]
+        if el["kind"] != "decision":
+            discrepancies.append(f"'{el['name']}' is declared as a {el['kind']} but has options; "
+                                 "treated as a decision")
+            elements[var] = {**el, "kind": "decision"}
     ids: Dict[str, str] = {}
     for var, el in elements.items():
         ids[var] = var if el["kind"] == "decision" else slug(el["name"])
-    seen: Dict[str, str] = {}
+    # Two elements declared with the same name (an authoring slip) would share an
+    # id: fall back to their variable names and report it.
+    by_id: Dict[str, List[str]] = {}
     for var, el_id in ids.items():
-        if el_id in seen:
-            raise UnsupportedConstruct(f"id collision '{el_id}' for {seen[el_id]} and {var}")
-        seen[el_id] = var
+        by_id.setdefault(el_id, []).append(var)
+    for el_id, variables in by_id.items():
+        if len(variables) > 1:
+            for var in variables:
+                ids[var] = var
+            discrepancies.append(
+                f"elements {', '.join(variables)} share the name '{elements[variables[0]]['name']}'; "
+                "their ids are their variable names"
+            )
+    if len(set(ids.values())) != len(ids):
+        raise UnsupportedConstruct("element ids still collide after falling back to variable names")
 
     by_kind = {kind: [el for el in elements.values() if el["kind"] == kind]
                for kind in ("decision", "option", "force")}
@@ -322,11 +387,13 @@ def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenanc
     decisions = []
     for el in by_kind["decision"]:
         section = memo_by_decision[el["var"]]
-        if section is None:
+        if section is None and memo:
             discrepancies.append(f"decision '{el['name']}' has no section in the memo")
         tradeoff = (section or {}).get("tradeoff", "")
+        # Without a memo question, a decision named as a question (C1) is its own question.
+        question = (section or {}).get("question", "") or (el["name"] if el["name"].rstrip().endswith("?") else "")
         decisions.append({
-            "id": ids[el["var"]], "name": el["name"], "question": (section or {}).get("question", ""),
+            "id": ids[el["var"]], "name": el["name"], "question": question,
             "decision_type": "unspecified",
             "description": f"Key trade-off: {tradeoff}" if tradeoff else "",
             "description_source": "memo" if tradeoff else "",
@@ -395,18 +462,34 @@ def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenanc
 
     impacts = [{"option_id": ids[i["option"]], "force_id": ids[i["force"]], "impact": i["impact"],
                 "source": f"{model_ref}:{i['line']}"} for i in model["impacts"]]
-    decision_links = [{"from": ids[lk["from"]], "to": ids[lk["to"]], "stereotypes": lk["stereotypes"],
-                       "label": lk["label"], "source": f"{model_ref}:{lk['line']}"}
-                      for lk in model["decision_links"]]
+    # Links between two decisions are decision links; links with an option at
+    # either end (an option that raises a next decision, option dependencies)
+    # are solution links. Links to or from forces are not design-space links.
+    decision_links, solution_links = [], []
+    for lk in model["links"]:
+        kinds = (elements[lk["from"]]["kind"], elements[lk["to"]]["kind"])
+        record = {"from": ids[lk["from"]], "to": ids[lk["to"]], "stereotypes": lk["stereotypes"],
+                  "label": lk["label"], "source": f"{model_ref}:{lk['line']}"}
+        if kinds == ("decision", "decision"):
+            decision_links.append(record)
+        elif "force" in kinds:
+            discrepancies.append(f"link with a force at line {lk['line']} ignored")
+        else:
+            solution_links.append(record)
+    if model.get("context_links"):
+        provenance = {**provenance, "context_links_skipped": model["context_links"]}
 
-    return {
+    view = {
         "format_version": gt_format.FORMAT_VERSION,
-        "study": "c2-rl-monitoring",
+        "study": study,
         "view": "model",
         "provenance": {**provenance, "discrepancies": discrepancies},
         "decisions": decisions, "options": options, "forces": forces,
         "decision_forces": decision_forces, "impacts": impacts, "decision_links": decision_links,
     }
+    if solution_links:
+        view["solution_links"] = solution_links
+    return view
 
 
 # ------------------------------------------------------------- generated views
@@ -443,8 +526,11 @@ def parse_plantuml(text: str) -> Dict[str, Set]:
     return out
 
 
-def cross_check(view: Dict[str, Any], generated: Dict[str, Set]) -> List[str]:
-    """Differences between a parsed view and a generated PlantUML view."""
+COMPARED = ("decision_names", "option_names", "force_names", "option_links", "impacts")
+
+
+def cross_check(view: Dict[str, Any], generated: Dict[str, Set], keys: Tuple[str, ...] = COMPARED) -> List[str]:
+    """Differences between a parsed view and generated PlantUML views, for the given kinds."""
     names = {el["id"]: el["name"] for key in ("decisions", "options", "forces") for el in view[key]}
     ours = {
         "decision_names": {d["name"] for d in view["decisions"]},
@@ -456,6 +542,8 @@ def cross_check(view: Dict[str, Any], generated: Dict[str, Set]) -> List[str]:
     diffs = []
     for key, label in (("decision_names", "decision"), ("option_names", "option"), ("force_names", "force"),
                        ("option_links", "option link"), ("impacts", "impact")):
+        if key not in keys:
+            continue
         for item in sorted(ours[key] - generated[key], key=str):
             diffs.append(f"{label} {item} is parsed but not in the generated view")
         for item in sorted(generated[key] - ours[key], key=str):
@@ -469,51 +557,94 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+STUDIES: Dict[str, Dict[str, Any]] = {
+    "c2": {
+        "study": "c2-rl-monitoring",
+        "package": DEFAULT_PACKAGE,
+        "label": f"C2 replication package (Zenodo {ZENODO_DOI}, Apache-2.0)",
+        "model": MODEL_REL, "metamodel": DEFAULT_PACKAGE / METAMODEL_REL, "memo": MEMO_REL,
+        "generated": [GENERATED_REL],
+        # all_view_with_forces shows every element, link and impact
+        "compare": ("decision_names", "option_names", "force_names", "option_links", "impacts"),
+        "out": DEFAULT_OUT,
+    },
+    "c1": {
+        "study": "c1-ml-workflow",
+        "package": HERE / "c1-ml-workflow" / "replication_package" / "ml_workflow_adds_v1",
+        "label": "C1 replication package (Zenodo 10.5281/zenodo.5730291, Apache-2.0; downloaded, not committed)",
+        "model": "add_models/ml_adds.py",
+        # The C1 package does not ship the CodeableModels guidance metamodel; every
+        # stereotype it imports is defined in the copy shipped with C2.
+        "metamodel": DEFAULT_PACKAGE / METAMODEL_REL, "memo": None,
+        "generated": "_generated/ml_adds/*.txt",
+        # per-decision views without forces: compare decisions and option links
+        "compare": ("decision_names", "option_links"),
+        "out": HERE / "c1-ml-workflow" / "gt" / "gt_model.json",
+    },
+}
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--package", type=Path, default=DEFAULT_PACKAGE, help="replication package folder")
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output ground-truth file")
+    parser.add_argument("--study", choices=sorted(STUDIES), default="c2")
+    parser.add_argument("--package", type=Path, help="replication package folder (default: per study)")
+    parser.add_argument("--out", type=Path, help="output ground-truth file (default: per study)")
     args = parser.parse_args(argv)
+    cfg = STUDIES[args.study]
+    pkg = args.package or cfg["package"]
+    out = args.out or cfg["out"]
 
-    pkg = args.package
-    files = {rel: pkg / rel for rel in (MODEL_REL, METAMODEL_REL, MEMO_REL, GENERATED_REL)}
-    for rel, path in files.items():
+    model_path, metamodel_path = pkg / cfg["model"], cfg["metamodel"]
+    memo_path = pkg / cfg["memo"] if cfg["memo"] else None
+    generated_paths = ([pkg / g for g in cfg["generated"]] if isinstance(cfg["generated"], list)
+                       else sorted(pkg.glob(cfg["generated"])))
+    for path in [model_path, metamodel_path] + ([memo_path] if memo_path else []):
         if not path.exists():
-            print(f"missing {rel} in {pkg}", file=sys.stderr)
+            print(f"missing {path}", file=sys.stderr)
             return 2
+    if not generated_paths:
+        print(f"no generated views in {pkg}", file=sys.stderr)
+        return 2
 
     try:
-        stereotypes = parse_metamodel(files[METAMODEL_REL].read_text(encoding="utf-8"))
-        model = parse_model(files[MODEL_REL].read_text(encoding="utf-8"), stereotypes)
+        stereotypes = parse_metamodel(metamodel_path.read_text(encoding="utf-8"))
+        model = parse_model(model_path.read_text(encoding="utf-8"), stereotypes)
     except UnsupportedConstruct as exc:
         print(f"STOP: {exc}", file=sys.stderr)
         return 3
-    memo = parse_memo(files[MEMO_REL].read_text(encoding="utf-8"))
+    memo = parse_memo(memo_path.read_text(encoding="utf-8")) if memo_path else {}
+    hashed = [model_path, metamodel_path] + ([memo_path] if memo_path else [])
     provenance = {
-        "package": f"C2 replication package (Zenodo {ZENODO_DOI}, Apache-2.0)",
-        "parser": "benchmark/parse_c2_model.py (static ast parse; model not executed)",
-        "files": {rel: {"sha256": _sha256(path)} for rel, path in files.items()},
+        "package": cfg["label"],
+        "parser": "benchmark/parse_code_model.py (static ast parse; model not executed)",
+        "files": {str(path.relative_to(HERE)): {"sha256": _sha256(path)} for path in hashed},
     }
-    view = build_view(model, memo, provenance)
-    generated = parse_plantuml(files[GENERATED_REL].read_text(encoding="utf-8"))
-    view["provenance"]["generated_view_differences"] = cross_check(view, generated)
+    view = build_view(model, memo, provenance, model_ref=cfg["model"], study=cfg["study"])
+    generated: Dict[str, Set] = {}
+    for path in generated_paths:
+        for key, items in parse_plantuml(path.read_text(encoding="utf-8")).items():
+            generated.setdefault(key, set()).update(items)
+    view["provenance"]["generated_view_differences"] = cross_check(view, generated, cfg["compare"])
 
     errors, warnings = gt_format.validate(view)
     if errors:
         for msg in errors:
             print(f"error: {msg}", file=sys.stderr)
         return 1
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(view, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(view, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
     attached = [o for o in view["options"] if o["decision_ids"]]
-    print(f"wrote {args.out}")
+    print(f"wrote {out}")
     print(f"  {len(view['decisions'])} decisions, {len(view['options'])} options "
           f"({len(attached)} attached), {len(view['forces'])} forces, {len(view['impacts'])} impacts, "
-          f"{len(view['decision_forces'])} decision-force texts, {len(view['decision_links'])} decision links")
-    print(f"  generated views: {len(generated['decision_names'])} decisions, {len(generated['option_names'])} "
-          f"options, {len(generated['force_names'])} forces, {len(generated['option_links'])} option links, "
-          f"{len(generated['impacts'])} impacts")
+          f"{len(view['decision_forces'])} decision-force texts, {len(view['decision_links'])} decision links, "
+          f"{len(view.get('solution_links', []))} solution links, "
+          f"{model.get('context_links', 0)} context links skipped")
+    print(f"  generated views ({len(generated_paths)} files): {len(generated['decision_names'])} decisions, "
+          f"{len(generated['option_names'])} options, {len(generated['force_names'])} forces, "
+          f"{len(generated['option_links'])} option links, {len(generated['impacts'])} impacts; "
+          f"compared: {', '.join(cfg['compare'])}")
     for diff in view["provenance"]["generated_view_differences"]:
         print(f"  cross-check: {diff}")
     for msg in view["provenance"]["discrepancies"]:

@@ -1,4 +1,4 @@
-"""Static parsing of the C2 CodeableModels model in benchmark/parse_c2_model.py (no execution)."""
+"""Static parsing of CodeableModels design-space models in benchmark/parse_code_model.py (no execution)."""
 
 import importlib.util
 import sys
@@ -9,9 +9,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "benchmark"))
-_spec = importlib.util.spec_from_file_location("parse_c2_model", ROOT / "benchmark" / "parse_c2_model.py")
-parse_c2_model = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(parse_c2_model)
+_spec = importlib.util.spec_from_file_location("parse_code_model", ROOT / "benchmark" / "parse_code_model.py")
+parse_code_model = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(parse_code_model)
 import gt_format  # noqa: E402  (loaded from benchmark/ above)
 
 METAMODEL = textwrap.dedent('''
@@ -72,6 +72,24 @@ MODEL = textwrap.dedent('''
     add_links({add2: add1}, role_name="next decision", stereotype_instances=[constrains])
 ''')
 
+# C1-style constructs: a list of link targets, method-form option links,
+# context links to domain classes, a name joined with '+', a "do nothing" option.
+C1_EXTRA = textwrap.dedent('''
+    add3 = CClass(decision, "How to " + "store data?")
+    no_store_option = CClass(do_nothing_design_solution, "No data store")
+    add_decision_option_link(add3, no_store_option, "do not persist")
+    add_links({cusum_option: [add3, add2]}, role_name="next decision",
+              stereotype_instances=mandatory_next, label="where to keep sums")
+    cusum_uses_mean = cusum_option.add_links(mean_option, role_name="to", stereotype_instances=enables)[0]
+    mean_option.add_links(shared_option, role_name="from", stereotype_instances=enables)[0]
+    add_links({add3: ml_model}, role_name="context", stereotype_instances=decide_for_all_instances_of)
+''')
+METAMODEL_C1 = METAMODEL + textwrap.dedent('''
+    do_nothing_design_solution = CMetaclass("Do Nothing")
+    context_relations_type = CStereotype("Decision Category To Contexts Relation Type")
+    decide_for_all_instances_of = CStereotype("decide for all instances of", superclasses=context_relations_type)
+''')
+
 MEMO = textwrap.dedent('''
     # Catalogue
 
@@ -116,10 +134,10 @@ MEMO = textwrap.dedent('''
 
 @pytest.fixture
 def view():
-    stereotypes = parse_c2_model.parse_metamodel(METAMODEL)
-    model = parse_c2_model.parse_model(MODEL, stereotypes)
-    memo = parse_c2_model.parse_memo(MEMO)
-    return parse_c2_model.build_view(model, memo, provenance={"source": "synthetic"})
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
+    model = parse_code_model.parse_model(MODEL, stereotypes)
+    memo = parse_code_model.parse_memo(MEMO)
+    return parse_code_model.build_view(model, memo, provenance={"source": "synthetic"})
 
 
 def _by_id(items):
@@ -167,29 +185,29 @@ def test_option_linked_to_two_decisions_keeps_one_id(view):
 
 
 def test_memo_names_with_non_breaking_hyphens_match_model_names():
-    assert parse_c2_model.normalize_name("Multi‑Armed  Bandit Integration") == \
-        parse_c2_model.normalize_name("multi-armed bandit integration")
-    memo = parse_c2_model.parse_memo(MEMO)
-    section = memo[parse_c2_model.normalize_name("Exploration Strategy")]
-    assert parse_c2_model.normalize_name("Multi-Armed Bandit Integration") in section["options"]
+    assert parse_code_model.normalize_name("Multi‑Armed  Bandit Integration") == \
+        parse_code_model.normalize_name("multi-armed bandit integration")
+    memo = parse_code_model.parse_memo(MEMO)
+    section = memo[parse_code_model.normalize_name("Exploration Strategy")]
+    assert parse_code_model.normalize_name("Multi-Armed Bandit Integration") in section["options"]
 
 
 def test_memo_description_is_the_fallback_when_the_model_has_none():
-    stereotypes = parse_c2_model.parse_metamodel(METAMODEL)
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
     source = MODEL.replace('add_decision_option_link(add1, stats_alias, option_description="Cumulative sums")',
                            "add_decision_option_link(add1, stats_alias)")
-    view = parse_c2_model.build_view(parse_c2_model.parse_model(source, stereotypes),
-                                     parse_c2_model.parse_memo(MEMO), provenance={})
+    view = parse_code_model.build_view(parse_code_model.parse_model(source, stereotypes),
+                                     parse_code_model.parse_memo(MEMO), provenance={})
     cusum = _by_id(view["options"])["cusum_sequential_test"]
     assert cusum["description"] == "Cumulative-sum change detection."
     assert cusum["description_source"] == "memo"
 
 
 def test_unattached_option_takes_its_description_from_any_memo_section():
-    stereotypes = parse_c2_model.parse_metamodel(METAMODEL)
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
     memo_text = MEMO.replace("| Naive Simple Mean |", "| Action Failure Rate Monitoring | Track failed actions. |\n| Naive Simple Mean |")
-    view = parse_c2_model.build_view(parse_c2_model.parse_model(MODEL, stereotypes),
-                                     parse_c2_model.parse_memo(memo_text), provenance={})
+    view = parse_code_model.build_view(parse_code_model.parse_model(MODEL, stereotypes),
+                                     parse_code_model.parse_memo(memo_text), provenance={})
     orphan = _by_id(view["options"])["action_failure_rate_monitoring"]
     assert (orphan["description"], orphan["description_source"]) == ("Track failed actions.", "memo")
 
@@ -203,7 +221,7 @@ def test_unattached_option_is_recorded_and_reported(view):
 
 
 def test_stereotypes_resolve_by_kind():
-    stereotypes = parse_c2_model.parse_metamodel(METAMODEL)
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
     assert stereotypes["positive"] == {"label": "+", "kind": "impact"}
     assert stereotypes["enables_next_decision"] == {"label": "Enables", "kind": "next_decision"}
     assert stereotypes["enables"] == {"label": "Enables", "kind": "dependency"}
@@ -226,10 +244,10 @@ def test_per_decision_force_text_comes_from_the_memo(view):
 
 
 def test_dynamic_construct_stops_the_parser():
-    stereotypes = parse_c2_model.parse_metamodel(METAMODEL)
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
     dynamic = MODEL + "\nfor name in ['A', 'B']:\n    CClass(practice, name)\n"
-    with pytest.raises(parse_c2_model.UnsupportedConstruct, match="CClass"):
-        parse_c2_model.parse_model(dynamic, stereotypes)
+    with pytest.raises(parse_code_model.UnsupportedConstruct, match="CClass"):
+        parse_code_model.parse_model(dynamic, stereotypes)
 
 
 def test_generated_view_cross_check_lists_differences(view):
@@ -244,9 +262,52 @@ def test_generated_view_cross_check_lists_differences(view):
         __2 --> __5: <<+>>
         @enduml
     ''')
-    generated = parse_c2_model.parse_plantuml(plantuml)
+    generated = parse_code_model.parse_plantuml(plantuml)
     assert generated["option_names"] >= {"CUSUM Sequential Test", "Extra Practice"}
     assert ("Test Statistic Selection", "CUSUM Sequential Test") in generated["option_links"]
-    diffs = parse_c2_model.cross_check(view, generated)
+    diffs = parse_code_model.cross_check(view, generated)
     assert any("Extra Practice" in d for d in diffs)
     assert any("Multi-Armed Bandit Integration" in d for d in diffs)
+
+
+def test_c1_style_constructs_parse_into_solution_links_and_skip_context_links():
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL_C1)
+    model = parse_code_model.parse_model(MODEL + C1_EXTRA, stereotypes)
+    assert model["context_links"] == 1
+    view = parse_code_model.build_view(model, {}, provenance={}, study="toy")
+    assert gt_format.validate(view)[0] == []
+    decisions = _by_id(view["decisions"])
+    assert decisions["add3"]["name"] == "How to store data?"
+    assert decisions["add3"]["question"] == "How to store data?"
+    no_store = _by_id(view["options"])["no_data_store"]
+    assert no_store["decision_ids"] == ["add3"] and no_store["description"] == "do not persist"
+    links = {(lk["from"], lk["to"], tuple(lk["stereotypes"]), lk["label"]) for lk in view["solution_links"]}
+    assert links == {
+        ("cusum_sequential_test", "add3", ("Mandatory Next",), "where to keep sums"),
+        ("cusum_sequential_test", "add2", ("Mandatory Next",), "where to keep sums"),
+        ("cusum_sequential_test", "naive_simple_mean", ("Enables",), ""),
+        ("multi_armed_bandit_integration", "naive_simple_mean", ("Enables",), ""),
+    }
+    assert {(lk["from"], lk["to"]) for lk in view["decision_links"]} == {("add1", "add2"), ("add2", "add1")}
+
+
+def test_two_elements_with_the_same_name_get_their_variable_names_as_ids():
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
+    source = MODEL + '\ncopy_option = CClass(practice, "Naive Simple Mean")\n'
+    view = parse_code_model.build_view(parse_code_model.parse_model(source, stereotypes), {}, provenance={})
+    assert gt_format.validate(view)[0] == []
+    options = _by_id(view["options"])
+    assert {"mean_option", "copy_option"} <= set(options) and "naive_simple_mean" not in options
+    assert any("share the name 'Naive Simple Mean'" in d for d in view["provenance"]["discrepancies"])
+
+
+def test_element_with_options_is_a_decision_whatever_its_metaclass():
+    stereotypes = parse_code_model.parse_metamodel(METAMODEL)
+    source = MODEL + ('\nenv_decision = CClass(practice, "Which IDE?")\n'
+                      'add_decision_option_link(env_decision, mean_option, "use notebooks")\n')
+    model = parse_code_model.parse_model(source, stereotypes)
+    view = parse_code_model.build_view(model, {}, provenance={})
+    assert gt_format.validate(view)[0] == []
+    assert "env_decision" in _by_id(view["decisions"])
+    assert model["elements"]["env_decision"]["kind"] == "option"  # parse result left untouched
+    assert any("'Which IDE?' is declared as a option" in d for d in view["provenance"]["discrepancies"])
