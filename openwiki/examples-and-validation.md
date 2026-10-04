@@ -21,7 +21,7 @@ The architecture-decision workflow documents `examples/decisions_results.json` a
 
 ## Validation contract
 
-No automated unit, integration, or end-to-end test files were found. Checked-in outputs are examples, not tests. Source-level invariants to manually preserve include: empty corpus raises `ValueError`; non-positive batch size raises `ValueError`; routing terminates when revisions reach minibatch count; labeling rejects missing clusters; summary/label concurrency is bounded; and output clusters are omitted when no final taxonomy/documents exist.
+Automated unit tests are present under `tests/unit_tests/`; checked-in outputs are examples, not tests. The suite covers corpus building, schemas, prompt content/provenance, routing and saturation, value aggregation/consolidation, evaluation metrics/scoreboards, reusable taxonomy seed views, labeling/evidence fixes, and Markdown/HTML reports. Source-level invariants to preserve include: empty corpus raises `ValueError`; non-positive batch size raises `ValueError`; routing terminates when revisions reach minibatch count; test mode freezes seed dimensions before value aggregation; evaluation is fail-soft and observe-only; labeling rejects missing clusters; summary/label concurrency is bounded; and output clusters are omitted when no final taxonomy/documents exist.
 
 Non-network checks (with dependencies installed) include:
 
@@ -30,9 +30,10 @@ python -c "import taxonomy_generator; print(taxonomy_generator.__all__)"
 python -c "import taxonomy_generator.prompts; from taxonomy_generator.graph import graph; print(graph)"
 python main.py --help
 python -c "from taxonomy_generator.settings import load_settings; print(load_settings('config.yaml'))"
+python -m pytest tests/unit_tests/test_taxonomy_evaluator.py tests/unit_tests/test_seed_view.py tests/unit_tests/test_html_report_cli.py -q
 ```
 
-Also check `strings_to_docs`, `docs_from_dicts`, `_create_batches`, safe `load_corpus` samples, package discovery/console metadata, and the expected missing-input failure of the preparation script. `prepare_decisions_corpus.py` opens `examples/decisions_results.json`, expects a list of objects with `decision`, `pattern`, and `rationale`, skips records missing `decision`, joins those fields into one text string, and writes `examples/architecture_decisions.json` as a JSON array. The `Makefile` advertises `make test`/`extended_tests` pytest targets under `tests/unit_tests/`, plus Ruff/mypy `lint` and `lint_tests` targets; that test directory/files were not found, so pytest targets are unavailable/stale rather than evidence of coverage. The `.github/workflows/openwiki-update.yml` is documentation automation: `workflow_dispatch` and daily `0 8 * * *` scheduling run Ubuntu with pinned checkout/setup actions, `fetch-depth: 0`, Node 22, global OpenWiki/Mermaid/jsdom installation, then `openwiki code --update --print` with provider/LangSmith environment values and secrets; `peter-evans/create-pull-request` writes `openwiki`, agent docs, and workflow changes to branch `openwiki/update`. It is not part of Delve's taxonomy runtime. Provider-backed smoke runs are conditional, expensive/networked validation rather than focused checks.
+Also check `strings_to_docs`, `docs_from_dicts`, `_create_batches`, safe `load_corpus` samples, package discovery/console metadata, and the focused suites named above. The `Makefile` advertises `make test`/`extended_tests` pytest targets under `tests/unit_tests/`, plus Ruff/mypy `lint` and `lint_tests` targets; use the affected pytest files directly for narrow validation and reserve full lint/root test targets for deliberate broader checks. The `.github/workflows/openwiki-update.yml` is documentation automation, not part of Delve's taxonomy runtime. Provider-backed judge, generation, embedding, and visualization smoke runs are conditional, expensive/networked validation rather than focused checks.
 
 ## Backlog
 

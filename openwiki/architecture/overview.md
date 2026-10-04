@@ -7,7 +7,7 @@ tags: [architecture, langgraph, taxonomy]
 
 # Delve architecture overview
 
-Delve is a Python 3.9+ package that turns an unstructured corpus into an iteratively refined taxonomy and LLM-labeled documents. The repository has one runtime application (`main.py`) and one installable package under `src/taxonomy_generator`; it is not a multi-service workspace. The research/design intent is TnT-LLM-style taxonomy generation and zero-shot labeling, with open coding, saturation checks, value consolidation, and use-case dimension selection; it does not train a lightweight classifier in this repository.
+Delve is a Python 3.9+ package that turns an unstructured corpus into an iteratively refined taxonomy and LLM-labeled documents. The repository has one runtime application (`main.py`) and one installable package under `src/taxonomy_generator`; it is not a multi-service workspace. The research/design intent is grounded-theory taxonomy generation and zero-shot labeling, with open coding, saturation checks, value consolidation, use-case dimension selection, and an LLM-as-judge evaluation loop. Test mode can reuse a saved taxonomy, freeze its dimensions, label a new corpus, and append deduplicated values; it does not train a lightweight classifier in this repository.
 
 ## Composition and entrypoints
 
@@ -36,7 +36,7 @@ This diagram shows the inspected runtime boundary from file input and configurat
 
 ## Dependencies and ownership
 
-`graph.py` owns orchestration; `nodes/` owns each pipeline operation; `routing/` owns branch decisions; `state.py` owns graph state; `schemas.py` owns LLM structured-output contracts; `utils.py` owns document/model/prompt data conversion; `prompts/` owns Markdown system prompts. `main.py` owns user-facing presentation, file serialization, and standalone post-processing dispatch. `visualization.py` owns optional chart/vector generation, while `report_renderer.py` owns deterministic taxonomy rendering plus the optional narrative call. Changing a node's state output can affect both graph consumers and CLI output/report inputs.
+`graph.py` owns orchestration; `nodes/` owns each pipeline operation; `routing/` owns branch decisions; `state.py` owns graph state; `schemas.py` owns LLM structured-output contracts; `utils.py` owns document/model/prompt data conversion; `prompts/` owns Markdown system prompts. `evaluation/` and `nodes/taxonomy_evaluator.py` own observe-only judge scoreboards and feedback metadata. `main.py` owns user-facing presentation, file serialization, standalone evaluation, and post-processing dispatch. `visualization.py` owns optional chart/vector generation, `report_renderer.py` owns deterministic taxonomy rendering plus the optional narrative call, and `html_report.py` assembles sibling artifacts into an offline page. Changing a node's state output can affect graph consumers, evaluation inputs, and CLI output/report inputs.
 
 The main dependency flow is: LangGraph invokes async nodes; nodes resolve `Configuration`, load a provider model with `init_chat_model`, bind a Pydantic schema using `with_structured_output`, and pass JSON-shaped prompt data. Provider API keys are operational prerequisites; no secrets are documented here. Configuration details live in [Configuration and settings](../configuration/settings.md).
 
