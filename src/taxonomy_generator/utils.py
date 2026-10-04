@@ -606,6 +606,31 @@ def taxonomy_prompt_view(clusters: List[Dict]) -> List[Dict]:
     return view
 
 
+def format_taxonomy_compact(clusters: List[Dict]) -> str:
+    """Compact taxonomy view for tool-based updates: ids, names, statuses and relations only.
+
+    One line per dimension (``[id] name — description (type → target; …)``) and one
+    line with its values (``id label (status) · …``). Value descriptions and provenance
+    are left out: the model refers to elements by id and never re-emits them.
+    """
+    lines = []
+    for cluster in clusters or []:
+        if not isinstance(cluster, dict):
+            continue
+        header = f"[{cluster.get('id', '')}] {cluster.get('name', '')} — {cluster.get('description', '')}"
+        relations = [r for r in cluster.get("relations") or [] if isinstance(r, dict)]
+        if relations:
+            header += " (" + "; ".join(f"{r.get('type')} → {r.get('target_id')}" for r in relations) + ")"
+        values = [v for v in cluster.get("values") or [] if isinstance(v, dict)]
+        if not values:
+            lines.append(header + " (no values yet)")
+            continue
+        lines.append(header)
+        lines.append("    " + " · ".join(f"{v.get('id')} {v.get('label', '')} ({v.get('status', '')})"
+                                         for v in values))
+    return "\n".join(lines)
+
+
 def _value_key(label: str) -> str:
     return " ".join("".join(ch if ch.isalnum() else " " for ch in (label or "").lower()).split())
 
