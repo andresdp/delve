@@ -623,8 +623,9 @@ def load_gt_folder(folder: Path | str) -> Dict[str, Dict]:
 def _git_commit(path: Path) -> str:
     import subprocess
     try:
-        return subprocess.run(["git", "log", "-1", "--format=%h", "--", str(path)], capture_output=True,
-                              text=True, cwd=path if path.is_dir() else path.parent, check=False).stdout.strip()
+        folder = path.resolve() if path.is_dir() else path.resolve().parent
+        return subprocess.run(["git", "-C", str(folder), "log", "-1", "--format=%h", "--", "."],
+                              capture_output=True, text=True, check=False).stdout.strip()
     except OSError:
         return ""
 

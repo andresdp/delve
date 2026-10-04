@@ -1119,8 +1119,8 @@ async def _run_match_gt(args: argparse.Namespace) -> None:
 
     s = result["settings"]
     table = Table(title=f"Ground-truth match — {Path(args.match_gt).name} vs {args.gt}", show_lines=False)
-    for col in ("View", "Option P", "Option R", "Option F1", "Exact R", "Related",
-                "Decision F1 (strict)", "Decision F1 (lenient)", "Placement"):
+    # Option level: P, R, F1, exact recall, related rate; decision level: F1 strict / lenient.
+    for col in ("View", "P", "R", "F1", "Exact R", "Related", "Dec F1 s", "Dec F1 l", "Placement"):
         table.add_column(col, justify="right" if col != "View" else "left")
     for view, m in result["metrics"].items():
         o, d, p = m["option"], m["decision"], m["placement"]
