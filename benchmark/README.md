@@ -206,6 +206,17 @@ Both are scored on their selected view.
     - Their in-pipeline evaluation LLM is now `openai/gpt-5.4-nano`. It was previously `gpt-5.6-luna`, the
       generation LLM itself, through the old fallback.
     - Scoreboards of future runs are therefore judged by a different model than those of the 2026-10-02 runs.
+- **2026-10-03 — all three LLM roles set to `openai/gpt-5.6-luna` in every config, for now** (user
+  decision).
+  - **Scoreboards:** they are judged by the generation model again, as in the 2026-10-02 runs, so they stay
+    comparable with those runs.
+  - **Warning:** every run warns that the roles share a model.
+  - **For matching, this is not the frame's judge.** The scores above were judged by `openai/gpt-5.4-mini`.
+    - A `--match-gt` run with these configs judges with luna: a new cache key, new judge calls, and scores
+      not comparable with the first ones.
+    - To reproduce the frame's scores, pass `--matching-llm openai/gpt-5.4-mini`.
+    - Luna is also the generator of the scored runs, so a luna-judged match would grade its own family.
+      Report it only as such.
 - **2026-10-03 — Jaccard added to the profile** (user request, after the first scores). It is additive; no
   existing metric changes.
   - **Option level:** matched / (|S| + |G| − matched), where matched is a maximum one-to-one matching of hit
