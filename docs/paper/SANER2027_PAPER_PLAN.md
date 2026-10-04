@@ -945,7 +945,7 @@ regression test that loads an old saved taxonomy JSON.
 | B6 | M | **C3 corpora**: `benchmark/cursor/` with (a) **C3-raw**: the Cursor article + background sources from `examples/cursor-git-at-scale/references.md` fetched by B2 and segmented by P1; (b) **C3-curated**: the existing `cursor_git_at_scale_documents.json`; (c) a use case (reuse or refine `git_at_scale_config.yaml`) | Keep the curated corpus untouched for comparability with the earlier example runs | 0.25 d |
 | B7 | M | **C3 system mapping**: `benchmark/cursor/passage_systems.csv`, where authors map each C3-raw passage to the system(s) it describes (GitHub FS, Google JGit/DHT, GitHub Spokes, Microsoft GVFS/Scalar, Azure DevOps hybrid, Cursor Continuity/Origin, general). Done **before** looking at any Delve output. Plus the optional author-written silver decision list | Needed for the system × dimension matrix (E9) | 0.5 d |
 | B8 | C (stretch) | **C4 feasibility check**: obtain Lane's thesis (CMU-CS-90-101); extract the list of surveyed systems and references; try retrieving 5 system descriptions and extrapolate; decide go/no-go by 10-01 (§4.5) | TR-22 and TR-18 already downloaded to the session scratchpad; copy into `papers/base/` if C4 goes ahead | 0.25 d |
-| B9 | C (stretch) | **C4 benchmark** (only if go): TR-22 Appendix A → `benchmark/lane/gt_model.json` (structural dimensions → decisions/options; functional dimensions → drivers with levels); Appendix B → impacts; fetch/OCR the system sources; passage→system mapping; use case from TR-22 §1 | Same M2 enrichment and freezing rules as C1/C2 | 1.5–2 d |
+| B9 | S | **C3 silver trade-off list** (added 2026-10-04): the authors list the trade-offs the C3 corpus states (its trade-off and decision documents, plus the article). For each trade-off: the systems involved, the quality attributes in tension, and a source reference. Written before any E14 output is seen, and marked as silver (author-written, not expert ground truth) | E14 | 0.25 d || B9 | C (stretch) | **C4 benchmark** (only if go): TR-22 Appendix A → `benchmark/lane/gt_model.json` (structural dimensions → decisions/options; functional dimensions → drivers with levels); Appendix B → impacts; fetch/OCR the system sources; passage→system mapping; use case from TR-22 §1 | Same M2 enrichment and freezing rules as C1/C2 | 1.5–2 d |
 
 ### 8.3 Evaluation and analysis (A) — `src/taxonomy_generator/evaluation/` + `experiments/`
 
@@ -961,7 +961,10 @@ regression test that loads an old saved taxonomy JSON.
 | A8 | — | **Out of scope (future work, with P8).** `evaluation/persona_provenance.py`: per value, which personas' codes support it (via `supporting_doc_ids` + `open_codes[*].persona`); per-persona unique GT options (with A1); code-volume and near-duplicate rates; persona agreement per passage (embedding-matched Jaccard of code labels) | For E4 and Fig. 5; post-hoc, no schema change | — |
 | A10 | M | **Stage-wise recall diagnosis** (added 2026-10-03): for each GT option recovered or missed, trace the pipeline stage where it appears or is lost (open codes → loop iterations → consolidated → selected → matched), from the saved open codes, iterations and match file. Output: a per-study stage funnel | Answers *why* recall is what it is; decides between pipeline fixes (e.g. the value-collapse fix) with evidence; a candidate figure | 0.5 d |
 | A11 | S | **Evidence-link check** (added 2026-10-03): sample ~40 value–passage links per study (stratified by stance, oversampling `rejected`), label support by hand; report precision overall and per stance | Validates the deterministic evidence linking that grounding claims rest on | 0.25 d + labeling |
-| A9 | M | `evaluation/placement_matrix.py`: from labeled passages (`label_documents`) + `passage_systems.csv` → system × dimension matrix (the value each system takes per dimension, with evidence counts), plus distinguishability (pairwise system distance) and unoccupied-combination listing. Plus the expert-rating kit for C3 (dimensions and values) | For E9 / Fig. 8 | 0.75 d |
+| A12 | S | **Design-point sampler** (added 2026-10-04): `evaluation/design_points.py`. Seeded sampling of k-dimension design points from the selected view, candidate values only, in three groups. **Attested:** all values co-supported by one system, via B7. **Novel:** no `constrains` violation. **Negative controls:** a `rejected` value, a `constrains` violation, or a shuffled taxonomy. Writes `*_design_points.json` | E13; needs B7 for the attested group | 0.5 d |
+| A13 | S | **Design-point judge** (added 2026-10-04). Retrieves each point's evidence passages (`supporting_doc_ids`, open codes). Scores grounding with deepeval Faithfulness (`retrieval_context` = passages) and coherence with a G-Eval rubric, using a judge from another family (cached, like the matcher). Reports scores per group, AUC, and relation validity, and exports a human-rating sheet | E13; reuses `evaluation/judge.py` and the A7 kit | 0.75 d |
+| A14 | S | **Value impacts on quality attributes** (added 2026-10-04): for each candidate value, +/−/mixed impacts on a fixed QA vocabulary (ISO 25010 + cost) with rationale and passage ids, plus links from outcome values to candidate values by shared passages. Taken from P7 when built, else post-hoc extraction (labeled). Hand spot-check of about 40 | E14 | 0.5 d |
+| A15 | S | **Design-point trade-off analysis** (added 2026-10-04): trade-off profile per design point, cross-dimension tensions, grounding of each tension, agreement with `constrains` relations, recall of the B9 silver trade-offs, and a usefulness rubric (judge + human) | E14; needs A12, A14, B9 | 0.5 d || A9 | M | `evaluation/placement_matrix.py`: from labeled passages (`label_documents`) + `passage_systems.csv` → system × dimension matrix (the value each system takes per dimension, with evidence counts), plus distinguishability (pairwise system distance) and unoccupied-combination listing. Plus the expert-rating kit for C3 (dimensions and values) | For E9 / Fig. 8 | 0.75 d |
 
 ### 8.4 Baselines (L) — new `baselines/` directory
 
@@ -1282,6 +1285,13 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
   4. cross-seed stability;
   5. C3-raw vs. C3-curated agreement (sensitivity to corpus preparation);
   6. (optional) recall of the author-written silver decision list, labeled as indicative.
+  7. **Design-space fitness** (added 2026-10-04):
+     - **Reconstruction:** each system as a design point. Analysis 2 reads as "can the space express every
+       system's architecture".
+     - **Leave-one-system-out:** rebuild the space without one system's passages (e.g. Cursor's), then
+       check whether that system can still be expressed. This tests generalization.
+     - **Sampled design points:** E13.
+     - **Trade-offs of design points:** E14.
 - Also shows the memo trail (P11): how the theory evolved as the Taxonomist read passages and the Critic judged each draft.
 - Artifacts: **Fig. 8** (system × dimension matrix, Shaw Table 1 style); short expert-rating summary
   table or paragraph; one qualitative contrast with the long-context and BERTopic outputs.
@@ -1339,6 +1349,74 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
 - **To build if scheduled:** a `matcher.text_precedence` setting (or a `--gt-view model` restriction) passed
   to `ground_truth_options`; log the run as a sensitivity analysis, not a frame change.
 
+**E13 — Proposed: design-point validation on C3 (RQ6; added 2026-10-04)**
+- **Question:** can architects compose workable designs from the space?
+  - A *design point* takes one candidate value from each of k ≥ 2 dimensions of the selected view.
+  - Fitness for use means the space generates grounded, coherent design points and rejects incoherent ones.
+    Per-value grounding alone is true by construction, because every value carries evidence links.
+- **Sampling** (A12, seeded):
+  - k = 2–3 dimensions per point.
+  - About 30 points per group, from one to two C3 runs.
+- **Three groups:**
+  - **attested:** one system supports all chosen values (needs B7's system mapping);
+  - **novel:** no single source co-supports the values, but no `constrains` relation is violated;
+  - **negative controls:** should fail. A `rejected` value, a pairing that violates a `constrains` relation,
+    or values drawn from a shuffled taxonomy.
+- **Scores** (A13), with a judge from a different model family than the generator:
+  - **Grounding:** deepeval Faithfulness against the passages retrieved for the point's values. Does the
+    evidence support each choice, and does nothing contradict combining them?
+  - **Coherence:** a G-Eval rubric. Would an architect accept this combination as a workable design?
+- **Report:**
+  - scores per group;
+  - **discrimination**, as the AUC of attested vs. controls and novel vs. controls. A check that cannot
+    reject the controls is uninformative.
+  - **relation validity:** do the taxonomy's own `constrains` relations predict the combinations the judge
+    calls incoherent?
+- **Human check:**
+  - Two raters score about 30 points on the same rubric (extending the A7 rating kit). Report κ
+    human–human and human–judge.
+  - A short fit-for-use questionnaire, answered by a few architects or developers: are the dimensions
+    understandable and distinct, and would you use them?
+- **Rival hypotheses:**
+  - **Judge circularity:** use a different-family judge, validated by the human check.
+  - **Novel points rated low only because they are unattested:** the attested group separates these.
+- **Cost:** no new pipeline runs; about 200–300 judge calls per run (cached).
+
+**E14 — Proposed: trade-off assessment of design points on C3 (RQ6; added 2026-10-04)**
+- **Question:** does the space make the **trade-offs** of a design explicit? When a design point picks
+  values across dimensions, which quality attributes improve, which degrade, and are those tensions
+  grounded in the corpus?
+- **Inputs:**
+  - **QA impacts per candidate value** (A14). Each value gets +, − or mixed impacts on a fixed
+    quality-attribute vocabulary (ISO 25010 sub-characteristics plus cost), each with a rationale and its
+    evidence passages.
+    - Taken from P7's value impacts when P7 is built; otherwise extracted post hoc from each value's
+      evidence passages and open codes, and labeled as post hoc.
+    - Outcome values are linked to the candidate values whose passages they share.
+  - **A silver trade-off list for C3** (B9): written by the authors from the corpus's trade-off and decision
+    documents and the article, before seeing outputs.
+- **Analysis** (A15):
+  1. **Trade-off profile per design point:** aggregate its values' impacts. Flag *cross-dimension
+     tensions*: two chosen values pushing one quality attribute in opposite directions, or one value's gain
+     paid by another's loss.
+  2. **Grounding of each tension:** do the passages of both values support it?
+  3. **Agreement with the taxonomy's relations:** are tensions concentrated on dimension pairs linked by
+     `constrains` relations?
+  4. **Recall of the silver trade-offs:** which known trade-offs appear as tensions for the attested design
+     points (Spokes, Continuity/Origin, GVFS/Scalar)?
+  5. **Usefulness:** the judge and the human raters score the trade-off explanation of each sampled point
+     (is it correct, complete, and actionable for an architect?).
+- **Rival hypotheses:**
+  - **Impact extraction and judging done by the same model family:** keep them separate, and spot-check
+    impacts by hand (about 40, as in A11).
+  - **Generic quality-attribute talk** ("improves scalability" everywhere): require passage-level support
+    per impact, and report how specific the impacts are (the share of values whose impacts differ from
+    their dimension's other values).
+- **Cost:** no new pipeline runs. One extraction call per value (about 20–40 on C3, cached) and one judge
+  call per design point.
+- **Applicability:** C1/C2 have expert forces and impacts (C2's model view has 150 option–force impacts), so
+  the same profile can later be validated against ground truth there. C3 is the qualitative running example.
+
 ### 9.3 Run budget
 
 | Experiment | Runs (C1, C2 × 5 seeds unless noted) |
@@ -1355,6 +1433,8 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
 | E10 (stretch) | ~15 (C4 if go) |
 | E11 (possible) | 8 per split (C1, C2: 1 train + 1 test + 2 split-half trains each); not in the total |
 | E12 (pending) | 0 new pipeline runs (rescoring of existing C2 runs with the model's wording) |
+| E13 (proposed) | 0 new pipeline runs (uses E9's C3 runs; ~200–300 judge calls per run) |
+| E14 (proposed) | 0 new pipeline runs (~20–40 impact extractions + 1 judge call per design point) |
 | **Total** | **≈ 205** |
 
 Estimate cost after E0. If the budget is exceeded, cut in this order: E3 to 3 seeds; drop LLooM; drop
