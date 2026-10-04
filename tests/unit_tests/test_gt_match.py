@@ -116,6 +116,12 @@ def test_pair_in_the_band_goes_to_the_judge_with_graded_label_and_reason():
     assert judge.calls
 
 
+def test_lower_threshold_zero_never_labels_same_without_the_judge():
+    pairs, judge = _run(_config(lower_threshold=0.0), judge_labels=["related"] * 10)
+    p = _pair(pairs, "1.1", "cusum")
+    assert p["label_source"] == "judge" and p["label"] == "related"
+
+
 def test_pair_above_the_upper_threshold_is_different_without_the_judge():
     pairs, _ = _run(_config(upper_threshold=0.3), judge_labels=["same"] * 10)
     p = _pair(pairs, "1.1", "hotelling")  # 55 degrees: ~0.43

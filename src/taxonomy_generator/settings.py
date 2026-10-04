@@ -252,7 +252,8 @@ class MatcherSettings:
     judge_model: Optional[str] = None
     # Embedding model (provider/model); None uses models.embedding.
     embedding: Optional[str] = None
-    # Distance at or below which a pair is labeled "same" without the judge.
+    # Distance at or below which a pair is labeled "same" without the judge (0 disables:
+    # every "same" comes from the judge).
     lower_threshold: float = 0.0
     # Distance above which a pair is labeled "different" without the judge.
     upper_threshold: float = 0.60

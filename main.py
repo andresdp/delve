@@ -321,6 +321,19 @@ def parse_args() -> argparse.Namespace:
              "and --report.",
     )
     standalone_mode.add_argument(
+        "--match-gt",
+        type=str,
+        default=None,
+        metavar="TAXONOMY",
+        help="Score a saved taxonomy JSON against an expert ground truth and exit "
+             "(does not run the pipeline): value-option matches, dimension-decision "
+             "alignment, precision/recall/F1 and placement per ground-truth view. "
+             "Needs --gt (the study's ground-truth folder, e.g. "
+             "benchmark/c2-rl-monitoring/gt) and --config (generator model and "
+             "matcher settings). Writes *_gt_match.json, *_gt_alignment.csv and "
+             "*_gt_metrics.json next to the taxonomy, or under --output.",
+    )
+    standalone_mode.add_argument(
         "--html-report",
         type=str,
         default=None,
@@ -339,6 +352,26 @@ def parse_args() -> argparse.Namespace:
         help="With --visualize, --report, or --html-report: 1-based taxonomy "
              "iteration to render. Default: selected_clusters if present, "
              "else the last iteration.",
+    )
+    parser.add_argument(
+        "--gt",
+        type=str,
+        default=None,
+        metavar="FOLDER",
+        help="With --match-gt: the ground-truth folder (gt_paper.json and/or gt_model.json).",
+    )
+    parser.add_argument(
+        "--judge-model",
+        type=str,
+        default=None,
+        help="With --match-gt: judge model (provider/model), overriding matcher.judge_model "
+             "and evaluation.judge_model. Must differ from models.model.",
+    )
+    parser.add_argument(
+        "--gt-view",
+        choices=["selected", "final"],
+        default="selected",
+        help="With --match-gt: which view of the taxonomy to score (default: selected).",
     )
     parser.add_argument(
         "--all-iterations",
@@ -1069,6 +1102,42 @@ def _display_consistency(comparison: dict) -> None:
     ))
 
 
+async def _run_match_gt(args: argparse.Namespace) -> None:
+    """Score a saved taxonomy against a study's ground truth and exit."""
+    from taxonomy_generator.evaluation.gt_match import MatcherError, run_match
+
+    if not args.gt:
+        console.print("[red]--match-gt needs --gt <ground-truth folder>.[/red]")
+        sys.exit(2)
+    settings = init_settings(args.config)
+    try:
+        result = await run_match(args.match_gt, args.gt, settings, judge_override=args.judge_model,
+                                 out_dir=args.output, view=args.gt_view)
+    except MatcherError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(2)
+
+    s = result["settings"]
+    table = Table(title=f"Ground-truth match — {Path(args.match_gt).name} vs {args.gt}", show_lines=False)
+    for col in ("View", "Option P", "Option R", "Option F1", "Exact R", "Related",
+                "Decision F1 (strict)", "Decision F1 (lenient)", "Placement"):
+        table.add_column(col, justify="right" if col != "View" else "left")
+    for view, m in result["metrics"].items():
+        o, d, p = m["option"], m["decision"], m["placement"]
+        table.add_row(view, f"{o['precision']:.2f}", f"{o['recall']:.2f}", f"{o['f1']:.2f}",
+                      f"{o['exact_recall']:.2f}", f"{o['related_rate']:.2f}",
+                      f"{d['strict']['f1']:.2f}", f"{d['lenient']['f1']:.2f}",
+                      "–" if p["accuracy"] is None else f"{p['accuracy']:.2f}")
+    console.print(table)
+    console.print(
+        f"[dim]{s['system_values']} system values x {s['ground_truth_options']} options; label sources "
+        f"{result['label_sources']}; judge {s['judge_model']} (generator {s['generator_model']}); "
+        f"cosine thresholds {s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
+    )
+    for kind, path in result["paths"].items():
+        console.print(f"[green]{kind}:[/green] {path}")
+
+
 async def _run_evaluate(args: argparse.Namespace) -> None:
     """Score or compare saved taxonomy JSONs and exit."""
     init_settings(args.config)
@@ -1641,6 +1710,11 @@ def main() -> None:
     # Standalone evaluation mode — score/compare saved taxonomy JSONs and exit.
     if args.evaluate:
         asyncio.run(_run_evaluate(args))
+        return
+
+    # Standalone ground-truth matching — score a saved taxonomy against an expert design space and exit.
+    if args.match_gt:
+        asyncio.run(_run_match_gt(args))
         return
 
     # Standalone unified HTML report mode — combine sibling artifacts and exit.
