@@ -33,7 +33,7 @@ All settings live in one YAML file, passed with `--config` (default: `./config.y
 |---|---|
 | `models` | Three LLM roles, which should be different models (a shared model runs with a warning): `generation_llm` builds the design space (open coding, summaries, generation, update, review, consolidation, merging, selection, labeling, report text); `evaluation_llm` judges it in the pipeline (scoreboard, consistency comparison, saturation critic); `matching_llm` judges value-option pairs in ground-truth matching (`--match-gt`). Plus `embedding` (consolidation, evidence linking, dimension merging, biplots, matching candidates) |
 | `pipeline` | `batch_size` (documents per minibatch), `random_seed`, `mode` (`train` / `test`), `taxonomy_input` and `taxonomy_input_view` (start from a saved run) |
-| `taxonomy` | `use_case` (**the most important setting**), `name`, `max_num_clusters` (`null` = no cap), saturation, value consolidation, evidence linking, fragmentation controls |
+| `taxonomy` | `use_case` (**the most important setting**), `name`, `max_num_clusters` (`null` = no cap), saturation, value consolidation, evidence linking, fragmentation controls, `edit_mode` (`rewrite` / `rewrite_restore` / `tools`: how updates and reviews change the taxonomy) |
 | `feedback` | Your own feedback text or file, injected into update and review prompts |
 | `summarization` | Summarize documents first, or `skip: true` to work on the raw text |
 | `open_coding` | `input`: code from summaries or from the full text |
@@ -122,6 +122,10 @@ python main.py --evaluate run1.json run2.json run3.json --config my_project.yaml
 # options and decisions, placement; per ground-truth view). The matching LLM judges borderline
 # value-option pairs; --matcher-mode embeddings uses embedding distance alone (no LLM calls).
 python main.py --match-gt results/myproject_taxonomy_<timestamp>.json --gt benchmark/c2-rl-monitoring/gt --config my_project.yaml
+
+# Stage funnel: where each expert option is lost (open codes, each iteration, review,
+# consolidation, selected view); needs the run's saved open codes. Same judge and cache as --match-gt.
+python benchmark/stage_funnel.py results/myproject_taxonomy_<timestamp>.json --gt benchmark/c2-rl-monitoring/gt --config my_project.yaml
 ```
 
 `--iteration N` renders or scores a specific iteration instead of the selected view.
@@ -133,7 +137,7 @@ With `--output DIR`, files are named `<name>_<kind>_<timestamp>` (the name comes
 
 | File | Content |
 |---|---|
-| `<name>_taxonomy_<ts>.json` | **Main result**: every iteration, the selected dimensions with values, stances, evidence and relations, the dropped dimensions with reasons, the saturation history, the evaluation scoreboard and its history, run metrics (time, tokens) |
+| `<name>_taxonomy_<ts>.json` | **Main result**: every iteration, the selected dimensions with values, stances, evidence and relations, the dropped dimensions with reasons, the saturation history, the evaluation scoreboard and its history, run metrics (time, tokens), the edit mode, and (tools / rewrite_restore modes) the operation log of every update and review |
 | `<name>_report_<ts>.md` | Grounded-theory report of the selected view |
 | `<name>_documents_<ts>.json` | Documents with summary, assigned dimension and value, confidence score |
 | `<name>_clusters_<ts>.json` | The selected design space as a tree with the labeled documents nested in it |

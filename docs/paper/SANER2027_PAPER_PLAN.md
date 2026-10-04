@@ -1178,6 +1178,24 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
   - **Open definitional point:** the "related" rate is implemented as in the frame note (share of *system
     values* whose best label is `related`), whereas M7 above defines it over *GT options*. Decide which to
     report. A change is logged in the frame note's "Changes after scores were seen".
+- **2026-10-04: A10 stage funnel on C2 (`benchmark/stage_funnel.py`; run `20261002_211657`; judge
+  `gpt-5.6-luna`, also the generator, so diagnostic only).** Outputs in `examples/c2-rl-monitoring/gt_luna/`.
+
+  | Paper view (57 options) | open codes | generate | update 3 | update 7 (peak) | update 8 | review | consolidated | selected |
+  |---|---|---|---|---|---|---|---|---|
+  | Options present | 56 | 29 | 17 | 44 | 30 | 30 | 28 | 23 |
+
+  - **The rival "never open-coded" is rejected:** 56 of 57 options (model view: 60 of 62) are in the open codes.
+  - **The loop loses them:** presence follows the value count (iteration 3: 213 → 46 values; iteration 8:
+    282 → 59). The update after the peak loses 16 options for good. 46 options drop out at some update and come
+    back later, so the space is rebuilt and lost again rather than accumulated.
+  - **After the loop:** consolidation loses 5 more, selection 6.
+  - **The funnel's candidate gate reproduces the official match** at the selected stage (23 both, 0 disagreements).
+    The open-codes gate still needs the hand check (`*_stage_funnel_handcheck.csv`, about 20 options).
+  - **Consequence:** the tool-based update (`taxonomy.edit_mode: tools`) targets the stage that loses most options.
+    It is compared with `rewrite` and with `rewrite_restore` (rewrite plus restoring dropped evidence-backed
+    values), 3 seeds each, with the same frame and judge (plan
+    `docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`, U7).
 
 ---
 
