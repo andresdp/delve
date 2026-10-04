@@ -92,7 +92,11 @@ def normalize_name(name: str) -> str:
 
 
 def split_camel(name: str) -> str:
-    """'DetectionLatency' -> 'Detection Latency'; names with spaces are kept."""
+    """'DetectionLatency' -> 'Detection Latency'; names with spaces are kept.
+
+    Element ids (``slug``) depend on it, so it stays separate from the matcher's
+    ``gt_match.split_camel`` (which also strips): keep the two rules in step.
+    """
     if " " in name.strip():
         return name
     return re.sub(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", name)

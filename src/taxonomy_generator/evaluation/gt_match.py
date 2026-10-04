@@ -28,11 +28,14 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import dataclasses
+import functools
 import hashlib
 import json
 import logging
 import random
 import re
+from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,8 +44,9 @@ from typing import Any, Callable
 import numpy as np
 from pydantic import BaseModel
 
-from taxonomy_generator.evaluation.judge import (
-    resolve_judge_model,  # sets deepeval telemetry opt-out
+from taxonomy_generator.evaluation.judge import (  # judge also sets the deepeval telemetry opt-out
+    openai_judge_model,
+    resolve_judge_model,
 )
 from taxonomy_generator.utils import l2_normalize
 
@@ -68,6 +72,9 @@ JUDGE_STEPS = (
     "Give a one-sentence reason.",
 )
 JUDGE_VERSION = hashlib.sha256("\n".join(JUDGE_STEPS).encode()).hexdigest()[:12]
+
+
+MODES = ("judge", "embeddings")
 
 
 class MatcherError(ValueError):
@@ -122,10 +129,7 @@ class MatcherConfig:
 
     def as_record(self) -> dict[str, Any]:
         """Return the settings as recorded in every output, with the judge instructions version."""
-        return {**self.__dict__, "judge_version": JUDGE_VERSION}
-
-
-MODES = ("judge", "embeddings")
+        return {**dataclasses.asdict(self), "judge_version": JUDGE_VERSION}
 
 
 def check_mode(mode: str) -> str:
@@ -152,7 +156,7 @@ def llm_warnings(config: MatcherConfig) -> list[str]:
 
     models = ModelSettings(generation_llm=config.generation_llm or "", evaluation_llm=config.evaluation_llm or "",
                            matching_llm=config.matching_llm or "")
-    return [w for w in shared_llm_warnings(models) if "matching_llm" in w]
+    return shared_llm_warnings(models, involving="matching_llm")
 
 
 # ------------------------------------------------------------------- items
@@ -273,8 +277,15 @@ def orient_label(label: str, order: str) -> str:
     return label
 
 
-def _make_metric_base():
-    from deepeval.metrics import BaseMetric  # imported lazily: heavy
+def _model_name(model: Any) -> str:
+    """Model name of a deepeval model (or of a stand-in without ``get_model_name``)."""
+    return getattr(model, "get_model_name", lambda: str(model))()
+
+
+@functools.cache
+def _metric_class() -> type:
+    """The ``GradedMatchMetric`` class, built on first use (deepeval is a heavy import)."""
+    from deepeval.metrics import BaseMetric
 
     class GradedMatchMetric(BaseMetric):
         """deepeval metric: one graded label for a pair of design options (Item 1 vs. Item 2).
@@ -288,7 +299,7 @@ def _make_metric_base():
         def __init__(self, model: Any, threshold: float = 0.5):
             self.model = model
             self.threshold = threshold
-            self.evaluation_model = getattr(model, "get_model_name", lambda: str(model))()
+            self.evaluation_model = _model_name(model)
             self.include_reason = True
             self.async_mode = True
             self.strict_mode = False
@@ -318,7 +329,6 @@ def _make_metric_base():
             return self.score
 
         def measure(self, test_case, *args, **kwargs) -> float:
-            import asyncio
             return asyncio.run(self.a_measure(test_case))
 
         def is_successful(self) -> bool:
@@ -331,21 +341,9 @@ def _make_metric_base():
     return GradedMatchMetric
 
 
-_METRIC_CLASS = None
-
-
 def graded_match_metric(model: Any):
-    """Create a fresh ``GradedMatchMetric`` served by ``model`` (deepeval imported on first use)."""
-    global _METRIC_CLASS
-    if _METRIC_CLASS is None:
-        _METRIC_CLASS = _make_metric_base()
-    return _METRIC_CLASS(model)
-
-
-def openai_judge_model(judge_model: str):
-    """Deepeval OpenAIModel for the judge (temperature 1.0, as the scoreboard uses)."""
-    from deepeval.models import OpenAIModel
-    return OpenAIModel(model=judge_model, temperature=1.0)
+    """Create a fresh ``GradedMatchMetric`` served by ``model``."""
+    return _metric_class()(model)
 
 
 class JudgeCache:
@@ -393,6 +391,13 @@ def embedder_from_config(config: MatcherConfig) -> Callable[[list[str]], np.ndar
     return lambda texts: np.asarray(model.embed_documents(texts), dtype=float)
 
 
+def _pair_record(value: Item, option: Item, d: float, label: str, source: str, warning: str = "") -> dict[str, Any]:
+    """One labeled pair, as written to the match file."""
+    return {"system_id": value.id, "system_text": value.text, "gt_id": option.id, "gt_text": option.text,
+            "distance": round(d, 4), "label": label, "label_source": source, "reason": "", "order": "",
+            "warning": warning}
+
+
 async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[list[str]], np.ndarray],
                       judge_model: Any, config: MatcherConfig,
                       cache: JudgeCache | None = None, concurrency: int = 8) -> list[dict[str, Any]]:
@@ -403,32 +408,31 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
     other's ``max_candidates`` nearest neighbours) or ``auto_rank`` (borderline
     pair outside those neighbourhoods, labeled ``different`` without the judge).
     """
-    from deepeval.test_case import LLMTestCase
-
     if not system or not options:
         return []
     vectors = embed([s.text for s in system] + [o.text for o in options])
     dist = pair_distances(vectors[: len(system)], vectors[len(system):])
     if config.mode == "embeddings":
         return label_pairs_by_distance(system, options, dist, config)
+
+    from deepeval.test_case import LLMTestCase
+
     k = max(1, config.max_candidates)
     near_sys = np.argsort(dist, axis=1)[:, :k]      # nearest options per value
     near_opt = np.argsort(dist, axis=0)[:k, :]      # nearest values per option
-    judge_name = getattr(judge_model, "get_model_name", lambda: str(judge_model))()
+    judge_name = _model_name(judge_model)
 
     pairs: list[dict[str, Any]] = []
     jobs: dict[str, list[tuple]] = {}   # cache key -> [(record, order, first, second)]
     for i, value in enumerate(system):
         for j, option in enumerate(options):
             d = float(dist[i, j])
-            record = {"system_id": value.id, "system_text": value.text, "gt_id": option.id,
-                      "gt_text": option.text, "distance": round(d, 4), "label": "different",
-                      "label_source": "auto", "reason": "", "order": "", "warning": ""}
+            record = _pair_record(value, option, d, "different", "auto")
             pairs.append(record)
             if config.lower_threshold > 0 and d <= config.lower_threshold:  # 0 disables auto-"same"
                 record["label"] = "same"
             elif d > config.upper_threshold:
-                pass
+                continue  # far apart: "different" without the judge
             elif j not in near_sys[i] and i not in near_opt[:, j]:
                 record["label_source"] = "auto_rank"
             else:
@@ -485,18 +489,13 @@ def label_pairs_by_distance(system: list[Item], options: list[Item], dist: np.nd
             d = float(dist[i, j])
             label = "same" if keep[i, j] else "related" if d <= config.upper_threshold else "different"
             warning = "same by distance, not kept by the one-to-one assignment" if same[i, j] and not keep[i, j] else ""
-            pairs.append({"system_id": value.id, "system_text": value.text, "gt_id": option.id,
-                          "gt_text": option.text, "distance": round(d, 4), "label": label,
-                          "label_source": "embedding", "reason": "", "order": "", "warning": warning})
+            pairs.append(_pair_record(value, option, d, label, "embedding", warning))
     return pairs
 
 
 def label_counts(pairs: Iterable[dict[str, Any]]) -> dict[str, int]:
-    """Count the pairs per label source (auto, auto_rank, judge)."""
-    counts: dict[str, int] = {}
-    for p in pairs:
-        counts[p["label_source"]] = counts.get(p["label_source"], 0) + 1
-    return counts
+    """Count the pairs per label source (auto, auto_rank, judge, embedding)."""
+    return dict(Counter(p["label_source"] for p in pairs))
 
 
 # --------------------------------------------------------------- alignment
@@ -562,10 +561,12 @@ def align_dimensions(shares: dict[tuple, dict[str, Any]], min_share: float,
         return {"strict": [], "lenient": []}
     dims = sorted({d for d, _ in eligible})
     decs = sorted({d for _, d in eligible})
+    dim_index = {d: i for i, d in enumerate(dims)}
+    dec_index = {d: i for i, d in enumerate(decs)}
     cost = np.zeros((len(dims), len(decs)))
     for (dim, dec), share in eligible.items():
         eps = (tie_break or {}).get((dim, dec), 1.0) * 1e-6
-        cost[dims.index(dim), decs.index(dec)] = -(share - eps)
+        cost[dim_index[dim], dec_index[dec]] = -(share - eps)
     rows, cols = linear_sum_assignment(cost)
     strict = sorted((dims[r], decs[c]) for r, c in zip(rows, cols) if (dims[r], decs[c]) in eligible)
     return {"strict": strict, "lenient": lenient}
@@ -579,11 +580,11 @@ def matching_size(edges: set[tuple]) -> int:
 
     if not edges:
         return 0
-    left = sorted({a for a, _ in edges})
-    right = sorted({b for _, b in edges})
+    left = {a: i for i, a in enumerate(sorted({a for a, _ in edges}))}
+    right = {b: i for i, b in enumerate(sorted({b for _, b in edges}))}
     weight = np.zeros((len(left), len(right)))
     for a, b in edges:
-        weight[left.index(a), right.index(b)] = 1.0
+        weight[left[a], right[b]] = 1.0
     rows, cols = linear_sum_assignment(-weight)
     return int(weight[rows, cols].sum())
 
@@ -693,18 +694,26 @@ def write_outputs(out_dir: Path | str, stem: str, pairs: list[dict[str, Any]], m
 
 # ----------------------------------------------------------------- command
 
+@functools.cache
+def _gt_validator() -> Any:
+    """The ground-truth validator (``benchmark/gt_format.py``) in a source checkout, else ``None``."""
+    fmt = Path(__file__).resolve().parents[3] / "benchmark" / "gt_format.py"
+    if not fmt.exists():
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("gt_format", fmt)
+    if spec is None or spec.loader is None:
+        return None
+    validator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(validator)
+    return validator
+
+
 def load_gt_folder(folder: Path | str) -> dict[str, dict]:
     """Load a study's ground-truth views (``gt_paper.json``, ``gt_model.json``), validated when possible."""
     folder = Path(folder)
     views = {}
-    validator = None
-    fmt = Path(__file__).resolve().parents[3] / "benchmark" / "gt_format.py"
-    if fmt.exists():
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("gt_format", fmt)
-        if spec is not None and spec.loader is not None:
-            validator = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(validator)
+    validator = _gt_validator()
     for name in ("paper", "model"):
         path = folder / f"gt_{name}.json"
         if not path.exists():
@@ -739,9 +748,9 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, matching_
 
     config = MatcherConfig.from_settings(settings)
     if matching_llm_override:
-        config = MatcherConfig(**{**config.__dict__, "matching_llm": matching_llm_override})
+        config = dataclasses.replace(config, matching_llm=matching_llm_override)
     if mode_override:
-        config = MatcherConfig(**{**config.__dict__, "mode": check_mode(mode_override)})
+        config = dataclasses.replace(config, mode=check_mode(mode_override))
     # The embeddings-only mode makes no LLM call, so it needs no matching LLM.
     bare_judge = check_matching_llm(config.matching_llm) if config.mode == "judge" else ""
     warnings = llm_warnings(config) if config.mode == "judge" else []

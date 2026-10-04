@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import json
 import sys
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -112,9 +113,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"wrote {path} ({len(rows)} rows)")
     rows = read_crosswalk(path)
     errors = check_crosswalk(paper, model, rows)
-    counts = {}
-    for row in rows:
-        counts[(row["kind"], row["status"])] = counts.get((row["kind"], row["status"]), 0) + 1
+    counts = Counter((row["kind"], row["status"]) for row in rows)
     print(", ".join(f"{n} {kind}s {status}" for (kind, status), n in sorted(counts.items())))
     for msg in errors:
         print(f"error: {msg}")

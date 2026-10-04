@@ -54,11 +54,17 @@ class ModelSettings:
 LLM_ROLES = ("generation_llm", "evaluation_llm", "matching_llm")
 
 
-def shared_llm_warnings(models: ModelSettings, roles: Tuple[str, ...] = LLM_ROLES) -> List[str]:
-    """Warnings for LLM roles (among ``roles``) configured with the same model."""
+def shared_llm_warnings(models: ModelSettings, roles: Tuple[str, ...] = LLM_ROLES,
+                        involving: Optional[str] = None) -> List[str]:
+    """Warnings for LLM roles (among ``roles``) configured with the same model.
+
+    ``involving`` keeps only the pairs that include that role (e.g. ``"matching_llm"``).
+    """
     warnings = []
     for i, first in enumerate(roles):
         for second in roles[i + 1:]:
+            if involving and involving not in (first, second):
+                continue
             a, b = getattr(models, first), getattr(models, second)
             if a and b and a.split("/", 1)[-1].strip().lower() == b.split("/", 1)[-1].strip().lower():
                 warnings.append(

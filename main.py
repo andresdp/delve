@@ -38,7 +38,8 @@ from rich.tree import Tree
 
 from taxonomy_generator import docs_from_dicts, graph, report_renderer, strings_to_docs
 from taxonomy_generator.configuration import Configuration, init_settings
-from taxonomy_generator.settings import ModelSettings, shared_llm_warnings
+from taxonomy_generator.evaluation.gt_match import MODES as MATCHER_MODES
+from taxonomy_generator.settings import LLM_ROLES, ModelSettings, shared_llm_warnings
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -375,7 +376,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--matcher-mode",
-        choices=["judge", "embeddings"],
+        choices=MATCHER_MODES,
         default=None,
         help="With --match-gt: 'judge' (embeddings propose pairs, an LLM judge labels them) or "
              "'embeddings' (labels from embedding distance alone, no LLM calls). Overrides matcher.mode.",
@@ -1302,7 +1303,7 @@ async def run(args: argparse.Namespace) -> None:
         configurable["mode"] = mode
     if taxonomy_input:
         configurable["taxonomy_input"] = taxonomy_input
-    for role in ("generation_llm", "evaluation_llm", "matching_llm"):
+    for role in LLM_ROLES:
         if getattr(args, role):
             configurable[role] = getattr(args, role)
             logger.info("Overriding models.%s: %s", role, getattr(args, role))

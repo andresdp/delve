@@ -17,7 +17,6 @@ Usage: ``python benchmark/frame_thresholds.py [--config config.yaml]``
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -33,13 +32,6 @@ STUDIES = ("c1-ml-workflow", "c2-rl-monitoring")
 PERCENTILES = (0.5, 1, 2, 5, 10, 25, 50)
 
 
-def load_views(study: str) -> dict:
-    """Load the paper and model views of a study's ground truth."""
-    folder = HERE / study / "gt"
-    return {name: json.loads((folder / f"gt_{name}.json").read_text(encoding="utf-8"))
-            for name in ("paper", "model") if (folder / f"gt_{name}.json").exists()}
-
-
 def main(argv=None) -> int:
     """Run the command line; return the exit code."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -53,14 +45,11 @@ def main(argv=None) -> int:
 
     config = gt_match.MatcherConfig.from_settings(load_settings(args.config))
     embed = gt_match.embedder_from_config(config)
-    options = {s: gt_match.ground_truth_options(load_views(s)) for s in STUDIES}
+    options = {s: gt_match.ground_truth_options(gt_match.load_gt_folder(HERE / s / "gt")) for s in STUDIES}
     vectors = {s: embed([o.text for o in opts]) for s, opts in options.items()}
+    same_study = {s: gt_match.pair_distances(vectors[s], vectors[s]) for s in STUDIES}
 
-    within = []
-    for s in STUDIES:
-        d = gt_match.pair_distances(vectors[s], vectors[s])
-        within.append(d[np.triu_indices(len(d), k=1)])
-    within = np.concatenate(within)
+    within = np.concatenate([d[np.triu_indices(len(d), k=1)] for d in same_study.values()])
     across = gt_match.pair_distances(vectors[STUDIES[0]], vectors[STUDIES[1]]).ravel()
 
     print(f"embedding: {config.embedding}; options: "
@@ -69,8 +58,7 @@ def main(argv=None) -> int:
         pct = ", ".join(f"p{p:g}={np.percentile(values, p):.3f}" for p in PERCENTILES)
         print(f"{label} ({len(values)} pairs): min={values.min():.3f}, {pct}")
     closest = []
-    for s in STUDIES:
-        d = gt_match.pair_distances(vectors[s], vectors[s])
+    for s, d in same_study.items():
         iu = np.triu_indices(len(d), k=1)
         for k in np.argsort(d[iu])[:5]:
             i, j = iu[0][k], iu[1][k]

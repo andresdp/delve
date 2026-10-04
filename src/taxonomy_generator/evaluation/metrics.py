@@ -29,8 +29,9 @@ from dataclasses import dataclass, field
 from typing import List, Tuple
 
 from deepeval.metrics import GEval
-from deepeval.models import OpenAIModel
 from deepeval.test_case import SingleTurnParams
+
+from taxonomy_generator.evaluation.judge import openai_judge_model
 
 
 @dataclass(frozen=True)
@@ -322,12 +323,7 @@ def build_metrics(
     if include_coverage:
         criteria.extend(DOCUMENT_GROUNDED_CRITERIA)
 
-    # deepeval's OpenAIModel defaults to temperature=0.0, which newer
-    # reasoning-tier models (e.g. gpt-5.x) reject outright ("Only the
-    # default (1) value is supported"). temperature=1.0 is valid for both
-    # older and newer OpenAI models, so it is used unconditionally here
-    # rather than special-casing by model name.
-    judge_model = OpenAIModel(model=model, temperature=1.0)
+    judge_model = openai_judge_model(model)
 
     metrics: List[GEval] = []
     for criterion in criteria:
