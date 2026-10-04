@@ -84,6 +84,9 @@ class OutputState:
     # than replacing, so format_feedback can read the freshest entry at
     # any point in the run, not just the final one.
     evaluation_history: Annotated[List[Dict], operator.add] = field(default_factory=list)
+    # One entry per update/review in tools or rewrite_restore mode (taxonomy.edit_mode):
+    # the operations applied, rejected calls, uncited batch documents, restored values.
+    operation_log: Annotated[List[Dict], operator.add] = field(default_factory=list)
 
 
 @dataclass

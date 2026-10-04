@@ -242,3 +242,46 @@ async def run_tool_update(model: Any, editor: TaxonomyEditor, messages: List[Bas
     clusters = editor.result()
     explanation = editor.explanation if editor.finished else fallback_explanation(editor, stop)
     return clusters, explanation
+
+
+def _doc_id(doc: Any) -> str:
+    return str(doc["id"] if isinstance(doc, dict) else doc.id)
+
+
+async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, configuration: Any,
+                         doc_indices: List[int], node: str, review: bool) -> dict:
+    """Run one tools-mode update or review; return the node result in the rewrite shapes plus its log entry."""
+    from taxonomy_generator.utils import format_taxonomy_compact, taxonomy_prompt_inputs
+
+    previous = state.clusters[-1] if state.clusters else []
+    inputs = taxonomy_prompt_inputs(state, configuration, doc_indices, True, format_taxonomy_compact(previous))
+    messages = prompt.format_messages(**inputs)
+    editor = TaxonomyEditor(previous, [_doc_id(state.documents[i]) for i in doc_indices], review=review)
+    clusters, explanation = await run_tool_update(model, editor, messages,
+                                                  max_steps=configuration.edit_max_steps or 8, config=config)
+    entry = {"iteration": len(state.clusters) + 1, "node": node, "edit_mode": "tools", **editor.summary(),
+             "explanation": explanation}
+    status = (f"Taxonomy edited with tools: {len(editor.operations)} operations applied, "
+              f"{len(editor.rejected)} rejected, {len(editor.uncited)} batch documents uncited.")
+    logger.info(status)
+    return {"clusters": [clusters], "explanations": [explanation], "status": [status], "operation_log": [entry]}
+
+
+def restore_after_rewrite(result: dict, state: Any, node: str) -> dict:
+    """``rewrite_restore`` mode: put back evidence-backed values the rewrite dropped, and log them."""
+    from taxonomy_generator.utils import restore_dropped_values
+
+    previous = state.clusters[-1] if state.clusters else []
+    if not result.get("clusters"):
+        return result
+    clusters, restored = restore_dropped_values(previous, result["clusters"][0])
+    note = (f"Restored {len(restored)} evidence-backed value{'s' if len(restored) != 1 else ''} the rewrite dropped"
+            + (": " + "; ".join(r["label"] for r in restored) if restored else "") + ".")
+    if restored:
+        logger.info(note)
+    explanations = list(result.get("explanations") or [""])
+    explanations[0] = f"{explanations[0]}\n{note}" if explanations[0] else note
+    entry = {"iteration": len(state.clusters) + 1, "node": node, "edit_mode": "rewrite_restore",
+             "restored": restored}
+    return {**result, "clusters": [clusters], "explanations": explanations,
+            "status": list(result.get("status") or []) + [note], "operation_log": [entry]}

@@ -6,9 +6,13 @@ import random
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.prompts import TAXONOMY_REVIEW_PROMPT
+from taxonomy_generator.prompts import (
+    TAXONOMY_REVIEW_PROMPT,
+    TAXONOMY_REVIEW_TOOLS_PROMPT,
+)
 from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.state import State
+from taxonomy_generator.tool_update import restore_after_rewrite, tool_mode_node
 from taxonomy_generator.utils import (
     format_feedback,
     invoke_taxonomy_chain,
@@ -38,28 +42,39 @@ async def review_taxonomy(
     state: State,
     config: RunnableConfig
 ) -> dict:
-    """Review and finalize taxonomy using a random sample of documents."""
+    """Review and finalize taxonomy using a random sample of documents.
+
+    ``taxonomy.edit_mode`` picks how, as in ``update_taxonomy``; in tools mode the
+    review sample's documents are the evidence the operations may cite.
+    """
     configuration = Configuration.from_runnable_config(config)
 
     feedback = format_feedback(state, configuration.evaluation_feedback_exclude or ())
-
-    review_chain = _setup_review_chain(configuration, feedback)
 
     review_size = configuration.review_sample_size or configuration.batch_size
     indices = list(range(len(state.documents)))
     random.shuffle(indices)
     sample_indices = indices[:review_size]
+    edit_mode = configuration.edit_mode or "rewrite"
     logger.info(
-        "Reviewing taxonomy — sampling %d documents from %d (model: %s)",
-        len(sample_indices), len(state.documents), configuration.generation_llm,
+        "Reviewing taxonomy — sampling %d documents from %d (model: %s, edit mode: %s)",
+        len(sample_indices), len(state.documents), configuration.generation_llm, edit_mode,
     )
 
-    result = await invoke_taxonomy_chain(
-        review_chain,
-        state,
-        config,
-        sample_indices,
-    )
+    if edit_mode == "tools":
+        prompt = TAXONOMY_REVIEW_TOOLS_PROMPT.partial(use_case=configuration.use_case, feedback=feedback)
+        result = await tool_mode_node(load_chat_model(configuration.generation_llm), prompt, state, config,
+                                      configuration, sample_indices, node="review_taxonomy", review=True)
+    else:
+        review_chain = _setup_review_chain(configuration, feedback)
+        result = await invoke_taxonomy_chain(
+            review_chain,
+            state,
+            config,
+            sample_indices,
+        )
+        if edit_mode == "rewrite_restore":
+            result = restore_after_rewrite(result, state, node="review_taxonomy")
     num_clusters = len(result.get("clusters", [[]])[0]) if result.get("clusters") else 0
     logger.info("Taxonomy review complete — %d categories finalized", num_clusters)
 
