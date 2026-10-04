@@ -289,3 +289,22 @@ def test_run_funnel_requires_open_codes(tmp_path):
     with pytest.raises(gt_match.MatcherError, match="open codes"):
         asyncio.run(stage_funnel.run_funnel(str(tax), str(gt), _settings(tmp_path),
                                             embed=embed_by_keyword({}), judge_model=RuleJudge([])))
+
+
+def test_judge_batches_start_small_then_grow():
+    assert stage_funnel.judge_batches(list(range(10))) == [[0], [1, 2], [3, 4, 5, 6, 7], [8, 9]]
+    assert stage_funnel.judge_batches([]) == []
+
+
+def test_memo_embedder_embeds_each_text_once():
+    calls = []
+
+    def embed(texts):
+        calls.append(list(texts))
+        return np.asarray([[float(len(t)), 0.0] for t in texts])
+
+    cached = stage_funnel.memo_embedder(embed)
+    first = cached(["a", "bb", "a"])
+    second = cached(["bb", "ccc"])
+    assert calls == [["a", "bb"], ["ccc"]]
+    assert first.tolist() == [[1.0, 0.0], [2.0, 0.0], [1.0, 0.0]] and second.tolist() == [[2.0, 0.0], [3.0, 0.0]]

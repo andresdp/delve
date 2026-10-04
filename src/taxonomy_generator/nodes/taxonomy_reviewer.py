@@ -64,7 +64,7 @@ async def review_taxonomy(
     if edit_mode == "tools":
         prompt = TAXONOMY_REVIEW_TOOLS_PROMPT.partial(use_case=configuration.use_case, feedback=feedback)
         result = await tool_mode_node(load_chat_model(configuration.generation_llm), prompt, state, config,
-                                      configuration, sample_indices, node="review_taxonomy", review=True)
+                                      configuration, sample_indices, node="review_taxonomy")
     else:
         review_chain = _setup_review_chain(configuration, feedback)
         result = await invoke_taxonomy_chain(

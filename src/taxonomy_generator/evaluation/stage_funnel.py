@@ -160,39 +160,53 @@ def candidates(dist_row: np.ndarray, k: int, upper_threshold: float) -> list[int
 
 # ------------------------------------------------------------------- judge
 
+def judge_batches(cands: list[int]) -> list[list[int]]:
+    """Candidates in judging batches, nearest first: 1, then 2, then ``JUDGE_BATCH`` at a time.
+
+    Judging stops at the first hit, so small first batches avoid paying for calls
+    beyond a near hit; later batches are larger to keep latency down.
+    """
+    batches, start, sizes = [], 0, [1, 2]
+    while start < len(cands):
+        size = sizes.pop(0) if sizes else JUDGE_BATCH
+        batches.append(cands[start:start + size])
+        start += size
+    return batches
+
+
+def memo_embedder(embed: Callable[[list[str]], np.ndarray]) -> Callable[[list[str]], np.ndarray]:
+    """Wrap ``embed`` so each distinct text is embedded once across all stages."""
+    vectors: dict[str, np.ndarray] = {}
+
+    def cached(texts: list[str]) -> np.ndarray:
+        new = list(dict.fromkeys(t for t in texts if t not in vectors))
+        if new:
+            vectors.update(zip(new, embed(new)))
+        return np.asarray([vectors[t] for t in texts], dtype=float)
+    return cached
+
+
 async def trace_options(stages: list[Stage], options: list[Item], embed: Callable[[list[str]], np.ndarray],
                         judge_model: Any, config: MatcherConfig, settings: FunnelSettings,
                         cache: JudgeCache | None = None, concurrency: int = 8) -> list[OptionTrace]:
     """Status of every option at every stage (present / absent / unjudged)."""
-    from deepeval.test_case import LLMTestCase
-
+    embed = memo_embedder(embed)
     option_vecs = embed([o.text for o in options]) if options else np.zeros((0, 1))
-    judge_name = gt_match._model_name(judge_model)
+    judge_name = gt_match.model_name(judge_model)
     semaphore = asyncio.Semaphore(max(1, concurrency))
-    pending: dict[str, asyncio.Task] = {}
+    pending: dict[str, asyncio.Future] = {}
 
     async def verdict_for(first: str, second: str) -> dict[str, str]:
         key = JudgeCache.key(judge_name, first, second)
-        cached = cache.get(key) if cache else None
-        if cached is not None:
-            return cached
         if key not in pending:  # one call per distinct ordered pair, shared across stages
-            async def call() -> dict[str, str]:
-                async with semaphore:
-                    metric = gt_match.graded_match_metric(judge_model)
-                    await metric.a_measure(LLMTestCase(input=first, actual_output=second))
-                verdict = {"label": metric.label, "reason": metric.reason or "", "warning": metric.warning}
-                if cache:
-                    cache.put(key, verdict)
-                return verdict
-            pending[key] = asyncio.ensure_future(call())
+            pending[key] = asyncio.ensure_future(
+                gt_match.judge_verdict(judge_model, cache, semaphore, key, first, second))
         return await pending[key]
 
     async def judge_pair(item: Item, option: Item) -> dict[str, Any]:
-        rng = random.Random(f"{config.seed}:{item.id}:{option.id}")
-        order = "system_first" if rng.random() < 0.5 else "gt_first"
+        order = gt_match.pair_order(config.seed, item.id, option.id)
         text = item_text(item)
-        first, second = (text, option.text) if order == "system_first" else (option.text, text)
+        first, second = gt_match.ordered_texts(order, text, option.text)
         try:
             verdict = await verdict_for(first, second)
         except Exception as exc:  # a failed call leaves the pair unjudged, as in the matcher
@@ -213,8 +227,7 @@ async def trace_options(stages: list[Stage], options: list[Item], embed: Callabl
         async def trace_one(j: int, t: OptionTrace, stage: Stage = stage, dist: np.ndarray = dist, k: int = k):
             cands = candidates(dist[j], k, config.upper_threshold)
             judged: list[dict[str, Any]] = []
-            for start in range(0, len(cands), JUDGE_BATCH):
-                batch = cands[start:start + JUDGE_BATCH]
+            for batch in judge_batches(cands):
                 results = await asyncio.gather(*(judge_pair(stage.items[i], t.option) for i in batch))
                 for i, r in zip(batch, results):
                     r["distance"] = round(float(dist[j, i]), 4)

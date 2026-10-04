@@ -25,11 +25,12 @@ import copy
 from collections.abc import Callable, Iterable
 from typing import Any, get_args
 
-from taxonomy_generator.schemas import Relation
+from taxonomy_generator.schemas import DecisionStatus, Relation
 from taxonomy_generator.utils import _value_key, ensure_unique_ids
 
-STATUSES = ("accepted", "rejected", "outcome")
-CANDIDATE_STATUSES = ("accepted", "rejected")
+STATUSES = get_args(DecisionStatus)
+# Statuses that count as candidate decisions during coding ("mixed" only appears after consolidation).
+CODING_CANDIDATE_STATUSES = ("accepted", "rejected")
 RELATION_TYPES = get_args(Relation.model_fields["type"].annotation)
 
 
@@ -331,7 +332,7 @@ class TaxonomyEditor:
         if missing:
             raise EditError(f"every value must go to exactly one part; unassigned: {', '.join(missing)}")
         for part, values in zip(parts, assigned):
-            candidates = sum(v.get("status") in CANDIDATE_STATUSES for v in values)
+            candidates = sum(v.get("status") in CODING_CANDIDATE_STATUSES for v in values)
             if candidates < 2:
                 raise EditError(f"part '{part.get('name', '?')}' would keep {candidates} candidate decision(s); "
                                 "a decision point needs at least 2. Do not split: move the values to the "
@@ -448,6 +449,7 @@ class TaxonomyEditor:
 
     def result(self) -> list[dict]:
         """Return the edited taxonomy after the consistency checks (notes in ``cleanup``)."""
+        self.cleanup = []
         clusters = []
         for c in self.clusters:
             if not c["values"] and c["id"] in self._created_dims:

@@ -168,3 +168,14 @@ def test_compact_view_shows_ids_names_statuses_relations_and_hides_descriptions_
     assert "1.1 CUSUM chart (accepted)" in text
     assert "cumulative sums" not in text and "d1" not in text
     assert "[2] Response — How to respond? (no values yet)" in text
+
+
+def test_openai_chat_models_are_bound_through_the_responses_api(monkeypatch):
+    from langchain_openai import ChatOpenAI
+
+    from taxonomy_generator.tool_update import _bind
+
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    bound = _bind(ChatOpenAI(model="gpt-5.6-luna"), parallel=True)
+    assert bound.bound.use_responses_api is True
+    assert bound.kwargs["parallel_tool_calls"] is True and len(bound.kwargs["tools"]) == len(TOOL_SCHEMAS)

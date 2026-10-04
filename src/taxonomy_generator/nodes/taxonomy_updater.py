@@ -65,7 +65,7 @@ async def update_taxonomy(
     if edit_mode == "tools":
         prompt = TAXONOMY_UPDATE_TOOLS_PROMPT.partial(use_case=configuration.use_case, feedback=feedback)
         result = await tool_mode_node(load_chat_model(configuration.generation_llm), prompt, state, config,
-                                      configuration, mb_indices, node="update_taxonomy", review=False)
+                                      configuration, mb_indices, node="update_taxonomy")
     else:
         update_chain = _setup_update_chain(configuration, feedback)
         result = await invoke_taxonomy_chain(

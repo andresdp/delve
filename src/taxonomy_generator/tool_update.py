@@ -17,6 +17,7 @@ from typing import Any, List, Literal
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from pydantic import BaseModel, Field
 
+from taxonomy_generator.schemas import DecisionStatus
 from taxonomy_generator.taxonomy_editor import RELATION_TYPES, TaxonomyEditor
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class AddValue(BaseModel):
     dimension_id: str = Field(description="Id of the dimension (e.g. '3').")
     label: str = Field(description="Noun phrase naming the decision or outcome; never prefixed with the status.")
     description: str = Field(description="What this value means along its dimension.")
-    status: Literal["accepted", "rejected", "outcome"] = Field(
+    status: DecisionStatus = Field(
         description="accepted: adopted; rejected: explicitly declined; outcome: an effect, not a decision.")
     doc_ids: List[str] = Field(description="Ids of documents in this batch whose codes support the value.")
     reason: str = Reason
@@ -74,7 +75,7 @@ class SetStatus(BaseModel):
     """Reclassify a value's status on direct evidence (cite the document id in the reason)."""
 
     value_id: str
-    status: Literal["accepted", "rejected", "outcome"]
+    status: DecisionStatus
     reason: str = Reason
 
 
@@ -174,7 +175,32 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
 
 
 def _bind(model: Any, parallel: bool) -> Any:
+    """Bind the tools; OpenAI chat models go through the Responses API.
+
+    Newer OpenAI reasoning models (e.g. gpt-5.6-luna) reject function tools on Chat
+    Completions when a reasoning effort is set; the Responses API accepts them.
+    """
+    if "use_responses_api" in getattr(type(model), "model_fields", {}):
+        model = model.model_copy(update={"use_responses_api": True})
     return model.bind_tools(TOOL_SCHEMAS, parallel_tool_calls=True) if parallel else model.bind_tools(TOOL_SCHEMAS)
+
+
+async def _invoke(model: Any, bound: Any, parallel: bool, messages: list, config: Any) -> tuple[Any, Any, bool, Any]:
+    """Call the bound model once; on a parallel_tool_calls rejection rebind without it and retry once.
+
+    Returns ``(ai_message or None, bound, parallel, error or None)``.
+    """
+    try:
+        return await bound.ainvoke(messages, config=config), bound, parallel, None
+    except Exception as exc:
+        if not (parallel and "parallel_tool_calls" in str(exc)):
+            return None, bound, parallel, exc
+    logger.warning("Model rejects parallel_tool_calls; continuing with sequential tool calls")
+    bound = _bind(model, parallel=False)
+    try:
+        return await bound.ainvoke(messages, config=config), bound, False, None
+    except Exception as exc:
+        return None, bound, False, exc
 
 
 def fallback_explanation(editor: TaxonomyEditor, stop: str) -> str:
@@ -198,25 +224,12 @@ async def run_tool_update(model: Any, editor: TaxonomyEditor, messages: List[Bas
     bound = _bind(model, parallel)
     stop = f"step limit ({max_steps} turns) reached"
     for step in range(max_steps):
-        try:
-            ai = await bound.ainvoke(messages, config=config)
-        except Exception as exc:
-            if parallel and "parallel_tool_calls" in str(exc):
-                logger.warning("Model rejects parallel_tool_calls; continuing with sequential tool calls")
-                parallel = False
-                bound = _bind(model, parallel)
-                try:
-                    ai = await bound.ainvoke(messages, config=config)
-                except Exception as retry_exc:
-                    exc = retry_exc
-                    ai = None
-            else:
-                ai = None
-            if ai is None:
-                logger.warning("Tool update: model call failed at turn %d (%s: %s); keeping %d applied operations",
-                               step + 1, type(exc).__name__, exc, len(editor.operations))
-                stop = f"model call failed ({type(exc).__name__})"
-                break
+        ai, bound, parallel, error = await _invoke(model, bound, parallel, messages, config)
+        if ai is None:
+            logger.warning("Tool update: model call failed at turn %d (%s: %s); keeping %d applied operations",
+                           step + 1, type(error).__name__, error, len(editor.operations))
+            stop = f"model call failed ({type(error).__name__})"
+            break
         if not isinstance(ai, AIMessage):
             ai = AIMessage(content=str(getattr(ai, "content", ai)))
         messages.append(ai)
@@ -249,8 +262,13 @@ def _doc_id(doc: Any) -> str:
 
 
 async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, configuration: Any,
-                         doc_indices: List[int], node: str, review: bool) -> dict:
-    """Run one tools-mode update or review; return the node result in the rewrite shapes plus its log entry."""
+                         doc_indices: List[int], node: str) -> dict:
+    """Run one tools-mode update or review; return the node result in the rewrite shapes plus its log entry.
+
+    ``node`` is ``update_taxonomy`` or ``review_taxonomy``; the review may reclassify
+    statuses without citing a document (its sample is the evidence).
+    """
+    review = node == "review_taxonomy"
     from taxonomy_generator.utils import format_taxonomy_compact, taxonomy_prompt_inputs
 
     previous = state.clusters[-1] if state.clusters else []
