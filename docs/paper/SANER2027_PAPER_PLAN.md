@@ -1187,7 +1187,7 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
 
   - **The rival "never open-coded" is rejected:** 56 of 57 options (model view: 60 of 62) are in the open codes.
   - **The loop loses them:** presence follows the value count (iteration 3: 213 → 46 values; iteration 8:
-    282 → 59). The update after the peak loses 16 options for good. 46 options drop out at some update and come
+    282 → 59). The update after the peak loses 15 options for good (one more is unresolved: only unjudged stages follow its last presence). 46 options drop out at some update and come
     back later, so the space is rebuilt and lost again rather than accumulated.
   - **After the loop:** consolidation loses 5 more, selection 6.
   - **The funnel's candidate gate reproduces the official match** at the selected stage (23 both, 0 disagreements).
