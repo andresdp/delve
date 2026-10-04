@@ -30,4 +30,4 @@ Nodes in `taxonomy_generator.nodes`, routing functions, `schemas.py` classes, `u
 
 ## Validation
 
-Use `python -c "import taxonomy_generator; print(taxonomy_generator.__all__)"`, `python -c "from taxonomy_generator.graph import graph; print(graph)"`, and `python -m build` (if the build dependency is installed) to check import, graph, and packaging surfaces without invoking an LLM. No automated tests are present.
+Use `python -c "import taxonomy_generator; print(taxonomy_generator.__all__)"`, `python -c "from taxonomy_generator.graph import graph; print(graph)"`, and `python -m build` (if the build dependency is installed) to check import, graph, and packaging surfaces without invoking an LLM. The public package surface is complemented by focused tests under `tests/unit_tests/`; run `test_schemas.py` and affected node/CLI suites when changing a public contract. A package build remains conditional because it depends on the local build toolchain.

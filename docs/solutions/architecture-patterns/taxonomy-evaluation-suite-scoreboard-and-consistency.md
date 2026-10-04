@@ -1,7 +1,7 @@
 ---
 title: Taxonomy Evaluation Suite with Scoreboard and Consistency Comparison
 date: 2026-08-21
-last_updated: 2026-09-05
+last_updated: 2026-10-04
 category: architecture-patterns
 module: taxonomy_generator
 problem_type: architecture_pattern
@@ -82,10 +82,16 @@ Key steps in `run_scoreboard(clusters, documents, configuration)`:
 
    ```python
    judge_model = resolve_judge_model(
-       configuration.evaluation_judge_model or configuration.model
+       configuration.evaluation_llm
    )
    threshold = configuration.evaluation_threshold
    ```
+
+   The judge is the project's **evaluation LLM** (`models.evaluation_llm`). Until 2026-10-04 it was
+   `evaluation.judge_model`, which fell back to the generator (`models.model`), so the pipeline graded its own
+   output by default. The roles are now `generation_llm`, `evaluation_llm` and `matching_llm`. The legacy
+   keys are still read with a deprecation warning, and a model shared between roles is warned about, not
+   refused (`settings.shared_llm_warnings`).
 
    `resolve_judge_model` (in `evaluation/judge.py`) strips the `openai/` prefix when present and returns a bare model name for deepeval's OpenAI integration, or `None` to let GEval choose its default. Non-OpenAI providers raise a clear `ValueError`, documented as the future hook for a `DeepEvalBaseLLM` adapter.
 
@@ -173,7 +179,7 @@ Key steps in `run_scoreboard(clusters, documents, configuration)`:
    return {
        "criteria": criteria_rows,
        "overall": overall,
-       "model": configuration.evaluation_judge_model or configuration.model,
+       "model": configuration.evaluation_llm,
        "unavailable": False,
    }
    ```
@@ -186,7 +192,7 @@ Key steps in `run_scoreboard(clusters, documents, configuration)`:
    return {
        "criteria": [],
        "overall": None,
-       "model": configuration.evaluation_judge_model or configuration.model,
+       "model": configuration.evaluation_llm,
        "unavailable": True,
        "error": str(exc),
    }

@@ -22,15 +22,17 @@ tags: [configuration, settings, operations]
 ## Important YAML sections
 
 - `models.model` is used for taxonomy generation, update, review, selection, and merge adjudication; `models.fast_llm` is used for summarization, open coding, saturation checks, and labeling. `models.embedding` supports value consolidation and visualization and currently accepts `openai/<model>` or `ollama/<model>`.
-- `pipeline.max_runs`, `sample_size`, `batch_size`, and `random_seed` control corpus limiting, sampling, minibatches, and reproducibility.
-- `taxonomy` controls name, use case, cluster limits/lengths, `saturation_streak_threshold`, `value_merge_distance_threshold`, `value_merge_borderline_band`, and `consolidate_values`.
+- `pipeline.max_runs`, `sample_size`, `batch_size`, and `random_seed` control corpus limiting, sampling, minibatches, and reproducibility. `pipeline.mode` selects `train` or reusable-taxonomy `test`; `taxonomy_input` points to a saved taxonomy and `taxonomy_input_view` selects `auto`, `selected`, or `final`.
+- `taxonomy` controls name, use case, cluster limits/lengths, saturation, value/dimension merging, evidence linking, and support thresholds.
 - `summarization` controls skip, summary lengths, and `max_concurrency`; that concurrency value also bounds open coding and labeling.
+- `feedback.text` or `feedback.file` supplies persistent refinement feedback; the CLI `--feedback`/`--feedback-file` options take precedence over config values.
 - `labeling` controls `fallback_category` and `review_sample_size`.
 - `output` controls display limits, output directory, and graph filename.
 - `visualization.enabled`, `every_iteration`, `dimensions`, and `output_dir` control optional PCA/biplot chart rendering. Visualization is off by default; merge decisions use full-dimensional embedding distances, not projected coordinates.
+- `evaluation` controls judge enablement/model, pass threshold, consistency distances, source-stratified sample size, history persistence, feedback exclusions, and draft scoring frequency. Evaluation failures are fail-soft; judge access is still required for actual scores.
 
 The checked-in `config.yaml` currently sets max_runs/sample_size to 0, batch size 10, seed 4, max clusters 8, review sample 15, consolidation enabled, and visualization disabled. The dataclass defaults differ in several values, so documentation and operational checks should distinguish checked-in YAML from fallback defaults.
 
 ## Change surface and validation
 
-To add a setting, update the nested dataclass, `_build_*` helper, `Configuration` field and mapping, checked-in YAML, and consuming node/router/CLI. Validate with `python -c "from taxonomy_generator.settings import load_settings; print(load_settings('config.yaml'))"` and a temporary safe YAML file. Model/embedding names are split at the first slash; actual provider credentials and network availability are required only for LLM or embedding runs.
+To add a setting, update the nested dataclass, `_build_*` helper, `Configuration` field and mapping, checked-in YAML, and consuming node/router/CLI. Validate with `python -m pytest tests/unit_tests/test_build_corpus.py tests/unit_tests/test_open_coding_input.py -q` where applicable, plus `python -c "from taxonomy_generator.settings import load_settings; print(load_settings('config.yaml'))"` and a temporary safe YAML file. Model/embedding/judge names are split at the first slash; actual provider credentials and network availability are required only for LLM, judge, or embedding runs.

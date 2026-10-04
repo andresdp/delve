@@ -128,10 +128,18 @@ OPENAI_API_KEY=sk-...
 # ANTHROPIC_API_KEY=..., FIREWORKS_API_KEY=..., GROQ_API_KEY=...
 ```
 
-OpenAI is the default provider, for both the chat models and the embedding model. Anthropic,
-Fireworks, Groq and Ollama chat models work through LangChain (`provider/model-name`, e.g.
-`anthropic/claude-sonnet-5`). The evaluation judge uses an OpenAI model. Only API keys are read from the
-environment; everything else is configured in YAML.
+DelveDSpace uses three LLM roles, set in the `models` section of the YAML configuration. They should be
+different models, so that judging is independent of generation; a shared model runs with a warning.
+
+- **Generation LLM** (`generation_llm`): builds the design space.
+- **Evaluation LLM** (`evaluation_llm`): judges it during a run (scoreboard, saturation critic).
+- **Matching LLM** (`matching_llm`): judges value-option pairs when a run is scored against an expert
+  ground truth.
+
+OpenAI is the default provider, for the LLMs and the embedding model. Anthropic, Fireworks, Groq and Ollama
+models can serve as the generation LLM through LangChain (`provider/model-name`, e.g.
+`anthropic/claude-sonnet-5`). The evaluation and matching LLMs use OpenAI models. Only API keys are read
+from the environment; everything else is configured in YAML.
 
 ## Quick start
 

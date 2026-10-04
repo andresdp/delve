@@ -48,9 +48,19 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
-| `models.model` | `str` | `"openai/gpt-5.4-nano"` | Primary LLM for **taxonomy generation, update, and review** (main reasoning tasks). Override via `LLM_MODEL` env var or `--model` CLI flag. |
-| `models.fast_llm` | `str` | `"openai/gpt-5.4-nano"` | Lighter LLM for **document summarization, labeling, open coding, and saturation checks**. Override via `LLM_FAST_MODEL` env var or `--fast-model` CLI flag. |
+| `models.generation_llm` | `str` | `"openai/gpt-5.4-nano"` | **Generation LLM**: builds the design space (open coding, summaries, taxonomy generation/update/review, value consolidation, dimension merging and selection, labeling, report narrative). Override with `--generation-llm`. |
+| `models.evaluation_llm` | `str` | `"openai/gpt-5.4-mini"` | **Evaluation LLM**: judges the design space inside the pipeline (evaluation scoreboard, consistency adjudication, saturation critic). OpenAI models only for the scoreboard (deepeval). Override with `--evaluation-llm`. |
+| `models.matching_llm` | `str` | `"openai/gpt-4.1-mini"` | **Matching LLM**: judges value-option pairs in ground-truth matching (`--match-gt`). OpenAI models only. Override with `--matching-llm`. |
 | `models.embedding` | `str` | `"openai/text-embedding-3-small"` | Embedding model for **value consolidation** and taxonomy **biplot axis positions**. Format: `provider/model-name`. Supported providers: `openai`, `ollama`. |
+
+**Three LLM roles.** Use a different model for each role, so that the judging is independent of what it
+judges. Configuring the same model for two or three roles is allowed: the run prints a warning (and the
+matcher records it in its outputs).
+
+**Renamed keys.** `models.model` (now `generation_llm`), `evaluation.judge_model` (now `evaluation_llm`) and
+`matcher.judge_model` (now `matching_llm`) are still read, with a deprecation warning; a new key wins over its
+old one. `models.fast_llm` is ignored with a warning: its tasks run on the generation LLM, and the saturation
+critic on the evaluation LLM.
 
 **Model name format:** `provider/model-name` (e.g., `openai/gpt-4o-mini`, `anthropic/claude-3-haiku-20240307`, `ollama/llama3.2`).
 
@@ -58,18 +68,20 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 
 **Which model is used where:**
 
-| Node | Model used | Why |
+| Step | LLM role | Agent |
 |---|---|---|
-| `summarize` | `fast_llm` | Lightweight summarization task |
-| `open_code_minibatch` | `fast_llm` | Repetitive per-document concept extraction |
-| `generate_taxonomy` | `model` | Core reasoning — taxonomy creation (axial coding) |
-| `update_taxonomy` | `model` | Core reasoning — taxonomy refinement (axial coding) |
-| `check_saturation` | `fast_llm` | Lightweight coverage verdict |
-| `review_taxonomy` | `model` | Core reasoning — quality review |
-| `consolidate_values` | `model` (LLM adjudication only) | Embeddings do the merging; the LLM only adjudicates borderline pairs |
-| `select_dimensions` | `model` | Core reasoning — use-case relevance filtering |
-| `aggregate_new_values` | `model` | Test mode only — merges labeling-proposed new values into the frozen dimensions |
-| `label_documents` | `fast_llm` | Repetitive classification task |
+| `summarize` | generation | Coder |
+| `open_code_minibatch` | generation | Coder |
+| `generate_taxonomy`, `update_taxonomy`, `review_taxonomy` | generation | Taxonomist |
+| `evaluate_taxonomy`, `evaluate_taxonomy_final` (scoreboard) | evaluation | Critic |
+| `check_saturation` (saturation critic) | evaluation | Critic |
+| `consolidate_values` (adjudication of borderline pairs), dimension merging | generation | Integrator |
+| `select_dimensions` | generation | Integrator |
+| `aggregate_new_values` (test mode) | generation | Integrator |
+| `label_documents` | generation | Integrator |
+| report narrative (`--report`) | generation | — |
+| `--evaluate` (scoreboard, consistency comparison) | evaluation | — |
+| `--match-gt` (ground-truth matching) | matching | — |
 
 ### 2.2 Pipeline
 
@@ -151,11 +163,12 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
 | `evaluation.enabled` | `bool` | `true` | Master on/off switch for the taxonomy evaluation scoreboard (deepeval GEval). When `false`, the `evaluate_taxonomy` node is skipped and the pipeline topology matches pre-evaluation behavior exactly. |
-| `evaluation.judge_model` | `str` or `null` | `null` | Judge model override in `provider/model` format. Falls back to `models.model`. OpenAI (or OpenAI-compatible) models only — deepeval's built-in OpenAI integration is used directly; a non-OpenAI provider raises a clear error naming the documented future-wrapper path (`evaluation/judge.py`). |
 | `evaluation.threshold` | `float` | `0.5` | Display-only pass threshold (0-1) per criterion. Pass flags never gate anything — the scoreboard is observe-only. |
 | `evaluation.consistency_threshold` | `float` | `0.25` | Embedding-distance cutoff (Euclidean on L2-normalized vectors) below which dimensions from different taxonomies align automatically during consistency comparison. |
 | `evaluation.consistency_borderline_band` | `float` | `0.08` | Distance band above the cutoff routed to judge adjudication instead of auto-align or auto-reject. |
 | `evaluation.max_documents` | `int` | `20` | Max documents sampled for the data-grounded coverage criterion. Without documents the coverage row is listed as "not evaluated". |
+
+> **Judge:** the scoreboard and the consistency comparison use `models.evaluation_llm`. OpenAI (or OpenAI-compatible) models only: deepeval's built-in OpenAI integration is used directly, and a non-OpenAI provider raises a clear error (`evaluation/judge.py`).
 
 > **Scoreboard semantics:** seven criteria judged via deepeval `GEval` — six structural (orthogonality, clarity, completeness, use case alignment, no catch-alls, axis vs. value) judged against the use case, plus one data-grounded coverage criterion judged against sampled document contents. Each row carries a 0-1 score, pass flag, and the judge's rationale. Anonymous deepeval telemetry is always opted out programmatically.
 
@@ -163,8 +176,9 @@ All settings are defined in `config.yaml` and loaded via `init_settings()`. The 
 
 ```yaml
 models:
-  model: openai/gpt-5.4-nano
-  fast_llm: openai/gpt-5.4-nano
+  generation_llm: openai/gpt-5.4-nano
+  evaluation_llm: openai/gpt-5.4-mini
+  matching_llm: openai/gpt-4.1-mini
 
 pipeline:
   max_runs: 500
@@ -203,14 +217,9 @@ output:
 
 **File:** `.env` (loaded via `python-dotenv` in `main.py`)
 
-### 3.1 Model Overrides
+Only API keys are read from the environment; models are set in `config.yaml` or with CLI flags.
 
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_MODEL` | `openai/gpt-5.4-nano` | Override `models.model` from `config.yaml`. |
-| `LLM_FAST_MODEL` | `openai/gpt-5.4-nano` | Override `models.fast_llm` from `config.yaml`. |
-
-### 3.2 API Keys
+### 3.1 API Keys
 
 | Variable | Required | Description |
 |---|---|---|
@@ -219,15 +228,16 @@ output:
 | `FIREWORKS_API_KEY` | No | Required for Fireworks models. |
 | `GROQ_API_KEY` | No | Required for Groq models. |
 
-### 3.3 Local Models (Ollama)
+### 3.2 Local Models (Ollama)
 
 No API key needed. Ensure Ollama is running locally (`ollama serve`), then configure in `config.yaml`:
 
 ```yaml
 models:
-  model: ollama/llama3.2
-  fast_llm: ollama/llama3.2
+  generation_llm: ollama/llama3.2
 ```
+
+(The evaluation and matching LLMs use deepeval's OpenAI integration and stay OpenAI models.)
 
 ---
 
@@ -271,8 +281,9 @@ models:
 
 | Argument | Type | Default | Description |
 |---|---|---|---|
-| `--model` | `str` | `None` | Override the main LLM model (`models.model`). Format: `provider/model-name`. |
-| `--fast-model` | `str` | `None` | Override the fast LLM model (`models.fast_llm`). Format: `provider/model-name`. |
+| `--generation-llm` | `str` | `None` | Override `models.generation_llm`. Format: `provider/model-name`. `--model` is a deprecated alias. |
+| `--evaluation-llm` | `str` | `None` | Override `models.evaluation_llm`. |
+| `--matching-llm` | `str` | `None` | Override `models.matching_llm` (for `--match-gt`). `--judge-model` is a deprecated alias. |
 
 ### 4.7 Output
 
@@ -340,9 +351,7 @@ These values are embedded directly in the source code and **cannot be changed wi
 Settings are resolved in the following priority order (highest wins):
 
 ```
-CLI flags (--model, --fast-model)
-    ↓ overrides
-Environment variables (LLM_MODEL, LLM_FAST_MODEL)
+CLI flags (--generation-llm, --evaluation-llm, --matching-llm)
     ↓ overrides
 YAML config file (config.yaml)
     ↓ overrides
@@ -350,10 +359,10 @@ Code defaults (Settings dataclass defaults)
 ```
 
 For model settings:
-1. `--model` / `--fast-model` CLI flags → highest priority
-2. `LLM_MODEL` / `LLM_FAST_MODEL` environment variables
-3. `models.model` / `models.fast_llm` in `config.yaml`
-4. `"openai/gpt-5.4-nano"` (code default)
+1. `--generation-llm` / `--evaluation-llm` / `--matching-llm` CLI flags → highest priority
+2. `models.generation_llm` / `models.evaluation_llm` / `models.matching_llm` in `config.yaml` (the
+   renamed keys are still read, with a deprecation warning)
+3. Code defaults: `openai/gpt-5.4-nano`, `openai/gpt-5.4-mini`, `openai/gpt-4.1-mini`
 
 For all other settings:
 1. `config.yaml` values
@@ -367,8 +376,9 @@ For all other settings:
 
 | Section | Setting | YAML Key | Default |
 |---|---|---|---|
-| **Models** | Main reasoning model | `models.model` | `openai/gpt-5.4-nano` |
-| **Models** | Fast/lightweight model | `models.fast_llm` | `openai/gpt-5.4-nano` |
+| **Models** | Generation LLM | `models.generation_llm` | `openai/gpt-5.4-nano` |
+| **Models** | Evaluation LLM | `models.evaluation_llm` | `openai/gpt-5.4-mini` |
+| **Models** | Matching LLM | `models.matching_llm` | `openai/gpt-4.1-mini` |
 | **Models** | Embedding model | `models.embedding` | `openai/text-embedding-3-small` |
 | **Pipeline** | Max documents to process | `pipeline.max_runs` | `500` |
 | **Pipeline** | Documents to sample | `pipeline.sample_size` | `50` |
@@ -405,7 +415,6 @@ For all other settings:
 | **Visualization** | PCA dimensions | `visualization.dimensions` | `2` |
 | **Visualization** | Chart output directory | `visualization.output_dir` | `null` (uses `output.default_output_dir`) |
 | **Evaluation** | Evaluation enabled | `evaluation.enabled` | `true` |
-| **Evaluation** | Judge model override | `evaluation.judge_model` | `null` (uses `models.model`; OpenAI models only — see below) |
 | **Evaluation** | Display pass threshold (0-1) | `evaluation.threshold` | `0.5` |
 | **Evaluation** | Consistency alignment threshold | `evaluation.consistency_threshold` | `0.25` |
 | **Evaluation** | Consistency borderline band | `evaluation.consistency_borderline_band` | `0.08` |
@@ -439,8 +448,9 @@ Renders a PCA biplot from a saved taxonomy JSON without running the pipeline. Cl
 | Setting | CLI Flag | Env Var | Config YAML Key |
 |---|---|---|---|
 | Taxonomy name | `--name` | — | `taxonomy.name` |
-| Main model | `--model` | `LLM_MODEL` | `models.model` |
-| Fast model | `--fast-model` | `LLM_FAST_MODEL` | `models.fast_llm` |
+| Generation LLM | `--generation-llm` | — | `models.generation_llm` |
+| Evaluation LLM | `--evaluation-llm` | — | `models.evaluation_llm` |
+| Matching LLM | `--matching-llm` | — | `models.matching_llm` |
 | Run mode | `--mode` | — | `pipeline.mode` |
 | Starting taxonomy | `--taxonomy` | — | `pipeline.taxonomy_input` |
 | Feedback (inline) | `--feedback` | — | `feedback.text` |

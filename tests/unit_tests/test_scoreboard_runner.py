@@ -50,8 +50,7 @@ def _fake_build_metrics(model, threshold, include_coverage):
 
 def _config():
     return SimpleNamespace(
-        evaluation_judge_model=None,
-        model=None,
+        evaluation_llm=None,
         evaluation_threshold=0.5,
         use_case="Route support tickets",
         evaluation_max_documents=10,

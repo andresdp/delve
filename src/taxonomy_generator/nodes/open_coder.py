@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 def _setup_open_coding_chain(configuration: Configuration):
     """Set up the chain for per-document open coding."""
-    model = load_chat_model(configuration.fast_llm)
+    model = load_chat_model(configuration.generation_llm)
     structured_model = model.with_structured_output(OpenCodesOutput)
     prompt = OPEN_CODING_PROMPT.partial(use_case=configuration.use_case)
     return (prompt | structured_model).with_config(run_name="OpenCodeDocs")
@@ -69,7 +69,7 @@ async def open_code_minibatch(
     source = configuration.open_coding_input or "summary"
     logger.info(
         "Open coding minibatch %d/%d (%d documents, input: %s, model: %s)",
-        batch_idx + 1, len(state.minibatches), len(minibatch), source, configuration.fast_llm,
+        batch_idx + 1, len(state.minibatches), len(minibatch), source, configuration.generation_llm,
     )
 
     chain = _setup_open_coding_chain(configuration)

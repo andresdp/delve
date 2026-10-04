@@ -55,7 +55,7 @@ def _format_results(docs: List[Doc]) -> str:
 
 def _setup_classification_chain(configuration: Configuration):
     """Set up the chain for document labeling."""
-    model = load_chat_model(configuration.fast_llm)
+    model = load_chat_model(configuration.generation_llm)
     structured_model = model.with_structured_output(LabelOutput)
     labeler_prompt = LABELER_PROMPT.partial(
         fallback_category=configuration.fallback_category,
@@ -210,7 +210,7 @@ async def label_documents(
 
     logger.info(
         "Labeling %d documents using taxonomy with %d categories (concurrency: %d, model: %s)",
-        len(state.documents), len(latest_clusters), max_concurrency, configuration.fast_llm,
+        len(state.documents), len(latest_clusters), max_concurrency, configuration.generation_llm,
     )
 
     # Process all documents in parallel with concurrency control

@@ -23,7 +23,7 @@ def _setup_taxonomy_chain(configuration: Configuration, feedback: str):
         use_case=configuration.use_case,
         feedback=feedback,
     )
-    model = load_chat_model(configuration.model)
+    model = load_chat_model(configuration.generation_llm)
     structured_model = model.with_structured_output(TaxonomyOutput)
 
     return (

@@ -128,7 +128,7 @@ async def run_scoreboard(
     """
     try:
         judge_model = resolve_judge_model(
-            configuration.evaluation_judge_model or configuration.model
+            configuration.evaluation_llm
         )
         threshold = configuration.evaluation_threshold
         taxonomy_json = format_taxonomy_for_judge(clusters)
@@ -201,7 +201,7 @@ async def run_scoreboard(
         return {
             "criteria": criteria_rows,
             "overall": overall,
-            "model": configuration.evaluation_judge_model or configuration.model,
+            "model": configuration.evaluation_llm,
             "unavailable": False,
         }
     except Exception as exc:  # noqa: BLE001 — degrade, never fail the run (R7)
@@ -209,7 +209,7 @@ async def run_scoreboard(
         return {
             "criteria": [],
             "overall": None,
-            "model": configuration.evaluation_judge_model or configuration.model,
+            "model": configuration.evaluation_llm,
             "unavailable": True,
             "error": str(exc),
         }

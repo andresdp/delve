@@ -4,7 +4,7 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 
 ## Relationships
 
-A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus.
+A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus. Ground-Truth Matching scores one Taxonomy view against each Ground Truth View of an expert study, under an Evaluation Frame fixed before any score is seen. Three LLM Roles divide the model work: the generation role builds the Taxonomy, the evaluation role produces Scoreboards and adjudicates Consistency Comparisons, and the matching role judges Ground-Truth Matching.
 
 ## Taxonomy
 
@@ -88,7 +88,7 @@ The test-mode output that reports what changed relative to the Seeded Taxonomy: 
 
 ## Scoreboard
 
-The evaluation result for one Taxonomy view: a per-criterion score plus the judge's rationale for each quality criterion (orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, one decision point with quality-attribute grounding as a secondary preference, rejected-alternative handling, dimensional and candidate-decision coverage). Each criterion is judged with fixed steps, and its rationale names the Dimensions and Values at fault and the change that fixes them. During the update loop, the weakest criteria and their rationales are passed to the next update and review pass as feedback, except the criteria in `evaluation.feedback_exclude` (by default Completeness, which is judged against the use case alone and would push for topics the data does not support). Feedback never justifies adding a Dimension or Value that no open code supports. Loop drafts are scored every `evaluation.every_n_iterations` iterations (the last minibatch's draft and the final view always), and feedback only uses a Scoreboard of the current draft. Every Scoreboard of a run is saved (unless `evaluation.save_history` is off), labeled with the view it scored (loop draft or final view). Structural criteria always judge the view alone; data-grounded criteria (coverage) run only when documents are available and are marked "not evaluated" otherwise. Judge metrics are LLM-as-judge metrics built on deepeval.
+The evaluation result for one Taxonomy view: a per-criterion score plus the judge's rationale for each quality criterion (orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, one decision point with quality-attribute grounding as a secondary preference, rejected-alternative handling, dimensional and candidate-decision coverage). Each criterion is judged with fixed steps, and its rationale names the Dimensions and Values at fault and the change that fixes them. During the update loop, the weakest criteria and their rationales are passed to the next update and review pass as feedback, except configured excluded criteria (by default Completeness, which is judged against the use case alone and would push for topics the data does not support). Feedback never justifies adding a Dimension or Value that no open code supports. Loop drafts are scored at a configurable interval (the last minibatch's draft and the final view always), and feedback only uses a Scoreboard of the current draft. Every Scoreboard of a run is saved unless history saving is turned off, labeled with the view it scored (loop draft or final view). Structural criteria always judge the view alone; data-grounded criteria (coverage) run only when documents are available and are marked "not evaluated" otherwise. Judge metrics are LLM-as-judge metrics built on deepeval, served by the evaluation LLM Role.
 
 ## Consistency Comparison
 
@@ -101,3 +101,23 @@ The in-graph evaluation contract: the Scoreboard is produced during a run but ne
 ## Narrative Summary
 
 The one prose section of a Grounded Theory Report that a model is allowed to polish for readability. It may only reword or synthesize text that already exists elsewhere in the rendered view (an Iteration's stored rationale, the in-scope Dimensions' descriptions) — it must never introduce a Dimension, Relation, or Value absent from that view. It must also state the use case the report serves, plainly and up front, whenever the rendered view doesn't already make that clear on its own.
+
+## Ground Truth View
+
+One structured rendering of an expert design space used to score generated Taxonomies: the *paper view* transcribes what a study's paper reports; the *model view* is extracted from the study's full model in its replication package, when one exists. Decisions map to Dimensions and options to Values; a crosswalk records which elements appear in both views. Ground-Truth Matching scores a run against each view. An element present in both views keeps one identity and one text in both, so view metrics differ only in which elements count.
+
+## Ground-Truth Matching
+
+The post-hoc scoring of one Taxonomy view against an expert study's Ground Truth Views: each candidate Value is paired with each expert option, embedding distance only proposes and bounds candidate pairs, and an LLM judge (the matching LLM Role) labels the plausible pairs on a graded scale (same, broader, narrower, related, different). Dimensions are then aligned with expert decisions from those Value matches, and precision, recall and overlap are reported per view, at option level, decision level, and for placement (whether a matched Value sits under the Dimension aligned with its option's decision).
+
+Every pair keeps how it was labeled — by the judge, or automatically by distance — so a pair never judged is distinguishable from one judged wrong. The judge sees the two items blind and in a seeded order; its choice measurably moves the scores, so it is recorded with every result and validated against human alignment before scores are reported.
+*Avoid:* matcher (for the process), GT scoring
+
+## Evaluation Frame
+
+The written, dated record of everything a reported ground-truth score rests on — use cases, metric definitions, matcher settings and how their thresholds were chosen, the judge — fixed before the first score is seen. Any later change is logged with its date and reason, so changes made after seeing scores stay visible.
+
+## LLM Role
+
+One of three distinct jobs a language model does in the project: the generation role builds the design space, the evaluation role judges it during a run (Scoreboard, Consistency Comparison, saturation critic), and the matching role judges Ground-Truth Matching. Each role is configured separately and should use a different model, so that judging stays independent of what it judges; a model shared between roles is allowed but flagged with a warning and recorded.
+*Avoid:* main model, fast LLM, judge model (as a configuration name)

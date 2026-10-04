@@ -1,14 +1,19 @@
 # DelveDSpace Configuration
 # ─────────────────────
 # All tunable settings for the taxonomy generation pipeline.
-# Override via CLI flags: --model, --fast-model, --config <path>
+# Override via CLI flags: --generation-llm, --evaluation-llm, --matching-llm, --config <path>
 
 models:
-  # Main reasoning model — used for taxonomy generation and review.
-  model: "openai/gpt-5.6-luna"
-
-  # Fast/lightweight model — used for summarization, labeling, and taxonomy update.
-  fast_llm: "openai/gpt-5.6-luna"
+  # Three LLM roles; use a different model for each (the same model for several roles
+  # runs, with a warning: the judging is then not independent of the generation).
+  # Generation LLM: builds the design space (open coding, summaries, taxonomy
+  # generation/update/review, consolidation, merging, selection, labeling, report text).
+  generation_llm: "openai/gpt-5.6-luna"
+  # Evaluation LLM: judges it inside the pipeline (evaluation scoreboard, consistency
+  # adjudication, saturation critic).
+  evaluation_llm: "openai/gpt-5.6-luna"
+  # Matching LLM: judges value-option pairs in ground-truth matching (--match-gt; OpenAI).
+  matching_llm: "openai/gpt-5.6-luna"
 
   # Embedding model — used for value consolidation and taxonomy biplot axis positions.
   # Supported providers: openai/<model>, ollama/<model>.
@@ -213,9 +218,6 @@ evaluation:
   # pipeline topology is identical to pre-evaluation behavior.
   enabled: true
 
-  # Judge model override (provider/model format). Falls back to models.model
-  # (the main reasoning model, matching the review node's choice).
-  judge_model: null
 
   # Display-only pass threshold (0-1) per criterion. Nothing gates on it.
   threshold: 0.5
@@ -247,3 +249,38 @@ evaluation:
   # of the last minibatch and the final view are always scored; feedback reaches only
   # the update that follows a scored draft.
   every_n_iterations: 1
+
+# ---------------------------------------------------------------------------
+# Ground-truth matcher (python main.py --match-gt): scores a design space against an
+# expert design space (benchmark/<study>/gt/). Uncomment to use.
+# ---------------------------------------------------------------------------
+# matcher:
+#   # The judge of borderline value-option pairs is models.matching_llm.
+#   # Embedding model; null uses models.embedding.
+#   embedding: null
+#   # Cosine distance between embeddings (1 - cosine similarity; lower is closer): at or below
+#   # lower_threshold a pair is "same" without the judge; above upper_threshold it is
+#   # "different"; in between the judge labels it (same, broader, narrower, related,
+#   # different); lower_threshold 0 disables auto-"same". Fix the values before scoring any run (benchmark/README.md, "Evaluation frame").
+#   lower_threshold: 0.0
+#   upper_threshold: 0.60
+#   # Borderline pairs reach the judge only when one item is among the other's
+#   # max_candidates nearest neighbours.
+#   max_candidates: 5
+#   # Count outcome values as system values (sensitivity run; default: candidates only).
+#   include_outcomes: false
+#   # Minimum share of matched values/options for a dimension to align with a decision.
+#   min_alignment_share: 0.25
+#   # Seed of the order in which the judge sees the two items of a pair.
+#   seed: 0
+#   # Judge results cache, reused across reruns.
+#   cache_path: ".cache/gt_match_judge.json"
+#   # "judge" (default): embeddings propose pairs, the judge labels them. "embeddings":
+#   # labels from distance alone, no LLM calls (a baseline / sensitivity mode: opposite
+#   # options of one decision can sit very close, so expect false "same" labels).
+#   mode: "judge"
+#   # Embeddings mode: at or below same_threshold a pair is "same"; up to upper_threshold,
+#   # "related"; beyond, "different".
+#   same_threshold: 0.18
+#   # Embeddings mode: keep only a one-to-one assignment of "same" pairs.
+#   embedding_one_to_one: true

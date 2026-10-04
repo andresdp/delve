@@ -124,7 +124,7 @@ async def compare_taxonomies(
         adjudicated = 0
         if distances is not None:
             judge_model = resolve_judge_model(
-                configuration.evaluation_judge_model or configuration.model
+                configuration.evaluation_llm
             )
             for i in range(len(texts)):
                 for j in range(i + 1, len(texts)):

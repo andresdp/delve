@@ -130,7 +130,7 @@ async def merge_dimensions(clusters: List[Dict], configuration: Configuration) -
         borderline = borderline[:MAX_JUDGED_PAIRS]
 
     if borderline:
-        model = load_chat_model(configuration.model).with_structured_output(DimensionMergeOutput)
+        model = load_chat_model(configuration.generation_llm).with_structured_output(DimensionMergeOutput)
         chain = (DIMENSION_MERGE_PROMPT.partial(use_case=configuration.use_case) | model).with_config(
             run_name="AdjudicateDimensionMerge")
         semaphore = asyncio.Semaphore(configuration.summary_max_concurrency or 5)

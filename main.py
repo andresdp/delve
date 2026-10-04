@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import logging
 import sys
@@ -38,6 +39,8 @@ from rich.tree import Tree
 
 from taxonomy_generator import docs_from_dicts, graph, report_renderer, strings_to_docs
 from taxonomy_generator.configuration import Configuration, init_settings
+from taxonomy_generator.evaluation.gt_match import MODES as MATCHER_MODES
+from taxonomy_generator.settings import LLM_ROLES, ModelSettings, shared_llm_warnings
 
 logger = logging.getLogger(__name__)
 console = Console()
@@ -241,16 +244,28 @@ def parse_args() -> argparse.Namespace:
     # Model configuration
     model_group = parser.add_argument_group("Model configuration")
     model_group.add_argument(
-        "--model",
+        "--generation-llm", "--model",
+        dest="generation_llm",
         type=str,
         default=None,
-        help="Override the main LLM model (format: provider/model-name).",
+        help="Override models.generation_llm, the LLM that builds the design space "
+             "(provider/model-name). --model is a deprecated alias.",
     )
     model_group.add_argument(
-        "--fast-model",
+        "--evaluation-llm",
+        dest="evaluation_llm",
         type=str,
         default=None,
-        help="Override the fast LLM model (format: provider/model-name).",
+        help="Override models.evaluation_llm, the LLM that judges the design space in the "
+             "pipeline: scoreboard, consistency, saturation critic (provider/model-name).",
+    )
+    model_group.add_argument(
+        "--matching-llm", "--judge-model",
+        dest="matching_llm",
+        type=str,
+        default=None,
+        help="Override models.matching_llm, the LLM that judges value-option pairs in "
+             "--match-gt (provider/model-name, OpenAI). --judge-model is a deprecated alias.",
     )
 
     # Taxonomy
@@ -321,6 +336,19 @@ def parse_args() -> argparse.Namespace:
              "and --report.",
     )
     standalone_mode.add_argument(
+        "--match-gt",
+        type=str,
+        default=None,
+        metavar="TAXONOMY",
+        help="Score a saved taxonomy JSON against an expert ground truth and exit "
+             "(does not run the pipeline): value-option matches, dimension-decision "
+             "alignment, precision/recall/F1 and placement per ground-truth view. "
+             "Needs --gt (the study's ground-truth folder, e.g. "
+             "benchmark/c2-rl-monitoring/gt) and --config (generator model and "
+             "matcher settings). Writes *_gt_match.json, *_gt_alignment.csv and "
+             "*_gt_metrics.json next to the taxonomy, or under --output.",
+    )
+    standalone_mode.add_argument(
         "--html-report",
         type=str,
         default=None,
@@ -339,6 +367,26 @@ def parse_args() -> argparse.Namespace:
         help="With --visualize, --report, or --html-report: 1-based taxonomy "
              "iteration to render. Default: selected_clusters if present, "
              "else the last iteration.",
+    )
+    parser.add_argument(
+        "--gt",
+        type=str,
+        default=None,
+        metavar="FOLDER",
+        help="With --match-gt: the ground-truth folder (gt_paper.json and/or gt_model.json).",
+    )
+    parser.add_argument(
+        "--matcher-mode",
+        choices=MATCHER_MODES,
+        default=None,
+        help="With --match-gt: 'judge' (embeddings propose pairs, an LLM judge labels them) or "
+             "'embeddings' (labels from embedding distance alone, no LLM calls). Overrides matcher.mode.",
+    )
+    parser.add_argument(
+        "--gt-view",
+        choices=["selected", "final"],
+        default="selected",
+        help="With --match-gt: which view of the taxonomy to score (default: selected).",
     )
     parser.add_argument(
         "--all-iterations",
@@ -1069,12 +1117,69 @@ def _display_consistency(comparison: dict) -> None:
     ))
 
 
+def _llm_role_overrides(args: argparse.Namespace) -> dict:
+    """The LLM roles overridden on the command line (--generation-llm, --evaluation-llm, --matching-llm)."""
+    overrides = {role: getattr(args, role, None) for role in LLM_ROLES}
+    overrides = {role: model for role, model in overrides.items() if model}
+    for role, model in overrides.items():
+        logger.info("Overriding models.%s: %s", role, model)
+    return overrides
+
+
+async def _run_match_gt(args: argparse.Namespace) -> None:
+    """Score a saved taxonomy against a study's ground truth and exit."""
+    from taxonomy_generator.evaluation.gt_match import MatcherError, run_match
+
+    if not args.gt:
+        console.print("[red]--match-gt needs --gt <ground-truth folder>.[/red]")
+        sys.exit(2)
+    settings = init_settings(args.config)
+    overrides = _llm_role_overrides(args)
+    if overrides:  # the role flags reach the matcher's models and its shared-model warnings
+        settings = dataclasses.replace(settings, models=dataclasses.replace(settings.models, **overrides))
+    try:
+        result = await run_match(args.match_gt, args.gt, settings,
+                                 mode_override=args.matcher_mode, out_dir=args.output, view=args.gt_view)
+    except MatcherError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(2)
+
+    s = result["settings"]
+    table = Table(title=f"Ground-truth match — {Path(args.match_gt).name} vs {args.gt}", show_lines=False)
+    # Option level: P, R, F1, Jaccard, exact recall, related rate; decision level: F1 strict /
+    # lenient, Jaccard (strict alignment).
+    for col in ("View", "P", "R", "F1", "J", "Exact R", "Related", "Dec F1 s", "Dec F1 l", "Dec J",
+                "Placement"):
+        table.add_column(col, justify="right" if col != "View" else "left")
+    for view, m in result["metrics"].items():
+        o, d, p = m["option"], m["decision"], m["placement"]
+        table.add_row(view, f"{o['precision']:.2f}", f"{o['recall']:.2f}", f"{o['f1']:.2f}",
+                      f"{o['jaccard']:.2f}", f"{o['exact_recall']:.2f}", f"{o['related_rate']:.2f}",
+                      f"{d['strict']['f1']:.2f}", f"{d['lenient']['f1']:.2f}", f"{d['jaccard']:.2f}",
+                      "–" if p["accuracy"] is None else f"{p['accuracy']:.2f}")
+    console.print(table)
+    labeler = (f"matching LLM {s['matching_llm']} (generation LLM {s['generation_llm']})" if s["mode"] == "judge"
+               else f"embeddings only, same at cosine distance <= {s['same_threshold']}")
+    console.print(
+        f"[dim]{s['system_values']} system values x {s['ground_truth_options']} options; mode {s['mode']}; "
+        f"label sources {result['label_sources']}; {labeler}; cosine thresholds "
+        f"{s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
+    )
+    if result["label_sources"].get("judge_error"):
+        console.print(f"[yellow]⚠ {result['label_sources']['judge_error']} pairs could not be judged "
+                      "(label source judge_error, counted as different); rerun to retry them.[/yellow]")
+    for warning in s.get("llm_warnings", []):
+        console.print(f"[yellow]⚠ {warning}[/yellow]")
+    for kind, path in result["paths"].items():
+        console.print(f"[green]{kind}:[/green] {path}")
+
+
 async def _run_evaluate(args: argparse.Namespace) -> None:
     """Score or compare saved taxonomy JSONs and exit."""
     init_settings(args.config)
     files = args.evaluate
 
-    configurable: dict = {}
+    configurable: dict = _llm_role_overrides(args)  # --evaluation-llm sets the scoreboard/consistency judge
     if args.output:
         configurable["visualization_output_dir"] = args.output
     configuration = Configuration.from_runnable_config({"configurable": configurable} or None)
@@ -1214,12 +1319,7 @@ async def run(args: argparse.Namespace) -> None:
         configurable["mode"] = mode
     if taxonomy_input:
         configurable["taxonomy_input"] = taxonomy_input
-    if args.model:
-        configurable["model"] = args.model
-        logger.info("Overriding main model: %s", args.model)
-    if args.fast_model:
-        configurable["fast_llm"] = args.fast_llm
-        logger.info("Overriding fast model: %s", args.fast_model)
+    configurable.update(_llm_role_overrides(args))
     if args.name:
         configurable["name"] = args.name
         logger.info("Overriding taxonomy name: %s", args.name)
@@ -1259,8 +1359,13 @@ async def run(args: argparse.Namespace) -> None:
         f"[dim]Mode:[/dim] [cyan]{mode}[/cyan]\n"
         f"{seed_info}"
         f"[dim]Max dimensions:[/dim] [cyan]{max_dims_str}[/cyan]\n"
-        f"[dim]Model:[/dim] [cyan]{effective_config.model}[/cyan]\n"
-        f"[dim]Fast LLM:[/dim] [cyan]{effective_config.fast_llm}[/cyan]",
+        f"[dim]Generation LLM:[/dim] [cyan]{effective_config.generation_llm}[/cyan]\n"
+        f"[dim]Evaluation LLM:[/dim] [cyan]{effective_config.evaluation_llm}[/cyan]"
+        + "".join(f"\n[yellow]⚠ {w}[/yellow]" for w in shared_llm_warnings(
+            ModelSettings(generation_llm=effective_config.generation_llm,
+                          evaluation_llm=effective_config.evaluation_llm,
+                          matching_llm=effective_config.matching_llm),
+            ("generation_llm", "evaluation_llm"))),
         title="[bold bright_blue]🚀 Delve[/bold bright_blue]",
         border_style="bright_blue",
     ))
@@ -1641,6 +1746,11 @@ def main() -> None:
     # Standalone evaluation mode — score/compare saved taxonomy JSONs and exit.
     if args.evaluate:
         asyncio.run(_run_evaluate(args))
+        return
+
+    # Standalone ground-truth matching — score a saved taxonomy against an expert design space and exit.
+    if args.match_gt:
+        asyncio.run(_run_match_gt(args))
         return
 
     # Standalone unified HTML report mode — combine sibling artifacts and exit.

@@ -67,10 +67,10 @@ async def generate_summaries(
 ) -> dict:
     """Generate summaries for a collection of documents."""
     configuration = Configuration.from_runnable_config(config)
-    logger.info("Generating summaries for %d documents using model: %s", len(state.documents), configuration.fast_llm)
+    logger.info("Generating summaries for %d documents using model: %s", len(state.documents), configuration.generation_llm)
 
     # Initialize the model and prompt
-    model = load_chat_model(configuration.fast_llm)
+    model = load_chat_model(configuration.generation_llm)
     summary_prompt = SUMMARY_GENERATION_PROMPT.partial(
         use_case=configuration.use_case,
         summary_length=configuration.summary_length,

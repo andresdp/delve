@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def _setup_saturation_chain(configuration: Configuration):
     """Set up the chain for the saturation check."""
-    model = load_chat_model(configuration.fast_llm)
+    model = load_chat_model(configuration.evaluation_llm)
     structured_model = model.with_structured_output(SaturationCheckOutput)
     prompt = SATURATION_CHECK_PROMPT.partial(use_case=configuration.use_case)
     return (prompt | structured_model).with_config(run_name="CheckSaturation")
@@ -92,7 +92,7 @@ async def check_saturation(
 
     logger.info(
         "Checking saturation — minibatch %d/%d, %d codes vs %d dimensions before this batch (model: %s)",
-        batch_idx + 1, len(state.minibatches), len(codes), len(taxonomy), configuration.fast_llm,
+        batch_idx + 1, len(state.minibatches), len(codes), len(taxonomy), configuration.evaluation_llm,
     )
 
     chain = _setup_saturation_chain(configuration)

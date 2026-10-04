@@ -79,3 +79,186 @@ Known content issue (left as is, because it is what the analysts coded): C2 s4 i
 - **C2 uses live pages (retrieved 2026-10)** with a Wayback fallback. The analysts coded them in early 2026,
   so pages may have changed since; compare against the memos in `replication_package/memos/` if in doubt.
 - Source texts are third-party content: they are not committed, and only URLs and scripts are released.
+
+## Evaluation frame
+
+The checks only people can do (author checks of the transcriptions, use-case agreement, open evaluation
+decisions) are specified step by step in [HUMAN_CHECKS.md](HUMAN_CHECKS.md).
+
+What every ground-truth score rests on, fixed **before any run was scored** (R13). The frame is fixed at the
+commit that adds this section (`git log -- benchmark/README.md`); any later change is logged under "Changes"
+below, with the date and the reason. There are no hashes: the commit history is the record.
+
+### Use cases
+
+The use case each system run receives is `taxonomy.use_case` of the study's config, as committed at
+`afebe10` (2026-10-02):
+
+- **C1:** `examples/c1-ml-workflow/c1_ml_workflow_config.yaml`. The architectural design decisions of ML
+  systems along the ML workflow, from data ingestion and processing through model building and training to
+  production and operation, with options, forces and relations, from gray literature.
+- **C2:** `examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`. The architectural design decisions for
+  monitoring deployed RL agents, with options, forces and relations, from gray literature.
+
+Both name one design decision per dimension, with its options as values.
+
+**Agreed by:** *pending; two authors confirm the use cases here (name, date) before the scores are
+reported.*
+
+### Ground truth and views
+
+`benchmark/<study>/gt/`; see each study's README for sources, counts and discrepancies.
+
+| Study | Views scored | Options (attached) |
+|---|---|---|
+| C1 | paper (Table 2), model (Zenodo 10.5281/zenodo.5730291) | paper 43, model 121 |
+| C2 | paper, model (Zenodo 10.5281/zenodo.20305497) | paper 57, model 62 |
+
+Unattached model options are excluded. Matching runs once against the union of a study's views; metrics are
+computed per view.
+
+**Text of shared elements.** An option or decision present in both views (same crosswalk id) is matched with
+one text, the paper view's, in both views (`gt_match.VIEW_TEXT_PRECEDENCE`, recorded in every output as
+`gt_text_precedence`).
+- **Why:** the two views' metrics then differ only in *scope*, i.e. which elements count, never in wording,
+  and a crosswalked element cannot be "found" in one view and "missed" in the other.
+- **C2:** the paper view's option descriptions are the catalogue's, the richest author text. The model's own
+  link descriptions are shorter.
+- **C1:** the paper view uses the model's option text, so nothing differs.
+- **Pending sensitivity check:** the paper plan's E12 scores the model view on the model's own wording.
+
+### Metric definitions
+
+| Level | Definition |
+|---|---|
+| **Pair labels** | Each pair of a system candidate value and a ground-truth option gets one label: `same`, `broader` (the value is more general), `narrower`, `related` or `different`. |
+| **Option level** (primary) | A hit is `same`, `broader` or `narrower`. **Precision**: share of system candidate values with a hit in the view. **Recall**: share of the view's options with a hit. **F1**: their harmonic mean. **Exact-option recall**: recall counting only `same`. **Related rate**: share of system values whose best label is `related`. |
+| **Decision level** | Alignment of system dimensions and expert decisions. Each pair has a share: the matched values and options between the two, over the smaller of their counts. Ties are broken by embedding distance. **Strict alignment**: one-to-one (`linear_sum_assignment`) over pairs with share ≥ `min_alignment_share`. **Lenient alignment**: every pair above that share (splits and merges count). Precision, recall and F1 are reported for each. |
+| **Placement** | Among matched values, the share whose dimension is aligned (lenient) with a decision that their matched option belongs to. |
+
+Outcome values are excluded from the system side (the candidates-only decision); a sensitivity run may
+include them (`matcher.include_outcomes`).
+
+**Per-view rules:**
+- Recall in a view counts only that view's options and decisions.
+- Paper-view precision leaves out system values matched only to `model only` options, and reports how many
+  there are.
+
+### Matcher settings
+
+| Setting | Value | How it was chosen |
+|---|---|---|
+| Serialization | `<decision or dimension> › <option or value>: <description>`, CamelCase split | paper plan §5.1 M1 |
+| Embedding model | `openai/text-embedding-3-small` | the pipeline's embedding model |
+| Distance | cosine distance (1 − cosine similarity); lower is closer | user decision (2026-10-03) |
+| `lower_threshold` | **0.0**: no pair is labeled `same` without the judge | ground truth only (below) |
+| `upper_threshold` | **0.60**: pairs farther apart are `different` without the judge | ground truth only (below) |
+| `max_candidates` | **5**: a borderline pair reaches the judge only if one item is among the other's 5 nearest | bounds judge calls |
+| Judge | the matching LLM, `models.matching_llm` (key renamed on 2026-10-03, see "Changes"); test runs use **`openai/gpt-5.4-mini`**; generation LLM of the scored runs: `openai/gpt-5.6-luna` | user decision (2026-10-03): only OpenAI is available, so independence is partial; the judge is validated against human gold alignment later (A6) |
+| Judge instructions | `gt_match.JUDGE_STEPS` (version hash in every output). The judge compares the options regardless of their decisions; the two items appear as "Item 1" and "Item 2" in a seeded order, never as system or ground truth | plan KTD7 |
+| `seed` | 0 | – |
+
+**How the thresholds were chosen**, without looking at any system output (`python
+benchmark/frame_thresholds.py --config examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`, 2026-10-03):
+- the 184 attached ground-truth options (C1 121, C2 63) were embedded with the serialization above;
+- **Distinct options of the same study** (9,213 pairs): min 0.031, p1 0.177, p5 0.326, median 0.611.
+  - The closest pairs are *opposite* options of one decision with short descriptions: "No AutoML" vs.
+    "AutoML" (0.031), "Batch-based" vs. "Real-time" processing (0.047), "MLOps" vs. "No MLOps" (0.069).
+  - The shared decision prefix dominates. No distance cutoff separates `same` from `different`, so
+    `lower_threshold` is 0: every `same` comes from the judge.
+- **Options of different studies** (7,623 pairs; ML workflow vs. RL monitoring, so unrelated): min 0.416,
+  p0.5 0.536, p1 0.564, p2 0.600, p5 0.650.
+  - `upper_threshold` is 0.60, their 2nd percentile. Pairs farther apart than nearly all unrelated pairs are
+    labeled `different` without the judge.
+
+**Unjudged pairs:** every pair keeps its label source.
+- `auto`: beyond the upper threshold.
+- `auto_rank`: a borderline pair outside both items' nearest neighbours.
+- `judge`: labeled by the judge.
+- `judge_error`: the judge call failed. The pair counts as `different` and is not cached, so a rerun retries
+  it. If every judge call fails, the run stops instead.
+
+A pair labeled `different` without the judge is *unjudged*, not judged wrong. The candidate-recall check (paper
+plan §5.1 M9, A6) measures how many true matches the automatic labels miss.
+
+### Runs to score
+
+The first scored runs are the DelveDSpace runs of 2026-10-02:
+- `examples/c1-ml-workflow/c1-ml-workflow_taxonomy_20261002_185546.json`;
+- `examples/c2-rl-monitoring/c2-rl-monitoring_taxonomy_20261002_211657.json`.
+
+Both are scored on their selected view.
+
+### Changes after scores were seen
+
+- **2026-10-03 — embeddings-only matcher mode added** (user request, after the first scores).
+  - **What:** `matcher.mode: embeddings` (CLI `--matcher-mode embeddings`) labels pairs from cosine distance
+    alone: `same` at or below `same_threshold`, `related` up to `upper_threshold`, otherwise `different`.
+    With `embedding_one_to_one: true`, only a one-to-one assignment of `same` pairs is kept. The default
+    mode stays `judge`, so the existing scores are unchanged. Outputs carry an `_emb` suffix.
+  - **Threshold:** `same_threshold` = 0.18, the 1st percentile of distances between distinct options of the
+    same study (0.177, from `frame_thresholds.py`). It was chosen from the ground truth alone, before any
+    embeddings-only score was seen.
+  - **Result on the 2026-10-02 runs: no `same` pair at all** (every metric is 0; C1 and C2).
+    - Every system value is at least 0.21 from its nearest option (C1 median 0.45; C2 median 0.45). The
+      0.18 cutoff comes from expert-vs-expert pairs, which share wording and decision prefixes, and does not
+      transfer to system-vs-expert pairs.
+    - The judge's labels overlap almost fully in distance. C1: `same` median 0.44 (0.21–0.58), `related`
+      0.49, `different` 0.52. C2: `same` 0.42, `related` 0.48, `different` 0.49.
+  - **Reading:** embedding distance alone does not separate matches from non-matches here, and the judge is
+    needed. The threshold is **not** retuned on these scores, since that would fit it to the outcome. A
+    non-trivial embeddings baseline needs a threshold from an independent source, such as the human gold
+    alignment (A6).
+- **2026-10-03 — LLM roles unified** (user request; the frame values are unchanged).
+  - **Roles:** the project now names three LLM roles in `models`:
+    - `generation_llm`, formerly `models.model` and `models.fast_llm`;
+    - `evaluation_llm`, formerly `evaluation.judge_model`;
+    - `matching_llm`, the matcher's judge, formerly `matcher.judge_model` / `evaluation.judge_model`.
+  - **Same model in two roles:** the matcher no longer refuses a matching LLM equal to the generation LLM. It
+    runs, prints a warning and records it in the outputs (`llm_warnings`).
+  - **The C1/C2 configs:** they set `matching_llm: openai/gpt-5.4-mini`, the frame's judge, so judge labels
+    and the cache are unchanged.
+    - Their in-pipeline evaluation LLM is now `openai/gpt-5.4-nano`. It was previously `gpt-5.6-luna`, the
+      generation LLM itself, through the old fallback.
+    - Scoreboards of future runs are therefore judged by a different model than those of the 2026-10-02 runs.
+- **2026-10-04 — rescored with the configured matching LLM, `openai/gpt-5.6-luna`** (user decision, after the
+  `gpt-5.4-mini` scores were seen).
+  - **Outputs:** `examples/<case>/gt_luna/`. The `gpt-5.4-mini` outputs stay in `examples/<case>/`.
+  - **Settings:** frame settings otherwise.
+  - **Not independent:** luna also generated both runs, so the matching grades its own model. The warning is
+    recorded in the outputs (`llm_warnings`).
+  - **Option F1** (paper / model view): C1 0.58 / 0.60, previously 0.50 / 0.59; C2 0.43 / 0.45, previously
+    0.22 / 0.29.
+    - Luna is more lenient: C2 recall goes from 0.18 to 0.40.
+    - But luna rarely answers `same`, so exact recall drops: C1 paper from 0.47 to 0.14.
+  - **Decision F1, strict** (paper view): C1 0.67, previously 0.76; C2 0.35, unchanged.
+  - **Reading:** the judge choice alone moves C2's option F1 by about 0.2. Validating the judge against human
+    gold (A6) and using an independent judge are prerequisites for reporting these numbers.
+- **2026-10-03 — all three LLM roles set to `openai/gpt-5.6-luna` in every config, for now** (user
+  decision).
+  - **Scoreboards:** they are judged by the generation model again, as in the 2026-10-02 runs, so they stay
+    comparable with those runs.
+  - **Warning:** every run warns that the roles share a model.
+  - **For matching, this is not the frame's judge.** The scores above were judged by `openai/gpt-5.4-mini`.
+    - A `--match-gt` run with these configs judges with luna: a new cache key, new judge calls, and scores
+      not comparable with the first ones.
+    - To reproduce the frame's scores, pass `--matching-llm openai/gpt-5.4-mini`.
+    - Luna is also the generator of the scored runs, so a luna-judged match would grade its own family.
+      Report it only as such.
+- **2026-10-04 — text precedence of shared elements made explicit** (code review finding #3; no score
+  change).
+  - **Before:** the first view loaded, the paper view, already supplied the text of shared elements, but
+    implicitly.
+  - **Now:** it is a declared rule, recorded in the outputs, and documented above.
+  - **Checked:** every expert text in the committed C1/C2 match files (31,882 pairs, judge and embeddings
+    modes) is identical under the rule.
+- **2026-10-03 — Jaccard added to the profile** (user request, after the first scores). It is additive; no
+  existing metric changes.
+  - **Option level:** matched / (|S| + |G| − matched), where matched is a maximum one-to-one matching of hit
+    pairs. A generic value that hits several options counts once. It uses the same pools as precision and
+    recall: the paper-view pool leaves out values matched only to `model only` options.
+  - **Option level, `same` only** (`jaccard_same`).
+  - **Decision level:** from the strict alignment.
+
+  With one-to-one counting, Jaccard is lower than F1. Precision and recall count many-to-one hits; for
+  example, C1 paper view has F1 0.50 and Jaccard 0.24.

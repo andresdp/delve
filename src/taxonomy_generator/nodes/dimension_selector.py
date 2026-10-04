@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def _setup_selection_chain(configuration: Configuration):
     """Set up the chain for use-case relevance selection."""
-    model = load_chat_model(configuration.model)
+    model = load_chat_model(configuration.generation_llm)
     structured_model = model.with_structured_output(SelectionOutput)
     prompt = DIMENSION_SELECTION_PROMPT.partial(use_case=configuration.use_case)
     return (prompt | structured_model).with_config(run_name="SelectDimensions")
@@ -120,7 +120,7 @@ async def select_dimensions(
 
     logger.info(
         "Selecting dimensions relevant to the use case from %d candidates (model: %s)",
-        len(candidates), configuration.model,
+        len(candidates), configuration.generation_llm,
     )
 
     chain = _setup_selection_chain(configuration)

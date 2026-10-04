@@ -200,8 +200,17 @@ although sources s20–s29 (MLOps, monitoring, Jupyter) feed exactly those parts
 smaller than the model view. Source links are 2021 TinyURLs pointing to archived copies (all 29
 recovered).
 
-**C2 specifics**: the paper's Table 2 lists 57 options (ADD 2: 16, ADD 6: 9) and quotes 59/72 drivers; the
-model has 62 options (ADD 2: 15, ADD 6: 15) and 43 forces. Both views are kept as they are; the differences
+*Outcome (2026-10-03, B1).*
+- The Zenodo record holds the CodeableModels model, so C1 has **two views and a crosswalk**, like C2.
+- **Paper view:** Table 2, with 10 decisions, 43 options and 30 forces (151 impacts). It is checked against
+  the PDF text.
+- **Model view:** 28 decisions and 121 attached options (186 declared), parsed statically.
+- **Crosswalk:** 18 decisions are model-only. Details are in `benchmark/c1-ml-workflow/gt/README.md`.
+
+**C2 specifics**: the paper's Table 2 lists 57 options (ADD 2: 16, ADD 6: 9) and 72 drivers (p. 7 says 53 and
+59); the model links 62 options (ADD 2: 15, ADD 6: 15), declares a 63rd (Action Failure Rate Monitoring)
+without a decision, and has 43 forces. The model view matches the authors' generated views exactly
+(`benchmark/c2-rl-monitoring/gt/README.md`). Both views are kept as they are; the differences
 are reported. The package also classifies sources as primary/supporting/confirming (useful for E5).
 
 **Threat to state**: both GT studies come from the same research group (single-group bias). The kit is
@@ -704,9 +713,17 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
 
 ### 5.4 Validity safeguards
 
-- **Judge from a different model family** than the generator (needs §8 P9). This covers **every** judge: the
-  matcher's judge, the human-validation aids, **and the in-loop scoreboard** (today `evaluation.judge_model:
-  null` falls back to the generator model, so the pipeline grades its own family). Record the judge's model,
+- **Judge arrangement (decided 2026-10-03).** Only OpenAI models are available in this setup, so the judge is a
+  *different OpenAI model* than the generator (test runs: `gpt-5.4-mini` judging `gpt-5.6-luna` output),
+  configured as the project's **matching LLM** (`models.matching_llm`). Since 2026-10-03 the project names
+  three LLM roles, which should be different models: `generation_llm`, `evaluation_llm` (scoreboard,
+  consistency, saturation critic) and `matching_llm`. A model shared between roles runs with a recorded
+  warning. Independence is therefore partial: the human gold alignment
+  (A6) validates the judge, and the paper states the arrangement as a limitation.
+- **Judge from a different model family** than the generator (needs §8 P9; not available in this setup, see
+  above). This covers **every** judge: the
+  matcher's judge, the human-validation aids, **and the in-loop scoreboard** (until 2026-10-03 `evaluation.judge_model:
+  null` fell back to the generator model, so the pipeline graded its own family). Record the judge's model,
   version, prompt and temperature for every judged number.
 - **Matcher calibration**: two authors independently label ~100 alignment pairs; report Cohen's κ
   (human–human and human–matcher).
@@ -714,7 +731,8 @@ A second Delve dimension *"Alert Threshold Tuning"* could then partially overlap
   same metrics (§9 E8).
 - **Pinned models, seeds and cached outputs**; configs committed; full replication package.
 - **Budget-matched comparisons** whenever a variant uses more LLM calls.
-- **Freeze the evaluation frame before the first scored run** (added 2026-10-03): corpus versions (passage
+- **Freeze the evaluation frame before the first scored run** (added 2026-10-03; done as a written note
+  without hashes, `benchmark/README.md` "Evaluation frame", committed at `7c80399` before the first scores): corpus versions (passage
   files + manifest hashes), GT files and views, use cases, matcher thresholds (cross-fitted), judge model
   and prompts, metric definitions and cutoffs, seeds. Anything changed after seeing GT scores is reported
   as such.
@@ -901,7 +919,7 @@ Priority key: **M** = must (before freeze), **S** = should, **C** = could / post
 | P6 | — | **Out of scope (future work, 2026-10-02).** ~~Theoretical sampling.~~ After `check_saturation`, reorder `state.minibatches[open_code_batch_index:]` by mean embedding similarity between their passages and `uncovered_concepts` (fallback: unchanged order). Log the chosen order | `nodes/saturation_checker.py` (or new node `select_next_batch` between `check_saturation` and `open_code_minibatch` in `graph.py`); `state.py` (+`sampling_log`) | `pipeline.theoretical_sampling: false` | reordering deterministic given embeddings; no-op when saturated | — | — |
 | P7 | M | **Drivers and consequences first-class.** `Driver{id, name, description, supporting_doc_ids}` on `TaxonomyOutput` (taxonomy-level list); `Value.impacts: List[{driver_id, effect: positive\|negative\|mixed, rationale}]`. Propagate through generation/update/review prompts, `format_taxonomy`, consolidation (union impacts on merge; conflicting signs → `mixed`), GT report catalog, HTML report, JSON serialization | `schemas.py`; `prompts/taxonomy_generation.md`, `taxonomy_update.md`, `taxonomy_review.md`; `utils.py::format_taxonomy`; `nodes/value_consolidator.py::_merge_group`; `report_renderer.py::render_catalog`; `html_report.py`; `main.py` serializers; `state.py` if drivers are kept outside `clusters` | `taxonomy.drivers: false` | schema; merge-impact union; format/round-trip; report rendering | 2 d (largest item) | RQ1 drivers/impacts, Straussian story |
 | P8 | — | **Out of scope (future work, 2026-10-02).** ~~Persona coder agents (open coding only; no `graph.py` change).~~ `personas:` list in settings (id, lens, attend_to, de_emphasize, optional model). `{persona}` slot in `open_coding.md`, empty by default so no personas → byte-identical prompt. `_setup_open_coding_chain` builds one chain per persona (per-persona model via `load_chat_model`). `open_code_minibatch` fans out persona × passage under the existing semaphore, in deterministic persona-id order. `OpenCode.persona: Optional[str]`. Persona ids are **not** shown to the taxonomist (`format_open_codes_for_docs` unchanged) to avoid biasing axial coding. For the budget-matched control: `open_coding.samples_per_doc: 1` (k > 1 = k persona-less codings per passage) | `settings.py` (+`PersonaSettings`); `configuration.py`; `nodes/open_coder.py`; `prompts/open_coding.md`; `schemas.py::OpenCode` | `personas: []`, `open_coding.samples_per_doc: 1` | no personas → identical prompt and one call per passage; N personas → N× calls, each code tagged; deterministic order; per-persona model routing; `samples_per_doc` fan-out | — | — |
-| P9 | M | **Provider-agnostic judge.** A deepeval `DeepEvalBaseLLM` wrapper around `utils.load_chat_model`; `consistency.py` adjudication via `load_chat_model` instead of `AsyncOpenAI` | `evaluation/judge.py`, `evaluation/metrics.py::build_metrics`, `evaluation/consistency.py` | `evaluation.judge_model: anthropic/…` etc. | wrapper contract; fallback | 0.5 d | cross-family judge (validity) |
+| P9 | M | *(2026-10-03: OpenAI-only setup; the evaluation and matching LLMs are separate OpenAI models, `models.evaluation_llm` and `models.matching_llm`, so the wrapper is not needed now)* **Provider-agnostic judge.** A deepeval `DeepEvalBaseLLM` wrapper around `utils.load_chat_model`; `consistency.py` adjudication via `load_chat_model` instead of `AsyncOpenAI` | `evaluation/judge.py`, `evaluation/metrics.py::build_metrics`, `evaluation/consistency.py` | `evaluation.judge_model: anthropic/…` etc. | wrapper contract; fallback | 0.5 d | cross-family judge (validity) |
 | P10 | S | **Structural saturation.** Compute a round-over-round diff (dimensions/values/drivers/relations added, removed, renamed) between `clusters[-2]` and `clusters[-1]`; saturated only if concept coverage holds **and** diff ≤ threshold | `nodes/saturation_checker.py`; `state.py` (`saturation_history` gains `diff`) | `taxonomy.structural_saturation: false`, `taxonomy.saturation_max_edits: 1` | diff function on fixtures | 0.5 d | Straussian fidelity, E5 |
 | P11 | M | **Memo trail.** Render every iteration's `explanations` (and saturation rationales) as an "Evolution of the theory" section in the GT report / HTML report | `report_renderer.py` (new `render_memo_trail`), `html_report.py` | always on | rendering | 0.5 d | Approach figure, qualitative results |
 | P12 | M | **Ablation switches** not yet available: (a) `open_coding.enabled: true` (false → axial coding directly on passages/summaries, i.e. TnT-style); (b) `review.enabled: true` (false → `review_taxonomy` passes through); (c) `evaluation.feedback_in_loop: true` (false → scoreboard computed but not injected via `format_feedback`); (d) `open_coding.decision_status: true` (false → status neutralized in prompts and ignored by consolidation) | `graph.py` / routing (`should_generate_or_update`), `nodes/taxonomy_reviewer.py`, `utils.py::format_feedback`, `prompts/*`, `nodes/value_consolidator.py` | as listed | one test per switch verifying pass-through | 1 d | RQ3 |
@@ -927,7 +945,8 @@ regression test that loads an old saved taxonomy JSON.
 | B6 | M | **C3 corpora**: `benchmark/cursor/` with (a) **C3-raw**: the Cursor article + background sources from `examples/cursor-git-at-scale/references.md` fetched by B2 and segmented by P1; (b) **C3-curated**: the existing `cursor_git_at_scale_documents.json`; (c) a use case (reuse or refine `git_at_scale_config.yaml`) | Keep the curated corpus untouched for comparability with the earlier example runs | 0.25 d |
 | B7 | M | **C3 system mapping**: `benchmark/cursor/passage_systems.csv`, where authors map each C3-raw passage to the system(s) it describes (GitHub FS, Google JGit/DHT, GitHub Spokes, Microsoft GVFS/Scalar, Azure DevOps hybrid, Cursor Continuity/Origin, general). Done **before** looking at any Delve output. Plus the optional author-written silver decision list | Needed for the system × dimension matrix (E9) | 0.5 d |
 | B8 | C (stretch) | **C4 feasibility check**: obtain Lane's thesis (CMU-CS-90-101); extract the list of surveyed systems and references; try retrieving 5 system descriptions and extrapolate; decide go/no-go by 10-01 (§4.5) | TR-22 and TR-18 already downloaded to the session scratchpad; copy into `papers/base/` if C4 goes ahead | 0.25 d |
-| B9 | C (stretch) | **C4 benchmark** (only if go): TR-22 Appendix A → `benchmark/lane/gt_model.json` (structural dimensions → decisions/options; functional dimensions → drivers with levels); Appendix B → impacts; fetch/OCR the system sources; passage→system mapping; use case from TR-22 §1 | Same M2 enrichment and freezing rules as C1/C2 | 1.5–2 d |
+| B9 | S | **C3 silver trade-off list** (added 2026-10-04): the authors list the trade-offs the C3 corpus states (its trade-off and decision documents, plus the article). For each trade-off: the systems involved, the quality attributes in tension, and a source reference. Written before any E14 output is seen, and marked as silver (author-written, not expert ground truth) | E14 | 0.25 d |
+| B10 | C (stretch) | **C4 benchmark** (only if go): TR-22 Appendix A → `benchmark/lane/gt_model.json` (structural dimensions → decisions/options; functional dimensions → drivers with levels); Appendix B → impacts; fetch/OCR the system sources; passage→system mapping; use case from TR-22 §1 | Same M2 enrichment and freezing rules as C1/C2 | 1.5–2 d |
 
 ### 8.3 Evaluation and analysis (A) — `src/taxonomy_generator/evaluation/` + `experiments/`
 
@@ -943,6 +962,10 @@ regression test that loads an old saved taxonomy JSON.
 | A8 | — | **Out of scope (future work, with P8).** `evaluation/persona_provenance.py`: per value, which personas' codes support it (via `supporting_doc_ids` + `open_codes[*].persona`); per-persona unique GT options (with A1); code-volume and near-duplicate rates; persona agreement per passage (embedding-matched Jaccard of code labels) | For E4 and Fig. 5; post-hoc, no schema change | — |
 | A10 | M | **Stage-wise recall diagnosis** (added 2026-10-03): for each GT option recovered or missed, trace the pipeline stage where it appears or is lost (open codes → loop iterations → consolidated → selected → matched), from the saved open codes, iterations and match file. Output: a per-study stage funnel | Answers *why* recall is what it is; decides between pipeline fixes (e.g. the value-collapse fix) with evidence; a candidate figure | 0.5 d |
 | A11 | S | **Evidence-link check** (added 2026-10-03): sample ~40 value–passage links per study (stratified by stance, oversampling `rejected`), label support by hand; report precision overall and per stance | Validates the deterministic evidence linking that grounding claims rest on | 0.25 d + labeling |
+| A12 | S | **Design-point sampler** (added 2026-10-04): `evaluation/design_points.py`. Seeded sampling of k-dimension design points from the selected view, candidate values only, in three groups. **Attested:** all values co-supported by one system, via B7. **Novel:** no `constrains` violation. **Negative controls:** a `rejected` value, a `constrains` violation, or a shuffled taxonomy. Writes `*_design_points.json` | E13; needs B7 for the attested group | 0.5 d |
+| A13 | S | **Design-point judge** (added 2026-10-04). Retrieves each point's evidence passages (`supporting_doc_ids`, open codes). Scores grounding with deepeval Faithfulness (`retrieval_context` = passages) and coherence with a G-Eval rubric, using a judge from another family (cached, like the matcher). Reports scores per group, AUC, and relation validity, and exports a human-rating sheet | E13; reuses `evaluation/judge.py` and the A7 kit | 0.75 d |
+| A14 | S | **Value impacts on quality attributes** (added 2026-10-04): for each candidate value, +/−/mixed impacts on a fixed QA vocabulary (ISO 25010 + cost) with rationale and passage ids, plus links from outcome values to candidate values by shared passages. Taken from P7 when built, else post-hoc extraction (labeled). Hand spot-check of about 40 | E14 | 0.5 d |
+| A15 | S | **Design-point trade-off analysis** (added 2026-10-04): trade-off profile per design point, cross-dimension tensions, grounding of each tension, agreement with `constrains` relations, recall of the B9 silver trade-offs, and a usefulness rubric (judge + human) | E14; needs A12, A14, B9 | 0.5 d |
 | A9 | M | `evaluation/placement_matrix.py`: from labeled passages (`label_documents`) + `passage_systems.csv` → system × dimension matrix (the value each system takes per dimension, with evidence counts), plus distinguishability (pairwise system distance) and unoccupied-combination listing. Plus the expert-rating kit for C3 (dimensions and values) | For E9 / Fig. 8 | 0.75 d |
 
 ### 8.4 Baselines (L) — new `baselines/` directory
@@ -985,10 +1008,10 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
 
 | Order | Work unit | Why now | Effort |
 |---|---|---|---|
-| 1 | **B1** GT conversion (C1, C2; both views; crosswalk; M2 descriptions) + **freeze the evaluation frame** (corpus manifests, use cases agreed by two authors, metric definitions) | Nothing is measurable without it; the frame must be fixed before any score is seen | 1–1.5 d |
+| 1 | *(done 2026-10-03, author checks pending)* **B1** GT conversion (C1, C2; both views; crosswalk; M2 descriptions) + **freeze the evaluation frame** (corpus manifests, use cases agreed by two authors, metric definitions) | Nothing is measurable without it; the frame must be fixed before any score is seen | 1–1.5 d |
 | 2 | **P9** provider-agnostic judge, and set a judge from another family for the matcher **and** the in-loop scoreboard | Removes the circularity (the generator grades itself today); needed before any judged number counts | 0.5 d |
-| 3 | **A1 (minimal)** matcher: candidate stage + judge, decision alignment, P/R/F1 per view, `match.json` | RQ1/RQ2 numbers; reuse `consistency.py` patterns | 1.5 d |
-| 4 | **E0 on the existing runs** (C1 `20261002_185546`, C2 `20261002_211657`) + **A10 stage funnel** | First real numbers; shows where options are lost (expected: the value collapse) | 0.75 d |
+| 3 | *(done 2026-10-03)* **A1 (minimal)** matcher: candidate stage + judge, decision alignment, P/R/F1 per view, `match.json` | RQ1/RQ2 numbers; reuse `consistency.py` patterns | 1.5 d |
+| 4 | *(scores done 2026-10-03; A10 funnel pending)* **E0 on the existing runs** (C1 `20261002_185546`, C2 `20261002_211657`) + **A10 stage funnel** | First real numbers; shows where options are lost (expected: the value collapse) | 0.75 d |
 | 5 | **A6 gold alignment** on E0 outputs (two authors, κ) + **matcher validation** (candidate recall, judge stress test) | Validates the matcher before it scores the main runs | 0.5 d + labeling |
 | 6 | **Fix the stage A10 identifies.** If it is the collapse: the tool-based update (`docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`); re-run E0 and compare the funnel | Evidence-driven fix of the biggest loss | ≈ 2 d |
 | 7 | **L1** long-context + **L5** contamination probe (same model as Delve, same corpus, budget recorded) | The baselines reviewers expect first; L5 tests the memorization rival | 0.75 d |
@@ -999,10 +1022,31 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
 | S | **A7** expert rating of a sample of unmatched items; **A11** evidence-link check | Adjusted precision; grounding validity | 0.5 d + labeling |
 | S | Reduced **P12** ablations (no open coding = TnT-style/L3, no judge feedback, no review, rewrite vs. tools) with Holm/BH control | RQ3 | 1 d + runs |
 
-Proposed cuts and scope decisions (pending, §12 items 6–10): RQ1 limited to decisions and options (P4, P7,
-P17 → future work; drivers and relations qualitative); P3/A2 replaced by the evidence-link check (A11) and a
-sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduced); 3 seeds for main runs,
-1–2 for ablations; P5, P10, A5, E5, E11 → future work.
+**Scope for the paper (decided 2026-10-04, §12 items 6–10):**
+- **RQ1:** decisions and options only. Drivers and relations are reported qualitatively; P4, P7 and P17 →
+  future work.
+- **Grounding:** P3/A2 are replaced by the evidence-link check (A11) and a sampled grounding check.
+- **Baselines:** L1 and L5 only. L2 (BERTopic) and L4 (LLooM) → future work; the "better than topic mining"
+  claim is dropped or kept qualitative (§10.3).
+- **Ablations (RQ3):** a reduced set: no open coding (TnT-style, L3), no judge feedback, rewrite vs. tools.
+  This needs the P12 switches for these three variants only.
+- **Seeds:** 3 for main runs, 1–2 for ablations.
+- **Judge:** OpenAI only, so no cross-family judge. Reported numbers use a matching LLM other than the
+  generator, validated against the human gold alignment (A6); the threat is stated in §5.5.
+- **C3:** a reduced, mostly qualitative case. The authors write B7 and B9 before any C3 output is seen. After
+  the freeze: C3 runs, the placement matrix (A9) and a small design-point check (E13). E14 is a stretch goal.
+- **Future work:** P5, P10, A5, E5, E11, and the wiki/graph export (`docs/DESIGN_SPACE_EXPLORATION.md`).
+
+**Action plan (2026-10-04):**
+
+| When | Implementation and runs | Co-authors (human work, in parallel) |
+|---|---|---|
+| 10-05 | A10 stage funnel on C2; L5 probe | Ground-truth checks 1–2; use-case agreement (`benchmark/HUMAN_CHECKS.md`) |
+| 10-06 → 10-08 | Tool-based update behind a switch (if A10 blames the loop); L1; P13; P12 switches for the reduced ablations; light A3/A4 | A6 gold-alignment labeling; open decisions (check 4); B7 and B9 for C3 |
+| 10-09/10 | **Freeze** and tag | — |
+| 10-10 → 10-14 | Main runs on C1/C2, 3 seeds: Delve, L1, L5, ablations; C3 runs | Validate the judge against A6 |
+| 10-15 → 10-16 | Tables, statistics, C3 placement matrix | Final abstract (10-16) |
+| 10-17 → 10-23 | Replication package (H2, H3) | Writing; abstract 10-19, submission 10-23 |
 
 ### 8.7 Progress log
 
@@ -1035,6 +1079,105 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
     options to existing dimensions over new ones.
 - **B4 drafted:** use cases in `examples/c1-ml-workflow/c1_ml_workflow_config.yaml` and
   `examples/c2-rl-monitoring/c2_rl_monitoring_config.yaml`, still to be agreed by two authors.
+- **2026-10-03: B1 and A1 (minimal) done** (`docs/plans/2026-10-03-1804-feat-ground-truth-conversion-and-matcher-plan.md`).
+  - **Ground-truth format and validator:** `benchmark/gt_format.py`.
+  - **Model views:** a general static CodeableModels parser, `benchmark/parse_code_model.py --study c1|c2`
+    (no CodeableModels install, no execution).
+  - **Paper views:** C2 from Table 2, Fig. 2 and the catalogue; C1 from Table 2.
+  - **Crosswalks:** `benchmark/gt_crosswalk.py`. The author checks of both transcriptions are **pending**
+    (study READMEs).
+  - **Evaluation frame:** fixed in `benchmark/README.md` before scoring.
+  - **Matcher:** `evaluation/gt_match.py`, run with `python main.py --match-gt <taxonomy> --gt
+    benchmark/<study>/gt --config <yaml>`.
+    - Cosine distance, lower threshold 0 (every `same` comes from the judge) and upper threshold 0.60,
+      chosen from ground-truth-only distances: distinct opposite options such as "AutoML"/"No AutoML" sit at
+      0.03.
+    - A graded deepeval judge, cached.
+    - Strict and lenient alignment, placement, per-view metrics.
+- **2026-10-03: first ground-truth scores (E0).** These are the selected views of the 2026-10-02 runs,
+  judged by `gpt-5.4-mini` with frame settings. The first numbers are not final: the author checks, the
+  use-case agreement and the matcher validation (A6) are pending.
+
+  | Run | View | Option P | Option R | Option F1 | Exact R | Related | Decision F1 strict / lenient | Placement |
+  |---|---|---|---|---|---|---|---|---|
+  | C1 (113 values) | paper | 0.39 | 0.67 | 0.50 | 0.47 | 0.24 | 0.76 / 0.86 | 0.76 |
+  | C1 | model | 0.60 | 0.57 | 0.59 | 0.37 | 0.27 | 0.64 / 0.84 | 0.81 |
+  | C2 (36 values) | paper | 0.31 | 0.18 | 0.22 | 0.12 | 0.58 | 0.35 / 0.39 | 0.70 |
+  | C2 | model | 0.39 | 0.23 | 0.29 | 0.15 | 0.53 | 0.47 / 0.53 | 0.64 |
+
+  Readings and caveats:
+  - **C2 recall is low.** Its selected view keeps only 36 candidate values, consistent with the value
+    collapse observed in the loop. The stage funnel (A10) is the next measurement.
+  - **C2's related rate is high (0.58).** Many values are near misses: the right concern, but not the experts'
+    option.
+  - **C1 paper-view precision is lower than model view (0.39 vs. 0.60).** 39 C1 values match only
+    model-only options, the parts the paper omits. They are left out of the paper-view denominator, as M7
+    defines.
+  - **Some judge "broader" hits are generous** (e.g. "multiple complementary monitoring metrics" judged
+    broader than "Human Review"). A6 must measure this before the numbers count.
+  - **OpenAI embeddings are not bit-for-bit deterministic.** One C2 pair crossed the 0.60 boundary on a
+    rerun. The judge cache keeps the judge labels reproducible.
+  - **Added the same day** (logged in the frame note's "Changes after scores were seen"):
+    - **Jaccard** at option level (one-to-one matching of hits; also `same` only) and decision level (strict
+      alignment). Judge-mode values:
+
+      | Run | View | Option J | Option J (same only) | Decision J |
+      |---|---|---|---|---|
+      | C1 | paper | 0.24 | 0.17 | 0.62 |
+      | C1 | model | 0.27 | 0.18 | 0.47 |
+      | C2 | paper | 0.09 | 0.06 | 0.21 |
+      | C2 | model | 0.11 | 0.08 | 0.31 |
+
+    - **An embeddings-only matcher mode** (`--matcher-mode embeddings`). With its ground-truth-derived
+      threshold (0.18) it finds **no match** in either run. System-vs-expert distances start at 0.21, and the
+      judge's `same`, `related` and `different` pairs overlap almost fully in distance (C1 medians 0.44,
+      0.49, 0.52). This is evidence for the rival-hypothesis section: distance alone cannot do the matching,
+      so the judge is needed. Its leniency still has to be validated (A6).
+  - **2026-10-04 — rescored with the configured matching LLM `gpt-5.6-luna`** (also the generator, so not
+    independent; outputs in `examples/<case>/gt_luna/`; frame-note change log).
+
+    | Run | View | Option P / R / F1 | Jaccard | Exact R | Related | Decision F1 strict / lenient | Placement |
+    |---|---|---|---|---|---|---|---|
+    | C1 | paper | 0.52 / 0.65 / 0.58 | 0.26 | 0.14 | 0.26 | 0.67 / 0.84 | 0.77 |
+    | C1 | model | 0.65 / 0.55 / 0.60 | 0.29 | 0.17 | 0.33 | 0.68 / 0.83 | 0.88 |
+    | C2 | paper | 0.45 / 0.40 / 0.43 | 0.13 | 0.05 | 0.53 | 0.35 / 0.39 | 0.60 |
+    | C2 | model | 0.50 / 0.40 / 0.45 | 0.15 | 0.05 | 0.44 | 0.47 / 0.53 | 0.67 |
+
+    **Qualitative findings.**
+    - **C1:**
+      - 9 of the paper's 10 decisions are found (lenient). Strong: data ingestion 4/4, feature persistence
+        2/2, batch vs. real time 2/2. Weak: "when and how to train" 0/3, model building 1/3, AutoML 1/2,
+        triggers 3/6.
+      - 29 values match model-only options, in parts the paper omits: integration 6/7, serving 4/5,
+        CI/CD 4/4, testing 6/14. Most "extra" values are expert content beyond the paper.
+      - Matches are mostly `broader` / `narrower` (granularity mismatch), not `same`.
+      - 3 dimensions have no expert counterpart (model registry, federated learning, governance), which is
+        a case for the A7 rating.
+    - **C2:**
+      - The selected view keeps only 36 candidate values in 10 dimensions.
+      - Coverage is skewed. Good: monitoring signals 11/16, degradation tests 4/6, hacking detection 5/9.
+        Missed: safe exploration 0/3, false-alarm control 0/4. Nearly missed: automated response 1/9,
+        hacking mitigation 2/10.
+      - About half the values are `related` near misses.
+      - One dimension is misplaced ("Reward-Hacking Detection Methods" aligns with the experts'
+        monitoring-signal decision), so placement is 0.60.
+      - 5 of 10 dimensions align with no expert decision: audit evidence, runtime safety intervention,
+        reward-model training, lineage, policy adaptation.
+    - **Reading:**
+      - C2's deficit is recall. It matches the **value collapse** observed in the loop: values per
+        iteration 282 → 59 at iteration 9 (tool-based update plan §1).
+      - Whole decisions with no surviving options (safe exploration, false-alarm control) are what a
+        rewrite-style update loses when it compresses the taxonomy.
+      - This motivates the **tool-based (operation-based) taxonomy update**
+        (`docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`) as the candidate fix for the
+        stage A10 is expected to blame.
+      - Next: run the A10 stage funnel on C2 to confirm where options are lost. If the loop is confirmed,
+        implement the tool-based update and re-score with the same frame and judge.
+    - **Judge sensitivity:** `gpt-5.4-mini` → luna moves C2's option F1 from 0.22 to 0.43 and C1's exact
+      recall from 0.47 to 0.14. A6 must come before any reported number.
+  - **Open definitional point:** the "related" rate is implemented as in the frame note (share of *system
+    values* whose best label is `related`), whereas M7 above defines it over *GT options*. Decide which to
+    report. A change is logged in the frame note's "Changes after scores were seen".
 
 ---
 
@@ -1165,6 +1308,13 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
   4. cross-seed stability;
   5. C3-raw vs. C3-curated agreement (sensitivity to corpus preparation);
   6. (optional) recall of the author-written silver decision list, labeled as indicative.
+  7. **Design-space fitness** (added 2026-10-04):
+     - **Reconstruction:** each system as a design point. Analysis 2 reads as "can the space express every
+       system's architecture".
+     - **Leave-one-system-out:** rebuild the space without one system's passages (e.g. Cursor's), then
+       check whether that system can still be expressed. This tests generalization.
+     - **Sampled design points:** E13.
+     - **Trade-offs of design points:** E14.
 - Also shows the memo trail (P11): how the theory evolved as the Taxonomist read passages and the Critic judged each draft.
 - Artifacts: **Fig. 8** (system × dimension matrix, Shaw Table 1 style); short expert-rating summary
   table or paragraph; one qualitative contrast with the long-context and BERTopic outputs.
@@ -1200,6 +1350,96 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
   comparing train vs. test labeling statistics.
 - Artifacts: a short table (train vs. test gap per case) and the split-half recurring/one-off counts.
 
+**E12 — Pending: wording sensitivity of the ground-truth views (RQ1 robustness; added 2026-10-04)**
+- **Question:** do the RQ1 conclusions depend on how richly the experts described their options?
+- **Headline setting:** an option shared by the paper and model views is matched, in both views, with the
+  paper view's text (`gt_match.VIEW_TEXT_PRECEDENCE`).
+  - For C2, that is the catalogue memo's description; the model's own link descriptions are shorter.
+  - So the paper-vs-model comparison isolates scope from wording.
+- **Rival hypothesis:** richer expert text makes matches easier and inflates absolute scores (both views
+  alike).
+- **Sensitivity run:**
+  - Score the model view on the model's own wording: precedence `("model", "paper")`, or the model view
+    alone.
+  - Same runs, same matching LLM, same thresholds.
+  - Report option and decision P/R/F1/Jaccard next to the headline numbers.
+- **Reading:**
+  - Conclusions that hold under both wordings are robust to description richness.
+  - Large drops point to a wording effect, to be reported as a limitation.
+- **Scope and cost:**
+  - Only C2 is affected (C1's views share text).
+  - Cost: new judge calls on the borderline C2 pairs, cached.
+- **To build if scheduled:** a `matcher.text_precedence` setting (or a `--gt-view model` restriction) passed
+  to `ground_truth_options`; log the run as a sensitivity analysis, not a frame change.
+
+**E13 — Proposed: design-point validation on C3 (RQ6; added 2026-10-04)**
+- **Question:** can architects compose workable designs from the space?
+  - A *design point* takes one candidate value from each of k ≥ 2 dimensions of the selected view.
+  - Fitness for use means the space generates grounded, coherent design points and rejects incoherent ones.
+    Per-value grounding alone is true by construction, because every value carries evidence links.
+- **Sampling** (A12, seeded):
+  - k = 2–3 dimensions per point.
+  - About 30 points per group, from one to two C3 runs.
+- **Three groups:**
+  - **attested:** one system supports all chosen values (needs B7's system mapping);
+  - **novel:** no single source co-supports the values, but no `constrains` relation is violated;
+  - **negative controls:** should fail. A `rejected` value, a pairing that violates a `constrains` relation,
+    or values drawn from a shuffled taxonomy.
+- **Scores** (A13), with a judge from a different model family than the generator:
+  - **Grounding:** deepeval Faithfulness against the passages retrieved for the point's values. Does the
+    evidence support each choice, and does nothing contradict combining them?
+  - **Coherence:** a G-Eval rubric. Would an architect accept this combination as a workable design?
+- **Report:**
+  - scores per group;
+  - **discrimination**, as the AUC of attested vs. controls and novel vs. controls. A check that cannot
+    reject the controls is uninformative.
+  - **relation validity:** do the taxonomy's own `constrains` relations predict the combinations the judge
+    calls incoherent?
+- **Human check:**
+  - Two raters score about 30 points on the same rubric (extending the A7 rating kit). Report κ
+    human–human and human–judge.
+  - A short fit-for-use questionnaire, answered by a few architects or developers: are the dimensions
+    understandable and distinct, and would you use them?
+- **Rival hypotheses:**
+  - **Judge circularity:** use a different-family judge, validated by the human check.
+  - **Novel points rated low only because they are unattested:** the attested group separates these.
+- **Cost:** no new pipeline runs; about 200–300 judge calls per run (cached).
+
+**E14 — Proposed: trade-off assessment of design points on C3 (RQ6; added 2026-10-04)**
+- **Question:** does the space make the **trade-offs** of a design explicit? When a design point picks
+  values across dimensions, which quality attributes improve, which degrade, and are those tensions
+  grounded in the corpus?
+- **Inputs:**
+  - **QA impacts per candidate value** (A14). Each value gets +, − or mixed impacts on a fixed
+    quality-attribute vocabulary (ISO 25010 sub-characteristics plus cost), each with a rationale and its
+    evidence passages.
+    - Taken from P7's value impacts when P7 is built; otherwise extracted post hoc from each value's
+      evidence passages and open codes, and labeled as post hoc.
+    - Outcome values are linked to the candidate values whose passages they share.
+  - **A silver trade-off list for C3** (B9): written by the authors from the corpus's trade-off and decision
+    documents and the article, before seeing outputs.
+- **Analysis** (A15):
+  1. **Trade-off profile per design point:** aggregate its values' impacts. Flag *cross-dimension
+     tensions*: two chosen values pushing one quality attribute in opposite directions, or one value's gain
+     paid by another's loss.
+  2. **Grounding of each tension:** do the passages of both values support it?
+  3. **Agreement with the taxonomy's relations:** are tensions concentrated on dimension pairs linked by
+     `constrains` relations?
+  4. **Recall of the silver trade-offs:** which known trade-offs appear as tensions for the attested design
+     points (Spokes, Continuity/Origin, GVFS/Scalar)?
+  5. **Usefulness:** the judge and the human raters score the trade-off explanation of each sampled point
+     (is it correct, complete, and actionable for an architect?).
+- **Rival hypotheses:**
+  - **Impact extraction and judging done by the same model family:** keep them separate, and spot-check
+    impacts by hand (about 40, as in A11).
+  - **Generic quality-attribute talk** ("improves scalability" everywhere): require passage-level support
+    per impact, and report how specific the impacts are (the share of values whose impacts differ from
+    their dimension's other values).
+- **Cost:** no new pipeline runs. One extraction call per value (about 20–40 on C3, cached) and one judge
+  call per design point.
+- **Applicability:** C1/C2 have expert forces and impacts (C2's model view has 150 option–force impacts), so
+  the same profile can later be validated against ground truth there. C3 is the qualitative running example.
+
 ### 9.3 Run budget
 
 | Experiment | Runs (C1, C2 × 5 seeds unless noted) |
@@ -1215,6 +1455,9 @@ sampled grounding check; C3 as a qualitative running example (B6/B7/A9/E9 reduce
 | E9 | 10 (C3-raw + C3-curated) |
 | E10 (stretch) | ~15 (C4 if go) |
 | E11 (possible) | 8 per split (C1, C2: 1 train + 1 test + 2 split-half trains each); not in the total |
+| E12 (pending) | 0 new pipeline runs (rescoring of existing C2 runs with the model's wording) |
+| E13 (proposed) | 0 new pipeline runs (uses E9's C3 runs; ~200–300 judge calls per run) |
+| E14 (proposed) | 0 new pipeline runs (~20–40 impact extractions + 1 judge call per design point) |
 | **Total** | **≈ 205** |
 
 Estimate cost after E0. If the budget is exceeded, cut in this order: E3 to 3 seeds; drop LLooM; drop
@@ -1264,7 +1507,8 @@ C3-curated.
 |---|---|---|
 | Delve reproduces most expert decisions | E1 ADD recall (C2 carries the claim if E8 flags C1) | "recovers a majority of decisions and X% of options" |
 | Delve is grounded and traceable | E1 grounding precision, hallucinated-evidence rate | report the rate honestly and discuss failure modes |
-| Better than topic mining | E2 vs. BERTopic | — (expected to be robust) |
+| ~~Better than topic mining~~ (dropped 2026-10-04 with L2; at most a qualitative contrast in Fig. 1) | — | — |
+| The update strategy explains recall (added 2026-10-04) | A10 stage funnel; rewrite vs. tools ablation | if the tool-based update does not fix the collapse: "rewrite-style updates compress the design space; the funnel locates the loss" (a diagnostic finding) |
 | Competitive with or better than long-context LLMs | E2 vs. L1, E6 stability | "comparable recall, with higher traceability and stability" |
 | The GT-specific agentic components matter | E3 TnT-style vs. Straussian; the largest ablation deltas | name the components that matter, report the null ones |
 | Delve works without ground truth, in another genre | E9 expert ratings, placement matrix | "plausible and traceable; experts flagged X" |
@@ -1276,7 +1520,7 @@ C3-curated.
 |---|---|
 | "This is a pipeline, not an agent." | Roles with feedback loops and autonomous stopping; ablations show each loop's contribution (Table 5). The track also lists multi-agent workflows |
 | "Why not just prompt a long-context model?" | L1 baseline; grounding and stability results; cost at scale; traceability for human-led GT |
-| "LLM judge evaluating LLM output." | Cross-family judge, κ calibration, exact hallucinated-evidence metric, expert ratings |
+| "LLM judge evaluating LLM output." | A matching LLM other than the generator (OpenAI only, so not cross-family; stated as a threat), κ against human gold labels (A6), judge-sensitivity report, exact hallucinated-evidence metric, expert ratings |
 | "Ground truth is one group's opinion." | Expert validity of unmatched items; lenient matching; threat discussed; benchmark open for extension |
 | "Contamination." | E8 probe; C1 (2021) vs. C2 (2026) contrast; C2 and C3 likely post-date training cut-offs |
 | "Only two ground-truth studies." | Each has 29 sources and hundreds of passages; 5 seeds (10 for the decisive comparison); per-study effect sizes with CIs; a third case (C3) in a different genre; the evaluation kit is released and extensible |
@@ -1309,7 +1553,10 @@ C3-curated.
 
 ## 11. Timeline
 
-> **Revised 2026-10-03** (the original table below is kept for reference): 10-03 → 10-05 B1 + frame freeze,
+> **Revised 2026-10-04 (current):** the action plan in §8.6b, under "Action plan (2026-10-04)". Freeze
+> 10-09/10; main runs 10-10 → 10-14; analysis 10-15 → 10-16; writing from 10-17.
+>
+> **Revised 2026-10-03** (superseded; the original table below is kept for reference): 10-03 → 10-05 B1 + frame freeze,
 > P9, A1 minimal; 10-06 → 10-08 E0 + A10 funnel, A6 gold + κ, fix the lossy stage (tool-based update), L1/L5,
 > P13, harness; **FREEZE 10-09**; 10-09 → 10-13 main runs (3 seeds) + L2/ablations if on time; 10-14 → 10-16
 > analysis and results, abstract final; 10-17 → 10-23 writing, replication package, submit. Order of work:
@@ -1334,13 +1581,16 @@ C3-curated.
 3. **Main configuration**: single coder agent (decided 2026-10-02).
 4. **Human experts**: 2–3 people × ~2 h (unmatched-item ratings, HITL critique); two authors for κ labeling.
 5. **Contacting the GT-study authors** for coding data: useful; consider double-blind and conflict of interest.
-6. **RQ1 scope** (proposed 2026-10-03): decisions and options only; drivers/forces and relations reported
-   qualitatively (P4, P7, P17 → future work)?
-7. **Collapse fix**: tool-based update (≈ 2 d) or a quick safety net, decided after the A10 stage funnel.
-8. **Baselines**: L1 + L5 only, or also L2 BERTopic (+1–2 d)?
-9. **C3**: qualitative running example only (no expert ratings, no placement matrix)?
-10. **Seeds**: 3 for main runs, 1–2 for ablations (instead of 5); judge family for the matcher and scoreboard
-    (e.g. an Anthropic model via P9).
+6. **RQ1 scope** — **decided 2026-10-04:** decisions and options only; drivers/forces and relations reported
+   qualitatively (P4, P7, P17 → future work).
+7. **Collapse fix** — **decided 2026-10-04:** the tool-based update, behind a switch, if the A10 stage funnel
+   blames the update loop; it doubles as the "rewrite vs. tools" ablation.
+8. **Baselines** — **decided 2026-10-04:** L1 + L5 only; L2 BERTopic → future work.
+9. **C3** — **decided 2026-10-04:** reduced, mostly qualitative case: B7, B9, the placement matrix (A9) and a
+   small E13; E14 as a stretch goal.
+10. **Seeds** — **decided 2026-10-04:** 3 for main runs, 1–2 for ablations. Judge: OpenAI only (no
+    cross-family judge); the matching LLM for reported numbers differs from the generator and is validated
+    against A6.
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
 7. ~~**C1 ground-truth scope**~~ **Decided (2026-10-01):** both studies are compared against two views, the
    paper as reported and the full replication-package model, side by side (§4.1, §5.1 M7).

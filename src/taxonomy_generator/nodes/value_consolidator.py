@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
 
 def _setup_merge_chain(configuration: Configuration):
     """Set up the chain for borderline value-merge adjudication."""
-    model = load_chat_model(configuration.model)
+    model = load_chat_model(configuration.generation_llm)
     structured_model = model.with_structured_output(ValueMergeOutput)
     prompt = VALUE_MERGE_PROMPT.partial(use_case=configuration.use_case)
     return (prompt | structured_model).with_config(run_name="AdjudicateValueMerge")

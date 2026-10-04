@@ -192,6 +192,18 @@ loop cannot be recovered later: evidence linking only attaches codes to values t
 C2 run, the selected design space kept about 45 candidate decisions, against 62 options in the ground
 truth.
 
+**Evidence from ground-truth scoring (added 2026-10-04).** The matcher (`python main.py --match-gt`) scored
+the selected views of the same runs against the expert design spaces (judge `gpt-5.6-luna`; details in
+`docs/paper/SANER2027_PAPER_PLAN.md` §8.7):
+- **Recall:** C2 recovers only 40% of the experts' options (C1: 55-65%).
+- **Whole decisions lost:** two C2 decisions keep none of their options (safe exploration 0/3, false-alarm
+  control 0/4), and two keep almost none (automated response 1/9, hacking mitigation 2/10).
+- **Thin selected view:** it holds 36 candidate values. This is the pattern a collapsing rewrite produces:
+  whole branches of the design space vanish in one update and are not rebuilt.
+
+The A10 stage funnel should confirm that these options were open-coded and then lost in the loop, rather
+than never coded. If so, this plan is the fix to test, re-scored with the same evaluation frame and judge.
+
 Alternatives considered (see the conversation of 2026-10-02): restoring dropped values after each update
 (a safety net, not a fix), detect-and-retry, a more compact output (delays the ceiling), per-dimension
 updates, and value-free loops (values formed after the loop). Updates as operations remove the cause at

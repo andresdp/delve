@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +34,25 @@ os.environ.setdefault("DEEPEVAL_TELEMETRY_OPT_OUT", "1")
 _SUPPORTED_PROVIDER = "openai"
 
 
+def openai_judge_model(model: str | None) -> Any:
+    """deepeval ``OpenAIModel`` for a judge (bare OpenAI model name, or ``None`` for deepeval's default).
+
+    deepeval's OpenAIModel defaults to temperature=0.0, which newer reasoning-tier models
+    (e.g. gpt-5.x) reject outright ("Only the default (1) value is supported").
+    temperature=1.0 is valid for both older and newer OpenAI models, so it is used
+    unconditionally rather than special-casing by model name.
+    """
+    from deepeval.models import OpenAIModel
+
+    return OpenAIModel(model=model, temperature=1.0)
+
+
 def resolve_judge_model(model_name: str | None) -> str | None:
     """Resolve the configured judge model into a deepeval model argument.
 
     Args:
         model_name: The judge model in this pipeline's ``provider/model``
-            format (from ``evaluation.judge_model`` or ``models.model``).
+            format (``models.evaluation_llm`` or ``models.matching_llm``).
 
     Returns:
         The bare model name when the provider is OpenAI (deepeval's built-in
