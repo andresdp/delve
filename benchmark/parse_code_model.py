@@ -46,7 +46,7 @@ import re
 import sys
 import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -106,12 +106,12 @@ def slug(name: str) -> str:
 
 # ----------------------------------------------------------------------- metamodel
 
-def _name(node: ast.AST) -> Optional[str]:
+def _name(node: ast.AST) -> str | None:
     return node.id if isinstance(node, ast.Name) else None
 
 
-def _str(node: ast.AST) -> Optional[str]:
-    """A string literal, including literals joined with '+' ("a" + "b")."""
+def _str(node: ast.AST) -> str | None:
+    """Return a string literal, including literals joined with '+' ("a" + "b")."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
@@ -120,15 +120,15 @@ def _str(node: ast.AST) -> Optional[str]:
     return None
 
 
-def _call_name(node: ast.AST) -> Optional[str]:
+def _call_name(node: ast.AST) -> str | None:
     if isinstance(node, ast.Call):
         return _name(node.func)
     return None
 
 
-def parse_metamodel(source: str) -> Dict[str, Dict[str, str]]:
+def parse_metamodel(source: str) -> dict[str, dict[str, str]]:
     """Map each stereotype variable of the metamodel to its label and kind."""
-    stereotypes: Dict[str, Dict[str, str]] = {}
+    stereotypes: dict[str, dict[str, str]] = {}
     for stmt in ast.parse(source).body:
         if not (isinstance(stmt, ast.Assign) and _call_name(stmt.value) == "CStereotype"):
             continue
@@ -146,9 +146,9 @@ def parse_metamodel(source: str) -> Dict[str, Dict[str, str]]:
 
 # --------------------------------------------------------------------------- model
 
-def _function_call_ids(tree: ast.Module) -> Set[int]:
-    """ids of call nodes inside function definitions (helpers, not model content)."""
-    inside: Set[int] = set()
+def _function_call_ids(tree: ast.Module) -> set[int]:
+    """Ids of call nodes inside function definitions (helpers, not model content)."""
+    inside: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             for sub in ast.walk(node):
@@ -157,17 +157,17 @@ def _function_call_ids(tree: ast.Module) -> Set[int]:
     return inside
 
 
-def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
+def parse_model(source: str, stereotypes: dict[str, dict[str, str]]) -> dict[str, Any]:
     """Read elements, option links, impacts and decision links from model source code."""
     tree = ast.parse(source)
-    elements: Dict[str, Dict[str, Any]] = {}  # canonical variable -> element
-    alias: Dict[str, str] = {}  # any variable -> canonical variable
-    dicts: Dict[str, ast.Dict] = {}
-    option_links: List[Dict[str, Any]] = []
-    impacts: List[Dict[str, Any]] = []
-    links: List[Dict[str, Any]] = []
-    context_links: List[int] = []
-    handled: Set[int] = set()
+    elements: dict[str, dict[str, Any]] = {}  # canonical variable -> element
+    alias: dict[str, str] = {}  # any variable -> canonical variable
+    dicts: dict[str, ast.Dict] = {}
+    option_links: list[dict[str, Any]] = []
+    impacts: list[dict[str, Any]] = []
+    links: list[dict[str, Any]] = []
+    context_links: list[int] = []
+    handled: set[int] = set()
 
     def resolve(node: ast.AST, what: str, line: int) -> str:
         var = _name(node)
@@ -175,7 +175,7 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
             raise UnsupportedConstruct(f"line {line}: {what} is not a known element ({ast.unparse(node)})")
         return alias[var]
 
-    def stereotype(node: ast.AST, line: int) -> Dict[str, str]:
+    def stereotype(node: ast.AST, line: int) -> dict[str, str]:
         var = _name(node)
         if var is None or var not in stereotypes:
             raise UnsupportedConstruct(f"line {line}: unknown stereotype ({ast.unparse(node)})")
@@ -197,7 +197,7 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
                 impacts.append({"option": opt, "force": resolve(force_node, "impact force", line),
                                 "impact": st["label"], "line": force_node.lineno})
 
-    def read_link(src: ast.AST, dst: ast.AST, st_node: Optional[ast.AST], label_node: Optional[ast.AST],
+    def read_link(src: ast.AST, dst: ast.AST, st_node: ast.AST | None, label_node: ast.AST | None,
                   line: int) -> None:
         st_nodes = st_node.elts if isinstance(st_node, (ast.List, ast.Tuple)) else [st_node] if st_node else []
         kinds = [stereotype(node, line) for node in st_nodes]
@@ -211,7 +211,7 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
         links.append({"from": resolve(src, "link source", line), "to": resolve(dst, "link target", line),
                       "stereotypes": [st["label"] for st in kinds], "label": label or "", "line": line})
 
-    def method_link(node: ast.AST) -> Optional[ast.Call]:
+    def method_link(node: ast.AST) -> ast.Call | None:
         """``a.add_links(b, ...)`` or ``a.add_links(b, ...)[0]``."""
         if isinstance(node, ast.Subscript):
             node = node.value
@@ -301,7 +301,7 @@ def parse_model(source: str, stereotypes: Dict[str, Dict[str, str]]) -> Dict[str
 
 # ---------------------------------------------------------------------------- memo
 
-def _table_rows(lines: List[str]) -> List[Tuple[str, str]]:
+def _table_rows(lines: list[str]) -> list[tuple[str, str]]:
     rows = []
     for line in lines:
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
@@ -310,11 +310,11 @@ def _table_rows(lines: List[str]) -> List[Tuple[str, str]]:
     return rows
 
 
-def parse_memo(text: str) -> Dict[str, Dict[str, Any]]:
+def parse_memo(text: str) -> dict[str, dict[str, Any]]:
     """ADD catalogue memo -> {normalized decision name: question, trade-off, options, drivers}."""
-    sections: Dict[str, Dict[str, Any]] = {}
-    current: Optional[Dict[str, Any]] = None
-    block: Optional[str] = None
+    sections: dict[str, dict[str, Any]] = {}
+    current: dict[str, Any] | None = None
+    block: str | None = None
     for raw in text.splitlines():
         line = raw.strip()
         heading = re.match(r"^##\s+ADD\s+(\d+):\s*(.+)$", line)
@@ -346,11 +346,11 @@ def parse_memo(text: str) -> Dict[str, Dict[str, Any]]:
 
 # ----------------------------------------------------------------------- the view
 
-def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenance: Dict[str, Any],
+def build_view(model: dict[str, Any], memo: dict[str, dict[str, Any]], provenance: dict[str, Any],
                model_ref: str = MODEL_REL, memo_ref: str = MEMO_REL,
-               study: str = "c2-rl-monitoring") -> Dict[str, Any]:
+               study: str = "c2-rl-monitoring") -> dict[str, Any]:
     """Assemble the ground-truth model view and record discrepancies in its provenance."""
-    discrepancies: List[str] = []
+    discrepancies: list[str] = []
     elements = dict(model["elements"])  # copied: kinds may be corrected below
     # An element used as the decision of an option link is a decision, whatever
     # metaclass it was declared with (an authoring slip); report it.
@@ -360,12 +360,12 @@ def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenanc
             discrepancies.append(f"'{el['name']}' is declared as a {el['kind']} but has options; "
                                  "treated as a decision")
             elements[var] = {**el, "kind": "decision"}
-    ids: Dict[str, str] = {}
+    ids: dict[str, str] = {}
     for var, el in elements.items():
         ids[var] = var if el["kind"] == "decision" else slug(el["name"])
     # Two elements declared with the same name (an authoring slip) would share an
     # id: fall back to their variable names and report it.
-    by_id: Dict[str, List[str]] = {}
+    by_id: dict[str, list[str]] = {}
     for var, el_id in ids.items():
         by_id.setdefault(el_id, []).append(var)
     for el_id, variables in by_id.items():
@@ -400,7 +400,7 @@ def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenanc
             "source": f"{model_ref}:{el['line']}",
         })
 
-    links_by_option: Dict[str, List[Dict[str, Any]]] = {}
+    links_by_option: dict[str, list[dict[str, Any]]] = {}
     for link in model["option_links"]:
         links_by_option.setdefault(link["option"], []).append(link)
 
@@ -494,17 +494,17 @@ def build_view(model: Dict[str, Any], memo: Dict[str, Dict[str, Any]], provenanc
 
 # ------------------------------------------------------------- generated views
 
-def _plantuml_label(raw: str) -> Tuple[str, str]:
+def _plantuml_label(raw: str) -> tuple[str, str]:
     text = raw.replace("<b>", "").replace("</b>", "").replace("\\n", " ")
     text = re.sub(r"\s+", " ", text).strip()
     name, _, kind = text.rpartition(" : ")
     return name.strip(), kind.strip()
 
 
-def parse_plantuml(text: str) -> Dict[str, Set]:
+def parse_plantuml(text: str) -> dict[str, set]:
     """Names, option links and impacts of a generated PlantUML view (formatting stripped)."""
-    names: Dict[str, Tuple[str, str]] = {}
-    out: Dict[str, Set] = {"decision_names": set(), "option_names": set(), "force_names": set(),
+    names: dict[str, tuple[str, str]] = {}
+    out: dict[str, set] = {"decision_names": set(), "option_names": set(), "force_names": set(),
                            "option_links": set(), "impacts": set()}
     for line in text.splitlines():
         cls = re.match(r'^class "(.*)" as (\S+)$', line.strip())
@@ -529,7 +529,7 @@ def parse_plantuml(text: str) -> Dict[str, Set]:
 COMPARED = ("decision_names", "option_names", "force_names", "option_links", "impacts")
 
 
-def cross_check(view: Dict[str, Any], generated: Dict[str, Set], keys: Tuple[str, ...] = COMPARED) -> List[str]:
+def cross_check(view: dict[str, Any], generated: dict[str, set], keys: tuple[str, ...] = COMPARED) -> list[str]:
     """Differences between a parsed view and generated PlantUML views, for the given kinds."""
     names = {el["id"]: el["name"] for key in ("decisions", "options", "forces") for el in view[key]}
     ours = {
@@ -557,7 +557,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-STUDIES: Dict[str, Dict[str, Any]] = {
+STUDIES: dict[str, dict[str, Any]] = {
     "c2": {
         "study": "c2-rl-monitoring",
         "package": DEFAULT_PACKAGE,
@@ -584,7 +584,8 @@ STUDIES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
+    """Run the command line; return the exit code."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--study", choices=sorted(STUDIES), default="c2")
     parser.add_argument("--package", type=Path, help="replication package folder (default: per study)")
@@ -620,7 +621,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "files": {str(path.relative_to(HERE)): {"sha256": _sha256(path)} for path in hashed},
     }
     view = build_view(model, memo, provenance, model_ref=cfg["model"], study=cfg["study"])
-    generated: Dict[str, Set] = {}
+    generated: dict[str, set] = {}
     for path in generated_paths:
         for key, items in parse_plantuml(path.read_text(encoding="utf-8")).items():
             generated.setdefault(key, set()).update(items)

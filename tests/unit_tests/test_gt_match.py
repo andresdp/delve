@@ -9,7 +9,6 @@ import pytest
 from taxonomy_generator.evaluation import gt_match
 from taxonomy_generator.settings import load_settings
 
-
 # ---------------------------------------------------------------------- fakes
 
 class FakeJudgeModel:

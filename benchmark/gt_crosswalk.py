@@ -18,20 +18,21 @@ from __future__ import annotations
 import csv
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 STATUSES = ("paper+model", "model only", "paper only")
 FIELDS = ["kind", "id", "name", "status", "note"]
 KINDS = (("decision", "decisions"), ("option", "options"))
 
 
-def _ids(view: Dict[str, Any], key: str) -> Dict[str, str]:
+def _ids(view: dict[str, Any], key: str) -> dict[str, str]:
     return {el["id"]: el["name"] for el in view[key]}
 
 
-def build_crosswalk(paper: Dict[str, Any], model: Dict[str, Any],
-                    notes: Optional[Dict[tuple, str]] = None) -> List[Dict[str, str]]:
+def build_crosswalk(paper: dict[str, Any], model: dict[str, Any],
+                    notes: dict[tuple, str] | None = None) -> list[dict[str, str]]:
     """One row per decision and option of either view, matched by id."""
     notes = notes or {}
     rows = []
@@ -45,7 +46,7 @@ def build_crosswalk(paper: Dict[str, Any], model: Dict[str, Any],
     return rows
 
 
-def check_crosswalk(paper: Dict[str, Any], model: Dict[str, Any], rows: List[Dict[str, str]]) -> List[str]:
+def check_crosswalk(paper: dict[str, Any], model: dict[str, Any], rows: list[dict[str, str]]) -> list[str]:
     """Errors where the crosswalk misses an element or disagrees with the views."""
     errors = []
     seen = set()
@@ -77,23 +78,26 @@ def check_crosswalk(paper: Dict[str, Any], model: Dict[str, Any], rows: List[Dic
     return errors
 
 
-def read_crosswalk(path: Path) -> List[Dict[str, str]]:
+def read_crosswalk(path: Path) -> list[dict[str, str]]:
+    """Read a crosswalk CSV."""
     with Path(path).open(newline="", encoding="utf-8") as fh:
         return [{field: row.get(field, "") or "" for field in FIELDS} for row in csv.DictReader(fh)]
 
 
-def write_crosswalk(path: Path, rows: List[Dict[str, str]]) -> None:
+def write_crosswalk(path: Path, rows: list[dict[str, str]]) -> None:
+    """Write a crosswalk CSV."""
     with Path(path).open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
         writer.writeheader()
         writer.writerows(rows)
 
 
-def _load(folder: Path, name: str) -> Dict[str, Any]:
+def _load(folder: Path, name: str) -> dict[str, Any]:
     return json.loads((folder / name).read_text(encoding="utf-8"))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """Run the command line; return the exit code."""
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) != 2 or args[0] not in ("build", "check"):
         print(__doc__.split("Usage:")[-1].rstrip())

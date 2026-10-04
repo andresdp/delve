@@ -34,12 +34,14 @@ PERCENTILES = (0.5, 1, 2, 5, 10, 25, 50)
 
 
 def load_views(study: str) -> dict:
+    """Load the paper and model views of a study's ground truth."""
     folder = HERE / study / "gt"
     return {name: json.loads((folder / f"gt_{name}.json").read_text(encoding="utf-8"))
             for name in ("paper", "model") if (folder / f"gt_{name}.json").exists()}
 
 
 def main(argv=None) -> int:
+    """Run the command line; return the exit code."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--config", default=None, help="YAML config (embedding model)")
     args = parser.parse_args(argv)

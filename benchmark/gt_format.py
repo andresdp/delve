@@ -49,8 +49,9 @@ from __future__ import annotations
 import json
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any
 
 FORMAT_VERSION = 1
 VIEWS = ("model", "paper")
@@ -81,10 +82,10 @@ class GroundTruthError(ValueError):
     """A ground-truth file violates the format."""
 
 
-def validate(data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
+def validate(data: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Check a ground-truth view; return ``(errors, warnings)`` as readable messages."""
-    errors: List[str] = []
-    warnings: List[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
 
     if data.get("format_version") != FORMAT_VERSION:
         errors.append(f"format_version must be {FORMAT_VERSION}, got {data.get('format_version')!r}")
@@ -101,8 +102,8 @@ def validate(data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
         return errors, warnings
 
     # Ids: well-formed and unique across every element kind.
-    seen: Dict[str, str] = {}
-    ids: Dict[str, set] = {key: set() for key in ELEMENT_LISTS}
+    seen: dict[str, str] = {}
+    ids: dict[str, set] = {key: set() for key in ELEMENT_LISTS}
     for key in ELEMENT_LISTS:
         for i, item in enumerate(data[key]):
             loc = f"{key}[{i}]"
@@ -193,7 +194,7 @@ def validate(data: Dict[str, Any]) -> Tuple[List[str], List[str]]:
     return errors, warnings
 
 
-def load_ground_truth(path: Path | str) -> Tuple[Dict[str, Any], List[str]]:
+def load_ground_truth(path: Path | str) -> tuple[dict[str, Any], list[str]]:
     """Load and validate a ground-truth view; raise :class:`GroundTruthError` on errors."""
     path = Path(path)
     data = json.loads(path.read_text(encoding="utf-8"))
