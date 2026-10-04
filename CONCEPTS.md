@@ -132,4 +132,4 @@ The memo trail of a tools-mode (or rewrite_restore) run: one entry per update an
 
 ## Stage Funnel
 
-A diagnosis of where along the pipeline each expert option of a Ground Truth View is lost: present in the open codes, in each Iteration, after review and consolidation, and in Selected Dimensions. An option's loss stage is the first stage after which it never reappears; an option with no candidate close enough at a stage is unjudged there, not lost.
+A diagnosis of where along the pipeline each expert option of a Ground Truth View is lost: present in the open codes, in each Iteration, after review and consolidation, and in Selected Dimensions. An option's loss stage is the first stage judged absent after its last presence; an option with no candidate close enough at a stage, or whose judge call failed, is unjudged there, not lost.

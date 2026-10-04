@@ -12,14 +12,17 @@ An option is *present* at a stage when one of its candidates there gets a hit
 label (``same``/``broader``/``narrower``) from the matcher's graded judge.
 Candidates are the stage items nearest to the option (cosine distance, matcher
 serialization) within the matcher's ``upper_threshold``; they are judged nearest
-first, in small batches, until a hit. At the open-codes stage the number of
+first, in small batches, until a hit (within ``lower_threshold``, when set, a pair is
+present without the judge, as in the matcher). At the open-codes stage the number of
 candidates grows with the number of codes (``code_fraction``), since one stage
-holds far more items there than any taxonomy. An option with no candidate within
-the threshold at a stage is ``unjudged`` there, not lost (unjudged is not wrong).
+holds far more items there than any taxonomy. An option is ``absent`` at a stage only
+when every candidate got a verdict and none was a hit; with no candidate within the
+threshold, or a failed judge call, it is ``unjudged`` there, not lost (unjudged is not
+wrong). Judge errors are counted per stage, and a failed pair is retried at later stages.
 
-The *loss stage* of an option is the first stage after which it never has a hit
-again; options absent at a stage but present later are counted as dropped then
-recovered. At the selected stage the funnel's verdicts are compared with the
+The *loss stage* of an option is the first stage judged absent after its last
+presence; when only unjudged stages follow, it has none and counts as unresolved.
+Options absent at a stage but present later are counted as dropped then recovered. At the selected stage the funnel's verdicts are compared with the
 official match file, which calibrates its candidate gate against the scored result.
 """
 
@@ -198,10 +201,16 @@ async def trace_options(stages: list[Stage], options: list[Item], embed: Callabl
 
     async def verdict_for(first: str, second: str) -> dict[str, str]:
         key = JudgeCache.key(judge_name, first, second)
-        if key not in pending:  # one call per distinct ordered pair, shared across stages
-            pending[key] = asyncio.ensure_future(
+        future = pending.get(key)
+        if future is None:  # one call per distinct ordered pair, shared across stages
+            future = pending[key] = asyncio.ensure_future(
                 gt_match.judge_verdict(judge_model, cache, semaphore, key, first, second))
-        return await pending[key]
+        try:
+            return await future
+        except Exception:
+            if pending.get(key) is future:  # forget the failure so a later stage retries the pair
+                pending.pop(key, None)
+            raise
 
     async def judge_pair(item: Item, option: Item) -> dict[str, Any]:
         order = gt_match.pair_order(config.seed, item.id, option.id)
@@ -226,6 +235,12 @@ async def trace_options(stages: list[Stage], options: list[Item], embed: Callabl
 
         async def trace_one(j: int, t: OptionTrace, stage: Stage = stage, dist: np.ndarray = dist, k: int = k):
             cands = candidates(dist[j], k, config.upper_threshold)
+            if cands and config.lower_threshold > 0 and dist[j, cands[0]] <= config.lower_threshold:
+                hit = {"item_id": stage.items[cands[0]].id, "item_text": item_text(stage.items[cands[0]]),
+                       "label": "same", "label_source": "auto", "distance": round(float(dist[j, cands[0]]), 4)}
+                t.status[stage.name] = PRESENT  # as in the matcher: within lower_threshold is "same" without a judge
+                t.evidence[stage.name] = {"hit": hit, "judged": 0, "candidates": len(cands), "errors": 0}
+                return
             judged: list[dict[str, Any]] = []
             for batch in judge_batches(cands):
                 results = await asyncio.gather(*(judge_pair(stage.items[i], t.option) for i in batch))
@@ -235,11 +250,13 @@ async def trace_options(stages: list[Stage], options: list[Item], embed: Callabl
                 hit = next((r for r in results if r["label"] in HIT_LABELS), None)
                 if hit:
                     t.status[stage.name] = PRESENT
-                    t.evidence[stage.name] = {"hit": hit, "judged": len(judged), "candidates": len(cands)}
+                    t.evidence[stage.name] = {"hit": hit, "judged": len(judged), "candidates": len(cands),
+                                              "errors": sum(r["label"] is None for r in judged)}
                     return
-            labeled = [r for r in judged if r["label"] is not None]
-            t.status[stage.name] = ABSENT if labeled else UNJUDGED
-            t.evidence[stage.name] = {"judged": len(judged), "candidates": len(cands),
+            errors = sum(r["label"] is None for r in judged)
+            # Absent only when every candidate got a verdict: a failed call could have been the hit.
+            t.status[stage.name] = ABSENT if judged and not errors else UNJUDGED
+            t.evidence[stage.name] = {"judged": len(judged), "candidates": len(cands), "errors": errors,
                                       "nearest": judged[0] if judged else None}
 
         await asyncio.gather(*(trace_one(j, t) for j, t in enumerate(traces)))
@@ -251,14 +268,15 @@ async def trace_options(stages: list[Stage], options: list[Item], embed: Callabl
 # ---------------------------------------------------------------- analysis
 
 def loss_stage(status: dict[str, str], stage_names: Sequence[str]) -> str | None:
-    """First stage after which the option never has a hit again; ``None`` if present at the last stage.
+    """First stage judged absent after the option's last presence; ``None`` when there is none.
 
-    An option never present anywhere is lost at the first stage.
+    Unjudged stages are not evidence of loss: an option present until the end, or whose
+    stages after its last presence are all unjudged, has no loss stage (the latter is
+    counted as unresolved by ``summarize``). An option never present is lost at its first
+    absent stage.
     """
     last_present = max((i for i, s in enumerate(stage_names) if status.get(s) == PRESENT), default=-1)
-    if last_present == len(stage_names) - 1:
-        return None
-    return stage_names[last_present + 1]
+    return next((s for s in stage_names[last_present + 1:] if status.get(s) == ABSENT), None)
 
 
 def dropped_then_recovered(status: dict[str, str], stage_names: Sequence[str]) -> bool:
@@ -285,7 +303,8 @@ def summarize(traces: list[OptionTrace], stage_names: Sequence[str], view_names:
     summary: dict[str, Any] = {}
     for view in view_names:
         ts = [t for t in traces if view in t.option.views]
-        per_stage = {s: {k: sum(t.status.get(s) == k for t in ts) for k in (PRESENT, ABSENT, UNJUDGED)}
+        per_stage = {s: {**{k: sum(t.status.get(s) == k for t in ts) for k in (PRESENT, ABSENT, UNJUDGED)},
+                         "judge_errors": sum((t.evidence.get(s) or {}).get("errors", 0) for t in ts)}
                      for s in stage_names}
         losses: dict[str, int] = {}
         for t in ts:
@@ -296,6 +315,8 @@ def summarize(traces: list[OptionTrace], stage_names: Sequence[str], view_names:
             "options": len(ts), "per_stage": per_stage, "loss_stage": losses,
             "never_present": sum(all(t.status.get(s) != PRESENT for s in stage_names) for t in ts),
             "dropped_then_recovered": sum(dropped_then_recovered(t.status, stage_names) for t in ts),
+            "unresolved": sum(loss_stage(t.status, stage_names) is None
+                              and t.status.get(stage_names[-1]) != PRESENT for t in ts),
         }
         if official is not None and "selected" in stage_names:
             funnel = {t.option.id for t in ts if t.status.get("selected") == PRESENT}

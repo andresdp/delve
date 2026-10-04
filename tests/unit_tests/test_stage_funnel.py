@@ -308,3 +308,59 @@ def test_memo_embedder_embeds_each_text_once():
     second = cached(["bb", "ccc"])
     assert calls == [["a", "bb"], ["ccc"]]
     assert first.tolist() == [[1.0, 0.0], [2.0, 0.0], [1.0, 0.0]] and second.tolist() == [[2.0, 0.0], [3.0, 0.0]]
+
+
+# ---------------------------------------------------------------- review fixes
+
+
+class FlakyJudge(RuleJudge):
+    """Fails its first ``fail_first`` calls, then judges by rule."""
+
+    def __init__(self, matches, fail_first=1):
+        super().__init__(matches)
+        self.fail_first = fail_first
+
+    async def a_generate(self, prompt, schema=None):
+        if self.fail_first > 0:
+            self.fail_first -= 1
+            self.calls.append(prompt)
+            raise RuntimeError("rate limited")
+        return await super().a_generate(prompt, schema)
+
+
+def test_a_failed_judge_call_is_retried_at_a_later_stage():
+    value = _value("1.1", "CUSUM chart")
+    traces = _run_trace([Stage("generate", [value]), Stage("selected", [value])], [_option("cusum", "CUSUM chart")],
+                        FlakyJudge(["CUSUM"]), {"CUSUM": _unit(0)})
+    assert traces[0].status == {"generate": UNJUDGED, "selected": PRESENT}
+
+
+def test_a_failed_nearest_candidate_makes_the_stage_unjudged_not_absent():
+    stage = Stage("selected", [_value("1.1", "CUSUM chart"), _value("1.2", "Other thing")])
+    traces = _run_trace([stage], [_option("cusum", "CUSUM chart")], FlakyJudge(["CUSUM"]),
+                        {"CUSUM": _unit(0), "Other": _unit(20)})
+    assert traces[0].status["selected"] == UNJUDGED
+    assert traces[0].evidence["selected"]["errors"] == 1
+
+
+def test_unjudged_tail_stages_are_not_losses():
+    names = ["open_codes", "generate", "selected"]
+    assert stage_funnel.loss_stage({"open_codes": PRESENT, "generate": PRESENT, "selected": UNJUDGED}, names) is None
+    assert stage_funnel.loss_stage({"open_codes": PRESENT, "generate": UNJUDGED, "selected": ABSENT}, names) == "selected"
+    t = stage_funnel.OptionTrace(_option("a", "A"), {"open_codes": PRESENT, "generate": PRESENT, "selected": UNJUDGED})
+    summary = stage_funnel.summarize([t], names, ["paper"])
+    assert summary["paper"]["unresolved"] == 1 and summary["paper"]["loss_stage"] == {}
+
+
+def test_summary_counts_judge_errors_per_stage():
+    t = stage_funnel.OptionTrace(_option("a", "A"), {"selected": UNJUDGED}, {"selected": {"errors": 2}})
+    summary = stage_funnel.summarize([t], ["selected"], ["paper"])
+    assert summary["paper"]["per_stage"]["selected"]["judge_errors"] == 2
+
+
+def test_pairs_within_the_lower_threshold_are_present_without_the_judge():
+    judge = RuleJudge([])
+    traces = asyncio.run(stage_funnel.trace_options(
+        [Stage("selected", [_value("1.1", "CUSUM chart")])], [_option("cusum", "CUSUM chart")],
+        embed_by_keyword({"CUSUM": _unit(0)}), judge, _config(lower_threshold=0.05), FunnelSettings(k=3)))
+    assert traces[0].status["selected"] == PRESENT and judge.calls == []

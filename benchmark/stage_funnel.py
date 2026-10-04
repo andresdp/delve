@@ -69,12 +69,13 @@ def main(argv=None) -> int:
     stages = result["stages"]
     for view, s in result["summary"].items():
         print(f"\n{view} view: {s['options']} options")
-        print(f"  {'stage':<14} present  absent  unjudged")
+        print(f"  {'stage':<14} present  absent  unjudged  judge errors")
         for stage in stages:
             c = s["per_stage"][stage]
-            print(f"  {stage:<14} {c['present']:>7} {c['absent']:>7} {c['unjudged']:>9}")
+            print(f"  {stage:<14} {c['present']:>7} {c['absent']:>7} {c['unjudged']:>9} {c['judge_errors']:>13}")
         print(f"  loss stage: {s['loss_stage']}")
-        print(f"  never present: {s['never_present']}; dropped then recovered: {s['dropped_then_recovered']}")
+        print(f"  never present: {s['never_present']}; dropped then recovered: {s['dropped_then_recovered']}; "
+              f"unresolved (unjudged after last presence): {s['unresolved']}")
         if "selected_agreement" in s:
             print(f"  selected vs official match: {s['selected_agreement']}")
     for kind, path in result["paths"].items():
