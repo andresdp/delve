@@ -128,7 +128,7 @@ How the Taxonomist changes the Taxonomy in each update and review (`taxonomy.edi
 
 ## Operation Log
 
-The memo trail of a tools-mode (or rewrite_restore) run: one entry per update and review listing the operations applied with their reasons, the calls rejected with their errors, the batch documents no Value cites, and the explanation. Saved in the taxonomy JSON as `operation_log`.
+The memo trail of a tools-mode (or rewrite_restore) run: one entry per update and review listing the operations applied with their reasons, the calls rejected with their errors, the batch documents no Value cites, the explanation, why the loop stopped, and the transcript of the model's turns and the tool replies. Saved in the taxonomy JSON as `operation_log`.
 
 ## Stage Funnel
 

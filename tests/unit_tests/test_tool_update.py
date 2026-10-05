@@ -6,7 +6,12 @@ from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from taxonomy_generator.taxonomy_editor import TaxonomyEditor
-from taxonomy_generator.tool_update import TOOL_NAMES, TOOL_SCHEMAS, run_tool_update
+from taxonomy_generator.tool_update import (
+    TOOL_NAMES,
+    TurnState,
+    make_tools,
+    run_tool_update,
+)
 from taxonomy_generator.utils import format_taxonomy_compact
 
 
@@ -52,18 +57,73 @@ def _taxonomy():
 
 def _run(model, max_steps=8, config=None):
     editor = TaxonomyEditor(_taxonomy(), batch_doc_ids=["d1", "d2"])
-    clusters, explanation = asyncio.run(
+    clusters, explanation, transcript = asyncio.run(
         run_tool_update(model, editor, [HumanMessage("update")], max_steps=max_steps, config=config))
+    editor.transcript = transcript
     return editor, clusters, explanation
 
 
-def test_tool_schemas_cover_every_editor_tool():
-    names = [t["function"]["name"] for t in TOOL_SCHEMAS]
-    assert names == list(TOOL_NAMES)
+def test_langchain_tools_cover_every_editor_tool():
+    from langchain_core.tools import BaseTool
+
     editor = TaxonomyEditor([], batch_doc_ids=[])
-    assert set(names) == set(editor._tools)
-    add_value = next(t for t in TOOL_SCHEMAS if t["function"]["name"] == "add_value")["function"]
-    assert {"dimension_id", "label", "status", "doc_ids", "reason"} <= set(add_value["parameters"]["required"])
+    tools = make_tools(editor, TurnState())
+    assert all(isinstance(t, BaseTool) for t in tools)
+    assert [t.name for t in tools] == list(TOOL_NAMES)
+    assert set(TOOL_NAMES) == set(editor._tools)
+    add_value = next(t for t in tools if t.name == "add_value")
+    assert "Add a candidate decision" in add_value.description
+    required = set(add_value.tool_call_schema.model_json_schema()["required"])
+    assert {"dimension_id", "label", "status", "doc_ids", "reason"} <= required
+
+
+def _invoke_tool(editor, name, args, cid="c1"):
+    tool = next(t for t in make_tools(editor, TurnState()) if t.name == name)
+    return tool.invoke({"name": name, "args": args, "id": cid, "type": "tool_call"})
+
+
+def test_tool_invoke_returns_tool_messages_with_status():
+    editor = TaxonomyEditor(_taxonomy(), batch_doc_ids=["d1", "d2"])
+    ok = _invoke_tool(editor, "add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"})
+    assert isinstance(ok, ToolMessage) and ok.status == "success" and ok.tool_call_id == "c1"
+    bad = _invoke_tool(editor, "add_evidence", {"value_id": "9.9", "doc_ids": ["d2"], "reason": "r"})
+    assert bad.status == "error" and "unknown value id" in bad.content
+
+
+def test_schema_validation_errors_become_error_messages_and_are_logged():
+    editor = TaxonomyEditor(_taxonomy(), batch_doc_ids=["d1", "d2"])
+    msg = _invoke_tool(editor, "add_value", {"dimension_id": "2", "label": "X", "description": "", "status": "maybe",
+                                             "doc_ids": ["d2"], "reason": "r"})
+    assert msg.status == "error" and "status" in msg.content
+    assert editor.rejected[-1]["tool"] == "add_value"
+
+
+def test_numeric_ids_and_nested_split_parts_reach_the_editor_as_plain_values():
+    editor = TaxonomyEditor(_taxonomy(), batch_doc_ids=["d1", "d2"])
+    assert _invoke_tool(editor, "add_evidence", {"value_id": 1.1, "doc_ids": ["d2"], "reason": "r"}).status == "success"
+    _invoke_tool(editor, "add_value", {"dimension_id": "1", "label": "KS test", "description": "", "status": "rejected",
+                                       "doc_ids": ["d2"], "reason": "r"})
+    _invoke_tool(editor, "add_value", {"dimension_id": "1", "label": "Mean test", "description": "", "status": "accepted",
+                                       "doc_ids": ["d2"], "reason": "r"})
+    _invoke_tool(editor, "add_value", {"dimension_id": "1", "label": "Page-Hinkley", "description": "",
+                                       "status": "rejected", "doc_ids": ["d2"], "reason": "r"})
+    msg = _invoke_tool(editor, "split_dimension", {"dimension_id": "1", "reason": "two questions", "parts": [
+        {"name": "A", "description": "a", "value_ids": ["1.1", "1.2"]},
+        {"name": "B", "description": "b", "value_ids": ["1.3", "1.4"]}]})
+    assert msg.status == "success", msg.content
+
+
+def test_transcript_records_model_turns_and_tool_replies():
+    model = ScriptedModel([AIMessage(content="", tool_calls=[
+        call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c1"),
+        call("finish", {"explanation": "done"}, "c2")])])
+    editor, _, _ = _run(model)
+    roles = [m["role"] for m in editor.transcript]
+    assert roles == ["assistant", "tool", "tool"]
+    assert editor.transcript[0]["tool_calls"][0]["name"] == "add_evidence"
+    assert editor.transcript[1] == {"role": "tool", "tool_call_id": "c1", "status": "success",
+                                    "content": editor.transcript[1]["content"]}
+    assert "HumanMessage" not in str(editor.transcript)  # the prompt itself is not repeated
 
 
 def test_parallel_calls_and_finish_in_one_turn():
@@ -180,9 +240,10 @@ def test_openai_chat_models_are_bound_through_the_responses_api(monkeypatch):
     from taxonomy_generator.tool_update import _bind
 
     monkeypatch.setenv("OPENAI_API_KEY", "x")
-    bound = _bind(ChatOpenAI(model="gpt-5.6-luna"), parallel=True)
+    tools = make_tools(TaxonomyEditor([], batch_doc_ids=[]), TurnState())
+    bound = _bind(ChatOpenAI(model="gpt-5.6-luna"), tools, parallel=True)
     assert bound.bound.use_responses_api is True
-    assert bound.kwargs["parallel_tool_calls"] is True and len(bound.kwargs["tools"]) == len(TOOL_SCHEMAS)
+    assert bound.kwargs["parallel_tool_calls"] is True and len(bound.kwargs["tools"]) == len(tools)
 
 
 # ---------------------------------------------------------------- review fixes

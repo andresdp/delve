@@ -137,7 +137,7 @@ With `--output DIR`, files are named `<name>_<kind>_<timestamp>` (the name comes
 
 | File | Content |
 |---|---|
-| `<name>_taxonomy_<ts>.json` | **Main result**: every iteration, the selected dimensions with values, stances, evidence and relations, the dropped dimensions with reasons, the saturation history, the evaluation scoreboard and its history, run metrics (time, tokens), the edit mode, and (tools / rewrite_restore modes) the operation log of every update and review |
+| `<name>_taxonomy_<ts>.json` | **Main result**: every iteration, the selected dimensions with values, stances, evidence and relations, the dropped dimensions with reasons, the saturation history, the evaluation scoreboard and its history, run metrics (time, tokens), the edit mode, and (tools / rewrite_restore modes) the operation log of every update and review, with the tool-calling transcript in tools mode |
 | `<name>_report_<ts>.md` | Grounded-theory report of the selected view |
 | `<name>_documents_<ts>.json` | Documents with summary, assigned dimension and value, confidence score |
 | `<name>_clusters_<ts>.json` | The selected design space as a tree with the labeled documents nested in it |
