@@ -38,6 +38,13 @@ related: >-
 - **Deadline context:** paper freeze 10-09/10. Units U1–U5 are the build; U6 can run first on existing runs;
   U7 is the validation runs.
 
+- **Outcome (2026-10-05):** built and compared on C2 (and checked on C1); `tools` is the main configuration
+  of the C1/C2 study configs, with `relevance_selection: false`; `rewrite` and `rewrite_restore` remain
+  ablations. Results: `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`. Added during
+  execution beyond the units below: LangChain `StructuredTool`s with `tool.invoke`, tool transcripts in the
+  operation log, the values-as-options rule and similar-value hints, the decision-point granularity rule and
+  structural check, and the `taxonomy.relevance_selection` switch.
+
 ---
 
 ## Product Contract
@@ -82,8 +89,8 @@ Operations remove the cause at moderate cost, add immediate validation, and give
 - **R6.** Tools mode records an operation log per update and review (applied, rejected, uncited codes,
   explanation), saved in the taxonomy JSON.
 - **R7.** Token use of the tool loop is counted in `run_metrics`, like the rewrite chain.
-- **R8.** A stage funnel reports, per ground-truth option and view, its **loss stage** (the first stage after
-  which the option never has a hit again) and counts options dropped and later recovered, using the matcher's serialization, judge and cache; it runs on any saved run of either mode.
+- **R8.** A stage funnel reports, per ground-truth option and view, its **loss stage** (the first stage judged
+  absent after its last presence; unjudged stages are not losses) and counts options dropped and later recovered, using the matcher's serialization, judge and cache; it runs on any saved run of either mode.
 - **R9.** C1/C2 study configs can switch modes without other changes; docs (SETTINGS, USAGE, CONCEPTS)
   describe the switch and the operation log.
 
@@ -283,7 +290,7 @@ for step in range(edit_max_steps):
 return editor.result(), editor.explanation or fallback_from_log(editor), editor.log
 ```
 
-Step limit `edit_max_steps` (default 8). With a compact view (C2's 282 values ≈ 6–8k tokens) and 1–3 turns,
+Step limit `edit_max_steps` (default 12; 8 until 2026-10-05, raised after smoke runs hit it). With a compact view (C2's 282 values ≈ 6–8k tokens) and 1–3 turns,
 an update should cost less than today's rewrite.
 
 ### Integration
@@ -412,11 +419,11 @@ train runs: as before (the seed is `clusters[0]`).
 (commented entries), `tests/unit_tests/test_edit_mode_settings.py` (new).
 
 **Approach:** `TaxonomySettings.edit_mode = "rewrite"` (allowed: `rewrite`, `rewrite_restore`, `tools`),
-`edit_max_steps = 8`; `_build_taxonomy` reads them; `Configuration` fields and `_defaults_from_settings`
+`edit_max_steps = 12`; `_build_taxonomy` reads them; `Configuration` fields and `_defaults_from_settings`
 mapping; an unknown mode raises a clear error at load.
 
 **Test scenarios:**
-- No `edit_mode` in YAML → `rewrite`, `edit_max_steps` 8.
+- No `edit_mode` in YAML → `rewrite`, `edit_max_steps` 12.
 - `edit_mode: rewrite_restore` is accepted.
 - `edit_mode: tools` in YAML reaches `Configuration.from_runnable_config`.
 - A runnable-config override wins over YAML.
@@ -514,7 +521,7 @@ completes end to end.
 for the CLI shape.
 
 **Test scenarios:**
-- With a fake embedder and fake judge, an option present in codes and early iterations but absent later gets its loss stage at the first iteration after which it never has a hit again.
+- With a fake embedder and fake judge, an option present in codes and early iterations but absent later gets its loss stage at the first stage judged absent after its last presence.
 - An option absent at one iteration and present again later is counted as "dropped then recovered", and its loss stage ignores the temporary gap.
 - An option never coded has loss stage "open codes".
 - An option matched in the selected view has no loss stage.
