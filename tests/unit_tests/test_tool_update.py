@@ -302,3 +302,29 @@ def test_invalid_call_without_id_gets_no_reply_but_is_logged():
     editor, _, _ = _run(model)
     assert not [m for m in model.inputs[1] if isinstance(m, ToolMessage)]
     assert editor.rejected[0]["tool"] == "add_value"
+
+
+# ---------------------------------------------------------------- M2: structural check at finish
+
+
+def test_finish_after_creating_dimensions_gets_one_structural_check():
+    model = ScriptedModel([
+        AIMessage(content="", tool_calls=[
+            call("add_dimension", {"name": "Alert Routing", "description": "Where do alerts go?", "reason": "r"}, "c1"),
+            call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c2"),
+            call("finish", {"explanation": "first"}, "c3")]),
+        AIMessage(content="", tool_calls=[call("finish", {"explanation": "dimensions answer different questions"},
+                                               "c4")])])
+    editor, _, explanation = _run(model)
+    reply = next(m.content for m in model.inputs[1] if isinstance(m, ToolMessage) and m.tool_call_id == "c3")
+    assert "not finished" in reply and "structural check" in reply
+    assert "[1] Drift Test" in reply and "Alert Routing" in reply and "merge_dimensions" in reply
+    assert explanation == "dimensions answer different questions" and editor.stop == "finish"
+
+
+def test_no_structural_check_when_no_dimension_was_created():
+    model = ScriptedModel([AIMessage(content="", tool_calls=[
+        call("add_evidence", {"value_id": "1.1", "doc_ids": ["d2"], "reason": "r"}, "c1"),
+        call("finish", {"explanation": "done"}, "c2")])])
+    _editor, _, explanation = _run(model)
+    assert explanation == "done"

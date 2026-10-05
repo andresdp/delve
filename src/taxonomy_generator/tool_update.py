@@ -196,8 +196,9 @@ TOOL_NAMES = tuple(name for name, _ in TOOLS)
 class TurnState:
     """What ``finish`` needs to know about the current turn and update."""
 
-    failed: int = 0          # calls of this turn that failed (finish is refused while > 0)
-    reminded: bool = False   # the uncited-documents reminder was given once
+    failed: int = 0                  # calls of this turn that failed (finish is refused while > 0)
+    reminded: bool = False           # the uncited-documents reminder was given once
+    structure_checked: bool = False  # the structural check (after new dimensions) was asked once
 
 
 def _plain(value: Any) -> Any:
@@ -310,6 +311,14 @@ def _finish_reply(editor: TaxonomyEditor, args: dict, turn: TurnState) -> str:
         turn.reminded = True
         return (f"not finished: batch documents {', '.join(uncited)} are cited by no value. Cite their codes with "
                 "add_evidence or add_value, or call finish again if they are irrelevant to the use case")
+    created = sum(op["tool"] in ("add_dimension", "split_dimension") for op in editor.operations)
+    if created and not turn.structure_checked:
+        turn.structure_checked = True
+        listing = "; ".join(f"[{c['id']}] {c.get('name', '')} ({len(c['values'])} values)" for c in editor.clusters)
+        return ("not finished: structural check. This update created dimensions. Current dimensions: "
+                f"{listing}. If two or more of them answer parts of one design question (sibling decisions a "
+                "designer would face as one choice), combine them with merge_dimensions; then call finish, or call "
+                "finish again if every dimension is a distinct design decision")
     ok, message = editor.apply("finish", args)
     if not ok:
         raise ToolException(message)

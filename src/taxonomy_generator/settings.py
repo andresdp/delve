@@ -163,6 +163,10 @@ class TaxonomySettings:
     edit_mode: str = "rewrite"
     # Tools mode: maximum model turns per update or review.
     edit_max_steps: int = 12
+    # Selective coding: when True, an LLM judges each dimension's relevance to the use
+    # case and drops the irrelevant ones (after the support and decision-point rules).
+    # False keeps every dimension that passes those rules (no LLM relevance filter).
+    relevance_selection: bool = True
 
 
 @dataclass(frozen=True)
@@ -403,9 +407,13 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
     edit_max_steps = raw.get("edit_max_steps", TaxonomySettings.edit_max_steps)
     if not isinstance(edit_max_steps, int) or edit_max_steps < 1:
         raise ValueError(f"taxonomy.edit_max_steps must be a positive integer, got {edit_max_steps!r}")
+    relevance_selection = raw.get("relevance_selection", TaxonomySettings.relevance_selection)
+    if not isinstance(relevance_selection, bool):
+        raise ValueError(f"taxonomy.relevance_selection must be true or false, got {relevance_selection!r}")
     return TaxonomySettings(
         edit_mode=edit_mode,
         edit_max_steps=edit_max_steps,
+        relevance_selection=relevance_selection,
         name=raw.get("name", TaxonomySettings.name),
         max_num_clusters=raw.get("max_num_clusters", TaxonomySettings.max_num_clusters),
         cluster_name_length=raw.get("cluster_name_length", TaxonomySettings.cluster_name_length),

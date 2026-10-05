@@ -1640,7 +1640,7 @@ C3-curated.
     the paper's tool-using Taxonomist). `rewrite` and `rewrite_restore` are ablations: `rewrite_restore`
     measures how much recall comes from never losing evidence-backed values. Evidence:
     `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`. Open: tools mode fragments decisions
-    (20 dimensions for 7) and loses options at selection; to address before the main runs.
+    (20 dimensions for 7) and loses options at selection; addressed 2026-10-05 without tuning to the scores: `taxonomy.relevance_selection` switch (off = no LLM relevance filter) and a decision-point granularity rule plus a one-time structural check in tools mode (logged in the frame's change log). To check on C1 and in the repeated runs.
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
 7. ~~**C1 ground-truth scope**~~ **Decided (2026-10-01):** both studies are compared against two views, the
    paper as reported and the full replication-package model, side by side (§4.1, §5.1 M7).

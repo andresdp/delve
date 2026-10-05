@@ -238,6 +238,11 @@ class Configuration:
         metadata={"description": "Tools mode: maximum model turns per update or review."},
     )
 
+    relevance_selection: bool = field(
+        default=None,
+        metadata={"description": "Selective coding: drop dimensions an LLM judges irrelevant to the use case."},
+    )
+
     # ── Summarization ──────────────────────────────────────────────────
     skip_summarization: bool = field(
         default=None,
@@ -433,6 +438,7 @@ class Configuration:
             "saturation_min_corpus_fraction": s.taxonomy.saturation_min_corpus_fraction,
             "edit_mode": s.taxonomy.edit_mode,
             "edit_max_steps": s.taxonomy.edit_max_steps,
+            "relevance_selection": s.taxonomy.relevance_selection,
             # Summarization
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,

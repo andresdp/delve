@@ -262,3 +262,17 @@ Both are scored on their selected view.
 
   With one-to-one counting, Jaccard is lower than F1. Precision and recall count many-to-one hits; for
   example, C1 paper view has F1 0.50 and Jaccard 0.24.
+- **2026-10-05 — pipeline settings added after the C2 update-strategy comparison** (user decision, after
+  scores were seen; `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`). Neither changes the
+  matcher, the metrics or the defaults; both are general rules, not C2-specific thresholds, and must be
+  checked on C1 before any claim.
+  - **`taxonomy.relevance_selection`** (default `true`, today's behavior). `false` keeps every dimension that
+    passes the support and decision-point rules, without the LLM use-case relevance filter. Seen on the C2
+    tools run: the filter dropped 10 of 30 dimensions and 14 expert options without changing option
+    precision (paper view, before vs. after selection: recall 0.82 vs. 0.58, precision 0.35 vs. 0.34).
+  - **Tools mode, decision-point granularity.** The tools prompt asks to merge sibling dimensions that answer
+    parts of one design question, and `finish` asks once for a structural check when an update created
+    dimensions. Seen on the C2 tools run: 20 dimensions for 7 expert decisions, and the dimension-merge judge
+    rejected all 19 candidate pairs (closest distance 0.74).
+  - **Not changed:** the merge thresholds and the merge judge's criterion, the use case (its wording is part
+    of human check 3), and the selection prompt.

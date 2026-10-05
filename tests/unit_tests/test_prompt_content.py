@@ -210,3 +210,14 @@ def test_tools_prompts_ask_for_options_not_codes():
         assert "Values are design options, not codes" in text
         assert "constant comparison" in text
         assert "instance or variant" in text and "merge_values" in text
+
+
+def test_tools_prompts_state_the_granularity_of_decision_points():
+    from taxonomy_generator.prompts import (
+        TAXONOMY_REVIEW_TOOLS_PROMPT,
+        TAXONOMY_UPDATE_TOOLS_PROMPT,
+    )
+
+    for prompt in (TAXONOMY_UPDATE_TOOLS_PROMPT, TAXONOMY_REVIEW_TOOLS_PROMPT):
+        text = _system(prompt)
+        assert "Granularity of decision points" in text and "merge_dimensions" in text
