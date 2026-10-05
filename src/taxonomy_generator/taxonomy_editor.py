@@ -35,6 +35,31 @@ CODING_CANDIDATE_STATUSES = ("accepted", "rejected")
 RELATION_TYPES = get_args(RelationType)
 
 
+_STOPWORDS = frozenset("a an and as at by for from in into of on or the to under via with without".split())
+
+
+def _tokens(label: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9]+", (label or "").lower()) if len(w) > 1 and w not in _STOPWORDS}
+
+
+def similar_values(label: str, values: Iterable[dict], threshold: float = 0.34, top: int = 3) -> list[dict]:
+    """Values whose labels share words with ``label`` (Jaccard of content words), most similar first.
+
+    A cheap lexical signal for the model, not a judgment: it points at existing options
+    a new value may duplicate, so the model can cite evidence or merge instead.
+    """
+    words = _tokens(label)
+    scored = []
+    for v in values:
+        other = _tokens(v.get("label", ""))
+        if words and other:
+            score = len(words & other) / len(words | other)
+            if score >= threshold:
+                scored.append((score, v))
+    scored.sort(key=lambda sv: -sv[0])
+    return [v for _, v in scored[:top]]
+
+
 class EditError(ValueError):
     """An invalid operation; its message is returned to the model."""
 
@@ -230,8 +255,15 @@ class TaxonomyEditor:
         value = {"id": "", "dimension_id": str(dim["id"]), "label": label,
                  "description": _str(args, "description", required=False), "supporting_doc_ids": doc_ids,
                  "status": status}
+        similar = similar_values(label, [v for v in dim["values"] if v is not value])
         new = self._place(value, dim)
-        return f"added value {new} '{label}' to dimension {dim['id']}"
+        message = f"added value {new} '{label}' to dimension {dim['id']}"
+        if similar:
+            listed = "; ".join(f"{v['id']} '{v.get('label', '')}' ({v.get('status', '')})" for v in similar)
+            message += (f". Similar existing values in this dimension: {listed}. If the new value names the same "
+                        "option as one of them, merge them with merge_values (same status); for later codes of "
+                        "that option use add_evidence instead of add_value")
+        return message
 
     def _add_evidence(self, args: dict) -> str:
         _dim, value = self._value(_str(args, "value_id"))

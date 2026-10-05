@@ -412,3 +412,31 @@ def test_uncited_now_tracks_batch_documents_without_a_value():
     assert ed.uncited_now() == ["d4"]
     ed.apply("add_evidence", {"value_id": "1.1", "doc_ids": ["d4"], "reason": "r"})
     assert ed.uncited_now() == []
+
+
+# ---------------------------------------------------------------- F2: similar-value hints
+
+
+def test_add_value_reply_lists_similar_values_of_the_dimension():
+    ed = _editor()
+    ok, msg = ed.apply("add_value", {"dimension_id": "1", "label": "CUSUM control chart test", "description": "x",
+                                     "status": "accepted", "doc_ids": ["d4"], "reason": "r"})
+    assert ok
+    assert "Similar existing values" in msg and "1.1 'CUSUM chart'" in msg
+    assert "merge_values" in msg and "add_evidence" in msg
+
+
+def test_add_value_reply_has_no_hint_without_similar_values():
+    ok, msg = _editor().apply("add_value", {"dimension_id": "1", "label": "Page-Hinkley detector", "description": "x",
+                                            "status": "accepted", "doc_ids": ["d4"], "reason": "r"})
+    assert ok and "similar" not in msg
+
+
+def test_similar_values_ignore_stopwords_and_rank_by_overlap():
+    from taxonomy_generator.taxonomy_editor import similar_values
+
+    values = [{"id": "1.1", "label": "Drift detection test", "status": "accepted"},
+              {"id": "1.2", "label": "Test of the drift", "status": "rejected"},
+              {"id": "1.3", "label": "Reward model training", "status": "accepted"}]
+    found = similar_values("drift detection test for policies", values)
+    assert [v["id"] for v in found] == ["1.1", "1.2"]

@@ -197,3 +197,16 @@ def test_tools_variant_fails_loudly_when_a_marker_is_missing():
                                    "- **Existing values are shown without their document ids**: y\n", "TOOLS")
     with pytest.raises(ValueError, match="Carry the taxonomy forward"):
         derive_tools_system_prompt("# Instruction\n### Format\n- a\n### Quality\n- b\n", "TOOLS")
+
+
+def test_tools_prompts_ask_for_options_not_codes():
+    from taxonomy_generator.prompts import (
+        TAXONOMY_REVIEW_TOOLS_PROMPT,
+        TAXONOMY_UPDATE_TOOLS_PROMPT,
+    )
+
+    for prompt in (TAXONOMY_UPDATE_TOOLS_PROMPT, TAXONOMY_REVIEW_TOOLS_PROMPT):
+        text = _system(prompt)
+        assert "Values are design options, not codes" in text
+        assert "constant comparison" in text
+        assert "instance or variant" in text and "merge_values" in text
