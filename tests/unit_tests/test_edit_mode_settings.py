@@ -12,10 +12,10 @@ def _yaml(tmp_path, body):
     return str(cfg)
 
 
-def test_defaults_are_rewrite_and_eight_steps(tmp_path):
+def test_defaults_are_rewrite_and_twelve_steps(tmp_path):
     s = load_settings(_yaml(tmp_path, "taxonomy:\n  name: t\n"))
     assert s.taxonomy.edit_mode == "rewrite"
-    assert s.taxonomy.edit_max_steps == 8
+    assert s.taxonomy.edit_max_steps == 12
     assert EDIT_MODES == ("rewrite", "rewrite_restore", "tools")
 
 

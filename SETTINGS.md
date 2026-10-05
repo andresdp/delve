@@ -111,7 +111,7 @@ critic on the evaluation LLM.
 | `taxonomy.consolidate_values` | `bool` | `true` | When `false`, value consolidation is disabled: the `consolidate_values` node passes the reviewed taxonomy through unchanged (no embeddings, no LLM adjudication), and visualization places every value at a unitary distance on its dimension axis. |
 | `taxonomy.review_sample_size` | `int` or `null` | `null` | Number of documents to sample for the final taxonomy review. `null` = use `batch_size`. |
 | `taxonomy.edit_mode` | `str` | `"rewrite"` | How `update_taxonomy` and `review_taxonomy` change the taxonomy. `rewrite`: the model re-emits the whole taxonomy (large taxonomies can collapse). `rewrite_restore`: rewrite, then evidence-backed values the rewrite dropped are put back (an ablation control). `tools`: the model edits the stored taxonomy through validated coding operations (add, move, merge, split, rename, relate, remove); supported values are never removed during the loop. Tools and rewrite_restore runs save an `operation_log` in the taxonomy JSON. |
-| `taxonomy.edit_max_steps` | `int` | `8` | Tools mode: maximum model turns per update or review; operations applied before the limit are kept. |
+| `taxonomy.edit_max_steps` | `int` | `12` | Tools mode: maximum model turns per update or review; operations applied before the limit are kept. |
 
 ### 2.4 Feedback
 

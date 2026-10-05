@@ -162,7 +162,7 @@ class TaxonomySettings:
     # edits it through validated coding operations (taxonomy_editor.py).
     edit_mode: str = "rewrite"
     # Tools mode: maximum model turns per update or review.
-    edit_max_steps: int = 8
+    edit_max_steps: int = 12
 
 
 @dataclass(frozen=True)
