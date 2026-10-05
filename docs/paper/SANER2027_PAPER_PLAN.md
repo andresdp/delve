@@ -1635,6 +1635,12 @@ C3-curated.
 10. **Seeds** — **decided 2026-10-04:** 3 for main runs, 1–2 for ablations. Judge: OpenAI only (no
     cross-family judge); the matching LLM for reported numbers differs from the generator and is validated
     against A6.
+11. **Main update strategy** — **decided 2026-10-05:** `taxonomy.edit_mode: tools` is the main configuration
+    (lower cost than `rewrite_restore`, no collapse, best one-to-one option fit, every change logged; it is
+    the paper's tool-using Taxonomist). `rewrite` and `rewrite_restore` are ablations: `rewrite_restore`
+    measures how much recall comes from never losing evidence-backed values. Evidence:
+    `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`. Open: tools mode fragments decisions
+    (20 dimensions for 7) and loses options at selection; to address before the main runs.
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
 7. ~~**C1 ground-truth scope**~~ **Decided (2026-10-01):** both studies are compared against two views, the
    paper as reported and the full replication-package model, side by side (§4.1, §5.1 M7).
