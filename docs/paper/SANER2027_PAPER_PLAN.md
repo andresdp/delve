@@ -1228,6 +1228,11 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
   (round 1 tools: 0.30); 19 dimensions instead of 30; every update ended with finish; scoreboard 0.70. The
   relevance filter still drops 7 options with no precision gain. Details:
   `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md` (section 3b).
+- **2026-10-05: C1 check of tools + M2** (one run, 17.5M tokens, 44 min). The relevance filter kept all 30
+  dimensions (no effect on C1). Paper / model view: option P 0.38 / 0.58, R 0.79 / 0.75, F1 0.51 / 0.66,
+  J 0.19 / 0.30; strict decision F1 0.62 / 0.79. Against the 2026-10-02 rewrite run (older prompts, not
+  like-for-like): higher recall in both views, better model-view scores, lower paper-view precision and F1.
+  No collapse (76 → 344 values). Section 3c of the results file.
 
 ---
 

@@ -1,4 +1,4 @@
-# C2 update-strategy comparison (preliminary, 2026-10-05; round 2 added the same day)
+# C2 update-strategy comparison, with a C1 check (preliminary, 2026-10-05)
 
 Preliminary results of comparing three ways the pipeline updates the taxonomy during axial coding
 (`taxonomy.edit_mode`), on case C2 (monitoring deployed RL systems). **One run per strategy; the judge is
@@ -198,6 +198,34 @@ What round 2 shows (one run):
 - **Caution:** round 2 differs from round 1 in the prompt and in run-to-run variation; with one run each, the
   two cannot be separated.
 
+### 3c. C1 check: tools + M2, relevance filter on and off
+
+One tools-mode run on C1 (ML workflow; 10 decisions and 43 options in the paper view, 28 decisions and 121
+options in the model view), same code and settings as C2 round 2: 44 min, 17.5M tokens; outputs in
+`examples/c1-ml-workflow/u7/`.
+
+- **Relevance filter on vs. off:** identical on C1. The filter kept all 30 dimensions, so both variants are
+  the same taxonomy. The filter neither helps nor hurts here; on C2 it cost options.
+- **Reference:** the only earlier C1 run is the 2026-10-02 rewrite run, made with older update and review
+  prompts (before commit `afebe10`) and scored with the same judge. It is not a like-for-like comparison.
+
+| C1 (paper / model view) | Option P | Option R | Option F1 | Option J | Decision P | Decision R | Decision F1 | Decision J |
+|---|---|---|---|---|---|---|---|---|
+| rewrite, 2026-10-02 (older prompts) | **0.52 / 0.65** | 0.65 / 0.55 | **0.58** / 0.60 | **0.26** / 0.29 | **0.57 / 0.84** | 0.80 / 0.57 | **0.67** / 0.68 | **0.50** / 0.52 |
+| tools + M2 (filter on = off) | 0.38 / 0.58 | **0.79 / 0.75** | 0.51 / **0.66** | 0.19 / **0.30** | 0.45 / 0.77 | **1.00 / 0.82** | 0.62 / **0.79** | 0.45 / **0.66** |
+
+Decision values are for the strict alignment; lenient decision F1 for tools + M2 is 0.87 / 0.88.
+
+- **Run statistics:** values per iteration 76 → 344 with no collapse (rewrite 2026-10-02: oscillating); 30
+  dimensions and 344 values selected; every update ended with `finish`; in-run quality score 0.57.
+- **Funnel (paper view):** 42 of 43 options open-coded; 29 present after the first draft and about 32 through
+  the whole loop, review, consolidation and selection. The options lost are lost at the first draft (6) and
+  never added later; nothing is lost at selection.
+- **Reading:** on C1, tools mode has higher recall in both views and better scores in the model view (the
+  authors' full model, 28 decisions), but lower precision and F1 in the paper view: many of its values match
+  parts of the model the paper omits, which the paper view leaves out. The size of the space (344 values,
+  30 dimensions) fits the full model better than the paper's 10 decisions.
+
 ---
 
 ## 4. Reading
@@ -222,8 +250,9 @@ What round 2 shows (one run):
 
 ## 6. Open questions and next steps
 
-0. Decide whether the study configs use `relevance_selection: false` (round 2: the filter costs options and
-   gains no precision) or keep the filter; the use-case wording is part of human check 3.
+0. Decide whether the study configs use `relevance_selection: false` (C2 round 2: the filter costs 7 options
+   and gains no precision; C1: the filter keeps every dimension, no effect) or keep the filter; the use-case
+   wording is part of human check 3.
 1. Repeat the runs (≥ 3 seeds per strategy) before any claim.
 2. Decide the paper's metric set (proposed: option and decision P/R/F1 + Jaccard + space size).
 3. `rewrite_restore`: limit accumulation (e.g. restore only values with no near-duplicate in the rewrite;
