@@ -1196,6 +1196,32 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
     It is compared with `rewrite` and with `rewrite_restore` (rewrite plus restoring dropped evidence-backed
     values), 3 seeds each, with the same frame and judge (plan
     `docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`, U7).
+- **2026-10-05: U7 edit-mode comparison on C2** (one run per mode, same config and code, `edit_max_steps`
+  12; judge `gpt-5.6-luna`, also the generator; outputs in `examples/c2-rl-monitoring/u7/`). Paper view
+  (model view within ±0.03 except where noted):
+
+  | Mode | Option P / R / F1 | Option J | Exact R | Decision F1 strict / lenient | Selected (dims / values) | Tokens | Scoreboard |
+  |---|---|---|---|---|---|---|---|
+  | rewrite | 0.28 / 0.23 (13/57) / 0.25 | 0.13 | 0.04 | 0.53 / 0.65 | 8 / 70 | 4.5M | 0.60 |
+  | rewrite_restore | 0.37 / **0.93** (53/57) / **0.53** | 0.14 | **0.44** | 0.52 / **0.75** | 20 / **381** | **13.7M** | 0.49 |
+  | tools | 0.34 / 0.58 (33/57) / 0.43 | **0.21** | 0.19 | 0.30 / 0.47 | 20 / 182 | 8.6M | 0.61 |
+
+  - **Values per iteration:** rewrite collapses again (241 → 80 at update 8); rewrite_restore only grows
+    (→ 525; 2,116 restorations over the run: each rewrite keeps dropping evidence-backed values); tools grows
+    steadily (→ 269).
+  - **Funnel (paper view, present at review → selected):** rewrite 16 → 13 (22 options lost for good at
+    update 8); rewrite_restore 53 → 50; tools 44 → 32 (selection is now its largest loss: 10 options).
+  - **Reading:** keeping evidence-backed values explains most of the recall gain (the confound flagged in the
+    plan review): rewrite_restore recovers almost every option, but by volume (381 values for 57 options,
+    lowest one-to-one Jaccard, lowest scoreboard, 3× the tokens of rewrite). Tools gives a more compact space
+    (best Jaccard and scoreboard) at half rewrite_restore's tokens, but loses options at selection and
+    fragments decisions (20 dimensions for 7 decisions; strict decision F1 0.30).
+  - **Caveats:** a single run per mode (the rewrite collapse is stochastic; the 2026-10-02 rewrite run had
+    recall 0.40); a non-independent judge; lenient hits (`broader`/`narrower`) favor large spaces, so
+    precision does not penalize redundancy, while Jaccard does.
+  - **Open questions for the paper:** whether to report option F1 alone or with Jaccard/size; whether
+    selection should be tuned for tools mode (min-support, dimension merging); repeated runs (KTD13) before
+    any claim.
 
 ---
 
