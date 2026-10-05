@@ -1,4 +1,4 @@
-# C2 update-strategy comparison (preliminary, 2026-10-05)
+# C2 update-strategy comparison (preliminary, 2026-10-05; round 2 added the same day)
 
 Preliminary results of comparing three ways the pipeline updates the taxonomy during axial coding
 (`taxonomy.edit_mode`), on case C2 (monitoring deployed RL systems). **One run per strategy; the judge is
@@ -118,25 +118,35 @@ Same configuration and code for all three runs (`examples/c2-rl-monitoring/c2_rl
 with only `edit_mode` changed); generation, evaluation and matching LLM `gpt-5.6-luna`; ground truth at
 commit `0217b6b`. Cells show **paper view / model view**.
 
+Rows marked *round 2* come from a later run with the changes of section 3b (tools mode with the
+decision-point granularity rule and structural check; the selection variants with and without the LLM
+relevance filter). Round 1 rows are the first comparison.
+
 ### Table 1: dimensions vs. decisions (strict alignment; C2 has 7 decisions)
 
-| Strategy | Dimensions | Precision | Recall | F1 | Jaccard |
+| Strategy | Dimensions selected | Precision | Recall | F1 | Jaccard |
 |---|---|---|---|---|---|
-| rewrite | 8 | 0.50 / 0.63 | 0.57 / 0.71 | 0.53 / 0.67 | **0.36 / 0.50** |
+| rewrite | 8 | **0.50 / 0.63** | 0.57 / 0.71 | **0.53 / 0.67** | **0.36 / 0.50** |
 | rewrite_restore | 20 | 0.35 / 0.35 | **1.00 / 1.00** | 0.52 / 0.52 | 0.35 / 0.35 |
-| tools | 20 | 0.20 / 0.20 | 0.57 / 0.57 | 0.30 / 0.30 | 0.17 / 0.17 |
+| tools (round 1) | 20 | 0.20 / 0.20 | 0.57 / 0.57 | 0.30 / 0.30 | 0.17 / 0.17 |
+| tools + M2, filter on (round 2) | 15 | 0.33 / 0.40 | 0.71 / 0.86 | 0.45 / 0.55 | 0.29 / 0.38 |
+| tools + M2, filter off (round 2) | 19 | 0.32 / 0.37 | 0.86 / **1.00** | 0.46 / 0.54 | 0.30 / 0.37 |
 
-Lenient alignment F1: rewrite 0.65 / 0.79; rewrite_restore 0.75 / 0.82; tools 0.47 / 0.51.
+Lenient alignment F1: rewrite 0.65 / 0.79; rewrite_restore 0.75 / 0.82; tools 0.47 / 0.51; tools + M2
+filter on 0.60 / 0.71; filter off 0.64 / 0.69.
 
 ### Table 2: values vs. options (C2 has 57 / 62 options)
 
 | Strategy | Values compared (paper view) | Precision | Recall | F1 | Jaccard |
 |---|---|---|---|---|---|
 | rewrite | 40 | 0.28 / 0.33 | 0.23 / 0.26 | 0.25 / 0.29 | 0.13 / 0.15 |
-| rewrite_restore | 315 | **0.37 / 0.39** | **0.93 / 0.92** | **0.53 / 0.55** | 0.14 / 0.15 |
-| tools | 116 | 0.34 / 0.37 | 0.58 / 0.60 | 0.43 / 0.46 | **0.21 / 0.21** |
+| rewrite_restore | 315 | 0.37 / 0.39 | **0.93 / 0.92** | 0.53 / 0.55 | 0.14 / 0.15 |
+| tools (round 1) | 116 | 0.34 / 0.37 | 0.58 / 0.60 | 0.43 / 0.46 | 0.21 / 0.21 |
+| tools + M2, filter on (round 2) | 148 | **0.41 / 0.42** | 0.79 / 0.79 | 0.54 / 0.55 | **0.25 / 0.25** |
+| tools + M2, filter off (round 2) | 187 | **0.41 / 0.42** | 0.91 / 0.90 | **0.56 / 0.57** | **0.25 / 0.25** |
 
-Exact (`same`-only) option recall, paper view: rewrite 0.04, rewrite_restore 0.44, tools 0.19.
+Exact (`same`-only) option recall, paper view: rewrite 0.04, rewrite_restore 0.44, tools 0.19, tools + M2
+0.21 (filter on) / 0.26 (filter off).
 
 ### Run statistics
 
@@ -144,7 +154,8 @@ Exact (`same`-only) option recall, paper view: rewrite 0.04, rewrite_restore 0.4
 |---|---|---|---|---|---|
 | rewrite | 54, 118, 171, 95, 184, 89, 145, 241, **80**, 81, 81 | 8 / 70 | 4.5M | 31 min | 0.60 |
 | rewrite_restore | 49, 72, 153, 212, 353, 353, 401, 485, 525, 525, 484 | 20 / 381 | 13.7M | 33 min | 0.49 |
-| tools | 65, 83, 97, 143, 199, 237, 262, 266, 269, 269, 268 | 20 / 182 | 8.6M | 36 min | 0.61 |
+| tools (round 1) | 65, 83, 97, 143, 199, 237, 262, 266, 269, 269, 268 | 20 / 182 | 8.6M | 36 min | 0.61 |
+| tools + M2 (round 2) | 67, 122, 147, 169, 219, 226, 255, 258, 262, 265, 262 | 15 / 208 (filter off: 19 / all) | 10.5M | 36 min | 0.70 |
 
 ### Stage funnel (paper view: expert options present at each stage)
 
@@ -152,10 +163,40 @@ Exact (`same`-only) option recall, paper view: rewrite 0.04, rewrite_restore 0.4
 |---|---|---|---|---|---|---|
 | rewrite | 56 | 39 (update 4) | 16 | 14 | 13 | update 8: 22 options lost for good |
 | rewrite_restore | 57 | 53 (review) | 53 | 49 | 50 | consolidation: 5 |
-| tools | 56 | 44 (update 7) | 44 | 42 | 32 | selection: 10 |
+| tools (round 1) | 56 | 44 (update 7) | 44 | 42 | 32 | selection: 10 |
+| tools + M2 (round 2) | 57 | 46 (update 7) | 45 | 44 | 41 (filter off: 44) | selection: 7 |
 
 Almost every expert option is open-coded in every run; the strategies differ in what survives the loop and
 the steps after it.
+
+### 3b. Round 2: what changed and what it shows
+
+Changes after round 1 (logged in `benchmark/README.md`, "Changes after scores were seen"; general rules, no
+threshold tuned to the scores):
+
+- **Tools mode, decision-point granularity (M2):** the tools prompt asks to merge sibling dimensions that
+  answer parts of one design question; `finish` asks once for a structural check when an update created
+  dimensions.
+- **`taxonomy.relevance_selection`:** a switch for the LLM use-case relevance filter at selection. The run
+  used the default (`true`); the filter-off view was rebuilt from the same run without an LLM
+  (`benchmark/selection_variant.py`), so both selection variants come from one run.
+
+What round 2 shows (one run):
+
+- **Less fragmentation:** 19 consolidated dimensions instead of 30, mostly because the model created fewer
+  dimensions (10 splits in the run, no `merge_dimensions` call; the structural check fired 3 times).
+  Strict decision F1 0.30 → 0.45 (filter on), decision Jaccard 0.17 → 0.29.
+- **Better value-level fit:** option precision 0.34 → 0.41, Jaccard 0.21 → 0.25, F1 0.43 → 0.54.
+- **Every update ended with `finish`** (round 1 smoke runs hit the step limit); in-run quality score 0.61 →
+  0.70; tokens 8.6M → 10.5M.
+- **The relevance filter still costs options:** it dropped 4 reward-design and mitigation dimensions and 7
+  options, with no precision gain (0.41 either way). Without it, option recall is 0.91 and every decision is
+  covered at the lenient level.
+- **Against `rewrite_restore`:** tools + M2 (filter off) reaches similar recall (0.91 vs. 0.93) and higher
+  F1 (0.56 vs. 0.53) with half the values compared (187 vs. 315), a much better Jaccard (0.25 vs. 0.14) and
+  fewer tokens (10.5M vs. 13.7M); `rewrite_restore` keeps the better decision-level scores.
+- **Caution:** round 2 differs from round 1 in the prompt and in run-to-run variation; with one run each, the
+  two cannot be separated.
 
 ---
 
@@ -181,6 +222,8 @@ the steps after it.
 
 ## 6. Open questions and next steps
 
+0. Decide whether the study configs use `relevance_selection: false` (round 2: the filter costs options and
+   gains no precision) or keep the filter; the use-case wording is part of human check 3.
 1. Repeat the runs (≥ 3 seeds per strategy) before any claim.
 2. Decide the paper's metric set (proposed: option and decision P/R/F1 + Jaccard + space size).
 3. `rewrite_restore`: limit accumulation (e.g. restore only values with no near-duplicate in the rewrite;
@@ -191,9 +234,10 @@ the steps after it.
 
 ## 7. Files
 
-- Runs, scores and funnels: `examples/c2-rl-monitoring/u7/` (`c2-u7-<strategy>_taxonomy_*.json`,
-  `*_gt_metrics.json`, `*_gt_alignment.csv`, `*_stage_funnel.*`). The full match files of rewrite_restore
-  and tools are not committed (reproducible from the judge cache).
+- Runs, scores and funnels: `examples/c2-rl-monitoring/u7/` (`c2-u7-<strategy>_taxonomy_*.json`, round 2
+  `c2-u7b-tools_*`, `*_gt_metrics.json`, `*_gt_alignment.csv`, `*_stage_funnel.*`). The full match files of
+  rewrite_restore and the tools runs, and the derived filter-off taxonomy, are not committed (reproducible
+  from the judge cache and `benchmark/selection_variant.py`).
 - Implementation plan: `docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`.
 - Progress log: `docs/paper/SANER2027_PAPER_PLAN.md`, §8.7 (2026-10-05 entry).
 - Settings: `SETTINGS.md` (`taxonomy.edit_mode`, `taxonomy.edit_max_steps`).

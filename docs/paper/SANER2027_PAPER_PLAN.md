@@ -1222,6 +1222,12 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
   - **Open questions for the paper:** whether to report option F1 alone or with Jaccard/size; whether
     selection should be tuned for tools mode (min-support, dimension merging); repeated runs (KTD13) before
     any claim.
+- **2026-10-05: round 2 on C2: tools + decision-point granularity rule, and the relevance-filter switch**
+  (one run, 10.5M tokens; filter-off view rebuilt without an LLM). Paper view: option P/R/F1/J 0.41 / 0.79 /
+  0.54 / 0.25 with the filter, 0.41 / 0.91 / 0.56 / 0.25 without it; strict decision F1 0.45 / 0.46
+  (round 1 tools: 0.30); 19 dimensions instead of 30; every update ended with finish; scoreboard 0.70. The
+  relevance filter still drops 7 options with no precision gain. Details:
+  `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md` (section 3b).
 
 ---
 
