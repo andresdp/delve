@@ -276,3 +276,8 @@ Both are scored on their selected view.
     rejected all 19 candidate pairs (closest distance 0.74).
   - **Not changed:** the merge thresholds and the merge judge's criterion, the use case (its wording is part
     of human check 3), and the selection prompt.
+- **2026-10-05 — study configs set `taxonomy.relevance_selection: false`** (C1 and C2; user decision after
+  the round-2 and C1 runs). Evidence: on C2 the LLM relevance filter dropped 4 dimensions and 7 expert
+  options with no precision gain (paper view, option recall 0.79 with the filter, 0.91 without; precision
+  0.41 both); on C1 it kept every dimension (no effect). The switch stays available as an ablation; to be
+  revisited after the use-case agreement (human check 3). The default in `config.yaml` stays `true`.
