@@ -92,6 +92,9 @@ taxonomy:
   # fewer than this many candidate decisions (accepted/rejected values; outcomes, i.e. effects
   # of decisions, do not count). 0 disables the rule.
   min_candidate_decisions: 2
+  # Selective coding: true = an LLM drops dimensions it judges irrelevant to the use case (after the
+  # support and decision-point rules); false = keep every dimension that passes those rules.
+  relevance_selection: false
 
   # Tolerant saturation: a minibatch also counts as saturated when at least this
   # share of its open codes is already covered by the taxonomy. 1.0 = strict
@@ -103,6 +106,14 @@ taxonomy:
   # saturation reached earlier is recorded but must still hold once this share is
   # reached. 0 = saturation alone decides.
   saturation_min_corpus_fraction: 0.7
+
+  # How update_taxonomy and review_taxonomy change the taxonomy:
+  #   rewrite          re-emit the whole taxonomy each time (default);
+  #   rewrite_restore  rewrite, then put back evidence-backed values the rewrite dropped (ablation control);
+  #   tools            edit it through validated coding operations, logged as an operation log.
+  edit_mode: "tools"
+  # Tools mode: maximum model turns per update or review.
+  edit_max_steps: 12
   use_case: >-
     Identify the architectural design decisions that practitioners face when building
     monitoring infrastructure for reinforcement learning (RL) agents after they have been

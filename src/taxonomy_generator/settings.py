@@ -156,6 +156,17 @@ class TaxonomySettings:
     # Minimum share of the corpus's documents that must be open-coded before
     # saturation may end the update loop (0 = saturation alone decides).
     saturation_min_corpus_fraction: float = 0.0
+    # How update_taxonomy and review_taxonomy change the taxonomy (EDIT_MODES):
+    # "rewrite" re-emits the whole taxonomy (default); "rewrite_restore" also puts
+    # back evidence-backed values a rewrite dropped (an ablation control); "tools"
+    # edits it through validated coding operations (taxonomy_editor.py).
+    edit_mode: str = "rewrite"
+    # Tools mode: maximum model turns per update or review.
+    edit_max_steps: int = 12
+    # Selective coding: when True, an LLM judges each dimension's relevance to the use
+    # case and drops the irrelevant ones (after the support and decision-point rules).
+    # False keeps every dimension that passes those rules (no LLM relevance filter).
+    relevance_selection: bool = True
 
 
 @dataclass(frozen=True)
@@ -196,6 +207,7 @@ class OpenCodingSettings:
 
 
 OPEN_CODING_INPUTS = ("summary", "content")
+EDIT_MODES = ("rewrite", "rewrite_restore", "tools")
 
 
 @dataclass(frozen=True)
@@ -389,7 +401,19 @@ def _build_feedback(raw: dict) -> FeedbackSettings:
 
 
 def _build_taxonomy(raw: dict) -> TaxonomySettings:
+    edit_mode = raw.get("edit_mode", TaxonomySettings.edit_mode)
+    if edit_mode not in EDIT_MODES:
+        raise ValueError(f"taxonomy.edit_mode must be one of {EDIT_MODES}, got {edit_mode!r}")
+    edit_max_steps = raw.get("edit_max_steps", TaxonomySettings.edit_max_steps)
+    if not isinstance(edit_max_steps, int) or edit_max_steps < 1:
+        raise ValueError(f"taxonomy.edit_max_steps must be a positive integer, got {edit_max_steps!r}")
+    relevance_selection = raw.get("relevance_selection", TaxonomySettings.relevance_selection)
+    if not isinstance(relevance_selection, bool):
+        raise ValueError(f"taxonomy.relevance_selection must be true or false, got {relevance_selection!r}")
     return TaxonomySettings(
+        edit_mode=edit_mode,
+        edit_max_steps=edit_max_steps,
+        relevance_selection=relevance_selection,
         name=raw.get("name", TaxonomySettings.name),
         max_num_clusters=raw.get("max_num_clusters", TaxonomySettings.max_num_clusters),
         cluster_name_length=raw.get("cluster_name_length", TaxonomySettings.cluster_name_length),

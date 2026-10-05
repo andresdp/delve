@@ -4,7 +4,7 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 
 ## Relationships
 
-A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus. Ground-Truth Matching scores one Taxonomy view against each Ground Truth View of an expert study, under an Evaluation Frame fixed before any score is seen. Three LLM Roles divide the model work: the generation role builds the Taxonomy, the evaluation role produces Scoreboards and adjudicates Consistency Comparisons, and the matching role judges Ground-Truth Matching.
+A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus. Ground-Truth Matching scores one Taxonomy view against each Ground Truth View of an expert study, under an Evaluation Frame fixed before any score is seen. Three LLM Roles divide the model work: the generation role builds the Taxonomy, the evaluation role produces Scoreboards and adjudicates Consistency Comparisons, and the matching role judges Ground-Truth Matching. An Edit Mode decides how each update and review changes the Taxonomy; tools and rewrite_restore runs keep an Operation Log, and a Stage Funnel traces where expert options are lost across the Iterations.
 
 ## Taxonomy
 
@@ -121,3 +121,15 @@ The written, dated record of everything a reported ground-truth score rests on �
 
 One of three distinct jobs a language model does in the project: the generation role builds the design space, the evaluation role judges it during a run (Scoreboard, Consistency Comparison, saturation critic), and the matching role judges Ground-Truth Matching. Each role is configured separately and should use a different model, so that judging stays independent of what it judges; a model shared between roles is allowed but flagged with a warning and recorded.
 *Avoid:* main model, fast LLM, judge model (as a configuration name)
+
+## Edit Mode
+
+How the Taxonomist changes the Taxonomy in each update and review (`taxonomy.edit_mode`). In **rewrite** mode the model re-emits the whole Taxonomy, which past a few hundred Values tends to compress it and silently drop Values. In **tools** mode the model never re-emits it: it calls coding operations (add, move, merge, split, rename, relate, remove) that code validates against the Taxonomy and the batch before applying, and a Value with supporting documents is never removed during the loop. **rewrite_restore** is a control between the two: a rewrite whose dropped evidence-backed Values are put back afterwards, which separates the effect of keeping Values from the effect of editing through operations.
+
+## Operation Log
+
+The memo trail of a tools-mode (or rewrite_restore) run: one entry per update and review listing the operations applied with their reasons, the calls rejected with their errors, the batch documents no Value cites, the explanation, why the loop stopped, and the transcript of the model's turns and the tool replies. Saved in the taxonomy JSON as `operation_log`.
+
+## Stage Funnel
+
+A diagnosis of where along the pipeline each expert option of a Ground Truth View is lost: present in the open codes, in each Iteration, after review and consolidation, and in Selected Dimensions. An option's loss stage is the first stage judged absent after its last presence; an option with no candidate close enough at a stage, or whose judge call failed, is unjudged there, not lost.

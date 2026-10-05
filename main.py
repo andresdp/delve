@@ -120,6 +120,24 @@ class TokenTracker(BaseCallbackHandler):
             logger.debug("Could not extract token usage from LLM response", exc_info=True)
 
 
+def _add_edit_record(taxonomy_data: dict, edit_mode: Optional[str], operation_log: list) -> None:
+    """Record the run's edit mode and, in tools / rewrite_restore modes, its operation log."""
+    taxonomy_data["edit_mode"] = edit_mode or "rewrite"
+    if operation_log:
+        # What each update and review changed, and why (tools), or which values were restored.
+        taxonomy_data["operation_log"] = list(operation_log)
+
+
+def _operation_log_line(entry: dict) -> str:
+    """One-line summary of an operation-log entry (tools or rewrite_restore mode)."""
+    if entry.get("edit_mode") == "rewrite_restore":
+        return f"restored {len(entry.get('restored') or [])} dropped evidence-backed values"
+    line = (f"{len(entry.get('operations') or [])} operations applied, {len(entry.get('rejected') or [])} rejected, "
+            f"{len(entry.get('uncited') or [])} batch documents uncited")
+    stop = entry.get("stop")
+    return f"{line} (ended: {stop})" if stop and stop != "finish" else line
+
+
 def _format_elapsed(seconds: float) -> str:
     """Format elapsed time for display."""
     if seconds < 60:
@@ -1397,6 +1415,7 @@ async def run(args: argparse.Namespace) -> None:
     delta_summary: Optional[dict] = None
     evaluation: Optional[dict] = None
     evaluation_history: list = []
+    operation_log: list = []
     total_minibatches = None
 
     # Token tracking callback
@@ -1458,6 +1477,9 @@ async def run(args: argparse.Namespace) -> None:
                     messages.extend(node_output["messages"])
                 if "open_codes" in node_output:
                     open_codes.extend(node_output["open_codes"])
+                for entry in node_output.get("operation_log") or []:
+                    operation_log.append(entry)
+                    console.print(f"    [dim]{_operation_log_line(entry)}[/dim]")
 
                 # Keep a reference to the full output for any fields we might need
                 result.update(node_output)
@@ -1552,6 +1574,7 @@ async def run(args: argparse.Namespace) -> None:
             },
             "iterations": [],
         }
+        _add_edit_record(taxonomy_data, effective_config.edit_mode, operation_log)
         if saturation_history:
             taxonomy_data["saturation_history"] = saturation_history
         if selected_clusters:

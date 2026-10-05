@@ -1,4 +1,5 @@
 """Shared helpers: model loading, prompt formatting, and merge math."""
+import copy
 import json
 import logging
 from typing import Dict, Iterable, List, Tuple
@@ -606,7 +607,32 @@ def taxonomy_prompt_view(clusters: List[Dict]) -> List[Dict]:
     return view
 
 
-def _value_key(label: str) -> str:
+def format_taxonomy_compact(clusters: List[Dict]) -> str:
+    """Compact taxonomy view for tool-based updates: ids, names, statuses and relations only.
+
+    One line per dimension (``[id] name — description (type → target; …)``) and one
+    line with its values (``id label (status) · …``). Value descriptions and provenance
+    are left out: the model refers to elements by id and never re-emits them.
+    """
+    lines = []
+    for cluster in clusters or []:
+        if not isinstance(cluster, dict):
+            continue
+        header = f"[{cluster.get('id', '')}] {cluster.get('name', '')} — {cluster.get('description', '')}"
+        relations = [r for r in cluster.get("relations") or [] if isinstance(r, dict)]
+        if relations:
+            header += " (" + "; ".join(f"{r.get('type')} → {r.get('target_id')}" for r in relations) + ")"
+        values = [v for v in cluster.get("values") or [] if isinstance(v, dict)]
+        if not values:
+            lines.append(header + " (no values yet)")
+            continue
+        lines.append(header)
+        lines.append("    " + " · ".join(f"{v.get('id')} {v.get('label', '')} ({v.get('status', '')})"
+                                         for v in values))
+    return "\n".join(lines)
+
+
+def value_key(label: str) -> str:
     return " ".join("".join(ch if ch.isalnum() else " " for ch in (label or "").lower()).split())
 
 
@@ -627,7 +653,7 @@ def carry_over_evidence(previous: List[Dict], updated: List[Dict]) -> List[Dict]
             if not isinstance(value, dict):
                 continue
             ids = set(value.get("supporting_doc_ids") or [])
-            by_label.setdefault(_value_key(value.get("label", "")), set()).update(ids)
+            by_label.setdefault(value_key(value.get("label", "")), set()).update(ids)
             by_id.setdefault((cluster.get("name", ""), str(value.get("id"))), set()).update(ids)
     for cluster in updated or []:
         if not isinstance(cluster, dict):
@@ -635,11 +661,90 @@ def carry_over_evidence(previous: List[Dict], updated: List[Dict]) -> List[Dict]
         for value in cluster.get("values") or []:
             if not isinstance(value, dict):
                 continue
-            kept = by_label.get(_value_key(value.get("label", "")))
+            kept = by_label.get(value_key(value.get("label", "")))
             if kept is None:
                 kept = by_id.get((cluster.get("name", ""), str(value.get("id"))), set())
             value["supporting_doc_ids"] = sorted(set(value.get("supporting_doc_ids") or []) | kept)
     return updated
+
+
+def taxonomy_prompt_inputs(state: State, configuration: Configuration, mb_indices: List[int],
+                           use_open_codes: bool, taxonomy_json: str) -> Dict[str, object]:
+    """Prompt variables of the update/review prompts (rewrite and tools modes share them).
+
+    The batch is rendered as open codes when the state has them (axial coding
+    input), else as summaries; ``taxonomy_json`` is the taxonomy as the mode shows it.
+    """
+    minibatch = [state.documents[idx] for idx in mb_indices]
+    if use_open_codes and state.open_codes:
+        data_json = format_open_codes_for_docs(minibatch, state.open_codes)
+    else:
+        data_json = format_docs(minibatch)
+    # When max_num_clusters is None, let the LLM determine the count from data
+    max_clusters_value = configuration.max_num_clusters
+    max_clusters_str = (
+        str(max_clusters_value) if max_clusters_value is not None
+        else "unlimited — determine the number of dimensions based on what the data naturally supports. Prefer fewer, high-quality dimensions (typically 3–8) over many narrow ones. Only add a dimension when it captures a genuinely orthogonal axis of variation that cannot be merged into an existing one."
+    )
+    return {
+        "data_json": data_json,
+        "use_case": configuration.use_case,
+        "taxonomy_json": taxonomy_json,
+        "suggestion_length": configuration.suggestion_length,
+        "cluster_name_length": configuration.cluster_name_length,
+        "cluster_description_length": configuration.cluster_description_length,
+        "explanation_length": configuration.explanation_length,
+        "max_num_clusters": max_clusters_str,
+    }
+
+
+def restore_dropped_values(previous: List[Dict], updated: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+    """Put back the evidence-backed values a rewrite dropped (``edit_mode: rewrite_restore``).
+
+    A previous value with supporting documents counts as kept when any updated value
+    has the same normalized label (as ``carry_over_evidence`` recognizes kept values).
+    A dropped one goes back into the updated dimension with the same name (normalized),
+    else into its previous dimension, recreated without its other values. Returns the
+    taxonomy (new dicts, unique ids) and one record per restored value.
+    """
+    kept = {value_key(v.get("label", "")) for c in updated or [] if isinstance(c, dict)
+            for v in c.get("values") or [] if isinstance(v, dict)}
+    clusters = [copy.deepcopy(c) for c in updated or []]
+    by_name = {value_key(c.get("name", "")): c for c in clusters if isinstance(c, dict)}
+    previous_names = {str(c.get("id")): value_key(c.get("name", "")) for c in previous or [] if isinstance(c, dict)}
+    restored: List[Dict] = []
+    for dim in previous or []:
+        if not isinstance(dim, dict):
+            continue
+        for value in dim.get("values") or []:
+            if not isinstance(value, dict) or not value.get("supporting_doc_ids"):
+                continue
+            if value_key(value.get("label", "")) in kept:
+                continue
+            target = by_name.get(value_key(dim.get("name", "")))
+            if target is None:
+                target = {k: copy.deepcopy(v) for k, v in dim.items() if k not in ("values", "relations")}
+                target["values"] = []
+                # Relations used the previous numbering: keep those whose target dimension still
+                # exists under the same name, re-pointed to its current id.
+                target["relations"] = []
+                for rel in dim.get("relations") or []:
+                    old = previous_names.get(str(rel.get("target_id")))
+                    current = by_name.get(old) if old is not None else None
+                    if current is not None:
+                        target["relations"].append({**rel, "target_id": str(current.get("id"))})
+                numeric = [int(c["id"]) for c in clusters if str(c.get("id", "")).isdigit()]
+                target["id"] = str(max(numeric, default=0) + 1)
+                clusters.append(target)
+                by_name[value_key(dim.get("name", ""))] = target
+            target.setdefault("values", []).append(copy.deepcopy(value))
+            kept.add(value_key(value.get("label", "")))
+            restored.append({"id_before": value.get("id"), "label": value.get("label", ""),
+                             "dimension": target.get("name", "")})
+    if not restored:
+        return clusters, []
+    fixed, _changes = ensure_unique_ids(clusters)
+    return fixed, restored
 
 
 async def invoke_taxonomy_chain(
@@ -658,36 +763,11 @@ async def invoke_taxonomy_chain(
     """
     try:
         configuration = Configuration.from_runnable_config(config)
-        minibatch = [state.documents[idx] for idx in mb_indices]
-
-        if use_open_codes and state.open_codes:
-            data_json = format_open_codes_for_docs(minibatch, state.open_codes)
-        else:
-            data_json = format_docs(minibatch)
-
         previous_taxonomy = state.clusters[-1] if state.clusters else []
-        taxonomy_json = format_taxonomy(taxonomy_prompt_view(previous_taxonomy))
-
-        logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(minibatch))
-        # When max_num_clusters is None, let the LLM determine the count from data
-        max_clusters_value = configuration.max_num_clusters
-        max_clusters_str = (
-            str(max_clusters_value) if max_clusters_value is not None
-            else "unlimited — determine the number of dimensions based on what the data naturally supports. Prefer fewer, high-quality dimensions (typically 3–8) over many narrow ones. Only add a dimension when it captures a genuinely orthogonal axis of variation that cannot be merged into an existing one."
-        )
-
-        result: TaxonomyOutput = await chain.ainvoke(
-            {
-                "data_json": data_json,
-                "use_case": configuration.use_case,
-                "taxonomy_json": taxonomy_json,
-                "suggestion_length": configuration.suggestion_length,
-                "cluster_name_length": configuration.cluster_name_length,
-                "cluster_description_length": configuration.cluster_description_length,
-                "explanation_length": configuration.explanation_length,
-                "max_num_clusters": max_clusters_str,
-            }
-        )
+        inputs = taxonomy_prompt_inputs(state, configuration, mb_indices, use_open_codes,
+                                        format_taxonomy(taxonomy_prompt_view(previous_taxonomy)))
+        logger.debug("Invoking taxonomy chain with %d documents in minibatch", len(mb_indices))
+        result: TaxonomyOutput = await chain.ainvoke(inputs)
 
         # Convert Pydantic model to dict list for state
         clusters_list, id_changes = ensure_unique_ids([c.model_dump() for c in result.clusters])

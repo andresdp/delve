@@ -91,6 +91,22 @@ def split_by_candidates(clusters: List[Dict], min_candidates: int) -> Tuple[List
     return [c for c in clusters if str(c.get("id")) not in weak_ids], dropped
 
 
+def _without_relevance_filter(final: List[Dict], candidates: List[Dict], dropped: List[Dict]) -> dict:
+    """Keep every structurally valid dimension (selection with ``taxonomy.relevance_selection: false``)."""
+    selected = [c for c in candidates if isinstance(c, dict)]
+    explanation = (
+        "Use-case relevance filter disabled (taxonomy.relevance_selection=false): kept every dimension that "
+        f"passed the support and decision-point rules ({len(selected)} of {len(final)})."
+    )
+    logger.info(explanation)
+    status = [f"Dimension selection: kept {len(selected)}/{len(final)} dimensions (no relevance filter)."]
+    if dropped:
+        status.append("Dropped dimensions (kept inspectable): "
+                      + "; ".join(f"{d['id']} ({d['rationale']})" for d in dropped))
+    return {"selected_clusters": [selected], "dropped_dimensions": dropped, "explanations": [explanation],
+            "status": status}
+
+
 async def select_dimensions(
     state: State,
     config: RunnableConfig,
@@ -117,6 +133,9 @@ async def select_dimensions(
             len(decision_dropped), configuration.min_candidate_decisions,
         )
     support_dropped = support_dropped + decision_dropped
+
+    if configuration.relevance_selection is False:
+        return _without_relevance_filter(final, candidates, support_dropped)
 
     logger.info(
         "Selecting dimensions relevant to the use case from %d candidates (model: %s)",

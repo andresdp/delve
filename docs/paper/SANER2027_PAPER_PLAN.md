@@ -1178,6 +1178,61 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
   - **Open definitional point:** the "related" rate is implemented as in the frame note (share of *system
     values* whose best label is `related`), whereas M7 above defines it over *GT options*. Decide which to
     report. A change is logged in the frame note's "Changes after scores were seen".
+- **2026-10-04: A10 stage funnel on C2 (`benchmark/stage_funnel.py`; run `20261002_211657`; judge
+  `gpt-5.6-luna`, also the generator, so diagnostic only).** Outputs in `examples/c2-rl-monitoring/gt_luna/`.
+
+  | Paper view (57 options) | open codes | generate | update 3 | update 7 (peak) | update 8 | review | consolidated | selected |
+  |---|---|---|---|---|---|---|---|---|
+  | Options present | 56 | 29 | 17 | 44 | 30 | 30 | 28 | 23 |
+
+  - **The rival "never open-coded" is rejected:** 56 of 57 options (model view: 60 of 62) are in the open codes.
+  - **The loop loses them:** presence follows the value count (iteration 3: 213 → 46 values; iteration 8:
+    282 → 59). The update after the peak loses 15 options for good (one more is unresolved: only unjudged stages follow its last presence). 46 options drop out at some update and come
+    back later, so the space is rebuilt and lost again rather than accumulated.
+  - **After the loop:** consolidation loses 5 more, selection 6.
+  - **The funnel's candidate gate reproduces the official match** at the selected stage (23 both, 0 disagreements).
+    The open-codes gate still needs the hand check (`*_stage_funnel_handcheck.csv`, about 20 options).
+  - **Consequence:** the tool-based update (`taxonomy.edit_mode: tools`) targets the stage that loses most options.
+    It is compared with `rewrite` and with `rewrite_restore` (rewrite plus restoring dropped evidence-backed
+    values), 3 seeds each, with the same frame and judge (plan
+    `docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md`, U7).
+- **2026-10-05: U7 edit-mode comparison on C2** (one run per mode, same config and code, `edit_max_steps`
+  12; judge `gpt-5.6-luna`, also the generator; outputs in `examples/c2-rl-monitoring/u7/`). Paper view
+  (model view within ±0.03 except where noted):
+
+  | Mode | Option P / R / F1 | Option J | Exact R | Decision F1 strict / lenient | Selected (dims / values) | Tokens | Scoreboard |
+  |---|---|---|---|---|---|---|---|
+  | rewrite | 0.28 / 0.23 (13/57) / 0.25 | 0.13 | 0.04 | 0.53 / 0.65 | 8 / 70 | 4.5M | 0.60 |
+  | rewrite_restore | 0.37 / **0.93** (53/57) / **0.53** | 0.14 | **0.44** | 0.52 / **0.75** | 20 / **381** | **13.7M** | 0.49 |
+  | tools | 0.34 / 0.58 (33/57) / 0.43 | **0.21** | 0.19 | 0.30 / 0.47 | 20 / 182 | 8.6M | 0.61 |
+
+  - **Values per iteration:** rewrite collapses again (241 → 80 at update 8); rewrite_restore only grows
+    (→ 525; 2,116 restorations over the run: each rewrite keeps dropping evidence-backed values); tools grows
+    steadily (→ 269).
+  - **Funnel (paper view, present at review → selected):** rewrite 16 → 13 (22 options lost for good at
+    update 8); rewrite_restore 53 → 50; tools 44 → 32 (selection is now its largest loss: 10 options).
+  - **Reading:** keeping evidence-backed values explains most of the recall gain (the confound flagged in the
+    plan review): rewrite_restore recovers almost every option, but by volume (381 values for 57 options,
+    lowest one-to-one Jaccard, lowest scoreboard, 3× the tokens of rewrite). Tools gives a more compact space
+    (best Jaccard and scoreboard) at half rewrite_restore's tokens, but loses options at selection and
+    fragments decisions (20 dimensions for 7 decisions; strict decision F1 0.30).
+  - **Caveats:** a single run per mode (the rewrite collapse is stochastic; the 2026-10-02 rewrite run had
+    recall 0.40); a non-independent judge; lenient hits (`broader`/`narrower`) favor large spaces, so
+    precision does not penalize redundancy, while Jaccard does.
+  - **Open questions for the paper:** whether to report option F1 alone or with Jaccard/size; whether
+    selection should be tuned for tools mode (min-support, dimension merging); repeated runs (KTD13) before
+    any claim.
+- **2026-10-05: round 2 on C2: tools + decision-point granularity rule, and the relevance-filter switch**
+  (one run, 10.5M tokens; filter-off view rebuilt without an LLM). Paper view: option P/R/F1/J 0.41 / 0.79 /
+  0.54 / 0.25 with the filter, 0.41 / 0.91 / 0.56 / 0.25 without it; strict decision F1 0.45 / 0.46
+  (round 1 tools: 0.30); 19 dimensions instead of 30; every update ended with finish; scoreboard 0.70. The
+  relevance filter still drops 7 options with no precision gain. Details:
+  `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md` (section 3b).
+- **2026-10-05: C1 check of tools + M2** (one run, 17.5M tokens, 44 min). The relevance filter kept all 30
+  dimensions (no effect on C1). Paper / model view: option P 0.38 / 0.58, R 0.79 / 0.75, F1 0.51 / 0.66,
+  J 0.19 / 0.30; strict decision F1 0.62 / 0.79. Against the 2026-10-02 rewrite run (older prompts, not
+  like-for-like): higher recall in both views, better model-view scores, lower paper-view precision and F1.
+  No collapse (76 → 344 values). Section 3c of the results file.
 
 ---
 
@@ -1591,6 +1646,12 @@ C3-curated.
 10. **Seeds** — **decided 2026-10-04:** 3 for main runs, 1–2 for ablations. Judge: OpenAI only (no
     cross-family judge); the matching LLM for reported numbers differs from the generator and is validated
     against A6.
+11. **Main update strategy** — **decided 2026-10-05:** `taxonomy.edit_mode: tools` is the main configuration
+    (lower cost than `rewrite_restore`, no collapse, best one-to-one option fit, every change logged; it is
+    the paper's tool-using Taxonomist). `rewrite` and `rewrite_restore` are ablations: `rewrite_restore`
+    measures how much recall comes from never losing evidence-backed values. Evidence:
+    `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`. Open: tools mode fragments decisions
+    (20 dimensions for 7) and loses options at selection; addressed 2026-10-05 without tuning to the scores: `taxonomy.relevance_selection` switch (off = no LLM relevance filter) and a decision-point granularity rule plus a one-time structural check in tools mode (logged in the frame's change log). To check on C1 and in the repeated runs.
 6. **Models and budget**: generator family, judge family, embedding model, API budget ceiling.
 7. ~~**C1 ground-truth scope**~~ **Decided (2026-10-01):** both studies are compared against two views, the
    paper as reported and the full replication-package model, side by side (§4.1, §5.1 M7).

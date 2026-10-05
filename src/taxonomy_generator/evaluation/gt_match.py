@@ -293,7 +293,7 @@ def orient_label(label: str, order: str) -> str:
     return label
 
 
-def _model_name(model: Any) -> str:
+def model_name(model: Any) -> str:
     """Model name of a deepeval model (or of a stand-in without ``get_model_name``)."""
     return getattr(model, "get_model_name", lambda: str(model))()
 
@@ -315,7 +315,7 @@ def _metric_class() -> type:
         def __init__(self, model: Any, threshold: float = 0.5):
             self.model = model
             self.threshold = threshold
-            self.evaluation_model = _model_name(model)
+            self.evaluation_model = model_name(model)
             self.include_reason = True
             self.async_mode = True
             self.strict_mode = False
@@ -360,6 +360,33 @@ def _metric_class() -> type:
 def graded_match_metric(model: Any):
     """Create a fresh ``GradedMatchMetric`` served by ``model``."""
     return _metric_class()(model)
+
+
+def pair_order(seed: int, system_id: str, gt_id: str) -> str:
+    """Seeded presentation order of a pair: ``system_first`` or ``gt_first`` (half each, blind to the side)."""
+    rng = random.Random(f"{seed}:{system_id}:{gt_id}")
+    return "system_first" if rng.random() < 0.5 else "gt_first"
+
+
+def ordered_texts(order: str, system_text: str, gt_text: str) -> tuple[str, str]:
+    """Return the pair's texts as Item 1 and Item 2 for ``order``."""
+    return (system_text, gt_text) if order == "system_first" else (gt_text, system_text)
+
+
+async def judge_verdict(judge_model: Any, cache: JudgeCache | None, semaphore: asyncio.Semaphore, key: str,
+                        first: str, second: str) -> dict[str, str]:
+    """Return the judge's verdict on Item 1 vs. Item 2, from the cache or one judge call (cached on success)."""
+    from deepeval.test_case import LLMTestCase
+
+    verdict = cache.get(key) if cache else None
+    if verdict is None:
+        async with semaphore:
+            metric = graded_match_metric(judge_model)  # one per call: the metric keeps the verdict
+            await metric.a_measure(LLMTestCase(input=first, actual_output=second))
+        verdict = {"label": metric.label, "reason": metric.reason or "", "warning": metric.warning}
+        if cache:
+            cache.put(key, verdict)
+    return verdict
 
 
 class JudgeCache:
@@ -432,12 +459,10 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
     if config.mode == "embeddings":
         return label_pairs_by_distance(system, options, dist, config)
 
-    from deepeval.test_case import LLMTestCase
-
     k = max(1, config.max_candidates)
     near_sys = np.argsort(dist, axis=1)[:, :k]      # nearest options per value
     near_opt = np.argsort(dist, axis=0)[:k, :]      # nearest values per option
-    judge_name = _model_name(judge_model)
+    judge_name = model_name(judge_model)
 
     pairs: list[dict[str, Any]] = []
     jobs: dict[str, list[tuple]] = {}   # cache key -> [(record, order, first, second)]
@@ -453,23 +478,14 @@ async def label_pairs(system: list[Item], options: list[Item], embed: Callable[[
             elif j not in near_sys[i] and i not in near_opt[:, j]:
                 record["label_source"] = "auto_rank"
             else:
-                rng = random.Random(f"{config.seed}:{value.id}:{option.id}")
-                order = "system_first" if rng.random() < 0.5 else "gt_first"
-                first, second = (value.text, option.text) if order == "system_first" else (option.text, value.text)
+                order = pair_order(config.seed, value.id, option.id)
+                first, second = ordered_texts(order, value.text, option.text)
                 jobs.setdefault(JudgeCache.key(judge_name, first, second), []).append((record, order, first, second))
 
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
     async def judge(key: str, first: str, second: str) -> dict[str, str]:
-        verdict = cache.get(key) if cache else None
-        if verdict is None:
-            async with semaphore:
-                metric = graded_match_metric(judge_model)  # one per call: the metric keeps the verdict
-                await metric.a_measure(LLMTestCase(input=first, actual_output=second))
-            verdict = {"label": metric.label, "reason": metric.reason or "", "warning": metric.warning}
-            if cache:
-                cache.put(key, verdict)
-        return verdict
+        return await judge_verdict(judge_model, cache, semaphore, key, first, second)
 
     keys = list(jobs)
     # A failed call does not abort the run: its pairs stay "different" with label source

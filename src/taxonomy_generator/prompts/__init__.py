@@ -138,6 +138,75 @@ TAXONOMY_REVIEW_PROMPT = _load_prompt(
 )
 
 # ---------------------------------------------------------------------------
+# Tool-based update and review (taxonomy.edit_mode: tools)
+# ---------------------------------------------------------------------------
+# Derived from the rewrite prompts at load time, so the design-space framework,
+# operations and feedback rules have one source: the output-oriented parts (the
+# "carry forward" bullets and the ### Format section) are replaced by the tool
+# instructions of ``taxonomy_tools.md``. The rewrite prompts stay byte-identical.
+
+_OUTPUT_BULLETS = (
+    "- **Carry the taxonomy forward.**",
+    "- **Existing values are shown without their document ids**",
+)
+
+
+def derive_tools_system_prompt(system_text: str, tools_text: str) -> str:
+    """Replace a rewrite prompt's output instructions with the tool instructions.
+
+    Removes the two output bullets and the ``### Format`` section (up to the next
+    ``### `` heading) and puts ``tools_text`` in its place. Raises ``ValueError``
+    naming the marker when the rewrite prompt no longer has one.
+    """
+    lines = system_text.split("\n")
+    for marker in _OUTPUT_BULLETS:
+        hits = [i for i, line in enumerate(lines) if line.startswith(marker)]
+        if len(hits) != 1:
+            raise ValueError(f"tools prompt derivation: expected one line starting with {marker!r}")
+        del lines[hits[0]]
+    starts = [i for i, line in enumerate(lines) if line.strip() == "### Format"]
+    if len(starts) != 1:
+        raise ValueError("tools prompt derivation: expected one '### Format' section")
+    start = starts[0]
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("### ")), len(lines))
+    lines[start:end] = tools_text.strip().split("\n") + [""]
+    return "\n".join(lines)
+
+
+def _load_tools_prompt(system_file: str, human_msg: str) -> ChatPromptTemplate:
+    system_text = derive_tools_system_prompt((_PROMPTS_DIR / system_file).read_text().strip(),
+                                             (_PROMPTS_DIR / "taxonomy_tools.md").read_text())
+    return ChatPromptTemplate.from_messages([("system", system_text), ("human", human_msg)])
+
+
+TAXONOMY_UPDATE_TOOLS_PROMPT = _load_tools_prompt(
+    "taxonomy_update.md",
+    (
+        "# Task\n"
+        "\n"
+        "Update the existing dimension-oriented taxonomy with the new batch of data by calling the tools.\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: apply the fixes the previous feedback names.\n"
+        "- **Preserve what works**: change only what the new data or the feedback clearly justifies; the taxonomy must keep representing ALL data seen so far.\n"
+        "- Place every new open code as evidence (add_evidence or add_value), and use parallel calls.\n"
+        "- When done, call finish with an explanation **within {explanation_length} words** naming each operation and its justification."
+    ),
+)
+
+TAXONOMY_REVIEW_TOOLS_PROMPT = _load_tools_prompt(
+    "taxonomy_review.md",
+    (
+        "# Task\n"
+        "\n"
+        "Review the dimension-oriented taxonomy against the review criteria and fix only clear quality issues by calling the tools.\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: apply the fixes the previous feedback names.\n"
+        "- **Minimal intervention**: if the taxonomy is well-structured, call finish without other operations.\n"
+        "- When done, call finish with an explanation **within {explanation_length} words** naming each change (or why none was needed)."
+    ),
+)
+
+# ---------------------------------------------------------------------------
 # Document labeling
 # ---------------------------------------------------------------------------
 
