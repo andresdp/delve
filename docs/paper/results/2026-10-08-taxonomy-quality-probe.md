@@ -62,6 +62,15 @@ The pipeline runs of all three cases use `gpt-5.6-luna` for generation, evaluati
 - The two judges agree on the **rate** of bundled decisions (a fifth to a third of candidate values) but often disagree on **which** values. The problem is robust at the aggregate level, while per-value labels are unreliable.
 - So a fix that moves individual values on the strength of one judge call would be noisy. A structural change judged by the ground-truth scores is safer.
 
+**Was the bundling caused by the 10-05 granularity rule?** No. The tools prompt has asked to merge sibling dimensions and prefer fewer, broader decision points since 2026-10-05. The C2 tools run made before that rule (`examples/c2-rl-monitoring/u7/c2-u7-tools_taxonomy_20261005_012927.json`, luna judge, outputs in `examples/c2-rl-monitoring/probe_luna/`) has the same rates:
+
+| C2 tools run, luna judge | Focused dimensions | Candidate values for another question |
+|---|---|---|
+| Before the rule | 45% | 20% |
+| After the rule | 53% | 20% |
+
+So the bundling comes from how the taxonomy is generated, not from the rule. The rule stays: it raised C2 strict decision F1 from 0.30 to 0.45 (`2026-10-05-c2-update-strategy-comparison.md`).
+
 ## Implication for step 2 (general fixes, validated on C1/C2)
 
 - **Highest value:** a decision-focus pass after consolidation. For each dimension, values that answer another question move to the dimension that answers it, or form a new dimension. Facts and goals are relabeled or dropped.
