@@ -7,6 +7,7 @@ Gray-literature corpora of the published Straussian-GT ADD studies used to evalu
 |---|---|---|---|
 | `c1-ml-workflow/` | Warnett & Zdun, *Architectural Design Decisions for the Machine Learning Workflow* (IEEE Software, 2021/22) | 29 | Paper Table 1: `tinyurl.com/ml-adds-u1…u29`, each resolving to the authors' June 2021 Wayback Machine snapshot |
 | `c2-rl-monitoring/` | Fang, Warnett & Zdun, *Architectural Design Decisions for Monitoring Deployed Reinforcement Learning Systems* (2026) | 29 | `**URL**` line of each source memo in the replication package (Zenodo 10.5281/zenodo.20305497, Apache-2.0), copied to `c2-rl-monitoring/replication_package/` |
+| `c3-git-at-scale/` | Cursor, *Git at any scale* (2026), plus official GitHub Spokes and Microsoft Scalar background; no ground truth (case study, see [`c3-git-at-scale/README.md`](c3-git-at-scale/README.md)) | 5 | `examples/cursor-git-at-scale/references.md` (Wikipedia page excluded) |
 
 The full list of URLs is in [`SOURCE_URLS.md`](SOURCE_URLS.md).
 
@@ -42,6 +43,10 @@ ligatures; PDF text is reflowed) and splits each source into passages of about 3
 heading boundaries (code blocks are never split; passages under 80 words are merged into a neighbour).
 Each passage is one DelveDSpace document with id `sNN_pKK`. Run configs and instructions are in
 `examples/c1-ml-workflow/` and `examples/c2-rl-monitoring/`.
+
+C3 (`python benchmark/build_corpus.py c3-git-at-scale`, 48 passages) has no ground truth. Its curated sensitivity
+corpus, the passage → system map (B7) and the silver trade-off list (B9) are described in
+[`c3-git-at-scale/README.md`](c3-git-at-scale/README.md); its configs are in `examples/c3-git-at-scale/`.
 
 ## Verification status (2026-10-01)
 
@@ -281,3 +286,8 @@ Both are scored on their selected view.
   options with no precision gain (paper view, option recall 0.79 with the filter, 0.91 without; precision
   0.41 both); on C1 it kept every dimension (no effect). The switch stays available as an ablation; to be
   revisited after the use-case agreement (human check 3). The default in `config.yaml` stays `true`.
+- **2026-10-08 — C3 (Git at scale) added** (user decision; no C3 run exists yet, so no score was seen). C3 has
+  no ground truth and is not scored with the matcher. Its reference data are agent-drafted and pending author
+  review: the passage → system map (B7) and the silver trade-off list (B9), both in `c3-git-at-scale/`. The C3
+  configs mirror C1, with four recorded exceptions: output folder, `batch_size: 8`, `min_dimension_sources: 1`
+  for C3-raw, and a use case without systems or dimensions. Nothing in the C1/C2 frame changes.

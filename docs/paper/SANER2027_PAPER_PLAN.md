@@ -942,8 +942,8 @@ regression test that loads an old saved taxonomy JSON.
 | B3 | M | `benchmark/build_corpus.py`: sources → passages (P1) → Delve corpus JSON per study | Same segmentation for all systems (fairness) | 0.25 d |
 | B4 | M | `benchmark/<study>/config.yaml` + `use_case.md`: use case from the study's RQs and scope only | Two authors agree on the wording; frozen before runs | 0.25 d |
 | B5 | S | Benchmark datasheet (`benchmark/README.md`): provenance, coverage, licensing, known issues (e.g. RL-study count discrepancy, C1 article-vs-package scope) | For the paper's benchmark section | 0.25 d |
-| B6 | M | **C3 corpora**: `benchmark/cursor/` with (a) **C3-raw**: the Cursor article + background sources from `examples/cursor-git-at-scale/references.md` fetched by B2 and segmented by P1; (b) **C3-curated**: the existing `cursor_git_at_scale_documents.json`; (c) a use case (reuse or refine `git_at_scale_config.yaml`) | Keep the curated corpus untouched for comparability with the earlier example runs | 0.25 d |
-| B7 | M | **C3 system mapping**: `benchmark/cursor/passage_systems.csv`, where authors map each C3-raw passage to the system(s) it describes (GitHub FS, Google JGit/DHT, GitHub Spokes, Microsoft GVFS/Scalar, Azure DevOps hybrid, Cursor Continuity/Origin, general). Done **before** looking at any Delve output. Plus the optional author-written silver decision list | Needed for the system × dimension matrix (E9) | 0.5 d |
+| B6 | M | **C3 corpora**: `benchmark/c3-git-at-scale/` (corpora in `examples/c3-git-at-scale/`) with (a) **C3-raw**: the Cursor article + background sources from `examples/cursor-git-at-scale/references.md` fetched by B2 and segmented by P1; (b) **C3-curated**: the existing `cursor_git_at_scale_documents.json`; (c) a use case (reuse or refine `git_at_scale_config.yaml`) | Keep the curated corpus untouched for comparability with the earlier example runs | 0.25 d |
+| B7 | M | **C3 system mapping**: `benchmark/c3-git-at-scale/passage_systems.csv`, where authors map each C3-raw passage to the system(s) it describes (GitHub FS, Google JGit/DHT, GitHub Spokes, Microsoft GVFS/Scalar, Azure DevOps hybrid, Cursor Continuity/Origin, general). Done **before** looking at any Delve output. Plus the optional author-written silver decision list | Needed for the system × dimension matrix (E9) | 0.5 d |
 | B8 | C (stretch) | **C4 feasibility check**: obtain Lane's thesis (CMU-CS-90-101); extract the list of surveyed systems and references; try retrieving 5 system descriptions and extrapolate; decide go/no-go by 10-01 (§4.5) | TR-22 and TR-18 already downloaded to the session scratchpad; copy into `papers/base/` if C4 goes ahead | 0.25 d |
 | B9 | S | **C3 silver trade-off list** (added 2026-10-04): the authors list the trade-offs the C3 corpus states (its trade-off and decision documents, plus the article). For each trade-off: the systems involved, the quality attributes in tension, and a source reference. Written before any E14 output is seen, and marked as silver (author-written, not expert ground truth) | E14 | 0.25 d |
 | B10 | C (stretch) | **C4 benchmark** (only if go): TR-22 Appendix A → `benchmark/lane/gt_model.json` (structural dimensions → decisions/options; functional dimensions → drivers with levels); Appendix B → impacts; fetch/OCR the system sources; passage→system mapping; use case from TR-22 §1 | Same M2 enrichment and freezing rules as C1/C2 | 1.5–2 d |
@@ -962,7 +962,7 @@ regression test that loads an old saved taxonomy JSON.
 | A8 | — | **Out of scope (future work, with P8).** `evaluation/persona_provenance.py`: per value, which personas' codes support it (via `supporting_doc_ids` + `open_codes[*].persona`); per-persona unique GT options (with A1); code-volume and near-duplicate rates; persona agreement per passage (embedding-matched Jaccard of code labels) | For E4 and Fig. 5; post-hoc, no schema change | — |
 | A10 | M | **Stage-wise recall diagnosis** (added 2026-10-03): for each GT option recovered or missed, trace the pipeline stage where it appears or is lost (open codes → loop iterations → consolidated → selected → matched), from the saved open codes, iterations and match file. Output: a per-study stage funnel | Answers *why* recall is what it is; decides between pipeline fixes (e.g. the value-collapse fix) with evidence; a candidate figure | 0.5 d |
 | A11 | S | **Evidence-link check** (added 2026-10-03): sample ~40 value–passage links per study (stratified by stance, oversampling `rejected`), label support by hand; report precision overall and per stance | Validates the deterministic evidence linking that grounding claims rest on | 0.25 d + labeling |
-| A12 | S | **Design-point sampler** (added 2026-10-04): `evaluation/design_points.py`. Seeded sampling of k-dimension design points from the selected view, candidate values only, in three groups. **Attested:** all values co-supported by one system, via B7. **Novel:** no `constrains` violation. **Negative controls:** a `rejected` value, a `constrains` violation, or a shuffled taxonomy. Writes `*_design_points.json` | E13; needs B7 for the attested group | 0.5 d |
+| A12 | S | **Design-point sampler** (added 2026-10-04): `evaluation/design_points.py`. Seeded sampling of k-dimension design points from the selected view, candidate values only, in three groups. **Attested:** all values co-supported by one system, via B7. **Novel:** no single system co-supports them. **Negative controls:** a `rejected` value, or a value from another dimension (revised 2026-10-08: relations are dimension-level, so value-level `constrains` violations cannot be built). Writes `*_design_points.json` and a rating sheet | E13; needs B7 for the attested group | 0.5 d |
 | A13 | S | **Design-point judge** (added 2026-10-04). Retrieves each point's evidence passages (`supporting_doc_ids`, open codes). Scores grounding with deepeval Faithfulness (`retrieval_context` = passages) and coherence with a G-Eval rubric, using a judge from another family (cached, like the matcher). Reports scores per group, AUC, and relation validity, and exports a human-rating sheet | E13; reuses `evaluation/judge.py` and the A7 kit | 0.75 d |
 | A14 | S | **Value impacts on quality attributes** (added 2026-10-04): for each candidate value, +/−/mixed impacts on a fixed QA vocabulary (ISO 25010 + cost) with rationale and passage ids, plus links from outcome values to candidate values by shared passages. Taken from P7 when built, else post-hoc extraction (labeled). Hand spot-check of about 40 | E14 | 0.5 d |
 | A15 | S | **Design-point trade-off analysis** (added 2026-10-04): trade-off profile per design point, cross-dimension tensions, grounding of each tension, agreement with `constrains` relations, recall of the B9 silver trade-offs, and a usefulness rubric (judge + human) | E14; needs A12, A14, B9 | 0.5 d |
@@ -1437,9 +1437,23 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
   - About 30 points per group, from one to two C3 runs.
 - **Three groups:**
   - **attested:** one system supports all chosen values (needs B7's system mapping);
-  - **novel:** no single source co-supports the values, but no `constrains` relation is violated;
-  - **negative controls:** should fail. A `rejected` value, a pairing that violates a `constrains` relation,
-    or values drawn from a shuffled taxonomy.
+  - **novel:** no single system co-supports the values. Exploring these combinations is an intended
+    contribution: an ungrounded point can be novel and valid, and only some will be unfeasible;
+  - **negative controls:** should fail. A `rejected` value in one slot, or a slot filled with a value taken
+    from another dimension. Relations are recorded between dimensions, not values, so a value-level
+    `constrains` violation cannot be built; the relations among a point's dimensions are recorded instead.
+- **Framing (revised 2026-10-08):**
+  - The judged points measure the **coherence of the design space**: can it be traversed into workable
+    designs, and which dimension pairs produce incoherent combinations? A pair that does may really be one
+    decision.
+  - Grounding is reported per group, but it is not a pass/fail criterion for novel points: a novel point
+    is unstated by definition.
+  - Novel points get a three-way verdict: workable, workable with stated conditions, or unfeasible, each
+    with a reason. The line between novel-but-valid and unfeasible is a judgment call, so it is reported as
+    a distribution with examples, and checked by the human raters.
+  - **Usability** is claimed only from the human task below, not from the judged sample.
+  - **Judge family:** only OpenAI models are available, so the judge is a different OpenAI model from the
+    generator, validated by the human check. This is stated as a limitation.
 - **Scores** (A13), with a judge from a different model family than the generator:
   - **Grounding:** deepeval Faithfulness against the passages retrieved for the point's values. Does the
     evidence support each choice, and does nothing contradict combining them?
@@ -1455,6 +1469,9 @@ baselines; paired units and effect sizes; rival hypotheses checked before claims
     human–human and human–judge.
   - A short fit-for-use questionnaire, answered by a few architects or developers: are the dimensions
     understandable and distinct, and would you use them?
+  - **Usability task (added 2026-10-08):** 2–3 raters get a scenario from the article (e.g. "host millions
+    of short-lived agent repositories without losing strong consistency"). They pick a design point from
+    the taxonomy, then rate whether the space helped and what was missing.
 - **Rival hypotheses:**
   - **Judge circularity:** use a different-family judge, validated by the human check.
   - **Novel points rated low only because they are unattested:** the attested group separates these.
