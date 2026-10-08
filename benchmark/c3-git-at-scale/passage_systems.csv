@@ -1,0 +1,66 @@
+# B7 passage-to-system map. AGENT DRAFT (Claude, 2026-10-08), author review pending. Drafted from the source passages and curated documents only, before any C3 run; see README.md.
+passage_id,corpus,systems,primary,basis
+s01_p01,raw,GENERAL,GENERAL,Git's origin as a distributed VCS and why companies still need a centralized host.
+s01_p02,raw,GENERAL,GENERAL,Packfiles as Git's storage and network unit; why one server with an on-disk repository has a low ceiling.
+s01_p03,raw,GOOG-DHT;GENERAL,GOOG-DHT,"Three ways to distribute Git; object-level distribution in a DHT via JGit at Google, dropped because clone needs packfiles and DAG walks need round trips."
+s01_p04,raw,GH-FS,GH-FS,Early GitHub keeps the Rails app unchanged and tries to distribute the filesystem; NFS discarded as slow and buggy.
+s01_p05,raw,GH-FS,GH-FS,"Block-level replication (GFS, DRBD) hard to operate; scattered packfile layout defeats networked filesystems; move to RPC fileservers with a single copy per repository."
+s01_p06,raw,GH-SPOKES,GH-SPOKES,"Spokes's three choices: packfile level, plain repositories on local NVMe, replicas kept consistently in sync; Git clients need strong consistency."
+s01_p07,raw,GH-SPOKES,GH-SPOKES,Spokes fans out packfiles then runs three-phase commit on the reference transaction; reads served by any replica.
+s01_p08,raw,GH-SPOKES,GH-SPOKES,"Three-phase commit tail latency limits replica count for monorepos, and the three-replica floor is wasteful for many small agent repositories."
+s01_p09,raw,GH-SPOKES,GH-SPOKES,"Disk replicas as source of truth make repositories pets: routing database, checksums, fast repair, quorum loss on two corrupt copies."
+s01_p10,raw,CUR-CONT;GH-SPOKES,CUR-CONT,"Continuity stores each push as a WAL entry in S3, publishes via a local reference transaction and WAL index, batches writes; keeps Spokes's plain NVMe repositories."
+s01_p11,raw,CUR-CONT;GH-SPOKES,CUR-CONT,"Repositories as a warm cache rematerialized from the WAL; rendezvous hashing instead of routing tables; any node can be primary thanks to CAS on S3; contrasted with Spokes."
+s01_p12,raw,CUR-CONT,CUR-CONT,"Optimistic UDP gossip replication with conditional GETs against S3; any number of replicas, from hundreds for monorepos to zero for idle repositories."
+s01_p13,raw,CUR-CONT;GH-SPOKES,CUR-CONT,"Compaction needed for both WAL and packfiles; Spokes repacks on every replica with failover risk, Continuity compacts on the primary and replicas download the result."
+s01_p14,raw,CUR-CONT,CUR-CONT,"Replication and compaction drive behaviour under load; linear read scaling to 100 replicas; push throughput bound by S3 write latency and compaction speed."
+s01_p15,raw,CUR-CONT;MS-ADO,CUR-CONT,"Azure DevOps stores packfiles in blob storage and references in SQL Server; Continuity avoids the external database, keeping the WAL as provenance and the single source of truth."
+s01_p16,raw,CUR-CONT,CUR-CONT,"Origin as Cursor's production platform; agents raise the stakes of Git hosting reliability."
+s02_p01,raw,GH-SPOKES,GH-SPOKES,"Spokes replicates at the Git application level through a proxy; early versions needed nearby replicas, motivating geo-distribution."
+s02_p02,raw,GH-SPOKES;GH-FS,GH-SPOKES,"DRBD block replication before Spokes forced adjacent replicas; distant replicas limit the reference-update rate, which bookkeeping updates make critical."
+s02_p03,raw,GH-SPOKES,GH-SPOKES,"Three-phase commit costs four round trips to distant replicas, also serving as a distributed lock; overlapping work with network waits."
+s02_p04,raw,GH-SPOKES,GH-SPOKES,Transactional reference updates added to upstream Git so replicas can prepare and commit or roll back deterministically; faster reference updates.
+s02_p05,raw,GH-SPOKES,GH-SPOKES,Incremental XOR checksum over references summarizes and compares replica state after every update.
+s02_p06,raw,GH-SPOKES,GH-SPOKES,"Coalescing and deprioritizing bookkeeping updates; reads routed to the nearest in-sync replica; non-voting geo-replicas in GitHub Enterprise."
+s03_p01,raw,GH-SPOKES,GH-SPOKES,"Spokes (formerly DGit) keeps at least three copies of every repository, replicating, repairing and rebalancing with Git and rsync."
+s03_p02,raw,GH-SPOKES,GH-SPOKES,"Availability vs durability and CAP; Spokes prioritizes consistency and partition tolerance, refusing writes it cannot commit to two replicas."
+s03_p03,raw,GH-SPOKES,GH-SPOKES,"Failure detection from real application traffic rather than heartbeats alone; node marked offline after three failed requests."
+s03_p04,raw,GH-SPOKES,GH-SPOKES,"Routing returns a preference-ordered list of replicas for failover; offline marking is advisory; M-by-N failure detection per application server."
+s03_p05,raw,GH-SPOKES,GH-SPOKES,"Incident shows per-application-server detection containing a fault; replicas in different racks, writes require a strict majority with locks that serialize concurrent writes."
+s03_p06,raw,GH-SPOKES,GH-SPOKES,"Majority sizing for three to five replicas; every write is its own vote instead of a fixed primary; losing replicas are marked unhealthy and repaired N-to-N."
+s03_p07,raw,GH-SPOKES,GH-SPOKES,Planned reboots quiesce a server so long-running reads such as clones finish while writes keep flowing.
+s03_p08,raw,GH-SPOKES,GH-SPOKES,"Rolling rack-by-rack reboots instead of chaos testing; unplugging a server leaves repositories at two copies and raises write-rejection risk."
+s03_p09,raw,GH-SPOKES,GH-SPOKES,"Retire servers by removing them from the active replica count so repairs run first; summary of three replicas, majority writes, traffic-based failure detection and automated repair."
+s04_p01,raw,MS-SCALAR;MS-GVFS,MS-SCALAR,"Scalar configures upstream Git features rather than adding its own; GVFS protocol is the one non-upstream part, an older form of partial clone."
+s04_p02,raw,MS-SCALAR,MS-SCALAR,"What scalar register and scalar clone enable: index compression, background fetch and maintenance, filesystem monitor, partial clone, sparse-checkout, src layout."
+s05_p01,raw,MS-SCALAR;MS-GVFS,MS-SCALAR,"VFS for Git virtualizes the filesystem for the Windows repository; Scalar supports very large repositories without virtualization via config and background maintenance."
+s05_p02,raw,MS-SCALAR,MS-SCALAR,Scalar works with any host; registering a repository sets config and starts background maintenance with logs.
+s05_p03,raw,MS-SCALAR;MS-GVFS,MS-SCALAR,"Foreground maintenance with scalar run; cloning with the GVFS protocol from Azure Repos needs co-located cache servers, otherwise use the plain Git protocol."
+s05_p04,raw,MS-SCALAR,MS-SCALAR,scalar clone gives a sparse cone-mode working directory under src so build outputs sit outside the repository.
+s05_p05,raw,MS-SCALAR,MS-SCALAR,"Core commands scale with index, populated and modified size; the index format is compressed for the Windows repository."
+s05_p06,raw,MS-SCALAR,MS-SCALAR,"Sparse-checkout reduces the populated size; scalar clone is sparse by default."
+s05_p07,raw,MS-SCALAR,MS-SCALAR,Filesystem monitor with Watchman limits scanning to modified paths; git status timings for Office.
+s05_p08,raw,MS-GVFS;MS-SCALAR,MS-GVFS,"GVFS protocol downloads only commits and trees and fetches objects on demand through co-located cache servers, coupling clients to a central server; inspired partial clone."
+s05_p09,raw,MS-SCALAR;MS-GVFS,MS-SCALAR,"Expensive maintenance moved from foreground auto-GC to incremental background work, as in VFS for Git and Scalar."
+s05_p10,raw,MS-SCALAR,MS-SCALAR,"Recommended config: auto-GC off, commit-graph written in the background, ahead/behind disabled, filesystem monitor hook."
+s05_p11,raw,MS-SCALAR,MS-SCALAR,Hourly background fetch into a hidden ref namespace and incremental commit-graph writes.
+s05_p12,raw,MS-SCALAR,MS-SCALAR,Loose-object cleanup and the multi-pack-index keep object lookup fast without a full repack.
+s05_p13,raw,MS-SCALAR,MS-SCALAR,Incremental repack of small packfiles via the multi-pack-index in two steps; pack counts and sizes drop for Windows repositories.
+s05_p14,raw,MS-SCALAR,MS-SCALAR,Scalar intends to do less as Git does more.
+s05_p15,raw,MS-SCALAR;MS-GVFS,MS-SCALAR,"Planned upstream Git work: filesystem watcher, sparse-checkout, faster checkout without virtualization, partial clone with GVFS, cache-server-like fetch URLs, background maintenance."
+context-ai-agents-and-the-forcing-function,curated,CUR-CONT;GH-SPOKES;GENERAL,GENERAL,Agents create both huge monorepos and many short-lived repositories; a fixed three-replica design fits neither.
+context-why-git-is-hard-to-distribute,curated,GENERAL,GENERAL,"Packfile layout unrelated to the commit DAG makes networked hops expensive; all approaches differ in where the real copy lives."
+decision-cursor-continuity-wal-in-s3,curated,CUR-CONT;GH-SPOKES,CUR-CONT,"WAL in S3 as source of truth, local repositories as warm cache, rendezvous hashing; gives up consensus latency for S3 write latency."
+decision-distributing-a-key-value-store,curated,GOOG-DHT,GOOG-DHT,Storing Git objects in a DHT via JGit; abandoned because graph traversal and packfile-based clone were too slow.
+decision-distributing-the-filesystem,curated,GH-FS,GH-FS,"NFS, GFS and DRBD under an unchanged Git and Rails; abandoned because Git needs local-disk semantics."
+decision-github-spokes-consensus-replication,curated,GH-SPOKES;GH-FS,GH-SPOKES,"Spokes replicates plain repositories with three-phase commit on reference transactions; later geo-replication improvements."
+decision-microsoft-gvfs-and-scalar,curated,MS-GVFS;MS-SCALAR,MS-SCALAR,"GVFS protocol with on-demand objects and cache servers, then Scalar using upstream partial clone, sparse-checkout and background maintenance."
+tradeoff-bandwidth-vs-cpu-in-compaction,curated,CUR-CONT;GH-SPOKES,CUR-CONT,Primary-only compaction downloaded by replicas trades bandwidth for CPU; compaction becomes the throughput limit.
+tradeoff-fixed-replica-floor-vs-agent-scale,curated,GH-SPOKES;CUR-CONT,GH-SPOKES,"Spokes needs three replicas per repository for correctness; Continuity makes replica count elastic, down to zero."
+tradeoff-three-phase-commit-tail-latency,curated,GH-SPOKES;CUR-CONT,GH-SPOKES,"Consensus latency is bound by the slowest replica, so more replicas hurt writes; Continuity removes consensus at the cost of S3 latency."
+alternative-azure-devops-hybrid-store,curated,MS-ADO;CUR-CONT,MS-ADO,Blob storage for Git data plus a relational database for references; rejected by Cursor as a second source of truth to keep consistent.
+alternative-solutions-comparative-overview,curated,GH-FS;GOOG-DHT;GH-SPOKES;MS-GVFS;MS-SCALAR;CUR-CONT;GENERAL,GENERAL,"Side-by-side summary of five approaches, each intervening at a different layer."
+lesson-repositories-as-pets-not-cattle,curated,GH-SPOKES;CUR-CONT,GH-SPOKES,"Tracked disk replicas need routing metadata, checksums and fast repair; operational toil grows with repository count."
+lesson-strong-consistency-is-non-negotiable,curated,CUR-CONT;GH-SPOKES;GENERAL,GENERAL,Git clients and automation cannot tolerate eventual consistency; reason Continuity acknowledges pushes only once durable.
+evolution-from-consensus-to-append-only-log,curated,GH-SPOKES;CUR-CONT;GENERAL,GENERAL,Shift from quorum agreement as source of truth to an immutable log with replicas as caches.
+evolution-timeline-of-git-hosting-decisions,curated,GH-FS;GOOG-DHT;GH-SPOKES;MS-GVFS;MS-SCALAR;CUR-CONT;GENERAL,GENERAL,"Chronology from Git's design through filesystem distribution, the DHT, Spokes, GVFS and Scalar, to Continuity and Origin."

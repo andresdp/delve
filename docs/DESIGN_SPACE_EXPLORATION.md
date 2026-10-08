@@ -6,7 +6,10 @@ description: >-
   search engines, query interfaces and integrated GraphRAG / LLM-wiki frameworks, and recommends a
   layered combination.
 generated: 2026-10-02
-status: idea / options analysis — nothing implemented
+updated: 2026-10-08
+status: >-
+  options analysis (§1–§12) plus a decided demo plan (§13, llmwiki-style wiki + graph site, paper
+  figures); nothing implemented yet; to be built on its own feature branch
 related: >-
   docs/paper/SANER2027_PAPER_PLAN.md §6.5 (one-paragraph pointer; not in paper scope),
   CONCEPTS.md (Evidence Linking, Decision Status, Selected Dimensions, Grounded Theory Report)
@@ -73,8 +76,9 @@ All from one run of `examples/cursor-git-at-scale` (`*_20261001_225321`), plus t
 2. **Open codes have no stable id.** Use `<doc_id>#<n>` (position within the document's codes) when
    writing the open-codes file.
 3. **Sources only exist for passage corpora.** C1/C2 ids are `sNN_pKK`, so `source_of()` recovers the
-   source; C3 (git-at-scale) uses UUID document ids, so each document is its own source. The exporter
-   should accept an optional sources table and fall back to "document = source".
+   source. C3-raw (`examples/c3-git-at-scale/`, since 2026-10-08) uses the same ids. The curated C3 corpus
+   uses document slugs, so each document is its own source. The exporter should accept an optional
+   sources table and fall back to "document = source".
 4. **Run identity.** Sibling artifacts are matched by timestamp; the export should record which files
    it was built from (`run.json` manifest) so R10 holds.
 
@@ -361,7 +365,101 @@ Steps 0–3 are useful on their own (exploring C1–C3 outputs), and step 0 also
 - **Open**: should values that are outcomes become a separate node type (closer to GT forces)? Decide
   together with the P17 relation redesign.
 
-## 12. References
+## 13. Decided demo plan (2026-10-08): llmwiki-style wiki and graph site
+
+**Status:** decided with the user on 2026-10-08, to be built on its own feature branch based on `feat/c3-git-at-scale`, which holds the C3 run and its design points. It narrows §8 stack B to its browse and visualize slice for two uses:
+- a demo of one run's taxonomy at a meeting;
+- a few figures for the paper.
+
+Search, natural-language questions, the `delve graph` CLI and adapters stay out of scope (§6.3–6.7). The deferred decision-focus pass (`docs/plans/2026-10-08-1500-feat-decision-focus-pass-plan.md`) is separate and does not block this.
+
+**Model, not dependency.** The idea comes from the LLM-wiki pattern and llmwiki-cli in particular. Its sample wiki is `test-wiki-page/` in `doum1004/llmwiki-cli`, and its published page is <https://doum1004.github.io/llmwiki-cli/>:
+- a folder of small markdown pages with frontmatter and `[[wikilinks]]`, grouped into a few shelves;
+- a d3 force graph with nodes colored by shelf and sized by connectivity;
+- a search box and a reader panel.
+
+We reuse the idea and keep the folder compatible, but the **default build relies on nothing from llmwiki-cli**: our exporter writes the pages, the HTML wiki and the graph page itself. Using llmwiki-cli's own tools on the same folder (`wiki lint`, `orphans`, its d3 site scripts) stays an **option** (D3).
+
+### 13.1 Decisions
+
+| # | Decision | Rationale |
+|---|---|---|
+| D1 | **One deterministic exporter** writes a wiki in the llmwiki-cli layout: `.llmwiki.yaml`, `SCHEMA.md` (our `AGENTS.md`), `raw/` (the run manifest) and `wiki/` with `index.md`, `concepts/`, `entities/`, `sources/`, `synthesis/`. Pages carry YAML frontmatter and `[[wikilinks]]`. | The same folder works as an Obsidian vault and as an llmwiki-cli wiki, at no extra cost. R1: every page is rendered from run data by templates, with no LLM call. |
+| D2 | **Shelf mapping:**<br>- `concepts/` = dimensions (decision points);<br>- `entities/` = values (candidate decisions and outcomes);<br>- `sources/` = corpus sources (`sNN`, from `benchmark/<case>/sources.csv`);<br>- `synthesis/` = generated overviews (run summary, contested decisions, dropped dimensions and, for C3, one page per system plus the system × dimension matrix);<br>- `designs/` = sampled design points, only when given (D11). | Shelves become the node kinds of a design space. Passages are not pages (too many nodes). Their quotes appear inside value pages. |
+| D3 | **Graph page: our own, the llmwiki-cli site as an option.**<br>- **Default:** the exporter writes `html/graph.html`, a `jinja2` template with a d3 force graph in the llmwiki-cli style (shelf colors, size by connectivity, search, click to open the page).<br>- **What our own page adds:**<br>&nbsp;&nbsp;- node color by status for values (accepted, rejected, mixed, outcome);<br>&nbsp;&nbsp;- edge styles by type (has-value, relation type, accepts/rejects, in-design-point);<br>&nbsp;&nbsp;- filters by shelf and status;<br>&nbsp;&nbsp;- the optional design-point layer (D11);<br>&nbsp;&nbsp;- clicking a node opens its HTML page (D10).<br>- **Option:** run llmwiki-cli's generated `build-graph` and `build-site` scripts (`bun run scripts/generate-viz-scripts.ts`, needs Bun or Node ≥ 18) on the same `wiki/` folder for the stock look. | Owning the graph page removes the Node/Bun dependency from the main path and gives the typed edges and status colors the stock site lacks (it colors by folder and draws untyped links). Keeping the layout compatible leaves the stock site one command away. |
+| D4 | **Offline:**<br>- d3 is vendored into `html/assets/`;<br>- the graph data is inlined in `graph.html`, not fetched.<br><br>Everything opens from `file://`, with no server and no internet. | Meeting rooms may have no internet. If the optional llmwiki-cli site is used, its CDN imports are rewritten to local files the same way. |
+| D5 | **Status encoding:** a value page's frontmatter and tags carry `status` (accepted / rejected / mixed / outcome); HTML pages and the graph color by it. | Status is the most informative property of a value. |
+| D6 | **Design-point pages** (only with D11):<br>- `synthesis/design-points.md`: one section per group (attested by system, novel, control) and the sampler's diagnostics;<br>- `designs/<point-id>.md`: one page per point, a table of dimension → value with `[[links]]`, its group and, for attested points, its system. | Shows the design space being used to compose designs, which is a paper contribution. No judge verdicts yet (A13 is not built); a verdict field is added when they exist. |
+| D7 | **Copyright:** value pages quote passages. Then:<br>- C1, C2 and C3-raw exports are gitignored like the corpora and never published publicly;<br>- an exporter flag `--no-quotes` writes passage ids only, for a site that can be published (e.g. GitHub Pages);<br>- the curated C3 corpus is an LLM-assisted paraphrase (not the source text), so a curated export may carry quotes. | Same rule as the corpora (§6.2). |
+| D8 | **Paper figures are separate from the site:** static SVG/PDF from Python (matplotlib, already installed), generated from the same run data:<br>(a) design-space overview: dimensions with their values colored by status, plus the relations between dimensions;<br>(b) C3 system × dimension matrix (Shaw's Table 1), from `benchmark/c3-git-at-scale/passage_systems.csv` (primary system) and each value's `supporting_doc_ids`;<br>(c) C1/C2 ground-truth comparison (matched / missed / extra), from the matcher outputs (`*_gt_match.json`, `*_gt_alignment.csv`, `*_gt_metrics.json`). | A force-directed web graph is not a print figure. Figures must be reproducible from the run files. |
+| D9 | **Demo content:** one run's taxonomy, no ground truth. Default: the C3 run `examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350.json`, with its design points and the B7 system pages. C1 or C2 work with the same exporter. | The C3 story (GitHub, Google, Microsoft and Cursor as points in one space) is the clearest for a non-specialist audience. |
+| D10 | **Every wiki page is also written as an HTML file**, next to the markdown:<br>- **rendering:** the exporter renders each page with `markdown-it-py` and `jinja2`, both already in the `taxonomy` env, and turns `[[wikilinks]]` into relative links to the `.html` pages;<br>- **page chrome:** a shared stylesheet; a sidebar listing the shelves; frontmatter shown as a property table (type, status, dimension, stances, systems); status badges;<br>- **graph link:** each page links to `graph.html`, opened on its node;<br>- **output:** a self-contained static wiki (`html/`) that works from `file://` and can be zipped or shared as one folder. | Pages open with a double click and can be shown or screenshotted one by one. Rendering from the same page sources keeps markdown and HTML identical in content (R1, R10). |
+| D11 | **Design points are optional everywhere.** The exporter takes `--design-points <*_design_points.json>`.<br>- **Without it:** no `designs/` shelf, no design-point page, no layer in the graph, and no link to any of them. The wiki and graph are complete on their own.<br>- **With it:** the D6 pages are written.<br>- **Graph layer:** each design point becomes a node on its own shelf, linked to the values it combines, colored by group (attested, novel, control).<br>- **Toggle:** the layer is off by default and shown with a checkbox; it can be filtered by group and by k.<br>- **Point view:** selecting a point highlights its values and their dimensions. | Sampling design points is a separate, optional step (A12), and with 2 × 90 points the graph would be crowded if always on. A toggle lets the demo show the space first and then "compose a design" in it. |
+
+### 13.2 Export layout for one run
+
+```
+<run>_wiki/                          (gitignored when pages quote passages; D7)
+├── .llmwiki.yaml                    name: <case>-<ts>, domain: design-space, paths: raw/wiki/SCHEMA.md
+├── SCHEMA.md                        how the wiki is organized; read-only, generated (R1)
+├── raw/run.json                     input files (taxonomy, corpus, sources, system map, design points),
+│                                    taxonomy view, exporter version (R10)
+├── wiki/                            markdown pages (Obsidian / llmwiki-cli compatible)
+│   ├── index.md                     run summary, use case, links to every shelf
+│   ├── concepts/<dimension-slug>.md question, description, evidence counts, values by status, relations
+│   ├── entities/<value-slug>.md     dimension, status, stances, supporting passages + quotes, merged-from
+│   ├── sources/sNN.md               title, url, type; decisions it informs, with its stance on each
+│   ├── synthesis/
+│   │   ├── overview.md              all dimensions and values in one table
+│   │   ├── contested.md             mixed values with both sides
+│   │   ├── dropped.md               dropped dimensions, unsupported values, rationales
+│   │   ├── design-points.md         only with --design-points (D6, D11)
+│   │   ├── systems/<system>.md      C3 only: the option each system takes per dimension (B7)
+│   │   └── system-matrix.md         C3 only: system × dimension table
+│   └── designs/<point-id>.md        only with --design-points (D6, D11)
+├── html/                            the same pages as static HTML (D10), plus:
+│   ├── graph.html                   our d3 graph page, data inlined (D3, D4, D11 layer)
+│   └── assets/                      style.css, d3.min.js (vendored)
+└── dist/                            optional: llmwiki-cli's stock site (D3 option)
+```
+
+Example frontmatter of a value page:
+
+```yaml
+---
+title: "Write-ahead log in object storage"
+type: value
+status: accepted
+dimension: "[[concepts/authority-synchronization]]"
+accepted_by: [s01_p10, s01_p11]
+rejected_by: []
+systems: [CUR-CONT]          # C3 only, from B7 (primary system)
+design_points: [P012, P047]  # only with --design-points
+tags: [value, accepted, authority-synchronization]
+---
+```
+
+### 13.3 Work units (for the feature branch)
+
+| Unit | Content | Effort |
+|---|---|---|
+| W1 | Exporter, library plus CLI (`benchmark/export_wiki.py`, or `main.py --export-wiki`):<br>- inputs: a run's taxonomy JSON; optionally the corpus (for quotes), `sources.csv`, a B7-style system map and `--design-points`;<br>- output: the `wiki/` part of §13.2 and `raw/run.json`;<br>- deterministic: the same inputs give byte-identical pages;<br>- flags: `--no-quotes`, `--view selected/final`;<br>- unit tests on a synthetic run: slugs unique; every `[[link]]` resolves; no LLM call; quotes omitted under `--no-quotes`; without `--design-points`, no design-point page or link exists. | 1 d |
+| W1b | HTML rendering of the wiki (D10):<br>- one `jinja2` page template plus a stylesheet;<br>- `markdown-it-py` for the body, with `[[wikilinks]]` rewritten to relative `.html` links;<br>- property table and status badges;<br>- unit tests: every link in `html/` resolves to an existing file; markdown and HTML pages have the same links; same output on a re-run. | 0.5 d |
+| W2 | Graph page (D3, D4, D11):<br>- `html/graph.html` from a `jinja2` template with vendored d3 and inlined node-link data (typed edges, shelf, status, group);<br>- shelf and status colors, size by connectivity, search, click-through to pages, filters;<br>- the optional design-point layer with its toggle and highlight;<br>- tests on the data builder: node and edge counts match the taxonomy; edge types are present; design-point nodes appear only when given. | 1 d |
+| W3 | Synthesis pages (overview, contested, dropped; C3 system pages and matrix) and design-point pages (D6), inside the exporter. | 0.5 d |
+| W4 | Demo dry run:<br>- export C3 with design points, and one of C1/C2 without;<br>- open the HTML wiki and the graph offline (`file://`);<br>- prepare a short click path: index → a contested decision → a system page → turn on design points → an attested and a novel point;<br>- fix what looks wrong. | 0.25 d |
+| W5 | Paper figures (D8 a–c) as a script writing SVG/PDF to `docs/paper/figures/`. Can follow the demo. | 1 d |
+| W6 (optional) | llmwiki-cli's stock site and checks on the same folder: `wiki lint`, `wiki orphans`, and its `build-graph`/`build-site` with imports made local. | 0.25 d |
+
+**To install** (no new Python environment): nothing for W1–W5. `jinja2`, `markdown-it-py` and `matplotlib` are already in the `taxonomy` env; d3 is a single vendored file (downloaded once from cdnjs or jsDelivr and kept in the repo with its ISC license). W6 only: Bun or Node ≥ 18 (for example `brew install oven-sh/bun/bun`) and `npm install -g llmwiki-cli`.
+
+### 13.4 Open questions for the branch
+
+- **Value-page links:** do they also link to their passages' sources, so source nodes show which decisions they inform? This makes the graph denser. Decide on the C3 export.
+- **Several runs in one site:** out of scope (R8 later). One site per run for now.
+- **Design-point verdicts:** once the judge (A13) or the human ratings exist, add the verdict (workable / conditional / unfeasible) to the point pages and color the layer by it.
+
+## 14. References
 
 - Karpathy's LLM-wiki pattern (April 2026): overview at <https://denser.ai/blog/llm-wiki-karpathy-knowledge-base/>; implementations under the GitHub topic <https://github.com/topics/karpathy-llm-wiki>
 - QMD: <https://github.com/tobi/qmd>

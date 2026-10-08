@@ -1,0 +1,1690 @@
+{
+  "run": "examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350.json",
+  "judge": "openai/gpt-5.4-mini",
+  "seed": 7,
+  "summary": {
+    "dimensions": {
+      "dimensions_audited": 22,
+      "dimensions_failed": 0,
+      "focused_rate": 0.545,
+      "judge_single_decision_rate": 0.136,
+      "candidate_values": 139,
+      "candidate_kind_rates": {
+        "option": 0.698,
+        "fact": 0.022,
+        "effect": 0.014,
+        "goal": 0.043,
+        "other_question": 0.223
+      },
+      "kinds_by_status": {
+        "accepted": {
+          "option": 77,
+          "effect": 2,
+          "goal": 6,
+          "other_question": 24,
+          "fact": 3
+        },
+        "mixed": {
+          "option": 11,
+          "other_question": 4
+        },
+        "outcome": {
+          "effect": 38,
+          "goal": 3,
+          "fact": 3,
+          "other_question": 2
+        },
+        "rejected": {
+          "option": 9,
+          "other_question": 3
+        }
+      }
+    },
+    "links": {
+      "overall": {
+        "n": 40,
+        "supports": 0.85,
+        "partial": 0.1,
+        "unrelated": 0.05
+      },
+      "failed": 0,
+      "by_status": {
+        "accepted": {
+          "n": 16,
+          "supports": 0.812,
+          "partial": 0.125,
+          "unrelated": 0.062
+        },
+        "mixed": {
+          "n": 8,
+          "supports": 1.0,
+          "partial": 0.0,
+          "unrelated": 0.0
+        },
+        "outcome": {
+          "n": 8,
+          "supports": 0.875,
+          "partial": 0.125,
+          "unrelated": 0.0
+        },
+        "rejected": {
+          "n": 8,
+          "supports": 0.75,
+          "partial": 0.125,
+          "unrelated": 0.125
+        }
+      }
+    }
+  },
+  "audits": [
+    {
+      "id": "25",
+      "name": "Replica Commit Coordination",
+      "audit": {
+        "decision_question": "What mechanism should coordinate, order, and publish updates across repository replicas?",
+        "single_decision": false,
+        "mixed_reason": "Most values are coordination mechanisms for replica update ordering and commit, but 25.7 is an implementation/performance tactic about overlapping coordinator work during waits, not a replica-commit coordination choice.",
+        "values": [
+          {
+            "value_id": "25.1",
+            "kind": "option",
+            "reason": "It is a specific commit protocol used to coordinate replica updates."
+          },
+          {
+            "value_id": "25.2",
+            "kind": "option",
+            "reason": "It is an alternative way to decide write commitment across replicas."
+          },
+          {
+            "value_id": "25.3",
+            "kind": "option",
+            "reason": "It is a coordination scheme for keeping repository replicas consistent."
+          },
+          {
+            "value_id": "25.4",
+            "kind": "option",
+            "reason": "It is a locking-based mechanism for distributed reference commits."
+          },
+          {
+            "value_id": "25.5",
+            "kind": "option",
+            "reason": "It is a deterministic ordering scheme for publishing pushes."
+          },
+          {
+            "value_id": "25.6",
+            "kind": "option",
+            "reason": "It is a protocol choice for how each write is voted and ordered."
+          },
+          {
+            "value_id": "25.7",
+            "kind": "effect",
+            "reason": "It describes a concurrency/performance behavior of the coordinator, not a coordination mechanism choice."
+          }
+        ]
+      }
+    },
+    {
+      "id": "26",
+      "name": "Replica Write Commitment Policy",
+      "audit": {
+        "decision_question": "When a replicated write is proposed, should the system accept it only if durability/consistency quorum conditions are met, or reject/roll it back when those conditions are not met?",
+        "single_decision": false,
+        "mixed_reason": "The set mixes a write-admission policy question with consequences and related performance constraints, such as cascade delay, latency amplification, and availability-vs-durability tradeoffs.",
+        "values": [
+          {
+            "value_id": "26.1",
+            "kind": "effect",
+            "reason": "It describes the reduced delay caused by a chosen update strategy, not the policy itself."
+          },
+          {
+            "value_id": "26.2",
+            "kind": "effect",
+            "reason": "It states a latency consequence of coordinating updates across distant replicas."
+          },
+          {
+            "value_id": "26.3",
+            "kind": "effect",
+            "reason": "It describes amplification of bookkeeping work as a workflow outcome."
+          },
+          {
+            "value_id": "26.4",
+            "kind": "goal",
+            "reason": "It states a latency budget requirement for reference updates."
+          },
+          {
+            "value_id": "26.5",
+            "kind": "fact",
+            "reason": "It describes an architectural separation between availability and durability properties."
+          },
+          {
+            "value_id": "26.6",
+            "kind": "effect",
+            "reason": "It names the performance bound imposed by waiting for the slowest replica."
+          },
+          {
+            "value_id": "26.7",
+            "kind": "option",
+            "reason": "It is a concrete write-acceptance rule: revert writes without majority agreement."
+          },
+          {
+            "value_id": "26.8",
+            "kind": "goal",
+            "reason": "It states a priority between consistency and partition tolerance versus availability."
+          },
+          {
+            "value_id": "26.9",
+            "kind": "option",
+            "reason": "It is a concrete write-admission rule: refuse writes when enough durable copies cannot be made."
+          },
+          {
+            "value_id": "26.10",
+            "kind": "option",
+            "reason": "It is a concrete policy choice that sacrifices write availability to protect durability."
+          }
+        ]
+      }
+    },
+    {
+      "id": "17",
+      "name": "Repository Replication Mechanism",
+      "audit": {
+        "decision_question": "What mechanism should be used to replicate repository data and updates among repository replicas?",
+        "single_decision": false,
+        "mixed_reason": "Most values describe replication mechanisms, but 17.11 and 17.12 are outcomes of replication choices rather than mechanisms, so the dimension mixes a design-choice question with consequence statements.",
+        "values": [
+          {
+            "value_id": "17.1",
+            "kind": "option",
+            "reason": "It names one possible replication approach at the application layer."
+          },
+          {
+            "value_id": "17.2",
+            "kind": "option",
+            "reason": "It names a specific mechanism for copying repository content between replicas."
+          },
+          {
+            "value_id": "17.3",
+            "kind": "option",
+            "reason": "It describes a concrete fan-out replication strategy for packfiles and references."
+          },
+          {
+            "value_id": "17.4",
+            "kind": "option",
+            "reason": "It describes an alternative packfile distribution strategy without synchronization."
+          },
+          {
+            "value_id": "17.5",
+            "kind": "option",
+            "reason": "It is a distinct replication approach based on packfile-level replication."
+          },
+          {
+            "value_id": "17.6",
+            "kind": "option",
+            "reason": "It specifies a synchronous replica synchronization approach."
+          },
+          {
+            "value_id": "17.7",
+            "kind": "option",
+            "reason": "It names a gossip-based replication mechanism."
+          },
+          {
+            "value_id": "17.8",
+            "kind": "option",
+            "reason": "It describes a direct object-storage-based catch-up mechanism for replicas."
+          },
+          {
+            "value_id": "17.9",
+            "kind": "option",
+            "reason": "It describes a mechanism for removing and recreating idle replicas from WAL."
+          },
+          {
+            "value_id": "17.10",
+            "kind": "option",
+            "reason": "It describes a specific object-storage distribution mechanism for compacted packs."
+          },
+          {
+            "value_id": "17.11",
+            "kind": "effect",
+            "reason": "It states an operational consequence of choosing full synchronization, not a mechanism."
+          },
+          {
+            "value_id": "17.12",
+            "kind": "effect",
+            "reason": "It states a performance consequence of replication choices, not a mechanism."
+          }
+        ]
+      }
+    },
+    {
+      "id": "18",
+      "name": "Replica Update Scheduling",
+      "audit": {
+        "decision_question": "How should repository updates be prioritized and coalesced when multiple updates compete?",
+        "single_decision": true,
+        "mixed_reason": "",
+        "values": [
+          {
+            "value_id": "18.1",
+            "kind": "option",
+            "reason": "It presents one possible scheduling policy for combining non-time-critical updates into fewer transactions."
+          },
+          {
+            "value_id": "18.2",
+            "kind": "option",
+            "reason": "It presents another scheduling policy that prioritizes user-initiated updates over bookkeeping updates."
+          }
+        ]
+      }
+    },
+    {
+      "id": "3",
+      "name": "Replica Checksum Strategy",
+      "audit": {
+        "decision_question": "What checksum strategy should be used to verify equivalence among replicated repository states?",
+        "single_decision": false,
+        "mixed_reason": "Values 3.1 and 3.2 are alternative checksum strategies, while 3.3 and 3.4 describe performance consequences of using full recomputation.",
+        "values": [
+          {
+            "value_id": "3.1",
+            "kind": "option",
+            "reason": "It is one possible checksum strategy for comparing replicated states."
+          },
+          {
+            "value_id": "3.2",
+            "kind": "option",
+            "reason": "It is another possible checksum strategy for maintaining replica equivalence checks."
+          },
+          {
+            "value_id": "3.3",
+            "kind": "effect",
+            "reason": "It describes the performance consequence of full recomputation, not a strategy choice."
+          },
+          {
+            "value_id": "3.4",
+            "kind": "effect",
+            "reason": "It states an operational limit caused by recomputation cost, which is an outcome rather than an option."
+          }
+        ]
+      }
+    },
+    {
+      "id": "5",
+      "name": "Repository Placement Strategy",
+      "audit": {
+        "decision_question": "How should the system determine which repository node or replica to route a request to as server membership changes?",
+        "single_decision": false,
+        "mixed_reason": "Most values are placement/routing strategies, but 5.5 asks about the dependency introduced by using an external routing database, which is a different question about infrastructure dependence rather than placement strategy.",
+        "values": [
+          {
+            "value_id": "5.1",
+            "kind": "option",
+            "reason": "It is one alternative strategy for mapping repository IDs to nodes without separate placement state."
+          },
+          {
+            "value_id": "5.2",
+            "kind": "option",
+            "reason": "It is one alternative strategy for routing based on repository ID and the current healthy-node set."
+          },
+          {
+            "value_id": "5.3",
+            "kind": "option",
+            "reason": "It is one alternative strategy for choosing a preferred primary under normal conditions."
+          },
+          {
+            "value_id": "5.4",
+            "kind": "option",
+            "reason": "It is one alternative strategy for routing reads to any synchronized replica."
+          },
+          {
+            "value_id": "5.5",
+            "kind": "other_question",
+            "reason": "It asks about the dependency tradeoff of using an external routing database, which is a distinct design question."
+          }
+        ]
+      }
+    },
+    {
+      "id": "6",
+      "name": "Maintenance Transition Strategy",
+      "audit": {
+        "decision_question": "How should a server be transitioned into planned maintenance without disrupting active reads or replicated writes?",
+        "single_decision": false,
+        "mixed_reason": "The values mix the maintenance-transition mechanism itself with operational scope/rollback strategy and resulting consequences.",
+        "values": [
+          {
+            "value_id": "6.1",
+            "kind": "option",
+            "reason": "Directly rebooting or unplugging is one possible maintenance-transition method."
+          },
+          {
+            "value_id": "6.2",
+            "kind": "option",
+            "reason": "Quiescing before reboot is an alternative way to enter maintenance."
+          },
+          {
+            "value_id": "6.3",
+            "kind": "other_question",
+            "reason": "Continuing write delivery during quiescence is a separate replication-policy choice, not the maintenance transition itself."
+          },
+          {
+            "value_id": "6.4",
+            "kind": "other_question",
+            "reason": "Rolling reboot testing is about how to test failures and maintenance behavior, not the transition strategy alone."
+          },
+          {
+            "value_id": "6.5",
+            "kind": "other_question",
+            "reason": "Rebooting one rack at a time is an availability-scoping decision for maintenance operations."
+          },
+          {
+            "value_id": "6.6",
+            "kind": "other_question",
+            "reason": "Bounding concurrent reboots is an operational throttling choice, separate from the basic transition method."
+          },
+          {
+            "value_id": "6.7",
+            "kind": "effect",
+            "reason": "Variable quiescence duration is a consequence of letting active reads drain."
+          },
+          {
+            "value_id": "6.8",
+            "kind": "effect",
+            "reason": "Higher same-day write rejection risk is an outcome of reduced replication after sudden loss."
+          }
+        ]
+      }
+    },
+    {
+      "id": "22",
+      "name": "Client Repository Fetching",
+      "audit": {
+        "decision_question": "How should client-side repository fetching be exposed and executed?",
+        "single_decision": true,
+        "mixed_reason": "",
+        "values": [
+          {
+            "value_id": "22.1",
+            "kind": "option",
+            "reason": "It is a client fetching strategy the architecture can choose to adopt or reject."
+          },
+          {
+            "value_id": "22.2",
+            "kind": "option",
+            "reason": "It is a design choice about where background-fetched references are stored on the client."
+          },
+          {
+            "value_id": "22.3",
+            "kind": "option",
+            "reason": "It is a design choice about using a separate endpoint for fetch-object transfer on the client side."
+          }
+        ]
+      }
+    },
+    {
+      "id": "27",
+      "name": "Client Maintenance Scheduling",
+      "audit": {
+        "decision_question": "How should client repository maintenance be scheduled and executed relative to user commands: in the background, in the foreground/on demand, or as a combined maintenance command?",
+        "single_decision": false,
+        "mixed_reason": "The values mix scheduling/execution choices with performance outcomes of those choices (foreground waiting and reduced waiting).",
+        "values": [
+          {
+            "value_id": "27.1",
+            "kind": "option",
+            "reason": "It is a specific scheduling strategy for background maintenance of commit graphs."
+          },
+          {
+            "value_id": "27.2",
+            "kind": "option",
+            "reason": "It is an alternative maintenance scheduling approach, asynchronous rather than periodic foreground cleanup."
+          },
+          {
+            "value_id": "27.3",
+            "kind": "option",
+            "reason": "It is a choice to bundle maintenance tasks into one command."
+          },
+          {
+            "value_id": "27.4",
+            "kind": "option",
+            "reason": "It is a choice to run maintenance manually in the foreground alongside background scheduling."
+          },
+          {
+            "value_id": "27.5",
+            "kind": "effect",
+            "reason": "It describes a performance consequence of doing commit-graph generation during foreground fetches."
+          },
+          {
+            "value_id": "27.6",
+            "kind": "effect",
+            "reason": "It describes the user-visible performance benefit of moving work to background maintenance."
+          }
+        ]
+      }
+    },
+    {
+      "id": "28",
+      "name": "Client Maintenance Strategy",
+      "audit": {
+        "decision_question": "How should client repository maintenance be performed during cleanup: incrementally or by rewriting all object data?",
+        "single_decision": false,
+        "mixed_reason": "28.1 and 28.2 answer the maintenance-strategy choice, while 28.3 describes an outcome of disabling cleanup rather than an option for that choice.",
+        "values": [
+          {
+            "value_id": "28.1",
+            "kind": "option",
+            "reason": "It is an alternative maintenance strategy that can be chosen for repository upkeep."
+          },
+          {
+            "value_id": "28.2",
+            "kind": "option",
+            "reason": "It is another alternative maintenance strategy for performing cleanup."
+          },
+          {
+            "value_id": "28.3",
+            "kind": "effect",
+            "reason": "It describes the performance consequence of not performing cleanup, not a design option."
+          }
+        ]
+      }
+    },
+    {
+      "id": "30",
+      "name": "Client Index Representation",
+      "audit": {
+        "decision_question": "How should the client represent and cache repository index state to reduce the cost of inspecting the working tree?",
+        "single_decision": false,
+        "mixed_reason": "Values mix choices about index format/storage and caching, plus an outcome describing achieved size reduction.",
+        "values": [
+          {
+            "value_id": "30.1",
+            "kind": "option",
+            "reason": "It is a choice of index format for reducing client overhead."
+          },
+          {
+            "value_id": "30.2",
+            "kind": "option",
+            "reason": "It is a choice to add a cache for untracked-file information."
+          },
+          {
+            "value_id": "30.3",
+            "kind": "option",
+            "reason": "It is a choice to store tracked paths in a single index file."
+          },
+          {
+            "value_id": "30.4",
+            "kind": "effect",
+            "reason": "It states the resulting reduction in index-file size, not a choice."
+          }
+        ]
+      }
+    },
+    {
+      "id": "31",
+      "name": "Client Filesystem and Status Monitoring",
+      "audit": {
+        "decision_question": "Which mechanism should the client use to monitor filesystem changes and inspect status efficiently?",
+        "single_decision": false,
+        "mixed_reason": "The values mix the monitoring mechanism question with separate performance-analysis and status-calculation choices.",
+        "values": [
+          {
+            "value_id": "31.1",
+            "kind": "option",
+            "reason": "A Git-specific watcher is one possible mechanism for client change detection."
+          },
+          {
+            "value_id": "31.2",
+            "kind": "option",
+            "reason": "Watchman is another alternative mechanism for client change detection."
+          },
+          {
+            "value_id": "31.3",
+            "kind": "other_question",
+            "reason": "This is about diagnosing bottlenecks, not choosing the filesystem monitoring mechanism itself."
+          },
+          {
+            "value_id": "31.4",
+            "kind": "other_question",
+            "reason": "This is a separate status-calculation choice about whether to compute ahead-behind information."
+          },
+          {
+            "value_id": "31.5",
+            "kind": "option",
+            "reason": "This is an alternative status-inspection strategy for limiting path work during client updates."
+          },
+          {
+            "value_id": "31.6",
+            "kind": "fact",
+            "reason": "This describes the performance consequence of full scans, not a design choice."
+          }
+        ]
+      }
+    },
+    {
+      "id": "32",
+      "name": "Client Configuration and Registration",
+      "audit": {
+        "decision_question": "How should repositories be configured and registered on the client side to prepare them for scalable operation?",
+        "single_decision": true,
+        "mixed_reason": "",
+        "values": [
+          {
+            "value_id": "32.1",
+            "kind": "option",
+            "reason": "This is one possible mechanism for applying client-side configuration after installation."
+          },
+          {
+            "value_id": "32.2",
+            "kind": "option",
+            "reason": "This is another possible mechanism for automatically registering new repositories during cloning."
+          }
+        ]
+      }
+    },
+    {
+      "id": "8",
+      "name": "Client Scaling Integration",
+      "audit": {
+        "decision_question": "Should large-repository performance be provided by an auxiliary client layer such as Scalar, or by capabilities absorbed into core Git?",
+        "single_decision": false,
+        "mixed_reason": "The set mixes the architectural choice about where client-side scaling lives with goals/objectives, implementation details, and downstream outcomes such as workload growth and productivity impact.",
+        "values": [
+          {
+            "value_id": "8.1",
+            "kind": "option",
+            "reason": "It is one possible way to supply repository-scaling support via a special Git build."
+          },
+          {
+            "value_id": "8.2",
+            "kind": "option",
+            "reason": "It is a distinct client-layer approach for delivering large-repository performance."
+          },
+          {
+            "value_id": "8.3",
+            "kind": "option",
+            "reason": "It is the alternative of moving performance features into core Git."
+          },
+          {
+            "value_id": "8.4",
+            "kind": "option",
+            "reason": "It is a rejection of continued reliance on extra management layers above Git."
+          },
+          {
+            "value_id": "8.5",
+            "kind": "option",
+            "reason": "It is a transitional strategy between Scalar and core Git capabilities."
+          },
+          {
+            "value_id": "8.6",
+            "kind": "fact",
+            "reason": "It describes a configuration technique, not an architectural choice between integration options."
+          },
+          {
+            "value_id": "8.7",
+            "kind": "other_question",
+            "reason": "It asks whether GVFS Protocol should be integrated into standard Git, which is a different integration decision."
+          },
+          {
+            "value_id": "8.8",
+            "kind": "goal",
+            "reason": "It states desired platform objectives rather than an alternative design choice."
+          },
+          {
+            "value_id": "8.9",
+            "kind": "goal",
+            "reason": "It expresses a migration principle to reduce disruption, not a specific integration option."
+          },
+          {
+            "value_id": "8.10",
+            "kind": "goal",
+            "reason": "It describes a guiding principle of ongoing evolution, not a client-scaling alternative."
+          },
+          {
+            "value_id": "8.11",
+            "kind": "effect",
+            "reason": "It is an external workload trend that motivates the design, not a design option."
+          },
+          {
+            "value_id": "8.12",
+            "kind": "effect",
+            "reason": "It is a consequence of repository unavailability, not a choice in the design space."
+          }
+        ]
+      }
+    },
+    {
+      "id": "9",
+      "name": "Replica Topology and Factor",
+      "audit": {
+        "decision_question": "What replica factor and placement topology should a repository use to provide redundancy and isolate failures?",
+        "single_decision": false,
+        "mixed_reason": "The values mix topology/factor choices with separate questions about read-serving strategy, durability goals, and performance/capacity consequences.",
+        "values": [
+          {
+            "value_id": "9.1",
+            "kind": "option",
+            "reason": "It chooses a rack-aware placement strategy for replicas."
+          },
+          {
+            "value_id": "9.2",
+            "kind": "option",
+            "reason": "It chooses geographically separated replica placement."
+          },
+          {
+            "value_id": "9.3",
+            "kind": "option",
+            "reason": "It chooses to colocate filesystem replicas despite latency sensitivity."
+          },
+          {
+            "value_id": "9.4",
+            "kind": "option",
+            "reason": "It chooses block-level/filesystem-level replication as the replication mechanism."
+          },
+          {
+            "value_id": "9.5",
+            "kind": "option",
+            "reason": "It chooses a replication factor of three."
+          },
+          {
+            "value_id": "9.6",
+            "kind": "option",
+            "reason": "It chooses geo-replicated hosts outside write quorums."
+          },
+          {
+            "value_id": "9.7",
+            "kind": "option",
+            "reason": "It chooses an elastic replica-count policy based on repository demand."
+          },
+          {
+            "value_id": "9.8",
+            "kind": "other_question",
+            "reason": "It is about where to serve reads from, not the replica topology or factor itself."
+          },
+          {
+            "value_id": "9.9",
+            "kind": "goal",
+            "reason": "It states the intended availability/durability objective of replication."
+          },
+          {
+            "value_id": "9.10",
+            "kind": "effect",
+            "reason": "It describes the cost and capacity consequences of a fixed replication floor."
+          },
+          {
+            "value_id": "9.11",
+            "kind": "effect",
+            "reason": "It describes the resulting state after a sudden replica loss."
+          },
+          {
+            "value_id": "9.12",
+            "kind": "effect",
+            "reason": "It describes a performance bottleneck caused by more replicas."
+          }
+        ]
+      }
+    },
+    {
+      "id": "10",
+      "name": "Authority Synchronization",
+      "audit": {
+        "decision_question": "What mechanism should coordinate authoritative repository state persistence and synchronization?",
+        "single_decision": false,
+        "mixed_reason": "The values mix coordination mechanisms for persistence/synchronization with separate questions about deployment/storage tier, consistency guarantees, replication semantics, compaction behavior, and freshness verification.",
+        "values": [
+          {
+            "value_id": "10.1",
+            "kind": "option",
+            "reason": "It is one possible coordination mechanism for persisting authoritative updates."
+          },
+          {
+            "value_id": "10.2",
+            "kind": "option",
+            "reason": "It is a specific synchronization mechanism used to serialize concurrent log updates."
+          },
+          {
+            "value_id": "10.3",
+            "kind": "option",
+            "reason": "It chooses WAL-based consistency as the authoritative coordination approach."
+          },
+          {
+            "value_id": "10.4",
+            "kind": "effect",
+            "reason": "This is an acknowledgement policy resulting from the chosen persistence mechanism."
+          },
+          {
+            "value_id": "10.5",
+            "kind": "goal",
+            "reason": "This states a desired consistency property rather than a mechanism choice."
+          },
+          {
+            "value_id": "10.6",
+            "kind": "other_question",
+            "reason": "This concerns using an external database for repository references, which is a different storage architecture choice."
+          },
+          {
+            "value_id": "10.7",
+            "kind": "other_question",
+            "reason": "This asks who may accept updates, which is about primary ownership or update routing rather than synchronization mechanism."
+          },
+          {
+            "value_id": "10.8",
+            "kind": "other_question",
+            "reason": "This concerns what state serves as the consensus source for replication, a different design question."
+          },
+          {
+            "value_id": "10.9",
+            "kind": "other_question",
+            "reason": "This is about the deployment/storage platform for the authority log, not the synchronization mechanism itself."
+          },
+          {
+            "value_id": "10.10",
+            "kind": "option",
+            "reason": "It is a batching strategy for WAL uploads within the persistence mechanism."
+          },
+          {
+            "value_id": "10.11",
+            "kind": "option",
+            "reason": "It is the rejected alternative to batched uploads and still answers the same ingestion mechanism question."
+          },
+          {
+            "value_id": "10.12",
+            "kind": "other_question",
+            "reason": "This chooses a synchronization scope with a single local repository instead of a replica quorum."
+          },
+          {
+            "value_id": "10.13",
+            "kind": "option",
+            "reason": "It is an alternative operational mechanism for maintaining the WAL over time."
+          },
+          {
+            "value_id": "10.14",
+            "kind": "fact",
+            "reason": "This describes how compaction results are recorded so replicas can reproduce them."
+          },
+          {
+            "value_id": "10.15",
+            "kind": "other_question",
+            "reason": "This is a deployment-performance choice about storage tier, not the authority synchronization mechanism."
+          },
+          {
+            "value_id": "10.16",
+            "kind": "option",
+            "reason": "It is a verification mechanism used by replicas to check freshness before serving requests."
+          }
+        ]
+      }
+    },
+    {
+      "id": "11",
+      "name": "Repository Serving Architecture",
+      "audit": {
+        "decision_question": "What architecture should the system use to serve repository access across serving and storage nodes?",
+        "single_decision": false,
+        "mixed_reason": "Most values are repository-serving/access mechanisms, but 11.7 asks how to scale application instances and 11.8 asks how to recover or materialize warm caches, which are different design questions; 11.9-11.11 are outcomes or workload facts.",
+        "values": [
+          {
+            "value_id": "11.1",
+            "kind": "option",
+            "reason": "It is a serving architecture choice that treats local copies as caches."
+          },
+          {
+            "value_id": "11.2",
+            "kind": "option",
+            "reason": "It is an alternative way to access repositories through a remote RPC layer."
+          },
+          {
+            "value_id": "11.3",
+            "kind": "option",
+            "reason": "It chooses dedicated fileservers as the repository storage architecture."
+          },
+          {
+            "value_id": "11.4",
+            "kind": "option",
+            "reason": "It is a specific repository-serving topology with a colocated cache server."
+          },
+          {
+            "value_id": "11.5",
+            "kind": "option",
+            "reason": "It is an access mode using standard Git protocol and Scalar registration."
+          },
+          {
+            "value_id": "11.6",
+            "kind": "option",
+            "reason": "It is another repository-serving option for cases without a cache server."
+          },
+          {
+            "value_id": "11.7",
+            "kind": "other_question",
+            "reason": "It asks about application-server replication strategy, not repository access architecture."
+          },
+          {
+            "value_id": "11.8",
+            "kind": "other_question",
+            "reason": "It asks how to rematerialize repositories from a log, which is a cache recovery question."
+          },
+          {
+            "value_id": "11.9",
+            "kind": "effect",
+            "reason": "It describes a storage outcome of remote fileserver access, not a choice."
+          },
+          {
+            "value_id": "11.10",
+            "kind": "effect",
+            "reason": "It states an operational consequence of the hosting approach."
+          },
+          {
+            "value_id": "11.11",
+            "kind": "fact",
+            "reason": "It describes an assumed workload characteristic rather than a design alternative."
+          }
+        ]
+      }
+    },
+    {
+      "id": "12",
+      "name": "Client Clone Materialization",
+      "audit": {
+        "decision_question": "How should a large-repository client materialize repository content and working-tree data locally?",
+        "single_decision": false,
+        "mixed_reason": "The values mix materialization mechanisms with deployment/layout choices, and several entries are outcomes rather than alternative materialization options.",
+        "values": [
+          {
+            "value_id": "12.1",
+            "kind": "option",
+            "reason": "It is a local materialization strategy for missing repository objects."
+          },
+          {
+            "value_id": "12.2",
+            "kind": "option",
+            "reason": "It is a materialization strategy based on a virtualized filesystem."
+          },
+          {
+            "value_id": "12.3",
+            "kind": "option",
+            "reason": "It is a working-tree materialization strategy that selects which paths to populate."
+          },
+          {
+            "value_id": "12.4",
+            "kind": "other_question",
+            "reason": "It is a cloning/protocol choice, not directly a client materialization mechanism."
+          },
+          {
+            "value_id": "12.5",
+            "kind": "other_question",
+            "reason": "It is a repository layout/workspace placement choice, not a materialization strategy itself."
+          },
+          {
+            "value_id": "12.6",
+            "kind": "effect",
+            "reason": "It describes a benefit of separating build outputs, not a choice."
+          },
+          {
+            "value_id": "12.7",
+            "kind": "effect",
+            "reason": "It describes a performance consequence of partial transfer and caching, not a choice."
+          },
+          {
+            "value_id": "12.8",
+            "kind": "effect",
+            "reason": "It describes a cost of populating files, not a choice."
+          },
+          {
+            "value_id": "12.9",
+            "kind": "effect",
+            "reason": "It describes a scalability cost of file modification detection, not a choice."
+          }
+        ]
+      }
+    },
+    {
+      "id": "20",
+      "name": "Repository Storage Representation",
+      "audit": {
+        "decision_question": "What repository storage representation and access pattern should support server-scale Git workloads?",
+        "single_decision": false,
+        "mixed_reason": "The values mix storage-representation choices with operational consequences and related implementation questions such as transfer format, replication behavior, and hosting model.",
+        "values": [
+          {
+            "value_id": "20.1",
+            "kind": "option",
+            "reason": "It is one possible storage-layout choice for server-scale Git."
+          },
+          {
+            "value_id": "20.2",
+            "kind": "option",
+            "reason": "It is a storage/access strategy that could be chosen or rejected."
+          },
+          {
+            "value_id": "20.3",
+            "kind": "option",
+            "reason": "It is an alternative repository-hosting/storage architecture."
+          },
+          {
+            "value_id": "20.4",
+            "kind": "option",
+            "reason": "It is a possible placement choice for repository data on local hardware."
+          },
+          {
+            "value_id": "20.5",
+            "kind": "option",
+            "reason": "It is a choice about using ordinary on-disk Git operations."
+          },
+          {
+            "value_id": "20.6",
+            "kind": "other_question",
+            "reason": "It asks when replicas should expose new data, which is a replication-consistency question."
+          },
+          {
+            "value_id": "20.7",
+            "kind": "option",
+            "reason": "It is a fundamental storage representation choice for repository objects."
+          },
+          {
+            "value_id": "20.8",
+            "kind": "fact",
+            "reason": "It describes Git's dependency-following traversal pattern rather than a selectable storage alternative."
+          },
+          {
+            "value_id": "20.9",
+            "kind": "option",
+            "reason": "It is a possible way to map Git objects onto distributed storage."
+          },
+          {
+            "value_id": "20.10",
+            "kind": "option",
+            "reason": "It is an alternative storage architecture for packfiles."
+          },
+          {
+            "value_id": "20.11",
+            "kind": "other_question",
+            "reason": "It concerns the network transfer format, not the repository storage representation."
+          },
+          {
+            "value_id": "20.12",
+            "kind": "goal",
+            "reason": "It states a desired deployment property of keeping the repository model identical across machines."
+          },
+          {
+            "value_id": "20.13",
+            "kind": "option",
+            "reason": "It is a direct choice of packfile-based storage representation."
+          },
+          {
+            "value_id": "20.14",
+            "kind": "other_question",
+            "reason": "It specifies a serving topology for one repository over HTTP, which is a hosting-model question."
+          },
+          {
+            "value_id": "20.15",
+            "kind": "option",
+            "reason": "It is a choice between internal storage representations while preserving packfile operations."
+          },
+          {
+            "value_id": "20.16",
+            "kind": "option",
+            "reason": "It is a deployment/storage placement choice across multiple machines."
+          },
+          {
+            "value_id": "20.17",
+            "kind": "goal",
+            "reason": "It states an objective of keeping cloning efficient."
+          },
+          {
+            "value_id": "20.18",
+            "kind": "effect",
+            "reason": "It describes an operational consequence of using network filesystem semantics."
+          },
+          {
+            "value_id": "20.19",
+            "kind": "effect",
+            "reason": "It is a performance cost resulting from distributed object storage."
+          },
+          {
+            "value_id": "20.20",
+            "kind": "effect",
+            "reason": "It is a cloning-performance consequence of object distribution."
+          },
+          {
+            "value_id": "20.21",
+            "kind": "effect",
+            "reason": "It is an operational burden caused by large binary packfiles."
+          },
+          {
+            "value_id": "20.22",
+            "kind": "effect",
+            "reason": "It is a scalability consequence of packfile-based hosting."
+          }
+        ]
+      }
+    },
+    {
+      "id": "21",
+      "name": "Packfile Lifecycle Management",
+      "audit": {
+        "decision_question": "How should Git packfiles be maintained over time in terms of repacking strategy, indexing, retention, and deletion?",
+        "single_decision": false,
+        "mixed_reason": "The values mix maintenance strategy choices, replica/primary responsibility choices, and downstream outcomes of those choices.",
+        "values": [
+          {
+            "value_id": "21.1",
+            "kind": "option",
+            "reason": "It is a pack-maintenance strategy choice about how repacking is performed."
+          },
+          {
+            "value_id": "21.2",
+            "kind": "option",
+            "reason": "It is an indexing/redirect mechanism choice for managing packs over time."
+          },
+          {
+            "value_id": "21.3",
+            "kind": "option",
+            "reason": "It is a choice about when obsolete packs are deleted."
+          },
+          {
+            "value_id": "21.4",
+            "kind": "option",
+            "reason": "It is an alternative repacking strategy, even though the label describes a specific technique."
+          },
+          {
+            "value_id": "21.5",
+            "kind": "other_question",
+            "reason": "It concerns which replica performs compaction, which is a deployment/replication responsibility question rather than packfile lifecycle itself."
+          },
+          {
+            "value_id": "21.6",
+            "kind": "other_question",
+            "reason": "It is the opposite of the replica/primary responsibility choice, so it answers a different question."
+          },
+          {
+            "value_id": "21.7",
+            "kind": "effect",
+            "reason": "It describes a possible result of insufficiently bounded pack maintenance, not a choice."
+          },
+          {
+            "value_id": "21.8",
+            "kind": "effect",
+            "reason": "It states the storage outcome of the maintenance approach, not a design option."
+          },
+          {
+            "value_id": "21.9",
+            "kind": "effect",
+            "reason": "It describes an operational consequence of compaction under high throughput, not a lifecycle choice."
+          }
+        ]
+      }
+    },
+    {
+      "id": "14",
+      "name": "Replica Failure Recovery",
+      "audit": {
+        "decision_question": "How are failed or retiring replica servers detected, classified, and repaired so repository redundancy is restored?",
+        "single_decision": false,
+        "mixed_reason": "The values mix the core recovery decision with separate questions about failure-detection mechanisms, fault-isolation/inference rules, offline/routing status representation, repository-management model, and recovery effects/outcomes.",
+        "values": [
+          {
+            "value_id": "14.1",
+            "kind": "option",
+            "reason": "It is a candidate mechanism for detecting failed replicas from traffic."
+          },
+          {
+            "value_id": "14.2",
+            "kind": "option",
+            "reason": "It is a candidate way to restore replication after permanent failure."
+          },
+          {
+            "value_id": "14.3",
+            "kind": "option",
+            "reason": "It is a candidate policy for handling a retiring replica during repair."
+          },
+          {
+            "value_id": "14.4",
+            "kind": "other_question",
+            "reason": "It asks how failure observations are distributed, which is a different detection-architecture question."
+          },
+          {
+            "value_id": "14.5",
+            "kind": "other_question",
+            "reason": "It asks how to isolate a specific fault class, which is a separate diagnostic question."
+          },
+          {
+            "value_id": "14.6",
+            "kind": "other_question",
+            "reason": "It asks which detector is primary, a distinct failure-detection choice rather than recovery itself."
+          },
+          {
+            "value_id": "14.7",
+            "kind": "other_question",
+            "reason": "It asks how to represent uncertain offline status in routing, which is a separate state-management question."
+          },
+          {
+            "value_id": "14.8",
+            "kind": "other_question",
+            "reason": "It asks how to distinguish fault sources, which is a different inference decision."
+          },
+          {
+            "value_id": "14.9",
+            "kind": "other_question",
+            "reason": "It asks about the repository-management model, not replica recovery policy."
+          },
+          {
+            "value_id": "14.10",
+            "kind": "option",
+            "reason": "It is a threshold choice for marking a replica offline."
+          },
+          {
+            "value_id": "14.11",
+            "kind": "option",
+            "reason": "It is a policy for removing a replica from service after a write-vote loss."
+          },
+          {
+            "value_id": "14.12",
+            "kind": "option",
+            "reason": "It is a candidate reconstruction strategy for creating replacement replicas."
+          },
+          {
+            "value_id": "14.13",
+            "kind": "effect",
+            "reason": "It describes a localized false-positive outcome, not a design choice."
+          },
+          {
+            "value_id": "14.14",
+            "kind": "effect",
+            "reason": "It describes an operational consequence of health management, not a choice."
+          },
+          {
+            "value_id": "14.15",
+            "kind": "effect",
+            "reason": "It describes a scaling outcome of recovery, not a design option."
+          },
+          {
+            "value_id": "14.16",
+            "kind": "effect",
+            "reason": "It describes an availability impact caused by concurrent maintenance, not a choice."
+          }
+        ]
+      }
+    },
+    {
+      "id": "15",
+      "name": "Version-Control Operating Model",
+      "audit": {
+        "decision_question": "Should the version-control collaboration model be decentralized/distributed, centralized, or hybridized for repository hosting and object exchange?",
+        "single_decision": false,
+        "mixed_reason": "The values mix a collaboration-model choice with subsystem-organization, offline-sync capability, and an outcome/mismatch effect.",
+        "values": [
+          {
+            "value_id": "15.1",
+            "kind": "option",
+            "reason": "It is a choice of the underlying version-control collaboration model."
+          },
+          {
+            "value_id": "15.2",
+            "kind": "other_question",
+            "reason": "It concerns team and maintainer organization, not the repository-control model itself."
+          },
+          {
+            "value_id": "15.3",
+            "kind": "other_question",
+            "reason": "It concerns offline-sync behavior, which is a separate capability choice."
+          },
+          {
+            "value_id": "15.4",
+            "kind": "option",
+            "reason": "It is a choice to use centralized repository hosting."
+          },
+          {
+            "value_id": "15.5",
+            "kind": "other_question",
+            "reason": "It is a choice about server-coupled object retrieval, a different collaboration/transport mechanism."
+          },
+          {
+            "value_id": "15.6",
+            "kind": "effect",
+            "reason": "It describes a consequence of a mismatch between the model and workflow."
+          }
+        ]
+      }
+    }
+  ],
+  "links": [
+    {
+      "dimension_id": "5",
+      "dimension": "Repository Placement Strategy",
+      "value_id": "5.4",
+      "label": "Any-replica read routing",
+      "description": "Routes fetches and clones to any synchronized replica instead of a designated read replica.",
+      "status": "accepted",
+      "passage_id": "s03_p04",
+      "verdict": "partial",
+      "reason": "It says read operations try replicas in preference order and move a failed replica to the end, but not that fetches/clones are routed to any synchronized replica specifically."
+    },
+    {
+      "dimension_id": "8",
+      "dimension": "Client Scaling Integration",
+      "value_id": "8.1",
+      "label": "Custom Git build dependency",
+      "description": "Requires a Git build containing Scalar-specific functionality for repository-scaling features.",
+      "status": "accepted",
+      "passage_id": "s05_p01",
+      "verdict": "partial",
+      "reason": "The passage says Scalar builds on Git client contributions and may make its way into Git, but it does not describe requiring a custom Git build with Scalar-specific functionality."
+    },
+    {
+      "dimension_id": "8",
+      "dimension": "Client Scaling Integration",
+      "value_id": "8.9",
+      "label": "Low-friction platform migration",
+      "description": "Adoption of improved repository infrastructure minimizes migration disruption.",
+      "status": "accepted",
+      "passage_id": "s01_p16",
+      "verdict": "supports",
+      "reason": "The passage explicitly says the platform provides a smooth off-ramp and makes migration as painless as possible, directly supporting low-friction migration."
+    },
+    {
+      "dimension_id": "21",
+      "dimension": "Packfile Lifecycle Management",
+      "value_id": "21.2",
+      "label": "Multi-pack-index reference redirection",
+      "description": "Which index mechanism redirects selected objects to newly generated packs while retaining old packs temporarily?",
+      "status": "accepted",
+      "passage_id": "s05_p13",
+      "verdict": "supports",
+      "reason": "The passage explicitly says the multi-pack-index updates object references to point to a new pack-file while old pack-files remain referenced temporarily and are later expired."
+    },
+    {
+      "dimension_id": "17",
+      "dimension": "Repository Replication Mechanism",
+      "value_id": "17.7",
+      "label": "Optimistic UDP gossip replication",
+      "description": "Replicas exchange catch-up metadata through lossy gossip while authoritative reads verify state independently.",
+      "status": "accepted",
+      "passage_id": "s01_p12",
+      "verdict": "supports",
+      "reason": "The passage explicitly describes optimistic replication via lossy UDP gossip, with replicas catching up from S3 and reads verifying freshness against the authoritative source."
+    },
+    {
+      "dimension_id": "14",
+      "dimension": "Replica Failure Recovery",
+      "value_id": "14.7",
+      "label": "Advisory replica-offline status",
+      "description": "How is an uncertain offline judgment represented in replica routing?",
+      "status": "accepted",
+      "passage_id": "s03_p04",
+      "verdict": "supports",
+      "reason": "It says an offline node is only advisorially marked and moved to the end of the preference order rather than removed, which directly represents uncertain offline status in routing."
+    },
+    {
+      "dimension_id": "18",
+      "dimension": "Replica Update Scheduling",
+      "value_id": "18.1",
+      "label": "Coalesced bookkeeping reference updates",
+      "description": "Combining non-time-critical bookkeeping reference updates into fewer transactions.",
+      "status": "accepted",
+      "passage_id": "s02_p06",
+      "verdict": "supports",
+      "reason": "It explicitly says some bookkeeping updates are coalesced into fewer transactions."
+    },
+    {
+      "dimension_id": "15",
+      "dimension": "Version-Control Operating Model",
+      "value_id": "15.4",
+      "label": "Centralized repository hosting",
+      "description": "Coordinates users through a centralized repository host despite distributed client capabilities.",
+      "status": "accepted",
+      "passage_id": "s05_p08",
+      "verdict": "supports",
+      "reason": "The passage explicitly says GVFS relaxes Git to be more coupled to a central server for missing objects, which matches centralized repository hosting."
+    },
+    {
+      "dimension_id": "14",
+      "dimension": "Replica Failure Recovery",
+      "value_id": "14.2",
+      "label": "Automated permanent-failure repair",
+      "description": "Automatically restoring repository replication after disk or server failures.",
+      "status": "accepted",
+      "passage_id": "s01_p09",
+      "verdict": "supports",
+      "reason": "It explicitly says bad repositories must be detected and a repair job scheduled to restore them to a healthy state, i.e. automated recovery after failure."
+    },
+    {
+      "dimension_id": "26",
+      "dimension": "Replica Write Commitment Policy",
+      "value_id": "26.9",
+      "label": "Insufficient-replication write refusal",
+      "description": "Writes are refused when the minimum number of durable copies cannot be created.",
+      "status": "accepted",
+      "passage_id": "s03_p02",
+      "verdict": "supports",
+      "reason": "The passage explicitly says writes are refused when the system cannot make the minimum required number of copies or commit to at least two replicas."
+    },
+    {
+      "dimension_id": "22",
+      "dimension": "Client Repository Fetching",
+      "value_id": "22.2",
+      "label": "Hidden remote-reference namespace",
+      "description": "Stores background-fetched references under a separate namespace without changing ordinary local or remote-tracking refs.",
+      "status": "accepted",
+      "passage_id": "s05_p11",
+      "verdict": "supports",
+      "reason": "It explicitly says background fetches are stored in a new hidden ref namespace and do not change ordinary local branches or refs/remotes."
+    },
+    {
+      "dimension_id": "14",
+      "dimension": "Replica Failure Recovery",
+      "value_id": "14.2",
+      "label": "Automated permanent-failure repair",
+      "description": "Automatically restoring repository replication after disk or server failures.",
+      "status": "accepted",
+      "passage_id": "s03_p09",
+      "verdict": "supports",
+      "reason": "It explicitly says Spokes has automated repairs for recovering quickly when a disk or server fails permanently."
+    },
+    {
+      "dimension_id": "10",
+      "dimension": "Authority Synchronization",
+      "value_id": "10.1",
+      "label": "S3-backed write-ahead log",
+      "description": "Persisting authoritative repository updates through a write-ahead log in S3.",
+      "status": "accepted",
+      "passage_id": "s01_p15",
+      "verdict": "supports",
+      "reason": "It explicitly says they designed a WAL-based system in S3 and persist each push to the WAL before acknowledging it."
+    },
+    {
+      "dimension_id": "28",
+      "dimension": "Client Maintenance Strategy",
+      "value_id": "28.2",
+      "label": "Complete object-data rewrites",
+      "description": "Maintenance rewrites all object data, including compression, during cleanup.",
+      "status": "accepted",
+      "passage_id": "s05_p09",
+      "verdict": "supports",
+      "reason": "The passage explicitly says auto-GC completely rewrites all object data during garbage collection, including compression."
+    },
+    {
+      "dimension_id": "30",
+      "dimension": "Client Index Representation",
+      "value_id": "30.1",
+      "label": "Updated Git index format",
+      "description": "Using a compact index representation to reduce large-repository client command overhead.",
+      "status": "accepted",
+      "passage_id": "s04_p02",
+      "verdict": "supports",
+      "reason": "It explicitly mentions additional compression of the `.git/index` file to improve command performance in large repositories."
+    },
+    {
+      "dimension_id": "3",
+      "dimension": "Replica Checksum Strategy",
+      "value_id": "3.1",
+      "label": "Spokes checksum",
+      "description": "Summarizes reference names, values, and replica state to compare logical contents across replicas.",
+      "status": "accepted",
+      "passage_id": "s03_p09",
+      "verdict": "unrelated",
+      "reason": "The passage discusses replica counts, writes, and failure handling, but not a checksum strategy for comparing logical contents across replicas."
+    },
+    {
+      "dimension_id": "20",
+      "dimension": "Repository Storage Representation",
+      "value_id": "20.5",
+      "label": "Normal on-disk Git repository operations",
+      "description": "Runs standard Git operations against ordinary on-disk repositories using upstream-compatible tooling.",
+      "status": "mixed",
+      "passage_id": "s01_p06",
+      "verdict": "supports",
+      "reason": "The passage explicitly says Spokes stores data as actual Git repositories on local disks and runs standard Git operations against them."
+    },
+    {
+      "dimension_id": "20",
+      "dimension": "Repository Storage Representation",
+      "value_id": "20.6",
+      "label": "Eventually consistent repository replicas",
+      "description": "Allows replicas to expose newly pushed repository data only after propagation completes.",
+      "status": "mixed",
+      "passage_id": "s01_p06",
+      "verdict": "supports",
+      "reason": "The passage explicitly contrasts Spokes with eventual consistency and says it keeps all copies consistently in sync, ensuring replicas are fully consistent rather than exposing new data only after propagation."
+    },
+    {
+      "dimension_id": "27",
+      "dimension": "Client Maintenance Scheduling",
+      "value_id": "27.2",
+      "label": "Background Git maintenance",
+      "description": "Running repository maintenance asynchronously instead of periodic foreground garbage collection.",
+      "status": "mixed",
+      "passage_id": "s05_p01",
+      "verdict": "supports",
+      "reason": "The passage explicitly says Scalar maximizes Git performance by running background maintenance instead of relying on foreground operations."
+    },
+    {
+      "dimension_id": "27",
+      "dimension": "Client Maintenance Scheduling",
+      "value_id": "27.2",
+      "label": "Background Git maintenance",
+      "description": "Running repository maintenance asynchronously instead of periodic foreground garbage collection.",
+      "status": "mixed",
+      "passage_id": "s05_p15",
+      "verdict": "supports",
+      "reason": "The passage explicitly says Git currently depends on periodic foreground garbage collection and plans to contribute background maintenance to core Git."
+    },
+    {
+      "dimension_id": "31",
+      "dimension": "Client Filesystem and Status Monitoring",
+      "value_id": "31.1",
+      "label": "Git-aware filesystem watcher",
+      "description": "Using a Git-specific watcher to avoid broad filesystem scans during client maintenance.",
+      "status": "mixed",
+      "passage_id": "s05_p15",
+      "verdict": "supports",
+      "reason": "The passage explicitly proposes creating a custom Git-specific filesystem watcher that understands .gitignore to avoid unnecessary scans."
+    },
+    {
+      "dimension_id": "10",
+      "dimension": "Authority Synchronization",
+      "value_id": "10.6",
+      "label": "External relational database for repository references",
+      "description": "Stores repository references in an external relational database alongside blob-stored packfiles.",
+      "status": "mixed",
+      "passage_id": "s01_p15",
+      "verdict": "supports",
+      "reason": "The passage explicitly describes a system that stores packfiles in blob storage and repository references in a relational database, then contrasts it with a WAL-based alternative."
+    },
+    {
+      "dimension_id": "17",
+      "dimension": "Repository Replication Mechanism",
+      "value_id": "17.5",
+      "label": "Packfile-level replication",
+      "description": "Replicates Git data as packfiles while leaving Git operations standard on each repository replica.",
+      "status": "mixed",
+      "passage_id": "s01_p06",
+      "verdict": "supports",
+      "reason": "The passage explicitly says Spokes works at the packfile level and replicates Git data while keeping standard Git repositories and operations on local replicas."
+    },
+    {
+      "dimension_id": "20",
+      "dimension": "Repository Storage Representation",
+      "value_id": "20.5",
+      "label": "Normal on-disk Git repository operations",
+      "description": "Runs standard Git operations against ordinary on-disk repositories using upstream-compatible tooling.",
+      "status": "mixed",
+      "passage_id": "s01_p04",
+      "verdict": "supports",
+      "reason": "The passage explicitly says GitHub’s early system used copies of repositories on disk and discussed running standard Git against local on-disk repositories via filesystem semantics."
+    },
+    {
+      "dimension_id": "9",
+      "dimension": "Replica Topology and Factor",
+      "value_id": "9.3",
+      "label": "Colocated filesystem replicas",
+      "description": "Keeping filesystem replicas near one another because block replication is latency-sensitive.",
+      "status": "rejected",
+      "passage_id": "s01_p06",
+      "verdict": "unrelated",
+      "reason": "The passage discusses consistency and local NVMe storage, not colocating filesystem replicas to reduce latency for block replication."
+    },
+    {
+      "dimension_id": "20",
+      "dimension": "Repository Storage Representation",
+      "value_id": "20.10",
+      "label": "Distributed hash-table packfile storage",
+      "description": "Normal on-disk packfiles are replaced by a distributed hash table.",
+      "status": "rejected",
+      "passage_id": "s01_p03",
+      "verdict": "supports",
+      "reason": "The passage explicitly says on-disk packfiles were replaced with a distributed hash table and that this design was discarded."
+    },
+    {
+      "dimension_id": "9",
+      "dimension": "Replica Topology and Factor",
+      "value_id": "9.4",
+      "label": "Block-level filesystem replication",
+      "description": "Replicating repository storage at filesystem or block level.",
+      "status": "rejected",
+      "passage_id": "s02_p01",
+      "verdict": "supports",
+      "reason": "The passage explicitly says Spokes replaced an older filesystem block-level replication system."
+    },
+    {
+      "dimension_id": "6",
+      "dimension": "Maintenance Transition Strategy",
+      "value_id": "6.1",
+      "label": "Direct reboot or unplugging",
+      "description": "Stops a server immediately, risking interruption and loss of progress for long-running reads such as large clones.",
+      "status": "rejected",
+      "passage_id": "s03_p08",
+      "verdict": "supports",
+      "reason": "The passage explicitly rejects sudden unplugging and unplanned reboots because they interrupt reads and increase risk."
+    },
+    {
+      "dimension_id": "20",
+      "dimension": "Repository Storage Representation",
+      "value_id": "20.14",
+      "label": "Single on-disk HTTP repository",
+      "description": "An HTTP daemon serves one local on-disk repository.",
+      "status": "rejected",
+      "passage_id": "s01_p02",
+      "verdict": "partial",
+      "reason": "The passage explicitly mentions the simple approach of putting an HTTP server in front of a repository on disk, but only as a limited naive approach rather than adopting or clearly rejecting the single on-disk HTTP repository design."
+    },
+    {
+      "dimension_id": "6",
+      "dimension": "Maintenance Transition Strategy",
+      "value_id": "6.1",
+      "label": "Direct reboot or unplugging",
+      "description": "Stops a server immediately, risking interruption and loss of progress for long-running reads such as large clones.",
+      "status": "rejected",
+      "passage_id": "s03_p07",
+      "verdict": "supports",
+      "reason": "The passage explicitly says a server can be rebooted or unplugged, but rejects doing so casually because it can break in-progress reads and lose clone progress."
+    },
+    {
+      "dimension_id": "9",
+      "dimension": "Replica Topology and Factor",
+      "value_id": "9.3",
+      "label": "Colocated filesystem replicas",
+      "description": "Keeping filesystem replicas near one another because block replication is latency-sensitive.",
+      "status": "rejected",
+      "passage_id": "s02_p02",
+      "verdict": "supports",
+      "reason": "The passage explicitly says DRBD block-level replication was latency-sensitive, forcing filesystem replicas to be kept right next to each other."
+    },
+    {
+      "dimension_id": "20",
+      "dimension": "Repository Storage Representation",
+      "value_id": "20.15",
+      "label": "Server-internal non-packfile storage",
+      "description": "The server uses an internal representation other than packfiles while preserving packfile network operations.",
+      "status": "rejected",
+      "passage_id": "s01_p02",
+      "verdict": "supports",
+      "reason": "It explicitly says the server need not use packfiles internally, while still requiring packfiles for network operations."
+    },
+    {
+      "dimension_id": "28",
+      "dimension": "Client Maintenance Strategy",
+      "value_id": "28.3",
+      "label": "Repository performance decay",
+      "description": "Disabling cleanup causes repository performance to deteriorate as objects accumulate.",
+      "status": "outcome",
+      "passage_id": "s05_p09",
+      "verdict": "supports",
+      "reason": "The passage explicitly says disabling automatic garbage collection causes Git performance to decay slowly as objects accumulate."
+    },
+    {
+      "dimension_id": "9",
+      "dimension": "Replica Topology and Factor",
+      "value_id": "9.12",
+      "label": "Replica-count scaling bottleneck",
+      "description": "Increasing the number of replicas reduces push throughput under three-phase commit.",
+      "status": "outcome",
+      "passage_id": "s01_p08",
+      "verdict": "supports",
+      "reason": "The passage explicitly states that adding more replicas makes push throughput worse under three-phase commit."
+    },
+    {
+      "dimension_id": "3",
+      "dimension": "Replica Checksum Strategy",
+      "value_id": "3.3",
+      "label": "Full checksum recomputation",
+      "description": "Recomputing all reference hashes from scratch becomes expensive for repositories with many references.",
+      "status": "outcome",
+      "passage_id": "s02_p05",
+      "verdict": "supports",
+      "reason": "It says computing the checksum from scratch is relatively expensive in repositories with many references and therefore should be done incrementally instead."
+    },
+    {
+      "dimension_id": "8",
+      "dimension": "Client Scaling Integration",
+      "value_id": "8.11",
+      "label": "Agent-driven workload growth",
+      "description": "Software agents increase code, pull-request, and CI workload demands on repository infrastructure.",
+      "status": "outcome",
+      "passage_id": "s01_p16",
+      "verdict": "supports",
+      "reason": "The passage explicitly says agents have increased code, PRs, and CI runs, which matches agent-driven workload growth on repository infrastructure."
+    },
+    {
+      "dimension_id": "21",
+      "dimension": "Packfile Lifecycle Management",
+      "value_id": "21.7",
+      "label": "Unbounded pack-file accumulation",
+      "description": "What pack-growth condition can result when pack maintenance is not bounded?",
+      "status": "outcome",
+      "passage_id": "s05_p13",
+      "verdict": "supports",
+      "reason": "The passage says letting pack-files grow without bound causes thousands of packs, directly describing the unbounded accumulation outcome."
+    },
+    {
+      "dimension_id": "12",
+      "dimension": "Client Clone Materialization",
+      "value_id": "12.8",
+      "label": "Populated-file data cost",
+      "description": "Populating working files costs substantially more data movement and processing than changing index entries.",
+      "status": "outcome",
+      "passage_id": "s05_p06",
+      "verdict": "supports",
+      "reason": "The passage explicitly says populating a file is much more expensive than adjusting an index entry because of the amount of data involved."
+    },
+    {
+      "dimension_id": "11",
+      "dimension": "Repository Serving Architecture",
+      "value_id": "11.9",
+      "label": "Single-machine repository storage",
+      "description": "Keeping each repository on only one machine after remote fileserver access.",
+      "status": "outcome",
+      "passage_id": "s01_p04",
+      "verdict": "partial",
+      "reason": "The passage discusses early GitHub keeping repository copies on a single machine and later considering centralized storage, but it focuses on distributed filesystem attempts rather than endorsing single-machine repository storage as a durable architecture."
+    },
+    {
+      "dimension_id": "26",
+      "dimension": "Replica Write Commitment Policy",
+      "value_id": "26.2",
+      "label": "High-latency reference-update constraint",
+      "description": "Limiting reference-update throughput because distant replica coordination incurs high latency.",
+      "status": "outcome",
+      "passage_id": "s02_p02",
+      "verdict": "supports",
+      "reason": "The passage explicitly says higher latency between distant replicas limits the maximum rate of Git reference updates, which is the described high-latency reference-update constraint."
+    }
+  ]
+}
