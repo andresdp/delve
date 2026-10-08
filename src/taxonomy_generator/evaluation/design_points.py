@@ -32,13 +32,21 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Set
 CANDIDATE = ("accepted", "mixed")
 
 
-def load_system_map(path: Path) -> Dict[str, Set[str]]:
-    """Passage/document id → set of systems from a B7-style CSV (``#`` lines skipped, ``GENERAL`` dropped)."""
+def load_system_map(path: Path, attest_by: str = "systems") -> Dict[str, Set[str]]:
+    """Passage/document id → set of systems from a B7-style CSV (``#`` lines skipped, ``GENERAL`` dropped).
+
+    ``attest_by="primary"`` keeps only each passage's primary system: a passage that
+    mainly describes one system and mentions another then attests only the first.
+    ``"systems"`` uses every listed system (looser).
+    """
+    if attest_by not in ("primary", "systems"):
+        raise ValueError(f"attest_by must be 'primary' or 'systems', got {attest_by!r}")
     with open(path, encoding="utf-8", newline="") as f:
         lines = [line for line in f if not line.lstrip().startswith("#")]
     out: Dict[str, Set[str]] = {}
     for row in csv.DictReader(lines):
-        systems = {s.strip() for s in (row.get("systems") or "").split(";") if s.strip()}
+        column = row.get(attest_by) or ""
+        systems = {s.strip() for s in column.split(";") if s.strip()}
         out[row["passage_id"].strip()] = systems - {"GENERAL"}
     return out
 

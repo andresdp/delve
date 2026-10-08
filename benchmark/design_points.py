@@ -17,7 +17,10 @@ the run:
 Usage::
 
     python benchmark/design_points.py examples/c3-git-at-scale/c3-git-at-scale_taxonomy_<ts>.json \\
-        --systems benchmark/c3-git-at-scale/passage_systems.csv [--k 2 3] [--n 30] [--seed 42]
+        --systems benchmark/c3-git-at-scale/passage_systems.csv [--attest-by primary] [--k 2 3] [--n 30] [--seed 42]
+
+Attested support uses each passage's primary system by default: a passage that mainly
+describes one system and mentions another attests only the first.
 """
 
 from __future__ import annotations
@@ -40,6 +43,9 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("taxonomy", help="saved run (*_taxonomy_<timestamp>.json)")
     parser.add_argument("--systems", help="passage → system map (B7 CSV); omit for no attested group")
+    parser.add_argument("--attest-by", choices=["primary", "systems"], default="primary",
+                        help="attested support: each passage's primary system only (default, strict) or every "
+                             "system it lists")
     parser.add_argument("--k", type=int, nargs="+", default=[2, 3], help="dimensions per point (default: 2 3)")
     parser.add_argument("--n", type=int, default=30, help="points per group and k (default: 30)")
     parser.add_argument("--seed", type=int, default=42)
@@ -49,7 +55,7 @@ def main(argv=None) -> int:
     path = Path(args.taxonomy)
     run = json.loads(path.read_text(encoding="utf-8"))
     clusters = run.get("selected_clusters") or []
-    doc_systems = load_system_map(Path(args.systems)) if args.systems else None
+    doc_systems = load_system_map(Path(args.systems), args.attest_by) if args.systems else None
 
     samples = [{"k": k, **sample_design_points(clusters, doc_systems, k, args.n, args.seed + k)} for k in args.k]
     points = [p for s in samples for g in ("attested", "novel", "control") for p in s["groups"][g]]
@@ -60,7 +66,7 @@ def main(argv=None) -> int:
 
     out_dir = args.out_dir or path.parent
     stem = path.with_suffix("").name
-    out = {"run": str(path), "systems": args.systems, "seed": args.seed, "n": args.n, "samples": samples}
+    out = {"run": str(path), "systems": args.systems, "attest_by": args.attest_by if args.systems else None, "seed": args.seed, "n": args.n, "samples": samples}
     (out_dir / f"{stem}_design_points.json").write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
     with open(out_dir / f"{stem}_design_points_sheet.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

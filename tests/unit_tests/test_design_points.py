@@ -127,6 +127,13 @@ def test_load_system_map_skips_comments_and_general(tmp_path):
     assert dp.load_system_map(f) == {"s01_p01": {"GH-FS"}, "s01_p02": set()}
 
 
+def test_load_system_map_by_primary_keeps_only_the_main_system(tmp_path):
+    f = tmp_path / "m.csv"
+    f.write_text("passage_id,corpus,systems,primary,basis\ns01_p15,raw,CUR-CONT;MS-ADO,CUR-CONT,b\n", encoding="utf-8")
+    assert dp.load_system_map(f, attest_by="primary") == {"s01_p15": {"CUR-CONT"}}
+    assert dp.load_system_map(f, attest_by="systems") == {"s01_p15": {"CUR-CONT", "MS-ADO"}}
+
+
 def test_cli_writes_points_and_blind_sheet(tmp_path):
     run = tmp_path / "c3_taxonomy_20261008_000000.json"
     run.write_text(json.dumps({"selected_clusters": _clusters()}), encoding="utf-8")
