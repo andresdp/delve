@@ -46,6 +46,22 @@ A dimension is **focused** when none of its candidate values (accepted, mixed, r
 2. **Values that are not options are a smaller issue:** 3–12% of candidates, mostly goals or principles labeled `accepted`.
 3. **Evidence links are mostly sound.** Accepted links have no unrelated passage in C1 or C2 and 6% in C3. The weak spot is C2's `mixed` and `outcome` links, with 38% unrelated each (small samples). Mixed values come from merging stances (`merge_value_stances`), which pools the links of merged values. The attested design points of C3 also rest on these links (see the C3 README).
 
+## Same probe with the study LLM as judge (`gpt-5.6-luna`)
+
+The pipeline runs of all three cases use `gpt-5.6-luna` for generation, evaluation and matching. Only this diagnostic probe used `gpt-5.4-mini`. To keep the cases on the same LLM, the probe was repeated with luna as judge (outputs in `examples/<case>/probe_luna/`, same link sample). Luna judging its own output is self-grading, so the mini results are kept as a second opinion.
+
+| | C1 | C2 | C3 |
+|---|---|---|---|
+| Focused dimensions, luna (mini) | 23% (20%) | 53% (47%) | 32% (55%) |
+| Candidate values for another question, luna (mini) | 31% (26%) | 20% (20%) | 22% (22%) |
+| Values flagged by both judges / by either | 34 / 114 | 23 / 55 | 19 / 45 |
+| Link verdicts the two judges agree on | 72% | 82% | 92% |
+| Unrelated accepted links, luna | 6% | 6% | 13% |
+
+**Reading.**
+- The two judges agree on the **rate** of bundled decisions (a fifth to a third of candidate values) but often disagree on **which** values. The problem is robust at the aggregate level, while per-value labels are unreliable.
+- So a fix that moves individual values on the strength of one judge call would be noisy. A structural change judged by the ground-truth scores is safer.
+
 ## Implication for step 2 (general fixes, validated on C1/C2)
 
 - **Highest value:** a decision-focus pass after consolidation. For each dimension, values that answer another question move to the dimension that answers it, or form a new dimension. Facts and goals are relabeled or dropped.
