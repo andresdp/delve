@@ -1,0 +1,176 @@
+"""taxonomy_generator.wiki: design-space wiki export (markdown, HTML pages, graph page)."""
+
+import csv
+import importlib.util
+import json
+import re
+from pathlib import Path
+
+from taxonomy_generator.wiki import Inputs, build, write
+from taxonomy_generator.wiki.model import excerpt, slugify
+
+_spec = importlib.util.spec_from_file_location(
+    "export_wiki_cli", Path(__file__).resolve().parents[2] / "benchmark" / "export_wiki.py")
+cli = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(cli)
+
+
+def _value(vid, label, status, docs, accepted=(), rejected=()):
+    return {"id": vid, "label": label, "description": f"{label} description.", "status": status,
+            "supporting_doc_ids": list(docs), "stances": {"accepted": list(accepted), "rejected": list(rejected)}}
+
+
+def _taxonomy():
+    dims = [
+        {"id": "1", "name": "Source of truth", "description": "Where does the truth live?",
+         "relations": [{"target_id": "2", "type": "constrains", "rationale": "Truth shapes replication."}],
+         "evidence": {"codes": 5, "documents": 3, "sources": 2},
+         "values": [_value("1.1", "Disk quorum", "accepted", ["s01_p01"], accepted=["s01_p01"]),
+                    _value("1.2", "WAL in S3", "mixed", ["s02_p01", "s01_p02"], accepted=["s02_p01"], rejected=["s01_p02"]),
+                    _value("1.3", "Shared label", "rejected", ["s01_p02"], rejected=["s01_p02"])]},
+        {"id": "2", "name": "Replication", "description": "How are replicas kept in sync?", "relations": [],
+         "evidence": {"codes": 4, "documents": 2, "sources": 2},
+         "values": [_value("2.1", "Three-phase commit", "accepted", ["s01_p01"]),
+                    _value("2.2", "Shared label", "accepted", ["s02_p01"]),
+                    _value("2.3", "Lower latency", "outcome", ["s02_p01"])]},
+    ]
+    return {"taxonomy_name": "toy", "selected_clusters": dims,
+            "iterations": [{"clusters": dims + [{"id": "9", "name": "Dropped topic", "values": []}]}],
+            "dropped_dimensions": [{"id": "9", "rationale": "Not a decision point."}],
+            "run_metrics": {"total_tokens": 1000}}
+
+
+CORPUS = {
+    "s01_p01": {"id": "s01_p01", "content": "## Heading line\nSpokes keeps *three* copies [always].", "section": "Spokes"},
+    "s01_p02": {"id": "s01_p02", "content": "Filesystems were rejected.", "section": "History"},
+    "s02_p01": {"id": "s02_p01", "content": "Continuity writes a WAL to S3.", "section": "Continuity"},
+}
+SYSTEMS = {"s01_p01": {"systems": ["SPOKES"], "primary": "SPOKES"}, "s01_p02": {"systems": ["FS"], "primary": "FS"},
+           "s02_p01": {"systems": ["CONT"], "primary": "CONT"}, "other_doc": {"systems": ["UNUSED"], "primary": "UNUSED"}}
+POINTS = {"seed": 42, "samples": [{"k": 2, "groups": {
+    "attested": [{"point_id": "P001", "group": "attested", "system": "SPOKES",
+                  "values": [{"dimension_id": "1", "dimension": "Source of truth", "value_id": "1.1", "label": "Disk quorum", "status": "accepted"},
+                             {"dimension_id": "2", "dimension": "Replication", "value_id": "2.1", "label": "Three-phase commit", "status": "accepted"}],
+                  "relations": [{"source": "1", "target": "2", "type": "constrains"}]}],
+    "novel": [{"point_id": "P002", "group": "novel",
+               "values": [{"dimension_id": "1", "dimension": "Source of truth", "value_id": "1.2", "label": "WAL in S3", "status": "mixed"},
+                          {"dimension_id": "2", "dimension": "Replication", "value_id": "2.1", "label": "Three-phase commit", "status": "accepted"}]}],
+    "control": []}, "diagnostics": {"note": ""}}]}
+
+
+def _inputs(**over):
+    base = dict(taxonomy=_taxonomy(), taxonomy_name="toy", run_label="20261008_000000", corpus=CORPUS,
+                systems=SYSTEMS, use_case="Mine Git hosting decisions.")
+    base.update(over)
+    return Inputs(**base)
+
+
+def _tree(root: Path):
+    return {str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()}
+
+
+def test_same_inputs_give_identical_output(tmp_path):
+    write(build(_inputs(design_points=POINTS)), tmp_path / "a", "toy")
+    write(build(_inputs(design_points=POINTS)), tmp_path / "b", "toy")
+    assert _tree(tmp_path / "a") == _tree(tmp_path / "b")
+
+
+def test_every_wikilink_resolves():
+    export = build(_inputs(design_points=POINTS))
+    paths = {p.path for p in export.pages}
+    for page in export.pages:
+        text = page.body + json.dumps(page.frontmatter)
+        for target in re.findall(r"\[\[([^\]|]+)", text):
+            assert target in paths, (page.path, target)
+
+
+def test_every_html_link_resolves(tmp_path):
+    write(build(_inputs(design_points=POINTS)), tmp_path, "toy")
+    html_root = tmp_path / "html"
+    files = list(html_root.rglob("*.html"))
+    assert (html_root / "graph.html") in files and (html_root / "assets" / "d3.min.js").exists()
+    for f in files:
+        markup = re.sub(r"<script>.*?</script>", "", f.read_text(encoding="utf-8"), flags=re.S)  # runtime-built links
+        for href in re.findall(r'(?:href|src)="([^"#]+)', markup):
+            if href.startswith(("http:", "https:", "mailto:")):
+                continue
+            assert (f.parent / href).resolve().exists(), (f, href)
+
+
+def test_without_design_points_nothing_refers_to_them(tmp_path):
+    export = build(_inputs())
+    assert not any(p.path.startswith("designs/") or p.path == "synthesis/design-points" for p in export.pages)
+    assert not any(n["kind"] == "design" for n in export.graph["nodes"])
+    write(export, tmp_path, "toy")
+    assert not (tmp_path / "wiki" / "designs").exists()
+    text = "".join(re.sub(r"<script>.*?</script>", "", p.read_text(encoding="utf-8"), flags=re.S)
+                   for p in (tmp_path / "html").rglob("*.html"))
+    assert "designs/" not in text and "design-points.html" not in text
+    assert '<input type="checkbox" data-kind="design"' not in text and 'id="design-filters"' not in text
+
+
+def test_with_design_points_pages_and_graph_layer_exist():
+    export = build(_inputs(design_points=POINTS))
+    paths = {p.path for p in export.pages}
+    assert {"designs/p001", "designs/p002", "synthesis/design-points"} <= paths
+    design_edges = [e for e in export.graph["edges"] if e["type"] == "design"]
+    assert {(e["source"], e["target"]) for e in design_edges} == {("p:P001", "v:1.1"), ("p:P001", "v:2.1"),
+                                                                 ("p:P002", "v:1.2"), ("p:P002", "v:2.1")}
+    value = next(p for p in export.pages if p.path == "entities/disk-quorum")
+    assert value.frontmatter["design_points"] == ["[[designs/p001|P001]]"]
+
+
+def test_no_quotes_removes_passage_text():
+    with_q = next(p for p in build(_inputs()).pages if p.path == "entities/disk-quorum")
+    without = next(p for p in build(_inputs(quotes=False)).pages if p.path == "entities/disk-quorum")
+    assert "Spokes keeps" in with_q.body and "s01_p01" in with_q.body
+    assert "Spokes keeps" not in without.body and "s01_p01" in without.body
+
+
+def test_duplicate_labels_get_distinct_pages():
+    paths = [p.path for p in build(_inputs()).pages if p.kind == "value"]
+    assert len(paths) == len(set(paths)) == 6
+    assert {"entities/shared-label", "entities/shared-label-2"} <= set(paths)
+
+
+def test_excerpt_skips_headings_and_escapes_markdown():
+    text = excerpt(CORPUS["s01_p01"]["content"], 60)
+    assert "Heading" not in text and text.startswith("Spokes keeps \\*three\\* copies \\[always\\]")
+    assert slugify("Write-ahead log (WAL) in S3!") == "write-ahead-log-wal-in-s3"
+
+
+def test_system_pages_only_for_systems_with_evidence_in_the_run():
+    export = build(_inputs())
+    systems = {p.path for p in export.pages if p.kind == "system"}
+    assert systems == {"synthesis/systems/cont", "synthesis/systems/fs", "synthesis/systems/spokes"}
+    matrix = next(p for p in export.pages if p.path == "synthesis/system-matrix")
+    assert "Disk quorum" in matrix.body
+
+
+def test_mixed_stance_and_relations_in_graph():
+    export = build(_inputs())
+    edges = {(e["source"], e["target"], e.get("stance"), e.get("relation")) for e in export.graph["edges"]}
+    assert ("d:1", "d:2", None, "constrains") in edges
+    assert ("s:s2", "v:1.2", "accepts", None) in edges and ("s:s1", "v:1.2", "rejects", None) in edges
+
+
+def test_cli_writes_the_export(tmp_path):
+    run = tmp_path / "toy_taxonomy_20261008_000000.json"
+    run.write_text(json.dumps(_taxonomy()), encoding="utf-8")
+    corpus = tmp_path / "corpus.json"
+    corpus.write_text(json.dumps(list(CORPUS.values())), encoding="utf-8")
+    sources = tmp_path / "sources.csv"
+    with open(sources, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["id", "title", "url", "source_type"])
+        w.writerow(["s1", "Spokes post", "https://example.org/spokes", "blog"])
+        w.writerow(["s2", "Cursor post", "https://example.org/cursor", "blog"])
+    dp = tmp_path / "points.json"
+    dp.write_text(json.dumps(POINTS), encoding="utf-8")
+    assert cli.main([str(run), "--corpus", str(corpus), "--sources", str(sources), "--design-points", str(dp)]) == 0
+    out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
+    assert (out / ".llmwiki.yaml").exists() and (out / "SCHEMA.md").exists()
+    assert (out / "wiki" / "sources" / "s1.md").read_text(encoding="utf-8").startswith("---\ntitle: Spokes post")
+    manifest = json.loads((out / "raw" / "run.json").read_text(encoding="utf-8"))
+    assert manifest["quotes"] is True and manifest["pages"] > 10
+    assert (out / "html" / "designs" / "p001.html").exists()
