@@ -9,7 +9,8 @@ generated: 2026-10-02
 updated: 2026-10-08
 status: >-
   options analysis (§1–§12) plus a decided demo plan (§13, llmwiki-style wiki + graph site, paper
-  figures); nothing implemented yet; to be built on its own feature branch
+  figures); exporter, HTML pages and graph view built 2026-10-08 (§13.4); demo dry run and paper
+  figures pending
 related: >-
   docs/paper/SANER2027_PAPER_PLAN.md §6.5 (one-paragraph pointer; not in paper scope),
   CONCEPTS.md (Evidence Linking, Decision Status, Selected Dimensions, Grounded Theory Report)
@@ -453,7 +454,33 @@ tags: [value, accepted, authority-synchronization]
 
 **To install** (no new Python environment): nothing for W1–W5. `jinja2`, `markdown-it-py` and `matplotlib` are already in the `taxonomy` env; d3 is a single vendored file (downloaded once from cdnjs or jsDelivr and kept in the repo with its ISC license). W6 only: Bun or Node ≥ 18 (for example `brew install oven-sh/bun/bun`) and `npm install -g llmwiki-cli`.
 
-### 13.4 Open questions for the branch
+### 13.4 Built (2026-10-08, branch `feat/design-space-wiki`)
+
+W1, W1b, W2 and W3 are implemented:
+- **Code:** `src/taxonomy_generator/wiki/` (data model, renderer, templates) and the CLI `benchmark/export_wiki.py`.
+- **Tests:** `tests/unit_tests/test_wiki_export.py`.
+- **C3 system names:** `benchmark/c3-git-at-scale/systems.csv`.
+
+Differences from the plan:
+- System pages appear only for systems with evidence in the exported run. The system matrix shows at most three options per cell; the full list is on each system's page.
+- In the graph, sources and systems start hidden (their evidence edges crowd the default view), and so does the design-point layer.
+
+Build the C3 demo (from the repo root, `taxonomy` env):
+
+```bash
+python benchmark/export_wiki.py examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350.json \
+    --corpus examples/c3-git-at-scale/c3-git-at-scale_corpus.json \
+    --sources benchmark/c3-git-at-scale/sources.csv \
+    --systems benchmark/c3-git-at-scale/passage_systems.csv \
+    --system-names benchmark/c3-git-at-scale/systems.csv \
+    --design-points examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_design_points.json \
+    --config examples/c3-git-at-scale/c3_git_at_scale_config.yaml
+open examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_wiki/html/index.html
+```
+
+Still open: the demo dry run (W4), the paper figures (W5), and the optional llmwiki-cli stock site (W6).
+
+### 13.5 Open questions for the branch
 
 - **Value-page links:** do they also link to their passages' sources, so source nodes show which decisions they inform? This makes the graph denser. Decide on the C3 export.
 - **Several runs in one site:** out of scope (R8 later). One site per run for now.
