@@ -5,7 +5,7 @@ and the same inputs always give the same pages (R10). Pages follow the
 llmwiki-cli layout, which Obsidian also reads:
 
 - ``concepts/``: dimensions (decision points);
-- ``entities/``: values (candidate decisions and outcomes);
+- ``entities/``: dimension values (candidate decisions and outcomes);
 - ``sources/``: corpus sources;
 - ``synthesis/``: generated overviews (and, with a passage → system map, one page
   per system plus the system × dimension matrix);
@@ -55,6 +55,8 @@ class Inputs:
     system_names: Dict[str, Dict[str, str]] = field(default_factory=dict)
     design_points: Optional[Dict[str, Any]] = None
     use_case: str = ""
+    narrative: str = ""
+    evaluation: bool = False
     view: str = "selected"
     quotes: bool = True
     quote_words: int = 60
@@ -87,6 +89,12 @@ def cell(text: Any) -> str:
     out = str(text).replace("\n", " ")
     parts = re.split(r"(\[\[[^\]]*\]\])", out)
     return "".join(p if p.startswith("[[") else p.replace("|", "\\|") for p in parts)
+
+
+def items(entries: Sequence[str]) -> str:
+    """Several entries in one table cell: a bulleted list (HTML pages turn it into <ul>)."""
+    entries = [e for e in entries if e]
+    return "<br>".join(f"• {e}" for e in entries)
 
 
 def source_of(doc_id: str) -> str:
@@ -239,6 +247,7 @@ class _Builder:
         for sid in self.source_ids:
             self.source_page(sid)
         self.overview_page()
+        self.has_evaluation = self.inp.evaluation and self.evaluation_page()
         self.contested_page()
         self.dropped_page()
         if self.system_codes:
@@ -261,13 +270,13 @@ class _Builder:
         ev = d.get("evidence") or {}
         rel_out = [(r, str(r.get("target_id"))) for r in d.get("relations") or [] if str(r.get("target_id")) in self.dim_by_id]
         rel_in = [(o, r) for o in self.dims for r in o.get("relations") or [] if str(r.get("target_id")) == did]
-        fm = {"id": did, "options": len(values),
-              "candidate_options": sum(counts[s] for s in CANDIDATE_STATUSES), "outcomes": counts["outcome"],
+        fm = {"id": did, "values": len(values),
+              "candidate_values": sum(counts[s] for s in CANDIDATE_STATUSES), "outcomes": counts["outcome"],
               "evidence": {"codes": ev.get("codes"), "documents": ev.get("documents"), "sources": ev.get("sources")},
               "relations": [f"{r.get('type')} {link(self.dim_path[t], self.dim_by_id[t].get('name'))}" for r, t in rel_out],
               "tags": ["dimension"]}
         lines = [f"# {d.get('name')}", "", d.get("description") or "", ""]
-        lines += ["## Options", "", "| Option | Status | Passages |", "|---|---|---|"]
+        lines += ["## Values", "", "| Value | Status | Passages |", "|---|---|---|"]
         for v in sorted(values, key=lambda v: (STATUS_ORDER.index(v.get("status")) if v.get("status") in STATUS_ORDER else 9, v.get("label", ""))):
             lines.append(f"| {cell(link(self.value_path[str(v.get('id'))], v.get('label')))} | {v.get('status')} "
                          f"| {len(v.get('supporting_doc_ids') or [])} |")
@@ -324,28 +333,103 @@ class _Builder:
                     stance = "both" if "both" in stances or {"accepts", "rejects"} <= stances else sorted(stances)[0]
                     uses.append((d, v, stance, len(docs)))
         fm = {"id": sid, "url": row.get("url", ""), "source_type": row.get("source_type", ""),
-              "options_informed": len(uses), "tags": ["source"]}
+              "values_informed": len(uses), "tags": ["source"]}
         title = self.source_title(sid)
         lines = [f"# {title}", ""]
         if row.get("url"):
             lines += [f"<{row['url']}>", ""]
-        lines += ["## Decisions it informs", "", "| Dimension | Option | Stance | Passages |", "|---|---|---|---|"]
+        lines += ["## Decisions it informs", "", "| Dimension | Value | Stance | Passages |", "|---|---|---|---|"]
         for d, v, stance, n in sorted(uses, key=lambda u: (u[0].get("name", ""), u[1].get("label", ""))):
             lines.append(f"| {cell(link(self.dim_path[str(d.get('id'))], d.get('name')))} | "
                          f"{cell(link(self.value_path[str(v.get('id'))], v.get('label')))} | {stance} | {n} |")
         self.add(self.source_path[sid], title, "source", fm, "\n".join(lines))
 
+    def run_summary(self) -> List[str]:
+        tax = self.inp.taxonomy
+        values = [v for d in self.dims for v in d.get("values") or []]
+        by_status = {s: sum(v.get("status") == s for v in values) for s in STATUS_ORDER}
+        m = tax.get("run_metrics") or {}
+        rows = [("Run", f"{self.inp.run_label} ({self.inp.view} view)"),
+                ("Dimensions", len(self.dims)),
+                ("Values", f"{len(values)}: " + ", ".join(f"{by_status[s]} {s}" for s in STATUS_ORDER)),
+                ("Sources", len(self.source_ids)),
+                ("Iterations", len(tax.get("iterations") or [])),
+                ("Dropped dimensions", len(tax.get("dropped_dimensions") or []))]
+        if m.get("elapsed_seconds") is not None:
+            rows.append(("Run time", f"{m['elapsed_seconds'] / 60:.0f} min"))
+        if m.get("total_tokens"):
+            rows.append(("Tokens", f"{m['total_tokens']:,} ({m.get('prompt_tokens') or 0:,} prompt, "
+                                   f"{m.get('completion_tokens') or 0:,} completion)"))
+        ev = tax.get("evaluation") or {}
+        if isinstance(ev.get("overall"), (int, float)) and not ev.get("unavailable"):
+            rows.append(("Evaluation score", f"{ev['overall']:.2f} (judge {ev.get('model', '?')})"))
+        return ["| Item | Value |", "|---|---|"] + [f"| {k} | {cell(v)} |" for k, v in rows]
+
     def overview_page(self) -> None:
-        lines = ["# Overview", "", f"{len(self.dims)} dimensions, "
-                 f"{sum(len(d.get('values') or []) for d in self.dims)} options.", "",
-                 "| Dimension | Accepted | Mixed | Rejected | Outcomes |", "|---|---|---|---|---|"]
+        lines = ["# Overview", ""]
+        if self.inp.use_case:
+            lines += ["## Use case", "", self.inp.use_case.strip(), ""]
+        if self.inp.narrative:
+            lines += ["## Summary", "", self.inp.narrative.strip(), "",
+                      "*Narrative summary written by the pipeline at the end of the run (from its report).*", ""]
+        lines += ["## Run", ""] + self.run_summary() + ["", "## Dimensions and values", "",
+                  "| Dimension | Accepted | Mixed | Rejected | Outcomes |", "|---|---|---|---|---|"]
         for d in sorted(self.dims, key=lambda d: d.get("name", "")):
             row = [cell(link(self.dim_path[str(d.get('id'))], d.get("name")))]
             for s in STATUS_ORDER:
-                row.append(cell(", ".join(link(self.value_path[str(v.get('id'))], v.get("label"))
-                                          for v in d.get("values") or [] if v.get("status") == s)))
+                row.append(cell(items([link(self.value_path[str(v.get('id'))], v.get("label"))
+                                       for v in d.get("values") or [] if v.get("status") == s])))
             lines.append("| " + " | ".join(row) + " |")
         self.add("synthesis/overview", "Overview", "synthesis", {"tags": ["synthesis"]}, "\n".join(lines))
+
+    def evaluation_page(self) -> bool:
+        tax = self.inp.taxonomy
+        ev = tax.get("evaluation") or {}
+        criteria = ev.get("criteria") or []
+        if not criteria or ev.get("unavailable"):
+            return False
+        overall = ev.get("overall")
+        lines = ["# Evaluation", "",
+                 f"Overall score **{overall:.2f}**" if isinstance(overall, (int, float)) else "Overall score: n/a",
+                 f"(judge `{ev.get('model', '?')}`, {ev.get('view') or 'final view'}, {ev.get('dimensions', '?')} dimensions). "
+                 "Scores are given by an LLM judge inside the pipeline; they are diagnostics, not ground truth.", "",
+                 "## Criteria", "", "| Criterion | Score | Pass | Reason |", "|---|---|---|---|"]
+        for c in criteria:
+            if c.get("evaluated", True):
+                score = c.get("score")
+                score_s = f"{score:.2f}" if isinstance(score, (int, float)) else "—"
+                passed = "yes" if c.get("passed") else ("no" if c.get("passed") is not None else "—")
+                reason = " ".join(str(c.get("reason") or "").split())
+            else:
+                score_s, passed, reason = "—", "—", "Not evaluated (no documents provided)."
+            lines.append(f"| **{cell(c.get('name', '?'))}** | {score_s} | {passed} | {cell(reason)} |")
+        defs = [c for c in criteria if c.get("description")]
+        if defs:
+            lines += ["", "## What each criterion checks", ""]
+            lines += [f"- **{c['name']}** (threshold {c.get('threshold', '?')}): {c['description']}" for c in defs]
+        history = [h for h in tax.get("evaluation_history") or [] if isinstance(h, dict) and not h.get("unavailable")]
+        if len(history) >= 2:
+            names = []
+            for h in history:
+                for c in h.get("criteria") or []:
+                    if c.get("name") and c["name"] not in names:
+                        names.append(c["name"])
+            lines += ["", "## Across iterations", "",
+                      "Loop drafts are the raw output of each iteration; the final view is consolidated and selected, "
+                      "so it is not directly comparable.", "",
+                      "| Iteration | View | Dimensions | Overall | " + " | ".join(cell(n) for n in names) + " |",
+                      "|---|---|---|---|" + "---|" * len(names)]
+            for h in history:
+                scores = {c.get("name"): c.get("score") for c in h.get("criteria") or []}
+                ov = h.get("overall")
+                row = [str(h.get("iteration", "?")), str(h.get("view", "")), str(h.get("dimensions", "")),
+                       f"{ov:.2f}" if isinstance(ov, (int, float)) else "—"]
+                row += [f"{scores[n]:.1f}" if isinstance(scores.get(n), (int, float)) else "—" for n in names]
+                lines.append("| " + " | ".join(row) + " |")
+        self.add("synthesis/evaluation", "Evaluation", "synthesis",
+                 {"overall": round(overall, 3) if isinstance(overall, (int, float)) else None, "judge": ev.get("model"),
+                  "tags": ["synthesis", "evaluation"]}, "\n".join(lines))
+        return True
 
     def contested_page(self) -> None:
         lines = ["# Contested decisions", "",
@@ -405,11 +489,11 @@ class _Builder:
         lines = [f"# {title}", ""]
         if info.get("description"):
             lines += [info["description"], ""]
-        lines += [f"Options supported by passages whose primary system is `{code}` (passage → system map).", "",
-                  "| Dimension | Options (passages) |", "|---|---|"]
+        lines += [f"Values supported by passages whose primary system is `{code}` (passage → system map).", "",
+                  "| Dimension | Values (passages) |", "|---|---|"]
         for did in sorted(support, key=lambda i: self.dim_by_id[i].get("name", "")):
-            opts = ", ".join(f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})"
-                             for v, n in sorted(support[did], key=lambda x: (-x[1], x[0].get("label", ""))))
+            opts = items([f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})"
+                          for v, n in sorted(support[did], key=lambda x: (-x[1], x[0].get("label", "")))])
             lines.append(f"| {cell(link(self.dim_path[did], self.dim_by_id[did].get('name')))} | {cell(opts)} |")
         mine = [p for p in points if p.get("group") == "attested" and p.get("system") == code]
         if mine:
@@ -420,7 +504,7 @@ class _Builder:
         support = {c: self.system_support(c) for c in self.system_codes}
         header = "| Dimension | " + " | ".join(link(self.system_path[c], self.system_title(c)) for c in self.system_codes) + " |"
         lines = ["# System × dimension matrix", "",
-                 "For each system, the options of each dimension supported by passages that mainly describe it "
+                 "For each system, the values of each dimension supported by passages that mainly describe it "
                  "(number of passages; at most three per cell, the rest on the system's page). Empty cells are "
                  "dimensions the system's passages do not inform.", "",
                  header, "|---|" + "---|" * len(self.system_codes)]
@@ -428,21 +512,21 @@ class _Builder:
             did = str(d.get("id"))
             row = [cell(link(self.dim_path[did], d.get("name")))]
             for c in self.system_codes:
-                items = sorted(support[c].get(did, []), key=lambda x: (-x[1], x[0].get("label", "")))
-                shown = ", ".join(f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})" for v, n in items[:3])
-                if len(items) > 3:
-                    shown += f", +{len(items) - 3} more"
-                row.append(cell(shown))
+                found = sorted(support[c].get(did, []), key=lambda x: (-x[1], x[0].get("label", "")))
+                entries = [f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})" for v, n in found[:3]]
+                if len(found) > 3:
+                    entries.append(f"+{len(found) - 3} more")
+                row.append(cell(items(entries)))
             lines.append("| " + " | ".join(row) + " |")
         self.add("synthesis/system-matrix", "System × dimension matrix", "synthesis", {"tags": ["synthesis"]}, "\n".join(lines))
 
     def design_points_page(self, points: Sequence[Mapping[str, Any]]) -> None:
         dp = self.inp.design_points or {}
         lines = ["# Design points", "",
-                 "Design points combine one option from each of k dimensions, sampled with a fixed seed "
-                 "(`benchmark/design_points.py`). **Attested**: one system supports every option. "
+                 "Design points combine one value from each of k dimensions, sampled with a fixed seed "
+                 "(`benchmark/design_points.py`). **Attested**: one system supports every value. "
                  "**Novel**: no system supports them all; exploring such combinations is a purpose of the design space. "
-                 "**Control**: built to fail (a rejected option, or an option from another dimension).", ""]
+                 "**Control**: built to fail (a rejected value, or a value from another dimension).", ""]
         for sample in dp.get("samples") or []:
             k = sample.get("k")
             lines += [f"## k = {k}", ""]
@@ -475,7 +559,7 @@ class _Builder:
             fm["control"] = p["control"]
         fm["tags"] = ["design-point", str(group)]
         lines = [f"# {title}", "", f"**Group:** {group}" + (f" ({tag})" if tag else ""), "",
-                 "| Dimension | Option | Status |", "|---|---|---|"]
+                 "| Dimension | Value | Status |", "|---|---|---|"]
         for s in p.get("values") or []:
             did, vid = str(s.get("dimension_id")), str(s.get("value_id"))
             dim = link(self.dim_path[did], s.get("dimension")) if did in self.dim_path else s.get("dimension")
@@ -498,12 +582,12 @@ class _Builder:
         tax = self.inp.taxonomy
         lines = [f"# {self.inp.taxonomy_name}", "",
                  f"Design space mined by Delve (run {self.inp.run_label}, {self.inp.view} view): "
-                 f"{len(self.dims)} dimensions, {values} options, {len(self.source_ids)} sources.", ""]
+                 f"{len(self.dims)} dimensions, {values} values, {len(self.source_ids)} sources.", ""]
         if self.inp.use_case:
             lines += ["## Use case", "", self.inp.use_case.strip(), ""]
         lines += ["## Dimensions", ""]
         for d in sorted(self.dims, key=lambda d: d.get("name", "")):
-            lines.append(f"- {link(self.dim_path[str(d.get('id'))], d.get('name'))}: {len(d.get('values') or [])} options")
+            lines.append(f"- {link(self.dim_path[str(d.get('id'))], d.get('name'))}: {len(d.get('values') or [])} values")
         lines += ["", "## Synthesis", "", f"- {link('synthesis/overview', 'Overview')}",
                   f"- {link('synthesis/contested', 'Contested decisions')}",
                   f"- {link('synthesis/dropped', 'Dropped and unsupported')}"]
@@ -511,11 +595,13 @@ class _Builder:
             lines.append(f"- {link('synthesis/system-matrix', 'System × dimension matrix')}")
         if has_points:
             lines.append(f"- {link('synthesis/design-points', 'Design points')}")
+        if getattr(self, "has_evaluation", False):
+            lines.append(f"- {link('synthesis/evaluation', 'Evaluation')}")
         if self.system_codes:
             lines += ["", "## Systems", ""] + [f"- {link(self.system_path[c], self.system_title(c))}" for c in self.system_codes]
         lines += ["", "## Sources", ""] + [f"- {link(self.source_path[s], self.source_title(s))}" for s in self.source_ids]
         metrics = tax.get("run_metrics") or {}
-        fm = {"run": self.inp.run_label, "view": self.inp.view, "dimensions": len(self.dims), "options": values,
+        fm = {"run": self.inp.run_label, "view": self.inp.view, "dimensions": len(self.dims), "values": values,
               "sources": len(self.source_ids), "total_tokens": metrics.get("total_tokens"), "tags": ["index"]}
         self.add("index", self.inp.taxonomy_name, "index", fm, "\n".join(lines))
 

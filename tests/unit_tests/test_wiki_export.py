@@ -174,3 +174,55 @@ def test_cli_writes_the_export(tmp_path):
     manifest = json.loads((out / "raw" / "run.json").read_text(encoding="utf-8"))
     assert manifest["quotes"] is True and manifest["pages"] > 10
     assert (out / "html" / "designs" / "p001.html").exists()
+
+
+def _with_evaluation(tax):
+    crit = [{"name": "Orthogonality", "description": "Distinct decision points.", "threshold": 0.5,
+             "evaluated": True, "score": 0.7, "passed": True, "reason": "Mostly distinct | one overlap."},
+            {"name": "Clarity", "description": "Clear names.", "threshold": 0.5, "evaluated": True,
+             "score": 0.4, "passed": False, "reason": "Some names are vague."}]
+    tax["evaluation"] = {"criteria": crit, "overall": 0.55, "model": "openai/judge", "view": "final", "dimensions": 2}
+    tax["evaluation_history"] = [{"criteria": crit, "overall": 0.5, "view": "draft", "iteration": 1, "dimensions": 3},
+                                 {"criteria": crit, "overall": 0.55, "view": "final", "iteration": "final", "dimensions": 2}]
+    return tax
+
+
+def test_overview_has_use_case_narrative_run_summary_and_list_cells(tmp_path):
+    export = build(_inputs(narrative="Delve found **two** decisions.", taxonomy=_with_evaluation(_taxonomy())))
+    overview = next(p for p in export.pages if p.path == "synthesis/overview")
+    assert "## Use case" in overview.body and "Mine Git hosting decisions." in overview.body
+    assert "Delve found **two** decisions." in overview.body
+    assert "| Values | 6: 3 accepted, 1 mixed, 1 rejected, 1 outcome |" in overview.body
+    assert "Evaluation score | 0.55" in overview.body
+    write(export, tmp_path, "toy")
+    html = (tmp_path / "html" / "synthesis" / "overview.html").read_text(encoding="utf-8")
+    assert '<ul class="cell-list"><li><a href="../entities/disk-quorum.html">Disk quorum</a></li>' in html
+    assert "<strong>two</strong>" in html and "&lt;br&gt;" not in html
+
+
+def test_evaluation_page_is_optional():
+    tax = _with_evaluation(_taxonomy())
+    assert not any(p.path == "synthesis/evaluation" for p in build(_inputs(taxonomy=tax)).pages)
+    export = build(_inputs(taxonomy=tax, evaluation=True))
+    page = next(p for p in export.pages if p.path == "synthesis/evaluation")
+    assert "Overall score **0.55**" in page.body and "Mostly distinct \\| one overlap." in page.body
+    assert "## Across iterations" in page.body and "| draft | 3 | 0.50 | 0.7 | 0.4 |" in page.body
+    index = next(p for p in export.pages if p.path == "index")
+    assert "[[synthesis/evaluation|Evaluation]]" in index.body
+    # requested but no evaluation in the run: no page, no link
+    plain = build(_inputs(evaluation=True))
+    assert not any(p.path == "synthesis/evaluation" for p in plain.pages)
+    assert "synthesis/evaluation" not in next(p for p in plain.pages if p.path == "index").body
+
+
+def test_cli_uses_only_the_report_of_the_same_run(tmp_path):
+    run = tmp_path / "toy_taxonomy_20261008_000000.json"
+    run.write_text(json.dumps(_taxonomy()), encoding="utf-8")
+    (tmp_path / "toy_report_20261001_000000.md").write_text("## Narrative Summary\n\nOld run.\n", encoding="utf-8")
+    assert cli.main([str(run)]) == 0
+    out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
+    assert "Old run." not in (out / "wiki" / "synthesis" / "overview.md").read_text(encoding="utf-8")
+    (tmp_path / "toy_report_20261008_000000.md").write_text("## Narrative Summary\n\nThis run.\n\n## Other\n", encoding="utf-8")
+    assert cli.main([str(run)]) == 0
+    text = (out / "wiki" / "synthesis" / "overview.md").read_text(encoding="utf-8")
+    assert "This run." in text and "Old run." not in text

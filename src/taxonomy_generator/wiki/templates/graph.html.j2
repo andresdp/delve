@@ -44,17 +44,17 @@
 <div id="wrap">
   <div id="controls">
     <fieldset><legend>Find</legend>
-      <input id="q" type="search" placeholder="Search dimensions, options, sources…" autocomplete="off">
+      <input id="q" type="search" placeholder="Search dimensions, values, sources…" autocomplete="off">
       <ul id="matches"></ul>
     </fieldset>
     <fieldset><legend>Show</legend>
       <label class="row"><input type="checkbox" data-kind="dimension" checked><span class="sw" style="background:var(--dimension)"></span>Dimensions</label>
-      <label class="row"><input type="checkbox" data-kind="value" checked><span class="sw" style="background:var(--accepted)"></span>Options</label>
+      <label class="row"><input type="checkbox" data-kind="value" checked><span class="sw" style="background:var(--accepted)"></span>Values</label>
       <label class="row"><input type="checkbox" data-kind="source"><span class="sw" style="background:var(--source)"></span>Sources (evidence links)</label>
       {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><span class="sw" style="background:var(--system)"></span>Systems</label>{% endif %}
       {% if has_designs %}<label class="row"><input type="checkbox" data-kind="design"><span class="sw" style="background:var(--novel)"></span>Design points</label>{% endif %}
     </fieldset>
-    <fieldset><legend>Option status</legend>
+    <fieldset><legend>Value status</legend>
       <label class="row"><input type="checkbox" data-status="accepted" checked><span class="sw" style="background:var(--accepted)"></span>accepted</label>
       <label class="row"><input type="checkbox" data-status="mixed" checked><span class="sw" style="background:var(--mixed)"></span>mixed (contested)</label>
       <label class="row"><input type="checkbox" data-status="rejected" checked><span class="sw" style="background:var(--rejected)"></span>rejected</label>
@@ -66,14 +66,14 @@
       <label class="row"><input type="checkbox" data-group="novel" checked><span class="sw" style="background:var(--novel)"></span>novel</label>
       <label class="row"><input type="checkbox" data-group="control"><span class="sw" style="background:var(--control)"></span>control</label>
       <label class="row">k = <select id="kfilter"><option value="">all</option></select></label>
-      <div class="hint">Turn on “Design points” above to show this layer. Selecting a point highlights the options it combines.</div>
+      <div class="hint">Turn on “Design points” above to show this layer. Selecting a point highlights the values it combines.</div>
     </fieldset>
     {% endif %}
     <fieldset><legend>Edges</legend>
       <div class="hint"><span style="color:var(--dimension)">━━</span> relation between dimensions (typed)<br>
-      ── dimension has option<br><span style="color:var(--accepted)">┄┄</span> source adopts · <span style="color:var(--rejected)">┄┄</span> source rejects</div>
+      ── dimension has value<br><span style="color:var(--accepted)">┄┄</span> source adopts · <span style="color:var(--rejected)">┄┄</span> source rejects</div>
     </fieldset>
-    <button class="small" id="reset">Reset view</button>
+    <button class="small" id="reset">Fit to view</button>
   </div>
   <div id="canvas"><svg id="svg"></svg></div>
   <div id="info"><p class="muted">Click a node to see its details and open its page.</p></div>
@@ -109,10 +109,21 @@
   defs.append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 18).attr("refY", 0)
     .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
     .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", COLOR.dimension);
-  const zoom = d3.zoom().scaleExtent([0.1, 8]).on("zoom", (ev) => { g.attr("transform", ev.transform); updateLabels(ev.transform.k); });
+  const zoom = d3.zoom().scaleExtent([0.1, 8]).on("zoom", (ev) => {
+    if (ev.sourceEvent) userMoved = true;  // the user panned or zoomed: stop auto-fitting
+    g.attr("transform", ev.transform); updateLabels(ev.transform.k); });
   svg.call(zoom);
   const linkLayer = g.append("g"), nodeLayer = g.append("g");
-  let selected = null, sim = null, scale = 1;
+  let selected = null, sim = null, scale = 1, userMoved = false;
+  function fit(duration) {
+    const shown = nodeLayer.selectAll("g.node").data().filter((d) => d.x != null);
+    if (!shown.length) return;
+    const pad = 40, xs = shown.map((d) => d.x), ys = shown.map((d) => d.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const k = Math.min(4, 0.95 / Math.max((x1 - x0 + 2 * pad) / width(), (y1 - y0 + 2 * pad) / height()));
+    const tr = d3.zoomIdentity.translate(width() / 2, height() / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+    (duration ? svg.transition().duration(duration) : svg).call(zoom.transform, tr);
+  }
 
   function state() {
     const kinds = new Set([...document.querySelectorAll("input[data-kind]:checked")].map((i) => i.dataset.kind));
@@ -171,15 +182,23 @@
     if (sim) sim.stop();
     sim = d3.forceSimulation(nodes)
       .force("link", d3.forceLink(links).id((d) => d.id)
-        .distance((l) => l.type === "has_value" ? 38 : l.type === "relation" ? 140 : l.type === "design" ? 60 : 120)
+        .distance((l) => l.type === "has_value" ? 46 : l.type === "relation" ? 170 : l.type === "design" ? 60 : 120)
         .strength((l) => l.type === "has_value" ? 0.9 : l.type === "evidence" || l.type === "system" ? 0.03 : 0.3))
-      .force("charge", d3.forceManyBody().strength((d) => d.kind === "dimension" ? -420 : d.kind === "value" ? -60 : -200))
+      .force("charge", d3.forceManyBody().strength((d) => d.kind === "dimension" ? -520 : d.kind === "value" ? -70 : -220)
+        .distanceMax(420))
+      .force("x", d3.forceX(width() / 2).strength((d) => d.kind === "dimension" ? 0.05 : 0.015))
+      .force("y", d3.forceY(height() / 2).strength((d) => d.kind === "dimension" ? 0.05 : 0.015))
       .force("center", d3.forceCenter(width() / 2, height() / 2))
-      .force("collide", d3.forceCollide().radius((d) => radius(d) + 3))
-      .on("tick", () => {
-        linkAll.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
-        nodeAll.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
-      });
+      .force("collide", d3.forceCollide().radius((d) => radius(d) + (d.kind === "dimension" ? 26 : 3)))
+      .stop();
+    const ticked = () => {
+      linkAll.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
+      nodeAll.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
+    };
+    sim.tick(Math.ceil(Math.log(sim.alphaMin()) / Math.log(1 - sim.alphaDecay())));  // settle before drawing
+    ticked();
+    sim.on("tick", ticked);
+    if (!userMoved && !selected) fit(0);
     updateLabels(scale);
     if (selected && !ids.has(selected)) clearSelection(); else if (selected) highlight(selected);
   }
@@ -187,6 +206,9 @@
   const height = () => document.getElementById("canvas").clientHeight;
   function updateLabels(k) {
     scale = k;
+    const z = 1 / Math.min(k, 1);  // keep labels readable when zoomed out
+    nodeLayer.selectAll("g.node text").style("font-size", (d) => (d.kind === "dimension" ? 12 : 11) * z + "px")
+      .style("stroke-width", 3 * z + "px");
     nodeLayer.selectAll("g.node text").style("display", (d) =>
       d.kind === "dimension" || d.kind === "system" || d.kind === "source" || (k > 1.7) || d.id === selected ? null : "none");
   }
@@ -216,7 +238,7 @@
     document.getElementById("info").innerHTML = '<p class="muted">Click a node to see its details and open its page.</p>';
   }
   const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const KIND = { dimension: "Dimension", value: "Option", source: "Source", system: "System", design: "Design point" };
+  const KIND = { dimension: "Dimension", value: "Value", source: "Source", system: "System", design: "Design point" };
   function select(id, zoomTo) {
     const n = byId.get(id); if (!n) return;
     let rerendered = false;
@@ -247,7 +269,7 @@
 
   document.querySelectorAll("#controls input[type=checkbox], #kfilter").forEach((el) => el.addEventListener("change", render));
   svg.on("click", () => clearSelection());
-  document.getElementById("reset").addEventListener("click", () => { clearSelection(); svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity); });
+  document.getElementById("reset").addEventListener("click", () => { clearSelection(); userMoved = false; fit(400); });
   const q = document.getElementById("q"), matches = document.getElementById("matches");
   q.addEventListener("input", () => {
     const t = q.value.trim().toLowerCase(); matches.innerHTML = "";

@@ -464,6 +464,12 @@ W1, W1b, W2 and W3 are implemented:
 Differences from the plan:
 - System pages appear only for systems with evidence in the exported run. The system matrix shows at most three options per cell; the full list is on each system's page.
 - In the graph, sources and systems start hidden (their evidence edges crowd the default view), and so does the design-point layer.
+- Revised 2026-10-08 after a first look:
+  - pages say **values** (Delve's term), not "options";
+  - table cells with several entries are bulleted lists;
+  - the graph layout is compact and is computed before drawing, then fitted to the window;
+  - the overview has the use case, a run summary and the run's own narrative summary (taken from its report, exact-timestamp match only, no new LLM call);
+  - `--evaluation` adds an optional evaluation page (criteria, scores, reasons, scores across iterations) from the evaluation stored in the run.
 
 Build the C3 demo (from the repo root, `taxonomy` env):
 
@@ -474,7 +480,7 @@ python benchmark/export_wiki.py examples/c3-git-at-scale/c3-git-at-scale_taxonom
     --systems benchmark/c3-git-at-scale/passage_systems.csv \
     --system-names benchmark/c3-git-at-scale/systems.csv \
     --design-points examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_design_points.json \
-    --config examples/c3-git-at-scale/c3_git_at_scale_config.yaml
+    --config examples/c3-git-at-scale/c3_git_at_scale_config.yaml --evaluation
 open examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_wiki/html/index.html
 ```
 
