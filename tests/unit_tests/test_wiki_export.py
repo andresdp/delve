@@ -280,3 +280,37 @@ def test_exported_images_carry_small_display_sizes(tmp_path):
         root = re.search(r"<svg\b[^>]*>", logo).group(0)
         assert 'width="220" height="64"' in root and 'width="880"' not in root
         assert re.search(r'<svg[^>]*viewBox="0 0 256 256"[^>]*width="32" height="32"/>', case)
+
+
+def _cli_run(tmp_path):
+    run = tmp_path / "toy_taxonomy_20261008_000000.json"
+    run.write_text(json.dumps(_taxonomy()), encoding="utf-8")
+    sysmap = tmp_path / "map.csv"
+    with open(sysmap, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["passage_id", "corpus", "systems", "primary", "basis"])
+        for doc, info in SYSTEMS.items():
+            w.writerow([doc, "raw", info["primary"], info["primary"], "b"])
+    return run, sysmap
+
+
+def test_cli_can_sample_design_points_at_export(tmp_path):
+    from taxonomy_generator.evaluation.design_points import load_system_map, sample_points
+    run, sysmap = _cli_run(tmp_path)
+    assert cli.main([str(run), "--systems", str(sysmap), "--sample-design-points", "--dp-k", "2", "--dp-n", "3"]) == 0
+    out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
+    assert (out / "wiki" / "synthesis" / "design-points.md").exists()
+    expected = sample_points(_taxonomy()["selected_clusters"], load_system_map(sysmap, "primary"), [2], 3, 42)
+    ids = sorted(p["point_id"] for s in expected for g in s["groups"].values() for p in g)
+    assert sorted(p.stem.upper() for p in (out / "wiki" / "designs").glob("*.md")) == ids
+    manifest = json.loads((out / "raw" / "run.json").read_text(encoding="utf-8"))
+    assert manifest["design_points"].startswith("sampled at export (k=2, n=3, seed=42)")
+
+
+def test_cli_design_points_stay_optional_and_exclusive(tmp_path):
+    import pytest
+    run, sysmap = _cli_run(tmp_path)
+    assert cli.main([str(run), "--systems", str(sysmap)]) == 0
+    assert not (tmp_path / "toy_taxonomy_20261008_000000_wiki" / "wiki" / "designs").exists()
+    with pytest.raises(SystemExit):
+        cli.main([str(run), "--design-points", str(run), "--sample-design-points"])

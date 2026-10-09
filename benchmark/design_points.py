@@ -28,14 +28,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import random
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 
-from taxonomy_generator.evaluation.design_points import load_system_map, sample_design_points  # noqa: E402
+from taxonomy_generator.evaluation.design_points import load_system_map, sample_points  # noqa: E402
 
 
 def main(argv=None) -> int:
@@ -57,12 +56,8 @@ def main(argv=None) -> int:
     clusters = run.get("selected_clusters") or []
     doc_systems = load_system_map(Path(args.systems), args.attest_by) if args.systems else None
 
-    samples = [{"k": k, **sample_design_points(clusters, doc_systems, k, args.n, args.seed + k)} for k in args.k]
+    samples = sample_points(clusters, doc_systems, args.k, args.n, args.seed)
     points = [p for s in samples for g in ("attested", "novel", "control") for p in s["groups"][g]]
-    order = list(range(len(points)))
-    random.Random(args.seed).shuffle(order)
-    for number, idx in enumerate(order, start=1):
-        points[idx]["point_id"] = f"P{number:03d}"
 
     out_dir = args.out_dir or path.parent
     stem = path.with_suffix("").name

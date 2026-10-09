@@ -44,6 +44,7 @@ import yaml  # noqa: E402
 
 from taxonomy_generator.html_report import (  # noqa: E402
     _extract_narrative_summary, _extract_timestamp, resolve_report_path)
+from taxonomy_generator.evaluation.design_points import load_system_map as dp_system_map, sample_points  # noqa: E402
 from taxonomy_generator.wiki import Inputs, build, write  # noqa: E402
 from taxonomy_generator.wiki.model import (  # noqa: E402
     load_corpus, load_sources, load_system_map, load_system_names)
@@ -70,6 +71,12 @@ def main(argv=None) -> int:
     ap.add_argument("--systems", help="passage → system map (B7 CSV); adds system pages and the system matrix")
     ap.add_argument("--system-names", help="systems.csv (code, name, organization, description)")
     ap.add_argument("--design-points", help="*_design_points.json from benchmark/design_points.py (optional layer)")
+    ap.add_argument("--sample-design-points", action="store_true",
+                    help="sample design points now (no LLM; same sampler as benchmark/design_points.py; "
+                         "attested group from --systems, by primary system) instead of reading --design-points")
+    ap.add_argument("--dp-k", type=int, nargs="+", default=[2, 3], help="with --sample-design-points: dimensions per point")
+    ap.add_argument("--dp-n", type=int, default=30, help="with --sample-design-points: points per group and k")
+    ap.add_argument("--dp-seed", type=int, default=42, help="with --sample-design-points: seed")
     ap.add_argument("--config", help="the run's YAML config (for the use case shown on the index and overview)")
     ap.add_argument("--report", help="the run's report .md (narrative summary for the overview); "
                                      "default: the sibling *_report_<timestamp>.md, if any")
@@ -81,6 +88,8 @@ def main(argv=None) -> int:
     ap.add_argument("--quote-words", type=int, default=60)
     ap.add_argument("--out", type=Path, help="output folder (default: <run folder>/<run>_wiki)")
     args = ap.parse_args(argv)
+    if args.design_points and args.sample_design_points:
+        ap.error("use either --design-points <file> or --sample-design-points, not both")
 
     path = Path(args.taxonomy)
     taxonomy = json.loads(path.read_text(encoding="utf-8"))
@@ -109,20 +118,32 @@ def main(argv=None) -> int:
     if report and report.exists():
         narrative = _extract_narrative_summary(report.read_text(encoding="utf-8")) or ""
 
+    design_points = None
+    if args.design_points:
+        design_points = json.loads(Path(args.design_points).read_text(encoding="utf-8"))
+    elif args.sample_design_points:
+        view = taxonomy.get("selected_clusters") if args.view == "selected" else \
+            ((taxonomy.get("iterations") or [{}])[-1].get("clusters"))
+        doc_systems = dp_system_map(Path(args.systems), "primary") if args.systems else None
+        design_points = {"run": _rel(path), "systems": _rel(args.systems), "attest_by": "primary" if args.systems else None,
+                         "seed": args.dp_seed, "n": args.dp_n,
+                         "samples": sample_points(view or [], doc_systems, args.dp_k, args.dp_n, args.dp_seed)}
+
     inp = Inputs(
         taxonomy=taxonomy, taxonomy_name=name, run_label=run_label,
         corpus=load_corpus(Path(args.corpus)) if args.corpus else {},
         sources=load_sources(Path(args.sources)) if args.sources else {},
         systems=load_system_map(Path(args.systems)) if args.systems else {},
         system_names=load_system_names(Path(args.system_names)) if args.system_names else {},
-        design_points=json.loads(Path(args.design_points).read_text(encoding="utf-8")) if args.design_points else None,
+        design_points=design_points,
         use_case=use_case, narrative=narrative, evaluation=args.evaluation, models=models,
         case_icon=case_icon is not None, view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
     export = build(inp)
     export.manifest = {
         "exporter_version": EXPORTER_VERSION, "taxonomy": _rel(path), "run": run_label, "view": args.view,
         "corpus": _rel(args.corpus), "sources": _rel(args.sources), "systems": _rel(args.systems),
-        "system_names": _rel(args.system_names), "design_points": _rel(args.design_points),
+        "system_names": _rel(args.system_names), "design_points": _rel(args.design_points) or ("sampled at export (k=%s, n=%d, seed=%d)" % (
+            " ".join(map(str, args.dp_k)), args.dp_n, args.dp_seed) if args.sample_design_points else None),
         "config": _rel(args.config), "report": _rel(report), "case_icon": _rel(case_icon), "models": models, "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
         "pages": len(export.pages), "graph_nodes": len(export.graph["nodes"]), "graph_edges": len(export.graph["edges"]),
     }

@@ -182,3 +182,15 @@ def sample_design_points(clusters: List[Mapping[str, Any]], doc_systems: Optiona
     if short:
         diagnostics["note"] = "fewer distinct points than requested for: " + ", ".join(short)
     return {"groups": groups, "diagnostics": diagnostics}
+
+
+def sample_points(clusters: List[Mapping[str, Any]], doc_systems: Optional[Mapping[str, Set[str]]],
+                  ks: Iterable[int], n: int, seed: int) -> List[Dict[str, Any]]:
+    """Samples for several k (seed ``seed + k`` each), with blind point ids ``P001``… shuffled across all points."""
+    samples = [{"k": k, **sample_design_points(clusters, doc_systems, k, n, seed + k)} for k in ks]
+    points = [p for s in samples for g in ("attested", "novel", "control") for p in s["groups"][g]]
+    order = list(range(len(points)))
+    random.Random(seed).shuffle(order)
+    for number, idx in enumerate(order, start=1):
+        points[idx]["point_id"] = f"P{number:03d}"
+    return samples

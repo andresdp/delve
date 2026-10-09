@@ -470,6 +470,10 @@ Differences from the plan:
   - the graph layout is compact and is computed before drawing, then fitted to the window;
   - the overview has the use case, a run summary and the run's own narrative summary (taken from its report, exact-timestamp match only, no new LLM call);
   - `--evaluation` adds an optional evaluation page (criteria, scores, reasons, scores across iterations) from the evaluation stored in the run.
+- Design points stay optional. Either pass a sampler file (`--design-points <file>`), or sample during the export
+  with `--sample-design-points`. The second runs the same seeded sampler, with no LLM calls and the attested group
+  from `--systems`; `--dp-k`, `--dp-n` and `--dp-seed` default to 2 3, 30 and 42. With neither, the export has no
+  design points.
 
 Build the C3 demo (from the repo root, `taxonomy` env):
 
