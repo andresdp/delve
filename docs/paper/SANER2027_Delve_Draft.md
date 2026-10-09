@@ -71,22 +71,9 @@ Delve represents a design space as a set of decision points. Each decision point
 
 The roles have separate responsibilities, but separation alone does not make their judgments independent; in the study configuration they use the same model. Figure 1 shows the workflow.
 
-**Figure 1 — architecture (to be drawn).** The diagram below fixes its content. Mark deterministic steps separately from LLM calls, and do not show retrieval.
+![Figure 1](figures/fig1-delve-workflow.svg)
 
-```mermaid
-flowchart TB
-  P[Corpus: passages] --> MB[Minibatches]
-  MB --> C["Coder: open coding (codes + stance)"]
-  C --> T0["Taxonomist: first draft"]
-  T0 --> CR["Critic: scoreboard + coverage check"]
-  CR -->|"not covered: next minibatch"| C2["Coder: next minibatch"]
-  C2 --> TU["Taxonomist: validated edit operations (logged)"]
-  TU --> CR
-  CR -->|"covered k batches in a row, or corpus done"| RV["Taxonomist: review"]
-  RV --> I["Integrator: merge, consolidate, link evidence, select, label"]
-  I --> DS[(Design space + evidence + logs)]
-  FB["Human feedback (between runs)"] -.-> TU
-```
+**Fig. 1.** Delve: its inputs (left), the workflow with its four LLM roles (center), and its outputs (right). The open- and axial-coding loop runs once per minibatch until the Critic's coverage check holds for k minibatches in a row. Dashed boxes are deterministic steps; dashed arrows carry feedback. [Source: `docs/paper/figures/fig1-delve-workflow.svg`; export to PDF for IEEEtran at full text width (`figure*`).]
 
 ### 3.2 Passages and open coding
 
