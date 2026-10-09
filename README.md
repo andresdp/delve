@@ -175,6 +175,7 @@ wiki](USAGE.md#exploring-a-run-as-a-wiki).
 | [`examples/campus-bike/`](examples/campus-bike/) | Architecture decisions of a bike-sharing system (small, quick to run) |
 | [`examples/cursor-git-at-scale/`](examples/cursor-git-at-scale/) | Articles on scaling Git repository hosting (GitHub, Google, Microsoft, Cursor) |
 | [`examples/das-p1-2023/`](examples/das-p1-2023/), [`examples/pharmacy-food/`](examples/pharmacy-food/) | Architecture decisions of two software projects |
+| [`examples/c3-git-at-scale/sample/`](examples/c3-git-at-scale/sample/) | **Published sample output.** It covers scaling Git hosting, capped at 5 dimensions, and includes every output, among them the design-space wiki with 24 described design points |
 | [`examples/c1-ml-workflow/`](examples/c1-ml-workflow/), [`examples/c2-rl-monitoring/`](examples/c2-rl-monitoring/) | Gray-literature passages on ML workflows and on monitoring deployed RL systems; the corpora are built from downloaded sources with the scripts in [`benchmark/`](benchmark/) (source texts are not distributed) |
 
 Each folder has its configuration and, where present, a README with the exact commands.

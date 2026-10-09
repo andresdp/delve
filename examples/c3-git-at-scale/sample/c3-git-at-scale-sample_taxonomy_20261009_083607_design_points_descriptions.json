@@ -1,0 +1,104 @@
+{
+  "model": "openai/gpt-5.6-luna",
+  "generated": "2026-10-09",
+  "prompt_version": "1",
+  "design_points": "c3-git-at-scale-sample_taxonomy_20261009_083607_design_points.json",
+  "descriptions": {
+    "1=1.1|3=3.19|5=5.14": {
+      "point_id": "P005",
+      "description": "The system would maintain multiple repository copies across servers, with each application server keeping its own view of replica failures for detection, isolation, repair, and failover. A forked Git implementation would integrate Git operations with the nonstandard replicated repository storage; its mixed status indicates this integration may not be fully settled."
+    },
+    "1=1.3|4=4.2|5=5.4": {
+      "point_id": "P010",
+      "description": "The system distributes each repository across multiple disks to increase parallel operation capacity, while clients use hourly background fetches to remain synchronized. A custom Git client release provides the acceleration functionality needed to integrate these operations."
+    },
+    "1=1.5|2=2.24": {
+      "point_id": "P015",
+      "description": "This would expose a filesystem-resident repository through an HTTP daemon while coordinating state changes with distant replicas via multiple network round trips. However, the placement choice is marked rejected, so this combination does not represent an accepted system design, despite the coordination approach being accepted."
+    },
+    "1=1.6|5=5.21": {
+      "point_id": "P002",
+      "description": "Each repository is hosted on a fixed three-replica cluster to provide redundancy, service capacity, and tolerance of one machine failure. Git clients can also support development without contacting the centralized host; this offline capability is compatible with the replicated repository placement and presents no evident tension."
+    },
+    "1=1.7|4=4.11|5=5.25": {
+      "point_id": "P003",
+      "description": "A centralized Git hosting service would support collaboration, while clients use GVFS object-transfer semantics to retrieve only the large-repository objects they need. Lightly used repositories could receive fewer physical replicas to reduce fixed redundancy costs, though this trades off some durability or availability and has mixed status."
+    },
+    "1=1.9|3=5.25|4=4.5": {
+      "point_id": "P017",
+      "description": "A centralized Git hosting service would serve repositories whose copies are replicated across distinct racks, while clients use partial clones to limit transferred objects and local storage. The centralized-hosting choice does not specify how unhealthy replicas are detected, repaired, isolated, or bypassed, so those failure-handling behaviors remain undefined."
+    },
+    "1=1.9|4=4.18": {
+      "point_id": "P014",
+      "description": "Repositories are replicated across distinct racks so a rack-level failure does not remove the repository copies. Clients access this replicated repository while traversing commits, trees, and parents through sequentially dependent Git object lookups; the placement improves durability, but does not itself remove the traversal’s dependency-related latency or metadata work."
+    },
+    "1=1.9|4=4.22|5=5.29": {
+      "point_id": "P013",
+      "description": "The system would replicate repositories across distinct racks for rack-level failure tolerance while reducing client command latency by omitting branch ahead-behind comparisons from status. However, adopting GVFS without the cache-server infrastructure required for its scalable request model conflicts with the scale objective and would leave that integration unsupported or ineffective."
+    },
+    "1=2.34|3=3.23|5=5.35": {
+      "point_id": "P004",
+      "description": "The system distributes repositories as packfiles for scalable Git access while periodically compacting repository and log storage to bound restore and lookup costs. Replica health is assessed using both heartbeat signals and failures observed in real application traffic, informing repair, isolation, or bypass decisions."
+    },
+    "1=3.30|4=4.18": {
+      "point_id": "P006",
+      "description": "An external routing database directs each repository request to a machine hosting a replica, while clients traverse commits, trees, and parents through sequentially dependent Git object lookups. The placement mechanism provides replica selection, but the workload approach may retain latency and metadata costs because traversal remains dependent on successive lookups."
+    },
+    "2=2.11|5=5.19": {
+      "point_id": "P011",
+      "description": "The system would retain Git’s native repository format and integrate with Git without modifying or forking it, while using a per-write voting protocol to determine the order and outcome of repository state changes. Coordination would therefore occur around Git-native repositories, with voting providing consistency across replicas rather than relying on a permanently designated primary."
+    },
+    "2=2.28|4=4.23": {
+      "point_id": "P021",
+      "description": "The system would replicate and distribute repository state at the Git-object level, while clients use a virtualized filesystem to defer file population and reduce checkout and working-tree costs. These mechanisms are not inherently incompatible, but the virtualized-filesystem choice is marked rejected, so this combination is only a partial or non-adopted design."
+    },
+    "2=2.2|3=3.27|5=5.9": {
+      "point_id": "P012",
+      "description": "The system acknowledges pushes only after their write-ahead-log entries are fully persisted, while adding arbitrary read-only replicas to scale Git read throughput. Its repository-hosting infrastructure continues evolving as version-control demands change; however, the choices do not specify how quickly new writes become visible on those replicas."
+    },
+    "2=2.30|4=3.18": {
+      "point_id": "P008",
+      "description": "The primary performs repository compaction and produces the state consumed by replicas. Clients can demote replicas that repeatedly fail, using healthier replicas preferentially while retaining demoted ones as fallbacks; this is compatible with primary-only compaction."
+    },
+    "2=2.33|4=4.15|5=5.3": {
+      "point_id": "P001",
+      "description": "The system uses multi-pack indexes and geometric compaction to incrementally compact repositories as packs accumulate, while clients may trigger automatic garbage collection during user-facing commands to reduce repository overhead. Administrators or users can suspend background maintenance, but foreground garbage collection may still add latency and continue occurring during commands."
+    },
+    "2=2.5|3=3.28|5=5.21": {
+      "point_id": "P007",
+      "description": "Repository state changes are persisted in batched write-ahead logs to reduce object-storage overhead, while request routing avoids unavailable or degraded file servers. Clients can also perform repository work without contacting the centralized host; this offline mode operates outside the normal coordination path and may require separate synchronization not specified here."
+    },
+    "2=2.6|4=4.24|5=5.36": {
+      "point_id": "P024",
+      "description": "The system maintains a normal Git repository on fast local NVMe storage to synchronize reference transactions, while operators explicitly invoke individual or complete maintenance tasks when needed. It does not adopt a Git-level repository-access redesign for hosting scale-out, so these mechanisms operate without that proposed integration change."
+    },
+    "2=2.6|5=5.17": {
+      "point_id": "P020",
+      "description": "The system maintains a normal Git repository on fast local NVMe storage to support reference-transaction synchronization, while Git performance capabilities formerly provided by Scalar are delivered through the core Git client. These choices are complementary: local repository state supports coordination, and the integrated client path improves protocol or hosting performance."
+    },
+    "3=3.19|4=4.12|5=5.4": {
+      "point_id": "P019",
+      "description": "The system uses a custom Git client to asynchronously fetch objects and hidden references, reducing repository and working-tree pressure while retaining visible branches for explicit foreground updates. Each application-server view maintains independent file-server failure status, allowing unhealthy replicas to be repaired, isolated, or bypassed without imposing a single global view."
+    },
+    "3=3.26|4=4.11|5=5.27": {
+      "point_id": "P009",
+      "description": "Clients use GVFS transfer semantics to retrieve only the large-repository objects they need, reducing local data and metadata work. GVFS cache servers deployed alongside repository infrastructure, and near users and build machines, serve and accelerate this object traffic through co-located routing."
+    },
+    "3=3.26|5=5.28": {
+      "point_id": "P023",
+      "description": "The system uses an existing Git-protocol repository while routing large-repository object traffic through co-located caches near users and build machines. This can accelerate access without operating GVFS cache infrastructure, provided the object-cache proxies are deployed as a separate layer."
+    },
+    "3=3.27|5=5.11": {
+      "point_id": "P022",
+      "description": "The system would use an operationally proven Git hosting and acceleration approach while scaling read-only Git throughput by adding an arbitrary number of replicas. The selected values are compatible, although the proven operational philosophy would need to govern managing and maintaining the expanded replica fleet."
+    },
+    "4=4.18|5=5.37": {
+      "point_id": "P016",
+      "description": "A JGit repository abstraction would preserve Git operations while storing repository objects in a distributed object store rather than packfiles. Client operations would traverse commits, trees, and parents through sequentially dependent lookups in that store, retaining Git semantics but potentially limiting scalability because each traversal depends on preceding object retrievals."
+    },
+    "4=4.25|5=5.21": {
+      "point_id": "P018",
+      "description": "The client offers a consolidated maintenance command that performs configuration, fetching, graph updates, loose-object cleanup, and pack cleanup as one operation. Offline development is supported, but the fetching portion may require connectivity to the centralized host or be deferred while disconnected."
+    }
+  }
+}

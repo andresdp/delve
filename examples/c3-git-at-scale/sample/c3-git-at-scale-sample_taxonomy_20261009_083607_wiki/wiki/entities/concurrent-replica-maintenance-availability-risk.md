@@ -1,0 +1,25 @@
+---
+title: Concurrent replica maintenance availability risk
+type: value
+id: '2.41'
+status: outcome
+dimension: '[[concepts/write-coordination-and-replica-consistency|Write Coordination and Replica Consistency]]'
+accepted_by: []
+rejected_by: []
+passages: 1
+systems:
+- '[[synthesis/systems/cur-cont|Cursor Continuity and Origin]]'
+tags:
+- value
+- outcome
+- write-coordination-and-replica-consistency
+---
+
+# Concurrent replica maintenance availability risk
+
+Concurrent maintenance on replicas can trigger failover and reduce repository availability.
+
+## Evidence
+
+- **s01_p13** (supports) · [[sources/s1|Git at any scale]] · Compaction
+  > Write-ahead logs require periodic compaction. You cannot let the log grow unbounded: a full restore replays every entry, so the more entries, the more expensive it becomes. Coincidentally, a normal Git repository \*also\* requires periodic compaction, even though Git is not based on a WAL. We've seen that the fundamental unit of storage in a Git repository is the \*packfile\*. …

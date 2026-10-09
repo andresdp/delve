@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Write unavailability during insufficient replication · c3-git-at-scale-sample</title>
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/delvedspace-icon.svg" type="image/svg+xml">
+<script>
+  // Theme: the reader's choice (kept in this browser) or the system setting.
+  (function () { try { var t = localStorage.getItem("delve-wiki-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+</script>
+</head>
+<body class="page-value">
+<header class="top">
+  <a class="brand" href="../index.html"><img src="../assets/delvedspace-icon.svg" alt="" class="brand-icon" width="32" height="32"><img src="../assets/case-icon.svg" alt="" class="brand-icon" width="32" height="32">c3-git-at-scale-sample</a>
+  <nav>
+<a href="../synthesis/overview.html">Overview</a><a href="../synthesis/contested.html">Contested</a><a href="../synthesis/system-matrix.html">System matrix</a><a href="../synthesis/design-points.html">Design points</a><a href="../synthesis/evaluation.html">Evaluation</a><a href="../synthesis/dropped.html">Dropped</a>  </nav>
+  <a class="graph-btn" href="../tree.html">Tree view</a>
+  <a class="graph-btn view-btn" href="../graph.html#node=v:2.37">Graph view</a>
+  <button class="theme-btn" id="theme-toggle" type="button" title="Switch light / dark mode" aria-label="Switch light / dark mode">◐</button>
+</header>
+<div class="layout">
+  <aside class="sidebar">
+    <a href="../index.html"><strong>Index</strong></a>
+    <details>
+      <summary>Dimensions (5)</summary>
+      <ul>
+        <li><a href="../concepts/client-repository-workload-scaling.html">★ Client Repository Workload Scaling</a></li>
+        <li><a href="../concepts/git-hosting-and-acceleration-integration.html">★ Git Hosting and Acceleration Integration</a></li>
+        <li><a href="../concepts/replica-failure-repair-and-failover.html">★ Replica Failure Repair and Failover</a></li>
+        <li><a href="../concepts/repository-replica-placement.html">★ Repository Replica Placement</a></li>
+        <li><a href="../concepts/write-coordination-and-replica-consistency.html">★ Write Coordination and Replica Consistency</a></li>
+      </ul>
+    </details>
+    <details open>
+      <summary>Values (177)</summary>
+      <ul>
+        <li><a href="advisory-replica-demotion.html"><span class="dot accepted"></span>Advisory replica demotion</a></li>
+        <li><a href="agent-driven-repository-workload-growth.html"><span class="dot outcome"></span>Agent-driven repository workload growth</a></li>
+        <li><a href="arbitrary-replica-read-scale-out.html"><span class="dot accepted"></span>Arbitrary replica read scale-out</a></li>
+        <li><a href="automatic-commit-graph-and-multi-pack-maintenance.html"><span class="dot accepted"></span>Automatic commit-graph and multi-pack maintenance</a></li>
+        <li><a href="automatic-git-performance-configuration.html"><span class="dot accepted"></span>Automatic Git performance configuration</a></li>
+        <li><a href="automatic-replica-repair.html"><span class="dot accepted"></span>Automatic replica repair</a></li>
+        <li><a href="background-garbage-collection-delegation.html"><span class="dot accepted"></span>Background garbage-collection delegation</a></li>
+        <li><a href="background-repository-configuration-updates.html"><span class="dot accepted"></span>Background repository configuration updates</a></li>
+        <li><a href="background-repository-maintenance.html"><span class="dot accepted"></span>Background repository maintenance</a></li>
+        <li><a href="batched-wal-persistence.html"><span class="dot accepted"></span>Batched WAL persistence</a></li>
+        <li><a href="bounded-concurrent-reboots.html"><span class="dot accepted"></span>Bounded concurrent reboots</a></li>
+        <li><a href="built-in-file-system-monitor.html"><span class="dot accepted"></span>Built-in file system monitor</a></li>
+        <li><a href="central-server-on-demand-object-retrieval.html"><span class="dot accepted"></span>Central-server on-demand object retrieval</a></li>
+        <li><a href="centralized-git-hosting-architecture.html"><span class="dot accepted"></span>Centralized Git hosting architecture</a></li>
+        <li><a href="chaos-monkey-server-testing.html"><span class="dot rejected"></span>Chaos-monkey server testing</a></li>
+        <li><a href="client-compatible-clone-efficiency.html"><span class="dot outcome"></span>Client-compatible clone efficiency</a></li>
+        <li><a href="co-located-gvfs-cache-infrastructure.html"><span class="dot accepted"></span>Co-located GVFS cache infrastructure</a></li>
+        <li><a href="co-located-object-cache-proxy-routing.html"><span class="dot accepted"></span>Co-located object-cache proxy routing</a></li>
+        <li><a href="combined-heartbeat-and-real-traffic-detection.html"><span class="dot accepted"></span>Combined heartbeat and real-traffic detection</a></li>
+        <li><a href="combined-repository-maintenance-command.html"><span class="dot accepted"></span>Combined repository maintenance command</a></li>
+        <li><a href="commit-graph-maintenance-latency.html"><span class="dot outcome"></span>Commit-graph maintenance latency</a></li>
+        <li><a href="commit-graph-performance-benefit.html"><span class="dot outcome"></span>Commit-graph performance benefit</a></li>
+        <li><a href="compressed-git-index.html"><span class="dot accepted"></span>Compressed Git index</a></li>
+        <li><a href="concurrent-replica-maintenance-availability-risk.html"><span class="dot outcome"></span>Concurrent replica maintenance availability risk</a></li>
+        <li><a href="concurrent-write-elimination.html"><span class="dot accepted"></span>Concurrent-write elimination</a></li>
+        <li><a href="consecutive-request-failure-quarantine-threshold.html"><span class="dot accepted"></span>Consecutive request-failure quarantine threshold</a></li>
+        <li><a href="consistency-first-write-admission.html"><span class="dot accepted"></span>Consistency-first write admission</a></li>
+        <li><a href="continued-write-replication-during-quiescence.html"><span class="dot accepted"></span>Continued write replication during quiescence</a></li>
+        <li><a href="continuous-infrastructure-evolution.html"><span class="dot accepted"></span>Continuous infrastructure evolution</a></li>
+        <li><a href="core-git-eventual-performance-path.html"><span class="dot accepted"></span>Core Git eventual performance path</a></li>
+        <li><a href="cross-region-replica-coordination.html"><span class="dot accepted"></span>Cross-region replica coordination</a></li>
+        <li><a href="custom-git-client-dependency.html"><span class="dot accepted"></span>Custom Git client dependency</a></li>
+        <li><a href="dag-dependent-repository-traversal.html"><span class="dot accepted"></span>DAG-dependent repository traversal</a></li>
+        <li><a href="decentralized-repository-workflow.html"><span class="dot accepted"></span>Decentralized repository workflow</a></li>
+        <li><a href="delayed-push-capability.html"><span class="dot accepted"></span>Delayed push capability</a></li>
+        <li><a href="disabled-automatic-garbage-collection.html"><span class="dot rejected"></span>Disabled automatic garbage collection</a></li>
+        <li><a href="distributed-git-hosting-architecture.html"><span class="dot accepted"></span>Distributed Git hosting architecture</a></li>
+        <li><a href="distributed-object-level-git-storage.html"><span class="dot rejected"></span>Distributed object-level Git storage</a></li>
+        <li><a href="distributed-model-hosting-burden.html"><span class="dot outcome"></span>Distributed-model hosting burden</a></li>
+        <li><a href="distributed-store-traversal-round-trips.html"><span class="dot outcome"></span>Distributed-store traversal round trips</a></li>
+        <li><a href="drbd-filesystem-block-replication.html"><span class="dot mixed"></span>DRBD filesystem block replication</a></li>
+        <li><a href="durability-before-acknowledgment.html"><span class="dot accepted"></span>Durability-before-acknowledgment</a></li>
+        <li><a href="durable-highly-available-repository-access.html"><span class="dot outcome"></span>Durable highly available repository access</a></li>
+        <li><a href="eventually-consistent-repository-views.html"><span class="dot rejected"></span>Eventually consistent repository views</a></li>
+        <li><a href="explicit-repository-registration.html"><span class="dot accepted"></span>Explicit repository registration</a></li>
+        <li><a href="external-repository-machine-routing-database.html"><span class="dot accepted"></span>External repository-machine routing database</a></li>
+        <li><a href="externalized-build-output.html"><span class="dot outcome"></span>Externalized build output</a></li>
+        <li><a href="failure-aware-request-routing.html"><span class="dot accepted"></span>Failure-aware request routing</a></li>
+        <li><a href="failure-handling-reuse-for-maintenance.html"><span class="dot accepted"></span>Failure-handling reuse for maintenance</a></li>
+        <li><a href="false-offline-marking-of-healthy-replicas.html"><span class="dot outcome"></span>False offline marking of healthy replicas</a></li>
+        <li><a href="filesystem-level-repository-distribution.html"><span class="dot accepted"></span>Filesystem-level repository distribution</a></li>
+        <li><a href="foreground-automatic-garbage-collection.html"><span class="dot mixed"></span>Foreground automatic garbage collection</a></li>
+        <li><a href="foreground-maintenance-execution.html"><span class="dot accepted"></span>Foreground maintenance execution</a></li>
+        <li><a href="foreground-fetch-commit-graph-overhead.html"><span class="dot outcome"></span>Foreground-fetch commit-graph overhead</a></li>
+        <li><a href="forked-git-implementation.html"><span class="dot mixed"></span>Forked Git implementation</a></li>
+        <li><a href="four-round-trip-coordination-cost.html"><span class="dot outcome"></span>Four-round-trip coordination cost</a></li>
+        <li><a href="full-replica-state-checksum-overhead.html"><span class="dot outcome"></span>Full replica-state checksum overhead</a></li>
+        <li><a href="full-repository-rewrite-garbage-collection.html"><span class="dot rejected"></span>Full repository rewrite garbage collection</a></li>
+        <li><a href="fully-consistent-replica-synchronization.html"><span class="dot accepted"></span>Fully consistent replica synchronization</a></li>
+        <li><a href="fully-synchronized-replica-state.html"><span class="dot outcome"></span>Fully synchronized replica state</a></li>
+        <li><a href="git-feature-contributions-replacing-management-layers.html"><span class="dot accepted"></span>Git feature contributions replacing management layers</a></li>
+        <li><a href="git-on-disk-compaction-bottleneck.html"><span class="dot outcome"></span>Git on-disk compaction bottleneck</a></li>
+        <li><a href="git-protocol-without-gvfs-cache-infrastructure.html"><span class="dot accepted"></span>Git protocol without GVFS cache infrastructure</a></li>
+        <li><a href="git-aware-filesystem-watcher.html"><span class="dot accepted"></span>Git-aware filesystem watcher</a></li>
+        <li><a href="git-level-distribution.html"><span class="dot mixed"></span>Git-level distribution</a></li>
+        <li><a href="git-level-repository-access-redesign.html"><span class="dot rejected"></span>Git-level repository access redesign</a></li>
+        <li><a href="gvfs-object-transfer-protocol.html"><span class="dot accepted"></span>GVFS object-transfer protocol</a></li>
+        <li><a href="gvfs-protocol-support-in-scalar.html"><span class="dot mixed"></span>GVFS protocol support in Scalar</a></li>
+        <li><a href="gvfs-without-cache-infrastructure.html"><span class="dot rejected"></span>GVFS without cache infrastructure</a></li>
+        <li><a href="heartbeat-based-primary-failure-detection.html"><span class="dot rejected"></span>Heartbeat-based primary failure detection</a></li>
+        <li><a href="hidden-reference-background-fetch.html"><span class="dot accepted"></span>Hidden-reference background fetch</a></li>
+        <li><a href="high-cost-of-ci-downtime.html"><span class="dot outcome"></span>High cost of CI downtime</a></li>
+        <li><a href="high-populated-file-processing-cost.html"><span class="dot outcome"></span>High populated-file processing cost</a></li>
+        <li><a href="horizontal-application-instance-scaling.html"><span class="dot accepted"></span>Horizontal application-instance scaling</a></li>
+        <li><a href="hourly-background-fetches.html"><span class="dot accepted"></span>Hourly background fetches</a></li>
+        <li><a href="http-daemon-over-on-disk-repository.html"><span class="dot rejected"></span>HTTP daemon over on-disk repository</a></li>
+        <li><a href="immediate-server-reboot.html"><span class="dot mixed"></span>Immediate server reboot</a></li>
+        <li><a href="incremental-geometric-repository-compaction.html"><span class="dot accepted"></span>Incremental geometric repository compaction</a></li>
+        <li><a href="incremental-replica-state-checksum-verification.html"><span class="dot accepted"></span>Incremental replica-state checksum verification</a></li>
+        <li><a href="incremental-repository-maintenance.html"><span class="dot accepted"></span>Incremental repository maintenance</a></li>
+        <li><a href="interactive-command-blocking.html"><span class="dot outcome"></span>Interactive command blocking</a></li>
+        <li><a href="internal-to-customer-platform-reuse.html"><span class="dot accepted"></span>Internal-to-customer platform reuse</a></li>
+        <li><a href="jgit-repository-abstraction-for-distributed-storage.html"><span class="dot accepted"></span>JGit repository abstraction for distributed storage</a></li>
+        <li><a href="linear-read-scaling.html"><span class="dot outcome"></span>Linear read scaling</a></li>
+        <li><a href="linearizable-push-ordering.html"><span class="dot outcome"></span>Linearizable push ordering</a></li>
+        <li><a href="local-git-configuration-setup.html"><span class="dot accepted"></span>Local Git configuration setup</a></li>
+        <li><a href="local-nvme-git-repository.html"><span class="dot accepted"></span>Local NVMe Git repository</a></li>
+        <li><a href="localized-application-server-failure-impact.html"><span class="dot outcome"></span>Localized application-server failure impact</a></li>
+        <li><a href="loose-object-and-delta-packed-maintenance.html"><span class="dot accepted"></span>Loose-object and delta-packed maintenance</a></li>
+        <li><a href="loose-object-storage-overhead.html"><span class="dot outcome"></span>Loose-object storage overhead</a></li>
+        <li><a href="lost-clone-progress-after-shutdown.html"><span class="dot outcome"></span>Lost clone progress after shutdown</a></li>
+        <li><a href="majority-based-exclusive-write-locking.html"><span class="dot accepted"></span>Majority-based exclusive write locking</a></li>
+        <li><a href="majority-based-write-acceptance.html"><span class="dot accepted"></span>Majority-based write acceptance</a></li>
+        <li><a href="minimum-two-replica-write-commitment.html"><span class="dot accepted"></span>Minimum two-replica write commitment</a></li>
+        <li><a href="monorepo-capacity-shortfall.html"><span class="dot outcome"></span>Monorepo capacity shortfall</a></li>
+        <li><a href="multi-disk-repository-placement.html"><span class="dot accepted"></span>Multi-disk repository placement</a></li>
+        <li><a href="multi-machine-repository-placement.html"><span class="dot accepted"></span>Multi-machine repository placement</a></li>
+        <li><a href="multi-rack-repository-replication.html"><span class="dot accepted"></span>Multi-rack repository replication</a></li>
+        <li><a href="multi-server-repository-replication.html"><span class="dot accepted"></span>Multi-server repository replication</a></li>
+        <li><a href="mxn-failure-detection-model.html"><span class="dot accepted"></span>MxN failure-detection model</a></li>
+        <li><a href="n-to-n-replica-reconstruction.html"><span class="dot accepted"></span>N-to-N replica reconstruction</a></li>
+        <li><a href="native-git-repository-integration.html"><span class="dot accepted"></span>Native Git repository integration</a></li>
+        <li><a href="network-filesystem-repository-hosting.html"><span class="dot rejected"></span>Network-filesystem repository hosting</a></li>
+        <li><a href="network-filesystem-semantic-incompatibility.html"><span class="dot outcome"></span>Network-filesystem semantic incompatibility</a></li>
+        <li><a href="offline-development-capability.html"><span class="dot accepted"></span>Offline development capability</a></li>
+        <li><a href="on-disk-repository-source-of-truth.html"><span class="dot accepted"></span>On-disk repository source of truth</a></li>
+        <li><a href="operation-failure-based-primary-failure-detection.html"><span class="dot accepted"></span>Operation-failure-based primary failure detection</a></li>
+        <li><a href="orchestrated-push-fan-out.html"><span class="dot accepted"></span>Orchestrated push fan-out</a></li>
+        <li><a href="ordered-multi-replica-failover.html"><span class="dot accepted"></span>Ordered multi-replica failover</a></li>
+        <li><a href="pack-count-and-storage-reduction.html"><span class="dot outcome"></span>Pack-count and storage reduction</a></li>
+        <li><a href="pack-index-accumulation-overhead.html"><span class="dot outcome"></span>Pack-index accumulation overhead</a></li>
+        <li><a href="packfile-based-git-network-transfer.html"><span class="dot accepted"></span>Packfile-based Git network transfer</a></li>
+        <li><a href="packfile-centered-scalability-ceiling.html"><span class="dot outcome"></span>Packfile-centered scalability ceiling</a></li>
+        <li><a href="packfile-level-replication.html"><span class="dot accepted"></span>Packfile-level replication</a></li>
+        <li><a href="packfile-level-repository-distribution.html"><span class="dot mixed"></span>Packfile-level repository distribution</a></li>
+        <li><a href="painless-migration-path.html"><span class="dot accepted"></span>Painless migration path</a></li>
+        <li><a href="partial-clone.html"><span class="dot accepted"></span>Partial clone</a></li>
+        <li><a href="per-application-server-failure-detection.html"><span class="dot accepted"></span>Per-application-server failure detection</a></li>
+        <li><a href="per-application-server-failure-views.html"><span class="dot accepted"></span>Per-application-server failure views</a></li>
+        <li><a href="per-update-latency-budget.html"><span class="dot accepted"></span>Per-update latency budget</a></li>
+        <li><a href="per-write-voting-protocol.html"><span class="dot accepted"></span>Per-write voting protocol</a></li>
+        <li><a href="periodic-replica-count-reconciliation.html"><span class="dot accepted"></span>Periodic replica-count reconciliation</a></li>
+        <li><a href="periodic-repository-compaction.html"><span class="dot accepted"></span>Periodic repository compaction</a></li>
+        <li><a href="pet-style-repository-operations.html"><span class="dot accepted"></span>Pet-style repository operations</a></li>
+        <li><a href="poor-clone-performance.html"><span class="dot outcome"></span>Poor clone performance</a></li>
+        <li><a href="pre-reboot-server-quiescence.html"><span class="dot accepted"></span>Pre-reboot server quiescence</a></li>
+        <li><a href="prepared-reference-locking.html"><span class="dot accepted"></span>Prepared reference locking</a></li>
+        <li><a href="primary-only-repository-compaction.html"><span class="dot accepted"></span>Primary-only repository compaction</a></li>
+        <li><a href="protection-against-permanent-data-loss.html"><span class="dot outcome"></span>Protection against permanent data loss</a></li>
+        <li><a href="proven-engineering-and-operational-philosophy.html"><span class="dot accepted"></span>Proven engineering and operational philosophy</a></li>
+        <li><a href="rack-level-maintenance-sequencing.html"><span class="dot accepted"></span>Rack-level maintenance sequencing</a></li>
+        <li><a href="rails-monolith-with-co-located-repositories.html"><span class="dot accepted"></span>Rails monolith with co-located repositories</a></li>
+        <li><a href="read-preserving-write-path-optimization.html"><span class="dot accepted"></span>Read-preserving write-path optimization</a></li>
+        <li><a href="reduced-scalar-scope.html"><span class="dot accepted"></span>Reduced Scalar scope</a></li>
+        <li><a href="reference-transaction-publication-gate.html"><span class="dot accepted"></span>Reference-transaction publication gate</a></li>
+        <li><a href="reference-update-amplification.html"><span class="dot outcome"></span>Reference-update amplification</a></li>
+        <li><a href="reliability-performance-and-scale-oriented-hosting-platform.html"><span class="dot accepted"></span>Reliability-, performance-, and scale-oriented hosting platform</a></li>
+        <li><a href="replica-rollback-for-failed-quorum.html"><span class="dot accepted"></span>Replica rollback for failed quorum</a></li>
+        <li><a href="replica-trimming-for-lightly-used-repositories.html"><span class="dot mixed"></span>Replica trimming for lightly used repositories</a></li>
+        <li><a href="replica-consistency-complexity-cost.html"><span class="dot outcome"></span>Replica-consistency complexity cost</a></li>
+        <li><a href="replica-count-floor-ceiling-mismatch.html"><span class="dot outcome"></span>Replica-count floor-ceiling mismatch</a></li>
+        <li><a href="replica-count-scalability-ceiling.html"><span class="dot outcome"></span>Replica-count scalability ceiling</a></li>
+        <li><a href="replica-latency-update-rate-constraint.html"><span class="dot outcome"></span>Replica-latency update-rate constraint</a></li>
+        <li><a href="replica-local-repository-repacking.html"><span class="dot rejected"></span>Replica-local repository repacking</a></li>
+        <li><a href="replica-wide-write-order-serialization.html"><span class="dot accepted"></span>Replica-wide write-order serialization</a></li>
+        <li><a href="replicated-compaction-output.html"><span class="dot accepted"></span>Replicated compaction output</a></li>
+        <li><a href="repository-availability-dependency.html"><span class="dot outcome"></span>Repository availability dependency</a></li>
+        <li><a href="rolling-reboot-testing.html"><span class="dot accepted"></span>Rolling reboot testing</a></li>
+        <li><a href="rpc-failover-monitoring.html"><span class="dot accepted"></span>RPC failover monitoring</a></li>
+        <li><a href="rpc-failover-graph-fault-visibility.html"><span class="dot outcome"></span>RPC-failover graph fault visibility</a></li>
+        <li><a href="s3-express-one-zone-wal-storage.html"><span class="dot accepted"></span>S3 Express One Zone WAL storage</a></li>
+        <li><a href="s3-compatible-write-ahead-log.html"><span class="dot accepted"></span>S3-compatible write-ahead log</a></li>
+        <li><a href="scalar-interim-performance-layer.html"><span class="dot accepted"></span>Scalar interim performance layer</a></li>
+        <li><a href="separate-fetch-objects-service-endpoint.html"><span class="dot accepted"></span>Separate fetch-objects service endpoint</a></li>
+        <li><a href="service-independent-acceleration.html"><span class="dot accepted"></span>Service-independent acceleration</a></li>
+        <li><a href="single-object-write-per-push.html"><span class="dot rejected"></span>Single-object write per push</a></li>
+        <li><a href="single-pack-file-repacking.html"><span class="dot mixed"></span>Single-pack-file repacking</a></li>
+        <li><a href="single-primary-write-ordering.html"><span class="dot rejected"></span>Single-primary write ordering</a></li>
+        <li><a href="single-replica-read-routing.html"><span class="dot accepted"></span>Single-replica read routing</a></li>
+        <li><a href="source-repository-placement-under-src.html"><span class="dot accepted"></span>Source repository placement under /src</a></li>
+        <li><a href="sparse-checkout.html"><span class="dot accepted"></span>Sparse checkout</a></li>
+        <li><a href="supplemental-heartbeat-recovery-signals.html"><span class="dot mixed"></span>Supplemental heartbeat recovery signals</a></li>
+        <li><a href="suppressed-ahead-behind-status-calculation.html"><span class="dot accepted"></span>Suppressed ahead-behind status calculation</a></li>
+        <li><a href="system-wide-resource-exhaustion.html"><span class="dot outcome"></span>System-wide resource exhaustion</a></li>
+        <li><a href="three-phase-reference-commit.html"><span class="dot accepted"></span>Three-phase reference commit</a></li>
+        <li><a href="three-replica-repository-placement.html"><span class="dot accepted"></span>Three-replica repository placement</a></li>
+        <li><a href="two-copy-failure-degradation.html"><span class="dot outcome"></span>Two-copy failure degradation</a></li>
+        <li><a href="unhealthy-replica-isolation.html"><span class="dot accepted"></span>Unhealthy-replica isolation</a></li>
+        <li><a href="unplanned-server-unplugging.html"><span class="dot rejected"></span>Unplanned server unplugging</a></li>
+        <li><a href="unsynchronized-packfile-distribution.html"><span class="dot accepted"></span>Unsynchronized packfile distribution</a></li>
+        <li><a href="upstream-contribution-to-core-git.html"><span class="dot accepted"></span>Upstream contribution to core Git</a></li>
+        <li><a href="user-controlled-maintenance-suspension.html"><span class="dot accepted"></span>User-controlled maintenance suspension</a></li>
+        <li><a href="virtualized-filesystem-population.html"><span class="dot rejected"></span>Virtualized filesystem population</a></li>
+        <li><a href="wal-first-storage-architecture.html"><span class="dot accepted"></span>WAL-first storage architecture</a></li>
+        <li><a href="wal-propagated-compaction-events.html"><span class="dot accepted"></span>WAL-propagated compaction events</a></li>
+        <li><a href="watchman-based-filesystem-watcher.html"><span class="dot mixed"></span>Watchman-based filesystem watcher</a></li>
+        <li><a href="write-unavailability-during-insufficient-replication.html" class="current"><span class="dot outcome"></span>Write unavailability during insufficient replication</a></li>
+      </ul>
+    </details>
+    <details>
+      <summary>Synthesis (6)</summary>
+      <ul>
+        <li><a href="../synthesis/overview.html">Overview</a></li>
+        <li><a href="../synthesis/contested.html">Contested decisions</a></li>
+        <li><a href="../synthesis/dropped.html">Dropped and unsupported</a></li>
+        <li><a href="../synthesis/system-matrix.html">System × dimension matrix</a></li>
+        <li><a href="../synthesis/design-points.html">Design points</a></li>
+        <li><a href="../synthesis/evaluation.html">Evaluation</a></li>
+      </ul>
+    </details>
+    <details>
+      <summary>Systems (6)</summary>
+      <ul>
+        <li><a href="../synthesis/systems/cur-cont.html">Cursor Continuity and Origin</a></li>
+        <li><a href="../synthesis/systems/gh-fs.html">GitHub filesystem distribution</a></li>
+        <li><a href="../synthesis/systems/gh-spokes.html">GitHub Spokes</a></li>
+        <li><a href="../synthesis/systems/goog-dht.html">Google JGit on a DHT</a></li>
+        <li><a href="../synthesis/systems/ms-scalar.html">Microsoft Scalar</a></li>
+        <li><a href="../synthesis/systems/ms-gvfs.html">Microsoft VFS for Git (GVFS)</a></li>
+      </ul>
+    </details>
+    <details>
+      <summary>Sources (5)</summary>
+      <ul>
+        <li><a href="../sources/s3.html">Building resilience in Spokes</a></li>
+        <li><a href="../sources/s1.html">Git at any scale</a></li>
+        <li><a href="../sources/s5.html">Introducing Scalar</a></li>
+        <li><a href="../sources/s4.html">Scalar philosophy</a></li>
+        <li><a href="../sources/s2.html">Stretching Spokes</a></li>
+      </ul>
+    </details>
+    <details>
+      <summary>Design points (24)</summary>
+      <ul>
+        <li><a href="../designs/p001.html">Design point P001</a></li>
+        <li><a href="../designs/p002.html">Design point P002</a></li>
+        <li><a href="../designs/p003.html">Design point P003</a></li>
+        <li><a href="../designs/p004.html">Design point P004</a></li>
+        <li><a href="../designs/p005.html">Design point P005</a></li>
+        <li><a href="../designs/p006.html">Design point P006</a></li>
+        <li><a href="../designs/p007.html">Design point P007</a></li>
+        <li><a href="../designs/p008.html">Design point P008</a></li>
+        <li><a href="../designs/p009.html">Design point P009</a></li>
+        <li><a href="../designs/p010.html">Design point P010</a></li>
+        <li><a href="../designs/p011.html">Design point P011</a></li>
+        <li><a href="../designs/p012.html">Design point P012</a></li>
+        <li><a href="../designs/p013.html">Design point P013</a></li>
+        <li><a href="../designs/p014.html">Design point P014</a></li>
+        <li><a href="../designs/p015.html">Design point P015</a></li>
+        <li><a href="../designs/p016.html">Design point P016</a></li>
+        <li><a href="../designs/p017.html">Design point P017</a></li>
+        <li><a href="../designs/p018.html">Design point P018</a></li>
+        <li><a href="../designs/p019.html">Design point P019</a></li>
+        <li><a href="../designs/p020.html">Design point P020</a></li>
+        <li><a href="../designs/p021.html">Design point P021</a></li>
+        <li><a href="../designs/p022.html">Design point P022</a></li>
+        <li><a href="../designs/p023.html">Design point P023</a></li>
+        <li><a href="../designs/p024.html">Design point P024</a></li>
+      </ul>
+    </details>
+    <div class="sidebar-footer">About this wiki · <a href="../approach.html">Approach</a></div>
+  </aside>
+  <main>
+<img src="../assets/case-icon.svg" alt="Case study" class="page-case-icon" width="48" height="48">    <div class="kind">value · <span class="badge outcome">outcome</span></div>
+    <h1>Write unavailability during insufficient replication</h1>
+    <table class="props">
+      <tr><th>type</th><td>value</td></tr>
+      <tr><th>id</th><td>2.37</td></tr>
+      <tr><th>status</th><td><span class="badge outcome">outcome</span></td></tr>
+      <tr><th>dimension</th><td><a href="../concepts/write-coordination-and-replica-consistency.html">Write Coordination and Replica Consistency</a></td></tr>
+      <tr><th>passages</th><td>2</td></tr>
+      <tr><th>systems</th><td><a href="../synthesis/systems/gh-spokes.html">GitHub Spokes</a></td></tr>
+    </table>
+    <p>Refuse writes temporarily when the required replica commitments cannot be created.</p>
+<h2>Evidence</h2>
+<ul>
+<li><strong>s01_p09</strong> (supports) · <a href="../sources/s1.html">Git at any scale</a> · Spokes and Consistency
+<blockquote>
+<p>Another flaw, impossible to see up front, but painfully obvious after having suffered through it, is that Spokes can be *rough* to operate at scale. Because the repositories on disk are always the source of truth for consensus, every copy of every repository is *very important*. You have to treat repositories as *pets, not cattle*. This means, for starters, that …</p>
+</blockquote>
+</li>
+<li><strong>s03_p02</strong> (supports) · <a href="../sources/s3.html">Building resilience in Spokes</a> · Defining resilience
+<blockquote>
+<p>In any system or service, there are two key ways to measure resilience: availability and durability. A system’s availability is the fraction of the time it can provide the service it was designed to provide. Can it serve content? Can it accept writes? Availability can be partial, complete, or degraded: is every repository available? Are some repositories—or whole servers—slow? A …</p>
+</blockquote>
+</li>
+</ul>
+
+<div class="tags"><span>value</span><span>outcome</span><span>write-coordination-and-replica-consistency</span></div>    <footer>Generated by DelveDSpace from the run's data (no LLM rewriting). Markdown source: <code>wiki/entities/write-unavailability-during-insufficient-replication.md</code> · How it is built: <a href="../approach.html">Approach</a></footer>
+  </main>
+</div>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById("theme-toggle");
+    function current() {
+      return root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    function label() { btn.textContent = current() === "dark" ? "☀" : "☾"; }
+    btn.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("delve-wiki-theme", next); } catch (e) {}
+      label();
+      document.dispatchEvent(new CustomEvent("themechange"));
+    });
+    label();
+  })();
+</script>
+</body>
+</html>
