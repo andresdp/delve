@@ -6,6 +6,10 @@
 <title>Graph · {{ name }}</title>
 <link rel="stylesheet" href="assets/style.css">
 <link rel="icon" href="assets/delvedspace-icon.svg" type="image/svg+xml">
+<script>
+  // Theme: the reader's choice (kept in this browser) or the system setting.
+  (function () { try { var t = localStorage.getItem("delve-wiki-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+</script>
 <style>
   html, body { height: 100%; overflow: hidden; }
   header.top { min-height: 50px; }
@@ -44,6 +48,7 @@
   <a class="brand" href="index.html"><img src="assets/delvedspace-icon.svg" alt="" class="brand-icon" width="32" height="32">{% if has_case_icon %}<img src="assets/case-icon.svg" alt="" class="brand-icon" width="32" height="32">{% endif %}{{ name }}</a>
   <nav><a href="index.html">Wiki index</a><a href="synthesis/overview.html">Overview</a>{% if has_systems %}<a href="synthesis/system-matrix.html">System matrix</a>{% endif %}{% if has_designs %}<a href="synthesis/design-points.html">Design points</a>{% endif %}</nav>
   <span class="hint" style="margin-left:auto">Drag to pan · scroll to zoom · click a node</span>
+  <button class="theme-btn" id="theme-toggle" type="button" title="Switch light / dark mode" aria-label="Switch light / dark mode">◐</button>
 </header>
 <div id="wrap">
   <div id="controls">
@@ -83,17 +88,36 @@
   <div id="info"><p class="muted">Click a node to see its details and open its page.</p></div>
 </div>
 <script type="application/json" id="graph-data">{{ data|safe }}</script>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById("theme-toggle");
+    function current() {
+      return root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    function label() { btn.textContent = current() === "dark" ? "☀" : "☾"; }
+    btn.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("delve-wiki-theme", next); } catch (e) {}
+      label();
+      document.dispatchEvent(new CustomEvent("themechange"));
+    });
+    label();
+  })();
+</script>
 <script src="assets/d3.min.js"></script>
 <script>
 (function () {
   const data = JSON.parse(document.getElementById("graph-data").textContent);
   const css = getComputedStyle(document.documentElement);
   const v = (name) => css.getPropertyValue(name).trim();
-  const COLOR = {
-    dimension: v("--dimension"), source: v("--source"), system: v("--system"),
-    accepted: v("--accepted"), mixed: v("--mixed"), rejected: v("--rejected"), outcome: v("--outcome"),
-    attested: v("--attested"), novel: v("--novel"), control: v("--control"), muted: v("--muted")
-  };
+  const COLOR = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), get = (name) => cs.getPropertyValue(name).trim();
+    ["dimension", "source", "system", "accepted", "mixed", "rejected", "outcome", "attested", "novel", "control", "muted"]
+      .forEach((k) => { COLOR[k] = get("--" + k); });
+  }
+  readColors();
   const nodeColor = (n) => n.kind === "value" ? (COLOR[n.status] || COLOR.muted)
     : n.kind === "design" ? (COLOR[n.group] || COLOR.muted) : (COLOR[n.kind] || COLOR.muted);
   const byId = new Map(data.nodes.map((n) => [n.id, n]));
@@ -298,6 +322,13 @@
   window.addEventListener("resize", () => sim && sim.force("center", d3.forceCenter(width() / 2, height() / 2)).alpha(0.3).restart());
 
   render();
+  document.addEventListener("themechange", () => {
+    readColors();
+    defs.select("marker path").attr("fill", COLOR.dimension);
+    nodeLayer.selectAll("g.node path.shape").attr("fill", nodeColor);
+    linkLayer.selectAll("line").each(function (d) { d3.select(this).attr("stroke", edgeStyle(d).stroke); });
+    if (selected) highlight(selected);
+  });
   const m = location.hash.match(/node=([^&]+)/);
   if (m) setTimeout(() => select(decodeURIComponent(m[1]), true), 1200);
 })();

@@ -383,3 +383,15 @@ def test_graph_nodes_carry_descriptions_and_pages_show_the_case_icon(tmp_path):
     assert 'class="page-case-icon"' not in index
     write(build(_inputs()), tmp_path / "plain", "toy")
     assert 'page-case-icon' not in (tmp_path / "plain" / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
+
+
+def test_every_page_and_the_graph_have_the_theme_toggle(tmp_path):
+    write(build(_inputs(design_points=POINTS)), tmp_path, "toy")
+    files = list((tmp_path / "html").rglob("*.html"))
+    assert files
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        assert text.count('id="theme-toggle"') == 1, f
+        assert text.index('localStorage.getItem("delve-wiki-theme")') < text.index("<body"), f  # applied before drawing
+    css = (tmp_path / "html" / "assets" / "style.css").read_text(encoding="utf-8")
+    assert ':root[data-theme="dark"]' in css and ':root:not([data-theme="light"])' in css
