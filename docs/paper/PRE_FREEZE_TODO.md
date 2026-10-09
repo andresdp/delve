@@ -112,6 +112,8 @@ did: several organizations (GitHub, Google, Microsoft, Cursor) as points in it.
   wiki + graph site for a meeting demo, with a design-points page; paper figures: overview, C3 system ×
   dimension matrix, C1/C2 ground-truth comparison). Own feature branch, before the paper figures are needed.
 - Decision-focus pass (bundled decisions): `docs/plans/2026-10-08-1500-feat-decision-focus-pass-plan.md`;
-  own feature branch, before the C1/C2/C3 re-runs.
+  own feature branch, before the C1/C2/C3 re-runs. It also covers **dimension granularity**: Delve mines more,
+  finer dimensions than the experts (C1 30 vs 10/28, C2 19 vs 7, C3 22). The wiki's "core dimensions" filter
+  is a presentation aid only, not a fix.
 - BERTopic baseline (L2), drivers and relations as matched elements, personas, theoretical sampling: future
   work (plan §8.6b, "Scope for the paper").

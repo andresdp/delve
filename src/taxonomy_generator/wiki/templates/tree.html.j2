@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree · {{ name }}</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/delvedspace-icon.svg" type="image/svg+xml">
+<script>
+  // Theme: the reader's choice (kept in this browser) or the system setting.
+  (function () { try { var t = localStorage.getItem("delve-wiki-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+</script>
+<style>
+  html, body { height: 100%; }
+  .toolbar { position: sticky; top: 50px; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+    padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .toolbar input[type=search] { width: 260px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--fg); font: inherit; }
+  .toolbar label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+  .toolbar .sep { width: 1px; height: 20px; background: var(--border); }
+  button.small { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--fg); cursor: pointer; }
+  .sw { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  #tree { padding: 10px 0 40px; overflow-x: auto; }
+  svg text { font-size: 13px; fill: var(--fg); }
+  svg text.meta { fill: var(--muted); font-size: 12px; }
+  svg text.match { font-weight: 700; }
+  svg a text.label:hover { text-decoration: underline; }
+  svg .caret { cursor: pointer; fill: var(--muted); font-size: 12px; user-select: none; }
+  svg path.link { fill: none; stroke: var(--border); stroke-width: 1.4px; }
+  /* Tracing: the incoming and outgoing edges of the hovered element (of every occurrence of it). */
+  svg path.link.hl { stroke: var(--accent); stroke-width: 2.6px; }
+  .count { color: var(--muted); }
+  #summary { padding: 14px 24px 0; font-size: 14px; color: var(--muted); }
+  #summary strong { color: var(--fg); font-size: 16px; margin-right: 8px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><img src="assets/delvedspace-icon.svg" alt="" class="brand-icon" width="32" height="32">{% if has_case_icon %}<img src="assets/case-icon.svg" alt="" class="brand-icon" width="32" height="32">{% endif %}{{ name }}</a>
+  <nav><a href="index.html">Wiki index</a><a href="synthesis/overview.html">Overview</a></nav>
+  <span class="hint" style="margin-left:auto">Click ▸ to expand · hover to trace its edges · click a name to open its page</span>
+  <a class="graph-btn view-btn" href="graph.html">Graph view</a>
+  <button class="theme-btn" id="theme-toggle" type="button" title="Switch light / dark mode" aria-label="Switch light / dark mode">◐</button>
+</header>
+<div class="toolbar">
+  <input id="q" type="search" placeholder="Find a dimension, value or source…" autocomplete="off">
+  <button class="small" id="expand">Expand all</button>
+  <button class="small" id="collapse">Collapse all</button>
+  <span class="sep"></span>
+  <label><input type="checkbox" data-status="accepted" checked><span class="sw" style="background:var(--accepted)"></span>accepted</label>
+  <label><input type="checkbox" data-status="mixed" checked><span class="sw" style="background:var(--mixed)"></span>mixed</label>
+  <label><input type="checkbox" data-status="rejected" checked><span class="sw" style="background:var(--rejected)"></span>rejected</label>
+  <label><input type="checkbox" data-status="outcome" checked><span class="sw" style="background:var(--outcome)"></span>outcome</label>
+  <span class="sep"></span>
+  <label title="Core dimension: {{ core_rule }}"><input type="checkbox" id="core-only"> ★ core only <span class="count">({{ core_rule }})</span></label>
+  <span class="sep"></span>
+  <label><input type="checkbox" id="sources" checked><span class="sw" style="background:var(--source);border-radius:2px"></span>sources</label>
+  <span class="count" id="count"></span>
+</div>
+<div id="summary"></div>
+<div id="tree"><svg id="svg"></svg></div>
+<script type="application/json" id="tree-data">{{ data|safe }}</script>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById("theme-toggle");
+    function current() {
+      return root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    function label() { btn.textContent = current() === "dark" ? "☀" : "☾"; }
+    btn.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("delve-wiki-theme", next); } catch (e) {}
+      label();
+      document.dispatchEvent(new CustomEvent("themechange"));
+    });
+    label();
+  })();
+</script>
+<script src="assets/d3.min.js"></script>
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById("tree-data").textContent);
+  const COLOR = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    ["dimension", "source", "accepted", "mixed", "rejected", "outcome", "muted", "fg"]
+      .forEach((k) => { COLOR[k] = cs.getPropertyValue("--" + k).trim(); });
+  }
+  readColors();
+  const SYMBOL = { root: d3.symbolCircle, dimension: d3.symbolCircle, value: d3.symbolDiamond, source: d3.symbolSquare };
+  const SIZE = { root: 150, dimension: 110, value: 70, source: 55 };
+  const color = (n) => n.kind === "value" ? (COLOR[n.status] || COLOR.muted) : n.kind === "source" ? COLOR.source
+    : n.kind === "root" ? COLOR.fg : COLOR.dimension;
+  const ROW = 24, GAP = 64, LEFT = 30;  // row height; gap after the widest label of a level; left margin
+  document.getElementById("summary").innerHTML = "<strong></strong><span></span>";
+  document.querySelector("#summary strong").textContent = data.label;
+  document.querySelector("#summary span").textContent = data.meta || "";
+  const expanded = new Set(["root"]);
+  // A source appears once under each value it supports; tracing treats those occurrences as one element.
+  const keyOf = (n) => n.kind === "source" ? "s:" + n.id.slice(n.id.lastIndexOf("/s:") + 3) : n.id;
+  const supports = {};   // source key -> the values it supports, from the full (unfiltered) tree
+  (function collect(n) {
+    (n.children || []).forEach((c) => {
+      if (c.kind === "source") (supports[keyOf(c)] = supports[keyOf(c)] || []).push(n.label);
+      collect(c);
+    });
+  })(data);
+  function tooltip(n) {
+    if (n.kind !== "source") return n.description || n.label;
+    const vals = supports[keyOf(n)] || [];
+    const shown = vals.slice(0, 12).join("\n• ") + (vals.length > 12 ? "\n… and " + (vals.length - 12) + " more" : "");
+    return n.label + "\nSupports " + vals.length + " value" + (vals.length === 1 ? "" : "s") + ":\n• " + shown;
+  }
+
+  function filters() {
+    return {
+      statuses: new Set([...document.querySelectorAll("input[data-status]:checked")].map((i) => i.dataset.status)),
+      sources: document.getElementById("sources").checked,
+      coreOnly: document.getElementById("core-only").checked,
+      q: document.getElementById("q").value.trim().toLowerCase()
+    };
+  }
+  // Copy of the tree with filters applied: hidden statuses and (optionally) sources removed; with a search,
+  // only branches containing a match remain and they open automatically.
+  function prune(node, f) {
+    let kids = (node.children || []).filter((c) => !(c.kind === "dimension" && f.coreOnly && !c.core)
+      && !(c.kind === "value" && !f.statuses.has(c.status))
+      && !(c.kind === "source" && !f.sources)).map((c) => prune(c, f)).filter(Boolean);
+    const self = !!f.q && String(node.label).toLowerCase().includes(f.q);
+    const below = kids.some((k) => k._match || k._below);
+    if (f.q && node.kind !== "root" && !self && !below) return null;
+    const open = expanded.has(node.id) || (f.q && below);
+    return { ...node, _match: self, _below: below, _hasKids: kids.length > 0, children: open && kids.length ? kids : null };
+  }
+  const svg = d3.select("#svg");
+  function render() {
+    const f = filters();
+    const pruned = prune(data, f) || { ...data, children: null };
+    const h = d3.hierarchy(pruned, (d) => d.children);
+    d3.tree().nodeSize([ROW, 1]).separation(() => 1)(h);
+    const nodes = h.descendants().filter((d) => d.depth > 0);   // the root is the summary line above
+    const minX = d3.min(nodes, (d) => d.x) ?? 0, maxX = d3.max(nodes, (d) => d.x) ?? 0;
+    svg.selectAll("*").remove();
+    const g = svg.append("g").attr("transform", "translate(0," + (ROW - minX) + ")");
+    const linkLayer = g.append("g");
+    const node = g.selectAll("g.node").data(nodes).join("g").attr("class", "node")
+      .attr("transform", (d) => "translate(" + LEFT + "," + d.x + ")");
+    const toggle = (ev, d) => {
+      if (!d.data._hasKids) return;
+      expanded.has(d.data.id) ? expanded.delete(d.data.id) : expanded.add(d.data.id);
+      render();
+    };
+    node.append("text").attr("class", "caret").attr("x", -18).attr("dy", "0.32em")
+      .text((d) => d.data._hasKids ? (d.children ? "▾" : "▸") : "").on("click", toggle);
+    node.append("path").attr("d", (d) => d3.symbol().type(SYMBOL[d.data.kind] || d3.symbolCircle).size(SIZE[d.data.kind] || 60)())
+      .attr("fill", (d) => color(d.data)).style("cursor", (d) => d.data._hasKids ? "pointer" : "default").on("click", toggle);
+    const a = node.append("a").attr("href", (d) => d.data.href);
+    const text = a.append("text").attr("x", 11).attr("dy", "0.32em").attr("class", (d) => "label" + (d.data._match ? " match" : ""))
+      .style("font-weight", (d) => d.data.kind === "dimension" || d.data.kind === "root" ? 600 : null);
+    text.append("tspan").text((d) => (d.data.core ? "★ " : "") + d.data.label);
+    text.append("tspan").attr("class", "meta").attr("dx", 8).text((d) => d.data.meta ? "(" + d.data.meta + ")" : "")
+      .style("fill", "var(--muted)").style("font-size", "12px").style("font-weight", 400);
+    node.append("title").text((d) => tooltip(d.data));
+    // Columns: each level starts after the widest label of the level before it.
+    const widest = {};
+    node.each(function (d) {
+      const w = this.querySelector("text.label").getComputedTextLength() + 11;
+      widest[d.depth] = Math.max(widest[d.depth] || 0, w);
+    });
+    const column = { 1: LEFT };
+    for (let depth = 2; depth <= 3; depth++) column[depth] = column[depth - 1] + (widest[depth - 1] || 0) + GAP;
+    nodes.forEach((d) => { d.y = column[d.depth]; });
+    node.attr("transform", (d) => "translate(" + d.y + "," + d.x + ")");
+    const links = linkLayer.selectAll("path.link").data(h.links().filter((l) => l.source.depth > 0)).join("path")
+      .attr("class", "link").attr("d", d3.linkHorizontal().x((d) => d.y).y((d) => d.x));
+    // Hover or keyboard focus traces an element: its incoming edge (from its parent) and outgoing edges (to its
+    // shown children), for every occurrence of it in the tree.
+    function trace(d) {
+      const k = keyOf(d.data);
+      links.classed("hl", (l) => keyOf(l.source.data) === k || keyOf(l.target.data) === k).filter(".hl").raise();
+    }
+    function untrace() { links.classed("hl", false); }
+    node.on("mouseenter", (ev, d) => trace(d)).on("mouseleave", untrace);
+    a.on("focus", (ev, d) => trace(d)).on("blur", untrace);
+    const deepest = d3.max(nodes, (d) => d.depth) || 1;
+    svg.attr("width", Math.max(document.getElementById("tree").clientWidth, column[deepest] + (widest[deepest] || 0) + 40))
+      .attr("height", maxX - minX + 2 * ROW);
+    const shown = nodes.filter((d) => d.data.kind === "value").length;
+    document.getElementById("count").textContent = shown ? shown + " values shown" : "";
+  }
+  function walk(n, fn) { fn(n); (n.children || []).forEach((c) => walk(c, fn)); }
+  document.getElementById("expand").addEventListener("click", () => {
+    const f = filters();
+    walk(data, (n) => { if (n.kind !== "source" && (f.sources || n.kind !== "value")) expanded.add(n.id); });
+    render();
+  });
+  document.getElementById("collapse").addEventListener("click", () => { expanded.clear(); expanded.add("root"); render(); });
+  document.querySelectorAll(".toolbar input[type=checkbox]").forEach((el) => el.addEventListener("change", render));
+  document.getElementById("q").addEventListener("input", render);
+  document.addEventListener("themechange", () => { readColors(); render(); });
+  window.addEventListener("resize", render);
+  render();
+})();
+</script>
+</body>
+</html>

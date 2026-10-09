@@ -12,6 +12,7 @@ call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works an
 - [Configuration](#configuration)
 - [Command-line reference](#command-line-reference)
 - [Outputs](#outputs)
+- [Exploring a run as a wiki](#exploring-a-run-as-a-wiki)
 - [Evaluation](#evaluation)
 - [Using DelveDSpace from Python](#using-delvedspace-from-python)
 
@@ -148,6 +149,77 @@ With `--output DIR`, files are named `<name>_<kind>_<timestamp>` (the name comes
 
 The documents, clusters, messages and HTML files contain the corpus text; keep that in mind before
 committing them.
+
+## Exploring a run as a wiki
+
+`benchmark/export_wiki.py` turns a saved run into a design-space wiki that you can browse.
+
+**What you get:**
+- a page for each dimension, value, source and system;
+- an overview page, plus pages for contested values, the system matrix, design points, the evaluation and dropped dimensions;
+- an interactive graph view and an expandable tree view;
+- an Approach page that explains the pipeline.
+
+The export makes no LLM calls: everything is rendered from the run data.
+
+The HTML works offline. Open `html/index.html` in a browser, or copy the whole `html/` folder to share it.
+
+A committed example can be [browsed online](https://andresdp.github.io/delve/). It is published with GitHub Pages
+(`.github/workflows/sample-wiki-pages.yml`), because GitHub shows HTML files in the repository as source. Locally, open
+`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html`. The
+sample's [README](examples/c3-git-at-scale/sample/README.md) gives the exact commands that produced it.
+
+Minimal export. Only the run is required:
+
+```bash
+python benchmark/export_wiki.py examples/campus-bike/campus-bike_taxonomy_20261002_130704.json \
+       --config examples/campus-bike/campus_bike_config.yaml
+# -> examples/campus-bike/campus-bike_taxonomy_20261002_130704_wiki/html/index.html
+```
+
+`--config` adds the use case to the index and the overview. Without `--out`, the wiki is written next to the run, in `<run>_wiki/`, which has three folders:
+- `html/`: the pages;
+- `wiki/`: Markdown, also readable in Obsidian;
+- `raw/`: the export manifest.
+
+Full export, using the git-at-scale case study (C3) as the example:
+
+```bash
+python benchmark/export_wiki.py examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350.json \
+       --corpus examples/c3-git-at-scale/c3-git-at-scale_corpus.json \
+       --sources benchmark/c3-git-at-scale/sources.csv \
+       --systems benchmark/c3-git-at-scale/passage_systems.csv \
+       --system-names benchmark/c3-git-at-scale/systems.csv \
+       --design-points examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_design_points.json \
+       --config examples/c3-git-at-scale/c3_git_at_scale_config.yaml \
+       --evaluation
+```
+
+The C3 corpus is not distributed, because it is built from downloaded source texts. Build it first with the
+commands in [`benchmark/c3-git-at-scale/README.md`](benchmark/c3-git-at-scale/README.md). Without `--corpus`, the
+export still works, but it shows passage ids instead of quoted passages.
+
+| Option | Adds |
+|---|---|
+| `--corpus` | Quoted passages on value and source pages |
+| `--sources` | Source titles, links and types. `source_summaries.json` and `icon.svg` in the same folder are picked up automatically |
+| `--systems`, `--system-names` | System pages and the system × dimension matrix. Also enables the systems clause of the core-dimension rule |
+| `--design-points FILE` | A design-point layer from `benchmark/design_points.py`. Descriptions are read from `*_descriptions.json` next to it |
+| `--sample-design-points` | Samples design points during the export instead, with no LLM calls. `--dp-k`, `--dp-n` and `--dp-seed` control the sampling |
+| `--evaluation` | A page with the run's evaluation scores and reasons |
+| `--core-min-sources`, `--core-min-systems` | The thresholds for **core dimensions**, marked ★ and filterable (default 2 and 2) |
+| `--view selected\|final` | Which view of the run to export |
+| `--no-quotes` | Shows passage ids only, for an export you can share without the source text |
+| `--out DIR` | The output folder |
+
+Source summaries and design-point descriptions are generated once, by separate scripts that do call the LLM, and are then stored next to their inputs:
+- `python benchmark/summarize_sources.py benchmark/<case>`;
+- `python benchmark/describe_design_points.py <design points file>`, or `benchmark/design_points.py --describe`.
+
+The wiki labels both as LLM-generated. When they are missing, the pages just leave them out.
+
+By default the exported wiki quotes corpus passages. The example folders therefore gitignore `*_wiki/`. Use
+`--no-quotes` for a copy you intend to share or commit.
 
 ## Evaluation
 

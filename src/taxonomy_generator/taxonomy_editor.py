@@ -90,14 +90,20 @@ def _str_list(args: dict, key: str, min_len: int = 0) -> list[str]:
 class TaxonomyEditor:
     """A working copy of the taxonomy plus the validated operations applied to it."""
 
-    def __init__(self, clusters: Iterable[dict], batch_doc_ids: Iterable[str], review: bool = False):
-        """Copy ``clusters``; ``batch_doc_ids`` are the documents evidence may cite; ``review`` relaxes ``set_status``."""
+    def __init__(self, clusters: Iterable[dict], batch_doc_ids: Iterable[str], review: bool = False,
+                 max_dimensions: int | None = None):
+        """Copy ``clusters``; ``batch_doc_ids`` are the documents evidence may cite; ``review`` relaxes ``set_status``.
+
+        ``max_dimensions`` (``taxonomy.max_num_clusters``) rejects additions and splits that would leave
+        more dimensions than that; ``None`` means no limit.
+        """
         self.clusters: list[dict] = [copy.deepcopy(c) for c in clusters if isinstance(c, dict)]
         for c in self.clusters:
             c.setdefault("relations", [])
             c.setdefault("values", [])
         self.batch_doc_ids = list(dict.fromkeys(str(d) for d in batch_doc_ids))
         self.review = review
+        self.max_dimensions = max_dimensions
         self.operations: list[dict[str, Any]] = []
         self.rejected: list[dict[str, Any]] = []
         self.cleanup: list[str] = []
@@ -353,7 +359,14 @@ class TaxonomyEditor:
         self._created_dims.add(dim["id"])
         return dim
 
+    def _check_dimension_limit(self, added: int) -> None:
+        if self.max_dimensions is not None and len(self.clusters) + added > self.max_dimensions:
+            raise EditError(f"the taxonomy may have at most {self.max_dimensions} dimensions and has "
+                            f"{len(self.clusters)}; this would make {len(self.clusters) + added}. Place the "
+                            "concept in an existing dimension, or merge or remove a dimension first")
+
     def _add_dimension(self, args: dict) -> str:
+        self._check_dimension_limit(1)
         name = _str(args, "name")
         self._check_dim_name(name)
         dim = self._new_dim(name, _str(args, "description"))
@@ -375,6 +388,7 @@ class TaxonomyEditor:
         parts = args.get("parts")
         if not isinstance(parts, list) or len(parts) < 2 or not all(isinstance(p, dict) for p in parts):
             raise EditError("split_dimension needs 'parts': a list of at least 2 {name, description, value_ids}")
+        self._check_dimension_limit(len(parts) - 1)
         by_id = {v["id"]: v for v in dim["values"]}
         assigned: list[list[dict]] = []
         seen: set[str] = set()

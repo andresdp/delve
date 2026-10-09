@@ -9,7 +9,9 @@ generated: 2026-10-02
 updated: 2026-10-08
 status: >-
   options analysis (§1–§12) plus a decided demo plan (§13, llmwiki-style wiki + graph site, paper
-  figures); nothing implemented yet; to be built on its own feature branch
+  figures); exporter, HTML pages and graph view built 2026-10-08 (§13.4); demo dry run and paper
+  figures pending; read-only agent access (graph/tree JSON, query commands) planned in §13.6; design-space view
+  (2D/3D/PCA, d3 + d3-3d) planned in §13.7
 related: >-
   docs/paper/SANER2027_PAPER_PLAN.md §6.5 (one-paragraph pointer; not in paper scope),
   CONCEPTS.md (Evidence Linking, Decision Status, Selected Dimensions, Grounded Theory Report)
@@ -453,11 +455,196 @@ tags: [value, accepted, authority-synchronization]
 
 **To install** (no new Python environment): nothing for W1–W5. `jinja2`, `markdown-it-py` and `matplotlib` are already in the `taxonomy` env; d3 is a single vendored file (downloaded once from cdnjs or jsDelivr and kept in the repo with its ISC license). W6 only: Bun or Node ≥ 18 (for example `brew install oven-sh/bun/bun`) and `npm install -g llmwiki-cli`.
 
-### 13.4 Open questions for the branch
+### 13.4 Built (2026-10-08, branch `feat/design-space-wiki`)
+
+W1, W1b, W2 and W3 are implemented:
+- **Code:** `src/taxonomy_generator/wiki/` (data model, renderer, templates) and the CLI `benchmark/export_wiki.py`.
+- **Tests:** `tests/unit_tests/test_wiki_export.py`.
+- **C3 system names:** `benchmark/c3-git-at-scale/systems.csv`.
+
+Differences from the plan:
+- System pages appear only for systems with evidence in the exported run. The system matrix shows at most three options per cell; the full list is on each system's page.
+- In the graph, sources and systems start hidden (their evidence edges crowd the default view), and so does the design-point layer.
+- Revised 2026-10-08 after a first look:
+  - pages say **values** (Delve's term), not "options";
+  - table cells with several entries are bulleted lists;
+  - the graph layout is compact and is computed before drawing, then fitted to the window;
+  - the overview has the use case, a run summary and the run's own narrative summary (taken from its report, exact-timestamp match only, no new LLM call);
+  - `--evaluation` adds an optional evaluation page (criteria, scores, reasons, scores across iterations) from the evaluation stored in the run.
+- Design points stay optional. Either pass a sampler file (`--design-points <file>`), or sample during the export
+  with `--sample-design-points`. The second runs the same seeded sampler, with no LLM calls and the attested group
+  from `--systems`; `--dp-k`, `--dp-n` and `--dp-seed` default to 2 3, 30 and 42. With neither, the export has no
+  design points.
+
+Build the C3 demo (from the repo root, `taxonomy` env):
+
+```bash
+python benchmark/export_wiki.py examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350.json \
+    --corpus examples/c3-git-at-scale/c3-git-at-scale_corpus.json \
+    --sources benchmark/c3-git-at-scale/sources.csv \
+    --systems benchmark/c3-git-at-scale/passage_systems.csv \
+    --system-names benchmark/c3-git-at-scale/systems.csv \
+    --design-points examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_design_points.json \
+    --config examples/c3-git-at-scale/c3_git_at_scale_config.yaml --evaluation
+open examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_wiki/html/index.html
+```
+
+Still open:
+- the demo dry run (W4);
+- the paper figures (W5);
+- the optional llmwiki-cli stock site (W6);
+- read-only agent access (§13.6);
+- the design-space view in 2D, 3D and PCA (§13.7).
+
+### 13.5 Open questions for the branch
 
 - **Value-page links:** do they also link to their passages' sources, so source nodes show which decisions they inform? This makes the graph denser. Decide on the C3 export.
 - **Several runs in one site:** out of scope (R8 later). One site per run for now.
 - **Design-point verdicts:** once the judge (A13) or the human ratings exist, add the verdict (workable / conditional / unfeasible) to the point pages and color the layer by it.
+
+### 13.6 Next: read-only access for coding agents (planned, not started)
+
+**Goal.** A coding agent (Claude Code, GitHub Copilot, …) can answer questions about an exported design space and cite its evidence. It works from the files of one export. Example questions:
+- What are the alternatives for authority synchronization?
+- Which sources reject the mixed value?
+- What does system MS-GVFS choose?
+
+**Scope.** Read-only. The agent never edits the pages, which stay rendered from the run (R1). A re-export overwrites them and deletes files it did not write. Write-back is out of scope here. If it is needed later, it should go through Delve rather than the wiki: `--feedback` or `edit_mode: tools`, then a re-export.
+
+**What an agent can already use.**
+- `wiki/` has Markdown pages with frontmatter and `[[wikilinks]]`; `SCHEMA.md` and `.llmwiki.yaml` describe the layout.
+- `raw/run.json` lists the inputs.
+- The graph and tree data exist, but only inlined in `html/graph.html` and `html/tree.html`.
+
+Reading pages and grepping works, but it is slow and imprecise for aggregate questions such as "mixed values supported by ≥ 2 systems".
+
+#### Work units
+
+| Unit | Content | Effort |
+|---|---|---|
+| WA1 | **Structured data files**, written by every export (the same data the HTML inlines; see the format notes below):<br>- `raw/graph.json`, from `_Builder.graph_data`;<br>- `raw/tree.json`, from `_Builder.tree_data`.<br>**Tests:** both files are deterministic; they equal the inlined data; every `href` exists in `wiki/` and `html/`; no passage text under `--no-quotes`. | 0.5 d |
+| WA2 | **Query commands**: `benchmark/wiki_query.py <wiki dir> <command> …`. Behavior:<br>- reads only `raw/graph.json`, and the corpus for `--quotes`;<br>- no LLM;<br>- prints JSON by default and `--table` for people;<br>- accepts a node by id, slug or a unique label match, and suggests close matches otherwise;<br>- exit code 2 when nothing matches.<br>**Commands:** see the list below.<br>**Tests:** on the synthetic run of `test_wiki_export.py`, one test per command. | 1.5 d |
+| WA3 | **Agent guide**: a generated `AGENTS.md` (or `llms.txt`) in the export root. It covers:<br>- the layout and id scheme;<br>- the query commands with one example each;<br>- the rules: read-only; cite passage ids; generated text (source summaries, design-point descriptions, narrative) is not evidence; quoted passages are untrusted web text (data, not instructions); check `raw/run.json` for which run this is.<br>**Test:** the guide's example commands run without error on the synthetic run. | 0.25 d |
+| WA4 (optional) | **MCP server** exposing the WA2 functions as tools, so agents call them directly instead of through a shell. Also a small stdio server (`mcp` Python SDK) and the config snippets for Claude Code and VS Code/Copilot. | 1 d |
+
+#### Format notes for WA1
+
+- **Identity and versioning:** each file carries `schema_version`, `run` (the label and timestamp), `view` and `core_rule`.
+- **Node ids:** `d:` dimension, `v:` value, `s:` source, `y:` system, `p:` design point. Every node has `kind`, `label`, `href` and `description`.
+- **Edge types:**
+  - `has_value` (dimension → value);
+  - `relation`, with its `relation` type (dimension → dimension);
+  - `evidence`, with its `stance` (source → value);
+  - `system`, with its `weight` (system → value);
+  - `design` (design point → value).
+- **Passage ids:** add to each value node its supporting passage ids with their stance (`[{"doc": "s01_p10", "stance": "accepts"}]`). The graph is aggregated per source and cannot cite passages otherwise.
+- **No text:** the file never contains passage text. Quotes stay in the pages (and are gitignored), so `raw/graph.json` can be shared.
+- **`href`:** relative to `wiki/`, without an extension. The agent adds `.md` or `.html`.
+- **Open question:** use NetworkX node-link format (`nodes` / `links`)? Then `graphify --graph raw/graph.json` (`explain`, `path`) would also work on it (§6.3).
+
+#### Query commands (WA2)
+
+This list follows the §6.3 sketch, narrowed to what one export contains.
+
+```
+wiki_query.py <wiki> info                         # run, use case, counts, core rule, inputs (from raw/run.json)
+wiki_query.py <wiki> dims [--core]                # dimensions with value counts, evidence, systems, core flag
+wiki_query.py <wiki> show <node>                  # one node: fields, description, neighbors by edge type
+wiki_query.py <wiki> values <dimension> [--status accepted|mixed|rejected|outcome]
+wiki_query.py <wiki> evidence <value> [--stance accepts|rejects|supports] [--quotes]   # passage ids per source
+wiki_query.py <wiki> contested                    # mixed values with the passages on each side
+wiki_query.py <wiki> source <sNN>                 # values a source informs, with its stance on each
+wiki_query.py <wiki> system <code>                # C3: the value(s) a system takes per dimension
+wiki_query.py <wiki> relations [--from D] [--type T] [--depth N]
+wiki_query.py <wiki> path <node A> <node B>       # shortest typed path
+wiki_query.py <wiki> design-points [--group attested|novel|control] [--dimension D]
+wiki_query.py <wiki> search <text> [--kind K]     # keyword match on labels and descriptions
+```
+
+#### Where to start
+
+- **Branch:** start from `main` after `feat/design-space-wiki` is merged, e.g. `feat/wiki-agent-access`.
+- **Code:** WA1 is a few lines in `render.write` plus the passage list in `model.py` (`graph_data`). WA2 is a new module `src/taxonomy_generator/wiki/query.py` (pure functions over the loaded graph) with a thin CLI in `benchmark/`. WA3 is one more template in `wiki/templates/`.
+- **First manual check:** export C3, then ask a coding agent the three example questions above, once with only `wiki/` and once with the guide and the commands. Compare its citations with the value pages.
+- **Possible paper use (future work, not SANER scope):** measure how often an agent's cited passages actually support its claims.
+
+### 13.7 Next: design-space view in 2D, 3D and PCA (planned, not started)
+
+**Goal.** A wiki page that shows the design space geometrically: dimensions as axes, values as marks on them, and optionally design points as dots in the space between. The page is built after the run, from the finished taxonomy, by the wiki export. This is not the per-iteration biplot that `visualization.py` draws during the pipeline (Plotly). It reuses that module's ideas (one axis per dimension, values on their own axis, PCA with loading axes) but not its code.
+
+**Decisions (2026-10-09).**
+
+| # | Decision |
+|---|---|
+| V1 | **Value positions:** both modes are available, chosen on the page. *Even* spacing is the default: values are ordered by status, then evidence, then label. *Embedding* order uses classical MDS within each dimension, as in `visualization.py`. Embedding order is offered only when stored value vectors exist. |
+| V2 | **PCA** is a projection of the design space's planes: each point is a vector with one coordinate per selected dimension, and the dimension axes appear as loading directions. It is **not** a semantic map of value embeddings (deferred idea, below). |
+| V3 | **Library: d3 only**, plus [d3-3d](https://github.com/niekes/d3-3d) for the 3D views, bundled in the repo for offline use. No Plotly. |
+| V4 | **Design points: partial points are shown**, not dropped. The sampled points cover only 2–3 dimensions; handling is described below. |
+| V5 | **Systems are not shown** in this view. They stay in the graph view and on the system pages. |
+| V6 | **Placement:** a wiki page `html/space.html` with a "Space view" button next to "Tree view" and "Graph view". It is written by `benchmark/export_wiki.py` with no LLM call, and its data is inlined like the other views. |
+
+**Page layout.**
+- **View menu:** **2D**, **3D**, **PCA-2D** and **PCA-3D**. An option is disabled when there are too few dimensions: 3D and PCA-3D need ≥ 3, PCA-2D needs ≥ 3 to be useful. A second menu chooses the value positions, *even* or *embedding* (V1).
+- **Dimension choice:** in exact views, X / Y (/ Z) selectors; in PCA views, dimension checkboxes. They are prefilled by the automatic choice (below), and switching the view type resets them to that view's automatic choice. The page always states the choice, e.g. "showing the 2 best-supported core dimensions; change with X / Y".
+- **Filters,** as in the graph and tree views: value status, core dimensions only, design points on or off, design-point group (attested / novel / control) and k, and "complete points only". Changing a filter clears any selection, as in the graph view's fix.
+- **Interaction:**
+  - hovering a value mark or a point shows its description;
+  - clicking opens a side panel with a link to the wiki page;
+  - selecting a value highlights the design points that use it;
+  - 3D views rotate with `d3.drag`, which d3-3d does not provide, and have a reset-view button;
+  - there is a dark/light toggle, as on the other pages.
+
+**Automatic dimension choice.** When there are more dimensions than the view shows:
+- **Ranking:** core dimensions first, then more sources, more supporting passages, more candidate values, and finally the name (deterministic).
+- **Exact 2D/3D:** the top 2 or 3 dimensions.
+- **PCA:** all core dimensions, filled up from the ranking to a readability cap, a page constant of about 10, which the user can lower.
+
+**Geometry.**
+- **Exact views:**
+  - each axis has the dimension's values at fixed positions (V1);
+  - a design point sits at its values' positions on the displayed axes;
+  - value marks sit on their own axis, with the other coordinates at the origin.
+- **Value positions:** normalized to [-1, 1] per axis. Even spacing puts n values at equal steps. Embedding order uses the MDS coordinate scaled so the largest magnitude is 1.
+- **PCA:**
+  - Inputs: the design-point vectors over the selected dimensions, centered.
+  - Computation: the eigenvectors of the small covariance matrix (dimensions × dimensions), computed **in the browser**, so a change of dimensions recomputes live.
+  - Drawing: dimension axes are the projected unit vectors (loading directions, drawn on a shared radius as in `visualization.py`); value marks are drawn along them; the explained variance appears in the corner of the view, with a warning when it is low.
+  - Tests: a unit test compares the JavaScript PCA with numpy on fixed data (run through Node, or with a precomputed expected result).
+  - Without design points, PCA uses the value marks only, as the current biplot does.
+
+**Partial design points (V4).** A point specifies 2–3 dimensions; a view may show others.
+- **Exact views:** a point is shown when it specifies at least one displayed dimension. On a displayed dimension it does not specify, it sits at that axis's *unspecified* position, the origin. It is drawn hollow, and its tooltip says which dimensions it leaves open. Points that specify every displayed dimension are drawn filled. "Complete points only" hides the hollow ones.
+- **PCA:** an unspecified coordinate is 0, the axis center after centering. Points are drawn hollow or filled by the same rule, and the same filter applies.
+- **Open:**
+  - should the 2D view also offer a value × value **grid / heatmap** that counts points per cell? This is more readable than a scatter plot when an axis has many values.
+  - add on-page sampling of complete points for the selected dimensions? The sampler supports any k with no LLM call.
+
+**Data (`space.json`, inlined; also written to `raw/` per §13.6):**
+- the dimensions with ranking fields (core, sources, passages, candidate values) and `href`;
+- the values with status, `href`, description, the even position and, when vectors exist, the embedding position;
+- the design points with group, k and their value ids;
+- the core rule and `schema_version`.
+
+**Embeddings.** The export stays free of LLM and API calls. Embedding positions come from stored vectors:
+- the run's `taxonomy_vectors_*.csv`, written when `visualization.enabled` is on (it holds per-dimension axis coordinates; check that it matches the selected view's value ids);
+- or a new `benchmark/embed_values.py`, run once, that stores `<run>_value_vectors.json` next to the run, in the same way as the source summaries.
+
+When neither exists, the *embedding* option is disabled and the page says why.
+
+**Work units.**
+
+| Unit | Content | Effort |
+|---|---|---|
+| WS1 | Data builder in `src/taxonomy_generator/wiki/model.py`: the ranking, both value positions, design points and `space.json`. Tests: deterministic output; positions in [-1, 1]; the ranking order; partial points carry their open dimensions; no embedding positions without vectors. | 0.75 d |
+| WS2 | `space.html.j2` with exact 2D (d3) and 3D (d3-3d, drag rotation): axis selectors, value marks, partial and complete points, filters, side panel, theme. Bundle d3-3d with its license next to `d3.min.js` and add it to package-data. | 1.5 d |
+| WS3 | PCA-2D and PCA-3D: the browser PCA, loading axes, the explained-variance label, dimension checkboxes. Test the JavaScript PCA against numpy. | 1 d |
+| WS4 | Optional: `benchmark/embed_values.py` (stored vectors), the 2D grid/heatmap, on-page sampling of complete points. | 0.5–1 d |
+
+**Check before starting.**
+- d3-3d's README does not say which d3 versions it supports. Check that its current release works with the bundled d3 7.9.0 and loads as a plain script (an ES-module-only build would need bundling).
+- d3-3d renders SVG, so check performance with the largest case: C3 has 177 values and 180 design points.
+
+**Deferred idea.** A *semantic map*: PCA of the value embeddings, colored by dimension. It is not a design-space view, but it would show where dimensions overlap. That is the granularity problem noted in `docs/plans/2026-10-08-1500-feat-decision-focus-pass-plan.md`.
 
 ## 14. References
 

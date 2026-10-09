@@ -20,6 +20,9 @@ actionable issues back into the next refinement step.
 For corpus preparation, configuration, all commands and the output files, see
 **[USAGE.md](USAGE.md)**.
 
+🔎 **[Browse a sample wiki online](https://andresdp.github.io/delve/)**: case C3, on scaling Git hosting,
+capped at 5 dimensions.
+
 ## What you get
 
 For a corpus and a short description of what you want to find (the **use case**), DelveDSpace produces:
@@ -35,6 +38,8 @@ For a corpus and a short description of what you want to find (the **use case**)
   final view.
 - **Reports**: a self-contained grounded-theory Markdown report and a single-page HTML report;
   optional PCA biplots of the design space.
+- **A design-space wiki**: an offline HTML wiki with a page for each dimension, value and source,
+  plus graph and tree views of the design space ([how to build it](USAGE.md#exploring-a-run-as-a-wiki)).
 - **Run history**: every taxonomy iteration, the saturation history and the open codes, so a run can be
   audited, compared with other runs, or used as the starting point of a new one.
 
@@ -163,7 +168,8 @@ across iterations), and the labeled documents. Add `--quiet` to see only the sum
 
 Next: [prepare your corpus](USAGE.md#preparing-a-corpus), [configure the run](USAGE.md#configuration)
 (start with `taxonomy.use_case`), and see the [command-line reference](USAGE.md#command-line-reference)
-for refining a run with feedback, test mode, reports and evaluation.
+for refining a run with feedback, test mode, reports and evaluation. To browse a run, [export it as a
+wiki](USAGE.md#exploring-a-run-as-a-wiki).
 
 ## Examples
 

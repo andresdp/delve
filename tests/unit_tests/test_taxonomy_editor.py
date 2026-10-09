@@ -192,6 +192,25 @@ def test_add_dimension_returns_new_id_and_rejects_duplicate_name():
     assert not ok
 
 
+def test_dimension_limit_rejects_additions_and_splits_beyond_it():
+    ed = TaxonomyEditor(_taxonomy(), batch_doc_ids=("d1", "d2", "d4", "d5"), max_dimensions=3)
+    ok, msg = ed.apply("add_dimension", {"name": "Alert Threshold", "description": "how alerts fire", "reason": "r"})
+    assert not ok and "at most 3 dimensions" in msg and len(ed.clusters) == 3
+    split = {"dimension_id": "1", "reason": "two questions", "parts": [
+        {"name": "Sequential Test", "description": "a", "value_ids": ["1.1", "1.4"]},
+        {"name": "Distribution Test", "description": "b", "value_ids": ["1.2", "1.3"]}]}
+    ok, msg = ed.apply("split_dimension", split)
+    assert not ok and "at most 3 dimensions" in msg
+    ed = TaxonomyEditor(_taxonomy(), batch_doc_ids=("d1", "d2", "d4", "d5"), max_dimensions=4)
+    ed.apply("add_value", {"dimension_id": "1", "label": "Page-Hinkley", "description": "x", "status": "rejected",
+                           "doc_ids": ["d4"], "reason": "r"})
+    split["parts"][0]["value_ids"].append("1.5")
+    ok, msg = ed.apply("split_dimension", split)
+    assert ok, msg
+    ok, msg = ed.apply("add_dimension", {"name": "Alert Threshold", "description": "how alerts fire", "reason": "r"})
+    assert not ok and len(ed.clusters) == 4
+
+
 def test_rename_dimension():
     ed = _editor()
     ok, msg = ed.apply("rename_dimension", {"dimension_id": "2", "name": "Response Action", "reason": "r"})

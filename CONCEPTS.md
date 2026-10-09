@@ -58,6 +58,10 @@ The condition under which the Taxonomy stops growing from new document batches: 
 
 The use-case-relevant subset of an Iteration's Dimensions, chosen by a dedicated selection step and dropped-with-rationale rather than silently deleted. The full Dimension history is preserved alongside Selected Dimensions, never replaced by it — code that reads "the current view" must be explicit about which of the two it means. A reader of a Grounded Theory Report sees the drop rationale directly, in its Discarded Dimensions section.
 
+## Core Dimension
+
+A Dimension with broad enough support that it is not likely a single source's idiosyncrasy. A Dimension is core when its Evidence Linking reaches a minimum number of distinct sources, or, when passages are mapped to the systems they describe, when its candidate Values (accepted, mixed, or rejected; not outcomes) are supported by passages from a minimum number of distinct systems. Both minimums are export settings, and the wiki states the rule in use wherever it marks or filters Core Dimensions. Being core is a reading aid computed when the wiki is built. It is not a Decision Status. It is computed only when the wiki is built, after the pipeline has run, so it cannot change which Dimensions were selected.
+
 ## Grounded Theory Report
 
 A self-contained markdown document rendering one Taxonomy view (a specific Iteration, Selected Dimensions, or the latest Iteration) for a reader who never ran the pipeline: a Narrative Summary, a relationship diagram of Dimensions and their Relations, a catalog of each Dimension's Values, and — whenever the pipeline recorded at least one dimension the selection step excluded — a Discarded Dimensions section naming each and why. Everything except the Narrative Summary is rendered verbatim from the Taxonomy data — never reworded by a model. A Unified HTML Report renders this same content alongside other Sibling Artifacts in one page.

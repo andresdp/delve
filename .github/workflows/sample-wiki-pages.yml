@@ -1,0 +1,54 @@
+name: Sample wiki (GitHub Pages)
+
+# Publishes the committed C3 sample design-space wiki (its html/ folder only) as the
+# repository's GitHub Pages site: https://andresdp.github.io/delve/
+# The wiki is static, offline HTML written by benchmark/export_wiki.py; nothing is built here.
+# Needs Settings -> Pages -> Source: GitHub Actions. The github-pages environment deploys
+# from the default branch only.
+
+on:
+  workflow_dispatch:
+  push:
+    # feat/design-space-wiki: preview before the merge (also allowed in the github-pages
+    # environment's deployment branches). Remove it from both after merging.
+    branches: [main, feat/design-space-wiki]
+    paths:
+      - "examples/c3-git-at-scale/sample/*_wiki/html/**"
+      - ".github/workflows/sample-wiki-pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  WIKI_HTML: examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check the wiki folder
+        run: test -f "$WIKI_HTML/index.html"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+
+      - name: Upload the wiki
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: ${{ env.WIKI_HTML }}
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

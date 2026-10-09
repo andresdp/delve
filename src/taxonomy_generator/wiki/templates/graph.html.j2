@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph · {{ name }}</title>
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/delvedspace-icon.svg" type="image/svg+xml">
+<script>
+  // Theme: the reader's choice (kept in this browser) or the system setting.
+  (function () { try { var t = localStorage.getItem("delve-wiki-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+</script>
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  header.top { min-height: 50px; }
+  #wrap { position: fixed; inset: 50px 0 0 0; display: grid; grid-template-columns: 270px 1fr 320px; }
+  #controls, #info { background: var(--panel); overflow-y: auto; padding: 14px 16px; font-size: 13.5px; }
+  #controls { border-right: 1px solid var(--border); }
+  #info { border-left: 1px solid var(--border); }
+  #canvas { position: relative; overflow: hidden; }
+  svg { width: 100%; height: 100%; display: block; cursor: grab; }
+  fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0 0 12px; padding: 8px 10px; }
+  legend { font-weight: 600; padding: 0 4px; }
+  label.row { display: flex; align-items: center; gap: 7px; margin: 3px 0; cursor: pointer; }
+  .sw { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
+  svg.shape { width: 14px; height: 14px; flex: none; }
+  input[type=search] { width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--bg); color: var(--fg); font: inherit; }
+  #matches { margin: 6px 0 0; padding: 0; list-style: none; max-height: 160px; overflow-y: auto; }
+  #matches li { padding: 2px 4px; cursor: pointer; border-radius: 4px; }
+  #matches li:hover { background: var(--code); }
+  #info h2 { margin-top: 4px; font-size: 18px; border: none; }
+  #info p.desc { line-height: 1.5; margin: 8px 0 4px; }
+  #info .muted, .hint { color: var(--muted); font-size: 12.5px; }
+  #info ul { padding-left: 16px; margin: 4px 0 12px; }
+  #info li { cursor: pointer; }
+  .open-page { display: inline-block; margin: 6px 0 12px; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--accent); }
+  .node text { font-size: 11px; fill: var(--fg); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; pointer-events: none; }
+  .node.dim-out, .link.dim-out { opacity: .1; }
+  button.small { font: inherit; font-size: 12.5px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--fg); cursor: pointer; }
+  @media (max-width: 1000px) { #wrap { grid-template-columns: 220px 1fr; } #info { display: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><img src="assets/delvedspace-icon.svg" alt="" class="brand-icon" width="32" height="32">{% if has_case_icon %}<img src="assets/case-icon.svg" alt="" class="brand-icon" width="32" height="32">{% endif %}{{ name }}</a>
+  <nav><a href="index.html">Wiki index</a><a href="synthesis/overview.html">Overview</a>{% if has_systems %}<a href="synthesis/system-matrix.html">System matrix</a>{% endif %}{% if has_designs %}<a href="synthesis/design-points.html">Design points</a>{% endif %}</nav>
+  <span class="hint" style="margin-left:auto">Drag to pan · scroll to zoom · click a node</span>
+  <a class="graph-btn view-btn" href="tree.html">Tree view</a>
+  <button class="theme-btn" id="theme-toggle" type="button" title="Switch light / dark mode" aria-label="Switch light / dark mode">◐</button>
+</header>
+<div id="wrap">
+  <div id="controls">
+    <fieldset><legend>Find</legend>
+      <input id="q" type="search" placeholder="Search dimensions, values, sources…" autocomplete="off">
+      <ul id="matches"></ul>
+    </fieldset>
+    <fieldset><legend>Show</legend>
+      <label class="row"><input type="checkbox" data-kind="dimension" checked><svg class="shape" viewBox="-7 -7 14 14"><circle r="6" fill="var(--dimension)"/></svg>Dimensions</label>
+      <label class="row"><input type="checkbox" data-kind="value" checked><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,0L0,6.5L-6.5,0Z" fill="var(--accepted)"/></svg>Values</label>
+      <label class="row"><input type="checkbox" data-kind="source"><svg class="shape" viewBox="-7 -7 14 14"><rect x="-5.5" y="-5.5" width="11" height="11" fill="var(--source)"/></svg>Sources (evidence links)</label>
+      {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L5.6,-3.25L5.6,3.25L0,6.5L-5.6,3.25L-5.6,-3.25Z" fill="var(--system)"/></svg>Systems</label>{% endif %}
+      {% if has_designs %}<label class="row"><input type="checkbox" data-kind="design"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,5.5L-6.5,5.5Z" fill="var(--novel)"/></svg>Design points</label>{% endif %}
+    </fieldset>
+    <fieldset><legend>Dimensions</legend>
+      <label class="row"><input type="checkbox" id="core-only"> ★ core dimensions only</label>
+      <div class="hint">Core: {{ core_rule }}. Hides the other dimensions and their values.</div>
+    </fieldset>
+    <fieldset><legend>Value status</legend>
+      <label class="row"><input type="checkbox" data-status="accepted" checked><span class="sw" style="background:var(--accepted)"></span>accepted</label>
+      <label class="row"><input type="checkbox" data-status="mixed" checked><span class="sw" style="background:var(--mixed)"></span>mixed (contested)</label>
+      <label class="row"><input type="checkbox" data-status="rejected" checked><span class="sw" style="background:var(--rejected)"></span>rejected</label>
+      <label class="row"><input type="checkbox" data-status="outcome" checked><span class="sw" style="background:var(--outcome)"></span>outcome (effect)</label>
+    </fieldset>
+    {% if has_designs %}
+    <fieldset id="design-filters"><legend>Design points</legend>
+      <label class="row"><input type="checkbox" data-group="attested" checked><span class="sw" style="background:var(--attested)"></span>attested (one system)</label>
+      <label class="row"><input type="checkbox" data-group="novel" checked><span class="sw" style="background:var(--novel)"></span>novel</label>
+      <label class="row"><input type="checkbox" data-group="control"><span class="sw" style="background:var(--control)"></span>control</label>
+      <label class="row">k = <select id="kfilter"><option value="">all</option></select></label>
+      <div class="hint">Turn on “Design points” above to show this layer. Selecting a point highlights the values it combines.</div>
+    </fieldset>
+    {% endif %}
+    <fieldset><legend>Edges</legend>
+      <div class="hint"><span style="color:var(--dimension)">━━</span> relation between dimensions (typed)<br>
+      ── dimension has value<br><span style="color:var(--accepted)">┄┄</span> source adopts · <span style="color:var(--rejected)">┄┄</span> source rejects</div>
+    </fieldset>
+    <button class="small" id="reset">Fit to view</button>
+  </div>
+  <div id="canvas"><svg id="svg"></svg></div>
+  <div id="info"><p class="muted">Click a node to see its details and open its page.</p></div>
+</div>
+<script type="application/json" id="graph-data">{{ data|safe }}</script>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById("theme-toggle");
+    function current() {
+      return root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    function label() { btn.textContent = current() === "dark" ? "☀" : "☾"; }
+    btn.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("delve-wiki-theme", next); } catch (e) {}
+      label();
+      document.dispatchEvent(new CustomEvent("themechange"));
+    });
+    label();
+  })();
+</script>
+<script src="assets/d3.min.js"></script>
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById("graph-data").textContent);
+  const css = getComputedStyle(document.documentElement);
+  const v = (name) => css.getPropertyValue(name).trim();
+  const COLOR = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), get = (name) => cs.getPropertyValue(name).trim();
+    ["dimension", "source", "system", "accepted", "mixed", "rejected", "outcome", "attested", "novel", "control", "muted"]
+      .forEach((k) => { COLOR[k] = get("--" + k); });
+  }
+  readColors();
+  const nodeColor = (n) => n.kind === "value" ? (COLOR[n.status] || COLOR.muted)
+    : n.kind === "design" ? (COLOR[n.group] || COLOR.muted) : (COLOR[n.kind] || COLOR.muted);
+  const byId = new Map(data.nodes.map((n) => [n.id, n]));
+  const adj = new Map(data.nodes.map((n) => [n.id, new Set()]));
+  data.edges.forEach((e) => { adj.get(e.source)?.add(e.target); adj.get(e.target)?.add(e.source); });
+  const degree = (n) => (adj.get(n.id) || new Set()).size;
+  // Hexagon for systems (the star marks core dimensions elsewhere in the wiki).
+  const symbolHexagon = { draw(ctx, size) {
+    const r = Math.sqrt(size / (1.5 * Math.sqrt(3)));
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 3 * i - Math.PI / 2, x = r * Math.cos(a), y = r * Math.sin(a);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  } };
+  const SYMBOL = { dimension: d3.symbolCircle, value: d3.symbolDiamond, source: d3.symbolSquare,
+    system: symbolHexagon, design: d3.symbolTriangle };
+  const shapePath = (n) => d3.symbol().type(SYMBOL[n.kind] || d3.symbolCircle)
+    .size(Math.PI * radius(n) * radius(n) * (n.kind === "value" ? 1.25 : n.kind === "system" ? 1.2 : 1))();
+  const radius = (n) => n.kind === "dimension" ? 9 + Math.sqrt(degree(n)) * 1.6
+    : n.kind === "value" ? 4 + Math.sqrt(degree(n)) : n.kind === "design" ? 5 : 8 + Math.sqrt(degree(n)) * 0.8;
+
+  const ks = [...new Set(data.nodes.filter((n) => n.kind === "design").map((n) => n.k))].sort();
+  const ksel = document.getElementById("kfilter");
+  if (ksel) ks.forEach((k) => { const o = document.createElement("option"); o.value = k; o.textContent = k; ksel.appendChild(o); });
+
+  const svg = d3.select("#svg");
+  const g = svg.append("g");
+  const defs = svg.append("defs");
+  defs.append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 18).attr("refY", 0)
+    .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+    .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", COLOR.dimension);
+  const zoom = d3.zoom().scaleExtent([0.1, 8]).on("zoom", (ev) => {
+    if (ev.sourceEvent) userMoved = true;  // the user panned or zoomed: stop auto-fitting
+    g.attr("transform", ev.transform); updateLabels(ev.transform.k); });
+  svg.call(zoom);
+  const linkLayer = g.append("g"), nodeLayer = g.append("g");
+  let selected = null, sim = null, scale = 1, userMoved = false;
+  function fit(duration) {
+    const shown = nodeLayer.selectAll("g.node").data().filter((d) => d.x != null);
+    if (!shown.length) return;
+    const pad = 40, xs = shown.map((d) => d.x), ys = shown.map((d) => d.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const k = Math.min(4, 0.95 / Math.max((x1 - x0 + 2 * pad) / width(), (y1 - y0 + 2 * pad) / height()));
+    const tr = d3.zoomIdentity.translate(width() / 2, height() / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
+    (duration ? svg.transition().duration(duration) : svg).call(zoom.transform, tr);
+  }
+
+  function state() {
+    const kinds = new Set([...document.querySelectorAll("input[data-kind]:checked")].map((i) => i.dataset.kind));
+    const statuses = new Set([...document.querySelectorAll("input[data-status]:checked")].map((i) => i.dataset.status));
+    const groups = new Set([...document.querySelectorAll("input[data-group]:checked")].map((i) => i.dataset.group));
+    const k = ksel ? ksel.value : "";
+    const coreOnly = document.getElementById("core-only").checked;
+    return { kinds, statuses, groups, k, coreOnly };
+  }
+  function visible(n, s) {
+    if (!s.kinds.has(n.kind)) return false;
+    if (s.coreOnly && (n.kind === "dimension" || n.kind === "value") && !n.core) return false;
+    if (n.kind === "value") return s.statuses.has(n.status);
+    if (n.kind === "design") return s.groups.has(n.group) && (!s.k || String(n.k) === s.k);
+    return true;
+  }
+  function edgeStyle(e) {
+    if (e.type === "relation") return { stroke: COLOR.dimension, width: 2.2, dash: null, op: 0.85, arrow: true };
+    if (e.type === "has_value") return { stroke: COLOR.muted, width: 1, dash: null, op: 0.45 };
+    if (e.type === "evidence") return { stroke: e.stance === "rejects" ? COLOR.rejected : e.stance === "both" ? COLOR.mixed : COLOR.accepted,
+      width: 0.8, dash: "3,3", op: 0.35 };
+    if (e.type === "system") return { stroke: COLOR.system, width: 0.9, dash: "2,4", op: 0.4 };
+    if (e.type === "design") return { stroke: COLOR.novel, width: 1.4, dash: null, op: 0.7 };
+    return { stroke: COLOR.muted, width: 1, dash: null, op: 0.4 };
+  }
+
+  function render() {
+    const s = state();
+    const nodes = data.nodes.filter((n) => visible(n, s));
+    const ids = new Set(nodes.map((n) => n.id));
+    const links = data.edges.filter((e) => ids.has(e.source.id || e.source) && ids.has(e.target.id || e.target))
+      .map((e) => ({ ...e, source: e.source.id || e.source, target: e.target.id || e.target }));
+
+    const link = linkLayer.selectAll("line").data(links, (d) => d.source + ">" + d.target + ":" + d.type);
+    link.exit().remove();
+    const linkAll = link.enter().append("line").attr("class", "link").merge(link)
+      .each(function (d) { const st = edgeStyle(d); d3.select(this).attr("stroke", st.stroke).attr("stroke-width", st.width)
+        .attr("stroke-dasharray", st.dash).attr("stroke-opacity", st.op).attr("marker-end", st.arrow ? "url(#arrow)" : null); });
+    linkAll.selectAll("title").remove();
+    linkAll.filter((d) => d.relation).append("title").text((d) => d.relation);
+
+    const node = nodeLayer.selectAll("g.node").data(nodes, (d) => d.id);
+    node.exit().remove();
+    const enter = node.enter().append("g").attr("class", "node").style("cursor", "pointer")
+      .on("click", (ev, d) => { ev.stopPropagation(); select(d.id); })
+      .call(d3.drag().on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
+        .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+        .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+    enter.append("path").attr("class", "shape");
+    enter.append("text").attr("dy", "-0.9em").attr("text-anchor", "middle");
+    enter.append("title");
+    const nodeAll = enter.merge(node);
+    nodeAll.select("path.shape").attr("d", shapePath).attr("fill", nodeColor)
+      .attr("stroke", (d) => d.kind === "dimension" ? "#fff" : "none").attr("stroke-width", 1.5);
+    nodeAll.select("text").text((d) => d.label);
+    nodeAll.select("title").text((d) => d.label + (d.status ? " (" + d.status + ")" : "") + (d.tag ? " · " + d.tag : ""));
+
+    if (sim) sim.stop();
+    sim = d3.forceSimulation(nodes)
+      .force("link", d3.forceLink(links).id((d) => d.id)
+        .distance((l) => l.type === "has_value" ? 46 : l.type === "relation" ? 170 : l.type === "design" ? 60 : 120)
+        .strength((l) => l.type === "has_value" ? 0.9 : l.type === "evidence" || l.type === "system" ? 0.03 : 0.3))
+      .force("charge", d3.forceManyBody().strength((d) => d.kind === "dimension" ? -520 : d.kind === "value" ? -70 : -220)
+        .distanceMax(420))
+      .force("x", d3.forceX(width() / 2).strength((d) => d.kind === "dimension" ? 0.05 : 0.015))
+      .force("y", d3.forceY(height() / 2).strength((d) => d.kind === "dimension" ? 0.05 : 0.015))
+      .force("center", d3.forceCenter(width() / 2, height() / 2))
+      .force("collide", d3.forceCollide().radius((d) => radius(d) + (d.kind === "dimension" ? 26 : 3)))
+      .stop();
+    const ticked = () => {
+      linkAll.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
+      nodeAll.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
+    };
+    sim.tick(Math.ceil(Math.log(sim.alphaMin()) / Math.log(1 - sim.alphaDecay())));  // settle before drawing
+    ticked();
+    sim.on("tick", ticked);
+    if (!userMoved && !selected) fit(0);
+    updateLabels(scale);
+    if (selected && !ids.has(selected)) clearSelection(); else if (selected) highlight(selected);
+  }
+  const width = () => document.getElementById("canvas").clientWidth;
+  const height = () => document.getElementById("canvas").clientHeight;
+  function updateLabels(k) {
+    scale = k;
+    const z = 1 / Math.min(k, 1);  // keep labels readable when zoomed out
+    nodeLayer.selectAll("g.node text").style("font-size", (d) => (d.kind === "dimension" ? 12 : 11) * z + "px")
+      .style("stroke-width", 3 * z + "px");
+    nodeLayer.selectAll("g.node text").style("display", (d) =>
+      d.kind === "dimension" || d.kind === "system" || d.kind === "source" || (k > 1.7) || d.id === selected ? null : "none");
+  }
+
+  function neighborhood(id) {
+    // The selection, its neighbours, and the shown elements connected to those neighbours. A neighbouring
+    // dimension is expanded only when the selection is one of its values (to show the alternatives); otherwise
+    // expanding a dimension to all its values would light up most of the graph.
+    const shown = new Set(nodeLayer.selectAll("g.node").data().map((d) => d.id));
+    const selKind = byId.get(id)?.kind;
+    const keep = new Set([id]);
+    [...(adj.get(id) || [])].filter((x) => shown.has(x)).forEach((x) => {
+      keep.add(x);
+      if (byId.get(x)?.kind === "dimension" && selKind !== "value") return;
+      (adj.get(x) || []).forEach((y) => { if (shown.has(y)) keep.add(y); });
+    });
+    return keep;
+  }
+  function highlight(id) {
+    const keep = neighborhood(id);
+    nodeLayer.selectAll("g.node").classed("dim-out", (d) => !keep.has(d.id))
+      .select("path.shape").attr("stroke", (d) => d.id === id ? v("--fg") : d.kind === "dimension" ? "#fff" : "none")
+      .attr("stroke-width", (d) => d.id === id ? 3 : 1.5);
+    linkLayer.selectAll("line").classed("dim-out", (d) => !(keep.has(d.source.id) && keep.has(d.target.id)));
+    nodeLayer.selectAll("g.node text").style("display", (d) => keep.has(d.id) || d.kind === "dimension" ? null : "none");
+  }
+  function clearSelection() {
+    selected = null;
+    nodeLayer.selectAll("g.node").classed("dim-out", false).select("path.shape")
+      .attr("stroke", (d) => d.kind === "dimension" ? "#fff" : "none").attr("stroke-width", 1.5);
+    linkLayer.selectAll("line").classed("dim-out", false);
+    updateLabels(scale);
+    document.getElementById("info").innerHTML = '<p class="muted">Click a node to see its details and open its page.</p>';
+  }
+  const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const KIND = { dimension: "Dimension", value: "Value", source: "Source", system: "System", design: "Design point" };
+  function select(id, zoomTo) {
+    const n = byId.get(id); if (!n) return;
+    let rerendered = false;
+    if (n.kind === "design") { const box = document.querySelector('input[data-kind="design"]'); if (box && !box.checked) { box.checked = true; render(); rerendered = true; } }
+    selected = id; highlight(id);
+    const groups = {};
+    const near = neighborhood(id);
+    near.forEach((x) => { const m = byId.get(x); if (m && x !== id) (groups[m.kind] = groups[m.kind] || []).push(m); });
+    let html = '<div class="kind">' + KIND[n.kind] + "</div><h2>" + esc(n.label) + "</h2>";
+    if (n.status) html += '<span class="badge ' + esc(n.status) + '">' + esc(n.status) + "</span> ";
+    if (n.group) html += '<span class="badge ' + esc(n.group) + '">' + esc(n.group) + "</span> " + esc(n.tag || "");
+    if (n.dimension) html += '<p class="muted">in ' + esc(n.dimension) + "</p>";
+    if (n.description) html += '<p class="desc">' + esc(n.description) + "</p>"
+      + (n.description_note ? '<p class="muted">' + esc(n.description_note) + "</p>" : "");
+    html += '<br><a class="open-page" href="' + esc(n.href) + '">Open page →</a>';
+    ["dimension", "value", "source", "system", "design"].forEach((k) => {
+      const list = (groups[k] || []).sort((a, b) => String(a.label).localeCompare(String(b.label)));
+      if (!list.length) return;
+      html += "<div><strong>" + KIND[k] + "s (" + list.length + ")</strong><ul>" +
+        list.slice(0, 60).map((m) => '<li data-id="' + esc(m.id) + '">' + (m.status ? '<span class="dot ' + esc(m.status) + '"></span> ' : "") + esc(m.label) + "</li>").join("") +
+        (list.length > 60 ? "<li>…</li>" : "") + "</ul></div>";
+    });
+    const info = document.getElementById("info"); info.innerHTML = html;
+    info.querySelectorAll("li[data-id]").forEach((li) => li.addEventListener("click", () => select(li.dataset.id, true)));
+    const focus = () => { if (n.x != null) svg.transition().duration(500).call(zoom.transform,
+      d3.zoomIdentity.translate(width() / 2, height() / 2).scale(Math.max(scale, 1.4)).translate(-n.x, -n.y)); };
+    if (zoomTo) setTimeout(focus, rerendered ? 2200 : 0);
+    history.replaceState(null, "", "#node=" + encodeURIComponent(id));
+  }
+
+  // A filter change shows the filter's full result: drop any selection (and its #node= link) and re-fit.
+  document.querySelectorAll("#controls input[type=checkbox], #kfilter").forEach((el) => el.addEventListener("change", () => {
+    if (selected) clearSelection();
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    userMoved = false;
+    render();
+  }));
+  svg.on("click", () => clearSelection());
+  document.getElementById("reset").addEventListener("click", () => { clearSelection(); userMoved = false; fit(400); });
+  const q = document.getElementById("q"), matches = document.getElementById("matches");
+  q.addEventListener("input", () => {
+    const t = q.value.trim().toLowerCase(); matches.innerHTML = "";
+    if (t.length < 2) return;
+    data.nodes.filter((n) => String(n.label).toLowerCase().includes(t)).slice(0, 25).forEach((n) => {
+      const li = document.createElement("li"); li.textContent = KIND[n.kind] + ": " + n.label;
+      li.addEventListener("click", () => select(n.id, true)); matches.appendChild(li);
+    });
+  });
+  window.addEventListener("resize", () => sim && sim.force("center", d3.forceCenter(width() / 2, height() / 2)).alpha(0.3).restart());
+
+  render();
+  document.addEventListener("themechange", () => {
+    readColors();
+    defs.select("marker path").attr("fill", COLOR.dimension);
+    nodeLayer.selectAll("g.node path.shape").attr("fill", nodeColor);
+    linkLayer.selectAll("line").each(function (d) { d3.select(this).attr("stroke", edgeStyle(d).stroke); });
+    if (selected) highlight(selected);
+  });
+  const m = location.hash.match(/node=([^&]+)/);
+  if (m) setTimeout(() => select(decodeURIComponent(m[1]), true), 1200);
+})();
+</script>
+</body>
+</html>
