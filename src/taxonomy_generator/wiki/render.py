@@ -144,6 +144,8 @@ def property_rows(page: Page, known: Iterable[str]) -> List[Dict[str, str]]:
             text = ", ".join(str(v) for v in value)
         else:
             text = str(value)
+        if key == "url" and text.startswith(("http://", "https://")):
+            text = f"<{text}>"  # clickable
         rendered = md.renderInline(links_to_markdown(text, page.path, known))
         rows.append({"key": key.replace("_", " "), "value": rendered, "raw": str(value) if key == "status" else ""})
     return rows

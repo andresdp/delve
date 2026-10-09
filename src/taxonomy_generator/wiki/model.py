@@ -63,6 +63,8 @@ class Inputs:
     evaluation: bool = False
     models: Dict[str, str] = field(default_factory=dict)
     case_icon: bool = False
+    source_summaries: Dict[str, str] = field(default_factory=dict)
+    summary_model: str = ""
     view: str = "selected"
     quotes: bool = True
     quote_words: int = 60
@@ -139,6 +141,18 @@ def load_system_map(path: Path) -> Dict[str, Dict[str, Any]]:
         systems = [s.strip() for s in (row.get("systems") or "").split(";") if s.strip()]
         out[row["passage_id"].strip()] = {"systems": systems, "primary": (row.get("primary") or "").strip()}
     return out
+
+
+def load_source_summaries(path: Path) -> Tuple[Dict[str, str], str]:
+    """Source id → summary, and the model that wrote them (benchmark/summarize_sources.py output)."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    summaries = {sid: (entry or {}).get("summary", "") for sid, entry in (data.get("summaries") or {}).items()}
+    return {k: v for k, v in summaries.items() if v}, str(data.get("model") or "")
+
+
+def first_sentence(text: str) -> str:
+    m = re.search(r"(.+?[.!?])(\s|$)", text.strip())
+    return m.group(1) if m else text.strip()
 
 
 def load_system_names(path: Path) -> Dict[str, Dict[str, str]]:
@@ -342,8 +356,11 @@ class _Builder:
               "values_informed": len(uses), "tags": ["source"]}
         title = self.source_title(sid)
         lines = [f"# {title}", ""]
-        if row.get("url"):
-            lines += [f"<{row['url']}>", ""]
+        summary = self.inp.source_summaries.get(sid)
+        if summary:
+            by = f" by `{self.inp.summary_model}`" if self.inp.summary_model else ""
+            lines += ["## Summary", "", summary, "",
+                      f"*Summary of the source text generated{by} for this wiki; it is not part of the mining.*", ""]
         lines += ["## Decisions it informs", "", "| Dimension | Value | Stance | Passages |", "|---|---|---|---|"]
         for d, v, stance, n in sorted(uses, key=lambda u: (u[0].get("name", ""), u[1].get("label", ""))):
             lines.append(f"| {cell(link(self.dim_path[str(d.get('id'))], d.get('name')))} | "
@@ -623,7 +640,10 @@ class _Builder:
         lines += ["", "## Sources", "",
                   "*The documents the design space was mined from. A source's page lists the decisions it informs and "
                   "whether it adopts or rejects each value.*", ""]
-        lines += [f"- {link(self.source_path[s], self.source_title(s))}" for s in self.source_ids]
+        for s in self.source_ids:
+            summary = self.inp.source_summaries.get(s)
+            lines.append(f"- {link(self.source_path[s], self.source_title(s))}"
+                         + (f": {first_sentence(summary)}" if summary else ""))
         fm = {"run": self.inp.run_label, "view": self.inp.view, "dimensions": len(self.dims), "values": values,
               "sources": len(self.source_ids)}
         for key, label in MODEL_LABELS:

@@ -47,7 +47,7 @@ from taxonomy_generator.html_report import (  # noqa: E402
 from taxonomy_generator.evaluation.design_points import load_system_map as dp_system_map, sample_points  # noqa: E402
 from taxonomy_generator.wiki import Inputs, build, write  # noqa: E402
 from taxonomy_generator.wiki.model import (  # noqa: E402
-    load_corpus, load_sources, load_system_map, load_system_names)
+    load_corpus, load_source_summaries, load_sources, load_system_map, load_system_names)
 
 EXPORTER_VERSION = "1"
 
@@ -82,6 +82,8 @@ def main(argv=None) -> int:
                                      "default: the sibling *_report_<timestamp>.md, if any")
     ap.add_argument("--evaluation", action="store_true",
                     help="add a page with the run's evaluation (criteria scores, reasons, scores across iterations)")
+    ap.add_argument("--source-summaries", help="source_summaries.json from benchmark/summarize_sources.py "
+                                               "(default: next to --sources, if any)")
     ap.add_argument("--case-icon", help="SVG icon of the case study (default: icon.svg in the --sources folder, if any)")
     ap.add_argument("--view", choices=["selected", "final"], default="selected")
     ap.add_argument("--no-quotes", action="store_true", help="passage ids only, no quoted text (shareable export)")
@@ -105,6 +107,10 @@ def main(argv=None) -> int:
     judge = (taxonomy.get("evaluation") or {}).get("model")
     if judge and not models.get("evaluation_llm"):
         models["evaluation_llm"] = str(judge)
+    summaries_path = Path(args.source_summaries) if args.source_summaries else None
+    if summaries_path is None and args.sources and (Path(args.sources).parent / "source_summaries.json").exists():
+        summaries_path = Path(args.sources).parent / "source_summaries.json"
+    source_summaries, summary_model = load_source_summaries(summaries_path) if summaries_path else ({}, "")
     case_icon = Path(args.case_icon) if args.case_icon else None
     if case_icon is None and args.sources and (Path(args.sources).parent / "icon.svg").exists():
         case_icon = Path(args.sources).parent / "icon.svg"
@@ -137,14 +143,15 @@ def main(argv=None) -> int:
         system_names=load_system_names(Path(args.system_names)) if args.system_names else {},
         design_points=design_points,
         use_case=use_case, narrative=narrative, evaluation=args.evaluation, models=models,
-        case_icon=case_icon is not None, view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
+        case_icon=case_icon is not None, source_summaries=source_summaries, summary_model=summary_model,
+        view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
     export = build(inp)
     export.manifest = {
         "exporter_version": EXPORTER_VERSION, "taxonomy": _rel(path), "run": run_label, "view": args.view,
         "corpus": _rel(args.corpus), "sources": _rel(args.sources), "systems": _rel(args.systems),
         "system_names": _rel(args.system_names), "design_points": _rel(args.design_points) or ("sampled at export (k=%s, n=%d, seed=%d)" % (
             " ".join(map(str, args.dp_k)), args.dp_n, args.dp_seed) if args.sample_design_points else None),
-        "config": _rel(args.config), "report": _rel(report), "case_icon": _rel(case_icon), "models": models, "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
+        "config": _rel(args.config), "report": _rel(report), "case_icon": _rel(case_icon), "source_summaries": _rel(summaries_path), "models": models, "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
         "pages": len(export.pages), "graph_nodes": len(export.graph["nodes"]), "graph_edges": len(export.graph["edges"]),
     }
     out = args.out or path.parent / f"{path.with_suffix('').name}_wiki"
