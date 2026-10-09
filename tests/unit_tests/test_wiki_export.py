@@ -428,6 +428,22 @@ def test_tree_has_dimensions_values_and_sources(tmp_path):
     assert 'href="../tree.html">Tree view</a>' in page
 
 
+def test_tree_tracing_groups_source_occurrences(tmp_path):
+    # The tree's tracing keys a source occurrence by the part of its id after "/s:" (keyOf in tree.html.j2), so
+    # every occurrence of one source must share that suffix, and only that source.
+    export = build(_inputs())
+    occurrences = {}
+    for d in export.tree["children"]:
+        for v in d["children"]:
+            for s in v["children"]:
+                assert s["id"].startswith(v["id"][2:] + "/s:")
+                occurrences.setdefault(s["id"].rsplit("/s:", 1)[1], set()).add(s["label"])
+    assert all(len(labels) == 1 for labels in occurrences.values()) and len(occurrences) == 2
+    write(export, tmp_path, "toy")
+    html = (tmp_path / "html" / "tree.html").read_text(encoding="utf-8")
+    assert 'n.id.lastIndexOf("/s:")' in html and "function trace(d)" in html and "hover to trace" in html
+
+
 def test_approach_page(tmp_path):
     export = build(_inputs(models={"generation_llm": "openai/gen"}, settings={"batch_size": 8, "edit_mode": "tools"}))
     page = next(p for p in export.pages if p.path == "approach")

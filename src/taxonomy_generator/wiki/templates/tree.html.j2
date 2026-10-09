@@ -28,6 +28,11 @@
   svg a text.label:hover { text-decoration: underline; }
   svg .caret { cursor: pointer; fill: var(--muted); font-size: 12px; user-select: none; }
   svg path.link { fill: none; stroke: var(--border); stroke-width: 1.4px; }
+  /* Tracing: the hovered element (every occurrence of it) and its incoming and outgoing edges. */
+  svg path.link.hl { stroke: var(--accent); stroke-width: 2.6px; }
+  svg.tracing path.link:not(.hl) { opacity: .35; }
+  svg.tracing g.node:not(.hl):not(.end) { opacity: .45; }
+  svg g.node.hl text.label tspan:first-child { fill: var(--accent); font-weight: 700; }
   .count { color: var(--muted); }
   #summary { padding: 14px 24px 0; font-size: 14px; color: var(--muted); }
   #summary strong { color: var(--fg); font-size: 16px; margin-right: 8px; }
@@ -37,7 +42,7 @@
 <header class="top">
   <a class="brand" href="index.html"><img src="assets/delvedspace-icon.svg" alt="" class="brand-icon" width="32" height="32">{% if has_case_icon %}<img src="assets/case-icon.svg" alt="" class="brand-icon" width="32" height="32">{% endif %}{{ name }}</a>
   <nav><a href="index.html">Wiki index</a><a href="synthesis/overview.html">Overview</a></nav>
-  <span class="hint" style="margin-left:auto">Click ▸ to expand · click a name to open its page</span>
+  <span class="hint" style="margin-left:auto">Click ▸ to expand · hover to trace its edges · click a name to open its page</span>
   <a class="graph-btn view-btn" href="graph.html">Graph view</a>
   <button class="theme-btn" id="theme-toggle" type="button" title="Switch light / dark mode" aria-label="Switch light / dark mode">◐</button>
 </header>
@@ -96,6 +101,21 @@
   document.querySelector("#summary strong").textContent = data.label;
   document.querySelector("#summary span").textContent = data.meta || "";
   const expanded = new Set(["root"]);
+  // A source appears once under each value it supports; tracing treats those occurrences as one element.
+  const keyOf = (n) => n.kind === "source" ? "s:" + n.id.slice(n.id.lastIndexOf("/s:") + 3) : n.id;
+  const supports = {};   // source key -> the values it supports, from the full (unfiltered) tree
+  (function collect(n) {
+    (n.children || []).forEach((c) => {
+      if (c.kind === "source") (supports[keyOf(c)] = supports[keyOf(c)] || []).push(n.label);
+      collect(c);
+    });
+  })(data);
+  function tooltip(n) {
+    if (n.kind !== "source") return n.description || n.label;
+    const vals = supports[keyOf(n)] || [];
+    const shown = vals.slice(0, 12).join("\n• ") + (vals.length > 12 ? "\n… and " + (vals.length - 12) + " more" : "");
+    return n.label + "\nSupports " + vals.length + " value" + (vals.length === 1 ? "" : "s") + ":\n• " + shown;
+  }
 
   function filters() {
     return {
@@ -126,6 +146,7 @@
     const nodes = h.descendants().filter((d) => d.depth > 0);   // the root is the summary line above
     const minX = d3.min(nodes, (d) => d.x) ?? 0, maxX = d3.max(nodes, (d) => d.x) ?? 0;
     svg.selectAll("*").remove();
+    svg.classed("tracing", false);
     const g = svg.append("g").attr("transform", "translate(0," + (ROW - minX) + ")");
     const linkLayer = g.append("g");
     const node = g.selectAll("g.node").data(nodes).join("g").attr("class", "node")
@@ -145,7 +166,7 @@
     text.append("tspan").text((d) => (d.data.core ? "★ " : "") + d.data.label);
     text.append("tspan").attr("class", "meta").attr("dx", 8).text((d) => d.data.meta ? "(" + d.data.meta + ")" : "")
       .style("fill", "var(--muted)").style("font-size", "12px").style("font-weight", 400);
-    node.append("title").text((d) => d.data.description || d.data.label);
+    node.append("title").text((d) => tooltip(d.data));
     // Columns: each level starts after the widest label of the level before it.
     const widest = {};
     node.each(function (d) {
@@ -156,8 +177,27 @@
     for (let depth = 2; depth <= 3; depth++) column[depth] = column[depth - 1] + (widest[depth - 1] || 0) + GAP;
     nodes.forEach((d) => { d.y = column[d.depth]; });
     node.attr("transform", (d) => "translate(" + d.y + "," + d.x + ")");
-    linkLayer.selectAll("path.link").data(h.links().filter((l) => l.source.depth > 0)).join("path").attr("class", "link")
-      .attr("d", d3.linkHorizontal().x((d) => d.y).y((d) => d.x));
+    const links = linkLayer.selectAll("path.link").data(h.links().filter((l) => l.source.depth > 0)).join("path")
+      .attr("class", "link").attr("d", d3.linkHorizontal().x((d) => d.y).y((d) => d.x));
+    // Hover or keyboard focus traces an element: its incoming edge (from its parent) and outgoing edges (to its
+    // shown children), for every occurrence of it in the tree.
+    function trace(d) {
+      const k = keyOf(d.data), ends = new Set();
+      links.classed("hl", (l) => {
+        const on = keyOf(l.source.data) === k || keyOf(l.target.data) === k;
+        if (on) { ends.add(l.source); ends.add(l.target); }
+        return on;
+      });
+      node.classed("hl", (n) => keyOf(n.data) === k).classed("end", (n) => ends.has(n));
+      svg.classed("tracing", true);
+    }
+    function untrace() {
+      svg.classed("tracing", false);
+      links.classed("hl", false);
+      node.classed("hl", false).classed("end", false);
+    }
+    node.on("mouseenter", (ev, d) => trace(d)).on("mouseleave", untrace);
+    a.on("focus", (ev, d) => trace(d)).on("blur", untrace);
     const deepest = d3.max(nodes, (d) => d.depth) || 1;
     svg.attr("width", Math.max(document.getElementById("tree").clientWidth, column[deepest] + (widest[deepest] || 0) + 40))
       .attr("height", maxX - minX + 2 * ROW);
