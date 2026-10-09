@@ -37,8 +37,8 @@ PASSES = ("merge", "rehome")
 MAX_LABELS = 15
 
 
-def _new_log() -> Dict[str, list]:
-    return {"applied": [], "rejected": [], "failed_calls": []}
+def _new_log() -> Dict[str, Any]:
+    return {"applied": [], "rejected": [], "failed_calls": [], "unchanged": 0}
 
 
 def _apply(editor: TaxonomyEditor, log: Dict[str, list], name: str, args: dict) -> None:
@@ -115,13 +115,16 @@ async def rehome_values(clusters: List[dict], model: Any, use_case: str,
     for cluster, proposal in proposals:
         if proposal is None:
             continue
-        own = {str(v.get("id")) for v in cluster.get("values") or []}
+        own = {str(v.get("id")): v for v in cluster.get("values") or []}
         for item in proposal.values:
             if item.action == "keep":
                 continue
             if item.value_id not in own:
                 log["rejected"].append({"tool": item.action, "args": item.model_dump(),
                                         "message": f"value {item.value_id} is not in dimension {cluster.get('id')}"})
+                continue
+            if item.action == "outcome" and own[item.value_id].get("status") == "outcome":
+                log["unchanged"] += 1  # already an outcome: no operation
                 continue
             if item.action == "move":
                 _apply(editor, log, "move_value", {"value_id": item.value_id, "to_dimension_id": item.to_dimension_id,

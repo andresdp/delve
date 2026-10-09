@@ -111,6 +111,20 @@ def test_rehome_moves_a_value_and_turns_a_goal_into_an_outcome():
     assert len(log["applied"]) == 2
 
 
+def test_rehome_outcome_for_a_value_already_an_outcome_is_not_an_operation():
+    clusters = _taxonomy()
+    clusters[2]["values"][2]["status"] = "outcome"
+
+    def reply(text):
+        if "Response Action" in text.split("Decision point under review", 1)[-1][:200]:
+            return DimensionFocusOutput(values=[ValueFocus(value_id="3.3", action="outcome", to_dimension_id="",
+                                                           reason="already an effect")])
+        return DimensionFocusOutput(values=[])
+
+    _, log = run(df.rehome_values(clusters, StubModel({DimensionFocusOutput: reply}), "u"))
+    assert not log["applied"] and not log["rejected"] and log["unchanged"] == 1
+
+
 def test_rehome_move_to_unknown_dimension_or_foreign_value_is_rejected():
     def reply(text):
         return DimensionFocusOutput(values=[
