@@ -61,12 +61,12 @@
       <label class="row"><input type="checkbox" data-kind="dimension" checked><svg class="shape" viewBox="-7 -7 14 14"><circle r="6" fill="var(--dimension)"/></svg>Dimensions</label>
       <label class="row"><input type="checkbox" data-kind="value" checked><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,0L0,6.5L-6.5,0Z" fill="var(--accepted)"/></svg>Values</label>
       <label class="row"><input type="checkbox" data-kind="source"><svg class="shape" viewBox="-7 -7 14 14"><rect x="-5.5" y="-5.5" width="11" height="11" fill="var(--source)"/></svg>Sources (evidence links)</label>
-      {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L1.9,-2L6.4,-2L2.8,1L4.1,5.6L0,3L-4.1,5.6L-2.8,1L-6.4,-2L-1.9,-2Z" fill="var(--system)"/></svg>Systems</label>{% endif %}
+      {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L5.6,-3.25L5.6,3.25L0,6.5L-5.6,3.25L-5.6,-3.25Z" fill="var(--system)"/></svg>Systems</label>{% endif %}
       {% if has_designs %}<label class="row"><input type="checkbox" data-kind="design"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,5.5L-6.5,5.5Z" fill="var(--novel)"/></svg>Design points</label>{% endif %}
     </fieldset>
     <fieldset><legend>Dimensions</legend>
       <label class="row"><input type="checkbox" id="core-only"> ★ core dimensions only</label>
-      <div class="hint">Core: evidence from several sources (or systems). Hides the other dimensions and their values.</div>
+      <div class="hint">Core: {{ core_rule }}. Hides the other dimensions and their values.</div>
     </fieldset>
     <fieldset><legend>Value status</legend>
       <label class="row"><input type="checkbox" data-status="accepted" checked><span class="sw" style="background:var(--accepted)"></span>accepted</label>
@@ -129,10 +129,19 @@
   const adj = new Map(data.nodes.map((n) => [n.id, new Set()]));
   data.edges.forEach((e) => { adj.get(e.source)?.add(e.target); adj.get(e.target)?.add(e.source); });
   const degree = (n) => (adj.get(n.id) || new Set()).size;
+  // Hexagon for systems (the star marks core dimensions elsewhere in the wiki).
+  const symbolHexagon = { draw(ctx, size) {
+    const r = Math.sqrt(size / (1.5 * Math.sqrt(3)));
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 3 * i - Math.PI / 2, x = r * Math.cos(a), y = r * Math.sin(a);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+  } };
   const SYMBOL = { dimension: d3.symbolCircle, value: d3.symbolDiamond, source: d3.symbolSquare,
-    system: d3.symbolStar, design: d3.symbolTriangle };
+    system: symbolHexagon, design: d3.symbolTriangle };
   const shapePath = (n) => d3.symbol().type(SYMBOL[n.kind] || d3.symbolCircle)
-    .size(Math.PI * radius(n) * radius(n) * (n.kind === "value" ? 1.25 : n.kind === "system" ? 1.6 : 1))();
+    .size(Math.PI * radius(n) * radius(n) * (n.kind === "value" ? 1.25 : n.kind === "system" ? 1.2 : 1))();
   const radius = (n) => n.kind === "dimension" ? 9 + Math.sqrt(degree(n)) * 1.6
     : n.kind === "value" ? 4 + Math.sqrt(degree(n)) : n.kind === "design" ? 5 : 8 + Math.sqrt(degree(n)) * 0.8;
 

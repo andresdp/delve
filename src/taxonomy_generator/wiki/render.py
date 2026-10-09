@@ -247,14 +247,15 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
 
     (root / "tree.html").write_text(env.get_template("tree.html.j2").render(
         name=name, data=json.dumps(tree_hrefs(export.tree), ensure_ascii=False).replace("</", "<\\/"),
-        has_case_icon=bool(case_icon)), encoding="utf-8")
+        has_case_icon=bool(case_icon), core_rule=export.tree.get("core_rule", "")), encoding="utf-8")
 
     graph = {"nodes": [{**n, "href": html_file(n["href"])} for n in export.graph["nodes"]],
-             "edges": export.graph["edges"]}
+             "edges": export.graph["edges"], "core_rule": export.graph.get("core_rule", "")}
     kinds = sorted({n["kind"] for n in graph["nodes"]})
     (root / "graph.html").write_text(env.get_template("graph.html.j2").render(
         name=name, data=json.dumps(graph, ensure_ascii=False, sort_keys=True).replace("</", "<\\/"),
-        has_designs="design" in kinds, has_systems="system" in kinds, has_case_icon=bool(case_icon)),
+        has_designs="design" in kinds, has_systems="system" in kinds, has_case_icon=bool(case_icon),
+        core_rule=export.graph.get("core_rule", "")),
         encoding="utf-8")
 
 

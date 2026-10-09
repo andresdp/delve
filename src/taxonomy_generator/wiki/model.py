@@ -237,9 +237,15 @@ class _Builder:
         return bool(self.inp.systems) and len(self.dim_systems(d)) >= self.inp.core_min_systems
 
     def core_rule(self) -> str:
-        rule = f"evidence from at least {self.inp.core_min_sources} sources"
+        rule = f"evidence from ≥ {self.inp.core_min_sources} sources"
         if self.inp.systems:
-            rule += f", or supported by at least {self.inp.core_min_systems} systems"
+            rule += f", or supported by ≥ {self.inp.core_min_systems} systems"
+        return rule
+
+    def core_rule_short(self) -> str:
+        rule = f"≥ {self.inp.core_min_sources} sources"
+        if self.inp.systems:
+            rule += f" or ≥ {self.inp.core_min_systems} systems"
         return rule
 
     # lookups -------------------------------------------------------------
@@ -319,8 +325,9 @@ class _Builder:
         self.index_page(bool(points))
         self.graph_data(points)
         self.pages.sort(key=lambda p: (p.path != "index", p.path))
-        return Export(pages=self.pages, graph={"nodes": self.nodes, "edges": self.edges}, manifest={},
-                      tree=self.tree_data())
+        return Export(pages=self.pages, graph={"nodes": self.nodes, "edges": self.edges,
+                                               "core_rule": self.core_rule_short()}, manifest={},
+                      tree={**self.tree_data(), "core_rule": self.core_rule_short()})
 
     def dimension_page(self, d: Mapping[str, Any]) -> None:
         did = str(d.get("id"))
@@ -350,6 +357,12 @@ class _Builder:
                 lines.append(f"- ← {r.get('type')} from {link(self.dim_path[str(o.get('id'))], o.get('name'))}")
         lines += ["", "## Evidence", "",
                   f"{ev.get('codes', '?')} open codes from {ev.get('documents', '?')} passages in {ev.get('sources', '?')} sources."]
+        support = f"{ev.get('sources', 0)} source{'s' if ev.get('sources', 0) != 1 else ''}"
+        if self.inp.systems:
+            n_sys = len(self.dim_systems(d))
+            support += f", {n_sys} system{'s' if n_sys != 1 else ''}"
+        lines += ["", f"**Core dimension:** {'yes ★' if self.is_core(d) else 'no'} ({support}; "
+                      f"core = {self.core_rule_short()})."]
         self.add(self.dim_path[did], d.get("name") or f"Dimension {did}", "dimension", fm, "\n".join(lines))
 
     def value_page(self, d: Mapping[str, Any], v: Mapping[str, Any]) -> None:

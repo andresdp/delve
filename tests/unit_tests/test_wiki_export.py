@@ -461,3 +461,15 @@ def test_core_dimensions(tmp_path):
     assert "★ core dimension" in page and "★ Source of truth" in page            # badge and sidebar star
     assert 'id="core-only"' in (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
     assert 'id="core-only"' in (tmp_path / "html" / "tree.html").read_text(encoding="utf-8")
+
+
+def test_core_threshold_is_shown(tmp_path):
+    export = build(_inputs(core_min_sources=2, core_min_systems=3))
+    page = next(p for p in export.pages if p.path == "concepts/source-of-truth")
+    assert "**Core dimension:** yes ★ (2 sources, 3 systems; core = ≥ 2 sources or ≥ 3 systems)." in page.body
+    index = next(p for p in export.pages if p.path == "index").body
+    assert "evidence from ≥ 2 sources, or supported by ≥ 3 systems" in index
+    write(export, tmp_path, "toy")
+    graph = (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+    assert "Core: ≥ 2 sources or ≥ 3 systems." in graph and "symbolStar" not in graph and "symbolHexagon" in graph
+    assert "(≥ 2 sources or ≥ 3 systems)" in (tmp_path / "html" / "tree.html").read_text(encoding="utf-8")
