@@ -75,6 +75,16 @@ def test_same_inputs_give_identical_output(tmp_path):
     assert _tree(tmp_path / "a") == _tree(tmp_path / "b")
 
 
+def test_reexport_updates_in_place_and_drops_stale_pages(tmp_path):
+    write(build(_inputs(design_points=POINTS)), tmp_path / "a", "toy")
+    kept = (tmp_path / "a" / "html" / "concepts").stat().st_ino
+    write(build(_inputs()), tmp_path / "a", "toy")  # no design points this time
+    write(build(_inputs()), tmp_path / "b", "toy")
+    assert _tree(tmp_path / "a") == _tree(tmp_path / "b")  # no stale pages, no empty folders left
+    assert not (tmp_path / "a" / "html" / "designs").exists()
+    assert (tmp_path / "a" / "html" / "concepts").stat().st_ino == kept  # folder reused, not recreated
+
+
 def test_every_wikilink_resolves():
     export = build(_inputs(design_points=POINTS))
     paths = {p.path for p in export.pages}

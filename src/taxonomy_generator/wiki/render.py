@@ -21,7 +21,7 @@ import posixpath
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping
+from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -259,6 +259,26 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
         encoding="utf-8")
 
 
+def _snapshot(roots: Sequence[Path]) -> Dict[Path, int]:
+    return {p: p.stat().st_mtime_ns for root in roots if root.exists() for p in root.rglob("*") if p.is_file()}
+
+
+def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path]) -> None:
+    """Delete files the new export did not rewrite, then folders left empty.
+
+    Files are overwritten in place rather than the folders being deleted and recreated: on a
+    synced folder (iCloud Drive, Dropbox) a folder recreated under the same name while its
+    deletion is still syncing comes back as a conflict copy ("concepts 2").
+    """
+    for path, mtime in before.items():
+        if path.exists() and path.stat().st_mtime_ns == mtime:
+            path.unlink()
+    for root in roots:
+        for folder in sorted((p for p in root.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+            if not any(folder.iterdir()):
+                folder.rmdir()
+
+
 def write(export: Export, out: Path, name: str, case_icon: Path | None = None) -> None:
     """Write the whole export (replacing ``wiki/`` and ``html/`` from a previous export of the same run).
 
@@ -266,11 +286,11 @@ def write(export: Export, out: Path, name: str, case_icon: Path | None = None) -
     DelveDSpace logo and icon are always included.
     """
     out = Path(out)
-    for sub in ("wiki", "html"):
-        if (out / sub).exists():
-            shutil.rmtree(out / sub)
+    roots = [out / "wiki", out / "html"]
+    before = _snapshot(roots)
     out.mkdir(parents=True, exist_ok=True)
     write_markdown(export, out, name)
     copy_images(out / "wiki" / "assets", case_icon)
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
     write_html(export, out, name, graph_node_of, case_icon)
+    _remove_stale(before, roots)
