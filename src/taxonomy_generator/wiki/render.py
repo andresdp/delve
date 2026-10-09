@@ -174,12 +174,30 @@ def nav(export: Export, current: Page) -> List[Dict[str, Any]]:
     return shelves
 
 
+# Display sizes written into the exported SVGs, so every viewer (browser, VS Code
+# preview, Obsidian) shows them small even without the stylesheet.
+IMAGE_SIZES = {"delvedspace-logo.svg": (220, 64), "delvedspace-icon.svg": (32, 32), "case-icon.svg": (32, 32)}
+
+
+def sized_svg(text: str, width: int, height: int) -> str:
+    """Set the root <svg> width/height (keeping its viewBox, so it scales instead of cropping)."""
+    m = re.search(r"<svg\b[^>]*>", text)
+    if not m:
+        return text
+    tag = re.sub(r'\s(?:width|height)="[^"]*"', "", m.group(0))
+    close = "/>" if tag.endswith("/>") else ">"
+    tag = tag[:-len(close)].rstrip() + f' width="{width}" height="{height}"{close}'
+    return text[:m.start()] + tag + text[m.end():]
+
+
 def copy_images(assets: Path, case_icon: Path | None) -> None:
     assets.mkdir(parents=True, exist_ok=True)
-    for name in ("delvedspace-logo.svg", "delvedspace-icon.svg"):
-        shutil.copyfile(TEMPLATES / name, assets / name)
+    sources = {"delvedspace-logo.svg": TEMPLATES / "delvedspace-logo.svg",
+               "delvedspace-icon.svg": TEMPLATES / "delvedspace-icon.svg"}
     if case_icon:
-        shutil.copyfile(case_icon, assets / "case-icon.svg")
+        sources["case-icon.svg"] = Path(case_icon)
+    for name, src in sources.items():
+        (assets / name).write_text(sized_svg(src.read_text(encoding="utf-8"), *IMAGE_SIZES[name]), encoding="utf-8")
 
 
 def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str],

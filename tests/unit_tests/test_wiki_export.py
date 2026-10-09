@@ -267,3 +267,16 @@ def test_logo_and_case_icon(tmp_path):
     write(build(_inputs()), tmp_path / "without", "toy")
     assert not (tmp_path / "without" / "html" / "assets" / "case-icon.svg").exists()
     assert "case-icon" not in (tmp_path / "without" / "html" / "index.html").read_text(encoding="utf-8")
+
+
+def test_exported_images_carry_small_display_sizes(tmp_path):
+    icon = tmp_path / "icon.svg"
+    icon.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"/>', encoding="utf-8")
+    write(build(_inputs(case_icon=True)), tmp_path / "out", "toy", icon)
+    for folder in ("html", "wiki"):
+        assets = tmp_path / "out" / folder / "assets"
+        logo = (assets / "delvedspace-logo.svg").read_text(encoding="utf-8")
+        case = (assets / "case-icon.svg").read_text(encoding="utf-8")
+        root = re.search(r"<svg\b[^>]*>", logo).group(0)
+        assert 'width="220" height="64"' in root and 'width="880"' not in root
+        assert re.search(r'<svg[^>]*viewBox="0 0 256 256"[^>]*width="32" height="32"/>', case)
