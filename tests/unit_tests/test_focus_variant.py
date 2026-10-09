@@ -86,6 +86,21 @@ def test_move_that_empties_support_drops_the_source_dimension():
     assert "1" not in ids and "3" in ids  # Dim A keeps one value from one source
 
 
+def test_outcome_that_leaves_one_candidate_drops_the_dimension_by_the_candidate_rule():
+    def reply(text):
+        under_review = text.split("Decision point under review", 1)[-1][:200]
+        if "Dim C" in under_review:
+            return DimensionFocusOutput(values=[ValueFocus(value_id="3.2", action="outcome", to_dimension_id="",
+                                                           reason="a goal")])
+        return NO_MOVES
+
+    out = asyncio.run(focus_variant.derive(RUN, Stub({DimensionFocusOutput: reply}), "u", ["rehome"],
+                                           min_sources=1, min_candidates=2, variant="rehome", model_name="stub"))
+    assert "3" not in [c["id"] for c in out["selected_clusters"]]
+    dropped = {d["id"]: d["rationale"] for d in out["dropped_dimensions"]}
+    assert "3" in dropped and "candidate decision" in dropped["3"]
+
+
 def test_cli_writes_a_variant_sibling_with_the_original_timestamp(tmp_path):
     run_path = tmp_path / "c2-x_taxonomy_20260101_000000.json"
     run_path.write_text(json.dumps(RUN))

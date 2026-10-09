@@ -156,6 +156,14 @@ def test_failed_call_for_one_dimension_leaves_it_unchanged_and_others_processed(
     assert len(log["failed_calls"]) == 1
 
 
+def test_failed_merge_call_leaves_the_taxonomy_unchanged():
+    model = StubModel({SiblingMergeOutput: RuntimeError("model down")})
+    clusters, log = run(df.merge_siblings(_taxonomy(), model, "Monitor ML systems."))
+    assert [c["name"] for c in clusters] == ["Drift Test", "Drift Window", "Response Action"]
+    assert [entry["pass"] for entry in log["failed_calls"]] == ["merge"]
+    assert not log["applied"] and not log["rejected"]
+
+
 def test_evidence_summaries_are_recomputed_from_values():
     clusters = df.recompute_evidence(_taxonomy())
     drift = _dim(clusters, "Drift Test")

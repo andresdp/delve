@@ -137,6 +137,8 @@ The author has an Overleaf plan with Git integration and the SANER IEEEtran temp
 - Paper discussion (not yet in the draft): the decision-precision gap has three sources, scope (C2: 9 of 19
   dimensions unaligned), a different decomposition (C1: 22 of 30 dimensions cross-cut expert decisions) and true
   splits (smaller). See `docs/paper/results/2026-10-09-decision-focus-ab.md`, "Analysis".
+- BERTopic baseline (L2), drivers and relations as matched elements, personas, theoretical sampling: future
+  work (plan §8.6b, "Scope for the paper").
 
 ## Closed
 
@@ -149,5 +151,3 @@ The author has an Overleaf plan with Git integration and the SANER IEEEtran temp
   - E3 and E1b: not run.
   - The pipeline is unchanged before the freeze. The passes and the variant/compare tools remain as offline
     analysis tools. Granularity, decomposition and scope go to the paper as findings and threats.
-- BERTopic baseline (L2), drivers and relations as matched elements, personas, theoretical sampling: future
-  work (plan §8.6b, "Scope for the paper").
