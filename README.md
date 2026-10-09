@@ -37,6 +37,8 @@ For a corpus and a short description of what you want to find (the **use case**)
   optional PCA biplots of the design space.
 - **A design-space wiki**: an offline HTML wiki with a page for each dimension, value and source,
   plus graph and tree views of the design space ([how to build it](USAGE.md#exploring-a-run-as-a-wiki)).
+  For a ready-made example, see the [C3 sample wiki](examples/c3-git-at-scale/sample/), on scaling
+  Git hosting. Download the repository and open its `html/index.html`.
 - **Run history**: every taxonomy iteration, the saturation history and the open codes, so a run can be
   audited, compared with other runs, or used as the starting point of a new one.
 

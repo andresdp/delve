@@ -164,6 +164,10 @@ The export makes no LLM calls: everything is rendered from the run data.
 
 The HTML works offline. Open `html/index.html` in a browser, or copy the whole `html/` folder to share it.
 
+A committed example is in [`examples/c3-git-at-scale/sample/`](examples/c3-git-at-scale/sample/). Its
+[README](examples/c3-git-at-scale/sample/README.md) gives the exact commands that produced it. Open
+`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html`.
+
 Minimal export. Only the run is required:
 
 ```bash
