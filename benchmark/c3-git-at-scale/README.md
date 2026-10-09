@@ -1,6 +1,6 @@
 # C3: Git at scale (no ground truth)
 
-Third case of the paper (`docs/paper/SANER2027_PAPER_PLAN.md` §4.4, backlog items B6, B7, B9). Several organizations solved the same problem, making Git work at scale, in different ways. The case is evaluated without expert ground truth: expert rating, placement of each system as a point in the mined design space (A9, needs B7), and recall of stated trade-offs (needs B9).
+Third evaluation case (backlog items B6, B7, B9). Several organizations solved the same problem, making Git work at scale, in different ways. The case is evaluated without expert ground truth: expert rating, placement of each system as a point in the mined design space (A9, needs B7), and recall of stated trade-offs (needs B9).
 
 ## Corpora (B6)
 

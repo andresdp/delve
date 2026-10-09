@@ -13,7 +13,7 @@ status: >-
   figures pending; read-only agent access (graph/tree JSON, query commands) planned in §13.6; design-space view
   (2D/3D/PCA, d3 + d3-3d) planned in §13.7
 related: >-
-  docs/paper/SANER2027_PAPER_PLAN.md §6.5 (one-paragraph pointer; not in paper scope),
+  the evaluation plan, kept outside this repository (one-paragraph pointer; not in paper scope),
   CONCEPTS.md (Evidence Linking, Decision Status, Selected Dimensions, Grounded Theory Report)
 ---
 
@@ -450,7 +450,7 @@ tags: [value, accepted, authority-synchronization]
 | W2 | Graph page (D3, D4, D11):<br>- `html/graph.html` from a `jinja2` template with vendored d3 and inlined node-link data (typed edges, shelf, status, group);<br>- shelf and status colors, size by connectivity, search, click-through to pages, filters;<br>- the optional design-point layer with its toggle and highlight;<br>- tests on the data builder: node and edge counts match the taxonomy; edge types are present; design-point nodes appear only when given. | 1 d |
 | W3 | Synthesis pages (overview, contested, dropped; C3 system pages and matrix) and design-point pages (D6), inside the exporter. | 0.5 d |
 | W4 | Demo dry run:<br>- export C3 with design points, and one of C1/C2 without;<br>- open the HTML wiki and the graph offline (`file://`);<br>- prepare a short click path: index → a contested decision → a system page → turn on design points → an attested and a novel point;<br>- fix what looks wrong. | 0.25 d |
-| W5 | Paper figures (D8 a–c) as a script writing SVG/PDF to `docs/paper/figures/`. Can follow the demo. | 1 d |
+| W5 | Paper figures (D8 a–c) as a script writing SVG/PDF for the paper (kept outside this repository). Can follow the demo. | 1 d |
 | W6 (optional) | llmwiki-cli's stock site and checks on the same folder: `wiki lint`, `wiki orphans`, and its `build-graph`/`build-site` with imports made local. | 0.25 d |
 
 **To install** (no new Python environment): nothing for W1–W5. `jinja2`, `markdown-it-py` and `matplotlib` are already in the `taxonomy` env; d3 is a single vendored file (downloaded once from cdnjs or jsDelivr and kept in the repo with its ISC license). W6 only: Bun or Node ≥ 18 (for example `brew install oven-sh/bun/bun`) and `npm install -g llmwiki-cli`.
@@ -566,7 +566,7 @@ wiki_query.py <wiki> search <text> [--kind K]     # keyword match on labels and 
 - **Branch:** start from `main` after `feat/design-space-wiki` is merged, e.g. `feat/wiki-agent-access`.
 - **Code:** WA1 is a few lines in `render.write` plus the passage list in `model.py` (`graph_data`). WA2 is a new module `src/taxonomy_generator/wiki/query.py` (pure functions over the loaded graph) with a thin CLI in `benchmark/`. WA3 is one more template in `wiki/templates/`.
 - **First manual check:** export C3, then ask a coding agent the three example questions above, once with only `wiki/` and once with the guide and the commands. Compare its citations with the value pages.
-- **Possible paper use (future work, not SANER scope):** measure how often an agent's cited passages actually support its claims.
+- **Possible paper use (future work, out of the current paper's scope):** measure how often an agent's cited passages actually support its claims.
 
 ### 13.7 Next: design-space view in 2D, 3D and PCA (planned, not started)
 

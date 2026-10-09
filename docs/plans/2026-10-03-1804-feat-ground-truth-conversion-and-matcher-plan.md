@@ -13,7 +13,7 @@ execution: code
 ## Goal Capsule
 
 - **Objective:** turn the two expert design spaces (C1 ML workflow, C2 RL monitoring) into validated, machine-readable ground-truth files, and build the matcher that scores a DelveDSpace (or baseline) output against them at decision and option level, per view.
-- **Authority:** this plan's Requirements and Key Technical Decisions. Where silent, follow `docs/paper/SANER2027_PAPER_PLAN.md` (§4.1, §4.2.5, §5.1 matching protocol M1–M7 and M10–M11, §5.4 safeguards) and existing `benchmark/` and `src/taxonomy_generator/evaluation/` conventions.
+- **Authority:** this plan's Requirements and Key Technical Decisions. Where silent, follow the evaluation plan (kept outside this repository) (§4.1, §4.2.5, §5.1 matching protocol M1–M7 and M10–M11, §5.4 safeguards) and existing `benchmark/` and `src/taxonomy_generator/evaluation/` conventions.
 - **Stop conditions:**
   - C2's model cannot be read faithfully by the static parser (U2), e.g. elements built dynamically rather than as literal calls;
   - the C1 paper does not state options per decision clearly enough to transcribe without inventing structure.
@@ -146,7 +146,7 @@ flowchart TB
 - C2 descriptions: `benchmark/c2-rl-monitoring/replication_package/memos/add-catalogue.md` (per-decision driver tables; non-breaking hyphens in names).
 - C2 generated views: `benchmark/c2-rl-monitoring/replication_package/_generated/rl_monitoring_adds/` (PlantUML; labels need `<b>` tags and `: Practice` suffixes stripped and `\n` breaks replaced by a space).
 - Papers: `papers/spaces/COMSI-2021-07-0084.R2_Warnett.pdf` (C1), `papers/spaces/Architectural_Design_Decisions_for_Monitoring_Deployed_Reinforcement_Learning_Systems.pdf` (C2).
-- Matching protocol: `docs/paper/SANER2027_PAPER_PLAN.md` §5.1 (M1–M7, M10, M11).
+- Matching protocol: the evaluation plan (kept outside this repository), §5.1 (M1–M7, M10, M11).
 - Reusable code: `src/taxonomy_generator/evaluation/consistency.py` (embedding bands, judge), `src/taxonomy_generator/utils.py` (`load_embeddings_model`, `load_chat_model`, `l2_normalize`).
 - Test pattern for benchmark scripts: `tests/unit_tests/test_build_corpus.py`.
 
@@ -317,7 +317,7 @@ flowchart TB
 - **Requirements:** R13.
 - **Dependencies:** U7.
 - **Files:**
-  - `docs/paper/SANER2027_PAPER_PLAN.md` (§4.1 and §5.1 M7 for the C1 outcome; §5.4 and P9: the judge is a different OpenAI model validated by human gold, stated as a limitation; §8.7 progress log)
+  - the evaluation plan (kept outside this repository) (§4.1 and §5.1 M7 for the C1 outcome; §5.4 and P9: the judge is a different OpenAI model validated by human gold, stated as a limitation; §8.7 progress log)
 - **Approach:**
   1. Record the C1 outcome (one or two views) and the judge arrangement.
   2. Log the first scores and any change made to the frame after them, with reasons.

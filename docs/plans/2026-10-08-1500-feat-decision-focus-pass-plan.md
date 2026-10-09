@@ -6,7 +6,7 @@ artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 product_contract_source: ce-plan-bootstrap
 execution: code
-origin: docs/paper/results/2026-10-08-taxonomy-quality-probe.md
+origin: taxonomy quality probe results, 2026-10-08 (kept outside this repository)
 ---
 
 # Decision-Focus Pass - Plan
@@ -209,7 +209,7 @@ U1 → U2 → U3 runs once per experiment (E1, then E2, then E3). U4 runs only a
 - **Requirements:** R5, R6; KTD3, KTD5, KTD6.
 - **Dependencies:** U2.
 - **Files:**
-  - `docs/paper/results/2026-10-<dd>-decision-focus-ab.md` (new; one document, one section per experiment);
+  - decision-focus A/B results document, outside this repository (new; one document, one section per experiment);
   - the variant runs and their `*_gt_metrics.json` beside the base runs (untracked, like the base runs).
 - **Approach:** per experiment, in order:
   1. Build the C1, C2 and C3 variants with U2.
@@ -226,7 +226,7 @@ U1 → U2 → U3 runs once per experiment (E1, then E2, then E3). U4 runs only a
 
 - **Goal:** run the kept pass inside the pipeline, behind a switch.
 - **Requirements:** R8; KTD4.
-- **Dependencies:** U3 with at least one kept variant; the P13 run record (`docs/paper/PRE_FREEZE_TODO.md` §4).
+- **Dependencies:** U3 with at least one kept variant; the P13 run record (pre-freeze to-do list §4, outside this repository).
 - **Files:**
   - `src/taxonomy_generator/nodes/value_consolidator.py` (the pass runs at its end);
   - `src/taxonomy_generator/settings.py`, `src/taxonomy_generator/configuration.py` (switch);
@@ -264,10 +264,10 @@ The variant command's flag names are fixed in U2; the line above shows its inten
 ## Definition of Done
 
 - U1 and U2 are merged with passing tests.
-- E1, E2 and E3 each have a results section with a KTD3 verdict, in `docs/paper/results/`.
+- E1, E2 and E3 each have a results section with a KTD3 verdict, in the results notes outside this repository.
 - If a variant was kept: U4 is merged, the switch is on in the study configs, and the change log has its entry. If none was kept: the results document states it, and the paper draft treats granularity as a finding and a threat.
 - No experimental code from dropped variants is left in the diff beyond the switchable passes and their tests.
-- The `PRE_FREEZE_TODO.md` entry for this pass reflects the outcome.
+- The pre-freeze to-do list entry for this pass reflects the outcome.
 
 ---
 

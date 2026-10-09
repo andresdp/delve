@@ -1,6 +1,6 @@
 # C2 — ADDs for Monitoring Deployed RL Systems (ADD-Bench case)
 
-DelveDSpace run folder for the SANER 2027 evaluation (see `docs/paper/SANER2027_PAPER_PLAN.md`).
+DelveDSpace run folder for the evaluation of the approach.
 Ground truth: Fang, Warnett & Zdun, 2026. Corpus: 27 of 29 sources (s5, s10 unavailable), 243 passages of ~300 words each.
 
 ## Build the corpus

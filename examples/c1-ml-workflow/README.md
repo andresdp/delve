@@ -1,6 +1,6 @@
 # C1 — Architectural Design Decisions for the ML Workflow (ADD-Bench case)
 
-DelveDSpace run folder for the SANER 2027 evaluation (see `docs/paper/SANER2027_PAPER_PLAN.md`).
+DelveDSpace run folder for the evaluation of the approach.
 Ground truth: Warnett & Zdun, IEEE Software 2021/22. Corpus: 29 sources (authors' June 2021 snapshots), 265 passages of ~300 words each.
 
 ## Build the corpus
