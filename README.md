@@ -37,8 +37,8 @@ For a corpus and a short description of what you want to find (the **use case**)
   optional PCA biplots of the design space.
 - **A design-space wiki**: an offline HTML wiki with a page for each dimension, value and source,
   plus graph and tree views of the design space ([how to build it](USAGE.md#exploring-a-run-as-a-wiki)).
-  For a ready-made example, see the [C3 sample wiki](examples/c3-git-at-scale/sample/), on scaling
-  Git hosting. Download the repository and open its `html/index.html`.
+  **[Browse a sample wiki online](https://raw.githack.com/andresdp/delve/main/examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html)**: case C3, on scaling Git hosting, capped at 5
+  dimensions ([how it was produced](examples/c3-git-at-scale/sample/README.md)).
 - **Run history**: every taxonomy iteration, the saturation history and the open codes, so a run can be
   audited, compared with other runs, or used as the starting point of a new one.
 
@@ -177,7 +177,6 @@ wiki](USAGE.md#exploring-a-run-as-a-wiki).
 | [`examples/campus-bike/`](examples/campus-bike/) | Architecture decisions of a bike-sharing system (small, quick to run) |
 | [`examples/cursor-git-at-scale/`](examples/cursor-git-at-scale/) | Articles on scaling Git repository hosting (GitHub, Google, Microsoft, Cursor) |
 | [`examples/das-p1-2023/`](examples/das-p1-2023/), [`examples/pharmacy-food/`](examples/pharmacy-food/) | Architecture decisions of two software projects |
-| [`examples/c3-git-at-scale/sample/`](examples/c3-git-at-scale/sample/) | **Published sample output.** It covers scaling Git hosting, capped at 5 dimensions, and includes every output, among them the design-space wiki with 24 described design points |
 | [`examples/c1-ml-workflow/`](examples/c1-ml-workflow/), [`examples/c2-rl-monitoring/`](examples/c2-rl-monitoring/) | Gray-literature passages on ML workflows and on monitoring deployed RL systems; the corpora are built from downloaded sources with the scripts in [`benchmark/`](benchmark/) (source texts are not distributed) |
 
 Each folder has its configuration and, where present, a README with the exact commands.
