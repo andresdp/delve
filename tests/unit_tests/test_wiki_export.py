@@ -226,3 +226,44 @@ def test_cli_uses_only_the_report_of_the_same_run(tmp_path):
     assert cli.main([str(run)]) == 0
     text = (out / "wiki" / "synthesis" / "overview.md").read_text(encoding="utf-8")
     assert "This run." in text and "Old run." not in text
+
+
+def test_sidebar_follows_the_index_order(tmp_path):
+    export = build(_inputs(design_points=POINTS, taxonomy=_with_evaluation(_taxonomy()), evaluation=True))
+    write(export, tmp_path, "toy")
+    html = (tmp_path / "html" / "index.html").read_text(encoding="utf-8")
+    sidebar = html[html.index('<aside class="sidebar">'):html.index("</aside>")]
+    groups = re.findall(r"<summary>([A-Za-z ]+) \(", sidebar)
+    assert groups == ["Dimensions", "Values", "Synthesis", "Systems", "Sources", "Design points"]
+    synth = sidebar[sidebar.index("<summary>Synthesis"):sidebar.index("<summary>Systems")]
+    titles = re.findall(r'href="synthesis/[^"]+">([^<]+)</a>', synth)
+    assert titles == ["Overview", "Contested decisions", "Dropped and unsupported", "System × dimension matrix",
+                      "Design points", "Evaluation"]
+
+
+def test_index_explains_sections_and_names_llms_but_not_tokens():
+    models = {"generation_llm": "openai/gen", "evaluation_llm": "openai/judge", "embedding": "openai/emb"}
+    export = build(_inputs(models=models))
+    index = next(p for p in export.pages if p.path == "index")
+    assert "A dimension is one design decision" in index.body and "**mixed**" in index.body
+    assert "*The documents the design space was mined from." in index.body
+    assert index.frontmatter["generation_llm"] == "openai/gen" and "total_tokens" not in index.frontmatter
+    overview = next(p for p in export.pages if p.path == "synthesis/overview")
+    assert "| Generation LLM | `openai/gen` |" in overview.body and "| Evaluation LLM (judge) | `openai/judge` |" in overview.body
+    assert "Tokens" not in overview.body and "1000" not in overview.body
+
+
+def test_logo_and_case_icon(tmp_path):
+    icon = tmp_path / "icon.svg"
+    icon.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
+    write(build(_inputs(case_icon=True)), tmp_path / "with", "toy", icon)
+    assets = tmp_path / "with" / "html" / "assets"
+    assert {"delvedspace-logo.svg", "delvedspace-icon.svg", "case-icon.svg"} <= {p.name for p in assets.iterdir()}
+    assert (tmp_path / "with" / "wiki" / "assets" / "case-icon.svg").exists()
+    index = (tmp_path / "with" / "html" / "index.html").read_text(encoding="utf-8")
+    assert 'src="assets/delvedspace-logo.svg"' in index and 'src="assets/case-icon.svg"' in index
+    value = (tmp_path / "with" / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
+    assert 'href="../assets/delvedspace-icon.svg"' in value
+    write(build(_inputs()), tmp_path / "without", "toy")
+    assert not (tmp_path / "without" / "html" / "assets" / "case-icon.svg").exists()
+    assert "case-icon" not in (tmp_path / "without" / "html" / "index.html").read_text(encoding="utf-8")

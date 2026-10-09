@@ -28,6 +28,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 STATUS_ORDER = ("accepted", "mixed", "rejected", "outcome")
 CANDIDATE_STATUSES = ("accepted", "mixed", "rejected")
 GROUP_ORDER = ("attested", "novel", "control")
+SYNTHESIS_ORDER = ("synthesis/overview", "synthesis/contested", "synthesis/dropped", "synthesis/system-matrix",
+                   "synthesis/design-points", "synthesis/evaluation")
+MODEL_LABELS = (("generation_llm", "Generation LLM"), ("evaluation_llm", "Evaluation LLM (judge)"),
+                ("embedding", "Embedding model"))
 PASSAGE_ID = re.compile(r"^s(\d+)_p\d+$")
 
 
@@ -57,6 +61,8 @@ class Inputs:
     use_case: str = ""
     narrative: str = ""
     evaluation: bool = False
+    models: Dict[str, str] = field(default_factory=dict)
+    case_icon: bool = False
     view: str = "selected"
     quotes: bool = True
     quote_words: int = 60
@@ -357,9 +363,9 @@ class _Builder:
                 ("Dropped dimensions", len(tax.get("dropped_dimensions") or []))]
         if m.get("elapsed_seconds") is not None:
             rows.append(("Run time", f"{m['elapsed_seconds'] / 60:.0f} min"))
-        if m.get("total_tokens"):
-            rows.append(("Tokens", f"{m['total_tokens']:,} ({m.get('prompt_tokens') or 0:,} prompt, "
-                                   f"{m.get('completion_tokens') or 0:,} completion)"))
+        for key, label in MODEL_LABELS:
+            if self.inp.models.get(key):
+                rows.append((label, f"`{self.inp.models[key]}`"))
         ev = tax.get("evaluation") or {}
         if isinstance(ev.get("overall"), (int, float)) and not ev.get("unavailable"):
             rows.append(("Evaluation score", f"{ev['overall']:.2f} (judge {ev.get('model', '?')})"))
@@ -579,30 +585,54 @@ class _Builder:
 
     def index_page(self, has_points: bool) -> None:
         values = sum(len(d.get("values") or []) for d in self.dims)
-        tax = self.inp.taxonomy
-        lines = [f"# {self.inp.taxonomy_name}", "",
-                 f"Design space mined by Delve (run {self.inp.run_label}, {self.inp.view} view): "
-                 f"{len(self.dims)} dimensions, {values} values, {len(self.source_ids)} sources.", ""]
+        lines = ["![DelveDSpace](assets/delvedspace-logo.svg)", ""]
+        if self.inp.case_icon:
+            lines += ["![Case study](assets/case-icon.svg)", ""]
+        lines += [f"# {self.inp.taxonomy_name}", "",
+                  "This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design "
+                  "space organizes the architectural design decisions the documents discuss: each **dimension** is "
+                  "one decision a designer faces, and its **values** are the alternatives the documents describe. "
+                  "Every page is generated from the run's data, without rewording, and links to the evidence behind it.",
+                  "",
+                  f"Run {self.inp.run_label} ({self.inp.view} view): {len(self.dims)} dimensions, {values} values, "
+                  f"{len(self.source_ids)} sources.", ""]
         if self.inp.use_case:
-            lines += ["## Use case", "", self.inp.use_case.strip(), ""]
-        lines += ["## Dimensions", ""]
+            lines += ["## Use case", "",
+                      "*What the run was asked to find: the question that oriented the mining.*", "",
+                      self.inp.use_case.strip(), ""]
+        lines += ["## Dimensions", "",
+                  "*A dimension is one design decision, phrased as a question a designer must answer. Its values are "
+                  "the alternative answers found in the sources, each with a status: **accepted** (adopted), "
+                  "**rejected** (considered and discarded), **mixed** (adopted by some sources, rejected by others) "
+                  "or **outcome** (an effect of decisions, not a choice).*", ""]
         for d in sorted(self.dims, key=lambda d: d.get("name", "")):
             lines.append(f"- {link(self.dim_path[str(d.get('id'))], d.get('name'))}: {len(d.get('values') or [])} values")
-        lines += ["", "## Synthesis", "", f"- {link('synthesis/overview', 'Overview')}",
-                  f"- {link('synthesis/contested', 'Contested decisions')}",
-                  f"- {link('synthesis/dropped', 'Dropped and unsupported')}"]
+        synth = [("synthesis/overview", "Overview", "use case, run summary, narrative summary, and every dimension with its values by status"),
+                 ("synthesis/contested", "Contested decisions", "values some sources adopt and others reject"),
+                 ("synthesis/dropped", "Dropped and unsupported", "dimensions removed during selection, and values without evidence")]
         if self.system_codes:
-            lines.append(f"- {link('synthesis/system-matrix', 'System × dimension matrix')}")
+            synth.append(("synthesis/system-matrix", "System × dimension matrix", "which value each system takes in each dimension"))
         if has_points:
-            lines.append(f"- {link('synthesis/design-points', 'Design points')}")
+            synth.append(("synthesis/design-points", "Design points", "sampled combinations of values across dimensions"))
         if getattr(self, "has_evaluation", False):
-            lines.append(f"- {link('synthesis/evaluation', 'Evaluation')}")
+            synth.append(("synthesis/evaluation", "Evaluation", "how an LLM judge scored the design space, criterion by criterion"))
+        lines += ["", "## Synthesis", "", "*Pages that look at the design space as a whole.*", ""]
+        lines += [f"- {link(path, label)}: {text}" for path, label, text in synth]
         if self.system_codes:
-            lines += ["", "## Systems", ""] + [f"- {link(self.system_path[c], self.system_title(c))}" for c in self.system_codes]
-        lines += ["", "## Sources", ""] + [f"- {link(self.source_path[s], self.source_title(s))}" for s in self.source_ids]
-        metrics = tax.get("run_metrics") or {}
+            lines += ["", "## Systems", "",
+                      "*The concrete solutions the sources describe. A system's page shows the values its passages "
+                      "support, i.e. its position in the design space.*", ""]
+            lines += [f"- {link(self.system_path[c], self.system_title(c))}" for c in self.system_codes]
+        lines += ["", "## Sources", "",
+                  "*The documents the design space was mined from. A source's page lists the decisions it informs and "
+                  "whether it adopts or rejects each value.*", ""]
+        lines += [f"- {link(self.source_path[s], self.source_title(s))}" for s in self.source_ids]
         fm = {"run": self.inp.run_label, "view": self.inp.view, "dimensions": len(self.dims), "values": values,
-              "sources": len(self.source_ids), "total_tokens": metrics.get("total_tokens"), "tags": ["index"]}
+              "sources": len(self.source_ids)}
+        for key, label in MODEL_LABELS:
+            if self.inp.models.get(key):
+                fm[key] = self.inp.models[key]
+        fm["tags"] = ["index"]
         self.add("index", self.inp.taxonomy_name, "index", fm, "\n".join(lines))
 
     # graph ---------------------------------------------------------------

@@ -75,6 +75,7 @@ def main(argv=None) -> int:
                                      "default: the sibling *_report_<timestamp>.md, if any")
     ap.add_argument("--evaluation", action="store_true",
                     help="add a page with the run's evaluation (criteria scores, reasons, scores across iterations)")
+    ap.add_argument("--case-icon", help="SVG icon of the case study (default: icon.svg in the --sources folder, if any)")
     ap.add_argument("--view", choices=["selected", "final"], default="selected")
     ap.add_argument("--no-quotes", action="store_true", help="passage ids only, no quoted text (shareable export)")
     ap.add_argument("--quote-words", type=int, default=60)
@@ -86,10 +87,18 @@ def main(argv=None) -> int:
     m = re.search(r"_taxonomy_(\d{8}_\d{6})", path.name)
     run_label = m.group(1) if m else path.stem
     name = taxonomy.get("taxonomy_name") or path.stem.split("_taxonomy_")[0]
-    use_case = ""
+    use_case, models = "", {}
     if args.config:
         cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
         use_case = ((cfg.get("taxonomy") or {}).get("use_case") or "").strip()
+        models = {k: str(v) for k, v in (cfg.get("models") or {}).items()
+                  if k in ("generation_llm", "evaluation_llm", "embedding") and v}
+    judge = (taxonomy.get("evaluation") or {}).get("model")
+    if judge and not models.get("evaluation_llm"):
+        models["evaluation_llm"] = str(judge)
+    case_icon = Path(args.case_icon) if args.case_icon else None
+    if case_icon is None and args.sources and (Path(args.sources).parent / "icon.svg").exists():
+        case_icon = Path(args.sources).parent / "icon.svg"
 
     report = Path(args.report) if args.report else None
     if report is None:
@@ -107,17 +116,18 @@ def main(argv=None) -> int:
         systems=load_system_map(Path(args.systems)) if args.systems else {},
         system_names=load_system_names(Path(args.system_names)) if args.system_names else {},
         design_points=json.loads(Path(args.design_points).read_text(encoding="utf-8")) if args.design_points else None,
-        use_case=use_case, narrative=narrative, evaluation=args.evaluation, view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
+        use_case=use_case, narrative=narrative, evaluation=args.evaluation, models=models,
+        case_icon=case_icon is not None, view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
     export = build(inp)
     export.manifest = {
         "exporter_version": EXPORTER_VERSION, "taxonomy": _rel(path), "run": run_label, "view": args.view,
         "corpus": _rel(args.corpus), "sources": _rel(args.sources), "systems": _rel(args.systems),
         "system_names": _rel(args.system_names), "design_points": _rel(args.design_points),
-        "config": _rel(args.config), "report": _rel(report), "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
+        "config": _rel(args.config), "report": _rel(report), "case_icon": _rel(case_icon), "models": models, "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
         "pages": len(export.pages), "graph_nodes": len(export.graph["nodes"]), "graph_edges": len(export.graph["edges"]),
     }
     out = args.out or path.parent / f"{path.with_suffix('').name}_wiki"
-    write(export, out, name)
+    write(export, out, name, case_icon)
     kinds = {}
     for p in export.pages:
         kinds[p.kind] = kinds.get(p.kind, 0) + 1

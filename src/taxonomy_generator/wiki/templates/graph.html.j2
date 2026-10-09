@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Graph · {{ name }}</title>
 <link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/delvedspace-icon.svg" type="image/svg+xml">
 <style>
   html, body { height: 100%; overflow: hidden; }
   #wrap { position: fixed; inset: 50px 0 0 0; display: grid; grid-template-columns: 270px 1fr 320px; }
@@ -17,6 +18,7 @@
   legend { font-weight: 600; padding: 0 4px; }
   label.row { display: flex; align-items: center; gap: 7px; margin: 3px 0; cursor: pointer; }
   .sw { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
+  svg.shape { width: 14px; height: 14px; flex: none; }
   input[type=search] { width: 100%; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px;
     background: var(--bg); color: var(--fg); font: inherit; }
   #matches { margin: 6px 0 0; padding: 0; list-style: none; max-height: 160px; overflow-y: auto; }
@@ -37,7 +39,7 @@
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="index.html">{{ name }}</a>
+  <a class="brand" href="index.html"><img src="assets/delvedspace-icon.svg" alt="" class="brand-icon">{% if has_case_icon %}<img src="assets/case-icon.svg" alt="" class="brand-icon">{% endif %}{{ name }}</a>
   <nav><a href="index.html">Wiki index</a><a href="synthesis/overview.html">Overview</a>{% if has_systems %}<a href="synthesis/system-matrix.html">System matrix</a>{% endif %}{% if has_designs %}<a href="synthesis/design-points.html">Design points</a>{% endif %}</nav>
   <span class="hint" style="margin-left:auto">Drag to pan · scroll to zoom · click a node</span>
 </header>
@@ -48,11 +50,11 @@
       <ul id="matches"></ul>
     </fieldset>
     <fieldset><legend>Show</legend>
-      <label class="row"><input type="checkbox" data-kind="dimension" checked><span class="sw" style="background:var(--dimension)"></span>Dimensions</label>
-      <label class="row"><input type="checkbox" data-kind="value" checked><span class="sw" style="background:var(--accepted)"></span>Values</label>
-      <label class="row"><input type="checkbox" data-kind="source"><span class="sw" style="background:var(--source)"></span>Sources (evidence links)</label>
-      {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><span class="sw" style="background:var(--system)"></span>Systems</label>{% endif %}
-      {% if has_designs %}<label class="row"><input type="checkbox" data-kind="design"><span class="sw" style="background:var(--novel)"></span>Design points</label>{% endif %}
+      <label class="row"><input type="checkbox" data-kind="dimension" checked><svg class="shape" viewBox="-7 -7 14 14"><circle r="6" fill="var(--dimension)"/></svg>Dimensions</label>
+      <label class="row"><input type="checkbox" data-kind="value" checked><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,0L0,6.5L-6.5,0Z" fill="var(--accepted)"/></svg>Values</label>
+      <label class="row"><input type="checkbox" data-kind="source"><svg class="shape" viewBox="-7 -7 14 14"><rect x="-5.5" y="-5.5" width="11" height="11" fill="var(--source)"/></svg>Sources (evidence links)</label>
+      {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L1.9,-2L6.4,-2L2.8,1L4.1,5.6L0,3L-4.1,5.6L-2.8,1L-6.4,-2L-1.9,-2Z" fill="var(--system)"/></svg>Systems</label>{% endif %}
+      {% if has_designs %}<label class="row"><input type="checkbox" data-kind="design"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,5.5L-6.5,5.5Z" fill="var(--novel)"/></svg>Design points</label>{% endif %}
     </fieldset>
     <fieldset><legend>Value status</legend>
       <label class="row"><input type="checkbox" data-status="accepted" checked><span class="sw" style="background:var(--accepted)"></span>accepted</label>
@@ -96,6 +98,10 @@
   const adj = new Map(data.nodes.map((n) => [n.id, new Set()]));
   data.edges.forEach((e) => { adj.get(e.source)?.add(e.target); adj.get(e.target)?.add(e.source); });
   const degree = (n) => (adj.get(n.id) || new Set()).size;
+  const SYMBOL = { dimension: d3.symbolCircle, value: d3.symbolDiamond, source: d3.symbolSquare,
+    system: d3.symbolStar, design: d3.symbolTriangle };
+  const shapePath = (n) => d3.symbol().type(SYMBOL[n.kind] || d3.symbolCircle)
+    .size(Math.PI * radius(n) * radius(n) * (n.kind === "value" ? 1.25 : n.kind === "system" ? 1.6 : 1))();
   const radius = (n) => n.kind === "dimension" ? 9 + Math.sqrt(degree(n)) * 1.6
     : n.kind === "value" ? 4 + Math.sqrt(degree(n)) : n.kind === "design" ? 5 : 8 + Math.sqrt(degree(n)) * 0.8;
 
@@ -170,11 +176,11 @@
       .call(d3.drag().on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
         .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
         .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
-    enter.append("circle");
+    enter.append("path").attr("class", "shape");
     enter.append("text").attr("dy", "-0.9em").attr("text-anchor", "middle");
     enter.append("title");
     const nodeAll = enter.merge(node);
-    nodeAll.select("circle").attr("r", radius).attr("fill", nodeColor)
+    nodeAll.select("path.shape").attr("d", shapePath).attr("fill", nodeColor)
       .attr("stroke", (d) => d.kind === "dimension" ? "#fff" : "none").attr("stroke-width", 1.5);
     nodeAll.select("text").text((d) => d.label);
     nodeAll.select("title").text((d) => d.label + (d.status ? " (" + d.status + ")" : "") + (d.tag ? " · " + d.tag : ""));
@@ -214,24 +220,30 @@
   }
 
   function neighborhood(id) {
-    const n = byId.get(id), keep = new Set([id]);
-    (adj.get(id) || new Set()).forEach((x) => keep.add(x));
-    if (n && n.kind === "design") (adj.get(id) || new Set()).forEach((vId) => {
-      (adj.get(vId) || new Set()).forEach((x) => { if (byId.get(x)?.kind === "dimension") keep.add(x); });
+    // The selection, its neighbours, and the shown elements connected to those neighbours. A neighbouring
+    // dimension is expanded only when the selection is one of its values (to show the alternatives); otherwise
+    // expanding a dimension to all its values would light up most of the graph.
+    const shown = new Set(nodeLayer.selectAll("g.node").data().map((d) => d.id));
+    const selKind = byId.get(id)?.kind;
+    const keep = new Set([id]);
+    [...(adj.get(id) || [])].filter((x) => shown.has(x)).forEach((x) => {
+      keep.add(x);
+      if (byId.get(x)?.kind === "dimension" && selKind !== "value") return;
+      (adj.get(x) || []).forEach((y) => { if (shown.has(y)) keep.add(y); });
     });
     return keep;
   }
   function highlight(id) {
     const keep = neighborhood(id);
     nodeLayer.selectAll("g.node").classed("dim-out", (d) => !keep.has(d.id))
-      .select("circle").attr("stroke", (d) => d.id === id ? v("--fg") : d.kind === "dimension" ? "#fff" : "none")
+      .select("path.shape").attr("stroke", (d) => d.id === id ? v("--fg") : d.kind === "dimension" ? "#fff" : "none")
       .attr("stroke-width", (d) => d.id === id ? 3 : 1.5);
     linkLayer.selectAll("line").classed("dim-out", (d) => !(keep.has(d.source.id) && keep.has(d.target.id)));
     nodeLayer.selectAll("g.node text").style("display", (d) => keep.has(d.id) || d.kind === "dimension" ? null : "none");
   }
   function clearSelection() {
     selected = null;
-    nodeLayer.selectAll("g.node").classed("dim-out", false).select("circle")
+    nodeLayer.selectAll("g.node").classed("dim-out", false).select("path.shape")
       .attr("stroke", (d) => d.kind === "dimension" ? "#fff" : "none").attr("stroke-width", 1.5);
     linkLayer.selectAll("line").classed("dim-out", false);
     updateLabels(scale);
@@ -245,7 +257,7 @@
     if (n.kind === "design") { const box = document.querySelector('input[data-kind="design"]'); if (box && !box.checked) { box.checked = true; render(); rerendered = true; } }
     selected = id; highlight(id);
     const groups = {};
-    const near = n.kind === "design" ? neighborhood(id) : (adj.get(id) || new Set());
+    const near = neighborhood(id);
     near.forEach((x) => { const m = byId.get(x); if (m && x !== id) (groups[m.kind] = groups[m.kind] || []).push(m); });
     let html = '<div class="kind">' + KIND[n.kind] + "</div><h2>" + esc(n.label) + "</h2>";
     if (n.status) html += '<span class="badge ' + esc(n.status) + '">' + esc(n.status) + "</span> ";

@@ -27,11 +27,12 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 
-from taxonomy_generator.wiki.model import Export, Page
+from taxonomy_generator.wiki.model import SYNTHESIS_ORDER, Export, Page
 
 WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
-SHELVES = [("concepts", "Dimensions"), ("entities", "Values"), ("sources", "Sources"),
-           ("synthesis/systems", "Systems"), ("synthesis", "Synthesis"), ("designs", "Design points")]
+# Same order as the index page: dimensions (with their values), synthesis, systems, sources; design points last.
+SHELVES = [("concepts", "Dimensions"), ("entities", "Values"), ("synthesis", "Synthesis"),
+           ("synthesis/systems", "Systems"), ("sources", "Sources"), ("designs", "Design points")]
 
 
 def shelf_of(path: str) -> str:
@@ -153,6 +154,13 @@ def _env() -> Environment:
                        trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True)
 
 
+def _nav_key(page: Page):
+    """Synthesis pages in their fixed (index) order; everything else alphabetical."""
+    if page.path in SYNTHESIS_ORDER:
+        return (SYNTHESIS_ORDER.index(page.path), "")
+    return (len(SYNTHESIS_ORDER), page.title.lower())
+
+
 def nav(export: Export, current: Page) -> List[Dict[str, Any]]:
     shelves = []
     for shelf, label in SHELVES:
@@ -162,14 +170,23 @@ def nav(export: Export, current: Page) -> List[Dict[str, Any]]:
         shelves.append({"label": label, "open": shelf_of(current.path) == shelf,
                         "items": [{"title": p.title, "href": rel(current.path, html_file(p.path)),
                                    "status": p.frontmatter.get("status", ""), "current": p.path == current.path}
-                                  for p in sorted(pages, key=lambda p: p.title.lower())]})
+                                  for p in sorted(pages, key=_nav_key)]})
     return shelves
 
 
-def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str]) -> None:
+def copy_images(assets: Path, case_icon: Path | None) -> None:
+    assets.mkdir(parents=True, exist_ok=True)
+    for name in ("delvedspace-logo.svg", "delvedspace-icon.svg"):
+        shutil.copyfile(TEMPLATES / name, assets / name)
+    if case_icon:
+        shutil.copyfile(case_icon, assets / "case-icon.svg")
+
+
+def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str],
+               case_icon: Path | None = None) -> None:
     root = out / "html"
     assets = root / "assets"
-    assets.mkdir(parents=True, exist_ok=True)
+    copy_images(assets, case_icon)
     shutil.copyfile(TEMPLATES / "style.css", assets / "style.css")
     d3 = importlib.resources.files("taxonomy_generator") / "assets" / "d3.min.js"
     (assets / "d3.min.js").write_text(d3.read_text(encoding="utf-8"), encoding="utf-8")
@@ -194,6 +211,8 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
             name=name, page=page, body=body_html, properties=property_rows(page, known),
             tags=page.frontmatter.get("tags") or [], nav=nav(export, page),
             css=rel(page.path, "assets/style.css"), home=rel(page.path, "index.html"),
+            icon=rel(page.path, "assets/delvedspace-icon.svg"),
+            case_icon=rel(page.path, "assets/case-icon.svg") if case_icon else "",
             graph=rel(page.path, "graph.html") + (f"#node={node}" if node else ""),
             quick=[{"label": l, "href": rel(page.path, html_file(p))} for l, p in quick],
             status=page.frontmatter.get("status", "")), encoding="utf-8")
@@ -203,16 +222,22 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
     kinds = sorted({n["kind"] for n in graph["nodes"]})
     (root / "graph.html").write_text(env.get_template("graph.html.j2").render(
         name=name, data=json.dumps(graph, ensure_ascii=False, sort_keys=True).replace("</", "<\\/"),
-        has_designs="design" in kinds, has_systems="system" in kinds), encoding="utf-8")
+        has_designs="design" in kinds, has_systems="system" in kinds, has_case_icon=bool(case_icon)),
+        encoding="utf-8")
 
 
-def write(export: Export, out: Path, name: str) -> None:
-    """Write the whole export (replacing ``wiki/`` and ``html/`` from a previous export of the same run)."""
+def write(export: Export, out: Path, name: str, case_icon: Path | None = None) -> None:
+    """Write the whole export (replacing ``wiki/`` and ``html/`` from a previous export of the same run).
+
+    ``case_icon`` (an SVG) is shown on the index and next to the wiki name; the
+    DelveDSpace logo and icon are always included.
+    """
     out = Path(out)
     for sub in ("wiki", "html"):
         if (out / sub).exists():
             shutil.rmtree(out / sub)
     out.mkdir(parents=True, exist_ok=True)
     write_markdown(export, out, name)
+    copy_images(out / "wiki" / "assets", case_icon)
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
-    write_html(export, out, name, graph_node_of)
+    write_html(export, out, name, graph_node_of, case_icon)
