@@ -704,37 +704,38 @@ class _Builder:
                  "and the log of editing operations.", "",
                  "## The agents", "",
                  "The pipeline is an orchestrated multi-agent workflow. Agents are roles that share one artifact, the "
-                 "design space under construction, and coordinate through it and through explicit feedback.", "",
+                 "design space under construction, and coordinate through it and through explicit feedback. Their "
+                 "icons are the ones the command line shows while each step runs.", "",
                  "| Agent | Grounded-theory phase | What it does | What it may change |", "|---|---|---|---|",
-                 "| **Coder** | Open coding | Names the concepts of each passage as codes, with the source's stance "
+                 "| 🔬\u00a0**Coder** | Open coding | Names the concepts of each passage as codes, with the source's stance "
                  "(adopts, rejects, or reports an outcome) | Writes codes; never touches the design space |",
-                 "| **Taxonomist** | Axial coding; final review | Folds each batch's codes into the design space and "
+                 "| 🧠\u00a0**Taxonomist** | Axial coding; final review | Folds each batch's codes into the design space and "
                  "justifies every change (add, split, merge, move, rename, relate) | Edits the design space |",
-                 "| **Critic** | Throughout | Scores each draft on quality criteria and returns actionable issues; "
+                 "| 📊\u00a0**Critic** | Throughout | Scores each draft on quality criteria and returns actionable issues; "
                  "decides whether a batch added anything new (saturation) | Reads and judges only |",
-                 "| **Integrator** | Selective coding | Merges duplicates, links evidence, selects the dimensions that "
+                 "| 🧲\u00a0**Integrator** | Selective coding | Merges duplicates, links evidence, selects the dimensions that "
                  "pass the support rules, labels the passages | Applies deterministic rules and bounded judgments |", "",
                  "Deterministic checks keep the agents grounded: edits are validated before they apply, evidence is "
                  "rebuilt from the codes by embedding similarity, and dimensions need enough sources and at least two "
                  "candidate decisions to be kept.", "",
                  "## The extraction workflow", "",
-                 "1. **Prepare the corpus.** Sources are split into passages of about 300 words (ids such as "
+                 "1. 📂 📦 **Prepare the corpus.** Sources are split into passages of about 300 words (ids such as "
                  "`s03_p02`: source 3, passage 2) and shuffled into minibatches.",
-                 "2. **Open coding (Coder).** Each passage of a minibatch gets its codes and stances.",
-                 "3. **Axial coding (Taxonomist).** The first minibatch generates an initial design space; each later "
+                 "2. 🔬 **Open coding (Coder).** Each passage of a minibatch gets its codes and stances.",
+                 "3. 🧠 🔄 **Axial coding (Taxonomist).** The first minibatch generates an initial design space; each later "
                  "minibatch updates it. In *tools* mode the Taxonomist edits through validated operations and never "
                  "drops a value that has evidence.",
-                 "4. **Critique (Critic).** The draft is scored (orthogonality, clarity, one decision per dimension, "
+                 "4. 📊 🧪 **Critique (Critic).** The draft is scored (orthogonality, clarity, one decision per dimension, "
                  "coverage, …) and the weakest criteria go back to the Taxonomist as feedback. A saturation check "
                  "compares the next batch's codes with the design space so far.",
-                 "5. **Loop or stop.** Steps 2–4 repeat for each minibatch until a run of batches adds nothing new "
+                 "5. 🔁 **Loop or stop.** Steps 2–4 repeat for each minibatch until a run of batches adds nothing new "
                  "(saturation) or all batches are coded.",
-                 "6. **Review (Taxonomist).** A final revision of the whole design space.",
-                 "7. **Integration (Integrator).** Dimensions naming the same decision are merged; duplicate values "
+                 "6. 🔍 **Review (Taxonomist).** A final revision of the whole design space.",
+                 "7. 🧲 🎯 🔖 **Integration (Integrator).** Dimensions naming the same decision are merged; duplicate values "
                  "are consolidated (embedding distance plus an LLM judge for borderline pairs); each code is linked to "
                  "its closest value, which yields the evidence; dimensions without enough support are dropped with a "
                  "recorded rationale; passages are labeled with their main dimension.",
-                 "8. **Final evaluation (Critic).** The selected design space is scored once more. Evaluation is "
+                 "8. 📊 **Final evaluation (Critic).** The selected design space is scored once more. Evaluation is "
                  "*observe-only*: scores never change the design space or steer the pipeline.", "",
                  "## LLM roles", "",
                  "Three roles are configured separately so that judging stays independent of what it judges: the "

@@ -424,7 +424,8 @@ def test_approach_page(tmp_path):
     for heading in ("## What a design space is", "## Grounded theory in brief", "## The agents",
                     "## The extraction workflow", "## LLM roles", "## What in this wiki is not mined", "## This run's settings"):
         assert heading in page.body, heading
-    assert "| **Coder** |" in page.body and "| **Integrator** |" in page.body and "| Passages per minibatch | `8` |" in page.body
+    assert "| 🔬\u00a0**Coder** |" in page.body and "| 🧲\u00a0**Integrator** |" in page.body
+    assert "| Passages per minibatch | `8` |" in page.body
     assert "[[approach|Approach]]" in next(p for p in export.pages if p.path == "index").body
     plain = next(p for p in build(_inputs()).pages if p.path == "approach")
     assert "## This run's settings" not in plain.body
