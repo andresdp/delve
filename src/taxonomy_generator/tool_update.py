@@ -432,7 +432,8 @@ async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, confi
     previous = state.clusters[-1] if state.clusters else []
     inputs = taxonomy_prompt_inputs(state, configuration, doc_indices, True, format_taxonomy_compact(previous))
     messages = prompt.format_messages(**inputs)
-    editor = TaxonomyEditor(previous, [_doc_id(state.documents[i]) for i in doc_indices], review=review)
+    editor = TaxonomyEditor(previous, [_doc_id(state.documents[i]) for i in doc_indices], review=review,
+                            max_dimensions=configuration.max_num_clusters)
     max_steps = configuration.edit_max_steps or TaxonomySettings.edit_max_steps
     clusters, explanation, transcript = await run_tool_update(model, editor, messages, max_steps=max_steps,
                                                               config=config)
