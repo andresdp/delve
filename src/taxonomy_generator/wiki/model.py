@@ -585,10 +585,7 @@ class _Builder:
 
     def index_page(self, has_points: bool) -> None:
         values = sum(len(d.get("values") or []) for d in self.dims)
-        lines = ["![DelveDSpace](assets/delvedspace-logo.svg)", ""]
-        if self.inp.case_icon:
-            lines += ["![Case study](assets/case-icon.svg)", ""]
-        lines += [f"# {self.inp.taxonomy_name}", "",
+        lines = ["![DelveDSpace](assets/delvedspace-logo.svg)", "", f"# {self.inp.taxonomy_name}", "",
                   "This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design "
                   "space organizes the architectural design decisions the documents discuss: each **dimension** is "
                   "one decision a designer faces, and its **values** are the alternatives the documents describe. "
