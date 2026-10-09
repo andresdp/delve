@@ -314,7 +314,13 @@
     history.replaceState(null, "", "#node=" + encodeURIComponent(id));
   }
 
-  document.querySelectorAll("#controls input[type=checkbox], #kfilter").forEach((el) => el.addEventListener("change", render));
+  // A filter change shows the filter's full result: drop any selection (and its #node= link) and re-fit.
+  document.querySelectorAll("#controls input[type=checkbox], #kfilter").forEach((el) => el.addEventListener("change", () => {
+    if (selected) clearSelection();
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    userMoved = false;
+    render();
+  }));
   svg.on("click", () => clearSelection());
   document.getElementById("reset").addEventListener("click", () => { clearSelection(); userMoved = false; fit(400); });
   const q = document.getElementById("q"), matches = document.getElementById("matches");
