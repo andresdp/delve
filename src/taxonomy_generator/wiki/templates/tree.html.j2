@@ -28,11 +28,8 @@
   svg a text.label:hover { text-decoration: underline; }
   svg .caret { cursor: pointer; fill: var(--muted); font-size: 12px; user-select: none; }
   svg path.link { fill: none; stroke: var(--border); stroke-width: 1.4px; }
-  /* Tracing: the hovered element (every occurrence of it) and its incoming and outgoing edges. */
+  /* Tracing: the incoming and outgoing edges of the hovered element (of every occurrence of it). */
   svg path.link.hl { stroke: var(--accent); stroke-width: 2.6px; }
-  svg.tracing path.link:not(.hl) { opacity: .35; }
-  svg.tracing g.node:not(.hl):not(.end) { opacity: .45; }
-  svg g.node.hl text.label tspan:first-child { fill: var(--accent); font-weight: 700; }
   .count { color: var(--muted); }
   #summary { padding: 14px 24px 0; font-size: 14px; color: var(--muted); }
   #summary strong { color: var(--fg); font-size: 16px; margin-right: 8px; }
@@ -146,7 +143,6 @@
     const nodes = h.descendants().filter((d) => d.depth > 0);   // the root is the summary line above
     const minX = d3.min(nodes, (d) => d.x) ?? 0, maxX = d3.max(nodes, (d) => d.x) ?? 0;
     svg.selectAll("*").remove();
-    svg.classed("tracing", false);
     const g = svg.append("g").attr("transform", "translate(0," + (ROW - minX) + ")");
     const linkLayer = g.append("g");
     const node = g.selectAll("g.node").data(nodes).join("g").attr("class", "node")
@@ -182,20 +178,10 @@
     // Hover or keyboard focus traces an element: its incoming edge (from its parent) and outgoing edges (to its
     // shown children), for every occurrence of it in the tree.
     function trace(d) {
-      const k = keyOf(d.data), ends = new Set();
-      links.classed("hl", (l) => {
-        const on = keyOf(l.source.data) === k || keyOf(l.target.data) === k;
-        if (on) { ends.add(l.source); ends.add(l.target); }
-        return on;
-      });
-      node.classed("hl", (n) => keyOf(n.data) === k).classed("end", (n) => ends.has(n));
-      svg.classed("tracing", true);
+      const k = keyOf(d.data);
+      links.classed("hl", (l) => keyOf(l.source.data) === k || keyOf(l.target.data) === k).filter(".hl").raise();
     }
-    function untrace() {
-      svg.classed("tracing", false);
-      links.classed("hl", false);
-      node.classed("hl", false).classed("end", false);
-    }
+    function untrace() { links.classed("hl", false); }
     node.on("mouseenter", (ev, d) => trace(d)).on("mouseleave", untrace);
     a.on("focus", (ev, d) => trace(d)).on("blur", untrace);
     const deepest = d3.max(nodes, (d) => d.depth) || 1;
