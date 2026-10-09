@@ -134,9 +134,20 @@ The author has an Overleaf plan with Git integration and the SANER IEEEtran temp
 - Wiki/graph export of a taxonomy: decided plan in `docs/DESIGN_SPACE_EXPLORATION.md` §13 (llmwiki-style
   wiki + graph site for a meeting demo, with a design-points page; paper figures: overview, C3 system ×
   dimension matrix, C1/C2 ground-truth comparison). Own feature branch, before the paper figures are needed.
-- Decision-focus pass (bundled decisions): `docs/plans/2026-10-08-1500-feat-decision-focus-pass-plan.md`;
-  own feature branch, before the C1/C2/C3 re-runs. It also covers **dimension granularity**: Delve mines more,
-  finer dimensions than the experts (C1 30 vs 10/28, C2 19 vs 7, C3 22). The wiki's "core dimensions" filter
-  is a presentation aid only, not a fix.
+- Paper discussion (not yet in the draft): the decision-precision gap has three sources, scope (C2: 9 of 19
+  dimensions unaligned), a different decomposition (C1: 22 of 30 dimensions cross-cut expert decisions) and true
+  splits (smaller). See `docs/paper/results/2026-10-09-decision-focus-ab.md`, "Analysis".
+
+## Closed
+
+- **Decision-focus pass (closed 2026-10-09, no variant kept).** Plan:
+  `docs/plans/2026-10-08-1500-feat-decision-focus-pass-plan.md`; results:
+  `docs/paper/results/2026-10-09-decision-focus-ab.md`.
+  - E1 (merge siblings): no proposals, no effect.
+  - E2 (rehome values): dropped under the keep/drop rule; it raises C2 placement but option precision gains stay
+    below 0.03, and C1's model view loses one strict decision.
+  - E3 and E1b: not run.
+  - The pipeline is unchanged before the freeze. The passes and the variant/compare tools remain as offline
+    analysis tools. Granularity, decomposition and scope go to the paper as findings and threats.
 - BERTopic baseline (L2), drivers and relations as matched elements, personas, theoretical sampling: future
   work (plan §8.6b, "Scope for the paper").

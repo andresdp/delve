@@ -104,3 +104,53 @@ No change on unchanged pairs is judge-to-judge; all come from the matcher's near
 - It does not make the taxonomy closer to the experts at the level KTD3 requires. Option precision barely moves, because a move does not change whether a value matches an option. On C1's model view, strict decision alignment loses one expert decision: a decision point that matched it lost the values that made the match.
 - The probe does not see fewer off-question values after the moves, which suggests the probe's "other question" judgment and the rehome pass's move judgment disagree on many values, even with the same model.
 - The paper view of C1 improves (strict decision F1 +0.06), but it does not decide (Key Decisions).
+
+---
+
+## E3 and E1b: not run
+
+- **E3** (merge, then rehome) would equal E2, because the merge pass made no change. Skipped.
+- **E1b** (one less cautious merge prompt, designed after E1's null result) was considered and skipped by the author after the headroom analysis below: on C1 it would almost certainly fail the decision-recall guard of the deciding view.
+
+---
+
+## Analysis: why the dimensions differ from the expert decisions
+
+A diagnostic on the base runs' lenient alignments (`*_gt_alignment.csv`), used only to decide whether further merge experiments are worth running. It uses the ground truth, so it never feeds a prompt or a setting.
+
+An expert decision is **split** when two or more Delve dimensions align with it; a dimension is **cross-cutting** when it aligns with two or more expert decisions; a dimension is **unaligned** when no expert decision shares at least the minimum share of matched options with it.
+
+| | C1 model view | C1 paper view | C2 model view | C2 paper view |
+|---|---|---|---|---|
+| Expert decisions | 28 | 10 | 7 | 7 |
+| Delve dimensions | 30 | 30 | 19 | 19 |
+| Aligned dimensions | 25 | 17 | 10 | 9 |
+| Unaligned dimensions | 5 | 13 | 9 | 10 |
+| Expert decisions split over 2+ dimensions | 19 | 9 | 6 | 5 |
+| Cross-cutting dimensions | 22 | 10 | 4 | 4 |
+
+**C1: a different decomposition, not a finer one.** 22 of C1's 30 dimensions each overlap several expert decisions, and one expert decision ("How to automatically process the data used for model building?") spans eight Delve dimensions. The experts decompose the ML workflow by pipeline stage and task. Delve decomposes it by technical concern, e.g. "Data Profiling and Validation" or "Feature Pipeline Architecture and Tooling", and those concerns recur across stages. Merging cannot reconcile two decompositions that cut the same space along different axes. Any substantial merge produces broad dimensions that each strict-align with one decision, so decision recall falls. This is why E2's moves cost one strict alignment on the model view and why E1b was not run.
+
+**C2: mostly scope, partly splits.**
+- 9 of C2's 19 dimensions align with no expert decision. They are mainly operational and integration decision points (e.g. telemetry collection, rollout and incident control) that the source passages discuss but the expert model does not include. This gap is about what the use case puts in scope, not about granularity.
+- The remaining gap is a small number of true splits: 6 expert decisions are each split over two or three dimensions, e.g. "Production Monitoring Signal Selection" over "Runtime Signal Selection", "Telemetry Collection Architecture" and "Operational Monitoring Integration".
+- **Headroom:** merging exactly those splits would take C2's model view from 19 to about 13 dimensions with the same 7 strict matches, raising decision precision from 0.37 to about 0.54 and strict decision F1 from 0.54 to about 0.70. This is a ceiling. It assumes perfect merges, and 4 cross-cutting dimensions make clean merges harder.
+
+**What the precision gap means for the evaluation.**
+- Low decision precision against the expert models has three distinct sources, which the paper should not report as one "Delve is too fine-grained" finding:
+  1. decision points outside the expert model's scope (C2, unaligned dimensions);
+  2. a different but coherent decomposition (C1, cross-cutting dimensions);
+  3. true splits of one expert decision (both cases, smaller).
+- Only the third is a granularity error in the usual sense. The first two are differences in scope and in decomposition that strict one-to-one alignment counts as false positives.
+- Lenient decision alignment already credits the third source, and the gap between lenient and strict F1 is a usable summary of it (C1 model 0.88 vs. 0.79; C2 model 0.69 vs. 0.54).
+
+---
+
+## Outcome
+
+No variant was kept (E1 no effect, E2 dropped under KTD3, E3 and E1b not run). The pipeline is unchanged. The passes, the variant tool and the comparison tool stay in the repository as offline analysis tools:
+- `src/taxonomy_generator/nodes/decision_focus.py`;
+- `benchmark/focus_variant.py`;
+- `benchmark/focus_compare.py`.
+
+Decision-point granularity, decomposition and scope are reported as findings and threats, not fixed. The rehome pass improves placement on C2 and could serve as an optional tool outside the evaluated pipeline.
