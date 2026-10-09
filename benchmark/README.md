@@ -1,7 +1,6 @@
 # ADD-Bench sources
 
-Gray-literature corpora of the published Straussian-GT ADD studies used to evaluate DelveDSpace
-(see `docs/paper/SANER2027_PAPER_PLAN.md`, §4 and backlog item B2).
+Gray-literature corpora of the published Straussian-GT ADD studies used to evaluate DelveDSpace.
 
 | Case | Study | Sources | Where the URLs come from |
 |---|---|---|---|
@@ -268,7 +267,7 @@ Both are scored on their selected view.
   With one-to-one counting, Jaccard is lower than F1. Precision and recall count many-to-one hits; for
   example, C1 paper view has F1 0.50 and Jaccard 0.24.
 - **2026-10-05 — pipeline settings added after the C2 update-strategy comparison** (user decision, after
-  scores were seen; `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`). Neither changes the
+  scores were seen; results kept with the evaluation notes outside this repository). Neither changes the
   matcher, the metrics or the defaults; both are general rules, not C2-specific thresholds, and must be
   checked on C1 before any claim.
   - **`taxonomy.relevance_selection`** (default `true`, today's behavior). `false` keeps every dimension that

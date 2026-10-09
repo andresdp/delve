@@ -10,7 +10,7 @@ execution: code
 related: >-
   src/taxonomy_generator/nodes/taxonomy_updater.py, nodes/taxonomy_reviewer.py, utils.invoke_taxonomy_chain,
   prompts/taxonomy_update.md, prompts/taxonomy_review.md, evaluation/gt_match.py, CONCEPTS.md (Iteration,
-  Evidence Linking, Scoreboard), docs/paper/SANER2027_PAPER_PLAN.md (§8.6b action plan, §6 agentic framing,
+  Evidence Linking, Scoreboard), evaluation plan, outside this repository (§8.6b action plan, §6 agentic framing,
   A10, P11, P12)
 ---
 
@@ -40,7 +40,7 @@ related: >-
 
 - **Outcome (2026-10-05):** built and compared on C2 (and checked on C1); `tools` is the main configuration
   of the C1/C2 study configs, with `relevance_selection: false`; `rewrite` and `rewrite_restore` remain
-  ablations. Results: `docs/paper/results/2026-10-05-c2-update-strategy-comparison.md`. Added during
+  ablations. Results: kept with the evaluation notes outside this repository. Added during
   execution beyond the units below: LangChain `StructuredTool`s with `tool.invoke`, tool transcripts in the
   operation log, the values-as-options rule and similar-value hints, the decision-point granularity rule and
   structural check, and the `taxonomy.relevance_selection` switch.
@@ -542,7 +542,7 @@ for the CLI shape.
 **Dependencies:** U5, U6.
 
 **Files:** `SETTINGS.md`, `USAGE.md`, `CONCEPTS.md` (Operation Log entry), `config.yaml`, study configs
-(commented `edit_mode`), `docs/paper/SANER2027_PAPER_PLAN.md` (§8.7 progress), `benchmark/README.md`
+(commented `edit_mode`), the evaluation plan (kept outside this repository) (§8.7 progress), `benchmark/README.md`
 (frame change log only if the frame changes).
 
 **Approach:**

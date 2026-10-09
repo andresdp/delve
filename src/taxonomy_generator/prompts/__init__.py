@@ -252,6 +252,20 @@ DIMENSION_MERGE_PROMPT = _load_prompt(
 )
 
 # ---------------------------------------------------------------------------
+# Decision-focus passes after consolidation (merge sibling dimensions, rehome values)
+# ---------------------------------------------------------------------------
+
+DECISION_FOCUS_MERGE_PROMPT = _load_prompt(
+    "decision_focus_merge.md",
+    "Propose the groups of dimensions above that are parts of one design decision.",
+)
+
+DECISION_FOCUS_REHOME_PROMPT = _load_prompt(
+    "decision_focus_rehome.md",
+    "Check each value of the decision point under review.",
+)
+
+# ---------------------------------------------------------------------------
 # Dimension selection (selective coding as use-case relevance filtering)
 # ---------------------------------------------------------------------------
 

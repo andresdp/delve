@@ -2,7 +2,7 @@
 title: "feat: C3 Git-at-scale corpora and provisional silver lists (B6, B7, B9)"
 type: feat
 date: 2026-10-07
-origin: docs/paper/SANER2027_PAPER_PLAN.md
+origin: evaluation plan (kept outside this repository)
 artifact_contract: ce-unified-plan/v1
 artifact_readiness: implementation-ready
 product_contract_source: ce-plan-bootstrap
@@ -17,7 +17,7 @@ execution: code
   - the C3-raw and C3-curated corpora and the C3 study configs (B6);
   - a provisional passage→system map (B7);
   - a provisional silver trade-off list (B9).
-- **Authority:** `docs/paper/SANER2027_PAPER_PLAN.md` §4.4 and §8.2 (B6, B7, B9) define the content. This plan settles the layout, schemas and the bias guard. Author review may correct the agent drafts under the rule in KTD6.
+- **Authority:** the evaluation plan (kept outside this repository), §4.4 and §8.2 (B6, B7, B9) define the content. This plan settles the layout, schemas and the bias guard. Author review may correct the agent drafts under the rule in KTD6.
 - **Stop conditions:**
   - Stop and report if the Cursor article cannot be fetched by any route (live, Wayback, saved page). C3-raw cannot exist without it.
   - Never open existing Delve C3 outputs (KTD6). If one is opened by accident, record it in the C3 README and tell the user.
@@ -52,7 +52,7 @@ The existing C3 material is 16 paraphrased, pre-organized documents (`examples/c
 - R8. The status, the bias guard and the C3 paths are recorded in:
   - a new C3 README;
   - `benchmark/README.md`;
-  - `docs/paper/PRE_FREEZE_TODO.md` item 6;
+  - the pre-freeze to-do list (outside this repository), item 6;
   - the paper plan's B6/B7/B9 paths.
 
 ### Scope Boundaries
@@ -64,7 +64,7 @@ The existing C3 material is 16 paraphrased, pre-organized documents (`examples/c
 ### Deferred to Follow-Up Work
 
 - Optional silver **decision** list (§4.4 item 5): not requested now; same bias rules apply when it is written.
-- Author review of B7/B9 and the two-author agreement on the C3 use case (B4-style), tracked in `PRE_FREEZE_TODO.md`.
+- Author review of B7/B9 and the two-author agreement on the C3 use case (B4-style), tracked in the pre-freeze to-do list (outside this repository).
 - `compare_taxonomies` C3-raw vs. C3-curated: after the runs.
 
 ### Decisions on the open questions (user, 2026-10-08)
@@ -75,7 +75,7 @@ The existing C3 material is 16 paraphrased, pre-organized documents (`examples/c
 
 ### Sources
 
-- `docs/paper/SANER2027_PAPER_PLAN.md` §4.4, §8.2 (B6, B7, B9, A9, A15).
+- the evaluation plan (kept outside this repository), §4.4, §8.2 (B6, B7, B9, A9, A15).
 - `examples/cursor-git-at-scale/references.md` (source URLs) and the 16 curated documents.
 - `benchmark/README.md` (corpus tooling, evaluation-frame change log).
 
@@ -273,8 +273,7 @@ flowchart TB
 - **Files:**
   - Create `benchmark/c3-git-at-scale/README.md`.
   - Modify `benchmark/README.md`.
-  - Modify `docs/paper/PRE_FREEZE_TODO.md`.
-  - Modify `docs/paper/SANER2027_PAPER_PLAN.md`.
+  - Modify the pre-freeze to-do list and the evaluation plan (both outside this repository).
 - **Approach:**
   1. **C3 README:**
      - sources and exclusions;
@@ -287,7 +286,7 @@ flowchart TB
      - the curated provenance (KTD4);
      - any system without passages.
   2. **Benchmark README:** add a short C3 entry to the layout and corpus sections, and a dated change-log line noting that C3 was added with no ground truth.
-  3. **PRE_FREEZE_TODO:** tick B6 and the B7/B9 drafts. Add the author review and the use-case agreement, and record the Q1–Q3 decisions.
+  3. **Pre-freeze to-do list:** tick B6 and the B7/B9 drafts. Add the author review and the use-case agreement, and record the Q1–Q3 decisions.
   4. **Paper plan:** replace `benchmark/cursor/` with `benchmark/c3-git-at-scale/`.
 - **Test scenarios:** Test expectation: none -- documentation.
 - **Verification:** The documents name the same paths, counts and status as the generated files.

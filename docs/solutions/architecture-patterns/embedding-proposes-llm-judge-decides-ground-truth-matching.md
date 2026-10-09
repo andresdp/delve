@@ -18,7 +18,7 @@ tags: [ground-truth-matching, llm-judge, embedding-distance, graded-labels, judg
 
 ## Context
 
-Delve's SANER 2027 evaluation scores an LLM-generated design space against expert ground truth. The generated design space is a DelveDSpace taxonomy: dimensions whose values are candidate design decisions. The ground truth is the architectural design decisions and options of studies C1 (ML workflow) and C2 (RL monitoring), each with a paper view and a model view. The question is when a system value counts as the same thing as an expert option.
+Delve's evaluation scores an LLM-generated design space against expert ground truth. The generated design space is a DelveDSpace taxonomy: dimensions whose values are candidate design decisions. The ground truth is the architectural design decisions and options of studies C1 (ML workflow) and C2 (RL monitoring), each with a paper view and a model view. The question is when a system value counts as the same thing as an expert option.
 
 The first plan was to embed both sides and apply a distance cutoff. On these studies that does not work. Embedding distance is useful only for proposing candidate pairs, and an LLM judge has to decide them. The judge also changes the scores, so the judge model must be fixed in advance, recorded, reported with its sensitivity, and checked against human gold labels. This work is on branch `feat/ground-truth-matcher` (unmerged as of this writing). The command is:
 

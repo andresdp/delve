@@ -5,7 +5,7 @@ date: 2026-10-02
 execution: code
 status: proposed — not implemented; decisions recorded 2026-10-02 (§8)
 related: >-
-  docs/paper/SANER2027_PAPER_PLAN.md §5.1b (other fidelity measures), §8.4 (baselines L1–L3),
+  evaluation plan (outside this repository) §5.1b (other fidelity measures), §8.4 (baselines L1–L3),
   CONCEPTS.md (Evidence Linking, Selected Dimensions, Scoreboard)
 ---
 
