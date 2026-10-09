@@ -187,6 +187,40 @@ class DimensionMergeOutput(BaseModel):
     rationale: str = Field(description="Why the two dimensions are or are not the same decision, judged against the use case.")
 
 
+class SiblingGroup(BaseModel):
+    """Dimensions that are parts of one design decision (decision-focus merge pass)."""
+
+    dimension_ids: List[str] = Field(description="Ids of the dimensions to merge (at least two); the first id is kept.")
+    question: str = Field(description="The one design question all merged dimensions' values answer.")
+    name: str = Field(description="Name of the merged dimension (a noun phrase naming the decision).")
+    description: str = Field(description="Description of the merged dimension: the question its values answer.")
+    reason: str = Field(description="Why a practitioner would document these as one decision.")
+
+
+class SiblingMergeOutput(BaseModel):
+    """Proposed sibling-dimension merges for a whole taxonomy (empty when none apply)."""
+
+    groups: List[SiblingGroup] = Field(description="Groups of dimensions to merge; empty list when none.")
+
+
+class ValueFocus(BaseModel):
+    """What to do with one value of the dimension under review (decision-focus rehome pass)."""
+
+    value_id: str = Field(description="Id of a value of the dimension under review.")
+    action: Literal["keep", "move", "outcome"] = Field(
+        description="keep: it answers this dimension's question; move: it answers another dimension's question; "
+                    "outcome: it is a goal, principle or effect, not an option for any decision."
+    )
+    to_dimension_id: str = Field(description="Target dimension id when action is move; empty string otherwise.")
+    reason: str = Field(description="One sentence: why this action.")
+
+
+class DimensionFocusOutput(BaseModel):
+    """Per-value actions for one dimension; values not listed are kept."""
+
+    values: List[ValueFocus] = Field(description="Actions for the values that should move or become outcomes.")
+
+
 class ValueMergeOutput(BaseModel):
     """LLM adjudication for one borderline value-merge pair."""
 
