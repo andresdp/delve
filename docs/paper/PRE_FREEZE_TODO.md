@@ -106,6 +106,29 @@ did: several organizations (GitHub, Google, Microsoft, Cursor) as points in it.
 - [ ] Authors review B7 and B9 (checklist and log in `benchmark/c3-git-at-scale/README.md`)
 - [ ] Two authors agree on the C3 use case (both C3 configs)
 
+## 7. Paper production: Overleaf and generated files
+
+The author has an Overleaf plan with Git integration and the SANER IEEEtran template (2026-10-09).
+
+- **Where things live:**
+  - the LaTeX source, `references.bib` and author discussion go in a **private** repository connected to the Overleaf project (Overleaf Git integration), never in this public repo;
+  - code, runs and analysis scripts stay here.
+- **One-time conversion (about 10-13/14):**
+  - `docs/paper/SANER2027_Delve_Draft.md` becomes IEEEtran LaTeX: Pandoc first pass, then manual cleanup;
+  - one file per section (`sections/*.tex`) and `\cite` keys from the reference list;
+  - the author notes (§9) are dropped.
+  - After that, LaTeX is the only source; the Markdown draft is marked superseded and later removed under the anonymization plan.
+- **Generated files** (built with the statistics harness, item 5): a folder such as `paper_artifacts/` holds:
+  - `numbers.tex` (one macro per number quoted in the text);
+  - `tables/*.tex` (booktabs fragments);
+  - `figures/*.pdf`;
+  - a manifest of the source runs and commit.
+- **Sync:** a script copies that folder into `generated/` in the paper repo and commits it with the source commit's hash; Overleaf pulls it. Nothing in `generated/` is edited in Overleaf.
+- **Co-editing:** pull before editing and push small commits per section; agree who edits which section.
+- [ ] Private paper repo connected to Overleaf; template in place
+- [ ] One-time Markdown → LaTeX conversion
+- [ ] `paper_artifacts/` generation and sync script
+
 ## Deferred (not before the paper)
 
 - Wiki/graph export of a taxonomy: decided plan in `docs/DESIGN_SPACE_EXPLORATION.md` §13 (llmwiki-style
