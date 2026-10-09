@@ -13,8 +13,8 @@ It is **not** the study run. The study run of C3 is in the parent folder
 (`../c3-git-at-scale_taxonomy_20261008_115350.json`). That run has no cap on the number of dimensions, and its
 outputs that quote the corpus are not committed.
 
-**Open the wiki:** [browse it online](https://raw.githack.com/andresdp/delve/main/examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html). It is served by raw.githack.com, because GitHub shows HTML
-files as source. Alternatively, open
+**Open the wiki:** [browse it online](https://andresdp.github.io/delve/). It is published with GitHub Pages by
+`.github/workflows/sample-wiki-pages.yml`, because GitHub shows HTML files in the repository as source. Alternatively, open
 [`c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html`](c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html)
 from a local clone; the wiki works offline. It has a graph view and a tree view, linked from every page.
 

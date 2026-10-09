@@ -37,7 +37,7 @@ For a corpus and a short description of what you want to find (the **use case**)
   optional PCA biplots of the design space.
 - **A design-space wiki**: an offline HTML wiki with a page for each dimension, value and source,
   plus graph and tree views of the design space ([how to build it](USAGE.md#exploring-a-run-as-a-wiki)).
-  **[Browse a sample wiki online](https://raw.githack.com/andresdp/delve/main/examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html)**: case C3, on scaling Git hosting, capped at 5
+  **[Browse a sample wiki online](https://andresdp.github.io/delve/)**: case C3, on scaling Git hosting, capped at 5
   dimensions ([how it was produced](examples/c3-git-at-scale/sample/README.md)).
 - **Run history**: every taxonomy iteration, the saturation history and the open codes, so a run can be
   audited, compared with other runs, or used as the starting point of a new one.

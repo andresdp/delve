@@ -164,8 +164,8 @@ The export makes no LLM calls: everything is rendered from the run data.
 
 The HTML works offline. Open `html/index.html` in a browser, or copy the whole `html/` folder to share it.
 
-A committed example can be [browsed online](https://raw.githack.com/andresdp/delve/main/examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html). It is served from the repository by raw.githack.com,
-because GitHub shows HTML files as source. Locally, open
+A committed example can be [browsed online](https://andresdp.github.io/delve/). It is published with GitHub Pages
+(`.github/workflows/sample-wiki-pages.yml`), because GitHub shows HTML files in the repository as source. Locally, open
 `examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html`. The
 sample's [README](examples/c3-git-at-scale/sample/README.md) gives the exact commands that produced it.
 
