@@ -66,6 +66,8 @@ def choices_text(point: dict, dims: dict) -> str:
 async def run(dp_path: Path, model_name: str, force: bool, concurrency: int) -> dict:
     dp = json.loads(dp_path.read_text(encoding="utf-8"))
     run_file = Path(dp.get("run") or "")
+    if not run_file.is_absolute() and not run_file.exists():
+        run_file = HERE.parent / run_file
     dims, domain = {}, ""
     if run_file.exists():
         tax = json.loads(run_file.read_text(encoding="utf-8"))

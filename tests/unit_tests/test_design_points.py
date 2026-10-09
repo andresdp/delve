@@ -148,3 +148,30 @@ def test_cli_writes_points_and_blind_sheet(tmp_path):
     assert sheet and "group" not in sheet[0] and "verdict" in sheet[0]
     ids = {p["point_id"] for s in data["samples"] for g in s["groups"].values() for p in g}
     assert {r["point_id"] for r in sheet} == ids
+
+
+def _cli_files(tmp_path):
+    run = tmp_path / "c3_taxonomy_20261008_000000.json"
+    run.write_text(json.dumps({"selected_clusters": _clusters()}), encoding="utf-8")
+    sysmap = tmp_path / "m.csv"
+    rows = "\n".join(f"{d},raw,{';'.join(s)},{next(iter(s))},b" for d, s in SYSTEMS.items())
+    sysmap.write_text("passage_id,corpus,systems,primary,basis\n" + rows + "\n", encoding="utf-8")
+    return run, sysmap
+
+
+def test_cli_describes_points_only_when_asked(tmp_path, monkeypatch):
+    import sys
+    import types
+    calls = []
+
+    async def fake_run(dp_path, model, force, concurrency):
+        calls.append((Path(dp_path).name, model))
+        return {}
+
+    monkeypatch.setitem(sys.modules, "describe_design_points", types.SimpleNamespace(run=fake_run))
+    run, sysmap = _cli_files(tmp_path)
+    assert cli.main([str(run), "--systems", str(sysmap), "--k", "2", "--n", "2"]) == 0
+    assert calls == [] and not list(tmp_path.glob("*_descriptions.json"))
+    assert cli.main([str(run), "--systems", str(sysmap), "--k", "2", "--n", "2", "--describe",
+                     "--describe-model", "openai/x"]) == 0
+    assert calls == [("c3_taxonomy_20261008_000000_design_points.json", "openai/x")]

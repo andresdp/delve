@@ -12,12 +12,16 @@ the run:
   diagnostics (eligible systems, shortfalls);
 - ``<run>_design_points_sheet.csv``: a blind rating sheet. Points are shuffled and
   carry no group; raters give a verdict (workable / conditional / unfeasible), the
-  conditions and a reason.
+  conditions and a reason;
+- with ``--describe`` (off by default, to save LLM calls): also
+  ``<run>_design_points_descriptions.json``, a short LLM description of each point
+  (``describe_design_points.py``; existing descriptions are reused).
 
 Usage::
 
     python benchmark/design_points.py examples/c3-git-at-scale/c3-git-at-scale_taxonomy_<ts>.json \\
-        --systems benchmark/c3-git-at-scale/passage_systems.csv [--attest-by primary] [--k 2 3] [--n 30] [--seed 42]
+        --systems benchmark/c3-git-at-scale/passage_systems.csv [--attest-by primary] [--k 2 3] [--n 30] [--seed 42] \\
+        [--describe [--describe-model openai/gpt-5.6-luna]]
 
 Attested support uses each passage's primary system by default: a passage that mainly
 describes one system and mentions another attests only the first.
@@ -49,6 +53,9 @@ def main(argv=None) -> int:
     parser.add_argument("--n", type=int, default=30, help="points per group and k (default: 30)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out-dir", type=Path, help="default: the run's folder")
+    parser.add_argument("--describe", action="store_true",
+                        help="also write a short LLM description of each point (off by default: no LLM calls)")
+    parser.add_argument("--describe-model", default="openai/gpt-5.6-luna", help="LLM for --describe")
     args = parser.parse_args(argv)
 
     path = Path(args.taxonomy)
@@ -77,6 +84,13 @@ def main(argv=None) -> int:
               + f" (requested {args.n} each); systems able to attest: {', '.join(eligible) or 'none'}"
               + (f"; {d['note']}" if d["note"] else ""))
     print(f"-> {out_dir / (stem + '_design_points.json')} and _design_points_sheet.csv")
+    if args.describe:
+        import asyncio
+        from dotenv import load_dotenv
+        sys.path.insert(0, str(HERE))
+        from describe_design_points import run as describe
+        load_dotenv()
+        asyncio.run(describe(out_dir / f"{stem}_design_points.json", args.describe_model, force=False, concurrency=6))
     return 0
 
 
