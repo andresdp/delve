@@ -432,4 +432,7 @@ def test_approach_page(tmp_path):
     html = (tmp_path / "html" / "approach.html").read_text(encoding="utf-8")
     assert 'src="assets/delve-pipeline.svg"' in html and (tmp_path / "html" / "assets" / "delve-pipeline.svg").exists()
     value = (tmp_path / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
-    assert value.count('href="../approach.html"') == 2  # header and sidebar
+    assert value.count('href="../approach.html"') == 2  # sidebar footer and page footer
+    assert 'class="sidebar-footer">About this wiki · <a href="../approach.html">' in value
+    top = value[:value.index("</header>")]
+    assert "approach.html" not in top  # not in the header navigation

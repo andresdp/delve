@@ -217,7 +217,7 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
     known = {p.path for p in export.pages}
     md = _md()
     paths = {p.path for p in export.pages}
-    quick = [(label, path) for label, path in [("Approach", "approach"), ("Overview", "synthesis/overview"), ("Contested", "synthesis/contested"),
+    quick = [(label, path) for label, path in [("Overview", "synthesis/overview"), ("Contested", "synthesis/contested"),
                                                 ("System matrix", "synthesis/system-matrix"),
                                                 ("Design points", "synthesis/design-points"),
                                                 ("Evaluation", "synthesis/evaluation"),
