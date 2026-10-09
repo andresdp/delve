@@ -416,3 +416,20 @@ def test_tree_has_dimensions_values_and_sources(tmp_path):
     assert 'id="theme-toggle"' in html and 'href="graph.html"' in html
     page = (tmp_path / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
     assert 'href="../tree.html">Tree view</a>' in page
+
+
+def test_approach_page(tmp_path):
+    export = build(_inputs(models={"generation_llm": "openai/gen"}, settings={"batch_size": 8, "edit_mode": "tools"}))
+    page = next(p for p in export.pages if p.path == "approach")
+    for heading in ("## What a design space is", "## Grounded theory in brief", "## The agents",
+                    "## The extraction workflow", "## LLM roles", "## What in this wiki is not mined", "## This run's settings"):
+        assert heading in page.body, heading
+    assert "| **Coder** |" in page.body and "| **Integrator** |" in page.body and "| Passages per minibatch | `8` |" in page.body
+    assert "[[approach|Approach]]" in next(p for p in export.pages if p.path == "index").body
+    plain = next(p for p in build(_inputs()).pages if p.path == "approach")
+    assert "## This run's settings" not in plain.body
+    write(export, tmp_path, "toy")
+    html = (tmp_path / "html" / "approach.html").read_text(encoding="utf-8")
+    assert 'src="assets/delve-pipeline.svg"' in html and (tmp_path / "html" / "assets" / "delve-pipeline.svg").exists()
+    value = (tmp_path / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
+    assert value.count('href="../approach.html"') == 2  # header and sidebar

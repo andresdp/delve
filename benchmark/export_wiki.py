@@ -101,12 +101,20 @@ def main(argv=None) -> int:
     m = re.search(r"_taxonomy_(\d{8}_\d{6})", path.name)
     run_label = m.group(1) if m else path.stem
     name = taxonomy.get("taxonomy_name") or path.stem.split("_taxonomy_")[0]
-    use_case, models = "", {}
+    use_case, models, settings = "", {}, {}
     if args.config:
         cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
         use_case = ((cfg.get("taxonomy") or {}).get("use_case") or "").strip()
         models = {k: str(v) for k, v in (cfg.get("models") or {}).items()
                   if k in ("generation_llm", "evaluation_llm", "embedding") and v}
+        tx, pl = cfg.get("taxonomy") or {}, cfg.get("pipeline") or {}
+        settings = {"batch_size": pl.get("batch_size"), "edit_mode": tx.get("edit_mode"),
+                    "saturation_streak_threshold": tx.get("saturation_streak_threshold"),
+                    "saturation_min_corpus_fraction": tx.get("saturation_min_corpus_fraction"),
+                    "min_dimension_sources": tx.get("min_dimension_sources"),
+                    "min_candidate_decisions": tx.get("min_candidate_decisions"),
+                    "relevance_selection": tx.get("relevance_selection"), "merge_dimensions": tx.get("merge_dimensions"),
+                    "open_coding_input": (cfg.get("open_coding") or {}).get("input")}
     judge = (taxonomy.get("evaluation") or {}).get("model")
     if judge and not models.get("evaluation_llm"):
         models["evaluation_llm"] = str(judge)
@@ -155,7 +163,7 @@ def main(argv=None) -> int:
         design_points=design_points,
         use_case=use_case, narrative=narrative, evaluation=args.evaluation, models=models,
         case_icon=case_icon is not None, source_summaries=source_summaries, summary_model=summary_model,
-        point_descriptions=point_descriptions, point_model=point_model,
+        point_descriptions=point_descriptions, point_model=point_model, settings=settings,
         view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
     export = build(inp)
     export.manifest = {

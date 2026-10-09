@@ -200,6 +200,7 @@ def copy_images(assets: Path, case_icon: Path | None) -> None:
         sources["case-icon.svg"] = Path(case_icon)
     for name, src in sources.items():
         (assets / name).write_text(sized_svg(src.read_text(encoding="utf-8"), *IMAGE_SIZES[name]), encoding="utf-8")
+    shutil.copyfile(TEMPLATES / "delve-pipeline.svg", assets / "delve-pipeline.svg")
 
 
 def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str],
@@ -216,7 +217,7 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
     known = {p.path for p in export.pages}
     md = _md()
     paths = {p.path for p in export.pages}
-    quick = [(label, path) for label, path in [("Overview", "synthesis/overview"), ("Contested", "synthesis/contested"),
+    quick = [(label, path) for label, path in [("Approach", "approach"), ("Overview", "synthesis/overview"), ("Contested", "synthesis/contested"),
                                                 ("System matrix", "synthesis/system-matrix"),
                                                 ("Design points", "synthesis/design-points"),
                                                 ("Evaluation", "synthesis/evaluation"),
@@ -236,6 +237,7 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
             graph=rel(page.path, "graph.html") + (f"#node={node}" if node else ""),
             tree=rel(page.path, "tree.html"),
             quick=[{"label": l, "href": rel(page.path, html_file(p))} for l, p in quick],
+            approach=rel(page.path, "approach.html"),
             status=page.frontmatter.get("status", "")), encoding="utf-8")
 
     def tree_hrefs(node: Dict[str, Any]) -> Dict[str, Any]:
