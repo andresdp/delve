@@ -47,3 +47,60 @@ The probe moves by up to 5 points on an unchanged taxonomy, so its rates cannot 
 - The over-splitting seen against the expert models is not a set of obvious siblings that an LLM, asked with the same caution as the pipeline's merge judge ("when uncertain, keep them separate"), recognizes as one decision.
 - The pipeline already merges near-duplicate dimensions during consolidation (embedding distance plus an LLM judge), with a similar rule. The new pass adds nothing at that caution level.
 - A less cautious merge prompt would be a new experiment designed after seeing this result, so it would have to be reported as such.
+
+---
+
+## E2. Rehome values
+
+**Variant:** `-rehome`. One LLM call per dimension proposes, for each value, `keep`, `move` (to the dimension whose question it answers) or `outcome` (a goal, principle or effect) (prompt `src/taxonomy_generator/prompts/decision_focus_rehome.md`).
+
+**What happened:** no proposal was rejected and no call failed.
+
+| Case | Values moved | Candidate values turned into outcomes | Proposals for values already outcomes (no-ops) |
+|---|---|---|---|
+| C1 | 35 | 15 (11 accepted, 4 mixed) | 82 |
+| C2 | 23 | 4 (2 accepted, 1 mixed, 1 rejected) | 68 |
+| C3 | 26 | 9 (accepted) | 46 |
+
+The no-ops did not change the taxonomy. They were logged as applied operations; the pass now skips them and counts them as `unchanged`. No dimension was emptied, so the selections keep 30, 19 and 22 dimensions.
+
+**Ground-truth scores** (base → variant; Δ):
+
+| Metric | C1 paper | C1 model | C2 paper | C2 model |
+|---|---|---|---|---|
+| Decision P (strict) | 0.45 → 0.53 (+0.07) | 0.77 → 0.73 (−0.03) | 0.32 → 0.32 (0) | 0.37 → 0.37 (0) |
+| Decision R (strict) | 1.00 → 1.00 (0) | 0.82 → 0.79 (−0.04) | 0.86 → 0.86 (0) | 1.00 → 1.00 (0) |
+| Decision F1 (strict) | 0.63 → 0.69 (+0.06) | 0.79 → 0.76 (−0.03) | 0.46 → 0.46 (0) | 0.54 → 0.54 (0) |
+| Decision F1 (lenient) | 0.87 → 0.88 (+0.01) | 0.88 → 0.90 (+0.02) | 0.64 → 0.73 (+0.09) | 0.69 → 0.77 (+0.08) |
+| Option P | 0.38 → 0.40 (+0.02) | 0.58 → 0.61 (+0.02) | 0.41 → 0.42 (+0.01) | 0.42 → 0.43 (+0.01) |
+| Option R | 0.79 → 0.77 (−0.02) | 0.75 → 0.74 (−0.02) | 0.91 → 0.89 (−0.02) | 0.90 → 0.89 (−0.02) |
+| Option F1 | 0.51 → 0.52 (+0.01) | 0.66 → 0.66 (+0.01) | 0.56 → 0.57 (+0.01) | 0.57 → 0.58 (+0.00) |
+| Exact R | 0.16 → 0.16 (0) | 0.21 → 0.21 (+0.01) | 0.26 → 0.26 (0) | 0.27 → 0.27 (0) |
+| Placement | 0.82 → 0.83 (+0.01) | 0.86 → 0.87 (+0.01) | 0.67 → 0.70 (+0.03) | 0.68 → 0.75 (+0.08) |
+
+**Judge-noise counts (KTD6):**
+
+| Case | Pairs | Re-judged | Unchanged pairs | Label changes on unchanged pairs | By transition |
+|---|---|---|---|---|---|
+| C1 | 29,524 | 198 | 25,289 | 25 | judge→auto_rank 8, auto_rank→judge 17 |
+| C2 | 11,844 | 133 | 10,458 | 22 | judge→auto_rank 4, auto_rank→judge 18 |
+
+No change on unchanged pairs is judge-to-judge; all come from the matcher's nearest-neighbour routing, which shifts when values move.
+
+**Quality probe** (base → variant): focused rate C1 0.23 → 0.27, C2 0.53 → 0.53, C3 0.32 → 0.32; candidate values for another question C1 0.31 → 0.31, C2 0.20 → 0.23, C3 0.22 → 0.25. All within the probe's rerun noise (E1).
+
+**KTD3 verdict: dropped.**
+
+| Condition (C2 paper / C2 model / C1 model) | Result |
+|---|---|
+| Option precision or F1 rises by ≥ 0.03 | +0.009 / +0.009 / +0.024: fails |
+| Option recall drops by at most 0.03 | −0.018 / −0.016 / −0.017: passes |
+| Strict decision F1 does not drop | 0 / 0 / −0.035: fails on C1 |
+| Strict decision recall does not drop | 0 / 0 / −0.036: fails on C1 |
+| C2 placement rises | +0.026 / +0.075: passes |
+
+**Reading:**
+- Rehoming does what it targets on C2: placement rises (+0.03 / +0.08) and lenient decision alignment rises (+0.09 / +0.08), because values move to the decision points the experts would group them under.
+- It does not make the taxonomy closer to the experts at the level KTD3 requires. Option precision barely moves, because a move does not change whether a value matches an option. On C1's model view, strict decision alignment loses one expert decision: a decision point that matched it lost the values that made the match.
+- The probe does not see fewer off-question values after the moves, which suggests the probe's "other question" judgment and the rehome pass's move judgment disagree on many values, even with the same model.
+- The paper view of C1 improves (strict decision F1 +0.06), but it does not decide (Key Decisions).
