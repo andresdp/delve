@@ -71,8 +71,8 @@ The baseline scores show the consequence: recall is high but precision is low at
 
 ### Success Criteria
 
-- On C2 (both views) and C1 (model view), strict decision F1 rises and option recall drops by at most 0.03.
-- On C2, placement rises above the 0.67 / 0.68 baseline.
+- A variant is kept under KTD3, which is the single keep/drop rule.
+- On C2, placement rises above the 0.67 / 0.68 baseline for any kept variant that includes rehome.
 
 ### Scope Boundaries
 
@@ -104,19 +104,21 @@ The baseline scores show the consequence: recall is high but precision is low at
 
   The code applies the proposals through `TaxonomyEditor` in review mode (`merge_dimensions`, `move_value`, `set_status`), which validates each operation and records rejections. This is not the minibatch tool loop: that loop expects batch citations, and a post-hoc pass has no batch. Structured proposals are also cheaper and testable with a stub model.
 - KTD2. **Offline A/B on the saved runs.** Comparing a variant with its own base run removes run-to-run variation. The variant tool follows the `benchmark/selection_variant.py` pattern and writes a sibling `<name>-<variant>_taxonomy_<ts>.json`.
-- KTD3. **Keep/drop rule, fixed before E1 is scored.** A variant is kept only if, on C2 (paper and model view) and C1 (model view):
-  - option precision or option F1 rises;
+- KTD3. **Keep/drop rule, fixed before E1 is scored.** (session-settled: user-approved — chosen over the 10-08 rule without recall, placement or effect-size guards: one-to-one alignment rewards over-merging, and a single noisy pass could otherwise decide.) A variant is kept only if, on C2 (paper and model view) and C1 (model view):
+  - option precision or option F1 rises by at least 0.03;
+  - option recall drops by at most 0.03;
   - strict decision F1 does not drop;
-  - option recall drops by at most 0.03.
+  - strict decision recall does not drop;
+  - C2 placement does not drop; for a variant that includes rehome, C2 placement rises.
 
-  C1's paper view is reported but does not veto (see Key Decisions). The quality probe's focused rate is reported but does not decide: it uses the same LLM and similar criteria, so it would partly confirm itself.
+  A gain smaller than what the re-judged pairs could explain (KTD6) makes the verdict **inconclusive**, not kept. C1's paper view is reported but does not veto (see Key Decisions). The quality probe's focused rate is reported but does not decide: it uses the same LLM and similar criteria, so it would partly confirm itself.
 - KTD4. **Integration as an ablatable stage.** A kept pass runs behind `taxonomy.decision_focus` (default on), is recorded in the run record (P13), and is logged in the evaluation frame's "Changes after scores were seen" log in `benchmark/README.md`. The off setting is an ablation for the paper.
 - KTD5. **Experiments one at a time, in a fixed order.** (session-settled: user-directed — chosen over building all passes and scoring them together: each step should produce evidence before the next.) The order is E1 merge → E2 rehome → E3 merge then rehome, then E4 split only if needed. A later experiment does not start until the earlier one has a recorded verdict.
 - KTD6. **Score with the matcher as implemented, and control for judge noise.** (session-settled: user-directed — chosen over exact-only scoring: same, broader and narrower count as matches, with exact recall reported alongside.) The matcher serializes each value with its parent decision point, so a moved or merged value gets new judge calls rather than cached labels. Each results document therefore reports:
   - how many pairs were re-judged;
-  - how many pairs whose texts did not change flipped label.
+  - how many pairs whose texts did not change flipped label, split by how each label was produced (judge, cache, or the matcher's nearest-neighbour rule).
 
-  Unchanged pairs come from the cache, so flips there should be zero; a nonzero count means the comparison is not like-for-like and must be explained.
+  Only judge-to-judge changes on unchanged pairs indicate judge or cache inconsistency, and they should be zero. Other transitions come from the matcher's nearest-neighbour routing, which shifts when the set of values changes. `benchmark/focus_compare.py` computes these counts; a no-change C2 variant reproduced the baseline exactly (0 re-judged pairs, 0 label changes).
 - KTD7. **The merge pass favors fewer, broader decision points only when the options answer one choice.** Its prompt keeps the existing rule that "how to detect" and "how to mitigate" are separate decisions (as in `prompts/dimension_merge.md`). A merged group needs a stated shared question, and the editor rejects merges that create a duplicate name.
 
 ### High-Level Technical Design
@@ -142,7 +144,7 @@ U1 → U2 → U3 runs once per experiment (E1, then E2, then E3). U4 runs only a
 
 ### Risks
 
-- **Re-fragmentation or over-merging.** A merge can join decisions the experts keep apart. KTD3's decision-F1 and recall guards catch this.
+- **Re-fragmentation or over-merging.** A merge can join decisions the experts keep apart. KTD3's decision-recall guard catches this; decision F1 alone would not, because one-to-one alignment rewards fewer decision points.
 - **Self-grading.** luna both edits and judges. The ground-truth scores decide, not the probe.
 - **Judge noise.** Changed texts are re-judged, and the judge choice has moved C2's score by about 0.2 before. KTD6 makes the noise visible.
 - **Moved values keep their evidence links.** The C3 attested design points must be re-derived, not reused.
@@ -224,9 +226,9 @@ U1 → U2 → U3 runs once per experiment (E1, then E2, then E3). U4 runs only a
 
 - **Goal:** run the kept pass inside the pipeline, behind a switch.
 - **Requirements:** R8; KTD4.
-- **Dependencies:** U3 with at least one kept variant.
+- **Dependencies:** U3 with at least one kept variant; the P13 run record (`docs/paper/PRE_FREEZE_TODO.md` §4).
 - **Files:**
-  - `src/taxonomy_generator/graph.py` and the node wiring;
+  - `src/taxonomy_generator/nodes/value_consolidator.py` (the pass runs at its end);
   - `src/taxonomy_generator/settings.py`, `src/taxonomy_generator/configuration.py` (switch);
   - `config.yaml` (documented setting);
   - the C1/C2/C3 study configs under `examples/`;
@@ -234,7 +236,7 @@ U1 → U2 → U3 runs once per experiment (E1, then E2, then E3). U4 runs only a
   - `benchmark/README.md` (change log);
   - `tests/unit_tests/test_decision_focus.py` (graph-level tests).
 - **Approach:**
-  1. Add the kept pass sequence after consolidation and before selection, behind `taxonomy.decision_focus`.
+  1. Run the kept pass sequence at the end of value consolidation (after evidence linking and dropping unsupported values), behind `taxonomy.decision_focus`. A separate graph node would add an entry to the run's append-only iteration list and break iteration numbering in reports.
   2. Save the focus log with the run, following the four-step recipe in `docs/solutions/architecture-patterns/surface-langgraph-node-output-through-state-schema-to-cli-and-report.md`.
   3. Add the frame change-log entry.
 - **Test scenarios:**
