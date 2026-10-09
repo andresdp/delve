@@ -47,7 +47,7 @@ from taxonomy_generator.html_report import (  # noqa: E402
 from taxonomy_generator.evaluation.design_points import load_system_map as dp_system_map, sample_points  # noqa: E402
 from taxonomy_generator.wiki import Inputs, build, write  # noqa: E402
 from taxonomy_generator.wiki.model import (  # noqa: E402
-    load_corpus, load_source_summaries, load_sources, load_system_map, load_system_names)
+    load_corpus, load_point_descriptions, load_source_summaries, load_sources, load_system_map, load_system_names)
 
 EXPORTER_VERSION = "1"
 
@@ -82,6 +82,9 @@ def main(argv=None) -> int:
                                      "default: the sibling *_report_<timestamp>.md, if any")
     ap.add_argument("--evaluation", action="store_true",
                     help="add a page with the run's evaluation (criteria scores, reasons, scores across iterations)")
+    ap.add_argument("--design-point-descriptions",
+                    help="*_design_points_descriptions.json from benchmark/describe_design_points.py "
+                         "(default: next to --design-points, or the run's when sampling at export)")
     ap.add_argument("--source-summaries", help="source_summaries.json from benchmark/summarize_sources.py "
                                                "(default: next to --sources, if any)")
     ap.add_argument("--case-icon", help="SVG icon of the case study (default: icon.svg in the --sources folder, if any)")
@@ -135,6 +138,14 @@ def main(argv=None) -> int:
                          "seed": args.dp_seed, "n": args.dp_n,
                          "samples": sample_points(view or [], doc_systems, args.dp_k, args.dp_n, args.dp_seed)}
 
+    descriptions_path = Path(args.design_point_descriptions) if args.design_point_descriptions else None
+    if descriptions_path is None and design_points is not None:
+        guess = (Path(args.design_points).with_name(Path(args.design_points).stem + "_descriptions.json")
+                 if args.design_points else path.parent / f"{path.with_suffix('').name}_design_points_descriptions.json")
+        descriptions_path = guess if guess.exists() else None
+    point_descriptions, point_model = (load_point_descriptions(descriptions_path)
+                                       if descriptions_path and design_points is not None else ({}, ""))
+
     inp = Inputs(
         taxonomy=taxonomy, taxonomy_name=name, run_label=run_label,
         corpus=load_corpus(Path(args.corpus)) if args.corpus else {},
@@ -144,6 +155,7 @@ def main(argv=None) -> int:
         design_points=design_points,
         use_case=use_case, narrative=narrative, evaluation=args.evaluation, models=models,
         case_icon=case_icon is not None, source_summaries=source_summaries, summary_model=summary_model,
+        point_descriptions=point_descriptions, point_model=point_model,
         view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
     export = build(inp)
     export.manifest = {
@@ -151,7 +163,8 @@ def main(argv=None) -> int:
         "corpus": _rel(args.corpus), "sources": _rel(args.sources), "systems": _rel(args.systems),
         "system_names": _rel(args.system_names), "design_points": _rel(args.design_points) or ("sampled at export (k=%s, n=%d, seed=%d)" % (
             " ".join(map(str, args.dp_k)), args.dp_n, args.dp_seed) if args.sample_design_points else None),
-        "config": _rel(args.config), "report": _rel(report), "case_icon": _rel(case_icon), "source_summaries": _rel(summaries_path), "models": models, "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
+        "config": _rel(args.config), "report": _rel(report), "case_icon": _rel(case_icon), "source_summaries": _rel(summaries_path),
+        "design_point_descriptions": _rel(descriptions_path) if point_descriptions else None, "models": models, "evaluation": args.evaluation, "quotes": not args.no_quotes, "quote_words": args.quote_words,
         "pages": len(export.pages), "graph_nodes": len(export.graph["nodes"]), "graph_edges": len(export.graph["edges"]),
     }
     out = args.out or path.parent / f"{path.with_suffix('').name}_wiki"

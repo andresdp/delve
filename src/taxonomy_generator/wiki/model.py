@@ -65,6 +65,8 @@ class Inputs:
     case_icon: bool = False
     source_summaries: Dict[str, str] = field(default_factory=dict)
     summary_model: str = ""
+    point_descriptions: Dict[str, str] = field(default_factory=dict)
+    point_model: str = ""
     view: str = "selected"
     quotes: bool = True
     quote_words: int = 60
@@ -148,6 +150,18 @@ def load_source_summaries(path: Path) -> Tuple[Dict[str, str], str]:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     summaries = {sid: (entry or {}).get("summary", "") for sid, entry in (data.get("summaries") or {}).items()}
     return {k: v for k, v in summaries.items() if v}, str(data.get("model") or "")
+
+
+def load_point_descriptions(path: Path) -> Tuple[Dict[str, str], str]:
+    """Design-point signature → description, and the model that wrote them (describe_design_points.py output)."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    out = {sig: (entry or {}).get("description", "") for sig, entry in (data.get("descriptions") or {}).items()}
+    return {k: v for k, v in out.items() if v}, str(data.get("model") or "")
+
+
+def point_signature(point: Mapping[str, Any]) -> str:
+    """Same key as taxonomy_generator.evaluation.design_points.point_signature."""
+    return "|".join(sorted(f"{s.get('dimension_id')}={s.get('value_id')}" for s in point.get("values") or []))
 
 
 def first_sentence(text: str) -> str:
@@ -573,7 +587,6 @@ class _Builder:
     def point_page(self, p: Mapping[str, Any]) -> None:
         pid = p["point_id"]
         group = p.get("group")
-        tag = p.get("system") or p.get("control")
         title = f"Design point {pid}"
         fm = {"group": group, "k": p.get("k")}
         if p.get("system"):
@@ -581,8 +594,14 @@ class _Builder:
         if p.get("control"):
             fm["control"] = p["control"]
         fm["tags"] = ["design-point", str(group)]
-        lines = [f"# {title}", "", f"**Group:** {group}" + (f" ({tag})" if tag else ""), "",
-                 "| Dimension | Value | Status |", "|---|---|---|"]
+        lines = [f"# {title}", ""]  # group, k, system or control are in the frontmatter (property table)
+        description = self.inp.point_descriptions.get(point_signature(p))
+        if description:
+            by = f" by `{self.inp.point_model}`" if self.inp.point_model else ""
+            lines += ["## Description", "", description, "",
+                      f"*Description of the combination generated{by} from the values below, without knowing the "
+                      "point's group; it is not part of the mining.*", ""]
+        lines += ["## Values", "", "| Dimension | Value | Status |", "|---|---|---|"]
         for s in p.get("values") or []:
             did, vid = str(s.get("dimension_id")), str(s.get("value_id"))
             dim = link(self.dim_path[did], s.get("dimension")) if did in self.dim_path else s.get("dimension")
@@ -684,8 +703,11 @@ class _Builder:
                     self.edges.append({"source": "y:" + code, "target": "v:" + str(v.get("id")), "type": "system", "weight": n})
         for p in points:
             pid = p["point_id"]
-            self.nodes.append({"id": "p:" + pid, "kind": "design", "label": pid, "group": p.get("group"), "k": p.get("k"),
-                               "tag": p.get("system") or p.get("control") or "", "href": self.point_path[pid]})
+            node = {"id": "p:" + pid, "kind": "design", "label": pid, "group": p.get("group"), "k": p.get("k"),
+                    "tag": p.get("system") or p.get("control") or "", "href": self.point_path[pid]}
+            if self.inp.point_descriptions.get(point_signature(p)):
+                node["description"] = self.inp.point_descriptions[point_signature(p)]
+            self.nodes.append(node)
             for s in p.get("values") or []:
                 if self.value_path.get(str(s.get("value_id"))):
                     self.edges.append({"source": "p:" + pid, "target": "v:" + str(s.get("value_id")), "type": "design"})

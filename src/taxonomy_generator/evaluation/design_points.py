@@ -194,3 +194,8 @@ def sample_points(clusters: List[Mapping[str, Any]], doc_systems: Optional[Mappi
     for number, idx in enumerate(order, start=1):
         points[idx]["point_id"] = f"P{number:03d}"
     return samples
+
+
+def point_signature(point: Mapping[str, Any]) -> str:
+    """Stable key of a design point: its sorted ``dimension_id=value_id`` pairs (independent of the point id)."""
+    return "|".join(sorted(f"{s.get('dimension_id')}={s.get('value_id')}" for s in point.get("values") or []))

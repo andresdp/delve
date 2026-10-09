@@ -337,3 +337,31 @@ def test_cli_picks_up_source_summaries_next_to_sources(tmp_path):
     assert cli.main([str(run), "--sources", str(sources)]) == 0
     md = (tmp_path / "toy_taxonomy_20261008_000000_wiki" / "wiki" / "sources" / "s1.md").read_text(encoding="utf-8")
     assert "Spokes keeps replicas in sync." in md
+
+
+def test_design_point_descriptions_are_rendered_by_combination():
+    from taxonomy_generator.evaluation.design_points import point_signature as sampler_signature
+    from taxonomy_generator.wiki.model import point_signature
+    p1 = POINTS["samples"][0]["groups"]["attested"][0]
+    assert point_signature(p1) == sampler_signature(p1) == "1=1.1|2=2.1"
+    export = build(_inputs(design_points=POINTS, point_descriptions={"1=1.1|2=2.1": "A quorum of disk replicas."},
+                           point_model="openai/gen"))
+    page = next(p for p in export.pages if p.path == "designs/p001")
+    assert "## Description" in page.body and "A quorum of disk replicas." in page.body
+    assert "without knowing the point's group" in page.body
+    other = next(p for p in export.pages if p.path == "designs/p002")
+    assert "## Description" not in other.body
+    node = next(n for n in export.graph["nodes"] if n["id"] == "p:P001")
+    assert node["description"] == "A quorum of disk replicas."
+
+
+def test_cli_finds_descriptions_next_to_the_design_points(tmp_path):
+    run, sysmap = _cli_run(tmp_path)
+    dp = tmp_path / "toy_design_points.json"
+    dp.write_text(json.dumps(POINTS), encoding="utf-8")
+    (tmp_path / "toy_design_points_descriptions.json").write_text(json.dumps(
+        {"model": "openai/gen", "descriptions": {"1=1.2|2=2.1": {"point_id": "P002", "description": "A WAL with 3PC."}}}),
+        encoding="utf-8")
+    assert cli.main([str(run), "--design-points", str(dp)]) == 0
+    md = (tmp_path / "toy_taxonomy_20261008_000000_wiki" / "wiki" / "designs" / "p002.md").read_text(encoding="utf-8")
+    assert "A WAL with 3PC." in md
