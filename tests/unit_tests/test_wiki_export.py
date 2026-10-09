@@ -365,3 +365,21 @@ def test_cli_finds_descriptions_next_to_the_design_points(tmp_path):
     assert cli.main([str(run), "--design-points", str(dp)]) == 0
     md = (tmp_path / "toy_taxonomy_20261008_000000_wiki" / "wiki" / "designs" / "p002.md").read_text(encoding="utf-8")
     assert "A WAL with 3PC." in md
+
+
+def test_graph_nodes_carry_descriptions_and_pages_show_the_case_icon(tmp_path):
+    export = build(_inputs(source_summaries={"s1": "A Spokes post."}, case_icon=True))
+    nodes = {n["id"]: n for n in export.graph["nodes"]}
+    assert nodes["d:1"]["description"] == "Where does the truth live?" and "description_note" not in nodes["d:1"]
+    assert nodes["v:1.1"]["description"] == "Disk quorum description."
+    assert nodes["s:s1"]["description"] == "A Spokes post." and "Generated" in nodes["s:s1"]["description_note"]
+    assert "description" not in nodes["s:s2"]
+    icon = tmp_path / "icon.svg"
+    icon.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>', encoding="utf-8")
+    write(export, tmp_path / "out", "toy", icon)
+    value = (tmp_path / "out" / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
+    assert 'class="page-case-icon"' in value and 'src="../assets/case-icon.svg"' in value
+    index = (tmp_path / "out" / "html" / "index.html").read_text(encoding="utf-8")
+    assert 'class="page-case-icon"' not in index
+    write(build(_inputs()), tmp_path / "plain", "toy")
+    assert 'page-case-icon' not in (tmp_path / "plain" / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")

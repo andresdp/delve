@@ -675,11 +675,13 @@ class _Builder:
     def graph_data(self, points: Sequence[Mapping[str, Any]]) -> None:
         for d in self.dims:
             did = str(d.get("id"))
-            self.nodes.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did]})
+            self.nodes.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did],
+                               "description": d.get("description") or ""})
             for v in d.get("values") or []:
                 vid = str(v.get("id"))
                 self.nodes.append({"id": "v:" + vid, "kind": "value", "label": v.get("label"), "status": v.get("status"),
-                                   "href": self.value_path[vid], "dimension": d.get("name")})
+                                   "href": self.value_path[vid], "dimension": d.get("name"),
+                                   "description": v.get("description") or ""})
                 self.edges.append({"source": "d:" + did, "target": "v:" + vid, "type": "has_value"})
             for r in d.get("relations") or []:
                 t = str(r.get("target_id"))
@@ -687,7 +689,10 @@ class _Builder:
                     self.edges.append({"source": "d:" + did, "target": "d:" + t, "type": "relation",
                                        "relation": r.get("type")})
         for sid in self.source_ids:
-            self.nodes.append({"id": "s:" + sid, "kind": "source", "label": self.source_title(sid), "href": self.source_path[sid]})
+            node = {"id": "s:" + sid, "kind": "source", "label": self.source_title(sid), "href": self.source_path[sid]}
+            if self.inp.source_summaries.get(sid):
+                node.update(description=self.inp.source_summaries[sid], description_note="Generated summary of the source.")
+            self.nodes.append(node)
         pairs: Dict[Tuple[str, str], Set[str]] = defaultdict(set)
         for d in self.dims:
             for v in d.get("values") or []:
@@ -697,7 +702,8 @@ class _Builder:
             stance = "both" if "both" in stances or {"accepts", "rejects"} <= stances else sorted(stances)[0]
             self.edges.append({"source": "s:" + sid, "target": "v:" + vid, "type": "evidence", "stance": stance})
         for code in self.system_codes:
-            self.nodes.append({"id": "y:" + code, "kind": "system", "label": self.system_title(code), "href": self.system_path[code]})
+            self.nodes.append({"id": "y:" + code, "kind": "system", "label": self.system_title(code), "href": self.system_path[code],
+                               "description": (self.inp.system_names.get(code) or {}).get("description", "")})
             for did, items in sorted(self.system_support(code).items()):
                 for v, n in items:
                     self.edges.append({"source": "y:" + code, "target": "v:" + str(v.get("id")), "type": "system", "weight": n})
@@ -707,6 +713,7 @@ class _Builder:
                     "tag": p.get("system") or p.get("control") or "", "href": self.point_path[pid]}
             if self.inp.point_descriptions.get(point_signature(p)):
                 node["description"] = self.inp.point_descriptions[point_signature(p)]
+                node["description_note"] = "Generated description of the combination."
             self.nodes.append(node)
             for s in p.get("values") or []:
                 if self.value_path.get(str(s.get("value_id"))):
