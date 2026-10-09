@@ -315,6 +315,27 @@ The official track permits 10 pages plus up to 2 pages for references, requires 
 - **Anonymity:** the repository name, the GitHub Pages sample wiki (`andresdp.github.io/delve`) and the published C3 sample identify the authors. Use an anonymized artifact for review and do not link these.
 - Measure human effort before claiming researcher-time savings; extraction API cost is a different outcome.
 
-### 9.6 Draft provenance
+### 9.6 Title ideas (2026-10-09)
+
+The current title stays until one is chosen.
+
+Preferred:
+- **Delving into Design Spaces through Agentic Mining of Technical Documents**
+- **Agentic Mining of Architectural Design Spaces from Technical Documents**: this one has no pun on the tool's name, which suits the double-anonymous submission; the "Delving" title could then be the camera-ready version.
+
+Other candidates:
+- Delving into Design Spaces: Agentic Mining of Architectural Decisions from Technical Documents
+- Mining Architectural Design Spaces from Textual Sources with LLM Agents
+- An Agentic Workflow for Mining Architectural Design Spaces from Gray Literature
+- Coding, Critiquing, Consolidating: An Agentic Workflow for Mining Design Spaces
+- Can LLM Agents Recover the Design Decisions That Experts Found? (only if the results are strong)
+
+Notes:
+- **Corpus wording:** "Technical Documents" or "Textual Sources" are broad without claiming more than the evaluation covers; the cases themselves are practitioner (gray) literature. "Text" alone overreaches.
+- **Avoid:**
+  - "Grounded Theory" as a claim in the title; Delve uses grounded-theory techniques, not a full study;
+  - "Compiling", which suggests a deterministic translation.
+
+### 9.7 Draft provenance
 
 The 7 October version was prepared from an archive of commit `48a2fd1` and planning notes. This revision (9 October) updates it to the implementation on `main` at `e86c319`. Implementation claims were checked against the code and study configurations; corpus sizes were computed from the local corpora; preliminary observations come from the results notes cited in §9.2. No new experiments were run for this revision.
