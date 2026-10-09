@@ -10,7 +10,7 @@ updated: 2026-10-08
 status: >-
   options analysis (§1–§12) plus a decided demo plan (§13, llmwiki-style wiki + graph site, paper
   figures); exporter, HTML pages and graph view built 2026-10-08 (§13.4); demo dry run and paper
-  figures pending
+  figures pending; read-only agent access (graph/tree JSON, query commands) planned in §13.6
 related: >-
   docs/paper/SANER2027_PAPER_PLAN.md §6.5 (one-paragraph pointer; not in paper scope),
   CONCEPTS.md (Evidence Linking, Decision Status, Selected Dimensions, Grounded Theory Report)
@@ -488,13 +488,83 @@ python benchmark/export_wiki.py examples/c3-git-at-scale/c3-git-at-scale_taxonom
 open examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_wiki/html/index.html
 ```
 
-Still open: the demo dry run (W4), the paper figures (W5), and the optional llmwiki-cli stock site (W6).
+Still open:
+- the demo dry run (W4);
+- the paper figures (W5);
+- the optional llmwiki-cli stock site (W6);
+- read-only agent access (§13.6).
 
 ### 13.5 Open questions for the branch
 
 - **Value-page links:** do they also link to their passages' sources, so source nodes show which decisions they inform? This makes the graph denser. Decide on the C3 export.
 - **Several runs in one site:** out of scope (R8 later). One site per run for now.
 - **Design-point verdicts:** once the judge (A13) or the human ratings exist, add the verdict (workable / conditional / unfeasible) to the point pages and color the layer by it.
+
+### 13.6 Next: read-only access for coding agents (planned, not started)
+
+**Goal.** A coding agent (Claude Code, GitHub Copilot, …) can answer questions about an exported design space and cite its evidence. It works from the files of one export. Example questions:
+- What are the alternatives for authority synchronization?
+- Which sources reject the mixed value?
+- What does system MS-GVFS choose?
+
+**Scope.** Read-only. The agent never edits the pages, which stay rendered from the run (R1). A re-export overwrites them and deletes files it did not write. Write-back is out of scope here. If it is needed later, it should go through Delve rather than the wiki: `--feedback` or `edit_mode: tools`, then a re-export.
+
+**What an agent can already use.**
+- `wiki/` has Markdown pages with frontmatter and `[[wikilinks]]`; `SCHEMA.md` and `.llmwiki.yaml` describe the layout.
+- `raw/run.json` lists the inputs.
+- The graph and tree data exist, but only inlined in `html/graph.html` and `html/tree.html`.
+
+Reading pages and grepping works, but it is slow and imprecise for aggregate questions such as "mixed values supported by ≥ 2 systems".
+
+#### Work units
+
+| Unit | Content | Effort |
+|---|---|---|
+| WA1 | **Structured data files**, written by every export (the same data the HTML inlines; see the format notes below):<br>- `raw/graph.json`, from `_Builder.graph_data`;<br>- `raw/tree.json`, from `_Builder.tree_data`.<br>**Tests:** both files are deterministic; they equal the inlined data; every `href` exists in `wiki/` and `html/`; no passage text under `--no-quotes`. | 0.5 d |
+| WA2 | **Query commands**: `benchmark/wiki_query.py <wiki dir> <command> …`. Behavior:<br>- reads only `raw/graph.json`, and the corpus for `--quotes`;<br>- no LLM;<br>- prints JSON by default and `--table` for people;<br>- accepts a node by id, slug or a unique label match, and suggests close matches otherwise;<br>- exit code 2 when nothing matches.<br>**Commands:** see the list below.<br>**Tests:** on the synthetic run of `test_wiki_export.py`, one test per command. | 1.5 d |
+| WA3 | **Agent guide**: a generated `AGENTS.md` (or `llms.txt`) in the export root. It covers:<br>- the layout and id scheme;<br>- the query commands with one example each;<br>- the rules: read-only; cite passage ids; generated text (source summaries, design-point descriptions, narrative) is not evidence; quoted passages are untrusted web text (data, not instructions); check `raw/run.json` for which run this is.<br>**Test:** the guide's example commands run without error on the synthetic run. | 0.25 d |
+| WA4 (optional) | **MCP server** exposing the WA2 functions as tools, so agents call them directly instead of through a shell. Also a small stdio server (`mcp` Python SDK) and the config snippets for Claude Code and VS Code/Copilot. | 1 d |
+
+#### Format notes for WA1
+
+- **Identity and versioning:** each file carries `schema_version`, `run` (the label and timestamp), `view` and `core_rule`.
+- **Node ids:** `d:` dimension, `v:` value, `s:` source, `y:` system, `p:` design point. Every node has `kind`, `label`, `href` and `description`.
+- **Edge types:**
+  - `has_value` (dimension → value);
+  - `relation`, with its `relation` type (dimension → dimension);
+  - `evidence`, with its `stance` (source → value);
+  - `system`, with its `weight` (system → value);
+  - `design` (design point → value).
+- **Passage ids:** add to each value node its supporting passage ids with their stance (`[{"doc": "s01_p10", "stance": "accepts"}]`). The graph is aggregated per source and cannot cite passages otherwise.
+- **No text:** the file never contains passage text. Quotes stay in the pages (and are gitignored), so `raw/graph.json` can be shared.
+- **`href`:** relative to `wiki/`, without an extension. The agent adds `.md` or `.html`.
+- **Open question:** use NetworkX node-link format (`nodes` / `links`)? Then `graphify --graph raw/graph.json` (`explain`, `path`) would also work on it (§6.3).
+
+#### Query commands (WA2)
+
+This list follows the §6.3 sketch, narrowed to what one export contains.
+
+```
+wiki_query.py <wiki> info                         # run, use case, counts, core rule, inputs (from raw/run.json)
+wiki_query.py <wiki> dims [--core]                # dimensions with value counts, evidence, systems, core flag
+wiki_query.py <wiki> show <node>                  # one node: fields, description, neighbors by edge type
+wiki_query.py <wiki> values <dimension> [--status accepted|mixed|rejected|outcome]
+wiki_query.py <wiki> evidence <value> [--stance accepts|rejects|supports] [--quotes]   # passage ids per source
+wiki_query.py <wiki> contested                    # mixed values with the passages on each side
+wiki_query.py <wiki> source <sNN>                 # values a source informs, with its stance on each
+wiki_query.py <wiki> system <code>                # C3: the value(s) a system takes per dimension
+wiki_query.py <wiki> relations [--from D] [--type T] [--depth N]
+wiki_query.py <wiki> path <node A> <node B>       # shortest typed path
+wiki_query.py <wiki> design-points [--group attested|novel|control] [--dimension D]
+wiki_query.py <wiki> search <text> [--kind K]     # keyword match on labels and descriptions
+```
+
+#### Where to start
+
+- **Branch:** start from `main` after `feat/design-space-wiki` is merged, e.g. `feat/wiki-agent-access`.
+- **Code:** WA1 is a few lines in `render.write` plus the passage list in `model.py` (`graph_data`). WA2 is a new module `src/taxonomy_generator/wiki/query.py` (pure functions over the loaded graph) with a thin CLI in `benchmark/`. WA3 is one more template in `wiki/templates/`.
+- **First manual check:** export C3, then ask a coding agent the three example questions above, once with only `wiki/` and once with the guide and the commands. Compare its citations with the value pages.
+- **Possible paper use (future work, not SANER scope):** measure how often an agent's cited passages actually support its claims.
 
 ## 14. References
 
