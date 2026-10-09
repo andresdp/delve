@@ -234,8 +234,17 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
             icon=rel(page.path, "assets/delvedspace-icon.svg"),
             case_icon=rel(page.path, "assets/case-icon.svg") if case_icon else "",
             graph=rel(page.path, "graph.html") + (f"#node={node}" if node else ""),
+            tree=rel(page.path, "tree.html"),
             quick=[{"label": l, "href": rel(page.path, html_file(p))} for l, p in quick],
             status=page.frontmatter.get("status", "")), encoding="utf-8")
+
+    def tree_hrefs(node: Dict[str, Any]) -> Dict[str, Any]:
+        return {**node, "href": html_file(node["href"]),
+                "children": [tree_hrefs(c) for c in node.get("children") or []]}
+
+    (root / "tree.html").write_text(env.get_template("tree.html.j2").render(
+        name=name, data=json.dumps(tree_hrefs(export.tree), ensure_ascii=False).replace("</", "<\\/"),
+        has_case_icon=bool(case_icon)), encoding="utf-8")
 
     graph = {"nodes": [{**n, "href": html_file(n["href"])} for n in export.graph["nodes"]],
              "edges": export.graph["edges"]}

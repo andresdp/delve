@@ -395,3 +395,24 @@ def test_every_page_and_the_graph_have_the_theme_toggle(tmp_path):
         assert text.index('localStorage.getItem("delve-wiki-theme")') < text.index("<body"), f  # applied before drawing
     css = (tmp_path / "html" / "assets" / "style.css").read_text(encoding="utf-8")
     assert ':root[data-theme="dark"]' in css and ':root:not([data-theme="light"])' in css
+
+
+def test_tree_has_dimensions_values_and_sources(tmp_path):
+    export = build(_inputs())
+    tree = export.tree
+    assert tree["kind"] == "root" and tree["meta"] == "2 dimensions, 6 values, 2 sources"
+    assert [d["label"] for d in tree["children"]] == ["Replication", "Source of truth"]
+    truth = tree["children"][1]
+    assert [v["status"] for v in truth["children"]] == ["accepted", "mixed", "rejected"]
+    assert truth["meta"].startswith("3 values · evidence: 3 docs from 2 sources")
+    wal = truth["children"][1]
+    assert [(s["label"], s["stance"]) for s in wal["children"]] == [("s1", "rejects"), ("s2", "accepts")]
+    assert {n["kind"] for n in [tree, *tree["children"], *truth["children"], *wal["children"]]} == {
+        "root", "dimension", "value", "source"}
+    write(export, tmp_path, "toy")
+    html = (tmp_path / "html" / "tree.html").read_text(encoding="utf-8")
+    data = json.loads(re.search(r'<script type="application/json" id="tree-data">(.*?)</script>', html, re.S).group(1))
+    assert data["children"][1]["href"] == "concepts/source-of-truth.html"
+    assert 'id="theme-toggle"' in html and 'href="graph.html"' in html
+    page = (tmp_path / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
+    assert 'href="../tree.html">Tree view</a>' in page

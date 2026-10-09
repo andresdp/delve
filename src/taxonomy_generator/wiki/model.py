@@ -77,6 +77,7 @@ class Export:
     pages: List[Page]
     graph: Dict[str, Any]
     manifest: Dict[str, Any]
+    tree: Dict[str, Any] = field(default_factory=dict)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
@@ -295,7 +296,8 @@ class _Builder:
         self.index_page(bool(points))
         self.graph_data(points)
         self.pages.sort(key=lambda p: (p.path != "index", p.path))
-        return Export(pages=self.pages, graph={"nodes": self.nodes, "edges": self.edges}, manifest={})
+        return Export(pages=self.pages, graph={"nodes": self.nodes, "edges": self.edges}, manifest={},
+                      tree=self.tree_data())
 
     def dimension_page(self, d: Mapping[str, Any]) -> None:
         did = str(d.get("id"))
@@ -670,6 +672,44 @@ class _Builder:
                 fm[key] = self.inp.models[key]
         fm["tags"] = ["index"]
         self.add("index", self.inp.taxonomy_name, "index", fm, "\n".join(lines))
+
+    # tree ----------------------------------------------------------------
+    def tree_data(self) -> Dict[str, Any]:
+        """Dimensions → values → supporting sources, as a nested tree (the CLI tree's shape)."""
+        dims = []
+        for d in sorted(self.dims, key=lambda d: d.get("name", "")):
+            did, ev = str(d.get("id")), d.get("evidence") or {}
+            values = []
+            ordered = sorted(d.get("values") or [], key=lambda v: (
+                STATUS_ORDER.index(v.get("status")) if v.get("status") in STATUS_ORDER else 9, v.get("label", "")))
+            for v in ordered:
+                by_source: Dict[str, List[str]] = defaultdict(list)
+                for doc in v.get("supporting_doc_ids") or []:
+                    by_source[source_of(str(doc))].append(self.stance(v, str(doc)))
+                sources = []
+                for sid in sorted(by_source, key=_natural):
+                    stances = set(by_source[sid])
+                    stance = "both" if "both" in stances or {"accepts", "rejects"} <= stances else sorted(stances)[0]
+                    n = len(by_source[sid])
+                    sources.append({"id": f"{v.get('id')}/s:{sid}", "kind": "source", "label": self.source_title(sid),
+                                    "href": self.source_path[sid], "stance": stance,
+                                    "meta": f"{stance}, {n} passage{'s' if n != 1 else ''}"})
+                n_docs = len(v.get("supporting_doc_ids") or [])
+                values.append({"id": "v:" + str(v.get("id")), "kind": "value", "label": v.get("label"),
+                               "status": v.get("status"), "href": self.value_path[str(v.get("id"))],
+                               "description": v.get("description") or "",
+                               "meta": f"{v.get('status')} · {n_docs} passage{'s' if n_docs != 1 else ''}",
+                               "children": sources})
+            meta = f"{len(values)} values"
+            if ev:
+                docs, srcs = ev.get("documents", 0), ev.get("sources", 0)
+                meta += (f" · evidence: {docs} doc{'s' if docs != 1 else ''} "
+                         f"from {srcs} source{'s' if srcs != 1 else ''}")
+            dims.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did],
+                         "description": d.get("description") or "", "meta": meta, "children": values})
+        values = sum(len(d["children"]) for d in dims)
+        return {"id": "root", "kind": "root", "label": self.inp.taxonomy_name, "href": "index",
+                "meta": f"{len(dims)} dimensions, {values} values, {len(self.source_ids)} sources", "children": dims}
 
     # graph ---------------------------------------------------------------
     def graph_data(self, points: Sequence[Mapping[str, Any]]) -> None:
