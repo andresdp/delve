@@ -136,7 +136,7 @@ def property_rows(page: Page, known: Iterable[str]) -> List[Dict[str, str]]:
     md = _md()
     rows = []
     for key, value in page.frontmatter.items():
-        if key in ("title", "tags") or value in (None, "", [], {}):
+        if key in ("title", "tags", "core") or value in (None, "", [], {}):
             continue
         if isinstance(value, dict):
             text = ", ".join(f"{k}: {v}" for k, v in value.items() if v is not None)
@@ -170,7 +170,8 @@ def nav(export: Export, current: Page) -> List[Dict[str, Any]]:
         if not pages:
             continue
         shelves.append({"label": label, "open": shelf_of(current.path) == shelf,
-                        "items": [{"title": p.title, "href": rel(current.path, html_file(p.path)),
+                        "items": [{"title": ("★ " if p.frontmatter.get("core") else "") + p.title,
+                                   "href": rel(current.path, html_file(p.path)),
                                    "status": p.frontmatter.get("status", ""), "current": p.path == current.path}
                                   for p in sorted(pages, key=_nav_key)]})
     return shelves

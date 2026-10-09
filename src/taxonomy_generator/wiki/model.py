@@ -68,6 +68,8 @@ class Inputs:
     point_descriptions: Dict[str, str] = field(default_factory=dict)
     point_model: str = ""
     settings: Dict[str, Any] = field(default_factory=dict)
+    core_min_sources: int = 2
+    core_min_systems: int = 2
     view: str = "selected"
     quotes: bool = True
     quote_words: int = 60
@@ -221,6 +223,25 @@ class _Builder:
         self.system_codes = sorted({p for doc in docs for p in [self.primary_system(doc)] if p})
         self.system_path = {s: "synthesis/systems/" + slugify(s, "system") for s in self.system_codes}
 
+    # core dimensions -------------------------------------------------------
+    def dim_systems(self, d: Mapping[str, Any]) -> List[str]:
+        """Systems whose passages support a candidate value of this dimension (primary system)."""
+        return sorted({s for v in d.get("values") or [] if v.get("status") in CANDIDATE_STATUSES
+                       for doc in v.get("supporting_doc_ids") or [] for s in [self.primary_system(doc)] if s})
+
+    def is_core(self, d: Mapping[str, Any]) -> bool:
+        """Core dimension: evidence from enough sources, or (with a system map) supported by enough systems."""
+        sources = int((d.get("evidence") or {}).get("sources") or 0)
+        if sources >= self.inp.core_min_sources:
+            return True
+        return bool(self.inp.systems) and len(self.dim_systems(d)) >= self.inp.core_min_systems
+
+    def core_rule(self) -> str:
+        rule = f"evidence from at least {self.inp.core_min_sources} sources"
+        if self.inp.systems:
+            rule += f", or supported by at least {self.inp.core_min_systems} systems"
+        return rule
+
     # lookups -------------------------------------------------------------
     def source_title(self, sid: str) -> str:
         row = self.inp.sources.get(sid)
@@ -308,11 +329,13 @@ class _Builder:
         ev = d.get("evidence") or {}
         rel_out = [(r, str(r.get("target_id"))) for r in d.get("relations") or [] if str(r.get("target_id")) in self.dim_by_id]
         rel_in = [(o, r) for o in self.dims for r in o.get("relations") or [] if str(r.get("target_id")) == did]
-        fm = {"id": did, "values": len(values),
+        fm = {"id": did, "core": self.is_core(d), "values": len(values),
               "candidate_values": sum(counts[s] for s in CANDIDATE_STATUSES), "outcomes": counts["outcome"],
               "evidence": {"codes": ev.get("codes"), "documents": ev.get("documents"), "sources": ev.get("sources")},
               "relations": [f"{r.get('type')} {link(self.dim_path[t], self.dim_by_id[t].get('name'))}" for r, t in rel_out],
-              "tags": ["dimension"]}
+              "tags": ["dimension"] + (["core"] if self.is_core(d) else [])}
+        if self.inp.systems:
+            fm["systems"] = [link(self.system_path[s], self.system_title(s)) for s in self.dim_systems(d)]
         lines = [f"# {d.get('name')}", "", d.get("description") or "", ""]
         lines += ["## Values", "", "| Value | Status | Passages |", "|---|---|---|"]
         for v in sorted(values, key=lambda v: (STATUS_ORDER.index(v.get("status")) if v.get("status") in STATUS_ORDER else 9, v.get("label", ""))):
@@ -414,9 +437,10 @@ class _Builder:
             lines += ["## Summary", "", self.inp.narrative.strip(), "",
                       "*Narrative summary written by the pipeline at the end of the run (from its report).*", ""]
         lines += ["## Run", ""] + self.run_summary() + ["", "## Dimensions and values", "",
-                  "| Dimension | Accepted | Mixed | Rejected | Outcomes |", "|---|---|---|---|---|"]
-        for d in sorted(self.dims, key=lambda d: d.get("name", "")):
-            row = [cell(link(self.dim_path[str(d.get('id'))], d.get("name")))]
+                  f"Core dimensions (★) have {self.core_rule()}; they are listed first.", "",
+                  "| Dimension | Core | Accepted | Mixed | Rejected | Outcomes |", "|---|---|---|---|---|---|"]
+        for d in sorted(self.dims, key=lambda d: (not self.is_core(d), d.get("name", ""))):
+            row = [cell(link(self.dim_path[str(d.get('id'))], d.get("name"))), "★" if self.is_core(d) else ""]
             for s in STATUS_ORDER:
                 row.append(cell(items([link(self.value_path[str(v.get('id'))], v.get("label"))
                                        for v in d.get("values") or [] if v.get("status") == s])))
@@ -643,8 +667,16 @@ class _Builder:
                   "the alternative answers found in the sources, each with a status: **accepted** (adopted), "
                   "**rejected** (considered and discarded), **mixed** (adopted by some sources, rejected by others) "
                   "or **outcome** (an effect of decisions, not a choice).*", ""]
-        for d in sorted(self.dims, key=lambda d: d.get("name", "")):
-            lines.append(f"- {link(self.dim_path[str(d.get('id'))], d.get('name'))}: {len(d.get('values') or [])} values")
+        core = [d for d in sorted(self.dims, key=lambda d: d.get("name", "")) if self.is_core(d)]
+        other = [d for d in sorted(self.dims, key=lambda d: d.get("name", "")) if not self.is_core(d)]
+        lines += [f"**Core dimensions** ({len(core)} of {len(self.dims)}) have {self.core_rule()}: the axes "
+                  "the sources share. The others rest on a single source or system.", ""]
+        if core:
+            lines += ["### Core", ""] + [f"- ★ {link(self.dim_path[str(d.get('id'))], d.get('name'))}: "
+                                         f"{len(d.get('values') or [])} values" for d in core]
+        if other:
+            lines += ["", "### Other", ""] + [f"- {link(self.dim_path[str(d.get('id'))], d.get('name'))}: "
+                                               f"{len(d.get('values') or [])} values" for d in other]
         synth = [("synthesis/overview", "Overview", "use case, run summary, narrative summary, and every dimension with its values by status"),
                  ("synthesis/contested", "Contested decisions", "values some sources adopt and others reject"),
                  ("synthesis/dropped", "Dropped and unsupported", "dimensions removed during selection, and values without evidence")]
@@ -799,6 +831,7 @@ class _Builder:
                 meta += (f" · evidence: {docs} doc{'s' if docs != 1 else ''} "
                          f"from {srcs} source{'s' if srcs != 1 else ''}")
             dims.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did],
+                         "core": self.is_core(d),
                          "description": d.get("description") or "", "meta": meta, "children": values})
         values = sum(len(d["children"]) for d in dims)
         return {"id": "root", "kind": "root", "label": self.inp.taxonomy_name, "href": "index",
@@ -809,11 +842,11 @@ class _Builder:
         for d in self.dims:
             did = str(d.get("id"))
             self.nodes.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did],
-                               "description": d.get("description") or ""})
+                               "description": d.get("description") or "", "core": self.is_core(d)})
             for v in d.get("values") or []:
                 vid = str(v.get("id"))
                 self.nodes.append({"id": "v:" + vid, "kind": "value", "label": v.get("label"), "status": v.get("status"),
-                                   "href": self.value_path[vid], "dimension": d.get("name"),
+                                   "href": self.value_path[vid], "dimension": d.get("name"), "core": self.is_core(d),
                                    "description": v.get("description") or ""})
                 self.edges.append({"source": "d:" + did, "target": "v:" + vid, "type": "has_value"})
             for r in d.get("relations") or []:

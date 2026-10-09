@@ -437,3 +437,27 @@ def test_approach_page(tmp_path):
     assert 'class="sidebar-footer">About this wiki · <a href="../approach.html">' in value
     top = value[:value.index("</header>")]
     assert "approach.html" not in top  # not in the header navigation
+
+
+def test_core_dimensions(tmp_path):
+    tax = _taxonomy()
+    tax["selected_clusters"][1]["evidence"]["sources"] = 1          # Replication: one source
+    no_map = build(_inputs(taxonomy=tax, systems={}))
+    dims = {p.path: p for p in no_map.pages if p.kind == "dimension"}
+    assert dims["concepts/source-of-truth"].frontmatter["core"] is True
+    assert dims["concepts/replication"].frontmatter["core"] is False
+    index = next(p for p in no_map.pages if p.path == "index").body
+    assert "### Core" in index and "### Other" in index and "- ★ [[concepts/source-of-truth|" in index
+    overview = next(p for p in no_map.pages if p.path == "synthesis/overview").body
+    assert overview.index("Source of truth") < overview.index("Replication")      # core first
+    # with the system map, Replication is supported by two systems (SPOKES, CONT): core
+    with_map = build(_inputs(taxonomy=tax))
+    rep = next(p for p in with_map.pages if p.path == "concepts/replication")
+    assert rep.frontmatter["core"] is True
+    assert {n["id"]: n.get("core") for n in with_map.graph["nodes"] if n["kind"] in ("dimension", "value")}["v:2.1"] is True
+    assert {d["label"]: d["core"] for d in no_map.tree["children"]} == {"Replication": False, "Source of truth": True}
+    write(no_map, tmp_path, "toy")
+    page = (tmp_path / "html" / "concepts" / "source-of-truth.html").read_text(encoding="utf-8")
+    assert "★ core dimension" in page and "★ Source of truth" in page            # badge and sidebar star
+    assert 'id="core-only"' in (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+    assert 'id="core-only"' in (tmp_path / "html" / "tree.html").read_text(encoding="utf-8")

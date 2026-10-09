@@ -118,6 +118,26 @@ Write the results to `docs/paper/results/<date>-decision-focus-ab.md` and apply 
 3. Run three seeds each if time allows.
 4. Re-run the design-point sampler (A12) and the probe on the new runs.
 
+## Related: dimension granularity (noted 2026-10-08, to address with this pass)
+
+- **Observation:** Delve mines more, finer-grained dimensions than human analysts write down:
+
+  | Case | Delve dimensions | Expert decisions |
+  |---|---|---|
+  | C1 | 30 | 10 (paper view) / 28 (model view) |
+  | C2 | 19 | 7 |
+  | C3 (first run, 48 passages) | 22 | no ground truth |
+
+- **Two causes:**
+  - **Corpus effects:** sources with operational or client-side detail yield single-system dimensions. In C3, four Spokes operations dimensions and six Scalar client dimensions.
+  - **C3's minimum support of 1:** five single-source dimensions survive.
+- **Not the fix: a cap** (`max_num_clusters`). It forces broad topics that bundle decisions (the probe's finding), and changing C3's settings after seeing the output would be post-hoc tuning.
+- **To decide here, validated on C1/C2 against the expert decision counts:**
+  - is the granularity too fine, or appropriately detailed?
+  - should this pass also merge sibling dimensions that answer parts of one decision?
+  - should minimum support be stricter for multi-source corpora?
+- **Meanwhile (presentation only):** the wiki marks **core dimensions** (evidence from at least 2 sources, or supported by at least 2 systems; `--core-min-sources`, `--core-min-systems`) and has core-only filters. In C3, 18 of 22 are core. Stricter thresholds (3/3, 11 core) drop every client-side dimension, so the threshold itself shapes what looks central.
+
 ## Risks
 
 - **Re-fragmentation:** splitting can undo the 10-05 gain in decision F1. KTD3's decision-F1 guard catches this.

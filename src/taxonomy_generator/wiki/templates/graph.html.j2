@@ -64,6 +64,10 @@
       {% if has_systems %}<label class="row"><input type="checkbox" data-kind="system"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L1.9,-2L6.4,-2L2.8,1L4.1,5.6L0,3L-4.1,5.6L-2.8,1L-6.4,-2L-1.9,-2Z" fill="var(--system)"/></svg>Systems</label>{% endif %}
       {% if has_designs %}<label class="row"><input type="checkbox" data-kind="design"><svg class="shape" viewBox="-7 -7 14 14"><path d="M0,-6.5L6.5,5.5L-6.5,5.5Z" fill="var(--novel)"/></svg>Design points</label>{% endif %}
     </fieldset>
+    <fieldset><legend>Dimensions</legend>
+      <label class="row"><input type="checkbox" id="core-only"> ★ core dimensions only</label>
+      <div class="hint">Core: evidence from several sources (or systems). Hides the other dimensions and their values.</div>
+    </fieldset>
     <fieldset><legend>Value status</legend>
       <label class="row"><input type="checkbox" data-status="accepted" checked><span class="sw" style="background:var(--accepted)"></span>accepted</label>
       <label class="row"><input type="checkbox" data-status="mixed" checked><span class="sw" style="background:var(--mixed)"></span>mixed (contested)</label>
@@ -163,10 +167,12 @@
     const statuses = new Set([...document.querySelectorAll("input[data-status]:checked")].map((i) => i.dataset.status));
     const groups = new Set([...document.querySelectorAll("input[data-group]:checked")].map((i) => i.dataset.group));
     const k = ksel ? ksel.value : "";
-    return { kinds, statuses, groups, k };
+    const coreOnly = document.getElementById("core-only").checked;
+    return { kinds, statuses, groups, k, coreOnly };
   }
   function visible(n, s) {
     if (!s.kinds.has(n.kind)) return false;
+    if (s.coreOnly && (n.kind === "dimension" || n.kind === "value") && !n.core) return false;
     if (n.kind === "value") return s.statuses.has(n.status);
     if (n.kind === "design") return s.groups.has(n.group) && (!s.k || String(n.k) === s.k);
     return true;

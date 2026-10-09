@@ -88,6 +88,10 @@ def main(argv=None) -> int:
     ap.add_argument("--source-summaries", help="source_summaries.json from benchmark/summarize_sources.py "
                                                "(default: next to --sources, if any)")
     ap.add_argument("--case-icon", help="SVG icon of the case study (default: icon.svg in the --sources folder, if any)")
+    ap.add_argument("--core-min-sources", type=int, default=2,
+                    help="core dimension: evidence from at least this many sources (default 2)")
+    ap.add_argument("--core-min-systems", type=int, default=2,
+                    help="or, with --systems, supported by at least this many systems (default 2)")
     ap.add_argument("--view", choices=["selected", "final"], default="selected")
     ap.add_argument("--no-quotes", action="store_true", help="passage ids only, no quoted text (shareable export)")
     ap.add_argument("--quote-words", type=int, default=60)
@@ -164,6 +168,7 @@ def main(argv=None) -> int:
         use_case=use_case, narrative=narrative, evaluation=args.evaluation, models=models,
         case_icon=case_icon is not None, source_summaries=source_summaries, summary_model=summary_model,
         point_descriptions=point_descriptions, point_model=point_model, settings=settings,
+        core_min_sources=args.core_min_sources, core_min_systems=args.core_min_systems,
         view=args.view, quotes=not args.no_quotes, quote_words=args.quote_words)
     export = build(inp)
     export.manifest = {

@@ -51,6 +51,8 @@
   <label><input type="checkbox" data-status="rejected" checked><span class="sw" style="background:var(--rejected)"></span>rejected</label>
   <label><input type="checkbox" data-status="outcome" checked><span class="sw" style="background:var(--outcome)"></span>outcome</label>
   <span class="sep"></span>
+  <label><input type="checkbox" id="core-only"> ★ core only</label>
+  <span class="sep"></span>
   <label><input type="checkbox" id="sources" checked><span class="sw" style="background:var(--source);border-radius:2px"></span>sources</label>
   <span class="count" id="count"></span>
 </div>
@@ -99,13 +101,15 @@
     return {
       statuses: new Set([...document.querySelectorAll("input[data-status]:checked")].map((i) => i.dataset.status)),
       sources: document.getElementById("sources").checked,
+      coreOnly: document.getElementById("core-only").checked,
       q: document.getElementById("q").value.trim().toLowerCase()
     };
   }
   // Copy of the tree with filters applied: hidden statuses and (optionally) sources removed; with a search,
   // only branches containing a match remain and they open automatically.
   function prune(node, f) {
-    let kids = (node.children || []).filter((c) => !(c.kind === "value" && !f.statuses.has(c.status))
+    let kids = (node.children || []).filter((c) => !(c.kind === "dimension" && f.coreOnly && !c.core)
+      && !(c.kind === "value" && !f.statuses.has(c.status))
       && !(c.kind === "source" && !f.sources)).map((c) => prune(c, f)).filter(Boolean);
     const self = !!f.q && String(node.label).toLowerCase().includes(f.q);
     const below = kids.some((k) => k._match || k._below);
@@ -138,7 +142,7 @@
     const a = node.append("a").attr("href", (d) => d.data.href);
     const text = a.append("text").attr("x", 11).attr("dy", "0.32em").attr("class", (d) => "label" + (d.data._match ? " match" : ""))
       .style("font-weight", (d) => d.data.kind === "dimension" || d.data.kind === "root" ? 600 : null);
-    text.append("tspan").text((d) => d.data.label);
+    text.append("tspan").text((d) => (d.data.core ? "★ " : "") + d.data.label);
     text.append("tspan").attr("class", "meta").attr("dx", 8).text((d) => d.data.meta ? "(" + d.data.meta + ")" : "")
       .style("fill", "var(--muted)").style("font-size", "12px").style("font-weight", 400);
     node.append("title").text((d) => d.data.description || d.data.label);
