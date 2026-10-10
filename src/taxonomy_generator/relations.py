@@ -237,6 +237,19 @@ def clean_relations(clusters: Iterable[dict], *, allowed: Iterable[str] = RELATI
     return result, dropped
 
 
+def relation_sentence(relation: dict, source_name: str, target_name: str) -> str:
+    """How to show a stored relation: its reading sentence from the current names (legacy types mapped).
+
+    The stored ``reading`` is kept as the model wrote it when the relation was created; display
+    sentences are rendered from the type and the current names, so renames never leave them stale.
+    An unknown type falls back to "source <type> target".
+    """
+    rtype = normalize_type(relation.get("type"))
+    if rtype is None:
+        return f"{source_name} {relation.get('type') or 'related to'} {target_name}"
+    return render_reading(source_name, rtype, target_name)
+
+
 def dropped_note(dropped: dict) -> str:
     """One log line for a relation :func:`clean_relations` dropped."""
     return (f"dropped relation {dropped['source_id']} -{dropped['type']}-> {dropped['target_id']}: "

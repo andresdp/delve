@@ -72,6 +72,10 @@ This is a **quality polish**, not a redesign. Only make changes when you identif
 - **Existing values are shown without their document ids**: their evidence is kept automatically when you keep the value's label (and, if you move it, its label). Keep existing labels verbatim unless relabeling is the purpose of an operation.
 - Do not radically restructure — this is a final polish, not a new iteration.
 
+## Relations Between Dimensions
+
+<!-- RELATION_GUIDE -->
+
 ## Requirements
 
 ### User Feedback Integration (CRITICAL)

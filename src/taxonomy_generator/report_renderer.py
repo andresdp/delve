@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Tuple
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import NARRATIVE_SUMMARY_PROMPT
+from taxonomy_generator.relations import RELATION_KINDS, normalize_type, relation_sentence
 from taxonomy_generator.schemas import NarrativeSummaryOutput
 from taxonomy_generator.utils import load_chat_model
 
@@ -123,10 +124,12 @@ def render_diagram(clusters: List[Cluster]) -> str:
             target_id = _relation_target_id(relation)
             if target_id not in rendered_ids:
                 continue
-            relation_type = relation.get("type") or "related_to"
+            relation_type = normalize_type(relation.get("type")) or relation.get("type") or "related_to"
             target_node_id = _mermaid_node_id(target_id)
             edge_label = _escape_mermaid_label(str(relation_type))
-            lines.append(f"    {node_id} -->|{edge_label}| {target_node_id}")
+            kind = RELATION_KINDS.get(relation_type)
+            edge = "---" if kind is not None and not kind.directed else "-->"
+            lines.append(f"    {node_id} {edge}|{edge_label}| {target_node_id}")
 
     lines.append("```")
     return "\n".join(lines)
@@ -236,19 +239,16 @@ def render_catalog(clusters: List[Cluster]) -> str:
                 if not isinstance(relation, dict):
                     continue
                 target_id = _relation_target_id(relation)
-                relation_type = relation.get("type") or "related_to"
                 rationale = relation.get("rationale") or ""
                 target_cluster = clusters_by_id.get(target_id)
+                source_name = cluster.get("name") or "Unnamed"
                 if target_cluster is not None:
                     target_name = target_cluster.get("name") or "Unnamed"
-                    lines.append(
-                        f"- **{relation_type}** → {target_name} (#{target_id}): {rationale}"
-                    )
+                    sentence = relation_sentence(relation, source_name, target_name)
+                    lines.append(f"- {sentence} (#{target_id}): {rationale}")
                 else:
-                    lines.append(
-                        f"- **{relation_type}** → #{target_id} "
-                        f"_(target excluded from this view)_: {rationale}"
-                    )
+                    sentence = relation_sentence(relation, source_name, f"#{target_id}")
+                    lines.append(f"- {sentence} _(target excluded from this view)_: {rationale}")
         else:
             lines.append("_No outgoing relations._")
         lines.append("")

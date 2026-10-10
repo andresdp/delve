@@ -155,7 +155,8 @@ def test_rewrite_prompts_are_the_files_verbatim():
 
     folder = Path(prompts.__file__).parent
     for prompt, name in ((TAXONOMY_UPDATE_PROMPT, "taxonomy_update.md"), (TAXONOMY_REVIEW_PROMPT, "taxonomy_review.md")):
-        assert prompt.messages[0].prompt.template == (folder / name).read_text().strip()
+        assert prompt.messages[0].prompt.template == prompts.read_prompt_file(name).strip()
+        assert prompts.RELATION_GUIDE_MARKER in (folder / name).read_text()
 
 
 def test_tools_prompts_keep_the_framework_and_drop_the_output_instructions():
@@ -221,3 +222,17 @@ def test_tools_prompts_state_the_granularity_of_decision_points():
     for prompt in (TAXONOMY_UPDATE_TOOLS_PROMPT, TAXONOMY_REVIEW_TOOLS_PROMPT):
         text = _system(prompt)
         assert "Granularity of decision points" in text and "merge_dimensions" in text
+
+
+def test_every_taxonomy_prompt_carries_the_relation_guide_once_without_legacy_names():
+    from taxonomy_generator.prompts import TAXONOMY_REVIEW_TOOLS_PROMPT, TAXONOMY_UPDATE_TOOLS_PROMPT
+    from taxonomy_generator.relations import DEFAULT_RELATION_TYPES, relation_guide
+
+    guide = relation_guide(DEFAULT_RELATION_TYPES)
+    for prompt in (TAXONOMY_GENERATION_PROMPT, TAXONOMY_UPDATE_PROMPT, TAXONOMY_REVIEW_PROMPT,
+                   TAXONOMY_UPDATE_TOOLS_PROMPT, TAXONOMY_REVIEW_TOOLS_PROMPT):
+        text = _system(prompt)
+        assert text.count(guide) == 1
+        assert "RELATION_GUIDE" not in text
+        for legacy in ("precondition", "co_occurring", "`consequence`"):
+            assert legacy not in text

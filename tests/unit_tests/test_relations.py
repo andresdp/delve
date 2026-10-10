@@ -146,3 +146,10 @@ def test_clean_relations_with_checks_drops_bad_readings_and_applies_the_cap():
     cleaned, dropped = clean_relations(dims, check=True, max_per_dimension=1)
     assert cleaned[0]["relations"] == [good]
     assert len(dropped) == 2
+
+
+def test_relation_sentence_maps_legacy_types_and_falls_back_for_unknown_ones():
+    from taxonomy_generator.relations import relation_sentence
+    assert relation_sentence({"type": "precondition"}, "Serving", "Packaging") == \
+        "Serving requires Packaging to be decided first"
+    assert relation_sentence({"type": "enables"}, "Serving", "Packaging") == "Serving enables Packaging"
