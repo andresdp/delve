@@ -77,6 +77,8 @@ my-space/
 | `ddspace query <command> …` | Read-only queries over the current wiki, JSON by default, `--table` for people (rich) | WA1–WA2 (§13.6) |
 | `ddspace ask "<question>"` | Answer a question in natural language from the current wiki, citing passage ids and linking pages; `--json` for agents | new: an LLM agent whose only tools are the `ddspace query` functions |
 | `ddspace agent setup [--claude] [--copilot]` | Write `AGENTS.md` (layout, `ddspace query` commands with examples, grounding rules); with `--claude`, a `CLAUDE.md` that imports it and an optional `.claude/settings.json` allow rule for `ddspace query`; with `--copilot`, `.github/copilot-instructions.md` pointing to it | WA3 |
+| `ddspace reset [--wiki-only] [--purge] [--include-caches]` | Start over: archive (default) or delete the runs and the wiki, keep sources and settings; asks for confirmation (see below) | new |
+| `ddspace mine --fresh` | Mine from scratch, ignoring the current run (no seeding); with `--reset`, runs `ddspace reset` first | `main.py` |
 | `ddspace status` | Workspace state: sources, corpus, runs, current run, wiki freshness, next suggested command | new |
 
 `ddspace query` subcommands (from §13.6 WA2): `info`, `dims [--core]`, `show <node>`, `values <dimension> [--stance …]`,
@@ -169,6 +171,28 @@ The tool is demonstrated end to end on C3, whose sources are public:
 
 The published C3 sample (GitHub Pages) is regenerated from this workspace once the OKF export lands.
 
+## Reset and re-create from scratch
+
+Useful after changing the use case, the models or major pipeline settings, or when updates have drifted: the user
+wants a clean design space, not one seeded with the current run.
+
+- `ddspace reset` shows what it will remove and what it keeps, then asks for confirmation (`--yes` skips the prompt for
+  scripts).
+  - **Removes:** `runs/`, `wiki/`, `site/`, the `raw/` query data, and the current-run pointer in `ddspace.yaml`.
+  - **Keeps:** `sources/`, `sources.csv`, `corpus.json`, `ddspace.yaml` settings (including the wiki answers), `.env`,
+    `AGENTS.md` and agent files.
+  - **Keeps by default, because they cost LLM calls:** stored source summaries and LLM caches (e.g. judge caches).
+    `--include-caches` removes them too. Design-point descriptions belong to a run and go with it.
+  - **Archive by default:** everything removed is moved to `.ddspace/archive/<timestamp>/` (gitignored), so a reset can
+    be undone by hand. `--purge` deletes instead, and asks again.
+  - `--wiki-only` removes only `wiki/`, `site/` and `raw/`, keeping the runs (e.g. to rebuild the wiki with other
+    options).
+- `ddspace mine --fresh` mines from scratch without seeding from the current run; `ddspace mine --fresh --reset`
+  resets first. Then `ddspace wiki build` as usual (its saved answers are reused).
+- After a reset, `log.md` starts over with a "**Reset**" entry naming the archive folder; with `--purge` it only
+  records the date.
+- `ddspace status` shows archived resets.
+
 ## Update flow
 
 1. `ddspace update --feedback …` or `ddspace update --test --sources new/*.pdf` → a new run in `runs/<ts>/`, recorded
@@ -183,14 +207,14 @@ The published C3 sample (GitHub Pages) is regenerated from this workspace once t
 | Unit | Content | Effort |
 |---|---|---|
 | T1 | CLI skeleton on Typer and rich, workspace model, `init` with interactive setup, `status`; move text extraction and corpus building into the package | 2–2.5 d |
-| T2 | `mine`, `update --feedback`, `update --test` as wrappers over the pipeline; cost/size estimate and confirm | 1–1.5 d |
+| T2 | `mine` (incl. `--fresh`), `update --feedback`, `update --test` as wrappers over the pipeline; cost/size estimate and confirm; `reset` | 1.5–2 d |
 | T3 | `wiki build` with interactive setup; OKF compliance (table above); `wiki check`; `wiki open/serve` | 2 d |
 | T4 | `wiki update`: run diff, `log.md`, deprecated pages | 1–1.5 d |
 | T5 | Agent access: `raw/graph.json`, `ddspace query` commands, generated `AGENTS.md` (WA1–WA3) | 2–2.5 d |
 | T6 | Packaging and docs: `pyproject` metadata and version, `pipx install`, README quickstart, a public sample workspace (C3 sample: public sources) | 1 d |
 | T7 | `ddspace ask` (see below) | 1–1.5 d |
 
-Total T1–T7: about 10–12.5 days. Reduced first version (if time is short): T1 without `status`, T2, T3, T4 with diff
+Total T1–T7: about 10.5–13 days. Reduced first version (if time is short): T1 without `status`, T2, T3, T4 with diff
 only (no deprecated pages), T5, T6, T7 without `--json`. About 8–9 days.
 
 **Packaging:** `[project.scripts]` `ddspace` and `delvedspace` → the Typer app; `[project] name = "delvedspace"`.
@@ -231,6 +255,9 @@ branches below are planned, not created; create them when the work starts.
 - `wiki build` on the synthetic run of `test_wiki_export.py`: OKF conformance (every non-reserved `.md` has `type`;
   `index.md` format; links resolve), no passage text with quotes off.
 - `wiki update`: diff and `log.md` on two synthetic runs.
+- `reset`: in a temp workspace, the default archives runs and wiki and keeps `sources/`, `ddspace.yaml`, `.env`,
+  `AGENTS.md` and caches; `--wiki-only`, `--include-caches` and `--purge` touch exactly their targets; `--yes` skips the
+  prompt; nothing is touched when the user declines.
 - `query`: one test per subcommand (WA2).
 - `mine`/`update` wrappers: argument mapping to `main.py` (no LLM calls in tests).
 
