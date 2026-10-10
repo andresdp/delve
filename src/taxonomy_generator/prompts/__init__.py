@@ -15,7 +15,7 @@ RELATION_GUIDE_MARKER = "<!-- RELATION_GUIDE -->"
 
 
 def read_prompt_file(name: str) -> str:
-    """A prompt file's text with the shared relation guide (relations.py) in place of its marker."""
+    """Read a prompt file, putting the shared relation guide (relations.py) in place of its marker."""
     guide = relation_guide(DEFAULT_RELATION_TYPES).replace("{", "{{").replace("}", "}}")
     return (_PROMPTS_DIR / name).read_text().replace(RELATION_GUIDE_MARKER, guide)
 

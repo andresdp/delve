@@ -24,7 +24,7 @@ from __future__ import annotations
 import copy
 import re
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -70,15 +70,15 @@ READING_DESCRIPTION = (
 _STOPWORDS = {"a", "an", "and", "the", "of", "on", "for", "to", "in", "or", "with", "by", "vs", "via"}
 
 
-def normalize_type(rtype: object) -> Optional[str]:
-    """The current name of a relation type (legacy names mapped), or ``None`` when it is not a relation type."""
+def normalize_type(rtype: object) -> str | None:
+    """Return the current name of a relation type (legacy names mapped), or ``None`` when it is not one."""
     name = str(rtype or "").strip()
     name = LEGACY_RELATION_TYPES.get(name, name)
     return name if name in RELATION_KINDS else None
 
 
 def render_reading(source_name: str, rtype: str, target_name: str) -> str:
-    """The canonical reading sentence of a relation."""
+    """Return the canonical reading sentence of a relation."""
     return RELATION_KINDS[normalize_type(rtype) or rtype].template.format(a=source_name, b=target_name)
 
 
@@ -94,7 +94,7 @@ def _find(sub: list[str], seq: list[str]) -> int:
     return -1
 
 
-def _position(name: str, other: str, words: list[str]) -> Optional[float]:
+def _position(name: str, other: str, words: list[str]) -> float | None:
     """Where ``name`` appears among ``words``: exact match, else most of its distinctive words; ``None`` if absent."""
     name_words = _tokens(name)
     if name_words and (start := _find(name_words, words)) >= 0:
@@ -115,7 +115,7 @@ def _verb_positions(rtype: str, words: list[str]) -> list[int]:
     return positions
 
 
-def check_reading(reading: str, source_name: str, target_name: str, rtype: str) -> Optional[str]:
+def check_reading(reading: str, source_name: str, target_name: str, rtype: str) -> str | None:
     """``None`` when ``reading`` states the relation ``source -rtype-> target``; otherwise why it does not."""
     rtype = normalize_type(rtype) or rtype
     if rtype not in RELATION_KINDS:
@@ -167,7 +167,7 @@ def _reaches(dims: dict[str, dict], start: str, goal: str, rtype: str) -> bool:
 
 def relation_problem(clusters: Iterable[dict], source_id: str, target_id: str, rtype: str, reading: str, *,
                      allowed: Iterable[str] = DEFAULT_RELATION_TYPES, check: bool = True,
-                     max_per_dimension: Optional[int] = None) -> Optional[str]:
+                     max_per_dimension: int | None = None) -> str | None:
     """Why ``source -rtype-> target`` cannot be added to ``clusters``, or ``None`` when it can.
 
     ``check`` compares ``reading`` with the type and names; ``max_per_dimension`` caps the
@@ -204,8 +204,8 @@ def relation_problem(clusters: Iterable[dict], source_id: str, target_id: str, r
 
 
 def clean_relations(clusters: Iterable[dict], *, allowed: Iterable[str] = RELATION_TYPES, check: bool = False,
-                    max_per_dimension: Optional[int] = None) -> tuple[list[dict], list[dict]]:
-    """A copy of ``clusters`` whose relations follow the rules, plus the relations dropped and why.
+                    max_per_dimension: int | None = None) -> tuple[list[dict], list[dict]]:
+    """Return a copy of ``clusters`` whose relations follow the rules, plus the relations dropped and why.
 
     Legacy type names are mapped; ``co_occurs_with`` is stored once per pair, on the dimension
     with the lower id; relations are kept in order while each one passes :func:`relation_problem`
@@ -257,7 +257,7 @@ def dropped_note(dropped: dict) -> str:
 
 
 def relation_guide(types: Iterable[str] = DEFAULT_RELATION_TYPES) -> str:
-    """The prompt block that explains relation types, their reading sentences and the rules (Markdown)."""
+    """Return the prompt block that explains relation types, their reading sentences and the rules."""
     rows = "\n".join(
         f"| `{t}` | {RELATION_KINDS[t].template.format(a='A', b='B')} | {RELATION_KINDS[t].meaning} |"
         for t in types)

@@ -25,7 +25,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
-from taxonomy_generator.relations import RELATION_KINDS, normalize_type, relation_sentence, render_reading
+from taxonomy_generator.relations import (
+    RELATION_KINDS,
+    normalize_type,
+    relation_sentence,
+    render_reading,
+)
 
 STATUS_ORDER = ("accepted", "mixed", "rejected", "outcome")
 CANDIDATE_STATUSES = ("accepted", "mixed", "rejected")
@@ -739,7 +744,7 @@ class _Builder:
         self.add("index", self.inp.taxonomy_name, "index", fm, "\n".join(lines))
 
     def relations_page(self) -> None:
-        """A reference page: what each relation type means, how arrows are drawn, an example from this run."""
+        """Add the reference page: what each relation type means, how arrows are drawn, examples from this run."""
         lines = ["# Relations between dimensions", "",
                  "A relation links two dimensions and reads left to right as one sentence: *source* — verb — "
                  "*target*. In the graph view the arrow goes from the source to the target; *co-occurs with* has no "

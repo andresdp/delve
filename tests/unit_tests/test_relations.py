@@ -55,7 +55,7 @@ def test_check_reading_rejects_wrong_verb_and_missing_names():
 
 
 def test_check_reading_tolerates_case_punctuation_and_small_name_variations():
-    assert check_reading(f"training update algorithm requires data profiling & validation to be decided first.",
+    assert check_reading("training update algorithm requires data profiling & validation to be decided first.",
                          B, A, "requires") is None
     assert check_reading("Choices on the Training Update Algorithm affect the outcomes of data profiling",
                          B, A, "affects") is None
@@ -95,7 +95,9 @@ def test_relation_problem_basic_rejections(source, target, rtype, why):
 
 
 def test_relation_problem_rejects_opposite_pair_cycle_duplicate_and_cap():
-    req = lambda t: {"target_id": t, "type": "requires", "reading": "", "rationale": ""}
+    def req(t):
+        return {"target_id": t, "type": "requires", "reading": "", "rationale": ""}
+
     dims = _dims(("1", "One", [req("2")]), ("2", "Two", [req("3")]), ("3", "Three", []), ("4", "Four", []))
     assert "opposite" in relation_problem(dims, "2", "1", "requires", "", check=False)
     assert "cycle" in relation_problem(dims, "3", "1", "requires", "", check=False)

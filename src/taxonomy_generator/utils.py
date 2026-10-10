@@ -11,7 +11,11 @@ from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import Runnable, RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
-from taxonomy_generator.relations import DEFAULT_RELATION_TYPES, clean_relations, dropped_note
+from taxonomy_generator.relations import (
+    DEFAULT_RELATION_TYPES,
+    clean_relations,
+    dropped_note,
+)
 from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.state import Doc, State
 

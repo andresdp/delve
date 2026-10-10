@@ -30,7 +30,9 @@ def test_merge_groups_keeps_richest_member_and_redirects_relations():
     rlhf, alerting = merged
     assert len(rlhf["values"]) == 4                      # every member's values are kept
     assert rlhf["merged_from"] == [{"id": "1", "name": "RLHF feedback loop"}]
-    pairs = lambda d: [(r["target_id"], r["type"]) for r in d["relations"]]
+    def pairs(d):
+        return [(r["target_id"], r["type"]) for r in d["relations"]]
+
     assert pairs(rlhf) == [("3", "affects")]          # self-relation dropped
     assert pairs(alerting) == [("2", "constrains")]   # 1 -> 2, deduplicated
     assert notes and "RLHF feedback loop" in notes[0]

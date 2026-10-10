@@ -22,7 +22,11 @@ from typing import Any, Dict, List, Tuple
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import NARRATIVE_SUMMARY_PROMPT
-from taxonomy_generator.relations import RELATION_KINDS, normalize_type, relation_sentence
+from taxonomy_generator.relations import (
+    RELATION_KINDS,
+    normalize_type,
+    relation_sentence,
+)
 from taxonomy_generator.schemas import NarrativeSummaryOutput
 from taxonomy_generator.utils import load_chat_model
 

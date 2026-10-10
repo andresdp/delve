@@ -225,7 +225,10 @@ def test_tools_prompts_state_the_granularity_of_decision_points():
 
 
 def test_every_taxonomy_prompt_carries_the_relation_guide_once_without_legacy_names():
-    from taxonomy_generator.prompts import TAXONOMY_REVIEW_TOOLS_PROMPT, TAXONOMY_UPDATE_TOOLS_PROMPT
+    from taxonomy_generator.prompts import (
+        TAXONOMY_REVIEW_TOOLS_PROMPT,
+        TAXONOMY_UPDATE_TOOLS_PROMPT,
+    )
     from taxonomy_generator.relations import DEFAULT_RELATION_TYPES, relation_guide
 
     guide = relation_guide(DEFAULT_RELATION_TYPES)
