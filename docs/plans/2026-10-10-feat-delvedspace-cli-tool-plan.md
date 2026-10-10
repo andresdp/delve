@@ -198,6 +198,32 @@ only (no deprecated pages), T5, T6, T7 without `--json`. About 8–9 days.
 **New dependency:** `typer` (add to `pyproject.toml`; in the existing conda env `taxonomy`: `pip install typer`).
 rich is already a dependency.
 
+## Branching and stabilization (not created yet)
+
+All tool work happens off `main`, so `main` stays stable for the evaluation runs and the benchmark scripts. The
+branches below are planned, not created; create them when the work starts.
+
+- **Integration branch:** `feat/ddspace-tool`, created from `main`. It collects the tool work until it is stable.
+- **Unit branches:** one short branch per work unit (`feat/ddspace-t1-cli`, `feat/ddspace-t3-okf`, …) created from
+  `feat/ddspace-tool` and merged back into it when its tests pass. Small units may go directly on the integration branch.
+- **Keeping up with `main`:** merge `main` into `feat/ddspace-tool` regularly (merge, not rebase: the repository sits in
+  iCloud-synced storage and history is never rewritten). Pipeline or wiki fixes made for the evaluation land on `main`
+  first and reach the tool branch through these merges.
+- **What stays compatible:** `main.py`, `benchmark/*.py` and `config.yaml` keep working on the tool branch; the CLI wraps
+  them. Code moved into the package (text extraction, corpus building, wiki export) keeps thin `benchmark/` entry points
+  until the tool is merged.
+- **Stable means** (all required before merging into `main`):
+  - the full test suite passes, plus the new CLI tests;
+  - the C3 demo scenario runs end to end in a fresh workspace (`ddspace init --yes` … `ddspace ask`);
+  - `ddspace wiki check` passes on the C3 wiki, and the C1/C2 wikis still export;
+  - `pipx install` from the branch works in a clean environment;
+  - README quickstart and `USAGE.md` are updated.
+- **Releases:** tag stable points on the branch (`ddspace-v0.1.0`, …); a demo or paper links a tag, not a moving
+  branch. Merge into `main` after the first stable tag; later work continues on new feature branches.
+- **Separate lines of work:** the wiki content modes (ground truth, overlay) and the evaluation-metrics plans have their
+  own branches from `main`; they are not mixed into the tool branch. When both touch the wiki export, the first to merge
+  into `main` wins and the other merges `main` in.
+
 ## Tests
 
 - `init --yes` in a temp folder writes a valid `ddspace.yaml`; interactive prompts tested with scripted input.
