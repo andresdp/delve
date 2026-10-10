@@ -61,6 +61,20 @@ def test_check_reading_tolerates_case_punctuation_and_small_name_variations():
                          B, A, "affects") is None
 
 
+LONG, SHORT = "Training Data Requirements", "Training"
+
+
+@pytest.mark.parametrize("source, target", [(LONG, SHORT), (SHORT, LONG)])
+def test_check_reading_accepts_canonical_reading_when_one_name_contains_the_other(source, target):
+    assert check_reading(render_reading(source, "requires", target), source, target, "requires") is None
+
+
+@pytest.mark.parametrize("source, target", [(LONG, SHORT), (SHORT, LONG)])
+def test_check_reading_rejects_reversed_reading_when_one_name_contains_the_other(source, target):
+    problem = check_reading(render_reading(target, "requires", source), source, target, "requires")
+    assert problem and "reverse" in problem.lower()
+
+
 def test_co_occurs_reading_accepts_either_name_order():
     assert check_reading(f"{A} and {B} are usually decided together", B, A, "co_occurs_with") is None
 

@@ -105,25 +105,42 @@ def _tokens(text: str) -> list[str]:
     return re.sub(r"[^a-z0-9]+", " ", text).split()
 
 
-def _find(sub: list[str], seq: list[str]) -> int:
+def _find(sub: list[str], seq: list[str], taken: set[int]) -> int:
+    """Return the first start of ``sub`` in ``seq`` that does not overlap the ``taken`` indices, else -1."""
     for i in range(len(seq) - len(sub) + 1):
-        if seq[i:i + len(sub)] == sub:
+        if seq[i:i + len(sub)] == sub and taken.isdisjoint(range(i, i + len(sub))):
             return i
     return -1
 
 
-def _position(name: str, other: str, words: list[str]) -> float | None:
-    """Where ``name`` appears among ``words``: exact match, else most of its distinctive words; ``None`` if absent."""
+def _position(name: str, other: str, words: list[str], taken: set[int]) -> tuple[float, set[int]] | None:
+    """Where ``name`` appears among ``words`` outside the ``taken`` indices, with the indices it covers.
+
+    Exact match first, else most of its distinctive words; ``None`` if absent.
+    """
     name_words = _tokens(name)
-    if name_words and (start := _find(name_words, words)) >= 0:
-        return float(start)
+    if name_words and (start := _find(name_words, words, taken)) >= 0:
+        return float(start), set(range(start, start + len(name_words)))
     significant = [w for w in name_words if w not in _STOPWORDS and len(w) > 2]
     other_words = set(_tokens(other))
     distinctive = [w for w in significant if w not in other_words] or significant
-    found = [words.index(w) for w in distinctive if w in words]
+    found = [i for w in distinctive if (i := _find([w], words, taken)) >= 0]
     if not distinctive or len(found) < max(1, round(0.6 * len(distinctive))):
         return None
-    return sum(found) / len(found)
+    return sum(found) / len(found), set(found)
+
+
+def _positions(source_name: str, target_name: str, words: list[str]) -> tuple[float | None, float | None]:
+    """Positions of both names; the longer name is placed first so the shorter one cannot reuse its words."""
+    names = [source_name, target_name]
+    order = sorted(range(2), key=lambda i: -len(_tokens(names[i])))
+    taken: set[int] = set()
+    positions: list[float | None] = [None, None]
+    for i in order:
+        if (found := _position(names[i], names[1 - i], words, taken)) is not None:
+            positions[i] = found[0]
+            taken |= found[1]
+    return positions[0], positions[1]
 
 
 def _verb_positions(rtype: str, words: list[str]) -> list[int]:
@@ -140,7 +157,7 @@ def check_reading(reading: str, source_name: str, target_name: str, rtype: str) 
     if rtype not in RELATION_KINDS:
         return f"unknown relation type '{rtype}'"
     words = _tokens(reading)
-    src, tgt = _position(source_name, target_name, words), _position(target_name, source_name, words)
+    src, tgt = _positions(source_name, target_name, words)
     if src is None or tgt is None:
         missing = " and ".join(f"'{n}'" for n, p in ((source_name, src), (target_name, tgt)) if p is None)
         return f"the reading does not name {missing}"
