@@ -370,12 +370,21 @@ def iteration_label(index: int, count: int, mode: str) -> str:
 
 
 def _format_dimensions_for_prompt(clusters: List[Cluster]) -> str:
-    """Format dimension names and descriptions for the narrative-summary prompt."""
+    """Format dimension names, descriptions and in-view relation sentences for the narrative-summary prompt.
+
+    Relation sentences are listed under their source dimension so the model can quote them as
+    written; relations whose target is outside the rendered view are left out.
+    """
+    names = {str(c.get("id")): c.get("name") or "Unnamed" for c in clusters}
     lines = []
     for cluster in _in_id_order(clusters):
         name = cluster.get("name") or "Unnamed"
         description = cluster.get("description") or ""
         lines.append(f"- {name}: {description}")
+        for relation in cluster.get("relations") or []:
+            target = names.get(str(relation.get("target_id")))
+            if target is not None:
+                lines.append(f"  - {relation_sentence(relation, name, target)}")
     return "\n".join(lines)
 
 
