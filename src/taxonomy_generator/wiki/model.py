@@ -27,6 +27,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 
 from taxonomy_generator.relations import (
     RELATION_KINDS,
+    display_type,
+    is_directed,
     normalize_type,
     relation_sentence,
     render_reading,
@@ -351,7 +353,7 @@ class _Builder:
         fm = {"id": did, "core": self.is_core(d), "values": len(values),
               "candidate_values": sum(counts[s] for s in CANDIDATE_STATUSES), "outcomes": counts["outcome"],
               "evidence": {"codes": ev.get("codes"), "documents": ev.get("documents"), "sources": ev.get("sources")},
-              "relations": [f"{normalize_type(r.get('type')) or r.get('type')} "
+              "relations": [f"{display_type(r.get('type'))} "
                             f"{link(self.dim_path[t], self.dim_by_id[t].get('name'))}" for r, t in rel_out],
               "tags": ["dimension"] + (["core"] if self.is_core(d) else [])}
         if self.inp.systems:
@@ -919,11 +921,9 @@ class _Builder:
             for r in d.get("relations") or []:
                 t = str(r.get("target_id"))
                 if t in self.dim_by_id and t != did:
-                    rtype = normalize_type(r.get("type"))
-                    kind = RELATION_KINDS.get(rtype or "")
                     self.edges.append({"source": "d:" + did, "target": "d:" + t, "type": "relation",
-                                       "relation": rtype or r.get("type"),
-                                       "directed": kind.directed if kind else True,
+                                       "relation": display_type(r.get("type")),
+                                       "directed": is_directed(r.get("type")),
                                        "reading": relation_sentence(r, str(d.get("name")),
                                                                     str(self.dim_by_id[t].get("name")))})
         for sid in self.source_ids:

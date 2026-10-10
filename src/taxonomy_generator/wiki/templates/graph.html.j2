@@ -230,23 +230,26 @@
         + " per dimension): only the selected dimension's are shown. Untick to show all.";
     }
   }
-  function relationHidden(e) {
-    if (!document.getElementById("rel-all").checked) return true;
-    const box = document.querySelector('input[data-relation="' + e.relation + '"]');
-    if (box && !box.checked) return true;
-    if (document.getElementById("rel-selected").checked) {
+  function relationFilter() {
+    return { all: document.getElementById("rel-all").checked,
+      selectedOnly: document.getElementById("rel-selected").checked,
+      hiddenTypes: new Set([...document.querySelectorAll("#rel-types input:not(:checked)")].map((i) => i.dataset.relation)) };
+  }
+  function relationHidden(e, f = relationFilter()) {
+    if (!f.all || f.hiddenTypes.has(e.relation)) return true;
+    if (f.selectedOnly) {
       const s = e.source.id || e.source, t = e.target.id || e.target;
       return !(selected && (s === selected || t === selected));
     }
     return false;
   }
   function applyRelationVisibility() {
+    const f = relationFilter();
     linkLayer.selectAll("line").filter((d) => d.type === "relation")
-      .style("display", (d) => relationHidden(d) ? "none" : null);
+      .style("display", (d) => relationHidden(d, f) ? "none" : null);
   }
   document.querySelectorAll("#relation-filters .rel-filter").forEach((el) => el.addEventListener("change", () => {
-    applyRelationVisibility();
-    if (relaxRelations) render();
+    if (relaxRelations) render(); else applyRelationVisibility();
   }));
   document.getElementById("relayout").addEventListener("click", (ev) => {
     relaxRelations = !relaxRelations;
@@ -287,8 +290,9 @@
     nodeAll.select("title").text((d) => d.label + (d.status ? " (" + d.status + ")" : "") + (d.tag ? " · " + d.tag : ""));
 
     if (sim) sim.stop();
+    const relF = relationFilter();
     sim = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(relaxRelations ? links.filter((l) => l.type !== "relation" || !relationHidden(l)) : links)
+      .force("link", d3.forceLink(relaxRelations ? links.filter((l) => l.type !== "relation" || !relationHidden(l, relF)) : links)
         .id((d) => d.id)
         .distance((l) => l.type === "has_value" ? 46 : l.type === "relation" ? 170 : l.type === "design" ? 60 : 120)
         .strength((l) => l.type === "has_value" ? 0.9 : l.type === "evidence" || l.type === "system" ? 0.03 : 0.3))

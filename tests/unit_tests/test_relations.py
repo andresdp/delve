@@ -155,3 +155,19 @@ def test_relation_sentence_maps_legacy_types_and_falls_back_for_unknown_ones():
     assert relation_sentence({"type": "precondition"}, "Serving", "Packaging") == \
         "Serving requires Packaging to be decided first"
     assert relation_sentence({"type": "enables"}, "Serving", "Packaging") == "Serving enables Packaging"
+
+
+def test_schema_literal_matches_the_relation_table():
+    from typing import get_args
+
+    from taxonomy_generator.schemas import RelationType
+    assert get_args(RelationType) == RELATION_TYPES
+
+
+def test_direction_helpers():
+    from taxonomy_generator.relations import canonical_ends, display_type, is_directed
+    assert is_directed("requires") and is_directed("precondition") and is_directed("enables")
+    assert not is_directed("co_occurs_with") and not is_directed("co_occurring")
+    assert canonical_ends("co_occurs_with", "10", "9") == ("9", "10")
+    assert canonical_ends("requires", "10", "9") == ("10", "9")
+    assert display_type("consequence") == "affects" and display_type("enables") == "enables"

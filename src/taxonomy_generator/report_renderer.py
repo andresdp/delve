@@ -22,11 +22,7 @@ from typing import Any, Dict, List, Tuple
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import NARRATIVE_SUMMARY_PROMPT
-from taxonomy_generator.relations import (
-    RELATION_KINDS,
-    normalize_type,
-    relation_sentence,
-)
+from taxonomy_generator.relations import display_type, is_directed, relation_sentence
 from taxonomy_generator.schemas import NarrativeSummaryOutput
 from taxonomy_generator.utils import load_chat_model
 
@@ -128,11 +124,10 @@ def render_diagram(clusters: List[Cluster]) -> str:
             target_id = _relation_target_id(relation)
             if target_id not in rendered_ids:
                 continue
-            relation_type = normalize_type(relation.get("type")) or relation.get("type") or "related_to"
+            relation_type = display_type(relation.get("type")) or "related_to"
             target_node_id = _mermaid_node_id(target_id)
             edge_label = _escape_mermaid_label(str(relation_type))
-            kind = RELATION_KINDS.get(relation_type)
-            edge = "---" if kind is not None and not kind.directed else "-->"
+            edge = "-->" if is_directed(relation_type) else "---"
             lines.append(f"    {node_id} {edge}|{edge_label}| {target_node_id}")
 
     lines.append("```")

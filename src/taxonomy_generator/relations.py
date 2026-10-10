@@ -60,7 +60,7 @@ LEGACY_RELATION_TYPES = {"precondition": "requires", "consequence": "affects", "
 # Field descriptions shared by the schema (rewrite mode) and the add_relation tool.
 TYPE_DESCRIPTION = "; ".join(
     f"{k.name}: \"{k.template.format(a='source', b='target')}\"" for k in RELATION_KINDS.values()
-) + ". Types other than requires, affects, constrains and co_occurs_with may be disabled."
+) + f". Types other than {', '.join(DEFAULT_RELATION_TYPES)} may be disabled."
 READING_DESCRIPTION = (
     "Write this first: the relation as one sentence with the two real dimension names, the source first, in the "
     "form given for its type (e.g. 'Model Serving Strategy requires Model Packaging Format to be decided first'). "
@@ -75,6 +75,24 @@ def normalize_type(rtype: object) -> str | None:
     name = str(rtype or "").strip()
     name = LEGACY_RELATION_TYPES.get(name, name)
     return name if name in RELATION_KINDS else None
+
+
+def display_type(rtype: object) -> str | None:
+    """Return the current name of a relation type, or the stored value when it is not a known type."""
+    return normalize_type(rtype) or (str(rtype) if rtype else None)
+
+
+def is_directed(rtype: object) -> bool:
+    """Return whether a relation type has a direction (unknown types are treated as directed)."""
+    kind = RELATION_KINDS.get(normalize_type(rtype) or "")
+    return kind.directed if kind else True
+
+
+def canonical_ends(rtype: object, source_id: str, target_id: str) -> tuple[str, str]:
+    """Return ``(source, target)`` as stored: an undirected relation goes on the dimension with the lower id."""
+    if not is_directed(rtype) and id_order(target_id) < id_order(source_id):
+        return target_id, source_id
+    return source_id, target_id
 
 
 def render_reading(source_name: str, rtype: str, target_name: str) -> str:
@@ -100,7 +118,8 @@ def _position(name: str, other: str, words: list[str]) -> float | None:
     if name_words and (start := _find(name_words, words)) >= 0:
         return float(start)
     significant = [w for w in name_words if w not in _STOPWORDS and len(w) > 2]
-    distinctive = [w for w in significant if w not in set(_tokens(other))] or significant
+    other_words = set(_tokens(other))
+    distinctive = [w for w in significant if w not in other_words] or significant
     found = [words.index(w) for w in distinctive if w in words]
     if not distinctive or len(found) < max(1, round(0.6 * len(distinctive))):
         return None
@@ -146,9 +165,13 @@ def _by_id(clusters: Iterable[dict]) -> dict[str, dict]:
     return {str(c.get("id")): c for c in clusters if isinstance(c, dict)}
 
 
+def _stored(dims: dict[str, dict], dim_id: str) -> list[dict]:
+    return [r for r in dims.get(dim_id, {}).get("relations") or [] if isinstance(r, dict)]
+
+
 def _has(dims: dict[str, dict], source: str, target: str, rtype: str) -> bool:
     return any(str(r.get("target_id")) == target and normalize_type(r.get("type")) == rtype
-               for r in dims.get(source, {}).get("relations") or [] if isinstance(r, dict))
+               for r in _stored(dims, source))
 
 
 def _reaches(dims: dict[str, dict], start: str, goal: str, rtype: str) -> bool:
@@ -160,8 +183,7 @@ def _reaches(dims: dict[str, dict], start: str, goal: str, rtype: str) -> bool:
         if node in seen:
             continue
         seen.add(node)
-        stack += [str(r.get("target_id")) for r in dims.get(node, {}).get("relations") or []
-                  if isinstance(r, dict) and normalize_type(r.get("type")) == rtype]
+        stack += [str(r.get("target_id")) for r in _stored(dims, node) if normalize_type(r.get("type")) == rtype]
     return False
 
 
@@ -173,7 +195,12 @@ def relation_problem(clusters: Iterable[dict], source_id: str, target_id: str, r
     ``check`` compares ``reading`` with the type and names; ``max_per_dimension`` caps the
     relations stored on the source (``None`` = no cap).
     """
-    dims = _by_id(clusters)
+    return _problem(_by_id(clusters), source_id, target_id, rtype, reading, allowed=allowed, check=check,
+                    max_per_dimension=max_per_dimension)
+
+
+def _problem(dims: dict[str, dict], source_id: str, target_id: str, rtype: str, reading: str, *,
+             allowed: Iterable[str], check: bool, max_per_dimension: int | None) -> str | None:
     source, target = str(source_id), str(target_id)
     for dim_id in (source, target):
         if dim_id not in dims:
@@ -191,7 +218,7 @@ def relation_problem(clusters: Iterable[dict], source_id: str, target_id: str, r
                 f"'{rtype}' each other: keep the direction the sources support")
     if rtype == "requires" and _reaches(dims, target, source, rtype):
         return f"{source} -requires-> {target} would create a cycle of 'requires'"
-    stored = [r for r in dims[source].get("relations") or [] if isinstance(r, dict)]
+    stored = _stored(dims, source)
     if max_per_dimension is not None and len(stored) >= max_per_dimension:
         return (f"dimension {source} already has {len(stored)} relations (at most {max_per_dimension} per "
                 "dimension); keep only the strongest: remove a weaker one first")
@@ -222,11 +249,11 @@ def clean_relations(clusters: Iterable[dict], *, allowed: Iterable[str] = RELATI
                 continue
             rtype, src, tgt = normalize_type(rel.get("type")), source, str(rel.get("target_id"))
             reason = None if rtype else f"unknown relation type '{rel.get('type')}'"
-            if rtype and not RELATION_KINDS[rtype].directed and tgt in dims and id_order(tgt) < id_order(src):
-                src, tgt = tgt, src
+            if rtype and tgt in dims:
+                src, tgt = canonical_ends(rtype, src, tgt)
             reading = str(rel.get("reading") or "")
-            reason = reason or relation_problem(result, src, tgt, rtype, reading, allowed=allowed,
-                                                check=check, max_per_dimension=max_per_dimension)
+            reason = reason or _problem(dims, src, tgt, rtype, reading, allowed=allowed, check=check,
+                                        max_per_dimension=max_per_dimension)
             if reason:
                 dropped.append({"source_id": source, "target_id": str(rel.get("target_id")),
                                 "type": rel.get("type"), "reason": reason})

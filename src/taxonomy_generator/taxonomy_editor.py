@@ -28,10 +28,9 @@ from typing import Any, get_args
 
 from taxonomy_generator.relations import (
     DEFAULT_RELATION_TYPES,
-    RELATION_KINDS,
+    canonical_ends,
     clean_relations,
     dropped_note,
-    id_order,
     relation_problem,
 )
 from taxonomy_generator.schemas import DecisionStatus
@@ -512,16 +511,14 @@ class TaxonomyEditor:
     def _add_relation(self, args: dict) -> str:
         source, target = self._dim(_str(args, "source_id")), self._dim(_str(args, "target_id"))
         rtype, reading = _str(args, "type"), _str(args, "reading", required=False)
-        kind = RELATION_KINDS.get(rtype)
-        if kind and not kind.directed and id_order(str(target["id"])) < id_order(str(source["id"])):
-            source, target = target, source  # one co-occurrence per pair, stored on the lower id
-        problem = relation_problem(self.clusters, str(source["id"]), str(target["id"]), rtype, reading,
+        source_id, target_id = canonical_ends(rtype, str(source["id"]), str(target["id"]))
+        problem = relation_problem(self.clusters, source_id, target_id, rtype, reading,
                                    allowed=self.relation_types, max_per_dimension=self.max_relations)
         if problem:
             raise EditError(problem)
-        source["relations"].append({"target_id": str(target["id"]), "type": rtype, "reading": reading,
-                                    "rationale": _str(args, "rationale", required=False)})
-        return f"added relation {source['id']} -{rtype}-> {target['id']}"
+        self._dim(source_id)["relations"].append({"target_id": target_id, "type": rtype, "reading": reading,
+                                                  "rationale": _str(args, "rationale", required=False)})
+        return f"added relation {source_id} -{rtype}-> {target_id}"
 
     def _remove_relation(self, args: dict) -> str:
         source, target = self._dim(_str(args, "source_id")), self._dim(_str(args, "target_id"))
