@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
+from taxonomy_generator.relations import RELATION_KINDS, normalize_type, relation_sentence, render_reading
+
 STATUS_ORDER = ("accepted", "mixed", "rejected", "outcome")
 CANDIDATE_STATUSES = ("accepted", "mixed", "rejected")
 GROUP_ORDER = ("attested", "novel", "control")
@@ -180,6 +182,10 @@ def load_system_names(path: Path) -> Dict[str, Dict[str, str]]:
 
 # ── building ─────────────────────────────────────────────────────────────
 
+def _capital(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
 class _Builder:
     def __init__(self, inp: Inputs):
         self.inp = inp
@@ -322,6 +328,7 @@ class _Builder:
             for p in points:
                 self.point_page(p)
         self.approach_page()
+        self.relations_page()
         self.index_page(bool(points))
         self.graph_data(points)
         self.pages.sort(key=lambda p: (p.path != "index", p.path))
@@ -339,7 +346,8 @@ class _Builder:
         fm = {"id": did, "core": self.is_core(d), "values": len(values),
               "candidate_values": sum(counts[s] for s in CANDIDATE_STATUSES), "outcomes": counts["outcome"],
               "evidence": {"codes": ev.get("codes"), "documents": ev.get("documents"), "sources": ev.get("sources")},
-              "relations": [f"{r.get('type')} {link(self.dim_path[t], self.dim_by_id[t].get('name'))}" for r, t in rel_out],
+              "relations": [f"{normalize_type(r.get('type')) or r.get('type')} "
+                            f"{link(self.dim_path[t], self.dim_by_id[t].get('name'))}" for r, t in rel_out],
               "tags": ["dimension"] + (["core"] if self.is_core(d) else [])}
         if self.inp.systems:
             fm["systems"] = [link(self.system_path[s], self.system_title(s)) for s in self.dim_systems(d)]
@@ -349,12 +357,19 @@ class _Builder:
             lines.append(f"| {cell(link(self.value_path[str(v.get('id'))], v.get('label')))} | {v.get('status')} "
                          f"| {len(v.get('supporting_doc_ids') or [])} |")
         if rel_out or rel_in:
-            lines += ["", "## Relations", ""]
-            for r, t in rel_out:
-                lines.append(f"- {r.get('type')} → {link(self.dim_path[t], self.dim_by_id[t].get('name'))}"
-                             + (f": {r.get('rationale')}" if r.get("rationale") else ""))
-            for o, r in rel_in:
-                lines.append(f"- ← {r.get('type')} from {link(self.dim_path[str(o.get('id'))], o.get('name'))}")
+            lines += ["", "## Relations", "", f"How to read them: {link('relations', 'Relations between dimensions')}.",
+                      ""]
+            if rel_out:
+                lines += ["### From this dimension", ""]
+                for r, t in rel_out:
+                    sentence = relation_sentence(r, "this dimension", link(self.dim_path[t], self.dim_by_id[t].get("name")))
+                    lines.append(f"- {_capital(sentence)}" + (f". *{r.get('rationale')}*" if r.get("rationale") else ""))
+                lines.append("")
+            if rel_in:
+                lines += ["### To this dimension", ""]
+                for o, r in rel_in:
+                    sentence = relation_sentence(r, link(self.dim_path[str(o.get("id"))], o.get("name")), "this dimension")
+                    lines.append(f"- {_capital(sentence)}" + (f". *{r.get('rationale')}*" if r.get("rationale") else ""))
         lines += ["", "## Evidence", "",
                   f"{ev.get('codes', '?')} open codes from {ev.get('documents', '?')} passages in {ev.get('sources', '?')} sources."]
         support = f"{ev.get('sources', 0)} source{'s' if ev.get('sources', 0) != 1 else ''}"
@@ -450,7 +465,8 @@ class _Builder:
             lines += ["## Summary", "", self.inp.narrative.strip(), "",
                       "*Narrative summary written by the pipeline at the end of the run (from its report).*", ""]
         lines += ["## Run", ""] + self.run_summary() + ["", "## Dimensions and values", "",
-                  f"Core dimensions (★) have {self.core_rule()}; they are listed first.", "",
+                  f"Core dimensions (★) have {self.core_rule()}; they are listed first. Relations between "
+                  f"dimensions are explained in {link('relations', 'Relations between dimensions')}.", "",
                   "| Dimension | Core | Accepted | Mixed | Rejected | Outcomes |", "|---|---|---|---|---|---|"]
         for d in sorted(self.dims, key=lambda d: (not self.is_core(d), d.get("name", ""))):
             row = [cell(link(self.dim_path[str(d.get('id'))], d.get("name"))), "★" if self.is_core(d) else ""]
@@ -657,7 +673,8 @@ class _Builder:
             lines += ["", "## Relations among its dimensions", ""]
             for r in rels:
                 a, b = self.dim_by_id.get(str(r.get("source")), {}), self.dim_by_id.get(str(r.get("target")), {})
-                lines.append(f"- {a.get('name', r.get('source'))} {r.get('type')} {b.get('name', r.get('target'))}")
+                lines.append("- " + relation_sentence(r, str(a.get("name", r.get("source"))),
+                                                      str(b.get("name", r.get("target")))))
         self.add(self.point_path[pid], title, "design", fm, "\n".join(lines))
 
     def index_page(self, has_points: bool) -> None:
@@ -721,6 +738,37 @@ class _Builder:
         fm["tags"] = ["index"]
         self.add("index", self.inp.taxonomy_name, "index", fm, "\n".join(lines))
 
+    def relations_page(self) -> None:
+        """A reference page: what each relation type means, how arrows are drawn, an example from this run."""
+        lines = ["# Relations between dimensions", "",
+                 "A relation links two dimensions and reads left to right as one sentence: *source* — verb — "
+                 "*target*. In the graph view the arrow goes from the source to the target; *co-occurs with* has no "
+                 "direction and is drawn without an arrowhead.", "",
+                 "| Type | Reads as (A = source, B = target) | Meaning | Example in this design space |",
+                 "|---|---|---|---|"]
+        examples: Dict[str, str] = {}
+        for d in self.dims:
+            for r in d.get("relations") or []:
+                rtype, t = normalize_type(r.get("type")), str(r.get("target_id"))
+                if rtype and rtype not in examples and t in self.dim_by_id and t != str(d.get("id")):
+                    examples[rtype] = relation_sentence(r, link(self.dim_path[str(d.get("id"))], d.get("name")),
+                                                        link(self.dim_path[t], self.dim_by_id[t].get("name")))
+        for name, kind in RELATION_KINDS.items():
+            if name == "refines" and name not in examples:
+                continue  # an optional type: listed only when the run uses it
+            lines.append(f"| *{name.replace('_', ' ')}* | {render_reading('A', name, 'B')} | {kind.meaning} | "
+                         f"{cell(examples.get(name, '—'))} |")
+        lines += ["", "## How they are made", "",
+                  "- The model proposes relations while it builds and revises the design space, judged against the use "
+                  "case and the topics the sources discuss. Relations are **inferred**: unlike values, they are **not "
+                  "checked against passages**, and no passage is cited for them.",
+                  "- Each relation is written as its sentence first; one whose sentence does not match its type and "
+                  "direction is rejected, as are opposite pairs (A requires B and B requires A), cycles of *requires* "
+                  "and relations beyond a small number per dimension.",
+                  "- Runs made before these rules may contain relations in the wrong direction; they are shown as stored.",
+                  ""]
+        self.add("relations", "Relations between dimensions", "reference", {"tags": ["reference"]}, "\n".join(lines))
+
     def approach_page(self) -> None:
         """A fixed reference page: grounded theory, the agents, the workflow (same text for every run)."""
         m = self.inp.models
@@ -733,7 +781,8 @@ class _Builder:
                  "a **status**: *accepted* (a source adopts it), *rejected* (a source considered and declined it), "
                  "*mixed* (some sources adopt it, others reject it) or *outcome* (an effect of decisions, such as a "
                  "cost or result, rather than a choice). **Relations** link dimensions that interact "
-                 "(*constrains*, *precondition*, *consequence*, *co-occurring*). Every value keeps its **evidence**: "
+                 "(*requires*, *affects*, *constrains*, *co-occurs with*; see "
+                 f"{link('relations', 'Relations between dimensions')}). Every value keeps its **evidence**: "
                  "the passages that support it.", "",
                  "## Grounded theory in brief", "",
                  "DelveDSpace follows **grounded theory**, a qualitative method that builds a theory from data instead "
@@ -865,8 +914,13 @@ class _Builder:
             for r in d.get("relations") or []:
                 t = str(r.get("target_id"))
                 if t in self.dim_by_id and t != did:
+                    rtype = normalize_type(r.get("type"))
+                    kind = RELATION_KINDS.get(rtype or "")
                     self.edges.append({"source": "d:" + did, "target": "d:" + t, "type": "relation",
-                                       "relation": r.get("type")})
+                                       "relation": rtype or r.get("type"),
+                                       "directed": kind.directed if kind else True,
+                                       "reading": relation_sentence(r, str(d.get("name")),
+                                                                    str(self.dim_by_id[t].get("name")))})
         for sid in self.source_ids:
             node = {"id": "s:" + sid, "kind": "source", "label": self.source_title(sid), "href": self.source_path[sid]}
             if self.inp.source_summaries.get(sid):

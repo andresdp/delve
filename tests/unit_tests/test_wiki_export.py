@@ -499,3 +499,57 @@ def test_core_threshold_is_shown(tmp_path):
     graph = (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
     assert "Core: ≥ 2 sources or ≥ 3 systems." in graph and "symbolStar" not in graph and "symbolHexagon" in graph
     assert "(≥ 2 sources or ≥ 3 systems)" in (tmp_path / "html" / "tree.html").read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------- relations
+
+
+def _page(export, path):
+    return next(p for p in export.pages if p.path == path)
+
+
+def test_relations_reference_page_explains_types_and_is_linked():
+    export = build(_inputs())
+    ref = _page(export, "relations")
+    assert ref.frontmatter["type"] == "reference"
+    for sentence in ("A requires B to be decided first", "Choices on A affect the outcomes of B",
+                     "Choices on A limit the options available on B", "A and B are usually decided together"):
+        assert sentence in ref.body
+    # a real example from this run, with links, and the caveat about inference
+    assert "Choices on [[concepts/source-of-truth|Source of truth]] limit the options available on " \
+           "[[concepts/replication|Replication]]" in ref.body
+    assert "not checked against passages" in ref.body
+    for path in ("approach", "synthesis/overview", "concepts/source-of-truth"):
+        assert "[[relations|" in _page(export, path).body, path
+
+
+def test_dimension_pages_write_relations_as_sentences_both_ways():
+    export = build(_inputs())
+    src = _page(export, "concepts/source-of-truth").body
+    assert "This dimension limits the options available on [[concepts/replication|Replication]]" not in src
+    assert "Choices on this dimension limit the options available on [[concepts/replication|Replication]]" in src
+    tgt = _page(export, "concepts/replication").body
+    assert "Choices on [[concepts/source-of-truth|Source of truth]] limit the options available on this dimension" \
+        in tgt
+
+
+def test_legacy_relation_types_render_with_current_names():
+    tax = _taxonomy()
+    tax["selected_clusters"][0]["relations"] = [{"target_id": "2", "type": "precondition", "rationale": "r"}]
+    export = build(_inputs(taxonomy=tax))
+    body = _page(export, "concepts/source-of-truth").body
+    assert "this dimension requires [[concepts/replication|Replication]] to be decided first" in body.lower() \
+        or "This dimension requires [[concepts/replication|Replication]] to be decided first" in body
+    assert "precondition" not in body
+    edge = next(e for e in export.graph["edges"] if e["type"] == "relation")
+    assert edge["relation"] == "requires" and edge["directed"] is True
+    assert edge["reading"] == "Source of truth requires Replication to be decided first"
+
+
+def test_graph_page_can_filter_and_hide_relations_and_links_the_reference(tmp_path):
+    write(build(_inputs()), tmp_path, "toy")
+    page = (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+    for marker in ('id="relation-filters"', 'id="rel-all"', 'id="rel-selected"', 'id="relayout"',
+                   'href="relations.html"', "REL_DASH", "rel-filter"):
+        assert marker in page, marker
+    assert (tmp_path / "html" / "relations.html").exists()

@@ -83,8 +83,16 @@
       <div class="hint">Turn on “Design points” above to show this layer. Selecting a point highlights the values it combines.</div>
     </fieldset>
     {% endif %}
+    <fieldset id="relation-filters" hidden><legend>Dimension relations</legend>
+      <label class="row"><input type="checkbox" class="rel-filter" id="rel-all" checked> Show relations</label>
+      <div id="rel-types"></div>
+      <label class="row"><input type="checkbox" class="rel-filter" id="rel-selected"> Only the selected dimension's</label>
+      <div class="hint" id="rel-note"></div>
+      <button class="small" id="relayout">Re-lay out without relations</button>
+      <div class="hint">Hiding relations keeps the layout. <a href="relations.html">How to read relations</a></div>
+    </fieldset>
     <fieldset><legend>Edges</legend>
-      <div class="hint"><span style="color:var(--dimension)">━━</span> relation between dimensions (typed)<br>
+      <div class="hint"><span style="color:var(--dimension)">━━</span> relation between dimensions (arrow: source → target)<br>
       ── dimension has value<br><span style="color:var(--accepted)">┄┄</span> source adopts · <span style="color:var(--rejected)">┄┄</span> source rejects</div>
     </fieldset>
     <button class="small" id="reset">Fit to view</button>
@@ -187,7 +195,8 @@
     return true;
   }
   function edgeStyle(e) {
-    if (e.type === "relation") return { stroke: COLOR.dimension, width: 2.2, dash: null, op: 0.85, arrow: true };
+    if (e.type === "relation") return { stroke: COLOR.dimension, width: 2.2, dash: REL_DASH[e.relation] || null, op: 0.85,
+      arrow: e.directed !== false };
     if (e.type === "has_value") return { stroke: COLOR.muted, width: 1, dash: null, op: 0.45 };
     if (e.type === "evidence") return { stroke: e.stance === "rejects" ? COLOR.rejected : e.stance === "both" ? COLOR.mixed : COLOR.accepted,
       width: 0.8, dash: "3,3", op: 0.35 };
@@ -195,6 +204,55 @@
     if (e.type === "design") return { stroke: COLOR.novel, width: 1.4, dash: null, op: 0.7 };
     return { stroke: COLOR.muted, width: 1, dash: null, op: 0.4 };
   }
+
+  // Relations between dimensions: per-type dash, filters that hide them without moving the layout.
+  const REL_DASH = { requires: null, affects: "7,3", constrains: "2,3", co_occurs_with: "1,5", refines: "9,3,2,3" };
+  const REL_LABEL = { requires: "requires", affects: "affects", constrains: "constrains",
+    co_occurs_with: "co-occurs with (no direction)", refines: "refines" };
+  const relEdges = data.edges.filter((e) => e.type === "relation");
+  const relTypes = [...new Set(relEdges.map((e) => e.relation))];
+  let relaxRelations = false;
+  if (relEdges.length) {
+    document.getElementById("relation-filters").hidden = false;
+    const box = document.getElementById("rel-types");
+    relTypes.forEach((t) => {
+      const lab = document.createElement("label"); lab.className = "row";
+      lab.innerHTML = '<input type="checkbox" class="rel-filter" data-relation="' + t + '" checked>'
+        + '<svg class="shape" viewBox="0 0 24 8" style="width:24px"><line x1="1" y1="4" x2="23" y2="4" stroke="var(--dimension)" stroke-width="2.2"'
+        + (REL_DASH[t] ? ' stroke-dasharray="' + REL_DASH[t] + '"' : "") + "/></svg>" + (REL_LABEL[t] || t);
+      box.appendChild(lab);
+    });
+    const dims = data.nodes.filter((n) => n.kind === "dimension").length || 1;
+    const perDim = relEdges.length / dims;
+    if (perDim > 2) {  // dense: show only the selected dimension's relations by default
+      document.getElementById("rel-selected").checked = true;
+      document.getElementById("rel-note").textContent = "Many relations (" + perDim.toFixed(1)
+        + " per dimension): only the selected dimension's are shown. Untick to show all.";
+    }
+  }
+  function relationHidden(e) {
+    if (!document.getElementById("rel-all").checked) return true;
+    const box = document.querySelector('input[data-relation="' + e.relation + '"]');
+    if (box && !box.checked) return true;
+    if (document.getElementById("rel-selected").checked) {
+      const s = e.source.id || e.source, t = e.target.id || e.target;
+      return !(selected && (s === selected || t === selected));
+    }
+    return false;
+  }
+  function applyRelationVisibility() {
+    linkLayer.selectAll("line").filter((d) => d.type === "relation")
+      .style("display", (d) => relationHidden(d) ? "none" : null);
+  }
+  document.querySelectorAll("#relation-filters .rel-filter").forEach((el) => el.addEventListener("change", () => {
+    applyRelationVisibility();
+    if (relaxRelations) render();
+  }));
+  document.getElementById("relayout").addEventListener("click", (ev) => {
+    relaxRelations = !relaxRelations;
+    ev.target.textContent = relaxRelations ? "Re-lay out with relations" : "Re-lay out without relations";
+    userMoved = false; render();
+  });
 
   function render() {
     const s = state();
@@ -209,7 +267,8 @@
       .each(function (d) { const st = edgeStyle(d); d3.select(this).attr("stroke", st.stroke).attr("stroke-width", st.width)
         .attr("stroke-dasharray", st.dash).attr("stroke-opacity", st.op).attr("marker-end", st.arrow ? "url(#arrow)" : null); });
     linkAll.selectAll("title").remove();
-    linkAll.filter((d) => d.relation).append("title").text((d) => d.relation);
+    linkAll.filter((d) => d.relation).append("title").text((d) => d.reading || d.relation);
+    applyRelationVisibility();
 
     const node = nodeLayer.selectAll("g.node").data(nodes, (d) => d.id);
     node.exit().remove();
@@ -229,7 +288,8 @@
 
     if (sim) sim.stop();
     sim = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id((d) => d.id)
+      .force("link", d3.forceLink(relaxRelations ? links.filter((l) => l.type !== "relation" || !relationHidden(l)) : links)
+        .id((d) => d.id)
         .distance((l) => l.type === "has_value" ? 46 : l.type === "relation" ? 170 : l.type === "design" ? 60 : 120)
         .strength((l) => l.type === "has_value" ? 0.9 : l.type === "evidence" || l.type === "system" ? 0.03 : 0.3))
       .force("charge", d3.forceManyBody().strength((d) => d.kind === "dimension" ? -520 : d.kind === "value" ? -70 : -220)
@@ -282,12 +342,14 @@
       .attr("stroke-width", (d) => d.id === id ? 3 : 1.5);
     linkLayer.selectAll("line").classed("dim-out", (d) => !(keep.has(d.source.id) && keep.has(d.target.id)));
     nodeLayer.selectAll("g.node text").style("display", (d) => keep.has(d.id) || d.kind === "dimension" ? null : "none");
+    applyRelationVisibility();
   }
   function clearSelection() {
     selected = null;
     nodeLayer.selectAll("g.node").classed("dim-out", false).select("path.shape")
       .attr("stroke", (d) => d.kind === "dimension" ? "#fff" : "none").attr("stroke-width", 1.5);
     linkLayer.selectAll("line").classed("dim-out", false);
+    applyRelationVisibility();
     updateLabels(scale);
     document.getElementById("info").innerHTML = '<p class="muted">Click a node to see its details and open its page.</p>';
   }
@@ -324,7 +386,7 @@
   }
 
   // A filter change shows the filter's full result: drop any selection (and its #node= link) and re-fit.
-  document.querySelectorAll("#controls input[type=checkbox], #kfilter").forEach((el) => el.addEventListener("change", () => {
+  document.querySelectorAll("#controls input[type=checkbox]:not(.rel-filter), #kfilter").forEach((el) => el.addEventListener("change", () => {
     if (selected) clearSelection();
     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
     userMoved = false;
