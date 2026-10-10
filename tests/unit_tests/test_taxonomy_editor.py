@@ -370,6 +370,23 @@ def test_co_occurrence_is_stored_once_on_the_lower_id():
     assert not ok and "exists" in msg
 
 
+def test_remove_relation_finds_a_co_occurrence_given_in_either_order():
+    ed = _editor()
+    assert ed.apply("add_relation", _rel("3", "2", "co_occurs_with",
+                                         "Empty Dim and Response Strategy are usually decided together"))[0]
+    ok, msg = ed.apply("remove_relation", {"source_id": "3", "target_id": "2"})
+    assert ok, msg
+    assert "2" in msg and "3" in msg
+    assert not [r for r in _dim(ed.clusters, "2")["relations"] if r["type"] == "co_occurs_with"]
+
+
+def test_remove_relation_does_not_remove_a_directed_relation_stored_the_other_way():
+    ed = _editor()
+    ok, msg = ed.apply("remove_relation", {"source_id": "2", "target_id": "1"})
+    assert not ok and "no relation" in msg
+    assert [r["target_id"] for r in _dim(ed.clusters, "1")["relations"]] == ["2"]
+
+
 def test_merge_cleans_relations_that_become_duplicates_or_opposite():
     ed = _editor()
     assert ed.apply("add_relation", _rel("3", "1", "affects",

@@ -31,6 +31,7 @@ from taxonomy_generator.relations import (
     canonical_ends,
     clean_relations,
     dropped_note,
+    is_directed,
     relation_problem,
 )
 from taxonomy_generator.schemas import DecisionStatus
@@ -523,10 +524,16 @@ class TaxonomyEditor:
     def _remove_relation(self, args: dict) -> str:
         source, target = self._dim(_str(args, "source_id")), self._dim(_str(args, "target_id"))
         kept = [r for r in source["relations"] if str(r.get("target_id")) != str(target["id"])]
-        if len(kept) == len(source["relations"]):
+        if len(kept) != len(source["relations"]):
+            source["relations"] = kept
+            return f"removed relation(s) {source['id']} -> {target['id']}"
+        # Undirected relations are stored once, on the lower-id end, whichever order they were given in.
+        kept = [r for r in target["relations"]
+                if str(r.get("target_id")) != str(source["id"]) or is_directed(r.get("type"))]
+        if len(kept) == len(target["relations"]):
             raise EditError(f"no relation from {source['id']} to {target['id']}")
-        source["relations"] = kept
-        return f"removed relation(s) {source['id']} -> {target['id']}"
+        target["relations"] = kept
+        return f"removed relation(s) {target['id']} -> {source['id']}"
 
     def _finish(self, args: dict) -> str:
         self.explanation = _str(args, "explanation")
