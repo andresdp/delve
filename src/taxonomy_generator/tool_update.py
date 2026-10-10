@@ -25,6 +25,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMe
 from langchain_core.tools import BaseTool, StructuredTool, ToolException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from taxonomy_generator.relations import READING_DESCRIPTION, TYPE_DESCRIPTION
 from taxonomy_generator.schemas import DecisionStatus, RelationType
 from taxonomy_generator.settings import TaxonomySettings
 from taxonomy_generator.taxonomy_editor import TaxonomyEditor
@@ -156,14 +157,14 @@ class RemoveDimension(_Args):
 
 
 class AddRelation(_Args):
-    """Relate two dimensions when the use case's logic requires it."""
+    """Relate two dimensions when the sources discuss how they interact; the relation reads 'source <verb> target'."""
 
-    source_id: str
-    target_id: str
-    type: RelationType = Field(description=(
-        "precondition: a choice on the target is required before the source applies; consequence: choices on "
-        "the source imply outcomes on the target; co_occurring: both appear together, neither causes the other; "
-        "constrains: the source restricts the target's available choices."))
+    source_id: str = Field(description="The dimension the sentence starts with: the one that requires, affects, "
+                                       "limits, refines (or is decided together with) the target.")
+    target_id: str = Field(description="The dimension the sentence ends with: the one required, affected, limited "
+                                       "or refined.")
+    reading: str = Field(description=READING_DESCRIPTION)
+    type: RelationType = Field(description=TYPE_DESCRIPTION)
     rationale: str
 
 
@@ -433,7 +434,9 @@ async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, confi
     inputs = taxonomy_prompt_inputs(state, configuration, doc_indices, True, format_taxonomy_compact(previous))
     messages = prompt.format_messages(**inputs)
     editor = TaxonomyEditor(previous, [_doc_id(state.documents[i]) for i in doc_indices], review=review,
-                            max_dimensions=configuration.max_num_clusters)
+                            max_dimensions=configuration.max_num_clusters,
+                            relation_types=configuration.relation_types or TaxonomySettings.relation_types,
+                            max_relations=configuration.max_relations_per_dimension)
     max_steps = configuration.edit_max_steps or TaxonomySettings.edit_max_steps
     clusters, explanation, transcript = await run_tool_update(model, editor, messages, max_steps=max_steps,
                                                               config=config)

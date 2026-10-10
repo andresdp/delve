@@ -231,7 +231,8 @@ def test_split_dimension_assigns_every_value_once_and_copies_relations():
     assert {"Sequential Test", "Distribution Test"} <= names and "Drift Test" not in names
     for part in ("Sequential Test", "Distribution Test"):
         dim = next(c for c in ed.clusters if c["name"] == part)
-        assert dim["relations"] == [{"target_id": "2", "type": "consequence", "rationale": "alerts trigger responses"}]
+        assert [(r["target_id"], r["type"], r["rationale"]) for r in dim["relations"]] == [
+            ("2", "affects", "alerts trigger responses")]
         assert all(v["dimension_id"] == dim["id"] for v in dim["values"])
     assert len([v for c in ed.clusters for v in c["values"]]) == 7
     ok, _ = ed.apply("add_evidence", {"value_id": "1.2", "doc_ids": ["d5"], "reason": "alias"})
@@ -262,7 +263,9 @@ def test_split_dimension_must_cover_each_value_exactly_once(parts):
 
 def test_merge_dimensions_combines_values_and_deduplicates_relations():
     ed = _editor()
-    ed.apply("add_relation", {"source_id": "2", "target_id": "3", "type": "co_occurring", "rationale": "x"})
+    ok, msg = ed.apply("add_relation", {"source_id": "2", "target_id": "3", "type": "co_occurs_with", "rationale": "x",
+                                        "reading": "Response Strategy and Empty Dim are usually decided together"})
+    assert ok, msg
     ed.apply("add_value", {"dimension_id": "3", "label": "Rollback", "description": "dup label elsewhere",
                            "status": "accepted", "doc_ids": ["d4"], "reason": "r"})
     ok, msg = ed.apply("merge_dimensions", {"dimension_ids": ["2", "3"], "name": "Response", "description": "d",
@@ -274,7 +277,7 @@ def test_merge_dimensions_combines_values_and_deduplicates_relations():
     assert all(r["target_id"] != "2" and r["target_id"] != "3" for r in merged["relations"])
     assert all(c["id"] != "3" for c in ed.clusters)
     incoming = _dim(ed.clusters, "1")["relations"]
-    assert incoming == [{"target_id": "2", "type": "consequence", "rationale": "alerts trigger responses"}]
+    assert [(r["target_id"], r["type"]) for r in incoming] == [("2", "affects")]
 
 
 def test_merge_dimensions_needs_a_reason():
@@ -294,14 +297,92 @@ def test_remove_dimension_only_when_empty():
 # ---------------------------------------------------------------- relations and control
 
 
+def _rel(source, target, rtype, reading, rationale="x"):
+    return {"source_id": source, "target_id": target, "type": rtype, "reading": reading, "rationale": rationale}
+
+
+def test_existing_legacy_relations_are_normalized_with_a_reading():
+    rel = _dim(_editor().clusters, "1")["relations"][0]
+    assert rel["type"] == "affects" and rel["target_id"] == "2"
+    assert rel["reading"] == "Choices on Drift Test affect the outcomes of Response Strategy"
+
+
 def test_add_relation_validates_type_and_duplicates():
     ed = _editor()
-    ok, msg = ed.apply("add_relation", {"source_id": "1", "target_id": "2", "type": "enables", "rationale": "x"})
+    ok, msg = ed.apply("add_relation", _rel("1", "2", "enables", "Drift Test enables Response Strategy"))
     assert not ok and "type" in msg
-    ok, msg = ed.apply("add_relation", {"source_id": "1", "target_id": "2", "type": "consequence", "rationale": "x"})
+    ok, msg = ed.apply("add_relation", _rel("1", "2", "affects",
+                                            "Choices on Drift Test affect the outcomes of Response Strategy"))
     assert not ok and "exists" in msg
-    ok, msg = ed.apply("add_relation", {"source_id": "2", "target_id": "1", "type": "constrains", "rationale": "x"})
+    ok, msg = ed.apply("add_relation", _rel("2", "1", "constrains",
+                                            "Choices on Response Strategy limit the options available on Drift Test"))
     assert ok, msg
+    stored = _dim(ed.clusters, "2")["relations"][-1]
+    assert stored == {"target_id": "1", "type": "constrains", "rationale": "x",
+                      "reading": "Choices on Response Strategy limit the options available on Drift Test"}
+
+
+def test_add_relation_rejects_a_reversed_reading_and_suggests_the_sentence():
+    ed = _editor()
+    ok, msg = ed.apply("add_relation", _rel("2", "1", "requires",
+                                            "Drift Test requires Response Strategy to be decided first"))
+    assert not ok and "reverse" in msg
+    assert "Response Strategy requires Drift Test to be decided first" in msg
+    ok, msg = ed.apply("add_relation", _rel("2", "1", "requires", ""))
+    assert not ok
+
+
+def test_add_relation_rejects_opposite_pairs_and_cycles():
+    ed = _editor()
+    ok, msg = ed.apply("add_relation", _rel("2", "1", "affects",
+                                            "Choices on Response Strategy affect the outcomes of Drift Test"))
+    assert not ok and "opposite" in msg
+    assert ed.apply("add_relation", _rel("1", "2", "requires",
+                                         "Drift Test requires Response Strategy to be decided first"))[0]
+    assert ed.apply("add_relation", _rel("2", "3", "requires",
+                                         "Response Strategy requires Empty Dim to be decided first"))[0]
+    ok, msg = ed.apply("add_relation", _rel("3", "1", "requires",
+                                            "Empty Dim requires Drift Test to be decided first"))
+    assert not ok and "cycle" in msg
+
+
+def test_add_relation_respects_the_cap_and_enabled_types():
+    ed = TaxonomyEditor(_taxonomy(), batch_doc_ids=("d1",), max_relations=1)
+    ok, msg = ed.apply("add_relation", _rel("1", "3", "constrains",
+                                            "Choices on Drift Test limit the options available on Empty Dim"))
+    assert not ok and "at most 1" in msg
+    ok, msg = ed.apply("add_relation", _rel("3", "2", "refines", "Empty Dim is a sub-decision of Response Strategy"))
+    assert not ok and "type" in msg
+    ed = TaxonomyEditor(_taxonomy(), batch_doc_ids=("d1",),
+                        relation_types=("requires", "affects", "constrains", "co_occurs_with", "refines"))
+    assert ed.apply("add_relation", _rel("3", "2", "refines", "Empty Dim is a sub-decision of Response Strategy"))[0]
+
+
+def test_co_occurrence_is_stored_once_on_the_lower_id():
+    ed = _editor()
+    ok, msg = ed.apply("add_relation", _rel("3", "2", "co_occurs_with",
+                                            "Empty Dim and Response Strategy are usually decided together"))
+    assert ok, msg
+    assert [r["target_id"] for r in _dim(ed.clusters, "2")["relations"]] == ["3"]
+    assert _dim(ed.clusters, "3")["relations"] == []
+    ok, msg = ed.apply("add_relation", _rel("2", "3", "co_occurs_with",
+                                            "Response Strategy and Empty Dim are usually decided together"))
+    assert not ok and "exists" in msg
+
+
+def test_merge_cleans_relations_that_become_duplicates_or_opposite():
+    ed = _editor()
+    assert ed.apply("add_relation", _rel("3", "1", "affects",
+                                         "Choices on Empty Dim affect the outcomes of Drift Test"))[0]
+    ok, msg = ed.apply("merge_dimensions", {"dimension_ids": ["2", "3"], "name": "Response", "description": "d",
+                                            "reason": "same question"})
+    assert ok, msg
+    clusters = ed.result()
+    one, two = _dim(clusters, "1"), _dim(clusters, "2")
+    pairs = [("1", r["target_id"], r["type"]) for r in one["relations"]] + \
+            [("2", r["target_id"], r["type"]) for r in two["relations"]]
+    assert pairs == [("1", "2", "affects")]
+    assert any("opposite" in note for note in ed.cleanup)
 
 
 def test_remove_relation():

@@ -6,6 +6,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from taxonomy_generator.relations import READING_DESCRIPTION, TYPE_DESCRIPTION
+
 # Shared by OpenCode.status and Value.status — kept as one alias so the
 # vocabulary and its description can't drift between the two schemas.
 DecisionStatus = Literal["accepted", "rejected", "outcome"]
@@ -59,25 +61,18 @@ class OpenCodesOutput(BaseModel):
     )
 
 
-# Shared by Relation.type and the tool-based update's add_relation tool.
-RelationType = Literal["precondition", "consequence", "co_occurring", "constrains"]
+# Shared by Relation.type and the tool-based update's add_relation tool (see relations.py).
+RelationType = Literal["requires", "affects", "constrains", "co_occurs_with", "refines"]
 
 
 class Relation(BaseModel):
-    """A typed link between two dimensions (grounded theory paradigm model)."""
+    """A typed link from this dimension (the source) to another dimension (the target)."""
 
-    target_id: str = Field(description="Id of the dimension this relation points to.")
-    type: RelationType = Field(
-        description=(
-            "precondition: choosing a value on the target dimension is required before "
-            "this dimension applies. consequence: choices on this dimension imply outcomes "
-            "on the target dimension. co_occurring: values on both dimensions appear "
-            "together more than chance but neither causes the other. constrains: values on "
-            "this dimension restrict the available values on the target dimension."
-        )
-    )
+    target_id: str = Field(description="Id of the dimension this relation points to (the target).")
+    reading: str = Field(description=READING_DESCRIPTION)
+    type: RelationType = Field(description=TYPE_DESCRIPTION)
     rationale: str = Field(
-        description="Why this relation holds, judged against the use case — not incidental textual co-occurrence."
+        description="Why the reading holds, judged against the use case — not incidental textual co-occurrence."
     )
 
 

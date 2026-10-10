@@ -17,6 +17,8 @@ from typing import List, Optional, Tuple
 
 import yaml
 
+from taxonomy_generator.relations import DEFAULT_RELATION_TYPES, RELATION_TYPES
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -167,6 +169,10 @@ class TaxonomySettings:
     # case and drops the irrelevant ones (after the support and decision-point rules).
     # False keeps every dimension that passes those rules (no LLM relevance filter).
     relevance_selection: bool = True
+    # Relations between dimensions (relations.py): the types the model may create, and the
+    # most relations stored on one dimension (None = no cap). Extra relations are rejected.
+    relation_types: Tuple[str, ...] = DEFAULT_RELATION_TYPES
+    max_relations_per_dimension: Optional[int] = 3
 
 
 @dataclass(frozen=True)
@@ -410,7 +416,19 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
     relevance_selection = raw.get("relevance_selection", TaxonomySettings.relevance_selection)
     if not isinstance(relevance_selection, bool):
         raise ValueError(f"taxonomy.relevance_selection must be true or false, got {relevance_selection!r}")
+    relation_types = raw.get("relation_types", list(TaxonomySettings.relation_types))
+    if (not isinstance(relation_types, list) or not relation_types
+            or any(t not in RELATION_TYPES for t in relation_types)):
+        raise ValueError(f"taxonomy.relation_types must be a non-empty list of {RELATION_TYPES}, "
+                         f"got {relation_types!r}")
+    max_relations = raw.get("max_relations_per_dimension", TaxonomySettings.max_relations_per_dimension)
+    if max_relations is not None and (not isinstance(max_relations, int) or isinstance(max_relations, bool)
+                                      or max_relations < 1):
+        raise ValueError(f"taxonomy.max_relations_per_dimension must be a positive integer or null, "
+                         f"got {max_relations!r}")
     return TaxonomySettings(
+        relation_types=tuple(relation_types),
+        max_relations_per_dimension=max_relations,
         edit_mode=edit_mode,
         edit_max_steps=edit_max_steps,
         relevance_selection=relevance_selection,

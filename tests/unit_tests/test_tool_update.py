@@ -49,7 +49,8 @@ def call(name, args, cid):
 
 def _taxonomy():
     return [{"id": "1", "name": "Drift Test", "description": "Which test detects drift?",
-             "relations": [{"target_id": "2", "type": "consequence", "rationale": "r"}],
+             "relations": [{"target_id": "2", "type": "affects", "rationale": "r",
+                            "reading": "Choices on Drift Test affect the outcomes of Response"}],
              "values": [{"id": "1.1", "dimension_id": "1", "label": "CUSUM chart", "description": "cumulative sums",
                          "supporting_doc_ids": ["d1"], "status": "accepted"}]},
             {"id": "2", "name": "Response", "description": "How to respond?", "relations": [], "values": []}]
@@ -228,7 +229,7 @@ def test_the_node_config_reaches_every_model_call():
 
 def test_compact_view_shows_ids_names_statuses_relations_and_hides_descriptions_and_provenance():
     text = format_taxonomy_compact(_taxonomy())
-    assert "[1] Drift Test — Which test detects drift? (consequence → 2)" in text
+    assert "[1] Drift Test — Which test detects drift? (affects → 2)" in text
     assert "1.1 CUSUM chart (accepted)" in text
     assert "cumulative sums" not in text and "d1" not in text
     assert "[2] Response — How to respond? (no values yet)" in text

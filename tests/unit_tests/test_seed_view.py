@@ -34,7 +34,9 @@ def test_auto_freezes_the_selected_view_in_test_mode_and_refines_the_final_itera
 def test_selected_view_drops_relations_to_dimensions_selection_removed(saved):
     clusters = load_seed_taxonomy(saved, "selected")
     assert [c["name"] for c in clusters] == ["Kept", "Also kept"]
-    assert clusters[0]["relations"] == [{"target_id": "3", "type": "precondition"}]
+    # legacy type names are mapped and a reading sentence is filled in
+    assert clusters[0]["relations"] == [{"target_id": "3", "type": "requires",
+                                         "reading": "Kept requires Also kept to be decided first"}]
 
 
 def test_final_view_keeps_every_dimension(saved):

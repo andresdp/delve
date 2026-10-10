@@ -243,6 +243,16 @@ class Configuration:
         metadata={"description": "Selective coding: drop dimensions an LLM judges irrelevant to the use case."},
     )
 
+    relation_types: tuple = field(
+        default=None,
+        metadata={"description": "Relation types between dimensions the model may create (relations.py)."},
+    )
+
+    max_relations_per_dimension: int | None = field(
+        default=None,
+        metadata={"description": "Most relations stored on one dimension (None = no cap)."},
+    )
+
     # ── Summarization ──────────────────────────────────────────────────
     skip_summarization: bool = field(
         default=None,
@@ -439,6 +449,8 @@ class Configuration:
             "edit_mode": s.taxonomy.edit_mode,
             "edit_max_steps": s.taxonomy.edit_max_steps,
             "relevance_selection": s.taxonomy.relevance_selection,
+            "relation_types": s.taxonomy.relation_types,
+            "max_relations_per_dimension": s.taxonomy.max_relations_per_dimension,
             # Summarization
             "skip_summarization": s.summarization.skip,
             "summary_length": s.summarization.summary_length,

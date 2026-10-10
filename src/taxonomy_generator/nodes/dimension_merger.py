@@ -33,6 +33,7 @@ import numpy as np
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import DIMENSION_MERGE_PROMPT
+from taxonomy_generator.relations import clean_relations, dropped_note
 from taxonomy_generator.schemas import DimensionMergeOutput
 from taxonomy_generator.utils import (
     connected_components,
@@ -95,7 +96,8 @@ def merge_groups(dims: List[Dict], groups: List[List[int]]) -> Tuple[List[Dict],
             seen.add(key)
             relations.append({**rel, "target_id": target})
         cluster["relations"] = relations
-    return merged, notes
+    merged, dropped = clean_relations(merged)  # a merge can turn two relations into an opposite pair
+    return merged, notes + [dropped_note(d) for d in dropped]
 
 
 async def merge_dimensions(clusters: List[Dict], configuration: Configuration) -> Tuple[List[Dict], List[str]]:
