@@ -38,13 +38,16 @@ A rule applied at dimension selection (`taxonomy.min_dimension_sources`): a Dime
 
 ## Decision Status
 
-How the evidence stands toward a Value. Open Coding classifies each code from its document's own framing: `accepted` (the document adopted the decision), `rejected` (it explicitly considered and declined it), or `outcome` (it reports an effect, such as a result, cost or side effect, not a decision; a description of *how* something is done is a decision, not an outcome). Named `outcome` rather than reusing a Relation's `consequence` type, which links two Dimensions and means something different.
+How the evidence stands toward a Value. Open Coding classifies each code from its document's own framing: `accepted` (the document adopted the decision), `rejected` (it explicitly considered and declined it), or `outcome` (it reports an effect, such as a result, cost or side effect, not a decision; a description of *how* something is done is a decision, not an outcome). Named `outcome` rather than reusing a Relation's `affects` type (formerly `consequence`), which links two Dimensions and means something different.
 
 A Value is either a *candidate decision* (an alternative answer to its Dimension's question) or an outcome. A candidate decision's status comes from its evidence: its `stances` record which documents accept it and which reject it. Its status is `accepted` or `rejected` when the sources agree, and `mixed` when some sources adopt it and others reject it (e.g. one system uses consensus replication, another moved away from it). Consolidation therefore merges accepted and rejected Values that name the same decision (`taxonomy.merge_value_stances`), but never merges an outcome with a candidate decision.
 
 ## Relation
 
-A typed, directed link from one Dimension to another, describing how the two interact rather than incidental co-occurrence. Types: `precondition`, `consequence`, `co_occurring`, `constrains`.
+A typed link from one Dimension (the source) to another (the target), describing how the two interact rather than incidental co-occurrence. Every Relation reads left to right as one sentence: `requires` (the source requires the target to be decided first), `affects` (choices on the source affect the outcomes of the target), `constrains` (choices on the source limit the options available on the target), `co_occurs_with` (the two are usually decided together; no direction), and the optional `refines` (the source is a sub-decision of the target).
+*Avoid:* precondition, consequence, co_occurring (older names of requires, affects and co_occurs_with)
+
+Relations are inferred by the model and, unlike Values, are not checked against passages. A Relation the model adds is accepted only when its sentence, written with the two Dimension names, matches its type and direction. Two Dimensions never relate both ways with the same directed type, `requires` never forms a cycle, a co-occurrence is recorded once per pair, and each Dimension keeps only a few Relations. When a Dimension is split, its Relations stay with one part; when Dimensions are merged or renamed, their Relations follow, the structural rules above are applied again, and each sentence is rewritten with the current names.
 
 ## Open Coding
 
