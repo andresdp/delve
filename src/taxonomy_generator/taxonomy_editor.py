@@ -439,7 +439,8 @@ class TaxonomyEditor:
         new_dims = []
         for part, values in zip(parts, assigned):
             new = self._new_dim(_str(part, "name"), _str(part, "description", required=False))
-            new["relations"] = copy.deepcopy(dim["relations"])
+            if not new_dims:  # relations stay with the first part only; copying them to every part multiplies them
+                new["relations"] = copy.deepcopy(dim["relations"])
             for v in values:
                 self._place(v, new)
             new_dims.append(new)
@@ -447,16 +448,15 @@ class TaxonomyEditor:
             self.clusters.insert(index + len(new_dims) - 1, new)
         new_ids = [d["id"] for d in new_dims]
         self._split[str(dim["id"])] = new_ids
-        for c in self.clusters:  # incoming relations now point to every part
-            rels = []
-            for r in c["relations"]:
-                if str(r.get("target_id")) == str(dim["id"]):
-                    rels.extend({**r, "target_id": nid} for nid in new_ids if nid != c["id"])
-                else:
-                    rels.append(r)
-            c["relations"] = rels
+        for c in self.clusters:  # incoming relations now point to the first part
+            c["relations"] = [{**r, "target_id": new_ids[0]} if str(r.get("target_id")) == str(dim["id"]) else r
+                              for r in c["relations"]]
         described = ", ".join(f"{d['id']} '{d['name']}'" for d in new_dims)
-        return f"split dimension {dim['id']} into {described}"
+        note = ""
+        if dim["relations"] or any(str(r.get("target_id")) == new_ids[0] for c in self.clusters for r in c["relations"]):
+            note = (f"; its relations now belong to {new_ids[0]} '{new_dims[0]['name']}' only: use add_relation or "
+                    "remove_relation if they belong to another part")
+        return f"split dimension {dim['id']} into {described}{note}"
 
     def _merge_dimensions(self, args: dict) -> str:
         ids = _str_list(args, "dimension_ids", min_len=2)
@@ -563,7 +563,8 @@ class TaxonomyEditor:
             c["relations"] = kept
             for v in c["values"]:
                 v["dimension_id"] = str(c["id"])
-        clusters, dropped = clean_relations(clusters)  # merges and splits can leave duplicates or opposite pairs
+        # merges and splits can leave duplicates, opposite pairs or too many relations; readings are refreshed
+        clusters, dropped = clean_relations(clusters, max_per_dimension=self.max_relations)
         self.cleanup = self._relation_notes + self.cleanup + [dropped_note(d) for d in dropped]
         fixed, changes = ensure_unique_ids(clusters)
         self.cleanup.extend(changes)

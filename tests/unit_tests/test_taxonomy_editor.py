@@ -219,7 +219,7 @@ def test_rename_dimension():
     assert not ok
 
 
-def test_split_dimension_assigns_every_value_once_and_copies_relations():
+def test_split_dimension_assigns_every_value_once_and_keeps_relations_on_the_first_part():
     ed = _editor()
     ed.apply("add_value", {"dimension_id": "1", "label": "Page-Hinkley", "description": "x", "status": "rejected",
                            "doc_ids": ["d4"], "reason": "r"})
@@ -229,10 +229,12 @@ def test_split_dimension_assigns_every_value_once_and_copies_relations():
     assert ok, msg
     names = {c["name"] for c in ed.clusters}
     assert {"Sequential Test", "Distribution Test"} <= names and "Drift Test" not in names
-    for part in ("Sequential Test", "Distribution Test"):
-        dim = next(c for c in ed.clusters if c["name"] == part)
-        assert [(r["target_id"], r["type"], r["rationale"]) for r in dim["relations"]] == [
-            ("2", "affects", "alerts trigger responses")]
+    first, second = (next(c for c in ed.clusters if c["name"] == n) for n in ("Sequential Test", "Distribution Test"))
+    assert [(r["target_id"], r["type"], r["rationale"]) for r in first["relations"]] == [
+        ("2", "affects", "alerts trigger responses")]
+    assert second["relations"] == []
+    assert "relations" in msg and "Sequential Test" in msg  # the model is told where they went
+    for dim in (first, second):
         assert all(v["dimension_id"] == dim["id"] for v in dim["values"])
     assert len([v for c in ed.clusters for v in c["values"]]) == 7
     ok, _ = ed.apply("add_evidence", {"value_id": "1.2", "doc_ids": ["d5"], "reason": "alias"})
@@ -557,3 +559,39 @@ def test_similar_values_ignore_stopwords_and_rank_by_overlap():
               {"id": "1.3", "label": "Reward model training", "status": "accepted"}]
     found = similar_values("drift detection test for policies", values)
     assert [v["id"] for v in found] == ["1.1", "1.2"]
+
+
+def test_split_points_incoming_relations_at_the_first_part_only():
+    ed = _editor()
+    assert ed.apply("add_relation", _rel("2", "1", "requires",
+                                         "Response Strategy requires Drift Test to be decided first"))[0]
+    ed.apply("add_value", {"dimension_id": "1", "label": "Page-Hinkley", "description": "x", "status": "rejected",
+                           "doc_ids": ["d4"], "reason": "r"})
+    ok, msg = ed.apply("split_dimension", {"dimension_id": "1", "reason": "two questions", "parts": [
+        {"name": "Sequential Test", "description": "a", "value_ids": ["1.1", "1.5", "1.4"]},
+        {"name": "Distribution Test", "description": "b", "value_ids": ["1.2", "1.3"]}]})
+    assert ok, msg
+    first = next(c for c in ed.clusters if c["name"] == "Sequential Test")
+    incoming = [r["target_id"] for r in _dim(ed.clusters, "2")["relations"] if r["type"] == "requires"]
+    assert incoming == [first["id"]]
+
+
+def test_result_refreshes_stored_readings_after_a_rename():
+    ed = _editor()
+    assert ed.apply("rename_dimension", {"dimension_id": "2", "name": "Alert Response", "reason": "clearer"})[0]
+    rel = _dim(ed.result(), "1")["relations"][0]
+    assert rel["reading"] == "Choices on Drift Test affect the outcomes of Alert Response"
+
+
+def test_result_applies_the_cap_after_a_merge():
+    ed = TaxonomyEditor(_taxonomy(), batch_doc_ids=("d1", "d4"), max_relations=1)
+    assert ed.apply("add_value", {"dimension_id": "3", "label": "Escalate", "description": "x", "status": "accepted",
+                                  "doc_ids": ["d4"], "reason": "r"})[0]
+    assert ed.apply("add_relation", _rel("3", "2", "requires",
+                                         "Empty Dim requires Response Strategy to be decided first"))[0]
+    ok, msg = ed.apply("merge_dimensions", {"dimension_ids": ["1", "3"], "name": "Drift", "description": "d",
+                                            "reason": "same question"})
+    assert ok, msg
+    clusters = ed.result()
+    assert all(len(c["relations"]) <= 1 for c in clusters)
+    assert any("at most 1" in note for note in ed.cleanup)

@@ -185,3 +185,18 @@ def test_direction_helpers():
     assert canonical_ends("co_occurs_with", "10", "9") == ("9", "10")
     assert canonical_ends("requires", "10", "9") == ("10", "9")
     assert display_type("consequence") == "affects" and display_type("enables") == "enables"
+
+
+def test_clean_relations_stores_the_canonical_reading_from_current_names():
+    dims = _dims(("1", "One", [{"target_id": "2", "type": "requires", "reading": "Old One requires Old Two first",
+                               "rationale": ""}]), ("2", "Two", []))
+    cleaned, dropped = clean_relations(dims)
+    assert dropped == [] and cleaned[0]["relations"][0]["reading"] == render_reading("One", "requires", "Two")
+
+
+def test_clean_relations_trusts_listed_relations_and_checks_the_others():
+    stale = {"target_id": "2", "type": "requires", "reading": "Alpha requires Beta to be decided first", "rationale": ""}
+    dims = _dims(("1", "One", [stale]), ("2", "Two", []))
+    assert clean_relations(dims, check=True)[1]  # unlisted: the stale reading fails the check
+    cleaned, dropped = clean_relations(dims, check=True, trusted={("1", "2", "requires")})
+    assert dropped == [] and cleaned[0]["relations"][0]["reading"] == render_reading("One", "requires", "Two")

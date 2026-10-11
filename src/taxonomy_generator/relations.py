@@ -247,19 +247,36 @@ def _problem(dims: dict[str, dict], source_id: str, target_id: str, rtype: str, 
     return None
 
 
+def relation_keys(clusters: Iterable[dict]) -> set[tuple[str, str, str]]:
+    """Return ``(source, target, type)`` of every relation as stored (current type names, canonical ends)."""
+    keys = set()
+    for c in clusters:
+        if not isinstance(c, dict):
+            continue
+        for rel in c.get("relations") or []:
+            rtype = normalize_type(rel.get("type")) if isinstance(rel, dict) else None
+            if rtype:
+                keys.add((*canonical_ends(rtype, str(c.get("id")), str(rel.get("target_id"))), rtype))
+    return keys
+
+
 def clean_relations(clusters: Iterable[dict], *, allowed: Iterable[str] = RELATION_TYPES, check: bool = False,
-                    max_per_dimension: int | None = None) -> tuple[list[dict], list[dict]]:
+                    max_per_dimension: int | None = None,
+                    trusted: Iterable[tuple[str, str, str]] = ()) -> tuple[list[dict], list[dict]]:
     """Return a copy of ``clusters`` whose relations follow the rules, plus the relations dropped and why.
 
     Legacy type names are mapped; ``co_occurs_with`` is stored once per pair, on the dimension
     with the lower id; relations are kept in order while each one passes :func:`relation_problem`
-    against those kept so far; a missing ``reading`` is filled with the canonical sentence.
+    against those kept so far. With ``check``, the reading of every relation not in ``trusted``
+    (keys as :func:`relation_keys` builds them: relations already accepted earlier) must match its
+    type and direction. Every kept relation stores the canonical reading built from the current
+    dimension names, so renames, splits and merges never leave a stale sentence behind.
     """
     result = [copy.deepcopy(c) for c in clusters if isinstance(c, dict)]
     pending = [(str(c.get("id")), list(c.get("relations") or [])) for c in result]
     for c in result:
         c["relations"] = []
-    dims, dropped, allowed = _by_id(result), [], tuple(allowed)
+    dims, dropped, allowed, trusted = _by_id(result), [], tuple(allowed), set(trusted)
     for source, relations in pending:
         for rel in relations:
             if not isinstance(rel, dict):
@@ -269,14 +286,14 @@ def clean_relations(clusters: Iterable[dict], *, allowed: Iterable[str] = RELATI
             if rtype and tgt in dims:
                 src, tgt = canonical_ends(rtype, src, tgt)
             reading = str(rel.get("reading") or "")
-            reason = reason or _problem(dims, src, tgt, rtype, reading, allowed=allowed, check=check,
+            reason = reason or _problem(dims, src, tgt, rtype, reading, allowed=allowed,
+                                        check=check and (src, tgt, rtype) not in trusted,
                                         max_per_dimension=max_per_dimension)
             if reason:
                 dropped.append({"source_id": source, "target_id": str(rel.get("target_id")),
                                 "type": rel.get("type"), "reason": reason})
                 continue
-            if not reading:
-                reading = render_reading(str(dims[src].get("name", src)), rtype, str(dims[tgt].get("name", tgt)))
+            reading = render_reading(str(dims[src].get("name", src)), rtype, str(dims[tgt].get("name", tgt)))
             dims[src]["relations"].append({**rel, "target_id": tgt, "type": rtype, "reading": reading})
     return result, dropped
 
@@ -284,8 +301,8 @@ def clean_relations(clusters: Iterable[dict], *, allowed: Iterable[str] = RELATI
 def relation_sentence(relation: dict, source_name: str, target_name: str) -> str:
     """How to show a stored relation: its reading sentence from the current names (legacy types mapped).
 
-    The stored ``reading`` is kept as the model wrote it when the relation was created; display
-    sentences are rendered from the type and the current names, so renames never leave them stale.
+    Display sentences are rendered from the type and the current names (as stored readings are once
+    a taxonomy passes :func:`clean_relations`), so they are never stale.
     An unknown type falls back to "source <type> target".
     """
     rtype = normalize_type(relation.get("type"))

@@ -15,6 +15,7 @@ from taxonomy_generator.relations import (
     DEFAULT_RELATION_TYPES,
     clean_relations,
     dropped_note,
+    relation_keys,
 )
 from taxonomy_generator.schemas import TaxonomyOutput
 from taxonomy_generator.state import Doc, State
@@ -384,15 +385,19 @@ def _prune_relations(clusters: List[Dict]) -> List[Dict]:
     return pruned
 
 
-def sanitize_relations(clusters: List[Dict], configuration: Configuration) -> Tuple[List[Dict], List[str]]:
+def sanitize_relations(clusters: List[Dict], configuration: Configuration,
+                       previous: List[Dict] | None = None) -> Tuple[List[Dict], List[str]]:
     """Apply the relation rules (relations.py) to rewrite-mode output; return the clusters and what was dropped.
 
     Rewrite mode has no retry loop, so a relation with a reading that does not match its type
     and direction, a disabled type, an opposite pair, a cycle or one beyond the cap is dropped
-    and logged rather than failing the run.
+    and logged rather than failing the run. Relations already in ``previous`` (the taxonomy the
+    model revised) were checked when they were added: their readings are not checked again, so a
+    renamed dimension does not lose its relations, and every reading is rebuilt from current names.
     """
     cleaned, dropped = clean_relations(clusters, allowed=configuration.relation_types or DEFAULT_RELATION_TYPES,
-                                       check=True, max_per_dimension=configuration.max_relations_per_dimension)
+                                       check=True, max_per_dimension=configuration.max_relations_per_dimension,
+                                       trusted=relation_keys(previous or []))
     return cleaned, [dropped_note(d) for d in dropped]
 
 
@@ -792,7 +797,7 @@ async def invoke_taxonomy_chain(
         # Convert Pydantic model to dict list for state
         clusters_list, id_changes = ensure_unique_ids([c.model_dump() for c in result.clusters])
         clusters_list = carry_over_evidence(previous_taxonomy, clusters_list)
-        clusters_list, relation_notes = sanitize_relations(clusters_list, configuration)
+        clusters_list, relation_notes = sanitize_relations(clusters_list, configuration, previous_taxonomy)
         for note in relation_notes:
             logger.info("Rewrite output: %s", note)
         if id_changes:

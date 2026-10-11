@@ -2,6 +2,7 @@
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.nodes.dimension_merger import merge_groups
+from taxonomy_generator.relations import render_reading
 from taxonomy_generator.utils import sanitize_relations
 
 
@@ -40,3 +41,33 @@ def test_dimension_merging_drops_relations_that_become_opposite():
     rels = {(c["id"], r["target_id"], r["type"]) for c in merged for r in c["relations"]}
     assert rels == {("1", "2", "requires")}
     assert any("opposite" in n for n in notes)
+
+
+def test_rewrite_output_keeps_existing_relations_after_a_rename_and_refreshes_their_reading():
+    previous = _dims(("1", "Serving", [{"target_id": "2", "type": "requires", "rationale": "r",
+                                        "reading": "Serving requires Packaging to be decided first"}]),
+                     ("2", "Packaging", []))
+    # the model renamed dimension 2 and copied the relation (and its old reading) unchanged
+    output = _dims(("1", "Serving", [{"target_id": "2", "type": "requires", "rationale": "r",
+                                      "reading": "Serving requires Packaging to be decided first"}]),
+                   ("2", "Model Packaging Format", []))
+    cleaned, notes = sanitize_relations(output, Configuration(), previous=previous)
+    assert notes == []
+    assert cleaned[0]["relations"][0]["reading"] == render_reading("Serving", "requires", "Model Packaging Format")
+
+
+def test_rewrite_output_still_checks_relations_that_are_new():
+    previous = _dims(("1", "Serving", []), ("2", "Packaging", []))
+    output = _dims(("1", "Serving", [{"target_id": "2", "type": "requires", "rationale": "r",
+                                      "reading": "Packaging requires Serving to be decided first"}]),
+                   ("2", "Packaging", []))
+    cleaned, notes = sanitize_relations(output, Configuration(), previous=previous)
+    assert cleaned[0]["relations"] == [] and len(notes) == 1
+
+
+def test_dimension_merging_applies_the_cap():
+    rels = [{"target_id": t, "type": "affects", "rationale": "r"} for t in ("3", "4")]
+    dims = _dims(("1", "A", rels[:1]), ("2", "A too", rels[1:]), ("3", "C", []), ("4", "D", []))
+    merged, notes = merge_groups(dims, [[0, 1], [2], [3]], max_relations=1)
+    assert max(len(c["relations"]) for c in merged) == 1
+    assert any("at most 1" in n for n in notes)
