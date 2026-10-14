@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, NoReturn, Optional
 
 import typer
 from rich.console import Console
@@ -46,7 +45,7 @@ def interactive(yes: bool) -> bool:
     return not yes and sys.stdin.isatty()
 
 
-def fail(message: str, code: int = 1) -> None:
+def fail(message: str, code: int = 1) -> NoReturn:
     """Print an error and exit."""
     console.print(f"[red]Error:[/red] {message}")
     raise typer.Exit(code)
@@ -58,7 +57,6 @@ def current_workspace() -> Workspace:
         return Workspace.find()
     except WorkspaceError as exc:
         fail(str(exc))
-        raise  # unreachable; keeps type checkers happy
 
 
 def version_callback(value: bool) -> None:
@@ -263,7 +261,7 @@ def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: L
     if html_report or (ws.config().get("wiki") or {}).get("html_report"):
         runs.run_pipeline(ws, ["--html-report", runs.relative(ws, taxonomy), "--config", wsmod.CONFIG_NAME,
                                "--output", runs.relative(ws, run_dir)])
-    data = json.loads(taxonomy.read_text(encoding="utf-8"))
+    data = wsmod.read_json(taxonomy)
     dims = wb.selected_dims(data)
     metrics = data.get("run_metrics") or {}
     _warn_if_all_dropped(data)
@@ -320,8 +318,7 @@ def mine(
         raise typer.Exit()
     run_dir = runs.new_run_dir(ws)
     run = runs.Run(id=run_dir.name, kind="mine", started_at=datetime.now().isoformat(timespec="seconds"),
-                   source_ids=sorted({p.get("source_id") for p in corpus if p.get("source_id")}),
-                   passages=len(corpus))
+                   source_ids=src.corpus_source_ids(corpus), passages=len(corpus))
     extra = ["-k", str(max_dimensions)] if max_dimensions is not None else []
     _execute(ws, run, run_dir, ws.corpus_path, extra, html_report)
 
@@ -376,8 +373,7 @@ def update(
             raise typer.Exit()
         run_dir = runs.new_run_dir(ws)
         run = runs.Run(id=run_dir.name, kind="update-feedback", started_at=started, seed_run=seed_dir.name,
-                       feedback=text.strip(), passages=len(corpus),
-                       source_ids=sorted({p.get("source_id") for p in corpus if p.get("source_id")}))
+                       feedback=text.strip(), passages=len(corpus), source_ids=src.corpus_source_ids(corpus))
         _execute(ws, run, run_dir, ws.corpus_path, ["--taxonomy", runs.relative(ws, seed), "--feedback", text.strip()],
                  html_report)
         return
@@ -387,7 +383,7 @@ def update(
     with console.status("Extracting text..."):
         scanned = src.scan(ws)
     covered = set(seed_run.source_ids) if seed_run and seed_run.source_ids else \
-        {p.get("source_id") for p in runs.read_corpus(ws.corpus_path)} if ws.corpus_path.is_file() else set()
+        set(src.corpus_source_ids(runs.read_corpus(ws.corpus_path))) if ws.corpus_path.is_file() else set()
     new_ids = [s.id for s in scanned if src.usable(s) and s.id not in covered]
     if not new_ids:
         fail("No new sources: every usable source is already in the design space. Add files with --sources, "
@@ -396,7 +392,7 @@ def update(
     lines = [f"Starting from run {seed_dir.name} (dimensions frozen); new sources: {', '.join(new_ids)}"]
     if not _confirm_run(ws, "ddspace update --test", lines, len(added), yes):
         raise typer.Exit()
-    added = src.append_to_corpus(ws, new_ids)
+    src.append_to_corpus(ws, added)
     run_dir = runs.new_run_dir(ws)
     new_corpus = run_dir / "corpus_new.json"
     runs.write_corpus(new_corpus, added)
@@ -448,12 +444,11 @@ def agent_setup(
 # ---------------------------------------------------------------- wiki
 
 
-def _wiki_options(ws: Workspace, dims: List[dict], n_sources: int, run_dir: Path, ask_all: bool,
-                  yes: bool) -> wb.Options:
+def _wiki_options(ws: Workspace, dims: List[dict], n_sources: int, ask_all: bool, yes: bool) -> wb.Options:
     saved = ws.config().get("wiki") or {}
     ask = interactive(yes)
     opts = wb.Options()
-    suggested = wb.suggest_core(dims, n_sources)
+    suggested = wb.suggest_core(n_sources)
 
     def need(key: str) -> bool:
         return saved.get(key) is None or ask_all
@@ -518,11 +513,11 @@ def wiki_build_cmd(
     if run_dir is None or not run_dir.is_dir() or runs.find_taxonomy(run_dir) is None:
         fail("No design space to export. Run `ddspace mine` first." if run is None
              else f"{run} is not a run folder with a taxonomy under runs/.")
-    taxonomy = json.loads(runs.find_taxonomy(run_dir).read_text(encoding="utf-8"))
+    taxonomy = wsmod.read_json(runs.find_taxonomy(run_dir))
     dims = wb.selected_dims(taxonomy)
     _warn_if_all_dropped(taxonomy)
     n_sources = len(wb.run_sources(dims))
-    opts = _wiki_options(ws, dims, n_sources, run_dir, ask, yes)
+    opts = _wiki_options(ws, dims, n_sources, ask, yes)
     try:
         with console.status("Building the wiki..."):
             result = wb.build_wiki(ws, run_dir, opts, llm=not no_llm)

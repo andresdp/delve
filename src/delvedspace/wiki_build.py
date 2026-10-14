@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +15,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from delvedspace import __version__, runs
 from delvedspace import sources as src
-from delvedspace.workspace import Workspace
+from delvedspace.workspace import Workspace, read_json, write_json
 from taxonomy_generator.evaluation.design_points import point_signature, sample_points
 from taxonomy_generator.html_report import (
     _extract_narrative_summary,
@@ -68,7 +67,7 @@ def run_sources(dims: List[Mapping[str, Any]]) -> List[str]:
                    for doc in v.get("supporting_doc_ids") or []})
 
 
-def suggest_core(dims: List[Mapping[str, Any]], n_sources: int) -> int:
+def suggest_core(n_sources: int) -> int:
     """Suggested core threshold: about a third of the sources (at least 2, at most the sources there are)."""
     return max(1, min(n_sources, max(2, round(n_sources / 3))))
 
@@ -102,19 +101,42 @@ def _source_texts(ws: Workspace) -> Dict[str, Tuple[str, str, str]]:
     return out
 
 
-def missing_summaries(ws: Workspace) -> List[str]:
-    """Source ids without a stored summary for their current file."""
-    stored = _load(ws.state_dir / SUMMARIES_FILE).get("summaries") or {}
-    return [sid for sid, (_t, _x, sha) in _source_texts(ws).items()
+def _stored(path: Path, key: str) -> Tuple[Dict[str, Any], str]:
+    """Return the stored entries under ``key`` and the model that wrote them."""
+    data = read_json(path, {})
+    return dict(data.get(key) or {}), str(data.get("model") or "")
+
+
+def missing_summaries(ws: Workspace, texts: Optional[Mapping[str, Tuple[str, str, str]]] = None) -> List[str]:
+    """Return the source ids without a stored summary for their current file."""
+    stored, _model = _stored(ws.state_dir / SUMMARIES_FILE, "summaries")
+    texts = _source_texts(ws) if texts is None else texts
+    return [sid for sid, (_t, _x, sha) in texts.items()
             if (stored.get(sid) or {}).get("sha256") != sha or not (stored.get(sid) or {}).get("summary")]
 
 
-def _load(path: Path) -> Dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+def stored_summaries(ws: Workspace) -> Tuple[Dict[str, str], str]:
+    """Return the stored source summaries and the model that wrote them (no LLM call)."""
+    stored, model = _stored(ws.state_dir / SUMMARIES_FILE, "summaries")
+    return {sid: e["summary"] for sid, e in stored.items() if e.get("summary")}, model
 
 
-def _run_async(coro):
-    return asyncio.run(coro)
+def stored_descriptions(run_dir: Path) -> Tuple[Dict[str, str], str]:
+    """Return the stored design-point descriptions and the model that wrote them (no LLM call)."""
+    stored, model = _stored(run_dir / DESCRIPTIONS_FILE, "descriptions")
+    return {sig: e["description"] for sig, e in stored.items() if e.get("description")}, model
+
+
+def _gather(calls: List[Any], concurrency: int) -> List[Any]:
+    """Run coroutine factories with bounded concurrency; failed calls come back as exceptions."""
+    async def run_all():
+        sem = asyncio.Semaphore(concurrency)
+
+        async def bounded(call):
+            async with sem:
+                return await call()
+        return await asyncio.gather(*(bounded(c) for c in calls), return_exceptions=True)
+    return asyncio.run(run_all())
 
 
 def ensure_summaries(ws: Workspace, model_name: str, concurrency: int = 4) -> Tuple[Dict[str, str], str, int]:
@@ -122,32 +144,27 @@ def ensure_summaries(ws: Workspace, model_name: str, concurrency: int = 4) -> Tu
     from taxonomy_generator.utils import load_chat_model
 
     path = ws.state_dir / SUMMARIES_FILE
-    data = _load(path)
-    stored = dict(data.get("summaries") or {})
+    stored, stored_model = _stored(path, "summaries")
     texts = _source_texts(ws)
-    todo = missing_summaries(ws)
+    todo = missing_summaries(ws, texts)
     if todo:
         model = load_chat_model(model_name)
-        sem = asyncio.Semaphore(concurrency)
 
-        async def one(sid):
-            title, text, sha = texts[sid]
-            async with sem:
+        def call(sid):
+            async def one():
+                title, text, sha = texts[sid]
                 summary, n = await llm_texts.summarize(model, title, text)
-            return sid, {"title": title, "summary": summary, "words_read": n, "sha256": sha}
+                return sid, {"title": title, "summary": summary, "words_read": n, "sha256": sha}
+            return one
 
-        async def all_():
-            return await asyncio.gather(*(one(sid) for sid in todo), return_exceptions=True)
-
-        for result in _run_async(all_()):
+        for result in _gather([call(sid) for sid in todo], concurrency):
             if not isinstance(result, BaseException):
                 stored[result[0]] = result[1]
         ws.state_dir.mkdir(exist_ok=True)
-        path.write_text(json.dumps({"model": model_name, "generated": dt.date.today().isoformat(),
-                                    "prompt_version": llm_texts.SUMMARY_PROMPT_VERSION, "summaries": stored},
-                                   indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        write_json(path, {"model": model_name, "generated": dt.date.today().isoformat(),
+                          "prompt_version": llm_texts.SUMMARY_PROMPT_VERSION, "summaries": stored})
     summaries = {sid: e["summary"] for sid, e in stored.items() if sid in texts and e.get("summary")}
-    return summaries, str(data.get("model") or model_name), len(todo)
+    return summaries, stored_model or model_name, len(todo)
 
 
 def ensure_points(run_dir: Path, dims: List[Dict[str, Any]], corpus_ids: List[str]) -> Dict[str, Any]:
@@ -158,14 +175,14 @@ def ensure_points(run_dir: Path, dims: List[Dict[str, Any]], corpus_ids: List[st
     """
     path = run_dir / POINTS_FILE
     if path.is_file():
-        return json.loads(path.read_text(encoding="utf-8"))
+        return read_json(path)
     doc_sources = {doc: {source_of(doc)} for doc in corpus_ids}
     samples = sample_points(dims, doc_sources, list(POINT_SIZES), POINTS_PER_GROUP, POINT_SEED)
     for sample in samples:
         sample["groups"]["control"] = []
     data = {"run": run_dir.name, "attest_by": "source", "seed": POINT_SEED, "n": POINTS_PER_GROUP,
             "samples": samples}
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(path, data)
     return data
 
 
@@ -175,9 +192,15 @@ def all_points(points: Mapping[str, Any]) -> List[Dict[str, Any]]:
 
 
 def missing_descriptions(run_dir: Path, points: Mapping[str, Any]) -> List[Dict[str, Any]]:
-    """Points without a stored description."""
-    stored = _load(run_dir / DESCRIPTIONS_FILE).get("descriptions") or {}
-    return [p for p in all_points(points) if point_signature(p) not in stored]
+    """Return one point per value combination that has no stored description.
+
+    Descriptions are keyed by the combination, so a combination sampled in two groups is described once.
+    """
+    stored, _model = _stored(run_dir / DESCRIPTIONS_FILE, "descriptions")
+    first: Dict[str, Dict[str, Any]] = {}
+    for p in all_points(points):
+        first.setdefault(point_signature(p), p)
+    return [p for sig, p in first.items() if sig not in stored]
 
 
 def ensure_descriptions(run_dir: Path, points: Mapping[str, Any], dims: List[Dict[str, Any]], domain: str,
@@ -186,30 +209,25 @@ def ensure_descriptions(run_dir: Path, points: Mapping[str, Any], dims: List[Dic
     from taxonomy_generator.utils import load_chat_model
 
     path = run_dir / DESCRIPTIONS_FILE
-    data = _load(path)
-    stored = dict(data.get("descriptions") or {})
+    stored, stored_model = _stored(path, "descriptions")
     todo = missing_descriptions(run_dir, points)
     if todo:
         model = load_chat_model(model_name)
-        sem = asyncio.Semaphore(concurrency)
         by_id = {str(d.get("id")): d for d in dims}
 
-        async def one(p):
-            async with sem:
+        def call(p):
+            async def one():
                 return p, await llm_texts.describe(model, p, by_id, domain)
+            return one
 
-        async def all_():
-            return await asyncio.gather(*(one(p) for p in todo), return_exceptions=True)
-
-        for result in _run_async(all_()):
+        for result in _gather([call(p) for p in todo], concurrency):
             if not isinstance(result, BaseException) and result[1]:
                 stored[point_signature(result[0])] = {"point_id": result[0].get("point_id"), "description": result[1]}
-        path.write_text(json.dumps({"model": model_name, "generated": dt.date.today().isoformat(),
-                                    "prompt_version": llm_texts.DESCRIPTION_PROMPT_VERSION, "design_points": POINTS_FILE,
-                                    "descriptions": dict(sorted(stored.items()))}, indent=2, ensure_ascii=False) + "\n",
-                        encoding="utf-8")
+        write_json(path, {"model": model_name, "generated": dt.date.today().isoformat(),
+                          "prompt_version": llm_texts.DESCRIPTION_PROMPT_VERSION, "design_points": POINTS_FILE,
+                          "descriptions": dict(sorted(stored.items()))})
     return ({k: v["description"] for k, v in stored.items() if v.get("description")},
-            str(data.get("model") or model_name), len(todo))
+            stored_model or model_name, len(todo))
 
 
 # ---------------------------------------------------------------- change log
@@ -222,44 +240,51 @@ def _names(graph: Mapping[str, Any]) -> Tuple[Dict[str, Dict[str, Any]], Dict[Tu
     return dims, vals
 
 
-def diff(old: Optional[Mapping[str, Any]], new: Mapping[str, Any]) -> Dict[str, List[str]]:
+@dataclass
+class Changes:
+    """What changed between two builds: lists of labels per kind of change, and the dimensions matched by name."""
+
+    items: Dict[str, List[str]]
+    matched: int
+    total: int
+
+
+def diff(old: Optional[Mapping[str, Any]], new: Mapping[str, Any]) -> Optional[Changes]:
     """Compare two graphs by dimension name and (dimension, value label): added, removed, changed."""
     if not old:
-        return {}
+        return None
     od, ov = _names(old)
     nd, nv = _names(new)
     label = lambda n: f"{n['label']} ({n.get('dimension')})"  # noqa: E731
     changed = [f"{label(nv[k])}: {ov[k].get('status')} → {nv[k].get('status')}"
                for k in sorted(set(ov) & set(nv)) if ov[k].get("status") != nv[k].get("status")]
-    return {
+    return Changes(items={
         "dimensions added": [nd[k]["label"] for k in sorted(set(nd) - set(od))],
         "dimensions removed": [od[k]["label"] for k in sorted(set(od) - set(nd))],
         "values added": [label(nv[k]) for k in sorted(set(nv) - set(ov))],
         "values removed": [label(ov[k]) for k in sorted(set(ov) - set(nv))],
         "values changed": changed,
-        "_matched": [str(len(set(od) & set(nd))), str(len(od))],
-    }
+    }, matched=len(set(od) & set(nd)), total=len(od))
 
 
-def log_entry(run: Optional[runs.Run], run_dir: Path, changes: Dict[str, List[str]], new: Mapping[str, Any],
+def log_entry(run: Optional[runs.Run], run_dir: Path, changes: Optional[Changes], new: Mapping[str, Any],
               same_run: bool) -> str:
-    """One log entry (Markdown list item, with sub-items for the changes)."""
+    """Return one log entry (a Markdown list item, with sub-items for the changes)."""
     counts = f"{sum(n.get('kind') == 'dimension' for n in new['nodes'])} dimensions, " \
              f"{sum(n.get('kind') == 'value' for n in new['nodes'])} values"
     kind = run.kind if run else "run"
-    if not changes:
+    if changes is None:
         return f"- **Creation** Wiki built from run {run_dir.name} ({kind}): {counts}."
     if same_run:
         return f"- **Rebuild** Wiki rebuilt from the same run {run_dir.name} (export options only)."
-    matched, total = changes.pop("_matched")
     head = f"- **Update** Run {run_dir.name} ({kind}" + (f", from {run.seed_run}" if run and run.seed_run else "") + \
         f"): {counts}."
     if run and run.kind == "update-feedback":
-        head += f" Dimensions matched by name: {matched} of {total}."
+        head += f" Dimensions matched by name: {changes.matched} of {changes.total}."
     if run and run.new_source_ids:
         head += f" New sources: {', '.join(run.new_source_ids)}."
     lines = [head]
-    for what, items in changes.items():
+    for what, items in changes.items.items():
         if items:
             shown = "; ".join(items[:15]) + (f"; and {len(items) - 15} more" if len(items) > 15 else "")
             lines.append(f"  - {what.capitalize()} ({len(items)}): {shown}")
@@ -305,7 +330,7 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
     With ``llm=False`` stored summaries and descriptions are used but none are written.
     """
     taxonomy_path = runs.find_taxonomy(run_dir)
-    taxonomy = json.loads(taxonomy_path.read_text(encoding="utf-8"))
+    taxonomy = read_json(taxonomy_path)
     cfg = ws.config()
     models = {k: str(v) for k, v in (cfg.get("models") or {}).items()
               if k in ("generation_llm", "evaluation_llm", "embedding") and v}
@@ -321,9 +346,7 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
         if llm:
             summaries, summary_model, n_summaries = ensure_summaries(ws, models.get("generation_llm", ""))
         else:
-            stored = _load(ws.state_dir / SUMMARIES_FILE)
-            summaries = {k: v["summary"] for k, v in (stored.get("summaries") or {}).items() if v.get("summary")}
-            summary_model = str(stored.get("model") or "")
+            summaries, summary_model = stored_summaries(ws)
     points, descriptions, point_model, n_desc = None, {}, "", 0
     if opts.design_points in ("sample", "describe"):
         points = ensure_points(run_dir, dims, list(corpus))
@@ -331,9 +354,7 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
             descriptions, point_model, n_desc = ensure_descriptions(run_dir, points, dims, name,
                                                                     models.get("generation_llm", ""))
         elif opts.design_points == "describe":
-            stored = _load(run_dir / DESCRIPTIONS_FILE)
-            descriptions = {k: v["description"] for k, v in (stored.get("descriptions") or {}).items()}
-            point_model = str(stored.get("model") or "")
+            descriptions, point_model = stored_descriptions(run_dir)
 
     m = re.search(r"_taxonomy_(\d{8}_\d{6})", taxonomy_path.name)
     run_label = m.group(1) if m else run_dir.name
@@ -359,8 +380,8 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
                        "stale_after": opts.stale_after, "models": models}
 
     graph_path = ws.root / "raw" / "graph.json"
-    old = json.loads(graph_path.read_text(encoding="utf-8")) if graph_path.is_file() else None
-    old_run = _load(ws.root / "raw" / "run.json").get("run")
+    old = read_json(graph_path)
+    old_run = read_json(ws.root / "raw" / "run.json", {}).get("run")
     period = parse_period(opts.stale_after)
     stale = (dt.datetime.now().astimezone() + period).isoformat(timespec="seconds") if period else None
     write(export, ws.root, name, html_dir=HTML_DIR, okf_by=producer(), okf_stale_after=stale)

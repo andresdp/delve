@@ -8,7 +8,6 @@ workspace ``.env`` and ``ddspace.yaml`` apply. ``run.json`` in the run folder re
 
 from __future__ import annotations
 
-import json
 import math
 import subprocess
 import sys
@@ -17,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from delvedspace.workspace import Workspace, WorkspaceError
+from delvedspace.workspace import Workspace, WorkspaceError, read_json, write_json
 
 RUN_FILE = "run.json"
 # Rough cost per passage, measured on the C3 sample (48 passages, critic on, batch 10):
@@ -63,15 +62,13 @@ def new_run_dir(ws: Workspace) -> Path:
 
 def save(run_dir: Path, run: Run) -> None:
     """Write ``run.json``."""
-    (run_dir / RUN_FILE).write_text(json.dumps(asdict(run), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(run_dir / RUN_FILE, asdict(run))
 
 
 def load(run_dir: Path) -> Optional[Run]:
     """Read ``run.json`` (None when the folder has none)."""
-    path = run_dir / RUN_FILE
-    if not path.is_file():
-        return None
-    return Run(**json.loads(path.read_text(encoding="utf-8")))
+    data = read_json(run_dir / RUN_FILE)
+    return Run(**data) if data is not None else None
 
 
 def find_taxonomy(run_dir: Path) -> Optional[Path]:
@@ -136,7 +133,7 @@ def estimate(ws: Workspace, passages: int, batch_size: int) -> Estimate:
         run, taxonomy = load(run_dir), find_taxonomy(run_dir)
         if not run or run.status != "ok" or taxonomy is None:
             continue
-        metrics = json.loads(taxonomy.read_text(encoding="utf-8")).get("run_metrics") or {}
+        metrics = read_json(taxonomy).get("run_metrics") or {}
         if metrics.get("total_tokens") and run.passages:
             scale = passages / run.passages
             return Estimate(passages, batches, int(metrics["total_tokens"] * scale),
@@ -147,9 +144,9 @@ def estimate(ws: Workspace, passages: int, batch_size: int) -> Estimate:
 
 def read_corpus(path: Path) -> List[Dict]:
     """Return the passages of a corpus JSON file."""
-    return json.loads(path.read_text(encoding="utf-8"))
+    return read_json(path)
 
 
 def write_corpus(path: Path, passages: List[Dict]) -> None:
     """Write passages as a corpus JSON file."""
-    path.write_text(json.dumps(passages, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(path, passages)

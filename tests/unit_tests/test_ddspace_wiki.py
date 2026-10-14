@@ -213,4 +213,13 @@ def test_check_and_open(ws):
 
 @pytest.mark.parametrize("n, expected", [(1, 1), (2, 2), (5, 2), (9, 3), (30, 10)])
 def test_suggested_core_threshold(n, expected):
-    assert wb.suggest_core([], n) == expected
+    assert wb.suggest_core(n) == expected
+
+
+def test_a_combination_sampled_twice_is_described_once(tmp_path):
+    same = [{"dimension_id": "1", "value_id": "1.1"}, {"dimension_id": "2", "value_id": "2.1"}]
+    points = {"samples": [{"k": 2, "groups": {
+        "attested": [{"point_id": "P001", "values": same}],
+        "novel": [{"point_id": "P002", "values": list(reversed(same))},
+                  {"point_id": "P003", "values": [{"dimension_id": "1", "value_id": "1.2"}]}]}}]}
+    assert [p["point_id"] for p in wb.missing_descriptions(tmp_path, points)] == ["P001", "P003"]

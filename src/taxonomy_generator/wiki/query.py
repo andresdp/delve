@@ -14,7 +14,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
-from taxonomy_generator.wiki.model import GRAPH_SCHEMA_VERSION, source_of
+from taxonomy_generator.wiki.model import (  # noqa: F401  (load_corpus re-exported for --quotes)
+    GRAPH_SCHEMA_VERSION,
+    load_corpus,
+    source_of,
+)
 
 SCHEMA_VERSION = GRAPH_SCHEMA_VERSION
 KIND_PREFIX = {"dimension": "d:", "value": "v:", "source": "s:", "system": "y:", "design": "p:"}
@@ -32,7 +36,7 @@ class NotFound(QueryError):
 
     def __init__(self, ref: str, candidates: Sequence[Mapping[str, Any]], ambiguous: bool = False):
         """Record what was asked for and what came close."""
-        self.ref, self.candidates, self.ambiguous = ref, [_brief(c) for c in candidates], ambiguous
+        self.ref, self.candidates = ref, [_brief(c) for c in candidates]
         what = "matches several nodes" if ambiguous else "matches nothing"
         hint = ("; did you mean: " + ", ".join(f"{c['label']} ({c['id']})" for c in self.candidates)
                 if self.candidates else "")
@@ -54,11 +58,6 @@ def load(path: Path) -> Graph:
                          "re-export the wiki.")
     graph["_by_id"] = {n["id"]: n for n in graph.get("nodes") or []}
     return graph
-
-
-def load_corpus(path: Path) -> Dict[str, Dict[str, Any]]:
-    """Load a corpus JSON as ``{passage id: passage}`` (for ``--quotes``)."""
-    return {str(p.get("id")): p for p in json.loads(Path(path).read_text(encoding="utf-8"))}
 
 
 def node(graph: Graph, node_id: str) -> Dict[str, Any]:
@@ -199,7 +198,7 @@ def show(graph: Graph, ref: str) -> Dict[str, Any]:
             continue
         extra = {k: v for k, v in e.items() if k not in ("source", "target", "type")}
         neighbors[e["type"]].append({**_brief(other), "direction": "out" if out else "in", **extra})
-    return {"node": {k: v for k, v in n.items()}, "neighbors": dict(neighbors)}
+    return {"node": dict(n), "neighbors": dict(neighbors)}
 
 
 def relations(graph: Graph, frm: Optional[str] = None, rtype: Optional[str] = None) -> List[Dict[str, Any]]:

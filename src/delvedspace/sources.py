@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import json
 import re
 from dataclasses import asdict, dataclass, field
 from html import unescape
@@ -17,7 +16,9 @@ from delvedspace.workspace import (
     SOURCE_SUFFIXES,
     Workspace,
     WorkspaceError,
+    read_json,
     source_files,
+    write_json,
 )
 
 CSV_COLUMNS = ["id", "file", "title", "url", "source_type", "notes"]
@@ -148,16 +149,13 @@ def scan(ws: Workspace) -> List[Source]:
 
     write_csv(ws.sources_csv, rows)
     ordered = [found[r["id"]] for r in rows]
-    ws.manifest_path.write_text(json.dumps([asdict(s) for s in ordered], indent=2, ensure_ascii=False) + "\n",
-                                encoding="utf-8")
+    write_json(ws.manifest_path, [asdict(s) for s in ordered])
     return ordered
 
 
 def load_manifest(ws: Workspace) -> List[Source]:
     """Return the sources recorded by the last scan (empty before the first one)."""
-    if not ws.manifest_path.is_file():
-        return []
-    return [Source(**entry) for entry in json.loads(ws.manifest_path.read_text(encoding="utf-8"))]
+    return [Source(**entry) for entry in read_json(ws.manifest_path, [])]
 
 
 def usable(source: Source) -> bool:
@@ -172,7 +170,7 @@ def build_corpus(ws: Workspace, target: int = TARGET_WORDS, min_words: int = MIN
     if not sources:
         raise WorkspaceError("No sources scanned yet. Run `ddspace sources` first.")
     corpus = [p for s in sources for p in source_passages(ws, s, target, min_words, max_words)]
-    ws.corpus_path.write_text(json.dumps(corpus, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(ws.corpus_path, corpus)
     return corpus
 
 
@@ -187,14 +185,13 @@ def source_passages(ws: Workspace, source: Source, target: int = TARGET_WORDS, m
                                max_words=max_words)
 
 
-def append_to_corpus(ws: Workspace, source_ids: List[str]) -> List[dict]:
-    """Add the passages of ``source_ids`` to ``corpus.json``; existing passages are kept as they are.
+def append_to_corpus(ws: Workspace, passages: List[dict]) -> None:
+    """Add ``passages`` to ``corpus.json``, replacing any earlier passages of the same sources."""
+    replaced = {p.get("source_id") for p in passages}
+    corpus = [p for p in read_json(ws.corpus_path, []) if p.get("source_id") not in replaced]
+    write_json(ws.corpus_path, corpus + passages)
 
-    Returns the added passages (what a test update classifies).
-    """
-    corpus = json.loads(ws.corpus_path.read_text(encoding="utf-8")) if ws.corpus_path.is_file() else []
-    wanted = set(source_ids)
-    corpus = [p for p in corpus if p.get("source_id") not in wanted]
-    added = [p for s in load_manifest(ws) if s.id in wanted for p in source_passages(ws, s)]
-    ws.corpus_path.write_text(json.dumps(corpus + added, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return added
+
+def corpus_source_ids(corpus: List[dict]) -> List[str]:
+    """Return the ids of the sources that have passages in ``corpus``."""
+    return sorted({p.get("source_id") for p in corpus if p.get("source_id")})

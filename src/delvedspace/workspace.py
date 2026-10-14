@@ -199,6 +199,16 @@ class Workspace:
         self.env_path.chmod(0o600)
 
 
+def read_json(path: Path, default: Any = None) -> Any:
+    """Return the JSON in ``path``, or ``default`` when the file does not exist."""
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
+
+
+def write_json(path: Path, data: Any) -> None:
+    """Write ``data`` as indented UTF-8 JSON with a final newline."""
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
 def provider_key(model: str) -> Optional[str]:
     """Return the API-key variable a ``provider/model`` string needs (None for local providers)."""
     provider = model.split("/", 1)[0].lower() if "/" in model else "openai"
