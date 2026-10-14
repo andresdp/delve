@@ -188,7 +188,7 @@ def test_sources_extracts_every_format_and_drafts_sources_csv(ws):
     assert result.exit_code == 0, result.output
     found = {s.file: s for s in src.load_manifest(ws)}
     assert set(found) == {"notes.md", "page.html", "paper.pdf", "plain.txt", "scan.pdf"}
-    assert [s.id for s in src.load_manifest(ws)] == ["s01", "s02", "s03", "s04", "s05"]  # sorted by file name
+    assert [s.id for s in src.load_manifest(ws)] == ["s1", "s2", "s3", "s4", "s5"]  # sorted by file name
     page = found["page.html"]
     assert page.title == "Spokes & replicas" and page.url == "https://example.org/spokes"
     assert found["notes.md"].title == "Replica placement"
@@ -213,8 +213,8 @@ def test_rescan_keeps_ids_and_edits_appends_new_files_and_flags_missing_ones(ws)
     (ws.sources_dir / "notes.md").unlink()
     (ws.sources_dir / "a-new-one.md").write_text(_para(320))
     found = {s.file: s for s in src.scan(ws)}
-    assert found["a-new-one.md"].id == "s06"                   # next id, even though it sorts first
-    assert found["notes.md"].flags == ["missing"] and found["notes.md"].id == "s01"
+    assert found["a-new-one.md"].id == "s6"                   # next id, even though it sorts first
+    assert found["notes.md"].flags == ["missing"] and found["notes.md"].id == "s1"
     rows = {r["file"]: r for r in src.read_csv(ws.sources_csv)}
     assert rows["plain.txt"]["title"] == "My title" and rows["plain.txt"]["priority"] == "high"
     assert found["plain.txt"].title == "My title"
@@ -250,7 +250,7 @@ def test_corpus_splits_usable_sources_into_passages(ws):
         expected = passages_for_source(sid, (ws.text_dir / f"{sid}.md").read_text(), manifest[sid].title,
                                        manifest[sid].url, from_pdf=manifest[sid].format == "pdf")
         assert passages == expected
-        assert all(p["id"].startswith(f"{sid}_p") for p in passages)
+        assert all(p["id"].startswith(f"s{int(sid[1:]):02d}_p") for p in passages)  # s1 -> s01_p01, s01_p02, ...
     assert {"id", "content", "source_id", "title", "section", "url", "words"} <= set(corpus[0])
 
 

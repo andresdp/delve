@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from delvedspace import __version__, runs
+from delvedspace import __version__, agent, query_cli, runs
 from delvedspace import sources as src
 from delvedspace import workspace as wsmod
 from delvedspace.corpus import MAX_WORDS, MIN_WORDS, TARGET_WORDS
@@ -29,6 +29,9 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 console = Console()
+app.add_typer(query_cli.app, name="query")
+agent_app = typer.Typer(help="Connect a coding agent (Claude Code, GitHub Copilot) to the wiki.", no_args_is_help=True)
+app.add_typer(agent_app, name="agent")
 
 DEFAULT_USE_CASE = ("Identify the design decisions practitioners face, the alternatives they consider for each, "
                     "and the outcomes they report.")
@@ -387,6 +390,46 @@ def update(
     run = runs.Run(id=run_dir.name, kind="update-test", started_at=started, seed_run=seed_dir.name,
                    source_ids=sorted(covered | set(new_ids)), new_source_ids=new_ids, passages=len(added))
     _execute(ws, run, run_dir, new_corpus, ["--taxonomy", runs.relative(ws, seed), "--mode", "test"], html_report)
+
+
+# ---------------------------------------------------------------- agent setup
+
+
+@agent_app.command("setup")
+def agent_setup(
+    claude: bool = typer.Option(False, "--claude", help="Also write CLAUDE.md (imports AGENTS.md)."),
+    copilot: bool = typer.Option(False, "--copilot", help="Also write .github/copilot-instructions.md."),
+    allow: Optional[bool] = typer.Option(None, "--allow-query/--no-allow-query",
+                                         help="With --claude: let Claude Code run `ddspace query` without asking each time."),
+    directory: Optional[Path] = typer.Option(None, "--dir", help="Where the agent works: the workspace (default) "
+                                             "or a project folder that contains it."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
+) -> None:
+    """Write [bold]AGENTS.md[/bold] (how to query the wiki and cite it) and the files that point agents to it."""
+    ws = current_workspace()
+    target = (directory or ws.root).resolve()
+    if ws.root != target and target not in ws.root.parents:
+        fail(f"{target} does not contain the workspace {ws.root}.")
+    done = [f"{agent.upsert_block(target / 'AGENTS.md', agent.guide(ws, target))} AGENTS.md"]
+    if claude:
+        done.append(f"{agent.upsert_block(target / 'CLAUDE.md', agent.pointer_claude())} CLAUDE.md")
+        if allow is None:
+            allow = not interactive(yes) or Confirm.ask(
+                "Let Claude Code run `ddspace query` (read-only) without a permission prompt each time?", default=True)
+        if allow:
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json')} .claude/settings.json "
+                        f"({agent.QUERY_PERMISSION})")
+    if copilot:
+        done.append(f"{agent.upsert_block(target / '.github' / 'copilot-instructions.md', agent.pointer_copilot())} "
+                    ".github/copilot-instructions.md")
+    if not (ws.root / "raw" / "graph.json").is_file():
+        console.print("[yellow]![/yellow] No wiki yet: run `ddspace wiki build`, then this command again for "
+                      "examples with real names.")
+    tools = " and ".join(t for t, on in (("Claude Code", claude), ("GitHub Copilot (agent mode)", copilot)) if on) \
+        or "your coding agent"
+    console.print(Panel("\n".join(done) + f"\n\nNext: open {target} in {tools} and ask, for example:\n"
+                        "  [italic]What are the alternatives for <a decision>, and which sources support each? "
+                        "Cite passages.[/italic]", title="Agent setup", expand=False))
 
 
 if __name__ == "__main__":  # pragma: no cover

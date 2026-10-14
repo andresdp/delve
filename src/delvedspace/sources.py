@@ -73,7 +73,7 @@ def write_csv(path: Path, rows: List[Dict[str, str]]) -> None:
 
 def _next_id(rows: List[Dict[str, str]]) -> str:
     numbers = [int(r["id"][1:]) for r in rows if re.fullmatch(r"s\d+", r.get("id", ""))]
-    return f"s{(max(numbers) if numbers else 0) + 1:02d}"
+    return f"s{(max(numbers) if numbers else 0) + 1}"  # s1, s2, ... (passages are s01_p01)
 
 
 def _html_metadata(html: str) -> Dict[str, str]:

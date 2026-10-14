@@ -77,7 +77,7 @@ def test_mine_runs_the_pipeline_in_a_new_run_folder_and_makes_it_current(ws, fak
     assert argv[argv.index("-k") + 1] == "4"
     assert run_dir.parent == ws.runs_dir and _current(ws) == f"runs/{run_dir.name}"
     run = runs.load(run_dir)
-    assert run.kind == "mine" and run.status == "ok" and run.source_ids == ["s01", "s02"]
+    assert run.kind == "mine" and run.status == "ok" and run.source_ids == ["s1", "s2"]
     assert run.passages == len(json.loads(ws.corpus_path.read_text())) and run.taxonomy
     assert "1 dimensions, 2 values" in result.output
 
@@ -158,15 +158,15 @@ def test_update_test_adds_new_sources_and_classifies_only_their_passages(ws, fak
     assert result.exit_code == 0, result.output
     assert (ws.sources_dir / "c.md").is_file()
     after = json.loads(ws.corpus_path.read_text())
-    assert after[:len(before)] == before and {p["source_id"] for p in after[len(before):]} == {"s03"}
+    assert after[:len(before)] == before and {p["source_id"] for p in after[len(before):]} == {"s3"}
     argv = fake.calls[-1]
     assert argv[argv.index("--mode") + 1] == "test"
     assert argv[argv.index("--taxonomy") + 1] == runs.relative(ws, seed)
     run_dir = ws.root / _current(ws)
     used = json.loads((ws.root / argv[argv.index("--corpus") + 1]).read_text())
-    assert {p["source_id"] for p in used} == {"s03"} and (run_dir / "corpus_new.json").is_file()
+    assert {p["source_id"] for p in used} == {"s3"} and (run_dir / "corpus_new.json").is_file()
     run = runs.load(run_dir)
-    assert run.kind == "update-test" and run.new_source_ids == ["s03"] and run.source_ids == ["s01", "s02", "s03"]
+    assert run.kind == "update-test" and run.new_source_ids == ["s3"] and run.source_ids == ["s1", "s2", "s3"]
 
 
 def test_update_test_without_new_sources_explains(ws, fake):
@@ -179,7 +179,7 @@ def test_update_test_picks_up_files_dropped_into_the_sources_folder(ws, fake):
     _invoke("mine", "--yes")
     (ws.sources_dir / "d.md").write_text("# D\n\n" + _para(400, "caching"))
     assert _invoke("update", "--test", "--yes").exit_code == 0
-    assert runs.load(ws.root / _current(ws)).new_source_ids == ["s03"]
+    assert runs.load(ws.root / _current(ws)).new_source_ids == ["s3"]
 
 
 def test_html_report_is_written_only_on_request(ws, fake):
