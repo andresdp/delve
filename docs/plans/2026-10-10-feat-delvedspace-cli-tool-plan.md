@@ -1,7 +1,7 @@
 ---
 title: "feat: DelveDSpace as a tool: ddspace workspace CLI, OKF wiki, agent queries"
 type: feat
-status: planned (not started; scope agreed 2026-10-10)
+status: in progress (branch feat/ddspace-tool created 2026-10-13; scope agreed 2026-10-10)
 date: 2026-10-10
 related: >-
   main.py, benchmark/{build_corpus,export_wiki,summarize_sources,design_points,describe_design_points,fetch_sources}.py,
@@ -35,6 +35,9 @@ browse and coding agents query, and that the user can update later. Three uses:
 | D8 | **No built-in chat** (`ddspace ask`) in the first scope, and no MCP server. `ddspace query` offers specific, LLM-free operations over the wiki's concepts; a standard coding agent (Claude Code, Copilot) calls them and answers the user, as in llmwiki-cli. `ddspace ask` is deferred (see Later). To chat with the wiki, even for a demo, the user hooks it into a coding agent (`ddspace agent setup`). |
 | D9 | **Naming:** the tool is **DelveDSpace**; PyPI package `delvedspace`; CLI `ddspace` (second entry point `delvedspace`, same command). Not `delve` (the Go debugger, a PyPI package, and upstream Delve) and not `dspace` (the DSpace repository platform's command; taken on PyPI). Names checked free on PyPI, Homebrew and npm on 2026-10-10; check GitHub before publishing. |
 | D6 | The wiki complies with OKF v0.2 (https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md). |
+| D10 | (2026-10-13) `ddspace update --test` takes no feedback for now; feedback goes only through `update --feedback`. |
+| D11 | (2026-10-13) **PDF text:** `ddspace sources` uses `pdftotext` when installed and falls back to `pypdf`; files with empty or very short text are flagged (`quality_flags`), and scanned PDFs are reported as needing OCR first. No OCR in the tool. |
+| D12 | (2026-10-13) **Run artifacts:** every run keeps its taxonomy JSON, report Markdown and design points (needed for `wiki update` diffs). The HTML report (about 7 MB) is off by default (`ddspace mine --html-report` or `wiki.html_report: true`). `ddspace runs prune --keep N` removes intermediate files (documents, clusters, open codes, messages) from runs older than the last N, never from the current run. The `.gitignore` written by `init` excludes `sources/`, `corpus.json`, `.env`, intermediate files and HTML reports, so a workspace can be committed without source text. Ground-truth match files are evaluation-only and never produced by the tool. |
 
 ## Out of scope
 
@@ -242,10 +245,11 @@ only (no deprecated pages), T5, T6. About 7–8 days.
 **New dependency:** `typer` (add to `pyproject.toml`; in the existing conda env `taxonomy`: `pip install typer`).
 rich is already a dependency.
 
-## Branching and stabilization (not created yet)
+## Branching and stabilization
 
 All tool work happens off `main`, so `main` stays stable for the evaluation runs and the benchmark scripts. The
-branches below are planned, not created; create them when the work starts.
+integration branch `feat/ddspace-tool` was created from `main` on 2026-10-13; unit branches are created as the work
+starts.
 
 - **Integration branch:** `feat/ddspace-tool`, created from `main`. It collects the tool work until it is stable.
 - **Unit branches:** one short branch per work unit (`feat/ddspace-t1-cli`, `feat/ddspace-t3-okf`, …) created from
@@ -290,6 +294,4 @@ branches below are planned, not created; create them when the work starts.
 
 ## Open questions
 
-- PDF extraction quality for user files (scanned PDFs are not supported; say so).
-- Should `ddspace update --test` also accept feedback? (Today `--feedback` targets train-mode update/review prompts.)
-- Where the workspace keeps run artifacts that are large (match files, html reports): keep, prune, or gitignore.
+None at the moment. PDF text, feedback in test mode and large run artifacts were settled on 2026-10-13 (D10–D12).

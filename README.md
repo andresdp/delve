@@ -107,7 +107,7 @@ against them, and new candidate decisions can be appended.
 | **Value** | Either a **candidate decision** (an alternative answer to the dimension's question) or an **outcome** (an effect of decisions) |
 | **Status / stance** | `accepted`, `rejected`, `mixed` (sources disagree) for candidate decisions; `outcome` for effects |
 | **Evidence** | The passages whose open codes support a value; counted per value and per dimension (codes, documents, sources) |
-| **Relation** | A typed link between two dimensions: `precondition`, `consequence`, `co_occurring`, `constrains` |
+| **Relation** | A typed link between two dimensions that reads as a sentence: `requires` (*A requires B to be decided first*), `affects`, `constrains`, `co_occurs_with` (undirected); at most 3 per dimension by default |
 | **Saturation** | New minibatches no longer bring concepts the design space does not cover |
 | **Selected dimensions** | The use-case-relevant, sufficiently supported subset of the final design space |
 
