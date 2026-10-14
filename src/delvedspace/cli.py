@@ -576,5 +576,45 @@ def wiki_open(print_only: bool = typer.Option(False, "--print", help="Only print
     console.print(f"Opened {page}")
 
 
+# ---------------------------------------------------------------- reset
+
+
+@app.command()
+def reset(
+    wiki_only: bool = typer.Option(False, "--wiki-only", help="Only the wiki (wiki/, site/, raw/); keep the runs."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Do not ask for confirmation."),
+) -> None:
+    """Start over: move the runs and the wiki to [bold].ddspace/archive/[/bold]; sources and settings stay."""
+    ws = current_workspace()
+    targets = ["wiki", wb.HTML_DIR, "raw"] + ([] if wiki_only else ["runs"])
+    present = [t for t in targets if (ws.root / t).exists() and any((ws.root / t).iterdir())]
+    if not present:
+        console.print("Nothing to reset: no runs or wiki yet.")
+        return
+    archive = ws.state_dir / "archive" / runs.now_id()
+    kept = ["sources/", "sources.csv", "corpus.json", "ddspace.yaml (with the wiki answers)", ".env",
+            "AGENTS.md and agent files", "stored source summaries"] + (["runs/ (the current run stays current)"]
+                                                                       if wiki_only else [])
+    console.print(Panel(
+        "Moves to " + runs.relative(ws, archive) + "/:\n  " + "\n  ".join(f"{t}/" for t in present)
+        + "\nKeeps:\n  " + "\n  ".join(kept)
+        + ("" if wiki_only else "\n\nThen: `ddspace mine` starts from scratch."), title="ddspace reset", expand=False))
+    if interactive(yes) and not Confirm.ask("Reset?", default=False):
+        raise typer.Exit()
+    if not yes and not interactive(yes):
+        fail("Not a terminal: pass --yes to confirm the reset.")
+    archive.mkdir(parents=True)
+    for t in present:
+        shutil.move(str(ws.root / t), str(archive / t))
+    if not wiki_only:
+        ws.runs_dir.mkdir()
+        ws.set("workspace.current_run", None)
+    (ws.root / "wiki").mkdir(exist_ok=True)
+    wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {'wiki' if wiki_only else 'runs and wiki'} "
+                  f"moved to `{runs.relative(ws, archive)}/` (restore by moving the folders back).")
+    console.print(f"[green]✓[/green] Archived {', '.join(present)} in {runs.relative(ws, archive)}/. "
+                  + ("Next: `ddspace wiki build`." if wiki_only else "Next: `ddspace mine`."))
+
+
 if __name__ == "__main__":  # pragma: no cover
     app()
