@@ -27,6 +27,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 
+from taxonomy_generator.wiki import okf
 from taxonomy_generator.wiki.model import SYNTHESIS_ORDER, Export, Page
 
 WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
@@ -85,6 +86,11 @@ def write_markdown(export: Export, out: Path, name: str) -> None:
                         "paths": {"raw": "raw", "wiki": "wiki", "schema": "SCHEMA.md"}}, sort_keys=False),
         encoding="utf-8")
     (out / "SCHEMA.md").write_text(SCHEMA, encoding="utf-8")
+    write_manifest(export, out)
+
+
+def write_manifest(export: Export, out: Path) -> None:
+    """Write ``raw/run.json``: the input files and settings of the export."""
     (out / "raw").mkdir(exist_ok=True)
     (out / "raw" / "run.json").write_text(json.dumps(export.manifest, indent=2, ensure_ascii=False) + "\n",
                                           encoding="utf-8")
@@ -206,8 +212,8 @@ def copy_images(assets: Path, case_icon: Path | None) -> None:
 
 
 def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str],
-               case_icon: Path | None = None) -> None:
-    root = out / "html"
+               case_icon: Path | None = None, html_dir: str = "html") -> None:
+    root = out / html_dir
     assets = root / "assets"
     copy_images(assets, case_icon)
     shutil.copyfile(TEMPLATES / "style.css", assets / "style.css")
@@ -272,6 +278,8 @@ def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path]) -> None:
     deletion is still syncing comes back as a conflict copy ("concepts 2").
     """
     for path, mtime in before.items():
+        if path.name == "log.md":  # the change log is history, kept across exports
+            continue
         if path.exists() and path.stat().st_mtime_ns == mtime:
             path.unlink()
     for root in roots:
@@ -280,20 +288,27 @@ def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path]) -> None:
                 folder.rmdir()
 
 
-def write(export: Export, out: Path, name: str, case_icon: Path | None = None) -> None:
-    """Write the whole export (replacing ``wiki/`` and ``html/`` from a previous export of the same run).
+def write(export: Export, out: Path, name: str, case_icon: Path | None = None, *, html_dir: str = "html",
+          okf_by: str | None = None, okf_stale_after: str | None = None) -> None:
+    """Write the whole export (replacing ``wiki/`` and the HTML folder from a previous export of the same run).
 
     ``case_icon`` (an SVG) is shown on the index and next to the wiki name; the
-    DelveDSpace logo and icon are always included.
+    DelveDSpace logo and icon are always included. With ``okf_by`` (the producer, e.g.
+    ``delvedspace/0.1.0``) ``wiki/`` is written as an Open Knowledge Format bundle (see ``okf.py``)
+    instead of the wikilink layout with ``.llmwiki.yaml`` and ``SCHEMA.md``; a ``log.md`` in it is kept.
     """
     out = Path(out)
-    roots = [out / "wiki", out / "html"]
+    roots = [out / "wiki", out / html_dir]
     before = _snapshot(roots)
     out.mkdir(parents=True, exist_ok=True)
-    write_markdown(export, out, name)
+    if okf_by:
+        okf.write(export, out / "wiki", name, okf_by, str(export.graph.get("run") or ""), okf_stale_after)
+        write_manifest(export, out)
+    else:
+        write_markdown(export, out, name)
     copy_images(out / "wiki" / "assets", case_icon)
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
-    write_html(export, out, name, graph_node_of, case_icon)
+    write_html(export, out, name, graph_node_of, case_icon, html_dir)
     write_raw(export, out)
     _remove_stale(before, roots)
 

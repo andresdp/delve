@@ -35,37 +35,15 @@ from dotenv import load_dotenv  # noqa: E402
 
 from taxonomy_generator.utils import load_chat_model  # noqa: E402
 
-PROMPT_VERSION = "1"
-MAX_WORDS = 12000
-PROMPT = """Summarize the source below for a reader browsing a wiki of software-architecture design decisions.
-
-Write 2-3 sentences, at most 60 words, in your own words (no quotations):
-- what kind of document it is and which organization, system or project it concerns;
-- which design problems or decisions it discusses.
-Be neutral and factual; no marketing language, no evaluation of quality.
-
-Title: {title}
-
-Source text:
-\"\"\"
-{text}
-\"\"\"
-
-Summary:"""
+from taxonomy_generator.wiki.llm_texts import (  # noqa: E402, F401  (shared with ddspace; re-exported)
+    SUMMARY_MAX_WORDS as MAX_WORDS, SUMMARY_PROMPT as PROMPT, SUMMARY_PROMPT_VERSION as PROMPT_VERSION,
+    summarize,
+)
 
 
 def body(md: str) -> str:
     """Drop the provenance header written by fetch_sources.py."""
     return md.split("\n---\n", 1)[1] if "\n---\n" in md else md
-
-
-async def summarize(model, title: str, text: str) -> tuple[str, int]:
-    words = text.split()
-    clipped = " ".join(words[:MAX_WORDS])
-    reply = await model.ainvoke(PROMPT.format(title=title, text=clipped))
-    content = reply.content if isinstance(reply.content, str) else " ".join(
-        part.get("text", "") for part in reply.content if isinstance(part, dict))
-    return " ".join(content.split()), min(len(words), MAX_WORDS)
 
 
 async def run(case_dir: Path, model_name: str, force: bool, only: set[str] | None, concurrency: int) -> dict:
