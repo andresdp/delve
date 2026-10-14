@@ -252,3 +252,8 @@ def test_corpus_splits_usable_sources_into_passages(ws):
         assert passages == expected
         assert all(p["id"].startswith(f"{sid}_p") for p in passages)
     assert {"id", "content", "source_id", "title", "section", "url", "words"} <= set(corpus[0])
+
+
+def test_workspace_defaults_code_the_passage_text_without_summaries(ws):
+    settings = load_settings(str(ws.config_path))
+    assert settings.summarization.skip is True and settings.open_coding.input == "content"

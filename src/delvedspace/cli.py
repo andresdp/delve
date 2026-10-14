@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -12,7 +15,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from delvedspace import __version__
+from delvedspace import __version__, runs
 from delvedspace import sources as src
 from delvedspace import workspace as wsmod
 from delvedspace.corpus import MAX_WORDS, MIN_WORDS, TARGET_WORDS
@@ -207,6 +210,183 @@ def corpus(
     console.print(f"{len(passages)} passages from {len({p['source_id'] for p in passages})} source(s) "
                   f"({sum(sizes):,} words; min/median/max {sizes[0]}/{sizes[len(sizes) // 2]}/{sizes[-1]}) "
                   f"-> {ws.corpus_path.name}\nNext: [bold]ddspace mine[/bold]")
+
+
+# ---------------------------------------------------------------- mine and update
+
+
+def _format_duration(seconds: float) -> str:
+    minutes = round(seconds / 60)
+    return f"{minutes} min" if minutes < 90 else f"{minutes / 60:.1f} h"
+
+
+def _confirm_run(ws: Workspace, title: str, lines: List[str], passages: int, yes: bool) -> bool:
+    cfg = ws.config()
+    est = runs.estimate(ws, passages, int((cfg.get("pipeline") or {}).get("batch_size") or 10))
+    models = cfg.get("models") or {}
+    critic = (cfg.get("evaluation") or {}).get("enabled", True)
+    body = "\n".join(lines + [
+        f"Passages: {passages} in about {est.batches} minibatch(es); critic {'on' if critic else 'off'}",
+        f"Models: {models.get('generation_llm')} (generation), {models.get('evaluation_llm')} (evaluation)",
+        f"Estimate ({est.basis}): about {est.tokens / 1e6:.1f}M tokens, {_format_duration(est.seconds)}",
+    ])
+    console.print(Panel(body, title=title, expand=False))
+    return not interactive(yes) or Confirm.ask("Start?", default=True)
+
+
+def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: List[str],
+             html_report: bool) -> None:
+    """Run the pipeline for ``run``, record the outcome and make a successful run current."""
+    run.argv = ["--corpus", runs.relative(ws, corpus), "--config", wsmod.CONFIG_NAME,
+                "--output", runs.relative(ws, run_dir), *extra]
+    runs.save(run_dir, run)
+    try:
+        code = runs.run_pipeline(ws, run.argv)
+    except KeyboardInterrupt:
+        code = 130
+    taxonomy = runs.find_taxonomy(run_dir)
+    run.finished_at = datetime.now().isoformat(timespec="seconds")
+    run.status = "ok" if code == 0 and taxonomy else "failed"
+    run.taxonomy = taxonomy.name if taxonomy else None
+    runs.save(run_dir, run)
+    if run.status != "ok":
+        fail(f"The run failed (exit code {code}); its folder {runs.relative(ws, run_dir)} is kept for inspection. "
+             "The current design space is unchanged.")
+    ws.set("workspace.current_run", runs.relative(ws, run_dir))
+    if html_report or (ws.config().get("wiki") or {}).get("html_report"):
+        runs.run_pipeline(ws, ["--html-report", runs.relative(ws, taxonomy), "--config", wsmod.CONFIG_NAME,
+                               "--output", runs.relative(ws, run_dir)])
+    data = json.loads(taxonomy.read_text(encoding="utf-8"))
+    dims = data.get("selected_clusters") or ((data.get("iterations") or [{}])[-1].get("clusters") or [])
+    metrics = data.get("run_metrics") or {}
+    console.print(Panel(
+        f"Run [bold]{run.id}[/bold] ({run.kind}) is now the current design space.\n"
+        f"{len(dims)} dimensions, {sum(len(d.get('values') or []) for d in dims)} values"
+        + (f"; {metrics.get('total_tokens', 0):,} tokens, {_format_duration(metrics.get('elapsed_seconds', 0))}"
+           if metrics else "")
+        + f"\nFiles: {runs.relative(ws, run_dir)}/\n\nNext: [bold]ddspace wiki build[/bold]",
+        title="Done", expand=False))
+
+
+def _corpus_or_fail(ws: Workspace) -> List[dict]:
+    if not ws.corpus_path.is_file():
+        fail("No corpus.json yet. Run `ddspace sources` and `ddspace corpus` first.")
+    corpus = runs.read_corpus(ws.corpus_path)
+    if not corpus:
+        fail("corpus.json is empty. Check the flags shown by `ddspace sources`.")
+    in_corpus = {p.get("source_id") for p in corpus}
+    newer = [s.id for s in src.load_manifest(ws) if src.usable(s) and s.id not in in_corpus]
+    if newer:
+        console.print(f"[yellow]![/yellow] Sources not in corpus.json yet: {', '.join(newer)}. "
+                      "Run `ddspace corpus` to include them.")
+    return corpus
+
+
+@app.command()
+def mine(
+    fresh: bool = typer.Option(False, "--fresh", help="Mine from scratch even when a design space exists."),
+    max_dimensions: Optional[int] = typer.Option(None, "--max-dimensions", help="Override taxonomy.max_num_clusters (0 = none)."),
+    html_report: bool = typer.Option(False, "--html-report", help="Also write the pipeline's HTML report (about 7 MB)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Start without asking."),
+) -> None:
+    """Generate the design space from the corpus (a new run under [bold]runs/[/bold])."""
+    ws = current_workspace()
+    try:
+        current = runs.current_run_dir(ws)
+    except WorkspaceError:
+        current = None
+    if current is not None and not fresh:
+        fail(f"A design space exists (run {current.name}). Use `ddspace update` to refine it, "
+             "or `ddspace mine --fresh` to start over from scratch.")
+    corpus = _corpus_or_fail(ws)
+    lines = [f"Corpus: {len(corpus)} passages from {len({p.get('source_id') for p in corpus})} source(s)"]
+    if not _confirm_run(ws, "ddspace mine", lines, len(corpus), yes):
+        raise typer.Exit()
+    run_dir = runs.new_run_dir(ws)
+    run = runs.Run(id=run_dir.name, kind="mine", started_at=datetime.now().isoformat(timespec="seconds"),
+                   source_ids=sorted({p.get("source_id") for p in corpus if p.get("source_id")}),
+                   passages=len(corpus))
+    extra = ["-k", str(max_dimensions)] if max_dimensions is not None else []
+    _execute(ws, run, run_dir, ws.corpus_path, extra, html_report)
+
+
+def _import_sources(ws: Workspace, files: List[Path]) -> None:
+    ws.sources_dir.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        if not f.is_file():
+            fail(f"{f} is not a file.")
+        if f.suffix.lower() not in wsmod.SOURCE_SUFFIXES:
+            fail(f"{f.name}: unsupported type (use .md .txt .html .pdf).")
+        target = ws.sources_dir / f.name
+        if target.exists() and target.read_bytes() != f.read_bytes():
+            fail(f"{target} already exists with other content; rename the new file.")
+        if f.resolve() != target.resolve():
+            shutil.copy2(f, target)
+
+
+@app.command()
+def update(
+    feedback: Optional[str] = typer.Option(None, "--feedback", help="Your feedback on the design space (text)."),
+    feedback_file: Optional[Path] = typer.Option(None, "--feedback-file", help="A file with your feedback."),
+    test: bool = typer.Option(False, "--test", help="Test mode: dimensions frozen; new sources only add values."),
+    new_sources: Optional[List[Path]] = typer.Option(None, "--sources", help="Test mode: new source files to add (copied into the sources folder)."),
+    html_report: bool = typer.Option(False, "--html-report", help="Also write the pipeline's HTML report."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Start without asking."),
+) -> None:
+    """Update the current design space: with your [bold]--feedback[/bold], or with new sources in [bold]--test[/bold] mode."""
+    ws = current_workspace()
+    if test == bool(feedback or feedback_file):
+        fail("Choose one: --feedback/--feedback-file (re-mine with your feedback) or --test (add new sources).")
+    if feedback and feedback_file:
+        fail("Use either --feedback or --feedback-file, not both.")
+    if new_sources and not test:
+        fail("--sources goes with --test.")
+    try:
+        seed = runs.current_taxonomy(ws)
+    except WorkspaceError as exc:
+        fail(str(exc))
+    seed_dir = seed.parent
+    seed_run = runs.load(seed_dir)
+    started = datetime.now().isoformat(timespec="seconds")
+
+    if not test:
+        text = feedback if feedback else feedback_file.read_text(encoding="utf-8") if feedback_file.is_file() else None
+        if not text or not text.strip():
+            fail(f"No feedback text{f' in {feedback_file}' if feedback_file else ''}.")
+        corpus = _corpus_or_fail(ws)
+        lines = [f"Starting from run {seed_dir.name}, re-mining {len(corpus)} passages with your feedback:",
+                 f"  [italic]{text.strip()[:300]}{'...' if len(text.strip()) > 300 else ''}[/italic]"]
+        if not _confirm_run(ws, "ddspace update --feedback", lines, len(corpus), yes):
+            raise typer.Exit()
+        run_dir = runs.new_run_dir(ws)
+        run = runs.Run(id=run_dir.name, kind="update-feedback", started_at=started, seed_run=seed_dir.name,
+                       feedback=text.strip(), passages=len(corpus),
+                       source_ids=sorted({p.get("source_id") for p in corpus if p.get("source_id")}))
+        _execute(ws, run, run_dir, ws.corpus_path, ["--taxonomy", runs.relative(ws, seed), "--feedback", text.strip()],
+                 html_report)
+        return
+
+    if new_sources:
+        _import_sources(ws, list(new_sources))
+    with console.status("Extracting text..."):
+        scanned = src.scan(ws)
+    covered = set(seed_run.source_ids) if seed_run and seed_run.source_ids else \
+        {p.get("source_id") for p in runs.read_corpus(ws.corpus_path)} if ws.corpus_path.is_file() else set()
+    new_ids = [s.id for s in scanned if src.usable(s) and s.id not in covered]
+    if not new_ids:
+        fail("No new sources: every usable source is already in the design space. Add files with --sources, "
+             "or put them in the sources folder.")
+    added = [p for s in scanned if s.id in new_ids for p in src.source_passages(ws, s)]
+    lines = [f"Starting from run {seed_dir.name} (dimensions frozen); new sources: {', '.join(new_ids)}"]
+    if not _confirm_run(ws, "ddspace update --test", lines, len(added), yes):
+        raise typer.Exit()
+    added = src.append_to_corpus(ws, new_ids)
+    run_dir = runs.new_run_dir(ws)
+    new_corpus = run_dir / "corpus_new.json"
+    runs.write_corpus(new_corpus, added)
+    run = runs.Run(id=run_dir.name, kind="update-test", started_at=started, seed_run=seed_dir.name,
+                   source_ids=sorted(covered | set(new_ids)), new_source_ids=new_ids, passages=len(added))
+    _execute(ws, run, run_dir, new_corpus, ["--taxonomy", runs.relative(ws, seed), "--mode", "test"], html_report)
 
 
 if __name__ == "__main__":  # pragma: no cover

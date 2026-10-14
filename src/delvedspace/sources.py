@@ -171,13 +171,30 @@ def build_corpus(ws: Workspace, target: int = TARGET_WORDS, min_words: int = MIN
     sources = load_manifest(ws)
     if not sources:
         raise WorkspaceError("No sources scanned yet. Run `ddspace sources` first.")
-    corpus: List[dict] = []
-    for source in sources:
-        text_file = ws.text_dir / f"{source.id}.md"
-        if not usable(source) or not text_file.is_file():
-            continue
-        corpus += passages_for_source(source.id, text_file.read_text(encoding="utf-8"), source.title, source.url,
-                                      from_pdf=source.format == "pdf", target=target, min_words=min_words,
-                                      max_words=max_words)
+    corpus = [p for s in sources for p in source_passages(ws, s, target, min_words, max_words)]
     ws.corpus_path.write_text(json.dumps(corpus, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return corpus
+
+
+def source_passages(ws: Workspace, source: Source, target: int = TARGET_WORDS, min_words: int = MIN_WORDS,
+                    max_words: int = MAX_WORDS) -> List[dict]:
+    """Return one scanned source's passages (empty when it is not usable)."""
+    text_file = ws.text_dir / f"{source.id}.md"
+    if not usable(source) or not text_file.is_file():
+        return []
+    return passages_for_source(source.id, text_file.read_text(encoding="utf-8"), source.title, source.url,
+                               from_pdf=source.format == "pdf", target=target, min_words=min_words,
+                               max_words=max_words)
+
+
+def append_to_corpus(ws: Workspace, source_ids: List[str]) -> List[dict]:
+    """Add the passages of ``source_ids`` to ``corpus.json``; existing passages are kept as they are.
+
+    Returns the added passages (what a test update classifies).
+    """
+    corpus = json.loads(ws.corpus_path.read_text(encoding="utf-8")) if ws.corpus_path.is_file() else []
+    wanted = set(source_ids)
+    corpus = [p for p in corpus if p.get("source_id") not in wanted]
+    added = [p for s in load_manifest(ws) if s.id in wanted for p in source_passages(ws, s)]
+    ws.corpus_path.write_text(json.dumps(corpus + added, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return added

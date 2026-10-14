@@ -37,6 +37,7 @@ runs/*/*_clusters_*.json
 runs/*/*_open_codes_*.json
 runs/*/*_messages_*.json
 runs/*/*_html_report_*.html
+runs/*/corpus*.json
 """
 
 
