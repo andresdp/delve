@@ -36,6 +36,25 @@ def _get_content(state: Dict[str, List]) -> List[Dict[str, str]]:
     ]
 
 
+def _as_documents(documents: List[Any]) -> List[Dict[str, Any]]:
+    """Return the documents as dicts with ``id`` and ``content``, keeping the ids they have.
+
+    ``Doc`` objects (what the corpus loader produces) keep their id, e.g. a passage id
+    ``s03_p02``, so open codes and values stay traceable to their source.
+    """
+    out = []
+    for doc in documents:
+        if isinstance(doc, str):
+            out.append({"id": str(uuid4()), "content": doc})
+        elif isinstance(doc, dict):
+            out.append({**doc, "id": doc.get("id") or str(uuid4())})
+        elif hasattr(doc, "content"):
+            out.append({"id": getattr(doc, "id", None) or str(uuid4()), "content": doc.content})
+        else:
+            out.append({"id": str(uuid4()), "content": str(doc)})
+    return out
+
+
 def _reduce_summaries(combined: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
     """Combine documents with their summaries.
     
@@ -103,18 +122,7 @@ async def generate_summaries(
         | _reduce_summaries
     )
 
-    # Process documents
-    processed_docs = []
-    for doc in state.documents:
-        if isinstance(doc, str):
-            processed_docs.append({"id": str(uuid4()), "content": doc})
-        elif isinstance(doc, dict):
-            if "id" not in doc:
-                doc["id"] = str(uuid4())
-            processed_docs.append(doc)
-        else:
-            processed_docs.append({"id": str(uuid4()), "content": str(doc)})
-
+    processed_docs = _as_documents(state.documents)
     logger.info("Processing %d documents through summary chain", len(processed_docs))
     result = await map_reduce_chain.ainvoke({"documents": processed_docs})
     logger.info("Summaries generated successfully for %d documents", len(result.get("documents", [])))

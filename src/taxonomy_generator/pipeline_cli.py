@@ -1,0 +1,1789 @@
+"""Delve Taxonomy Generator — pipeline command line (``python main.py`` or ``python -m taxonomy_generator.pipeline_cli``).
+
+Usage:
+    # From a corpus file (one document per line for .txt, or JSON array for .json):
+    python main.py --corpus my_corpus.txt
+    python main.py --corpus documents.json
+
+    # With custom model:
+    python main.py --corpus my_corpus.txt --model openai/gpt-5.4-nano
+
+    # With custom config file:
+    python main.py --corpus my_corpus.txt --config /path/to/config.yaml
+
+    # Render a PCA biplot from a saved taxonomy JSON (no LLM calls in uniform mode):
+    python main.py --visualize my_output/taxonomy_20250101_120000.json
+
+    # Render a self-contained grounded-theory markdown report from a saved taxonomy JSON:
+    python main.py --report my_output/taxonomy_20250101_120000.json
+"""
+
+import argparse
+import asyncio
+import dataclasses
+import json
+import logging
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, List, Optional, Tuple
+
+from dotenv import find_dotenv, load_dotenv
+from langchain_core.callbacks import BaseCallbackHandler
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
+
+from taxonomy_generator import docs_from_dicts, graph, report_renderer, strings_to_docs
+from taxonomy_generator.configuration import Configuration, init_settings
+from taxonomy_generator.evaluation.gt_match import MODES as MATCHER_MODES
+from taxonomy_generator.settings import LLM_ROLES, ModelSettings, shared_llm_warnings
+
+logger = logging.getLogger(__name__)
+console = Console()
+
+# ── Pipeline step display configuration ──────────────────────────────────
+STEP_INFO = {
+    "load_corpus": ("📂", "Loading corpus"),
+    "summarize": ("📝", "Generating summaries"),
+    "get_minibatches": ("📦", "Creating minibatches"),
+    "open_code_minibatch": ("🔬", "Open coding minibatch"),
+    "generate_taxonomy": ("🧠", "Generating initial taxonomy"),
+    "update_taxonomy": ("🔄", "Updating taxonomy"),
+    "check_saturation": ("🧪", "Checking saturation"),
+    "review_taxonomy": ("🔍", "Reviewing taxonomy"),
+    "consolidate_values": ("🧲", "Consolidating dimensions and values"),
+    "select_dimensions": ("🎯", "Selecting dimensions"),
+    "label_documents": ("🔖", "Labeling documents"),
+    "evaluate_taxonomy": ("📊", "Evaluating taxonomy"),
+    "evaluate_taxonomy_final": ("📊", "Evaluating final taxonomy"),
+    "aggregate_new_values": ("🧩", "Aggregating new values"),
+}
+
+
+def _resolve_feedback_text(args: argparse.Namespace, settings) -> Optional[str]:
+    """Resolve external feedback text with CLI-over-config precedence.
+
+    Precedence: ``--feedback`` > ``--feedback-file`` > config ``feedback.text``
+    > config ``feedback.file`` > None.
+    """
+    if getattr(args, "feedback", None):
+        return args.feedback
+    if getattr(args, "feedback_file", None):
+        with open(args.feedback_file) as f:
+            text = f.read().strip()
+        if text:
+            return text
+        logger.warning("Feedback file %s is empty — ignoring.", args.feedback_file)
+        return None
+    fb = getattr(settings, "feedback", None)
+    if fb is None:
+        return None
+    if fb.text:
+        return fb.text
+    if fb.file:
+        with open(fb.file) as f:
+            text = f.read().strip()
+        if text:
+            return text
+        logger.warning("Configured feedback file %s is empty — ignoring.", fb.file)
+    return None
+
+
+class TokenTracker(BaseCallbackHandler):
+    """Accumulates token usage across all LLM calls in the pipeline."""
+
+    def __init__(self) -> None:
+        self.total_tokens: int = 0
+        self.prompt_tokens: int = 0
+        self.completion_tokens: int = 0
+
+    def on_llm_end(self, response, **kwargs) -> None:
+        """Extract token counts from LLM response metadata."""
+        try:
+            for generation in response.generations:
+                for gen in generation:
+                    # Chat models store token info in generation_info or message.response_metadata
+                    token_info = None
+                    if hasattr(gen, "message") and hasattr(gen.message, "response_metadata"):
+                        token_info = gen.message.response_metadata.get("token_usage") or gen.message.response_metadata.get("usage")
+                    if token_info is None and hasattr(gen, "generation_info") and gen.generation_info:
+                        token_info = gen.generation_info.get("token_usage") or gen.generation_info.get("usage")
+                    if token_info and isinstance(token_info, dict):
+                        self.total_tokens += token_info.get("total_tokens", 0)
+                        self.prompt_tokens += token_info.get("prompt_tokens", 0)
+                        self.completion_tokens += token_info.get("completion_tokens", 0)
+        except Exception:
+            logger.debug("Could not extract token usage from LLM response", exc_info=True)
+
+
+def _add_edit_record(taxonomy_data: dict, edit_mode: Optional[str], operation_log: list) -> None:
+    """Record the run's edit mode and, in tools / rewrite_restore modes, its operation log."""
+    taxonomy_data["edit_mode"] = edit_mode or "rewrite"
+    if operation_log:
+        # What each update and review changed, and why (tools), or which values were restored.
+        taxonomy_data["operation_log"] = list(operation_log)
+
+
+def _operation_log_line(entry: dict) -> str:
+    """One-line summary of an operation-log entry (tools or rewrite_restore mode)."""
+    if entry.get("edit_mode") == "rewrite_restore":
+        return f"restored {len(entry.get('restored') or [])} dropped evidence-backed values"
+    line = (f"{len(entry.get('operations') or [])} operations applied, {len(entry.get('rejected') or [])} rejected, "
+            f"{len(entry.get('uncited') or [])} batch documents uncited")
+    stop = entry.get("stop")
+    return f"{line} (ended: {stop})" if stop and stop != "finish" else line
+
+
+def _format_elapsed(seconds: float) -> str:
+    """Format elapsed time for display."""
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes = int(seconds // 60)
+    secs = seconds % 60
+    return f"{minutes}m {secs:.1f}s"
+
+
+def load_corpus(path: str) -> list[str]:
+    """Load documents from a file.
+
+    Supports:
+    - .txt: One document per line (blank lines are skipped).
+    - .json: A JSON array of strings or objects with a 'content' field.
+    """
+    logger.info("Loading corpus from file: %s", path)
+    try:
+        if path.endswith(".json"):
+            with open(path) as f:
+                data = json.load(f)
+            texts = []
+            for item in data:
+                if isinstance(item, str):
+                    texts.append(item)
+                elif isinstance(item, dict) and "content" in item:
+                    texts.append(item["content"])
+                else:
+                    texts.append(str(item))
+            logger.info("Loaded %d documents from JSON corpus", len(texts))
+            return texts
+        else:
+            with open(path) as f:
+                lines = f.readlines()
+            texts = [line.strip() for line in lines if line.strip()]
+            logger.info("Loaded %d documents from text corpus", len(texts))
+            return texts
+    except FileNotFoundError:
+        logger.error("Corpus file not found: %s", path)
+        raise
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse JSON corpus file: %s — %s", path, e)
+        raise
+
+
+def load_corpus_documents(path: str) -> list:
+    """Load a corpus as ``Doc`` objects, keeping document ids when the corpus has them.
+
+    A JSON corpus whose items are all objects with ``id`` and ``content`` (e.g.
+    passages ``s03_p02`` built by ``benchmark/build_corpus.py``) keeps those ids,
+    so open codes, values and labels stay traceable to their source. Any other
+    corpus gets generated ids, as before.
+    """
+    if path.endswith(".json"):
+        with open(path) as f:
+            data = json.load(f)
+        if data and all(isinstance(i, dict) and "id" in i and "content" in i for i in data):
+            ids = [str(i["id"]) for i in data]
+            if len(set(ids)) != len(ids):
+                raise ValueError(f"Corpus {path} has duplicate document ids.")
+            logger.info("Loaded %d documents with ids from JSON corpus", len(data))
+            return docs_from_dicts([{"id": str(i["id"]), "content": i["content"]} for i in data])
+    return strings_to_docs(load_corpus(path))
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Delve Taxonomy Generator — Generate taxonomies from unstructured text data."
+    )
+
+    # Input mode
+    input_group = parser.add_argument_group("Input source")
+    input_group.add_argument(
+        "--corpus",
+        type=str,
+        default=None,
+        help="Path to a corpus file (.txt or .json). Required.",
+    )
+    input_group.add_argument(
+        "--taxonomy",
+        type=str,
+        default=None,
+        help="Path to a saved taxonomy JSON to start from (its final iteration "
+             "is seeded as the starting taxonomy). Required for --mode test.",
+    )
+
+    # Run mode
+    mode_group = parser.add_argument_group("Run mode")
+    mode_group.add_argument(
+        "--mode",
+        choices=["train", "test"],
+        default=None,
+        help="train (default): build/update the taxonomy. test: freeze the "
+             "seeded taxonomy's dimensions, classify new documents against "
+             "them, append deduplicated new values, and report a delta summary.",
+    )
+    feedback_group = mode_group.add_mutually_exclusive_group()
+    feedback_group.add_argument(
+        "--feedback",
+        type=str,
+        default=None,
+        help="Feedback text injected into taxonomy refinement prompts "
+             "(update/review). Mutually exclusive with --feedback-file.",
+    )
+    feedback_group.add_argument(
+        "--feedback-file",
+        type=str,
+        default=None,
+        help="Path to a text/markdown file with feedback for taxonomy "
+             "refinement. Mutually exclusive with --feedback.",
+    )
+
+    # Configuration
+    config_group = parser.add_argument_group("Configuration")
+    config_group.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to a YAML configuration file. Defaults to ./config.yaml.",
+    )
+
+    # Model configuration
+    model_group = parser.add_argument_group("Model configuration")
+    model_group.add_argument(
+        "--generation-llm", "--model",
+        dest="generation_llm",
+        type=str,
+        default=None,
+        help="Override models.generation_llm, the LLM that builds the design space "
+             "(provider/model-name). --model is a deprecated alias.",
+    )
+    model_group.add_argument(
+        "--evaluation-llm",
+        dest="evaluation_llm",
+        type=str,
+        default=None,
+        help="Override models.evaluation_llm, the LLM that judges the design space in the "
+             "pipeline: scoreboard, consistency, saturation critic (provider/model-name).",
+    )
+    model_group.add_argument(
+        "--matching-llm", "--judge-model",
+        dest="matching_llm",
+        type=str,
+        default=None,
+        help="Override models.matching_llm, the LLM that judges value-option pairs in "
+             "--match-gt (provider/model-name, OpenAI). --judge-model is a deprecated alias.",
+    )
+
+    # Taxonomy
+    taxonomy_group = parser.add_argument_group("Taxonomy")
+    taxonomy_group.add_argument(
+        "--name",
+        type=str,
+        default=None,
+        help="Name for this taxonomy (shown in output and JSON files). Defaults to 'taxonomy'.",
+    )
+    taxonomy_group.add_argument(
+        "-k",
+        "--max-clusters",
+        type=int,
+        default=None,
+        help="Override the maximum number of dimensions/categories from the config. "
+        "Pass 0 for unlimited (LLM decides).",
+    )
+
+    # Output
+    output_group = parser.add_argument_group("Output")
+    output_group.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to a folder where results will be saved as JSON files. "
+        "If the folder does not exist, it will be created.",
+    )
+    output_group.add_argument(
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Suppress log output — show only rich-formatted results.",
+    )
+
+    # Visualization / Reporting
+    visualize_group = parser.add_argument_group("Visualization & Reporting")
+    standalone_mode = visualize_group.add_mutually_exclusive_group()
+    standalone_mode.add_argument(
+        "--visualize",
+        type=str,
+        default=None,
+        help="Render a PCA biplot from a saved taxonomy JSON file and exit "
+             "(does not run the pipeline). Accepts any *_taxonomy_*.json output. "
+             "Mutually exclusive with --report.",
+    )
+    standalone_mode.add_argument(
+        "--report",
+        type=str,
+        default=None,
+        help="Render a self-contained grounded-theory markdown report (narrative "
+             "summary, relationship diagram, dimension catalog) from a saved "
+             "taxonomy JSON file and exit (does not run the pipeline). Accepts "
+             "any *_taxonomy_*.json output. Mutually exclusive with --visualize.",
+    )
+    standalone_mode.add_argument(
+        "--evaluate",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="TAXONOMY",
+        help="Evaluate saved taxonomy JSON file(s) and exit (does not run the "
+             "pipeline). One file runs the judge scoreboard (optionally with "
+             "--corpus to activate the data-grounded coverage criterion); two "
+             "or more files run the consistency comparison. Writes an "
+             "evaluation_*.json artifact next to the first taxonomy file, or "
+             "under --output if given. Mutually exclusive with --visualize "
+             "and --report.",
+    )
+    standalone_mode.add_argument(
+        "--match-gt",
+        type=str,
+        default=None,
+        metavar="TAXONOMY",
+        help="Score a saved taxonomy JSON against an expert ground truth and exit "
+             "(does not run the pipeline): value-option matches, dimension-decision "
+             "alignment, precision/recall/F1 and placement per ground-truth view. "
+             "Needs --gt (the study's ground-truth folder, e.g. "
+             "benchmark/c2-rl-monitoring/gt) and --config (generator model and "
+             "matcher settings). Writes *_gt_match.json, *_gt_alignment.csv and "
+             "*_gt_metrics.json next to the taxonomy, or under --output.",
+    )
+    standalone_mode.add_argument(
+        "--html-report",
+        type=str,
+        default=None,
+        metavar="TAXONOMY",
+        help="Render one self-contained, offline HTML page from a saved "
+             "taxonomy JSON and exit (does not run the pipeline). Combines "
+             "the run summary, grounded-theory report, biplot, and "
+             "evaluation scoreboard already saved alongside the taxonomy "
+             "file, when present. Accepts any *_taxonomy_*.json output. "
+             "Mutually exclusive with --visualize, --report, and --evaluate.",
+    )
+    visualize_group.add_argument(
+        "--iteration",
+        type=int,
+        default=None,
+        help="With --visualize, --report, or --html-report: 1-based taxonomy "
+             "iteration to render. Default: selected_clusters if present, "
+             "else the last iteration.",
+    )
+    parser.add_argument(
+        "--gt",
+        type=str,
+        default=None,
+        metavar="FOLDER",
+        help="With --match-gt: the ground-truth folder (gt_paper.json and/or gt_model.json).",
+    )
+    parser.add_argument(
+        "--matcher-mode",
+        choices=MATCHER_MODES,
+        default=None,
+        help="With --match-gt: 'judge' (embeddings propose pairs, an LLM judge labels them) or "
+             "'embeddings' (labels from embedding distance alone, no LLM calls). Overrides matcher.mode.",
+    )
+    parser.add_argument(
+        "--gt-view",
+        choices=["selected", "final"],
+        default="selected",
+        help="With --match-gt: which view of the taxonomy to score (default: selected).",
+    )
+    parser.add_argument(
+        "--all-iterations",
+        action="store_true",
+        help="With --evaluate on one file: score every saved iteration and the "
+             "selected view (re-scoring a past run with the current criteria), "
+             "and print the scores across iterations. Use --config for the run's "
+             "use case and --corpus for the data-grounded criteria.",
+    )
+    visualize_group.add_argument(
+        "--axis-positions",
+        choices=["auto", "embeddings", "uniform"],
+        default="auto",
+        help="With --visualize: how values are placed on dimension axes. "
+             "'auto' follows the consolidated flag recorded in the file "
+             "(uniform when absent), 'embeddings' uses the embedding model, "
+             "'uniform' places every value at unit distance.",
+    )
+    visualize_group.add_argument(
+        "--no-auto-report",
+        action="store_true",
+        default=False,
+        help="With --output: skip automatic grounded-theory report generation "
+             "(and its narrative LLM call) for this pipeline run.",
+    )
+
+    return parser.parse_args(argv)
+
+
+def _display_taxonomy(
+    clusters: list, explanations: list, configuration: Configuration, mode: str = "train"
+) -> None:
+    """Display the generated taxonomy as a rich table."""
+    if not clusters:
+        return
+
+    final_taxonomy = clusters[-1]
+
+    table = Table(
+        title=f"📊 Generated Taxonomy: {configuration.name}",
+        show_lines=True,
+        border_style="blue",
+        title_style="bold blue",
+    )
+    table.add_column("#", style="cyan bold", width=4, justify="right")
+    table.add_column("Name", style="bold", min_width=20, max_width=50)
+    table.add_column("Description", style="dim", min_width=30, max_width=80)
+    table.add_column("Values", style="green", min_width=20, max_width=45)
+
+    for cluster in final_taxonomy:
+        value_labels = [
+            v.get("label", "")
+            for v in (cluster.get("values") or [])
+            if isinstance(v, dict)
+        ]
+        values_str = " · ".join(label for label in value_labels if label) or "—"
+        table.add_row(
+            str(cluster.get("id", "?")),
+            cluster.get("name", "Unnamed"),
+            cluster.get("description", "No description"),
+            values_str,
+        )
+
+    console.print()
+    console.print(table)
+
+    # Summary footer
+    summary = Text()
+    summary.append("  Total dimensions: ", style="bold")
+    summary.append(str(len(final_taxonomy)), style="cyan bold")
+    summary.append("  ·  Iterations: ", style="bold")
+    summary.append(str(len(clusters)), style="cyan bold")
+    console.print(summary)
+
+    # Show all explanations/rationale across iterations
+    if explanations and any(explanations):
+        n = len(explanations)
+        parts = []
+        for i, explanation in enumerate(explanations):
+            if explanation:
+                label = report_renderer.iteration_label(i, n, mode)
+                parts.append(f"[bold cyan]{i+1}. {label}:[/bold cyan] {explanation}")
+        if parts:
+            console.print(Panel(
+                "\n\n".join(parts),
+                title="[bold blue]💬 Taxonomy Rationale[/bold blue]",
+                border_style="blue",
+            ))
+
+    console.print()
+
+
+def _display_taxonomy_tree(clusters: list, documents: list, configuration: Configuration) -> None:
+    """Display the taxonomy as a tree with categorized documents as children."""
+    if not clusters or not documents:
+        return
+
+    final_taxonomy = clusters[-1]
+    max_docs = configuration.max_docs_per_category_tree
+    preview_length = configuration.content_preview_length
+
+    # Group documents by category
+    docs_by_category = {}
+    for doc in documents:
+        category = (
+            getattr(doc, "category", None)
+            or (doc.get("category") if isinstance(doc, dict) else None)
+            or "N/A"
+        )
+        docs_by_category.setdefault(category, []).append(doc)
+
+    # Build tree
+    tree = Tree(
+        f"📂 [bold bright_blue]{configuration.name}[/bold bright_blue]  "
+        f"[dim]({len(final_taxonomy)} dimensions, {len(documents)} documents)[/dim]",
+        guide_style="dim",
+    )
+
+    # Determine which category names are in the taxonomy
+    taxonomy_names = {c.get("name", "Unnamed") for c in final_taxonomy}
+
+    # Sort clusters so the fallback category always appears last
+    sorted_taxonomy = sorted(
+        final_taxonomy,
+        key=lambda c: c.get("name", "") == configuration.fallback_category,
+    )
+
+    # If fallback category has docs but isn't in the taxonomy, add it as a virtual cluster
+    fallback_name = configuration.fallback_category
+    fallback_docs = docs_by_category.get(fallback_name, [])
+    if fallback_docs and fallback_name not in taxonomy_names:
+        sorted_taxonomy.append({
+            "name": fallback_name,
+            "description": "Fallback category (not part of generated taxonomy)",
+        })
+
+    for cluster in sorted_taxonomy:
+        name = cluster.get("name", "Unnamed")
+        description = cluster.get("description", "")
+        category_docs = docs_by_category.get(name, [])
+
+        # Category branch: name + counts + description. With single-label labeling a
+        # dimension can have evidence (open codes from several documents) but be no
+        # document's *main* topic, so both numbers are shown when evidence exists.
+        evidence = cluster.get("evidence") if isinstance(cluster.get("evidence"), dict) else None
+        if evidence:
+            count_label = (
+                f"[dim]({len(category_docs)} labeled · evidence: {evidence.get('documents', 0)} docs "
+                f"from {evidence.get('sources', 0)} sources)[/dim]"
+            )
+        else:
+            count_label = f"[dim]({len(category_docs)} docs)[/dim]"
+        cat_branch = tree.add(
+            f"[bold magenta]{name}[/bold magenta] {count_label}\n  [dim italic]{description}[/dim italic]"
+        )
+
+        # Add document children (limited)
+        for doc in category_docs[:max_docs]:
+            content = (
+                getattr(doc, "content", None)
+                or (doc.get("content") if isinstance(doc, dict) else None)
+                or ""
+            )
+            score = (
+                getattr(doc, "score", None)
+                or (doc.get("score") if isinstance(doc, dict) else None)
+            )
+            content_preview = content[:preview_length].replace("\n", " ").strip()
+            if len(content) > preview_length:
+                content_preview += "..."
+            score_str = f"{score:.2f}" if score is not None else ""
+            score_label = f" [cyan]({score_str})[/cyan]" if score_str else ""
+            cat_branch.add(f"[dim]📄[/dim] {content_preview}{score_label}")
+
+        # Indicate truncated documents
+        remaining = len(category_docs) - max_docs
+        if remaining > 0:
+            cat_branch.add(f"[dim]... and {remaining} more[/dim]")
+
+    console.print()
+    console.print(tree)
+    console.print()
+
+
+def _display_documents(documents: list, configuration: Configuration) -> None:
+    """Display document labeling results as a rich table."""
+    if not documents:
+        return
+
+    preview_length = configuration.content_preview_length
+    max_display = configuration.max_displayed_documents
+
+    table = Table(
+        title="📄 Document Labeling Results",
+        show_lines=False,
+        border_style="green",
+        title_style="bold green",
+    )
+    table.add_column("Category", style="magenta bold", min_width=20, max_width=45)
+    table.add_column("Score", style="cyan", width=6, justify="center")
+    table.add_column("Document Preview", style="dim", min_width=40, max_width=80)
+
+    display_docs = documents[:max_display]
+    for doc in display_docs:
+        label = (
+            getattr(doc, "category", None)
+            or (doc.get("category") if isinstance(doc, dict) else None)
+        )
+        score = (
+            getattr(doc, "score", None)
+            or (doc.get("score") if isinstance(doc, dict) else None)
+        )
+        content = (
+            getattr(doc, "content", None)
+            or (doc.get("content") if isinstance(doc, dict) else None)
+            or ""
+        )
+        content_preview = content[:preview_length]
+        score_str = f"{score:.2f}" if score is not None else "—"
+        table.add_row(
+            label or "N/A",
+            score_str,
+            content_preview + "..." if len(content_preview) >= preview_length else content_preview,
+        )
+
+    console.print()
+    console.print(table)
+
+    if len(documents) > max_display:
+        console.print(f"  [dim]... and {len(documents) - max_display} more documents.[/dim]")
+    console.print()
+
+
+def _display_messages(messages: list) -> None:
+    """Display pipeline messages in a panel."""
+    if not messages:
+        return
+
+    content_parts = []
+    for msg in messages:
+        text = msg.content if hasattr(msg, "content") else str(msg)
+        content_parts.append(text)
+
+    full_content = "\n".join(content_parts)
+    console.print()
+    console.print(Panel(full_content, title="[bold yellow]💬 Messages[/bold yellow]", border_style="yellow"))
+    console.print()
+
+
+def _select_clusters_for_visualize(data, iteration):
+    """Pick the taxonomy iteration to render from a saved taxonomy JSON.
+
+    Priority: --iteration N (1-based) > selected_clusters > last iteration.
+    Returns (clusters, iteration_number).
+    """
+    if isinstance(data, list):
+        # Bare cluster-list file.
+        return data, 1
+
+    iterations = data.get("iterations") or []
+    if iteration is not None:
+        if not 1 <= iteration <= len(iterations):
+            raise SystemExit(
+                f"--iteration {iteration} out of range (file has {len(iterations)} iterations)"
+            )
+        return iterations[iteration - 1].get("clusters") or [], iteration
+
+    if data.get("selected_clusters"):
+        return data["selected_clusters"], len(iterations) or 1
+
+    if iterations:
+        return iterations[-1].get("clusters") or [], len(iterations)
+
+    raise SystemExit("No iterations or selected_clusters found in the taxonomy file")
+
+
+def _explanation_for_view(data: Any, iteration_arg: Optional[int]) -> str:
+    """Resolve the explanation text paired with the rendered view.
+
+    ``_select_clusters_for_visualize`` only returns ``(clusters,
+    iteration_number)`` — it does not expose which iteration's
+    ``explanation`` matches the resolved view. Both selection cases resolve
+    to a specific iteration's explanation directly from the loaded JSON:
+
+    - ``--iteration N`` renders iteration N's own clusters, so its own
+      explanation (``iterations[N-1]["explanation"]``) is the correct text.
+    - The default view (``selected_clusters`` when present, else the last
+      iteration) has no explanation of its own paired 1:1 with it, so it
+      falls back to the latest iteration's explanation.
+
+    Returns "" when no matching explanation is available (e.g. a bare
+    cluster-list file, or a legacy file whose iteration entries omit
+    ``explanation``).
+    """
+    if not isinstance(data, dict):
+        return ""
+    iterations = data.get("iterations") or []
+    if iteration_arg is not None:
+        if 1 <= iteration_arg <= len(iterations):
+            return iterations[iteration_arg - 1].get("explanation") or ""
+        return ""
+    if iterations:
+        return iterations[-1].get("explanation") or ""
+    return ""
+
+
+def _dropped_dimensions_for_view(
+    data: Any, iteration_arg: Optional[int]
+) -> Tuple[List[Any], List[Any]]:
+    """Resolve discarded-dimension data for the rendered view, when applicable.
+
+    Discarded-dimension rationale is recorded once, for the single
+    dimension-selection step that produced ``selected_clusters`` from the
+    taxonomy's final iteration — it only applies when that is the view
+    actually being rendered (no explicit ``--iteration`` override) and the
+    file recorded it (older files predating this feature have neither key).
+
+    Returns:
+        ``(dropped_dimensions, all_clusters_for_name_lookup)`` — both empty
+        when discarded-dimension data doesn't apply to this render.
+    """
+    if iteration_arg is not None or not isinstance(data, dict):
+        return [], []
+    dropped = data.get("dropped_dimensions") or []
+    if not dropped:
+        return [], []
+    iterations = data.get("iterations") or []
+    all_clusters = iterations[-1].get("clusters") or [] if iterations else []
+    return dropped, all_clusters
+
+
+def _load_taxonomy_file(path: str) -> Any:
+    """Load and parse a saved taxonomy JSON file, exiting with a clear error on failure."""
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        console.print(f"[bold red]❌ Could not load taxonomy file: {e}[/bold red]")
+        raise SystemExit(1)
+
+
+def _count_values(clusters: Any) -> int:
+    """Count total values across a list of cluster dicts."""
+    return sum(len(c.get("values") or []) for c in clusters if isinstance(c, dict))
+
+
+async def _run_visualize(args: argparse.Namespace) -> None:
+    """Render a PCA biplot from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+    data = _load_taxonomy_file(args.visualize)
+
+    clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+
+    # 'auto': follow the consolidated flag recorded in the file; legacy files
+    # without it fall back to uniform (fully offline, no API calls).
+    axis_positions = args.axis_positions
+    if axis_positions == "auto" and isinstance(data, dict) and "consolidated" in data:
+        axis_positions = "embeddings" if data.get("consolidated") else "uniform"
+
+    name = data.get("taxonomy_name") if isinstance(data, dict) else None
+    configurable = {
+        "name": name or settings.taxonomy.name,
+        # Force visualization on for this invocation; honor --output.
+        "visualization_enabled": True,
+    }
+    # Default to the taxonomy file's own folder rather than the generic
+    # output dir, so 2D and 3D renders of the same file always land together.
+    configurable["visualization_output_dir"] = (
+        args.output if args.output else str(Path(args.visualize).resolve().parent)
+    )
+    configuration = Configuration.from_runnable_config({"configurable": configurable})
+
+    n_values = _count_values(clusters)
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.visualize}\n"
+        f"[bold]Iteration:[/bold] {iteration}\n"
+        f"[bold]Values:[/bold] {n_values}\n"
+        f"[bold]Dimensions:[/bold] {len(clusters)}\n"
+        f"[bold]Axis positions:[/bold] {axis_positions}",
+        title="[bold bright_blue]📊 Taxonomy Biplot[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+
+    from taxonomy_generator.visualization import render_taxonomy_biplot
+
+    out_path = await render_taxonomy_biplot(
+        configuration, clusters,
+        stage="standalone", iteration_index=iteration,
+        axis_positions=axis_positions,
+    )
+    if out_path:
+        console.print(f"\n  [bold green]✅ Biplot saved to:[/bold green] {out_path}\n")
+    else:
+        console.print("\n  [bold red]❌ Biplot could not be rendered — see log output.[/bold red]\n")
+        raise SystemExit(1)
+
+
+async def _run_report(args: argparse.Namespace) -> None:
+    """Render a grounded-theory markdown report from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+    data = _load_taxonomy_file(args.report)
+
+    clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+    explanation = _explanation_for_view(data, args.iteration)
+    dropped_dimensions, all_clusters_for_dropped = _dropped_dimensions_for_view(data, args.iteration)
+
+    name = data.get("taxonomy_name") if isinstance(data, dict) else None
+    configurable = {
+        "name": name or settings.taxonomy.name,
+    }
+    # Mirror --visualize: --output (when present) overrides the standalone
+    # output directory; --corpus is never read in this mode.
+    if args.output:
+        configurable["visualization_output_dir"] = args.output
+    configuration = Configuration.from_runnable_config({"configurable": configurable})
+
+    n_values = _count_values(clusters)
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.report}\n"
+        f"[bold]Iteration:[/bold] {iteration}\n"
+        f"[bold]Values:[/bold] {n_values}\n"
+        f"[bold]Dimensions:[/bold] {len(clusters)}",
+        title="[bold bright_blue]📄 Grounded Theory Report[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+
+    from taxonomy_generator.visualization import resolve_output_dir
+
+    out_dir = resolve_output_dir(configuration)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in configuration.name)
+    name_prefix = f"{name_prefix}_" if name_prefix else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = out_dir / f"{name_prefix}report_{timestamp}.md"
+
+    stored_evaluation = data.get("evaluation") if isinstance(data, dict) else None
+    narrative = await report_renderer.generate_and_write_report(
+        clusters, explanation, configuration, out_path,
+        dropped_dimensions, all_clusters_for_dropped, stored_evaluation,
+    )
+    if narrative is None:
+        console.print("  [dim]Narrative summary unavailable — proceeding with diagram and catalog only.[/dim]")
+
+    console.print(f"\n  [bold green]✅ Report saved to:[/bold green] {out_path}\n")
+
+
+async def _run_html_report(args: argparse.Namespace) -> None:
+    """Render a unified, self-contained HTML report from a saved taxonomy JSON and exit."""
+    settings = init_settings(args.config)
+    taxonomy_path = Path(args.html_report)
+    data = _load_taxonomy_file(args.html_report)
+
+    clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+    dropped_dimensions, all_clusters_for_dropped = _dropped_dimensions_for_view(data, args.iteration)
+
+    name = data.get("taxonomy_name") if isinstance(data, dict) else None
+    taxonomy_name = name or settings.taxonomy.name
+    # Default to the taxonomy file's own folder rather than the generic
+    # output dir, matching --visualize's convention, so the report lands
+    # next to the taxonomy JSON and its siblings without requiring --output.
+    configurable = {
+        "name": taxonomy_name,
+        "visualization_output_dir": args.output if args.output else str(taxonomy_path.resolve().parent),
+    }
+    configuration = Configuration.from_runnable_config({"configurable": configurable})
+
+    n_values = _count_values(clusters)
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.html_report}\n"
+        f"[bold]Iteration:[/bold] {iteration}\n"
+        f"[bold]Values:[/bold] {n_values}\n"
+        f"[bold]Dimensions:[/bold] {len(clusters)}",
+        title="[bold bright_blue]🌐 Unified HTML Report[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+
+    from taxonomy_generator import html_report
+    from taxonomy_generator.visualization import resolve_output_dir
+
+    siblings = html_report.discover_siblings(taxonomy_path, taxonomy_name, iteration)
+    # A matched sibling can still fail to read (deleted or corrupted between
+    # discovery and read) — html_report's fail-soft readers degrade that
+    # section to "not available" instead of crashing the whole command.
+    report_md_text = html_report.read_sibling_text(siblings.report.path) if siblings.report else None
+    biplot_html_text = html_report.read_sibling_text(siblings.biplot.path) if siblings.biplot else None
+    documents_data = html_report.read_sibling_json(siblings.documents.path) if siblings.documents else None
+    # resolve_evaluation_path already parsed this file to find the match —
+    # reuse it instead of reading it from disk a second time.
+    evaluation_data = siblings.evaluation.data if siblings.evaluation else None
+    used_embedded_evaluation = False
+    if evaluation_data is None and isinstance(data, dict) and data.get("evaluation"):
+        # No standalone evaluation_*.json sibling matched (that mode is a
+        # separate --evaluate CLI run), but a live pipeline run with
+        # evaluation enabled embeds its own scoreboard directly in the
+        # taxonomy JSON — wrap it in the same shape render_evaluation_section
+        # expects from a sibling artifact rather than leaving it unused.
+        evaluation_data = {"scoreboard": data["evaluation"]}
+        if data.get("evaluation_history"):
+            evaluation_data["evaluation_history"] = data["evaluation_history"]
+        used_embedded_evaluation = True
+
+    for match, label in (
+        (siblings.report, "report"), (siblings.biplot, "biplot"),
+        (siblings.evaluation, "evaluation"), (siblings.documents, "documents"),
+    ):
+        if match is None:
+            if label == "evaluation" and used_embedded_evaluation:
+                console.print("  [dim]No evaluation sibling found — using the evaluation embedded in the taxonomy JSON.[/dim]")
+            else:
+                console.print(f"  [dim]No {label} sibling found — that section will show as unavailable.[/dim]")
+        elif match.approximate:
+            console.print(f"  [dim]Multiple {label} candidates found — using the best match: {match.path.name}[/dim]")
+
+    import plotly.offline as pyo
+
+    page_html = html_report.render_html_report(
+        taxonomy_name=taxonomy_name,
+        taxonomy_data=data if isinstance(data, dict) else {},
+        view_clusters=clusters,
+        dropped_dimensions=dropped_dimensions,
+        all_clusters_for_dropped=all_clusters_for_dropped,
+        documents_data=documents_data,
+        report_md_text=report_md_text,
+        biplot_html_text=biplot_html_text,
+        evaluation_data=evaluation_data,
+        mermaid_js=html_report.get_vendored_mermaid_js(),
+        plotlyjs_js=pyo.get_plotlyjs(),
+    )
+
+    out_dir = resolve_output_dir(configuration)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name_prefix = html_report.sanitize_filename_component(configuration.name)
+    name_prefix = f"{name_prefix}_" if name_prefix else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = out_dir / f"{name_prefix}html_report_{timestamp}.html"
+    out_path.write_text(page_html, encoding="utf-8")
+
+    console.print(f"\n  [bold green]✅ HTML report saved to:[/bold green] {out_path}\n")
+
+
+def _display_scoreboard(scoreboard: Optional[dict], configuration: Configuration) -> None:
+    """Render the evaluation scoreboard as a rich panel (observe-only results)."""
+    if not scoreboard:
+        return
+    if scoreboard.get("unavailable"):
+        console.print()
+        console.print(Panel(
+            f"[dim]Evaluation unavailable: {scoreboard.get('error', 'unknown error')}[/dim]",
+            title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+        return
+
+    table = Table(
+        show_lines=False,
+        border_style="bright_magenta",
+        title_style="bold bright_magenta",
+        expand=False,
+    )
+    table.add_column("Criterion", style="bold", max_width=28)
+    table.add_column("Score", style="cyan", width=6, justify="center")
+    table.add_column("Pass", width=4, justify="center")
+    table.add_column("Reason", style="dim", max_width=60)
+    for row in scoreboard.get("criteria") or []:
+        if row.get("evaluated", True):
+            score = row.get("score")
+            score_str = f"{score:.2f}" if score is not None else "—"
+            passed = row.get("passed")
+            pass_str = "✓" if passed else ("✗" if passed is not None else "—")
+            reason = (row.get("reason") or "").replace("\n", " ")
+        else:
+            score_str = "—"
+            pass_str = "—"
+            reason = "Not evaluated — no documents provided."
+        table.add_row(row.get("name", "?"), score_str, pass_str, reason)
+
+    legend_lines = [
+        f"• [bold]{row.get('name', '?')}[/bold] — {row.get('description')}"
+        for row in scoreboard.get("criteria") or []
+        if row.get("description")
+    ]
+    panel_body = Group(table, "", Text.from_markup("\n".join(legend_lines))) if legend_lines else table
+
+    overall = scoreboard.get("overall")
+    overall_str = f"{overall:.2f}" if overall is not None else "—"
+    model = scoreboard.get("model") or "default"
+    console.print()
+    console.print(Panel(
+        panel_body,
+        title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
+        subtitle=f"[dim]overall {overall_str} · judge {model} · threshold {configuration.evaluation_threshold}[/dim]",
+        border_style="bright_magenta",
+    ))
+
+
+def _short_criterion(name: str) -> str:
+    """Column label: initials for multi-word names (UCA), else the first four letters (Orth)."""
+    words = name.replace("-", " ").replace(".", "").split()
+    return "".join(w[0] for w in words).upper() if len(words) > 1 else name[:4]
+
+
+def _display_evaluation_history(history: List[dict]) -> None:
+    """Render scores across a run's evaluations (one row per scoreboard).
+
+    Loop drafts are the raw axial-coding output of each iteration; the final
+    view is consolidated and selected, so it is not directly comparable.
+    """
+    rows = [h for h in history or [] if isinstance(h, dict) and not h.get("unavailable")]
+    if len(rows) < 2:
+        return
+    names: List[str] = []
+    for h in rows:
+        for c in h.get("criteria") or []:
+            if c.get("name") and c["name"] not in names:
+                names.append(c["name"])
+    table = Table(border_style="bright_magenta", expand=False)
+    table.add_column("Iter.", justify="right")
+    table.add_column("View", style="dim")
+    table.add_column("Dims", justify="right")
+    table.add_column("Overall", style="cyan", justify="center")
+    for name in names:
+        table.add_column(_short_criterion(name), justify="center")
+    for h in rows:
+        scores = {c.get("name"): c.get("score") for c in h.get("criteria") or []}
+        overall = h.get("overall")
+        table.add_row(
+            str(h.get("iteration", "?")), str(h.get("view", "")), str(h.get("dimensions", "")),
+            f"{overall:.2f}" if isinstance(overall, (int, float)) else "—",
+            *[f"{scores[n]:.1f}" if isinstance(scores.get(n), (int, float)) else "—" for n in names],
+        )
+    legend = " · ".join(f"{_short_criterion(n)} {n}" for n in names)
+    console.print()
+    console.print(Panel(
+        Group(table, "", Text(legend, style="dim")),
+        title="[bold bright_magenta]📈 Evaluation across iterations[/bold bright_magenta]",
+        border_style="bright_magenta",
+    ))
+
+
+def _display_delta_summary(delta: dict, configuration: Configuration) -> None:
+    """Render the test-mode delta summary as a rich panel."""
+    if not delta:
+        return
+    new_values = delta.get("new_values") or []
+    fallback_docs = delta.get("fallback_documents") or []
+
+    lines: List[str] = []
+    if new_values:
+        table = Table(
+            show_lines=False,
+            border_style="cyan",
+            title_style="bold cyan",
+            expand=False,
+        )
+        table.add_column("Dimension", style="magenta bold", max_width=40)
+        table.add_column("New Value", style="green bold", max_width=40)
+        table.add_column("Docs", style="dim", justify="right")
+        for nv in new_values:
+            table.add_row(
+                str(nv.get("dimension", "?")),
+                str(nv.get("value", "?")),
+                str(len(nv.get("supporting_doc_ids", []))),
+            )
+        lines.append(table)
+    else:
+        lines.append("[dim]No new values discovered — all documents fit existing values.[/dim]")
+
+    if fallback_docs:
+        lines.append(f"[bold]Fallback ({configuration.fallback_category}) documents:[/bold] {len(fallback_docs)}")
+        for fd in fallback_docs:
+            preview = (fd.get("preview") or "").replace("\n", " ")
+            lines.append(f"  [dim]📄 {preview}[/dim]")
+
+    console.print()
+    console.print(Panel(
+        "\n".join(str(x) for x in lines),
+        title="[bold bright_cyan]🧩 Test-Mode Delta Summary[/bold bright_cyan]",
+        border_style="bright_cyan",
+    ))
+
+
+def _display_consistency(comparison: dict) -> None:
+    """Render the consistency comparison as a rich panel."""
+    if not comparison:
+        return
+    if comparison.get("unavailable"):
+        console.print()
+        console.print(Panel(
+            f"[dim]Consistency comparison unavailable: {comparison.get('error', 'unknown error')}[/dim]",
+            title="[bold bright_magenta]🔁 Taxonomy Consistency[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+        return
+
+    lines: List[str] = []
+    agreement = comparison.get("agreement")
+    if agreement is not None:
+        lines.append(f"[bold]Agreement:[/bold] [cyan]{agreement:.2%}[/cyan] "
+                     f"([dim]aligned dimensions / max per-file dimensions[/dim])")
+    else:
+        lines.append("[dim]Agreement: n/a[/dim]")
+
+    recurring = comparison.get("recurring") or []
+    lines.append(f"[bold]Recurring dimensions:[/bold] {len(recurring)}")
+    for group in recurring:
+        names = ", ".join(
+            f"{d.get('name', '?')} [dim](file {d.get('file', '?')})[/dim]"
+            for d in group.get("dimensions") or []
+        )
+        lines.append(f"  • {names}")
+
+    one_offs = comparison.get("one_offs") or []
+    lines.append(f"[bold]One-off dimensions:[/bold] {len(one_offs)}")
+    for dim in one_offs:
+        lines.append(f"  • {dim.get('name', '?')} [dim](file {dim.get('file', '?')})[/dim]")
+
+    if comparison.get("fallback"):
+        lines.append(f"[dim]Alignment fallback in effect: {comparison['fallback']}[/dim]")
+    if comparison.get("adjudicated_pairs"):
+        lines.append(f"[dim]Borderline pairs adjudicated by judge: {comparison['adjudicated_pairs']}[/dim]")
+
+    console.print()
+    console.print(Panel(
+        "\n".join(lines),
+        title="[bold bright_magenta]🔁 Taxonomy Consistency[/bold bright_magenta]",
+        border_style="bright_magenta",
+    ))
+
+
+def _llm_role_overrides(args: argparse.Namespace) -> dict:
+    """The LLM roles overridden on the command line (--generation-llm, --evaluation-llm, --matching-llm)."""
+    overrides = {role: getattr(args, role, None) for role in LLM_ROLES}
+    overrides = {role: model for role, model in overrides.items() if model}
+    for role, model in overrides.items():
+        logger.info("Overriding models.%s: %s", role, model)
+    return overrides
+
+
+async def _run_match_gt(args: argparse.Namespace) -> None:
+    """Score a saved taxonomy against a study's ground truth and exit."""
+    from taxonomy_generator.evaluation.gt_match import MatcherError, run_match
+
+    if not args.gt:
+        console.print("[red]--match-gt needs --gt <ground-truth folder>.[/red]")
+        sys.exit(2)
+    settings = init_settings(args.config)
+    overrides = _llm_role_overrides(args)
+    if overrides:  # the role flags reach the matcher's models and its shared-model warnings
+        settings = dataclasses.replace(settings, models=dataclasses.replace(settings.models, **overrides))
+    try:
+        result = await run_match(args.match_gt, args.gt, settings,
+                                 mode_override=args.matcher_mode, out_dir=args.output, view=args.gt_view)
+    except MatcherError as exc:
+        console.print(f"[red]{exc}[/red]")
+        sys.exit(2)
+
+    s = result["settings"]
+    table = Table(title=f"Ground-truth match — {Path(args.match_gt).name} vs {args.gt}", show_lines=False)
+    # Option level: P, R, F1, Jaccard, exact recall, related rate; decision level: F1 strict /
+    # lenient, Jaccard (strict alignment).
+    for col in ("View", "P", "R", "F1", "J", "Exact R", "Related", "Dec F1 s", "Dec F1 l", "Dec J",
+                "Placement"):
+        table.add_column(col, justify="right" if col != "View" else "left")
+    for view, m in result["metrics"].items():
+        o, d, p = m["option"], m["decision"], m["placement"]
+        table.add_row(view, f"{o['precision']:.2f}", f"{o['recall']:.2f}", f"{o['f1']:.2f}",
+                      f"{o['jaccard']:.2f}", f"{o['exact_recall']:.2f}", f"{o['related_rate']:.2f}",
+                      f"{d['strict']['f1']:.2f}", f"{d['lenient']['f1']:.2f}", f"{d['jaccard']:.2f}",
+                      "–" if p["accuracy"] is None else f"{p['accuracy']:.2f}")
+    console.print(table)
+    labeler = (f"matching LLM {s['matching_llm']} (generation LLM {s['generation_llm']})" if s["mode"] == "judge"
+               else f"embeddings only, same at cosine distance <= {s['same_threshold']}")
+    console.print(
+        f"[dim]{s['system_values']} system values x {s['ground_truth_options']} options; mode {s['mode']}; "
+        f"label sources {result['label_sources']}; {labeler}; cosine thresholds "
+        f"{s['lower_threshold']}/{s['upper_threshold']}; ground truth at {s['ground_truth_commit'] or '?'}[/dim]"
+    )
+    if result["label_sources"].get("judge_error"):
+        console.print(f"[yellow]⚠ {result['label_sources']['judge_error']} pairs could not be judged "
+                      "(label source judge_error, counted as different); rerun to retry them.[/yellow]")
+    for warning in s.get("llm_warnings", []):
+        console.print(f"[yellow]⚠ {warning}[/yellow]")
+    for kind, path in result["paths"].items():
+        console.print(f"[green]{kind}:[/green] {path}")
+
+
+async def _run_evaluate(args: argparse.Namespace) -> None:
+    """Score or compare saved taxonomy JSONs and exit."""
+    init_settings(args.config)
+    files = args.evaluate
+
+    configurable: dict = _llm_role_overrides(args)  # --evaluation-llm sets the scoreboard/consistency judge
+    if args.output:
+        configurable["visualization_output_dir"] = args.output
+    configuration = Configuration.from_runnable_config({"configurable": configurable} or None)
+
+    if args.output:
+        from taxonomy_generator.visualization import resolve_output_dir
+
+        out_dir = resolve_output_dir(configuration)
+    else:
+        # Default to the evaluated taxonomy's own folder rather than the
+        # pipeline's generic output dir, so the report sits next to what it scores.
+        out_dir = Path(files[0]).resolve().parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in configuration.name)
+    name_prefix = f"{name_prefix}_" if name_prefix else ""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if len(files) == 1:
+        # Scoreboard mode - optionally with --corpus for the coverage tier.
+        from taxonomy_generator.evaluation.runner import run_scoreboard, sample_documents
+
+        data = _load_taxonomy_file(files[0])
+        documents: List[object] = []
+        if args.corpus:
+            # Keep passage ids and draw the same seeded, source-stratified sample
+            # the pipeline's evaluator uses, so scores are comparable with a run's.
+            documents = sample_documents(
+                load_corpus_documents(args.corpus),
+                configuration.evaluation_max_documents,
+                configuration.random_seed,
+            )
+            console.print(f"[dim]Sampled {len(documents)} documents for the data-grounded criteria.[/dim]")
+
+        if args.all_iterations:
+            if not isinstance(data, dict) or not data.get("iterations"):
+                raise SystemExit("--all-iterations needs a taxonomy JSON with saved iterations")
+            views = [(i + 1, f"iteration {i + 1}", it.get("clusters") or [])
+                     for i, it in enumerate(data["iterations"])]
+            if data.get("selected_clusters"):
+                views.append((len(data["iterations"]), "selected view", data["selected_clusters"]))
+        else:
+            clusters, iteration = _select_clusters_for_visualize(data, args.iteration)
+            views = [(iteration, f"iteration {iteration}", clusters)]
+
+        clusters = views[-1][2]
+        console.print(Panel(
+            f"[bold]File:[/bold] {files[0]}\n"
+            f"[bold]Views:[/bold] {', '.join(label for _, label, _ in views)}\n"
+            f"[bold]Values:[/bold] {_count_values(clusters)}\n"
+            f"[bold]Dimensions:[/bold] {len(clusters)}\n"
+            f"[bold]Corpus:[/bold] {args.corpus or 'none (data-grounded criteria marked not evaluated)'}",
+            title="[bold bright_magenta]🎯 Taxonomy Evaluation[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+
+        history = []
+        for iteration, label, view in views:
+            console.print(f"[dim]Scoring {label} ({len(view)} dimensions)…[/dim]")
+            board = await run_scoreboard(view, documents, configuration)
+            history.append({**board, "view": label, "iteration": iteration, "dimensions": len(view)})
+        scoreboard = history[-1]
+        _display_scoreboard(scoreboard, configuration)
+        _display_evaluation_history(history)
+        if scoreboard.get("unavailable"):
+            raise SystemExit(1)
+
+        artifact = {"taxonomy_name": configuration.name, "source_file": files[0],
+                    "iteration": views[-1][0], "scoreboard": scoreboard}
+        if len(history) > 1:
+            artifact["evaluation_history"] = history
+    else:
+        # Consistency mode - compare two or more saved taxonomies.
+        if args.corpus:
+            console.print("[dim]--corpus is ignored in multi-file consistency mode.[/dim]")
+        views = []
+        for path in files:
+            data = _load_taxonomy_file(path)
+            clusters, _ = _select_clusters_for_visualize(data, args.iteration)
+            views.append(clusters)
+        console.print(Panel(
+            f"[bold]Files:[/bold] {len(views)}",
+            title="[bold bright_magenta]🔁 Taxonomy Consistency[/bold bright_magenta]",
+            border_style="bright_magenta",
+        ))
+
+        from taxonomy_generator.evaluation.consistency import compare_taxonomies
+
+        comparison = await compare_taxonomies(views, configuration)
+        _display_consistency(comparison)
+        artifact = {"taxonomy_name": configuration.name, "source_files": files,
+                    "consistency": comparison}
+
+    out_path = out_dir / f"{name_prefix}evaluation_{timestamp}.json"
+    with open(out_path, "w") as f:
+        json.dump(artifact, f, indent=2, ensure_ascii=False)
+    console.print(f"\n  [bold green]✅ Evaluation saved to:[/bold green] {out_path}\n")
+
+
+async def run(args: argparse.Namespace) -> None:
+    if not args.corpus:
+        logger.error("--corpus is required")
+        console.print("[bold red]❌ Error: --corpus is required. Provide a path to a .txt or .json corpus file.[/bold red]")
+        sys.exit(1)
+
+    # Load settings from YAML
+    settings = init_settings(args.config)
+
+    logger.info("Using corpus file mode: %s", args.corpus)
+    documents = load_corpus_documents(args.corpus)
+    logger.info("Loaded %d documents from corpus", len(documents))
+    console.print(Panel(
+        f"[bold]File:[/bold] {args.corpus}\n[bold]Documents:[/bold] {len(documents)}",
+        title="[bold cyan]📂 Loading Corpus[/bold cyan]",
+        border_style="cyan",
+    ))
+    invoke_input = {"documents": documents}
+
+    # Run mode / seeding / external feedback (CLI over config).
+    mode = args.mode or settings.pipeline.mode
+    taxonomy_input = args.taxonomy or settings.pipeline.taxonomy_input
+    if mode == "test" and not taxonomy_input:
+        console.print("[bold red]❌ Error: --mode test requires --taxonomy (a saved taxonomy JSON).[/bold red]")
+        sys.exit(1)
+    feedback_text = _resolve_feedback_text(args, settings)
+    if feedback_text:
+        from taxonomy_generator.state import UserFeedback
+        invoke_input["external_feedback"] = UserFeedback(
+            decision="modify",
+            explanation="External feedback provided for this run (CLI flag/file or config).",
+            feedback=feedback_text,
+        )
+        logger.info("External feedback injected (%d chars)", len(feedback_text))
+
+    # Build config overrides from CLI flags
+    configurable = {}
+    if mode:
+        configurable["mode"] = mode
+    if taxonomy_input:
+        configurable["taxonomy_input"] = taxonomy_input
+    configurable.update(_llm_role_overrides(args))
+    if args.name:
+        configurable["name"] = args.name
+        logger.info("Overriding taxonomy name: %s", args.name)
+    if args.max_clusters is not None:
+        # 0 means unlimited (None internally); any positive int caps the count
+        configurable["max_num_clusters"] = args.max_clusters if args.max_clusters > 0 else None
+        logger.info("Overriding max dimensions: %s", configurable["max_num_clusters"])
+    # Charts and PCA-vector CSVs otherwise default to config.yaml's
+    # default_output_dir ("output"), ignoring --output entirely. Default them
+    # to the corpus's own folder instead, so they sit next to its input.
+    configurable["visualization_output_dir"] = (
+        args.output if args.output else str(Path(args.corpus).resolve().parent)
+    )
+    config = {"configurable": configurable} if configurable else {}
+
+    # Resolve effective configuration for display
+    effective_config = Configuration.from_runnable_config(config or None)
+
+    # Show model info (always visible, even in quiet mode)
+    taxonomy_name = effective_config.name
+    max_dims_str = str(effective_config.max_num_clusters) if effective_config.max_num_clusters else "unlimited (LLM decides)"
+    seed_info = ""
+    if taxonomy_input:
+        seed_dimensions = "unknown"
+        try:
+            from taxonomy_generator.utils import load_seed_taxonomy, resolve_seed_view
+            seed_view = resolve_seed_view(effective_config.taxonomy_input_view, effective_config.mode)
+            seed_dimensions = f"{len(load_seed_taxonomy(taxonomy_input, seed_view))}, {seed_view} view"
+        except ValueError as e:
+            console.print(f"[bold red]❌ Error loading --taxonomy file: {e}[/bold red]")
+            sys.exit(1)
+        seed_info = f"[dim]Seed:[/dim] [cyan]{taxonomy_input}[/cyan] [dim]({seed_dimensions} dimensions)[/dim]\n"
+
+    console.print(Panel(
+        f"[bold]Starting taxonomy generation pipeline...[/bold]\n\n"
+        f"[dim]Taxonomy:[/dim] [cyan]{taxonomy_name}[/cyan]\n"
+        f"[dim]Mode:[/dim] [cyan]{mode}[/cyan]\n"
+        f"{seed_info}"
+        f"[dim]Max dimensions:[/dim] [cyan]{max_dims_str}[/cyan]\n"
+        f"[dim]Generation LLM:[/dim] [cyan]{effective_config.generation_llm}[/cyan]\n"
+        f"[dim]Evaluation LLM:[/dim] [cyan]{effective_config.evaluation_llm}[/cyan]"
+        + "".join(f"\n[yellow]⚠ {w}[/yellow]" for w in shared_llm_warnings(
+            ModelSettings(generation_llm=effective_config.generation_llm,
+                          evaluation_llm=effective_config.evaluation_llm,
+                          matching_llm=effective_config.matching_llm),
+            ("generation_llm", "evaluation_llm"))),
+        title="[bold bright_blue]🚀 Delve[/bold bright_blue]",
+        border_style="bright_blue",
+    ))
+    logger.info("Starting taxonomy generation pipeline (mode=%s)", mode)
+
+    # Export graph diagram when not in quiet mode
+    if not args.quiet:
+        try:
+            png_bytes = graph.get_graph().draw_mermaid_png()
+            graph_dir = Path(args.output) if args.output else Path(effective_config.default_output_dir)
+            graph_dir.mkdir(parents=True, exist_ok=True)
+            graph_path = graph_dir / effective_config.graph_filename
+            with open(graph_path, "wb") as f:
+                f.write(png_bytes)
+            logger.info("Graph diagram saved to: %s", graph_path)
+        except Exception as e:
+            logger.warning("Could not export graph diagram: %s", e)
+
+    # ── Stream pipeline execution with step-by-step display ──────────
+    result: dict = {}
+    clusters: list = []
+    selected_clusters: list = []
+    dropped_dimensions: list = []
+    saturation_history: list = []
+    explanations: list = []
+    documents: list = []
+    messages: list = []
+    open_codes: list = []
+    delta_summary: Optional[dict] = None
+    evaluation: Optional[dict] = None
+    evaluation_history: list = []
+    operation_log: list = []
+    total_minibatches = None
+
+    # Token tracking callback
+    token_tracker = TokenTracker()
+    run_config = dict(config) if config else {}
+    run_config["callbacks"] = [token_tracker]
+
+    # Timing
+    start_time = time.monotonic()
+
+    async for event in graph.astream(invoke_input, config=run_config, stream_mode="updates"):
+        for node_name, node_output in event.items():
+            # Display the step to the user
+            emoji, label = STEP_INFO.get(node_name, ("🔧", node_name))
+
+            # Track minibatch count for update_taxonomy progress display
+            if node_name == "get_minibatches":
+                minibatches = node_output.get("minibatches", [])
+                if minibatches:
+                    total_minibatches = len(minibatches)
+
+            # Add iteration info for generate/update_taxonomy steps
+            detail = ""
+            if node_name == "generate_taxonomy":
+                if total_minibatches is not None:
+                    detail = f" (minibatch 1/{total_minibatches})"
+            elif node_name == "update_taxonomy":
+                if total_minibatches is not None:
+                    iteration = len(clusters)  # clusters before this update
+                    detail = f" (minibatch {iteration + 1}/{total_minibatches})"
+                else:
+                    detail = f" (iteration {len(clusters) + 1})"
+
+            console.print(
+                f"  [bold]{emoji} {label}{detail}[/bold]  [dim]✓[/dim]"
+            )
+
+            # Accumulate state updates
+            if node_output:
+                if "clusters" in node_output:
+                    clusters.extend(node_output["clusters"])
+                if "selected_clusters" in node_output:
+                    selected_clusters = node_output["selected_clusters"]
+                if "dropped_dimensions" in node_output:
+                    dropped_dimensions = node_output["dropped_dimensions"]
+                if "delta_summary" in node_output:
+                    delta_summary = node_output["delta_summary"]
+                if "evaluation" in node_output:
+                    evaluation = node_output["evaluation"]
+                if node_output.get("evaluation_history"):
+                    evaluation_history.extend(node_output["evaluation_history"])
+                if "saturation_history" in node_output:
+                    saturation_history.extend(node_output["saturation_history"])
+                if "explanations" in node_output:
+                    explanations.extend(node_output["explanations"])
+                if "documents" in node_output:
+                    documents = node_output["documents"]
+                if "messages" in node_output:
+                    messages.extend(node_output["messages"])
+                if "open_codes" in node_output:
+                    open_codes.extend(node_output["open_codes"])
+                for entry in node_output.get("operation_log") or []:
+                    operation_log.append(entry)
+                    console.print(f"    [dim]{_operation_log_line(entry)}[/dim]")
+
+                # Keep a reference to the full output for any fields we might need
+                result.update(node_output)
+
+    logger.info("Taxonomy generation pipeline completed")
+
+    # Display elapsed time and token usage
+    elapsed = time.monotonic() - start_time
+    elapsed_str = _format_elapsed(elapsed)
+    if token_tracker.total_tokens > 0:
+        token_str = (
+            f"[cyan]{token_tracker.total_tokens:,}[/cyan] tokens "
+            f"([dim]{token_tracker.prompt_tokens:,} prompt + "
+            f"{token_tracker.completion_tokens:,} completion[/dim])"
+        )
+    else:
+        token_str = "[dim]N/A[/dim]"
+    console.print(
+        f"\n  ⏱️  [bold]Pipeline completed in[/bold] [cyan]{elapsed_str}[/cyan]"
+        f"  ·  🪙 {token_str}"
+    )
+
+    if clusters:
+        logger.info("Generated taxonomy with %d categories (%d iterations)", len(clusters[-1]), len(clusters))
+        _display_taxonomy(clusters, explanations, effective_config, mode=mode)
+
+    if delta_summary is not None:
+        _display_delta_summary(delta_summary, effective_config)
+
+    if evaluation is not None and not evaluation.get("unavailable"):
+        _display_scoreboard(evaluation, effective_config)
+    if effective_config.evaluation_save_history:
+        _display_evaluation_history(evaluation_history)
+
+    if documents:
+        logger.info("Labeling results: %d documents categorized", len(documents))
+        _display_documents(documents, effective_config)
+
+    # Display taxonomy tree (categories with their documents)
+    if clusters and documents:
+        # Same view the documents were labeled against (selected dimensions when present).
+        _display_taxonomy_tree(selected_clusters or clusters, documents, effective_config)
+
+    if messages:
+        _display_messages(messages)
+
+    # Save results to output folder if requested
+    if args.output:
+        output_dir = Path(args.output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Saving results to output folder: %s", output_dir)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        # Sanitize taxonomy name for use as filename prefix
+        name_prefix = "".join(c if c.isalnum() or c in "-_" else "_" for c in effective_config.name)
+        name_prefix = f"{name_prefix}_"
+
+        # Serialize documents
+        docs_data = []
+        for doc in documents:
+            if hasattr(doc, "__dict__") and not isinstance(doc, dict):
+                docs_data.append({
+                    "id": getattr(doc, "id", ""),
+                    "content": getattr(doc, "content", ""),
+                    "summary": getattr(doc, "summary", ""),
+                    "explanation": getattr(doc, "explanation", ""),
+                    "category": getattr(doc, "category", ""),
+                    "value": getattr(doc, "value", None),
+                    "score": getattr(doc, "score", None),
+                })
+            else:
+                docs_data.append(doc)
+
+        # Save documents
+        docs_output = {"taxonomy_name": effective_config.name, "documents": docs_data}
+        docs_path = output_dir / f"{name_prefix}documents_{timestamp}.json"
+        with open(docs_path, "w") as f:
+            json.dump(docs_output, f, indent=2, ensure_ascii=False)
+        logger.info("Documents saved to: %s", docs_path)
+
+        # Save taxonomy (all iterations paired with explanations)
+        taxonomy_data = {
+            "taxonomy_name": effective_config.name,
+            "consolidated": bool(effective_config.consolidate_values),
+            "mode": mode,
+            "run_metrics": {
+                "elapsed_seconds": round(elapsed, 1),
+                "total_tokens": token_tracker.total_tokens,
+                "prompt_tokens": token_tracker.prompt_tokens,
+                "completion_tokens": token_tracker.completion_tokens,
+            },
+            "iterations": [],
+        }
+        _add_edit_record(taxonomy_data, effective_config.edit_mode, operation_log)
+        if saturation_history:
+            taxonomy_data["saturation_history"] = saturation_history
+        if selected_clusters:
+            taxonomy_data["selected_clusters"] = selected_clusters[-1]
+        if dropped_dimensions:
+            taxonomy_data["dropped_dimensions"] = dropped_dimensions
+        if delta_summary is not None:
+            taxonomy_data["delta_summary"] = delta_summary
+        if evaluation is not None and not evaluation.get("unavailable"):
+            taxonomy_data["evaluation"] = evaluation
+        if evaluation_history and effective_config.evaluation_save_history:
+            # Every scoreboard of the run, in order (loop drafts, then the final
+            # view), each labeled with the view and iteration it scored.
+            taxonomy_data["evaluation_history"] = evaluation_history
+        for i, iteration_clusters in enumerate(clusters):
+            entry = {
+                "explanation": explanations[i] if i < len(explanations) else "",
+                "clusters": iteration_clusters,
+            }
+            taxonomy_data["iterations"].append(entry)
+        taxonomy_path = output_dir / f"{name_prefix}taxonomy_{timestamp}.json"
+        with open(taxonomy_path, "w") as f:
+            json.dump(taxonomy_data, f, indent=2, ensure_ascii=False)
+        logger.info("Taxonomy saved to: %s", taxonomy_path)
+
+        # Save messages
+        msgs_data = {"taxonomy_name": effective_config.name, "messages": []}
+        for msg in messages:
+            msgs_data["messages"].append({
+                "type": type(msg).__name__,
+                "content": msg.content if hasattr(msg, "content") else str(msg),
+            })
+        msgs_path = output_dir / f"{name_prefix}messages_{timestamp}.json"
+        with open(msgs_path, "w") as f:
+            json.dump(msgs_data, f, indent=2, ensure_ascii=False)
+        logger.info("Messages saved to: %s", msgs_path)
+
+        # Save open codes (the evidence behind every value; needed for grounding analysis)
+        if open_codes:
+            codes_path = output_dir / f"{name_prefix}open_codes_{timestamp}.json"
+            with open(codes_path, "w") as f:
+                json.dump({"taxonomy_name": effective_config.name, "open_codes": open_codes},
+                          f, indent=2, ensure_ascii=False)
+            logger.info("Open codes saved to: %s", codes_path)
+
+        # Save taxonomy tree (clusters with their categorized documents)
+        if clusters and documents:
+            # Same view the documents were labeled against: the selected dimensions
+            # when selection ran, else the full final taxonomy.
+            final_taxonomy = selected_clusters[-1] if selected_clusters and selected_clusters[-1] else clusters[-1]
+
+            # Group documents by category
+            docs_by_cat = {}
+            for doc in documents:
+                cat = (
+                    getattr(doc, "category", None)
+                    or (doc.get("category") if isinstance(doc, dict) else None)
+                    or "N/A"
+                )
+                docs_by_cat.setdefault(cat, []).append(doc)
+
+            # Sort clusters so fallback appears last; add virtual fallback if needed
+            taxonomy_names = {c.get("name", "Unnamed") for c in final_taxonomy}
+            sorted_clusters = sorted(
+                final_taxonomy,
+                key=lambda c: c.get("name", "") == effective_config.fallback_category,
+            )
+            fallback_name = effective_config.fallback_category
+            if docs_by_cat.get(fallback_name) and fallback_name not in taxonomy_names:
+                sorted_clusters.append({
+                    "name": fallback_name,
+                    "description": "Fallback category (not part of generated taxonomy)",
+                })
+
+            tree_data = {"taxonomy_name": effective_config.name, "clusters": []}
+            for cluster in sorted_clusters:
+                name = cluster.get("name", "Unnamed")
+                cat_docs = docs_by_cat.get(name, [])
+                tree_data["clusters"].append({
+                    "id": cluster.get("id"),
+                    "name": name,
+                    "description": cluster.get("description", ""),
+                    "evidence": cluster.get("evidence"),
+                    "documents": [
+                        {
+                            "id": (
+                                getattr(d, "id", None)
+                                or (d.get("id") if isinstance(d, dict) else None)
+                                or ""
+                            ),
+                            "content": (
+                                getattr(d, "content", None)
+                                or (d.get("content") if isinstance(d, dict) else None)
+                                or ""
+                            ),
+                            "score": (
+                                getattr(d, "score", None)
+                                or (d.get("score") if isinstance(d, dict) else None)
+                            ),
+                        }
+                        for d in cat_docs
+                    ],
+                })
+
+            tree_path = output_dir / f"{name_prefix}clusters_{timestamp}.json"
+            with open(tree_path, "w") as f:
+                json.dump(tree_data, f, indent=2, ensure_ascii=False)
+            logger.info("Taxonomy tree saved to: %s", tree_path)
+        else:
+            tree_path = None
+
+        # Generate the grounded-theory markdown report automatically, unless
+        # the operator opted out. Reuses the just-built taxonomy_data — it
+        # already has the exact {"iterations": [...], "selected_clusters":
+        # [...]} shape _select_clusters_for_visualize and
+        # _explanation_for_view expect from a loaded taxonomy JSON, so the
+        # same view-precedence helpers apply here unmodified.
+        report_path = None
+        if not args.no_auto_report:
+            if taxonomy_data["iterations"] or taxonomy_data.get("selected_clusters"):
+                try:
+                    report_clusters, report_iteration = _select_clusters_for_visualize(
+                        taxonomy_data, args.iteration
+                    )
+                except SystemExit as e:
+                    # The four core --output artifacts are already saved at this
+                    # point; an out-of-range --iteration should degrade the
+                    # report step gracefully rather than aborting a successful run.
+                    logger.warning("Skipping automatic report generation: %s", e)
+                else:
+                    report_explanation = _explanation_for_view(taxonomy_data, args.iteration)
+                    report_dropped, report_all_clusters = _dropped_dimensions_for_view(
+                        taxonomy_data, args.iteration
+                    )
+                    report_path = output_dir / f"{name_prefix}report_{timestamp}.md"
+                    narrative = await report_renderer.generate_and_write_report(
+                        report_clusters, report_explanation, effective_config, report_path,
+                        report_dropped, report_all_clusters, evaluation,
+                    )
+                    if narrative is None:
+                        logger.info("Narrative summary unavailable — report will omit it.")
+                    logger.info(
+                        "Report saved to: %s (iteration %s)", report_path, report_iteration
+                    )
+            else:
+                logger.info("No taxonomy generated — skipping automatic report generation.")
+
+        # Results panel
+        saved_lines = (
+            f"[bold green]Documents:[/bold green]      {docs_path}\n"
+            f"[bold green]Taxonomy:[/bold green]       {taxonomy_path}\n"
+            f"[bold green]Messages:[/bold green]        {msgs_path}"
+        )
+        if tree_path:
+            saved_lines += f"\n[bold green]Clusters:[/bold green]       {tree_path}"
+        if report_path:
+            saved_lines += f"\n[bold green]Report:[/bold green]         {report_path}"
+        console.print(Panel(
+            saved_lines,
+            title="[bold green]💾 Results Saved[/bold green]",
+            border_style="green",
+        ))
+
+    console.print("\n[bold bright_green]✅ Done.[/bold bright_green]\n")
+
+
+def main(argv: Optional[List[str]] = None) -> None:
+    load_dotenv(find_dotenv(usecwd=True))  # the .env of the folder the command runs in (repo or workspace)
+
+    args = parse_args(argv)
+
+    # Configure logging
+    log_level = logging.WARNING if args.quiet else logging.INFO
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    # Suppress noisy HTTP request logs from httpx/openai
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    # Standalone biplot mode — render from a saved taxonomy JSON and exit.
+    if args.visualize:
+        asyncio.run(_run_visualize(args))
+        return
+
+    # Standalone report mode — render a markdown report from a saved taxonomy JSON and exit.
+    if args.report:
+        asyncio.run(_run_report(args))
+        return
+
+    # Standalone evaluation mode — score/compare saved taxonomy JSONs and exit.
+    if args.evaluate:
+        asyncio.run(_run_evaluate(args))
+        return
+
+    # Standalone ground-truth matching — score a saved taxonomy against an expert design space and exit.
+    if args.match_gt:
+        asyncio.run(_run_match_gt(args))
+        return
+
+    # Standalone unified HTML report mode — combine sibling artifacts and exit.
+    if args.html_report:
+        asyncio.run(_run_html_report(args))
+        return
+
+    logger.info("Delve Taxonomy Generator starting")
+    asyncio.run(run(args))
+
+
+if __name__ == "__main__":
+    main()

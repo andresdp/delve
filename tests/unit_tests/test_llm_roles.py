@@ -46,7 +46,7 @@ def test_roles_from_yaml_reach_the_pipeline_configuration(tmp_path):
 def test_command_line_role_overrides_keep_only_the_flags_given():
     import argparse
 
-    import main as main_module
+    from taxonomy_generator import pipeline_cli as main_module
 
     args = argparse.Namespace(generation_llm=None, evaluation_llm="openai/eval-cli", matching_llm=None)
     assert main_module._llm_role_overrides(args) == {"evaluation_llm": "openai/eval-cli"}
@@ -59,7 +59,7 @@ def test_evaluate_command_passes_the_evaluation_llm_flag_to_its_configuration(mo
 
     import pytest
 
-    import main as main_module
+    from taxonomy_generator import pipeline_cli as main_module
 
     seen = {}
 

@@ -156,7 +156,7 @@ def test_restore_with_nothing_dropped_is_a_no_op():
 
 
 def test_cli_summary_line_per_operation_log_entry():
-    import main as main_module
+    from taxonomy_generator import pipeline_cli as main_module
 
     tools = {"edit_mode": "tools", "operations": [{}, {}], "rejected": [{}], "uncited": ["d9"]}
     assert main_module._operation_log_line(tools) == "2 operations applied, 1 rejected, 1 batch documents uncited"
@@ -165,7 +165,7 @@ def test_cli_summary_line_per_operation_log_entry():
 
 
 def test_saved_taxonomy_records_edit_mode_and_operation_log_in_order():
-    import main as main_module
+    from taxonomy_generator import pipeline_cli as main_module
 
     data = {}
     main_module._add_edit_record(data, None, [])
