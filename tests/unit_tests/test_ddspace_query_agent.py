@@ -148,3 +148,12 @@ def test_setup_before_the_wiki_exists_explains(tmp_path, monkeypatch):
     result = _invoke("agent", "setup", "--yes")
     assert result.exit_code == 0 and "ddspace wiki build" in result.output
     assert "not been built yet" in (root / "AGENTS.md").read_text()
+
+
+def test_evidence_quotes_follow_graph_from_the_parent_folder(ws, monkeypatch):
+    monkeypatch.chdir(ws.root.parent)
+    for graph in (ws.root, ws.root / "raw" / "graph.json"):
+        result = _invoke("query", "evidence", "WAL in S3", "--graph", str(graph), "--quotes")
+        assert result.exit_code == 0, result.output
+        texts = [p["text"] for s in json.loads(result.output)["sources"] for p in s["passages"]]
+        assert "Continuity writes a WAL to S3." in texts

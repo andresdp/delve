@@ -11,7 +11,7 @@ from typing import List, NoReturn, Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 
 from delvedspace import __version__, agent, query_cli, runs
@@ -103,7 +103,7 @@ def _ask_settings(s: Settings, sources_count) -> Settings:
             break
         except ValueError:
             console.print("  [red]Enter a number or 'none'.[/red]")
-    s.batch_size = int(Prompt.ask("Minibatch size (passages per update step)", default=str(s.batch_size)))
+    s.batch_size = IntPrompt.ask("Minibatch size (passages per update step)", default=s.batch_size)
     s.critic = Confirm.ask("Run the critic during mining? (scores each update; off is cheaper)", default=s.critic)
     return s
 
@@ -481,17 +481,29 @@ def _wiki_options(ws: Workspace, dims: List[dict], n_sources: int, ask_all: bool
             console.print(f"Core dimensions have evidence from at least N sources. Suggested N = {suggested} "
                           f"({wb.core_count(dims, suggested)} of {len(dims)} dimensions would be core; "
                           f"{n_sources} sources).")
-            opts.core_min_sources = int(Prompt.ask("N", default=str(suggested)))
+            opts.core_min_sources = IntPrompt.ask("N", default=suggested)
         else:
             opts.core_min_sources = suggested
     else:
-        opts.core_min_sources = int(saved["core_min_sources"])
+        try:
+            opts.core_min_sources = int(saved["core_min_sources"])
+        except (TypeError, ValueError):
+            fail(f"wiki.core_min_sources in ddspace.yaml must be a number, not {saved['core_min_sources']!r}.")
     if ask_all and ask:
-        answer = Prompt.ask("Pages count as stale after (e.g. 90d, 12w, 6m; none)", default=saved.get("stale_after") or "none")
-        opts.stale_after = None if answer.strip().lower() in ("", "none") else answer.strip()
+        while True:
+            answer = Prompt.ask("Pages count as stale after (e.g. 90d, 12w, 6m; none)", default=saved.get("stale_after") or "none")
+            opts.stale_after = None if answer.strip().lower() in ("", "none") else answer.strip()
+            try:
+                wb.parse_period(opts.stale_after)
+                break
+            except ValueError as exc:
+                console.print(f"  [red]{exc}[/red]")
     else:
         opts.stale_after = saved.get("stale_after")
-    wb.parse_period(opts.stale_after)
+        try:
+            wb.parse_period(opts.stale_after)
+        except ValueError as exc:
+            fail(f"wiki.stale_after in ddspace.yaml: {exc}")
     for key in ("quotes", "source_summaries", "design_points", "core_min_sources", "stale_after"):
         ws.set(f"wiki.{key}", getattr(opts, key))
     return opts
@@ -574,6 +586,24 @@ def wiki_open(print_only: bool = typer.Option(False, "--print", help="Only print
 # ---------------------------------------------------------------- reset
 
 
+def _has_content(folder: Path) -> bool:
+    """Return whether the folder holds anything to archive (a wiki with only its log.md counts as empty)."""
+    if not folder.is_dir():
+        return False
+    names = {p.name for p in folder.iterdir()}
+    return bool(names - {"log.md"} if folder.name == "wiki" else names)
+
+
+def _free_archive(ws: Workspace) -> Path:
+    """Return an archive folder path that is not taken, even for two resets in the same second."""
+    base = runs.now_id()
+    for n in range(100):
+        path = ws.state_dir / "archive" / (base if n == 0 else f"{base}_{n}")
+        if not path.exists():
+            return path
+    fail("Could not create an archive folder.")
+
+
 @app.command()
 def reset(
     wiki_only: bool = typer.Option(False, "--wiki-only", help="Only the wiki (wiki/, site/, raw/); keep the runs."),
@@ -582,11 +612,11 @@ def reset(
     """Start over: move the runs and the wiki to [bold].ddspace/archive/[/bold]; sources and settings stay."""
     ws = current_workspace()
     targets = ["wiki", wb.HTML_DIR, "raw"] + ([] if wiki_only else ["runs"])
-    present = [t for t in targets if (ws.root / t).exists() and any((ws.root / t).iterdir())]
+    present = [t for t in targets if _has_content(ws.root / t)]
     if not present:
         console.print("Nothing to reset: no runs or wiki yet.")
         return
-    archive = ws.state_dir / "archive" / runs.now_id()
+    archive = _free_archive(ws)
     kept = ["sources/", "sources.csv", "corpus.json", "ddspace.yaml (with the wiki answers)", ".env",
             "AGENTS.md and agent files", "stored source summaries"] + (["runs/ (the current run stays current)"]
                                                                        if wiki_only else [])
@@ -602,7 +632,7 @@ def reset(
     for t in present:
         shutil.move(str(ws.root / t), str(archive / t))
     if not wiki_only:
-        ws.runs_dir.mkdir()
+        ws.runs_dir.mkdir(exist_ok=True)
         ws.set("workspace.current_run", None)
     (ws.root / "wiki").mkdir(exist_ok=True)
     wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {'wiki' if wiki_only else 'runs and wiki'} "

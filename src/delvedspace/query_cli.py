@@ -120,7 +120,7 @@ def evidence(value: str = typer.Argument(..., help="Id, slug or label of a value
              corpus: Optional[Path] = typer.Option(None, "--corpus", help="Corpus JSON for --quotes."),
              graph: Optional[Path] = GraphOpt, table: bool = TableOpt) -> None:
     """List the passages that support a value, by source, with each passage's stance."""
-    texts = _corpus_for_quotes(corpus) if quotes else None
+    texts = _corpus_for_quotes(corpus, graph) if quotes else None
 
     def render(d):
         v = d["value"]
@@ -131,11 +131,14 @@ def evidence(value: str = typer.Argument(..., help="Id, slug or label of a value
     _run(graph, table, lambda g: q.evidence(g, value, stance, texts), render)
 
 
-def _corpus_for_quotes(corpus: Optional[Path]) -> Dict[str, Dict[str, Any]]:
+def _corpus_for_quotes(corpus: Optional[Path], graph: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
     path = corpus
     if path is None:
+        start = None
+        if graph is not None:  # an export folder, or its raw/graph.json
+            start = graph if graph.is_dir() else graph.parent.parent
         try:
-            ws = Workspace.find()
+            ws = Workspace.find(start)
         except WorkspaceError as exc:
             err.print(f"[red]Error:[/red] --quotes needs --corpus outside a workspace ({exc})")
             raise typer.Exit(1)

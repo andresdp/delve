@@ -182,7 +182,13 @@ def test_stale_after_marks_pages(ws, monkeypatch):
 def test_bad_refresh_period_is_reported(ws):
     ws.set("wiki.stale_after", "soon")
     result = _invoke("wiki", "build", "--yes")
-    assert result.exit_code != 0
+    assert result.exit_code == 1 and "stale_after" in result.output and "Traceback" not in result.output
+
+
+def test_bad_saved_core_threshold_is_reported(ws):
+    ws.set("wiki.core_min_sources", "many")
+    result = _invoke("wiki", "build", "--yes")
+    assert result.exit_code == 1 and "core_min_sources" in result.output
 
 
 def test_build_needs_a_run(tmp_path, monkeypatch):

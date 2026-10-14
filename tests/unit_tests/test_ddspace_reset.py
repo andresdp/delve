@@ -88,3 +88,19 @@ def test_nothing_to_reset(tmp_path, monkeypatch):
     monkeypatch.chdir(root)
     result = _invoke("reset", "--yes")
     assert result.exit_code == 0 and "Nothing to reset" in result.output
+
+
+def test_two_resets_in_a_row_both_succeed(ws):
+    assert _invoke("reset", "--yes").exit_code == 0
+    again = _invoke("reset", "--yes")
+    assert again.exit_code == 0, again.output
+    assert "Nothing to reset" in again.output and len(_archives(ws)) == 1
+
+
+def test_resets_in_the_same_second_get_distinct_archives(ws, monkeypatch):
+    from delvedspace import runs
+    monkeypatch.setattr(runs, "now_id", lambda: "20261014_090000")
+    assert _invoke("reset", "--yes").exit_code == 0
+    (ws.root / "wiki" / "extra.md").write_text("x")
+    assert _invoke("reset", "--yes").exit_code == 0
+    assert {p.name for p in _archives(ws)} == {"20261014_090000", "20261014_090000_1"}
