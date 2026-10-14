@@ -8,6 +8,7 @@ How to prepare a corpus, configure a run, use the command line, read the outputs
 call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works and how to install it, see the
 [README](README.md).
 
+- [The `ddspace` command](#the-ddspace-command)
 - [Preparing a corpus](#preparing-a-corpus)
 - [Configuration](#configuration)
 - [Command-line reference](#command-line-reference)
@@ -15,6 +16,44 @@ call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works an
 - [Exploring a run as a wiki](#exploring-a-run-as-a-wiki)
 - [Evaluation](#evaluation)
 - [Using DelveDSpace from Python](#using-delvedspace-from-python)
+
+## The `ddspace` command
+
+`ddspace` wraps the pipeline and the wiki export around a workspace folder. `ddspace <command> --help` lists
+every option.
+
+```
+my-space/
+  ddspace.yaml     settings: the pipeline configuration (below) plus workspace: and wiki: blocks
+  .env             API keys (gitignored)
+  sources/         your files: .md .txt .html .pdf, one file = one source (gitignored)
+  sources.csv      one row per source: id (s1, s2, ...), file, title, url, source_type, notes; edit freely
+  corpus.json      passages s01_p01, s01_p02, ... (gitignored: it contains the source text)
+  runs/<time>/     one folder per mine or update: taxonomy JSON, report, run.json
+  wiki/            the current design space as Markdown, an Open Knowledge Format v0.2 bundle, with log.md
+  site/            the same as HTML, with the interactive graph and tree
+  raw/             graph.json and tree.json, read by `ddspace query` (no passage text)
+  AGENTS.md        written by `ddspace agent setup`
+  .ddspace/        extracted texts, stored source summaries, archives of resets (gitignored)
+```
+
+| Command | What it does |
+|---|---|
+| `ddspace init [DIR]` | Create a workspace. Asks for the use case, the models (OpenAI by default), the sources folder, the maximum number of dimensions, the minibatch size and whether to run the critic; checks the API key and offers to write `.env`. `--yes` (or no terminal) takes the defaults; every answer also has an option. |
+| `ddspace sources` | Extract the text of every file in `sources/` (PDFs with `pdftotext` when installed, else `pypdf`), add new files to `sources.csv` with the next id (existing ids and edits are kept), and flag files that are empty, short, blocked or scanned (no text layer: run OCR first). |
+| `ddspace corpus` | Split the usable sources into passages (about 300 words, at paragraph and heading boundaries). |
+| `ddspace mine` | Run the pipeline into `runs/<time>/` after showing the corpus size, the models and a token/time estimate; the run becomes current. Refuses to replace an existing design space unless `--fresh`. `--html-report` also writes the pipeline's single-page HTML report (about 7 MB). |
+| `ddspace update --feedback TEXT` (or `--feedback-file F`) | Re-mine the corpus, seeded with the current design space and your feedback. |
+| `ddspace update --test [--sources FILES]` | Add new sources (copied into `sources/`, or already dropped there) and classify only their passages, with the dimensions frozen: new sources add values. |
+| `ddspace wiki build` | Export the current run (or `--run`) into `wiki/`, `site/` and `raw/`. Asks once whether to quote passages (no for a public wiki), whether to summarize the sources (one LLM call each, stored), whether to sample design points (and describe them, one LLM call each) and the core threshold (suggested: a third of the sources); answers are saved in `ddspace.yaml` under `wiki:`. Adds a dated entry to `wiki/log.md` with what changed since the last build. `--ask` asks again; `--no-llm` uses stored texts only. |
+| `ddspace wiki check` | Check `wiki/` against OKF v0.2 (frontmatter `type`, `index.md` and `log.md` structure); broken links are warnings. |
+| `ddspace wiki open` | Open `site/index.html`. |
+| `ddspace query info\|dims\|values\|evidence\|relations\|show\|search` | Read-only questions over `raw/graph.json`, no LLM: JSON for agents, `--table` for people. Name nodes by id (`d:3`, `v:3.1`, `s:s2`), slug or label. `evidence --quotes` adds the passage text. Exit code 2 when a name matches nothing (with close matches). `--graph DIR` queries any export. |
+| `ddspace agent setup` | Write `AGENTS.md` for coding agents; `--claude` adds `CLAUDE.md` and, if allowed, a permission for `ddspace query`; `--copilot` adds `.github/copilot-instructions.md`; `--dir` sets up a project folder that contains the workspace. Existing files keep their content. |
+| `ddspace reset` | Move `runs/`, `wiki/`, `site/` and `raw/` to `.ddspace/archive/<time>/` and clear the current run (`--wiki-only`: only the wiki). Sources, corpus, settings, `.env`, agent files and stored summaries stay. Asks first; `--yes` for scripts. |
+
+Workspace defaults differ from `config.yaml` in two places, because the passages are already short:
+summarization is skipped and open coding reads the passage text.
 
 ## Preparing a corpus
 
