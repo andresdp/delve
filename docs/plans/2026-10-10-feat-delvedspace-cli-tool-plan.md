@@ -219,6 +219,8 @@ wants a clean design space, not one seeded with the current run.
 
 ## Update flow
 
+First scope: steps 1 and 2 without deprecated pages, run by `wiki build` (see First scope); step 3 matches by name only.
+
 1. `ddspace update --feedback …` or `ddspace update --test --sources new/*.pdf` → a new run in `runs/<ts>/`, recorded
    as current in `ddspace.yaml` (the previous run is kept).
 2. `ddspace wiki update` → diff previous vs. current run by dimension and value ids and labels (added, changed,
@@ -226,24 +228,60 @@ wants a clean design space, not one seeded with the current run.
 3. Test mode guarantees stable dimensions, so diffs are small; feedback mode may restructure, so the diff reports
    matched/unmatched dimensions by name and embedding similarity (reuse the consistency module's alignment).
 
+## First scope (decided 2026-10-13)
+
+The first stable version (`ddspace-v0.1.0`) covers the demo path plus the update loop and `reset`: mine, publish,
+consult, update, start over. Target: the C3 demo runs end to end by about 2026-10-19. The pipeline already supports
+what the update commands wrap: `main.py --taxonomy` (seed), `--feedback` / `--feedback-file`, `--mode test`.
+
+**In:**
+- `init` (interactive and `--yes`), `sources`, `corpus`.
+- `mine` with estimate and confirmation, `mine --fresh`.
+- `update --feedback` and `update --test --sources …` (test mode appends the new files to the corpus without
+  rebuilding existing passages).
+- `query` (core subcommands, below) over `raw/graph.json`; `agent setup --claude --copilot`.
+- `wiki build` with interactive setup, the core OKF changes, `wiki check`, `wiki open`. When a previous run exists,
+  `wiki build` writes the diff into `log.md` (no separate `wiki update` command in the first scope).
+- `reset` (archive by default, `--wiki-only`, confirmation, `--yes`).
+- Packaging (`pipx install`), README quickstart.
+
+**`ddspace query`, first subcommands:** `dims`, `show`, `values`, `evidence`, `relations`; then `info` and `search` if
+time allows. `relations` uses the current types (`requires`, `affects`, `constrains`, `co_occurs_with`) and returns each
+relation's reading sentence.
+
+**OKF, first pass (conformance-critical):** descriptive `type` on every page, the `index.md` format and `okf_version`,
+Delve's `status` renamed to `stance`, Markdown links instead of wikilinks, `log.md`. Second pass if time allows:
+`sources:` provenance entries and evidence footnotes, `generated:` trust metadata. The benchmark scripts keep the current
+export format behind a flag until the tool is merged, so the C1/C2/C3 wikis still export.
+
+**`log.md` diff (first scope):** compare previous and current runs by dimension and value ids and labels; list added,
+changed and removed items under a dated heading. Accurate after `update --test` (ids are stable). After
+`update --feedback` the diff matches dimensions by name only and says how many were matched.
+
+**Deferred (see Later):** `status`, `runs prune`, `wiki serve`, a separate `wiki update` command, deprecated pages,
+embedding-matched diffs, `reset --purge` and `--include-caches`, the remaining `query` subcommands.
+
 ## Work units
+
+Build order. The agent path (W3) comes before OKF (W4), so a coding agent can answer from the wiki early, even before
+the format changes.
 
 | Unit | Content | Effort |
 |---|---|---|
-| T1 | CLI skeleton on Typer and rich, workspace model, `init` with interactive setup, `status`; move text extraction and corpus building into the package | 2–2.5 d |
-| T2 | `mine` (incl. `--fresh`), `update --feedback`, `update --test` as wrappers over the pipeline; cost/size estimate and confirm; `reset` | 1.5–2 d |
-| T3 | `wiki build` with interactive setup; OKF compliance (table above); `wiki check`; `wiki open/serve` | 2 d |
-| T4 | `wiki update`: run diff, `log.md`, deprecated pages | 1–1.5 d |
-| T5 | Agent access: `raw/graph.json`, `ddspace query` commands, generated `AGENTS.md` (WA1–WA3) | 2–2.5 d |
-| T6 | Packaging and docs: `pyproject` metadata and version, `pipx install`, README quickstart, a public sample workspace (C3 sample: public sources) | 1 d |
+| W1 | CLI skeleton on Typer and rich, workspace model, `init` with interactive setup; `sources` (text extraction moved into the package, PDF per D11) and `corpus` | 1.5 d |
+| W2 | `mine` (estimate, confirmation, `--fresh`), `update --feedback`, `update --test --sources` (corpus append), current-run pointer | 1–1.25 d |
+| W3 | Agent access: `raw/graph.json`, `ddspace query` first subcommands (JSON and `--table`), `agent setup` writing `AGENTS.md` (WA1–WA3) | 2 d |
+| W4 | `wiki build` with interactive setup; OKF first pass; `wiki check`; `wiki open`; `log.md` diff | 2–2.5 d |
+| W5 | `reset`: archive, `--wiki-only`, confirmation, `--yes` | 0.5 d |
+| W6 | Packaging (`pyproject` name and scripts, version, `pipx install`), README quickstart, C3 demo run in a fresh workspace | 0.5–1 d |
 
-Total T1–T6: about 9.5–11.5 days. Reduced first version (if time is short): T1 without `status`, T2, T3, T4 with diff
-only (no deprecated pages), T5, T6. About 7–8 days.
+Total about 7.5–8.75 days. If time runs short, cut in this order: `info`/`search`, the OKF second pass, the `log.md`
+name matching after feedback updates.
 
 **Packaging:** `[project.scripts]` `ddspace` and `delvedspace` → the Typer app; `[project] name = "delvedspace"`.
 
-**New dependency:** `typer` (add to `pyproject.toml`; in the existing conda env `taxonomy`: `pip install typer`).
-rich is already a dependency.
+**New dependencies:** `typer` and `pypdf` (add to `pyproject.toml`; in the existing conda env `taxonomy`:
+`pip install typer pypdf`). rich is already a dependency; `pdftotext` (poppler) is optional.
 
 ## Branching and stabilization
 
@@ -252,7 +290,7 @@ integration branch `feat/ddspace-tool` was created from `main` on 2026-10-13; un
 starts.
 
 - **Integration branch:** `feat/ddspace-tool`, created from `main`. It collects the tool work until it is stable.
-- **Unit branches:** one short branch per work unit (`feat/ddspace-t1-cli`, `feat/ddspace-t3-okf`, …) created from
+- **Unit branches:** one short branch per work unit (`feat/ddspace-w1-cli`, `feat/ddspace-w4-okf`, …) created from
   `feat/ddspace-tool` and merged back into it when its tests pass. Small units may go directly on the integration branch.
 - **Keeping up with `main`:** merge `main` into `feat/ddspace-tool` regularly (merge, not rebase: the repository sits in
   iCloud-synced storage and history is never rewritten). Pipeline or wiki fixes made for the evaluation land on `main`
@@ -278,6 +316,16 @@ starts.
   are the `ddspace query` functions. Deferred (2026-10-10): coding agents already provide this on top of
   `ddspace query`.
 - An MCP server exposing the `ddspace query` functions (§13.6 WA4).
+- Deferred from the first scope on 2026-10-13:
+  - `ddspace status` (workspace panel and next suggested command);
+  - `ddspace runs prune --keep N` (D12);
+  - `ddspace wiki serve` (`wiki open` uses `file://`; add `serve` if the site needs a server);
+  - a separate `ddspace wiki update` command; pages of removed items kept as `status: deprecated` for one update;
+    dimension matching by embedding similarity after feedback updates;
+  - `ddspace reset --purge` and `--include-caches`;
+  - `ddspace query` subcommands `read`, `passage`, `contested`, `source`, `system`, `path`, `design-points`
+    (and `info`, `search` if they did not make it);
+  - OKF second pass (`sources:` provenance, footnotes, `generated:`), if it did not make it; `ddspace wiki verify`.
 
 ## Tests
 
