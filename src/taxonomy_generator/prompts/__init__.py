@@ -8,7 +8,16 @@ from pathlib import Path
 
 from langchain_core.prompts import ChatPromptTemplate
 
+from taxonomy_generator.relations import DEFAULT_RELATION_TYPES, relation_guide
+
 _PROMPTS_DIR = Path(__file__).parent
+RELATION_GUIDE_MARKER = "<!-- RELATION_GUIDE -->"
+
+
+def read_prompt_file(name: str) -> str:
+    """Read a prompt file, putting the shared relation guide (relations.py) in place of its marker."""
+    guide = relation_guide(DEFAULT_RELATION_TYPES).replace("{", "{{").replace("}", "}}")
+    return (_PROMPTS_DIR / name).read_text().replace(RELATION_GUIDE_MARKER, guide)
 
 
 def _load_prompt(system_file: str, human_msg: str) -> ChatPromptTemplate:
@@ -21,7 +30,7 @@ def _load_prompt(system_file: str, human_msg: str) -> ChatPromptTemplate:
     Returns:
         A ``ChatPromptTemplate`` with the loaded system and human messages.
     """
-    system_text = (_PROMPTS_DIR / system_file).read_text().strip()
+    system_text = read_prompt_file(system_file).strip()
     return ChatPromptTemplate.from_messages(
         [
             ("system", system_text),
@@ -174,8 +183,8 @@ def derive_tools_system_prompt(system_text: str, tools_text: str) -> str:
 
 
 def _load_tools_prompt(system_file: str, human_msg: str) -> ChatPromptTemplate:
-    system_text = derive_tools_system_prompt((_PROMPTS_DIR / system_file).read_text().strip(),
-                                             (_PROMPTS_DIR / "taxonomy_tools.md").read_text())
+    system_text = derive_tools_system_prompt(read_prompt_file(system_file).strip(),
+                                             read_prompt_file("taxonomy_tools.md"))
     return ChatPromptTemplate.from_messages([("system", system_text), ("human", human_msg)])
 
 

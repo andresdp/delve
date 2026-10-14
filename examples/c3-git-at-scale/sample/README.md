@@ -15,7 +15,7 @@ outputs that quote the corpus are not committed.
 
 **Open the wiki:** [browse it online](https://andresdp.github.io/delve/). It is published with GitHub Pages by
 `.github/workflows/sample-wiki-pages.yml`, because GitHub shows HTML files in the repository as source. Alternatively, open
-[`c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html`](c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html)
+[`c3-git-at-scale-sample_taxonomy_20261010_232242_wiki/html/index.html`](c3-git-at-scale-sample_taxonomy_20261010_232242_wiki/html/index.html)
 from a local clone; the wiki works offline. It has a graph view and a tree view, linked from every page.
 
 ## How it was produced
@@ -30,10 +30,14 @@ from a local clone; the wiki works offline. It has a graph view and a tree view,
 - **Settings:** [`../c3_git_at_scale_sample_config.yaml`](../c3_git_at_scale_sample_config.yaml). These are the C3
   study settings, except `max_num_clusters: 5` and the output folder. The LLM is `openai/gpt-5.6-luna` for
   generation, evaluation and matching, and the embedding model is `text-embedding-3-small`.
-- **Run:** 2026-10-09, about 18 minutes and 1.27M tokens. The run kept 5 dimensions throughout. The final view
-  has 175 values. Its overall evaluation score is 0.65.
-- **Dimensions:** with only 5 allowed, each one is broad, with 20–42 values each. The uncapped study run found
-  22 narrower dimensions in the same corpus.
+- **Run:** 2026-10-10, about 22 minutes and 1.46M tokens. The run kept 5 dimensions (4 in one intermediate
+  draft). The final view has 196 values. Its overall evaluation score is 0.63.
+- **Dimensions:** with only 5 allowed, each one is broad, with 18–61 values each (no dimension holds more than
+  a third of the values). The uncapped study run found 22 narrower dimensions in the same corpus.
+- **Relations:** 5 relations between the dimensions, each written as a sentence (e.g. "Client Repository and
+  Working-Tree Scaling requires Repository Storage Representation to be decided first"). The wiki's
+  "Relations between dimensions" page explains how to read them; relations are inferred by the model and, unlike
+  values, are not checked against passages.
 - **Design points:**
   - 24 sampled points: attested, novel and control groups, with 2 or 3 dimensions each and 4 points per group
     and size;

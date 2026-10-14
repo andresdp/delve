@@ -26,13 +26,20 @@ import re
 from collections.abc import Callable, Iterable
 from typing import Any, get_args
 
-from taxonomy_generator.schemas import DecisionStatus, RelationType
+from taxonomy_generator.relations import (
+    DEFAULT_RELATION_TYPES,
+    canonical_ends,
+    clean_relations,
+    dropped_note,
+    is_directed,
+    relation_problem,
+)
+from taxonomy_generator.schemas import DecisionStatus
 from taxonomy_generator.utils import ensure_unique_ids, value_key
 
 STATUSES = get_args(DecisionStatus)
 # Statuses that count as candidate decisions during coding ("mixed" only appears after consolidation).
 CODING_CANDIDATE_STATUSES = ("accepted", "rejected")
-RELATION_TYPES = get_args(RelationType)
 
 
 _STOPWORDS = frozenset("a an and as at by for from in into of on or the to under via with without".split())
@@ -91,16 +98,24 @@ class TaxonomyEditor:
     """A working copy of the taxonomy plus the validated operations applied to it."""
 
     def __init__(self, clusters: Iterable[dict], batch_doc_ids: Iterable[str], review: bool = False,
-                 max_dimensions: int | None = None):
+                 max_dimensions: int | None = None, relation_types: Iterable[str] = DEFAULT_RELATION_TYPES,
+                 max_relations: int | None = None):
         """Copy ``clusters``; ``batch_doc_ids`` are the documents evidence may cite; ``review`` relaxes ``set_status``.
 
         ``max_dimensions`` (``taxonomy.max_num_clusters``) rejects additions and splits that would leave
-        more dimensions than that; ``None`` means no limit.
+        more dimensions than that; ``None`` means no limit. ``relation_types`` (``taxonomy.relation_types``)
+        are the types ``add_relation`` accepts; ``max_relations`` (``taxonomy.max_relations_per_dimension``)
+        caps the relations stored on one dimension. Existing relations are normalized first (legacy type
+        names, one co-occurrence per pair, no opposite pairs); what that drops is noted in ``cleanup``.
         """
         self.clusters: list[dict] = [copy.deepcopy(c) for c in clusters if isinstance(c, dict)]
         for c in self.clusters:
             c.setdefault("relations", [])
             c.setdefault("values", [])
+        self.clusters, dropped = clean_relations(self.clusters)
+        self._relation_notes = [dropped_note(d) for d in dropped]
+        self.relation_types = tuple(relation_types)
+        self.max_relations = max_relations
         self.batch_doc_ids = list(dict.fromkeys(str(d) for d in batch_doc_ids))
         self.review = review
         self.max_dimensions = max_dimensions
@@ -424,7 +439,8 @@ class TaxonomyEditor:
         new_dims = []
         for part, values in zip(parts, assigned):
             new = self._new_dim(_str(part, "name"), _str(part, "description", required=False))
-            new["relations"] = copy.deepcopy(dim["relations"])
+            if not new_dims:  # relations stay with the first part only; copying them to every part multiplies them
+                new["relations"] = copy.deepcopy(dim["relations"])
             for v in values:
                 self._place(v, new)
             new_dims.append(new)
@@ -432,16 +448,15 @@ class TaxonomyEditor:
             self.clusters.insert(index + len(new_dims) - 1, new)
         new_ids = [d["id"] for d in new_dims]
         self._split[str(dim["id"])] = new_ids
-        for c in self.clusters:  # incoming relations now point to every part
-            rels = []
-            for r in c["relations"]:
-                if str(r.get("target_id")) == str(dim["id"]):
-                    rels.extend({**r, "target_id": nid} for nid in new_ids if nid != c["id"])
-                else:
-                    rels.append(r)
-            c["relations"] = rels
+        for c in self.clusters:  # incoming relations now point to the first part
+            c["relations"] = [{**r, "target_id": new_ids[0]} if str(r.get("target_id")) == str(dim["id"]) else r
+                              for r in c["relations"]]
         described = ", ".join(f"{d['id']} '{d['name']}'" for d in new_dims)
-        return f"split dimension {dim['id']} into {described}"
+        note = ""
+        if dim["relations"] or any(str(r.get("target_id")) == new_ids[0] for c in self.clusters for r in c["relations"]):
+            note = (f"; its relations now belong to {new_ids[0]} '{new_dims[0]['name']}' only: use add_relation or "
+                    "remove_relation if they belong to another part")
+        return f"split dimension {dim['id']} into {described}{note}"
 
     def _merge_dimensions(self, args: dict) -> str:
         ids = _str_list(args, "dimension_ids", min_len=2)
@@ -496,24 +511,29 @@ class TaxonomyEditor:
 
     def _add_relation(self, args: dict) -> str:
         source, target = self._dim(_str(args, "source_id")), self._dim(_str(args, "target_id"))
-        if source is target:
-            raise EditError("a relation needs two different dimensions")
-        rtype = _str(args, "type")
-        if rtype not in RELATION_TYPES:
-            raise EditError(f"relation type must be one of {', '.join(RELATION_TYPES)}, got '{rtype}'")
-        if any(str(r.get("target_id")) == str(target["id"]) and r.get("type") == rtype for r in source["relations"]):
-            raise EditError(f"relation {source['id']} -{rtype}-> {target['id']} already exists")
-        source["relations"].append({"target_id": str(target["id"]), "type": rtype,
-                                    "rationale": _str(args, "rationale", required=False)})
-        return f"added relation {source['id']} -{rtype}-> {target['id']}"
+        rtype, reading = _str(args, "type"), _str(args, "reading", required=False)
+        source_id, target_id = canonical_ends(rtype, str(source["id"]), str(target["id"]))
+        problem = relation_problem(self.clusters, source_id, target_id, rtype, reading,
+                                   allowed=self.relation_types, max_per_dimension=self.max_relations)
+        if problem:
+            raise EditError(problem)
+        self._dim(source_id)["relations"].append({"target_id": target_id, "type": rtype, "reading": reading,
+                                                  "rationale": _str(args, "rationale", required=False)})
+        return f"added relation {source_id} -{rtype}-> {target_id}"
 
     def _remove_relation(self, args: dict) -> str:
         source, target = self._dim(_str(args, "source_id")), self._dim(_str(args, "target_id"))
         kept = [r for r in source["relations"] if str(r.get("target_id")) != str(target["id"])]
-        if len(kept) == len(source["relations"]):
+        if len(kept) != len(source["relations"]):
+            source["relations"] = kept
+            return f"removed relation(s) {source['id']} -> {target['id']}"
+        # Undirected relations are stored once, on the lower-id end, whichever order they were given in.
+        kept = [r for r in target["relations"]
+                if str(r.get("target_id")) != str(source["id"]) or is_directed(r.get("type"))]
+        if len(kept) == len(target["relations"]):
             raise EditError(f"no relation from {source['id']} to {target['id']}")
-        source["relations"] = kept
-        return f"removed relation(s) {source['id']} -> {target['id']}"
+        target["relations"] = kept
+        return f"removed relation(s) {target['id']} -> {source['id']}"
 
     def _finish(self, args: dict) -> str:
         self.explanation = _str(args, "explanation")
@@ -543,6 +563,9 @@ class TaxonomyEditor:
             c["relations"] = kept
             for v in c["values"]:
                 v["dimension_id"] = str(c["id"])
+        # merges and splits can leave duplicates, opposite pairs or too many relations; readings are refreshed
+        clusters, dropped = clean_relations(clusters, max_per_dimension=self.max_relations)
+        self.cleanup = self._relation_notes + self.cleanup + [dropped_note(d) for d in dropped]
         fixed, changes = ensure_unique_ids(clusters)
         self.cleanup.extend(changes)
         cited = {d for c in fixed for v in c.get("values") or [] for d in v.get("supporting_doc_ids") or []}

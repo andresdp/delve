@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from taxonomy_generator import report_renderer
+from taxonomy_generator.relations import relation_sentence
 from taxonomy_generator.visualization import _sanitize_name
 
 _TIMESTAMP_RE = re.compile(r"(\d{8}_\d{6})")
@@ -508,19 +509,16 @@ def render_catalog_section(clusters: List[Dict[str, Any]]) -> str:
             if not isinstance(relation, dict):
                 continue
             target_id = str(relation.get("target_id") or "")
-            relation_type = relation.get("type") or "related_to"
             rationale = relation.get("rationale") or ""
             target = clusters_by_id.get(target_id)
+            source_name = cluster.get("name") or "Unnamed"
             if target is not None:
-                relation_items.append(
-                    f'<li><strong>{_e(relation_type)}</strong> &rarr; {_e(target.get("name") or "Unnamed")} '
-                    f"(#{_e(target_id)}): {_e(rationale)}</li>"
-                )
+                sentence = relation_sentence(relation, source_name, target.get("name") or "Unnamed")
+                relation_items.append(f"<li>{_e(sentence)} (#{_e(target_id)}): {_e(rationale)}</li>")
             else:
+                sentence = relation_sentence(relation, source_name, f"#{target_id}")
                 relation_items.append(
-                    f'<li><strong>{_e(relation_type)}</strong> &rarr; #{_e(target_id)} '
-                    f"<em>(target excluded from this view)</em>: {_e(rationale)}</li>"
-                )
+                    f"<li>{_e(sentence)} <em>(target excluded from this view)</em>: {_e(rationale)}</li>")
         relations_html = (
             f"<ul>{''.join(relation_items)}</ul>" if relation_items else '<p class="dg-empty">No outgoing relations.</p>'
         )

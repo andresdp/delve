@@ -166,7 +166,7 @@ The HTML works offline. Open `html/index.html` in a browser, or copy the whole `
 
 A committed example can be [browsed online](https://andresdp.github.io/delve/). It is published with GitHub Pages
 (`.github/workflows/sample-wiki-pages.yml`), because GitHub shows HTML files in the repository as source. Locally, open
-`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261009_083607_wiki/html/index.html`. The
+`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261010_232242_wiki/html/index.html`. The
 sample's [README](examples/c3-git-at-scale/sample/README.md) gives the exact commands that produced it.
 
 Minimal export. Only the run is required:

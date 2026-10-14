@@ -21,17 +21,20 @@ def _dim(i, name, n_values=1, relations=()):
 
 def test_merge_groups_keeps_richest_member_and_redirects_relations():
     dims = [
-        _dim(1, "RLHF feedback loop", 1, [{"target_id": "3", "type": "enables"}]),
+        _dim(1, "RLHF feedback loop", 1, [{"target_id": "3", "type": "affects"}]),
         _dim(2, "RLHF reward-model loop", 3, [{"target_id": "1", "type": "constrains"}]),
-        _dim(3, "Alerting", 1, [{"target_id": "1", "type": "complements"}, {"target_id": "2", "type": "complements"}]),
+        _dim(3, "Alerting", 1, [{"target_id": "1", "type": "constrains"}, {"target_id": "2", "type": "constrains"}]),
     ]
     merged, notes = dimension_merger.merge_groups(dims, [[0, 1], [2]])
     assert [d["name"] for d in merged] == ["RLHF reward-model loop", "Alerting"]
     rlhf, alerting = merged
     assert len(rlhf["values"]) == 4                      # every member's values are kept
     assert rlhf["merged_from"] == [{"id": "1", "name": "RLHF feedback loop"}]
-    assert rlhf["relations"] == [{"target_id": "3", "type": "enables"}]          # self-relation dropped
-    assert alerting["relations"] == [{"target_id": "2", "type": "complements"}]  # 1 -> 2, deduplicated
+    def pairs(d):
+        return [(r["target_id"], r["type"]) for r in d["relations"]]
+
+    assert pairs(rlhf) == [("3", "affects")]          # self-relation dropped
+    assert pairs(alerting) == [("2", "constrains")]   # 1 -> 2, deduplicated
     assert notes and "RLHF feedback loop" in notes[0]
 
 

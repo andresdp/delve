@@ -33,6 +33,7 @@ import numpy as np
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.prompts import DIMENSION_MERGE_PROMPT
+from taxonomy_generator.relations import clean_relations, dropped_note
 from taxonomy_generator.schemas import DimensionMergeOutput
 from taxonomy_generator.utils import (
     connected_components,
@@ -62,8 +63,13 @@ def _judge_payload(cluster: Dict) -> str:
     }, indent=2)
 
 
-def merge_groups(dims: List[Dict], groups: List[List[int]]) -> Tuple[List[Dict], List[str]]:
-    """Combine each group of dimension indices into one dimension (pure, deterministic)."""
+def merge_groups(dims: List[Dict], groups: List[List[int]],
+                 max_relations: int | None = None) -> Tuple[List[Dict], List[str]]:
+    """Combine each group of dimension indices into one dimension (pure, deterministic).
+
+    ``max_relations`` (``taxonomy.max_relations_per_dimension``) caps the relations a merged
+    dimension keeps; the ones beyond it are dropped and noted.
+    """
     remap: Dict[str, str] = {}
     merged_at: Dict[int, Dict] = {}
     notes: List[str] = []
@@ -95,7 +101,9 @@ def merge_groups(dims: List[Dict], groups: List[List[int]]) -> Tuple[List[Dict],
             seen.add(key)
             relations.append({**rel, "target_id": target})
         cluster["relations"] = relations
-    return merged, notes
+    # a merge can turn two relations into an opposite pair, or give one dimension too many
+    merged, dropped = clean_relations(merged, max_per_dimension=max_relations)
+    return merged, notes + [dropped_note(d) for d in dropped]
 
 
 async def merge_dimensions(clusters: List[Dict], configuration: Configuration) -> Tuple[List[Dict], List[str]]:
@@ -153,7 +161,7 @@ async def merge_dimensions(clusters: List[Dict], configuration: Configuration) -
                             d, dims[i].get("name"), dims[j].get("name"), verdict.rationale)
 
     groups = connected_components(len(dims), edges)
-    merged, notes = merge_groups(dims, groups)
+    merged, notes = merge_groups(dims, groups, getattr(configuration, "max_relations_per_dimension", None))
     if notes:
         logger.info("Merged %d dimensions into %d", len(dims), len(merged))
     return merged, notes

@@ -1,0 +1,728 @@
+{
+  "model": "openai/gpt-5.6-luna",
+  "generated": "2026-10-10",
+  "prompt_version": "1",
+  "design_points": "c3-git-at-scale_taxonomy_20261010_215639_design_points.json",
+  "descriptions": {
+    "10=10.1|19=19.3": {
+      "point_id": "P147",
+      "description": "Repository IDs are mapped to expected healthy hosting nodes via rendezvous hashing, avoiding authoritative routing tables and supporting rematerialization as health changes. For reads, the system selects the nearest replica among those assessed as up to date, combining placement-based discovery with freshness-aware routing."
+    },
+    "10=10.1|21=21.1|27=27.2": {
+      "point_id": "P008",
+      "description": "The system routes reads to the nearest replica assessed as up to date, while clients use a complete index of every tracked path at the current HEAD for lookup and status operations. Maintenance manages storage by repacking bounded batches of small packs rather than rewriting the entire repository at once; these choices are compatible."
+    },
+    "10=10.1|32=32.1": {
+      "point_id": "P006",
+      "description": "The system routes reads to the nearest replica assessed as up to date, while disabling advanced foreground Git features by default to preserve compatibility and avoid blocking interactive commands. These choices are compatible: replica selection improves read locality and freshness without requiring clients to enable potentially disruptive foreground behavior."
+    },
+    "10=10.1|37=28.4": {
+      "point_id": "P132",
+      "description": "Reads are routed to the nearest replica assessed as up to date, while writes that do not achieve majority agreement are rolled back on every replica where they were applied. These choices are complementary: routing avoids replicas known to be stale, and rollback removes non-majority changes that could otherwise be observed."
+    },
+    "10=10.1|41=41.1|42=42.4": {
+      "point_id": "P065",
+      "description": "The system routes reads to the nearest replica assessed as up to date, while repository access handles planned maintenance using the same recovery mechanisms as crashes or permanent failures. During maintenance, servers are drained and rebooted with bounded concurrency within each zone, helping preserve redundancy and continued access while freshness-aware routing selects suitable replicas."
+    },
+    "10=10.2|29=34.7|9=9.4": {
+      "point_id": "P150",
+      "description": "The system places repository replicas in separate racks and uses geographic replicas for reads without requiring them in the write quorum, preserving write availability during reachability failures. Whole-packfile local caching can improve random access, but it does not establish a clear write-commitment or durability policy and may not scale across many repositories."
+    },
+    "10=10.2|37=37.2|38=38.2": {
+      "point_id": "P026",
+      "description": "Geographic replicas serve read traffic without participating in push quorum, preserving write availability during reachability failures; read validation catches a replica with a newer WAL index by having it catch up from durable storage. Clients use a virtualized filesystem, which presents repository content while deferring the cost of fully populating the working tree."
+    },
+    "10=10.2|40=40.1|42=42.2": {
+      "point_id": "P044",
+      "description": "The system keeps the client repository in a source directory while placing build artifacts outside the working tree, and routes reads to geographic replicas that are non-voting for push quorum. During planned maintenance, servers or racks are rebooted sequentially so service remains available and write availability is preserved despite temporary replica reachability failures."
+    },
+    "10=10.3|21=21.3": {
+      "point_id": "P159",
+      "description": "Clients route each read to any single up-to-date replica, avoiding cross-replica read coordination. On the client side, cached untracked-file information reduces repeated scanning or computation for tracked-path lookup and status operations in very large repositories; the choices are compatible."
+    },
+    "10=10.3|30=30.4|31=31.7": {
+      "point_id": "P109",
+      "description": "Reads would be routed to any one up-to-date replica without cross-replica coordination, while reference-update optimizations would prioritize preserving read performance because reads dominate writes. Relying solely on no-op health checks for authenticated Git operations is rejected, so replica failure detection and failover would not fit this design without stronger application-level signals or routing policies."
+    },
+    "10=10.3|32=32.2": {
+      "point_id": "P156",
+      "description": "Reads are served by any single up-to-date replica, without coordinating with other replicas or requiring cross-replica read participation. Client maintenance and metadata generation run asynchronously in the background, so they do not occur as part of interactive read operations."
+    },
+    "10=34.7|31=31.10": {
+      "point_id": "P106",
+      "description": "Replicas serve reads using locally cached complete packfiles, making random access acceptable while potentially limiting scalability across many repositories. Application-level signals and routing policies can advisably demote replicas from preferred service when needed, without treating them as permanently failed."
+    },
+    "10=7.1|15=15.2|31=31.9": {
+      "point_id": "P144",
+      "description": "The system would use a distributed repository model, with a Git-aware filesystem watcher monitoring relevant changes while honoring ignore rules and avoiding unnecessary scans. Heartbeats would signal when an unavailable repository node recovers, but the watcher value does not itself specify how read replicas are selected or assigned voting status, leaving that routing decision undefined."
+    },
+    "12=12.1|16=16.3|26=26.3": {
+      "point_id": "P069",
+      "description": "During server maintenance, writes continue replicating to the quiescing replica, preventing it from falling arbitrarily behind. Clients incrementally update reachable-commit graph metadata in the background, while a single maintenance command coordinates repository configuration, fetching, commit-graph updates, and cleanup."
+    },
+    "12=12.1|17=17.4": {
+      "point_id": "P032",
+      "description": "During server maintenance, writes continue to replicate to the quiescing replica, preventing it from falling arbitrarily behind. Compaction results are supplied as pre-compacted packfiles through shared object storage, allowing replicas to receive compacted data without performing their own repacking."
+    },
+    "12=12.1|22=22.5": {
+      "point_id": "P067",
+      "description": "The system would use a JGit repository-storage abstraction backed by a custom object store rather than ordinary on-disk packfiles. During server maintenance, replication would continue sending writes to the quiescing replica, allowing it to remain current while using that storage representation."
+    },
+    "12=12.1|26=26.4": {
+      "point_id": "P118",
+      "description": "During maintenance, writes continue to replicate to a quiescing replica, preventing it from falling arbitrarily behind. Separately, clients periodically run foreground garbage collection; this remains operationally possible but may be impractical for very large repositories."
+    },
+    "12=12.1|32=32.2|41=41.1": {
+      "point_id": "P061",
+      "description": "The system continues replicating writes to a replica while it is quiescing, preventing it from falling arbitrarily behind during maintenance. Client maintenance and metadata generation run asynchronously, while planned server maintenance uses the same recovery logic as crashes or permanent failures."
+    },
+    "12=12.1|36=36.1": {
+      "point_id": "P010",
+      "description": "The system continues replicating writes to a replica while it is quiescing for maintenance, preventing it from falling arbitrarily behind. This supports fully synchronized repository replicas, allowing clients and CI to observe current repository state without a maintenance-induced freshness gap."
+    },
+    "12=12.1|36=36.2|43=43.2": {
+      "point_id": "P142",
+      "description": "The system treats on-disk repository replicas as authoritative while continuing to replicate writes to a replica undergoing quiescing or maintenance. However, repository views remain eventually consistent, so replicas may temporarily omit newly pushed commits, creating a tension with reliable client and CI behavior despite continued write replication."
+    },
+    "12=12.2|14=14.1|31=31.8": {
+      "point_id": "P136",
+      "description": "During server maintenance, writes continue using the remaining replicas if one replica drops out, while cascading bookkeeping reference changes are coalesced into fewer transactions to reduce maintenance overhead. Cross-server correlation of application-level failure reports helps identify failed repository replicas and avoid false failover caused by a faulty reporting application server."
+    },
+    "12=12.2|30=30.8": {
+      "point_id": "P075",
+      "description": "During maintenance, an in-progress write can continue using the remaining replicas when one replica reboots or drops out. The one-object-storage-write-per-push ingestion strategy is rejected because it imposes a throughput ceiling, so it does not form the adopted reference-update performance solution."
+    },
+    "12=26.6|30=30.7|43=43.3": {
+      "point_id": "P001",
+      "description": "The system serves repositories from local-disk warm-cache copies while treating them as non-authoritative, and processes reference updates through batched WAL ingestion to improve throughput and amortize object-storage latency. Operators can pause or unregister repositories from background maintenance, allowing maintenance participation to be controlled without changing the cache’s non-authoritative role."
+    },
+    "12=40.2|41=41.1": {
+      "point_id": "P063",
+      "description": "The system keeps each repository’s working tree in a nested source directory, leaving sibling locations available during maintenance. Planned maintenance uses the same repository-access recovery mechanisms as crashes and permanent failures; the values are compatible, though the directory layout alone does not specify replication or quorum behavior."
+    },
+    "12=9.4|39=39.4": {
+      "point_id": "P139",
+      "description": "The system distributes repository replicas across distinct racks treated as availability zones, helping preserve write continuity during rack-wide failures or maintenance. A custom Git client distribution provides large-repository capabilities while interacting with this rack-separated repository infrastructure."
+    },
+    "14=14.1|21=21.3|38=12.2": {
+      "point_id": "P089",
+      "description": "The system would coalesce cascading bookkeeping reference changes, cache untracked-file information to reduce repeated status work, and let an in-progress write continue with the remaining replicas if one reboots. However, replica-tolerant write quorum describes replicated-write availability rather than working-tree population, so its fit with that dimension is unclear."
+    },
+    "14=14.1|22=22.1|23=23.2": {
+      "point_id": "P029",
+      "description": "The system coalesces cascading bookkeeping reference changes into fewer maintenance transactions while storing Git objects across accumulated packfiles addressed by a multi-pack index. Git clients still access and transfer history and objects using packfile-based network protocols, independent of the server’s multi-pack storage layout."
+    },
+    "14=14.1|22=22.8|9=9.1": {
+      "point_id": "P157",
+      "description": "The system uses standard on-disk Git repositories for object storage and operations, with replicas distributed across geographically separated datacenters or regions. During maintenance, cascading bookkeeping reference changes are coalesced into fewer transactions, while the dispersed replicas support disaster survivability and proximity to users."
+    },
+    "14=14.1|26=26.1": {
+      "point_id": "P165",
+      "description": "Registered repositories undergo automatic background configuration, fetching, commit-graph, and cleanup maintenance. During this maintenance, cascading bookkeeping reference changes are coalesced into fewer transactions, reducing redundant bookkeeping updates."
+    },
+    "14=14.1|32=32.2|35=35.3": {
+      "point_id": "P162",
+      "description": "Client maintenance and metadata generation would run asynchronously, coalescing cascading bookkeeping-reference changes into fewer transactions rather than affecting interactive operations. Repository packfiles would be distributed among serving locations instead of whole filesystems, but this distribution choice is marked rejected and therefore does not form part of the accepted design."
+    },
+    "14=14.2|28=28.6": {
+      "point_id": "P141",
+      "description": "The system prioritizes user-initiated reference updates over non-time-critical bookkeeping, allowing pushes to proceed promptly during maintenance. Any replica may accept a push without consensus-based primary assignment, provided WAL updates are atomically protected to maintain safe ordering and recovery."
+    },
+    "14=14.2|33=33.1|43=43.2": {
+      "point_id": "P163",
+      "description": "The system prioritizes user-initiated reference updates over non-time-critical bookkeeping, while recording write-ahead-log data in S3 Standard for durable, moderate-rate push ingestion. Repository replicas on local disks remain authoritative for consensus and correctness; the WAL tier supports durability but does not replace that authority."
+    },
+    "14=14.2|39=39.3|41=41.2": {
+      "point_id": "P033",
+      "description": "The system would prioritize user-initiated reference updates over non-time-critical bookkeeping and use Git-protocol repositories with Scalar registration when GVFS cache infrastructure is unavailable. However, immediate server reboot or unplugging is a rejected failure policy and conflicts with preserving long-running read progress, since such interruptions may discard it."
+    },
+    "14=14.2|7=7.2": {
+      "point_id": "P135",
+      "description": "The system would prioritize user-initiated reference updates, deferring or coalescing non-time-critical bookkeeping during maintenance. It would use Watchman for filesystem change detection, but this is in tension with the need for Git-specific, efficient monitoring required by Scalar."
+    },
+    "15=15.1|19=19.7|22=22.2": {
+      "point_id": "P114",
+      "description": "A centralized hosting service would present repositories to users while placing repository instances on dedicated fileservers accessed remotely by applications. Within those repositories, Git objects would be stored in delta-compressed packfiles to support compact, scalable object storage and lookup."
+    },
+    "15=15.1|22=22.2": {
+      "point_id": "P167",
+      "description": "A centralized repository host would store and serve repositories for users and organizations, with Git objects represented in delta-compressed packfiles rather than individual loose-object files. This combines centralized access and administration with a compact object-storage format intended to support scalable lookup and repository maintenance."
+    },
+    "15=15.1|22=22.2|34=34.2": {
+      "point_id": "P140",
+      "description": "A central repository host stores Git objects in delta-compressed packfiles and serves them to users and organizations. Replicas synchronize by transferring packfiles, while Git itself remains undistributed; this is compatible with centralized hosting, though replication is marked mixed rather than fully accepted."
+    },
+    "15=15.1|22=22.2|35=35.5": {
+      "point_id": "P134",
+      "description": "A centralized Git hosting service would store repositories as delta-compressed packfiles on dedicated fileservers. Applications would access and distribute repository copies through RPC, preserving centralized repository management while separating repository storage from clients."
+    },
+    "15=15.1|23=23.3": {
+      "point_id": "P023",
+      "description": "A central repository host stores and serves repositories to users and organizations. Initial clones retrieve commits and trees from that host while omitting other Git objects, reducing the objects transferred at clone time."
+    },
+    "15=15.1|23=23.3|38=38.3": {
+      "point_id": "P125",
+      "description": "A central repository host serves repositories, with initial clones transferring only commit and tree objects rather than the full Git object set. GVFS uses Git’s partial-clone interface to control working-tree population, allowing the two mechanisms to operate together."
+    },
+    "15=15.1|27=27.3": {
+      "point_id": "P124",
+      "description": "A centralized repository host stores and serves repositories for users and organizations, while maintenance compacts their storage using deferred obsolete-pack expiration. Obsolete packs are retained until no multi-pack-index references remain, allowing concurrent Git commands to continue safely."
+    },
+    "15=15.1|33=33.2|37=37.1": {
+      "point_id": "P120",
+      "description": "A centralized repository host would store and serve repositories, using S3 Express One Zone for lower-latency WAL storage to support durable, high-rate ingestion. Replica reads would use conditional ETag validation to verify freshness before serving data, enforcing the selected consistency guarantee."
+    },
+    "15=15.1|34=34.7|35=35.5": {
+      "point_id": "P045",
+      "description": "A centrally hosted Git service would keep repositories on dedicated fileservers and expose them to applications through RPC, while locally caching complete packfiles to support repository access and updates. This can improve random access, but whole-packfile caching may not scale well across a very large number of repositories."
+    },
+    "15=15.1|38=38.1": {
+      "point_id": "P133",
+      "description": "A central repository host stores and serves repositories to users and organizations, while clients use Git-native sparse-checkout to populate only selected repository paths in their working trees. This combines centralized repository management with reduced client-side working-tree size."
+    },
+    "15=15.1|38=38.1|39=39.1": {
+      "point_id": "P093",
+      "description": "A central hosting service stores and serves repositories, while clients use Git-native sparse-checkout to materialize only selected paths in their working trees. For sufficiently large repositories and user groups, a nearby GVFS cache server handles GVFS requests, complementing centralized hosting and sparse population without changing the repository authority."
+    },
+    "15=15.1|38=38.1|39=39.6": {
+      "point_id": "P098",
+      "description": "A central repository host serves repositories to users, while the standard Git client uses the GVFS protocol for large-repository transfers. Sparse-checkout then controls which repository paths are materialized in each client’s working tree, combining centralized hosting with selective local population."
+    },
+    "15=15.1|38=38.3|39=39.1": {
+      "point_id": "P169",
+      "description": "A central repository host stores and serves repositories, while clients use Git’s partial-clone interface to integrate GVFS for selective working-tree and object population. For sufficiently large repositories and user groups, a nearby co-located GVFS cache server supports GVFS requests while the central host remains the repository authority."
+    },
+    "15=15.1|38=38.3|39=39.6": {
+      "point_id": "P077",
+      "description": "A central host stores and serves repositories, while a standard Git client uses the GVFS protocol for large-repository transfers. GVFS is integrated through Git’s partial-clone interface, coordinating which files and objects are materialized in each client working tree; the client integration remains a mixed-status choice."
+    },
+    "15=15.1|39=39.6": {
+      "point_id": "P003",
+      "description": "A central repository host stores and serves repositories, while the standard Git client uses the GVFS protocol to handle large-repository transfers. These choices are compatible: hosting remains centralized, and GVFS provides the client-side integration for accessing repository data at scale."
+    },
+    "15=15.2|22=22.2|30=30.4": {
+      "point_id": "P059",
+      "description": "Repositories remain distributed across developers or maintainers, with Git objects stored in delta-compressed packfiles for scalable lookup and maintenance. Reference updates are optimized to preserve read performance, reflecting that reads greatly outnumber writes; these choices are compatible."
+    },
+    "15=15.2|23=23.2|41=41.1": {
+      "point_id": "P091",
+      "description": "Repositories would remain distributed across developers or maintainers, while Git history and objects would be accessed and transferred using packfiles over the network. Server crashes, unavailability, and planned maintenance would follow the same recovery mechanisms used for crashes and permanent failures; the choices are compatible."
+    },
+    "15=15.2|23=23.3": {
+      "point_id": "P014",
+      "description": "Repositories remain hosted across developers or maintainers rather than at a single central service. An initial clone from a selected repository transfers only commits and trees, omitting other Git objects to reduce the initial transfer while preserving the history and tree structure."
+    },
+    "15=15.2|27=27.2": {
+      "point_id": "P002",
+      "description": "Repositories remain distributed across developers or maintainers, with each repository managing its own storage maintenance. During maintenance, each repository rewrites bounded batches of small packs rather than repacking all data at once, limiting disruption while managing obsolete packs."
+    },
+    "15=15.2|28=28.1|9=9.1": {
+      "point_id": "P131",
+      "description": "Repositories remain distributed across developers or maintainers, while geographically dispersed replicas coordinate each reference update through a majority vote to establish ordering and durability. This improves disaster survivability and access proximity, but per-write cross-replica coordination may add latency to the distributed model."
+    },
+    "15=15.2|30=30.4|38=7.1": {
+      "point_id": "P161",
+      "description": "The system keeps repositories distributed across developers or maintainers, while optimizing reference updates to preserve read performance in a read-heavy workload. A custom Git-aware filesystem watcher populates and monitors each working tree using Git’s ignore rules, avoiding scans of directories that cannot contain relevant changes."
+    },
+    "15=15.2|32=32.1|41=41.1": {
+      "point_id": "P105",
+      "description": "The system keeps repositories distributed among developers or maintainers, while disabling advanced foreground Git features by default to preserve compatibility and avoid blocking interactive commands. When a repository host or server becomes unavailable, planned maintenance follows the same recovery procedures used for crashes and permanent failures."
+    },
+    "15=15.2|39=39.5|41=41.1": {
+      "point_id": "P043",
+      "description": "Repositories would remain distributed across developers or maintainers, while large-repository capabilities are implemented as contributions to core Git rather than requiring a custom client. When a repository server crashes or becomes unavailable, planned maintenance would use the same recovery mechanisms intended for crashes and permanent failures."
+    },
+    "15=15.2|40=40.3": {
+      "point_id": "P113",
+      "description": "Repositories are hosted in a distributed model, remaining with individual developers or maintainers rather than depending on one central host. Each local Git working directory has its build outputs in a sibling directory, keeping generated artifacts separate from the source tree."
+    },
+    "15=15.2|9=9.3": {
+      "point_id": "P037",
+      "description": "Repositories would remain distributed among developers or maintainers rather than depend on a single central host, while each repository’s replicas would be placed near one another. This combines decentralized repository ownership with geographically co-located replica deployment to meet latency-sensitive block-replication needs."
+    },
+    "16=16.2|34=34.2": {
+      "point_id": "P174",
+      "description": "Repository updates would be replicated between hosted replicas at the Git packfile level, while Git itself remains undistributed. Clients would store fetched remote references in a hidden namespace for metadata generation without altering user-visible remote-tracking refs; the choices are compatible, though packfile replication alone does not specify reference synchronization."
+    },
+    "16=16.3|17=17.4|7=7.2": {
+      "point_id": "P155",
+      "description": "Clients maintain reachable-commit graph metadata incrementally in background work, while replicas obtain pre-compacted packfiles from shared object storage rather than performing local repacking. Working-directory changes are detected with Watchman, but this is a poor fit because its general-purpose behavior lacks the Git-specific efficiency required by Scalar."
+    },
+    "16=16.3|23=23.2|35=35.7": {
+      "point_id": "P025",
+      "description": "Clients use standard Git packfile network transfers to fetch or push history and objects, while updating reachable-commit graph metadata incrementally in background work rather than during foreground fetches. For pushed data, an orchestrator distributes the resulting packfiles across repository replicas, combining scalable transfer with distributed repository exposure."
+    },
+    "16=16.4|27=34.1|37=37.1": {
+      "point_id": "P095",
+      "description": "Clients write commit graphs synchronously as part of fetching, increasing foreground fetch work. Repositories are replicated through application-level Git operations, optionally using rsync for synchronization and repair, while ETag-validated reads check replica freshness before serving data; these choices are compatible, with commit-graph writing adding fetch latency."
+    },
+    "16=16.4|32=25.2|35=35.1": {
+      "point_id": "P068",
+      "description": "A proxy accepts client pushes and fans repository updates out to multiple fileservers, while clients incrementally maintain replica-state checksums from prior state and changed references by default. During fetch, clients synchronously write the commit-graph, adding foreground work; this may create an operational tradeoff between fetch latency and graph freshness."
+    },
+    "16=16.4|38=38.1": {
+      "point_id": "P137",
+      "description": "Clients synchronously write the commit-graph during fetch, adding foreground processing while synchronizing repository history metadata. They then use Git-native sparse-checkout to populate only selected paths, reducing working-tree materialization; the choices are compatible, though fetch latency and sparse population address different scaling concerns."
+    },
+    "16=16.4|39=39.6|9=9.4": {
+      "point_id": "P172",
+      "description": "A standard Git client uses the GVFS protocol to transfer large repositories, while repository replicas are distributed across separate racks treated as availability zones. During fetch, the client synchronously writes the commit graph, adding foreground work to remote synchronization and potentially increasing fetch latency."
+    },
+    "17=10.3|22=22.2": {
+      "point_id": "P048",
+      "description": "The repository stores Git objects in delta-compressed packfiles, while reads can be routed independently to any replica known to be up to date. This specifies read behavior but does not identify which replica performs compaction or how compacted results are propagated, so those aspects remain unspecified."
+    },
+    "17=17.1|21=21.2": {
+      "point_id": "P071",
+      "description": "The primary replica alone performs compaction, avoiding concurrent CPU-intensive maintenance on other replicas. Clients use the updated compact index representation, reducing storage for millions of tracked entries and supporting scalable lookup and status operations."
+    },
+    "17=17.1|32=32.1": {
+      "point_id": "P151",
+      "description": "The primary replica alone performs compaction, centralizing this resource-intensive maintenance rather than running it concurrently on replicas. Meanwhile, clients disable advanced foreground Git features by default, favoring compatibility and responsive interactive commands; these choices address separate operational concerns and do not inherently conflict."
+    },
+    "17=17.1|32=32.2|43=43.2": {
+      "point_id": "P097",
+      "description": "The system keeps authoritative repository state on replica disks, while designating the primary as the sole replica that performs compaction, avoiding concurrent maintenance work on other replicas. Client maintenance and metadata generation run asynchronously in the background, so interactive operations are not delayed by these tasks."
+    },
+    "17=17.3|23=23.2": {
+      "point_id": "P082",
+      "description": "Compaction is performed by a repository replica, with its results encoded in the write-ahead log so other replicas reproduce the same state through normal log following. Git history and objects are then accessed or transferred using packfile-based network protocols, independently of how objects are stored internally after compaction."
+    },
+    "17=17.3|28=28.10|34=34.6": {
+      "point_id": "P057",
+      "description": "A single local repository serializes and synchronizes reference transactions, while large pushed packfiles propagate asynchronously, allowing unreachable objects to lag across replicas. Compaction results are recorded in the WAL for replicas to reproduce through log following; this requires WAL following to coexist with, or complement, the asynchronous packfile distribution mechanism."
+    },
+    "17=17.3|28=28.3": {
+      "point_id": "P129",
+      "description": "Any repository instance can accept concurrent reference updates using atomic compare-and-swap operations in the WAL, providing their ordering and serialization. Compaction results are also recorded in that WAL, allowing other replicas to reproduce the compaction through normal log following; the choices are compatible."
+    },
+    "17=17.3|33=33.1": {
+      "point_id": "P178",
+      "description": "The system would record compaction results in the write-ahead log, allowing repository replicas to reproduce them through normal log following. The WAL would reside on S3 Standard, providing durable storage suitable for moderate push-ingestion rates; these choices are compatible under that workload assumption."
+    },
+    "19=19.3|28=28.2|9=9.4": {
+      "point_id": "P066",
+      "description": "Repository IDs are routed to expected healthy hosting nodes via rendezvous hashing, with replicas placed in separate racks to tolerate rack-wide failures. Reference writes would be ordered by a designated primary before replica application, although this single-primary approach is marked rejected and therefore is not an accepted part of the design."
+    },
+    "19=19.4|37=37.2|39=39.2": {
+      "point_id": "P154",
+      "description": "The system would rematerialize missing repositories from durable WAL state and have replicas catch up from that storage when read validation finds a newer WAL index. However, the proposed GVFS deployment without cache infrastructure is rejected and does not provide the scalable client integration needed to complete this design."
+    },
+    "19=19.5|27=27.1": {
+      "point_id": "P152",
+      "description": "Each repository is hosted on a single server through a conventional filesystem-backed service, with repository location and rematerialization tied to that host. Maintenance on the host incrementally compacts packfiles using a geometric strategy, delaying a full repack while managing obsolete-pack expiration."
+    },
+    "19=19.5|34=34.4": {
+      "point_id": "P072",
+      "description": "Each repository is hosted on a single server through a conventional filesystem-backed service, while a maintained fork of Git provides the system-level mechanism for distributing updates to any replicas. These choices can coexist, but single-machine placement leaves replica assignment and rematerialization unspecified and makes distribution dependent on maintaining the fork."
+    },
+    "19=19.6|30=22.5": {
+      "point_id": "P104",
+      "description": "Repository instances would be assigned and rematerialized with replica counts that expand or contract according to repository demand. Each replica could use the JGit repository-storage abstraction, replacing ordinary on-disk packfiles with another object store; these choices are compatible, although the abstraction alone does not define how replicas coordinate reference updates."
+    },
+    "19=19.7|22=22.2|34=34.4": {
+      "point_id": "P096",
+      "description": "Repositories would be hosted on dedicated fileservers, with applications accessing them remotely and Git objects stored in delta-compressed packfiles for scalable storage and maintenance. Repository updates would be distributed using Git as a system-level component, requiring maintenance of a suitable fork; the choices are compatible, though the approach entails specialized Git maintenance."
+    },
+    "19=19.7|41=41.1|43=43.2": {
+      "point_id": "P090",
+      "description": "Repositories would reside on dedicated fileservers and be accessed remotely by applications. Planned maintenance would use the same recovery mechanisms as crashes or permanent failures, while local replica disks—not an external durable log—would remain authoritative for consensus and correctness."
+    },
+    "19=19.7|42=42.3": {
+      "point_id": "P028",
+      "description": "Repositories would reside on dedicated fileservers and be accessed remotely by applications. Randomly rebooting those fileservers while production reads may be active would test failure handling, but this maintenance policy is explicitly rejected, so the combination is not an approved operational design."
+    },
+    "19=19.8|28=28.1|43=43.2": {
+      "point_id": "P055",
+      "description": "Each repository is individually placed, monitored, validated, and repaired, with its replicas serving as the authoritative state. Every reference update is ordered and made durable by a majority vote among those replicas, rather than through an external durable log."
+    },
+    "21=21.1|23=23.4": {
+      "point_id": "P100",
+      "description": "The client maintains a complete index of every tracked path at the current HEAD, supporting scalable path lookup and status operations. Git objects are retrieved on demand, so the index can be used locally while missing history or object data is fetched only when a client operation requires it."
+    },
+    "21=21.1|39=23.3|7=7.2": {
+      "point_id": "P027",
+      "description": "The system would clone commits and trees while maintaining a complete client-side index of every tracked path at the current HEAD, supporting tracked-path lookup and status operations. Watchman would detect working-directory changes, but its general-purpose behavior may not provide the Git-specific efficiency required by Scalar, creating a potential fit issue."
+    },
+    "21=21.2|27=27.1|34=34.1": {
+      "point_id": "P024",
+      "description": "The system uses an updated compact client index to reduce storage and support scalable tracked-path lookup and status operations, while maintenance incrementally compacts packfiles geometrically. Repository updates are replicated through application-level Git operations, optionally using rsync for scalable synchronization and repair; these choices are compatible."
+    },
+    "21=21.2|38=38.1": {
+      "point_id": "P173",
+      "description": "The system would use the updated compact index format to reduce client-side index storage and support scalable tracked-path lookup and status operations. Sparse-checkout population would then materialize only selected repository paths, limiting the working-tree contents through Git-native mechanisms while the compact index represents the broader tracked state."
+    },
+    "21=21.3|23=23.4": {
+      "point_id": "P126",
+      "description": "The system caches information about untracked files to reduce repeated scanning and support scalable status operations. Separately, it retrieves missing Git objects on demand when client operations require them, combining local untracked-file caching with lazy history/object transfer."
+    },
+    "21=21.4|23=32.2|39=39.5": {
+      "point_id": "P086",
+      "description": "The system would integrate large-repository capabilities into core Git, with commands reading and writing the client index as a single streamed file. Client maintenance and metadata generation would run asynchronously, keeping interactive operations separate from background work; the choices are compatible, though streaming alone does not specify an optimized lookup structure."
+    },
+    "21=21.4|26=26.6|39=39.1": {
+      "point_id": "P017",
+      "description": "The system uses a single streamed index file for client commands that perform tracked-path lookup and status operations, while a nearby GVFS cache server supports large-repository requests for large user groups. Operators can pause or unregister repositories from background maintenance when needed; these controls do not inherently conflict with the client and cache integration."
+    },
+    "21=21.4|27=19.6": {
+      "point_id": "P054",
+      "description": "Core commands use a single streamed index file for tracked-path lookup and status operations. Repository maintenance independently uses elastic per-repository replica sizing, ranging from one replica to hundreds based on demand; the choices address separate concerns and show no evident conflict."
+    },
+    "21=21.4|33=33.1|43=17.2": {
+      "point_id": "P143",
+      "description": "Clients use a single streamed index file for tracked-path lookup and status, while pushes write their WAL to S3 Standard for durable, moderate-rate ingestion. Repository maintenance is performed independently by each replica through replica-side repacking; this may require coordination to keep replicas’ resulting state consistent, which the selected values do not specify."
+    },
+    "21=21.4|42=42.1": {
+      "point_id": "P116",
+      "description": "Clients perform tracked-path lookup and status operations by streaming a single index file for reads and writes. During planned maintenance, the server quiesces by draining active operations and refusing new reads before reboot; this is compatible, though client operations may be delayed while the server is unavailable."
+    },
+    "21=21.4|43=43.1|7=10.2": {
+      "point_id": "P158",
+      "description": "The system uses a single streamed client index for core tracked-path lookup and status operations, while authoritative repository state is maintained in an external S3-backed write-ahead log, allowing repository instances to be disposable. Non-voting geographic replicas can serve reads without affecting push quorum, although this value does not describe working-directory change detection and is therefore misaligned with that dimension."
+    },
+    "22=21.3|9=9.4": {
+      "point_id": "P038",
+      "description": "The system caches untracked-file information to reduce repeated work when operating on repositories with very many files, while deploying repository replicas in distinct racks treated as availability zones for rack-wide failure resilience. These choices address different concerns and are compatible, although the values do not specify how the cache itself is replicated or placed."
+    },
+    "22=22.1|26=26.6|31=31.8": {
+      "point_id": "P088",
+      "description": "The system stores Git objects across multiple accumulated packfiles, using a multi-pack index for scalable lookup without consolidating all data into one pack. Operators can pause or unregister repositories from background maintenance, while replica failure decisions correlate reports from independent application servers to distinguish file-server failures from faulty reporters and reduce false failover."
+    },
+    "22=22.1|34=34.4|42=42.4": {
+      "point_id": "P112",
+      "description": "The system would store Git objects across accumulated packfiles with a multi-pack index, while repository updates are distributed through a maintained, suitable Git fork as a system-level component. During planned maintenance, servers would be drained and rebooted with concurrency bounded within each maintenance zone to preserve redundancy and service access."
+    },
+    "22=22.2|23=23.4|27=27.2": {
+      "point_id": "P036",
+      "description": "A Git hosting system would store objects in delta-compressed packfiles, fetch missing objects only when client operations require them, and maintain storage by repacking bounded batches of small packs. These choices are compatible: on-demand retrieval limits transfer work, while batch compaction limits the scope of maintenance rewrites."
+    },
+    "22=22.4|9=9.4": {
+      "point_id": "P046",
+      "description": "Repository replicas would be placed in distinct racks, treating the racks as separate availability zones to tolerate rack-wide failures. The proposed distributed key-value representation for Git objects is rejected, so it would not be used; the accepted placement decision stands independently of that storage choice."
+    },
+    "22=22.5|23=23.1": {
+      "point_id": "P103",
+      "description": "A custom JGit repository-storage abstraction would store Git objects in an alternative backend rather than ordinary on-disk packfiles. Git operations would retrieve needed objects by sequentially following commit, tree, parent, and file pointers through that backend; the choices are compatible, assuming the abstraction supports this traversal."
+    },
+    "22=22.5|23=23.2": {
+      "point_id": "P058",
+      "description": "A custom JGit repository-storage abstraction would store and retrieve Git objects from a scalable alternative to ordinary on-disk packfiles. Git clients would nevertheless access and transfer repository data using standard packfile-based network operations, with the server’s storage representation remaining hidden behind the abstraction."
+    },
+    "22=22.5|41=41.2": {
+      "point_id": "P177",
+      "description": "The system would use a custom JGit repository-storage abstraction to store and look up Git objects in an alternative object store rather than ordinary on-disk packfiles. If the server crashes or is unplugged, repository access would be abruptly interrupted, potentially discarding progress from long-running reads; the storage abstraction does not by itself change that failure behavior."
+    },
+    "22=22.6|33=33.1": {
+      "point_id": "P004",
+      "description": "Repository state and Git objects are maintained as filesystem-resident packfiles on hosting machines, serving as the authority for lookup and repository hosting. The write-ahead log is stored durably in S3 Standard, providing the ingestion and durability tier for moderate push rates; these choices serve distinct, complementary roles."
+    },
+    "22=22.7|23=23.3|31=31.3": {
+      "point_id": "P074",
+      "description": "The system would store large Git packfiles in scalable blob storage and support initial clones that transfer only commits and trees, omitting other Git objects. Replica health and failover would rely solely on heartbeats; this is explicitly rejected, so the storage and cloning choices do not form a fully accepted design with that failure-detection choice."
+    },
+    "22=22.8|39=39.3": {
+      "point_id": "P051",
+      "description": "The system stores Git objects in a standard on-disk repository and relies on established Git tooling for repository operations, lookup, and maintenance. Clients access repositories through the Git protocol, with Scalar registration providing large-repository integration when GVFS cache infrastructure cannot be resourced."
+    },
+    "23=23.1|35=35.1|42=42.1": {
+      "point_id": "P160",
+      "description": "The system would use sequential traversal of Git commits, trees, parents, and file pointers to locate and transfer dependent objects, while a proxy accepts pushes and distributes repository updates across multiple fileservers. During planned maintenance, an individual server would quiesce by draining active operations and refusing new reads before rebooting; the choices otherwise fit together without specifying how the proxy handles that server."
+    },
+    "23=23.2|25=25.1": {
+      "point_id": "P107",
+      "description": "The system transfers Git history and objects over the network as packfiles, independent of how objects are stored on the server. It continuously checksums repository copies to detect corruption or unhealthy on-disk state during operation and recovery; the choices are complementary."
+    },
+    "23=23.2|28=28.4|34=34.1": {
+      "point_id": "P128",
+      "description": "The system transfers Git history and objects over the network as packfiles, while replicas synchronize repositories through application-level Git operations, optionally using rsync for scalable synchronization and repair. Reference updates are ordered and validated for majority agreement; writes lacking majority support are rolled back on every replica where they were applied."
+    },
+    "23=23.2|29=29.8|43=43.3": {
+      "point_id": "P146",
+      "description": "Git history and objects would be transferred using Git packfiles, while local repository copies serve as warm, non-authoritative caches rather than the source of truth. The proposed two-copy durability strategy is rejected, so this design does not establish that two replicas are sufficient for durable writes; an alternative commitment mechanism is required."
+    },
+    "23=23.2|30=30.5|32=32.1": {
+      "point_id": "P016",
+      "description": "The system transfers Git history and objects over the network as packfiles, independent of how the server stores them. Reference updates overlap locking, checksum, and database work with waiting for replica network operations, while advanced foreground client features remain disabled by default for compatibility and to avoid blocking interactive commands."
+    },
+    "23=23.3|38=38.3|39=39.1": {
+      "point_id": "P015",
+      "description": "The system initially clones only commits and trees, while GVFS uses Git’s partial-clone interface to control working-tree population and obtain omitted objects as needed. A co-located GVFS cache server serves these requests for large user groups, improving access to repositories without changing the initial transfer’s limited object set."
+    },
+    "23=23.4|27=27.2|38=38.4": {
+      "point_id": "P122",
+      "description": "The system would populate clients with a complete working directory while retrieving missing Git objects on demand as client operations require them. Maintenance would compact storage incrementally by repacking bounded batches of small packs rather than rewriting the entire repository, although full working-tree population may trigger more object retrieval than a sparse model."
+    },
+    "23=23.4|30=30.6": {
+      "point_id": "P035",
+      "description": "The system would fetch missing Git objects on demand as client operations require them, rather than transferring the full object history upfront. Its replication coordination would nevertheless be sized to sustain several reference updates per second for an individual repository; these choices are compatible, since reference-update throughput and object-fetch timing address different aspects of access."
+    },
+    "23=23.4|31=29.3|33=33.2": {
+      "point_id": "P080",
+      "description": "The system fetches missing Git objects on demand, stores its WAL in S3 Express One Zone for low-latency ingestion, and uses three-phase commit to coordinate repository updates across distant replicas. These choices can coexist, although three-phase commit coordinates commits rather than directly providing failure detection or routing, and One Zone storage has narrower placement scope than the distant replicas."
+    },
+    "23=23.4|38=38.1": {
+      "point_id": "P084",
+      "description": "A client uses sparse-checkout to materialize only selected repository paths, limiting the working-tree footprint. When an operation on the sparse working tree or repository history needs objects that are not present locally, Git retrieves those objects on demand."
+    },
+    "23=23.4|7=7.1": {
+      "point_id": "P060",
+      "description": "A Git client uses a custom Git-aware filesystem watcher to detect relevant working-directory changes while honoring ignore rules and avoiding unnecessary scans. When client operations require history or objects that are not locally available, the system retrieves those Git objects on demand, combining efficient local change detection with deferred network transfer."
+    },
+    "25=25.2|29=35.5": {
+      "point_id": "P076",
+      "description": "Applications access repositories via RPC, with repositories hosted on dedicated fileservers; repository-state checksums are updated incrementally from the prior state and changed references during normal operation and recovery. However, the RPC-access choice does not specify replica counts or a commit protocol, so it does not by itself establish write durability or when unsafe writes are refused."
+    },
+    "25=25.3|29=29.4|32=32.2": {
+      "point_id": "P121",
+      "description": "The system would durably record a complete write in the WAL before acknowledging a push, while asynchronously running client maintenance and metadata generation. Repository integrity would be verified by recomputing replica checksums from the full reference list after each update; this may be operationally expensive, creating tension with efficient verification."
+    },
+    "25=25.3|32=32.2": {
+      "point_id": "P049",
+      "description": "The system would recompute each replica’s checksum from the complete reference list after every update, providing a full integrity check during operation and recovery. Client maintenance and metadata generation would run asynchronously, so checksum-related maintenance may occur in the background rather than blocking interactive operations; this could leave verification delayed relative to updates."
+    },
+    "25=25.4|28=9.1": {
+      "point_id": "P102",
+      "description": "The system could use XOR aggregation of reference-name/value hashes to detect repository changes efficiently and incrementally during operation or recovery, while maintaining replicas across geographically separated datacenters for disaster survivability and user proximity. However, geographic placement does not specify how concurrent reference updates are ordered, validated, serialized, or recovered across replicas, so that aspect remains undefined."
+    },
+    "26=26.2|34=34.7": {
+      "point_id": "P042",
+      "description": "Operators initiate and schedule repository maintenance in the foreground, while replicas use locally cached complete packfiles to support repository access. These choices are compatible, but the caching approach may not scale across a very large number of repositories and depends on operators explicitly running maintenance."
+    },
+    "26=26.3|37=37.1|9=9.2": {
+      "point_id": "P013",
+      "description": "Operators use a single command to run repository configuration, fetching, commit-graph, and cleanup tasks together. Reads are served through replicas kept near the proxy for low latency, with conditional object-store ETag validation checking replica freshness before data is returned."
+    },
+    "26=26.3|38=42.1|39=39.6": {
+      "point_id": "P117",
+      "description": "Operators use a single command to run repository configuration, fetching, commit-graph, and cleanup tasks, while the server quiesces active operations and rejects new reads before reboot. The standard Git client uses the GVFS protocol for large-repository transfers; however, quiescing before reboot does not define a working-tree population model, so that dimension is mismatched or incomplete."
+    },
+    "26=26.6|30=30.4|35=35.5": {
+      "point_id": "P030",
+      "description": "Applications access repositories via RPC while the repositories remain on dedicated fileservers. Operators can pause or unregister repositories from background maintenance, and when reference updates run, they use optimizations designed to preserve read performance because reads substantially outnumber writes."
+    },
+    "26=27.3|31=31.2": {
+      "point_id": "P149",
+      "description": "Repository maintenance defers deleting obsolete packs until no multi-pack-index references remain, allowing concurrent Git commands to proceed safely. Replica failures are detected using both heartbeat liveness and real application traffic, with traffic also helping confirm recovery before normal routing resumes."
+    },
+    "27=27.1|28=28.7|9=9.1": {
+      "point_id": "P021",
+      "description": "The system would use incremental geometric compaction to manage repository storage while a consensus protocol elects a primary server to serialize and accept reference updates. Repository replicas would be geographically dispersed for disaster survivability and user proximity, though cross-region consensus coordination and primary failover may introduce latency or operational complexity."
+    },
+    "27=27.1|29=29.4|30=30.7": {
+      "point_id": "P064",
+      "description": "The system batches reference updates into WAL writes to amortize object-storage latency and improve push throughput, while acknowledging a push only after the complete operation is durably persisted in the WAL. Maintenance incrementally compacts packfiles geometrically, postponing the need for a full repack while managing repository storage."
+    },
+    "27=27.1|30=30.7": {
+      "point_id": "P171",
+      "description": "The system would use batched WAL ingestion to amortize object-storage request latency and improve reference-update throughput, while maintenance incrementally compacts packfiles using a geometric strategy. These choices address different operational concerns and can coexist, with compaction postponing the need for a full repack."
+    },
+    "27=27.1|34=34.2|35=35.2": {
+      "point_id": "P041",
+      "description": "A distributed filesystem exposes repository copies while the unchanged application operates on them, and replication propagates Git packfiles between replicas. Maintenance incrementally compacts packfiles geometrically and expires obsolete packs as needed; coordination between filesystem distribution and packfile replication may be required to avoid exposing inconsistent pack sets."
+    },
+    "27=27.1|35=35.2": {
+      "point_id": "P005",
+      "description": "The system distributes the filesystem containing Git data across hosting infrastructure while leaving the application unchanged. Repository maintenance incrementally compacts packfiles geometrically and expires obsolete packs as appropriate, postponing a full repack until necessary; the choices are compatible, though compaction operates over distributed storage."
+    },
+    "27=27.2|43=43.2": {
+      "point_id": "P087",
+      "description": "Repository state remains authoritative on local replica disks for consensus and correctness. Maintenance manages storage by rewriting bounded batches of small packs and expiring obsolete packs, limiting each operation’s scope without introducing an external durable log as the authority."
+    },
+    "27=27.4|29=29.6|34=34.2": {
+      "point_id": "P047",
+      "description": "The system would replicate repository updates at the Git packfile level and require synchronous commitment to two replicas before accepting a write. Maintenance would first create and index replacement packs, then separately delete unreferenced packs; Git itself would remain undistributed, so coordination applies to packfile replicas rather than to Git’s internal operations."
+    },
+    "27=27.4|30=30.7": {
+      "point_id": "P110",
+      "description": "The system would use batched WAL ingestion to amortize object-storage latency and improve reference-update throughput while preserving reads during updates. Maintenance would separately create and index replacement packs, then expire unreferenced packs in a later phase, keeping compaction and deletion operations distinct."
+    },
+    "27=27.4|33=33.1": {
+      "point_id": "P062",
+      "description": "The system uses S3 Standard to durably store the write-ahead log for moderate push-ingestion rates. During maintenance, it creates and indexes replacement packs first, then separately deletes unreferenced packs, coordinating storage cleanup without conflating it with pack creation."
+    },
+    "27=36.3|7=7.2": {
+      "point_id": "P145",
+      "description": "The system would use Watchman to efficiently detect working-directory changes, while its maintenance behavior would prioritize consistency and partition tolerance over availability during replication or communication failures. These choices are not inherently in tension, though the maintenance value does not specify concrete compaction or obsolete-pack expiration mechanics."
+    },
+    "28=28.2|29=29.6": {
+      "point_id": "P176",
+      "description": "The system would have a designated primary order and apply all reference updates, while accepting a write only after synchronous commitment to two replicas. However, because the single-primary ordering choice is marked rejected, this combination is not an accepted overall design, despite its specified durability behavior."
+    },
+    "28=28.2|37=37.1": {
+      "point_id": "P011",
+      "description": "Writes would be ordered by a designated primary and applied by replicas, while reads would use conditional object-store validation to verify replica freshness before serving data. However, the primary-ordering choice is rejected, so this combination is not an accepted complete design; ETag validation does not resolve the rejected write-ordering approach."
+    },
+    "28=28.4|37=37.1|38=38.4": {
+      "point_id": "P050",
+      "description": "Concurrent reference writes that fail majority agreement are rolled back on every replica where they were applied. Replica reads use ETag validation to confirm freshness before serving data, while clients materialize the complete working directory rather than a sparse subset."
+    },
+    "28=28.5|33=33.2|35=35.4": {
+      "point_id": "P056",
+      "description": "The system would store its WAL in S3 Express One Zone for higher ingestion rates and remove replicas that lose a write vote from service until repaired, while distributing repositories through NFS. Because the NFS-backed distribution choice is rejected, this combination does not represent an accepted overall architecture."
+    },
+    "28=36.1|30=30.5": {
+      "point_id": "P127",
+      "description": "The system keeps all repository replicas synchronized so clients and CI can observe reference updates immediately. During each update, independent locking, checksum, and database work proceeds in parallel while the system waits for replica network operations, improving overlap without changing the synchronization requirement."
+    },
+    "28=40.2|36=36.2|7=7.2": {
+      "point_id": "P019",
+      "description": "The system would place the working tree in a nested source directory, leaving sibling locations available, while repository replicas provide eventually consistent views that may omit newly pushed commits temporarily. Clients would use Watchman for filesystem change detection, but its general-purpose behavior may lack the Git-specific efficiency required by Scalar, compounding unreliable client and CI behavior."
+    },
+    "29=29.1|34=34.5|36=36.3": {
+      "point_id": "P070",
+      "description": "Replicas exchange WAL metadata via lossy UDP gossip and independently validate whether repository state is durable, while writes are accepted only when the required replicas can safely commit them. Because gossip is asynchronous and lossy, communication or replication failures may make that condition unverifiable; the system therefore refuses affected writes, prioritizing consistency and partition tolerance over availability."
+    },
+    "29=29.3|35=35.5|42=42.3": {
+      "point_id": "P039",
+      "description": "Repositories remain on dedicated fileservers and are accessed by applications through RPC. Writes are coordinated across distant replicas using three-phase commit, while random reboot testing during active production reads is rejected and therefore is not part of the deployable maintenance policy."
+    },
+    "29=29.4|30=30.7": {
+      "point_id": "P079",
+      "description": "Push handling would batch WAL writes to amortize object-storage request latency, then acknowledge each push only after its complete operation is durably persisted in the WAL. This combines stronger durability guarantees with higher reference-update throughput, although batching may add some acknowledgment delay."
+    },
+    "29=29.4|33=33.1": {
+      "point_id": "P040",
+      "description": "The system would persist the complete push operation in a WAL stored on S3 Standard, acknowledging the push only after that persistence is durable. This combines the stated durability-before-acknowledgment rule with a storage tier described as suitable for moderate push-ingestion rates."
+    },
+    "29=29.4|35=35.4|37=37.1": {
+      "point_id": "P018",
+      "description": "Writes would be acknowledged only after the complete operation is durably recorded in the write-ahead log, and reads would use conditional object-store validation to ensure replica freshness. However, NFS-backed repository distribution is marked rejected, so it conflicts with the selected design rather than forming an approved deployment architecture."
+    },
+    "29=29.7|35=35.4|40=40.3": {
+      "point_id": "P148",
+      "description": "The system would accept a repository write only after the required minimum number of copies has been created, while placing build outputs in directories beside the Git working tree. NFS-backed distribution could provide the repository fan-out, but its rejected status means that this distribution choice is not an approved fit for the system."
+    },
+    "29=29.8|35=35.7": {
+      "point_id": "P009",
+      "description": "The system would use an orchestrator to distribute pushed packfiles to repository replicas, with durability based on maintaining one additional copy. However, because the two-copy durability strategy is rejected, this fan-out architecture would not constitute the selected durable-write policy and would require another commitment mechanism."
+    },
+    "30=30.4|31=31.10": {
+      "point_id": "P168",
+      "description": "The system would optimize reference updates while preserving read performance, reflecting that reads substantially outnumber writes. If application-level signals indicate a replica is unhealthy, routing could temporarily demote it from preferred service without classifying it as permanently failed."
+    },
+    "30=30.4|7=7.1": {
+      "point_id": "P012",
+      "description": "A Git-aware filesystem watcher would efficiently detect relevant working-directory changes while honoring ignore rules and avoiding irrelevant directory scans. Reference updates triggered by those changes would use write optimizations designed to preserve read performance, which remains the dominant workload."
+    },
+    "30=30.5|7=34.4": {
+      "point_id": "P108",
+      "description": "Clients use a maintained system-level Git fork to detect working-directory changes. During reference updates, the system performs independent locking, checksum, and database work in parallel while waiting for replica network operations, combining Git-specific client monitoring with overlapped server-side processing."
+    },
+    "30=30.6|31=31.4|36=9.1": {
+      "point_id": "P022",
+      "description": "The system places repository replicas across geographically separated datacenters for disaster survivability and user proximity, while replication coordination targets several reference updates per second per repository. Each application server independently tracks replica failures and applies its local routing decisions; these views may temporarily differ, creating potential inconsistency in failover behavior."
+    },
+    "30=30.6|36=36.2|41=41.2": {
+      "point_id": "P083",
+      "description": "The system coordinates replication to sustain several reference updates per second per repository, while allowing replicas to provide eventually consistent views that may temporarily omit newly pushed commits. If a server is abruptly rebooted or unplugged, long-running reads may be interrupted and lose progress, compounding the unreliable behavior caused by stale replicas."
+    },
+    "30=30.6|40=40.3|7=7.1": {
+      "point_id": "P094",
+      "description": "The system places build outputs in sibling directories, keeping them outside the Git working directory, while a custom Git-aware watcher detects relevant changes and avoids scanning ignored or irrelevant paths. Replication coordination is sized to sustain several reference updates per second for a repository."
+    },
+    "30=30.7|33=33.1|34=34.5": {
+      "point_id": "P092",
+      "description": "The system batches WAL writes to amortize S3 Standard request latency, supporting moderate push-ingestion rates while retaining durable WAL storage. Replicas exchange WAL metadata through lossy UDP gossip and independently validate durable state; the unreliable transport may delay or omit propagation, creating tension with timely, dependable replication."
+    },
+    "30=30.7|33=33.2|43=43.1": {
+      "point_id": "P073",
+      "description": "The system treats an external S3-backed write-ahead log as the authoritative repository state, with disposable repository instances reconstructing or serving state from it. WAL writes are batched to amortize object-storage request latency, while S3 Express One Zone provides the lower-latency tier needed to sustain higher ingestion and push throughput."
+    },
+    "31=31.2|34=29.1": {
+      "point_id": "P115",
+      "description": "The system combines heartbeat checks with observed application traffic to identify failed repository replicas and validate recovery. If a required replica is unavailable or cannot be safely updated, it refuses the write rather than proceeding with incomplete replication, trading availability for replication safety."
+    },
+    "31=31.3|35=35.2": {
+      "point_id": "P007",
+      "description": "The Git data would be distributed at the filesystem layer, allowing the application to remain unchanged while repository copies are exposed through that filesystem. Replica health and failover would rely only on heartbeats; this is in tension with the architecture because heartbeats alone may not reflect filesystem or repository access failures, making the approach rejected for insufficient failure detection."
+    },
+    "31=31.3|41=41.1": {
+      "point_id": "P153",
+      "description": "The system would use heartbeat signals alone to detect replica failures and trigger repository access transitions, while planned maintenance would follow the same recovery logic used for crashes or permanent failures. However, because heartbeat-only detection is rejected, this combination is not an endorsed complete design: the accepted recovery behavior would need a different or stronger failure-detection policy."
+    },
+    "31=31.3|9=9.1": {
+      "point_id": "P099",
+      "description": "The system would deploy repository replicas across geographically separated datacenters or regions to improve disaster survivability and network proximity. However, relying on heartbeat-only failure detection is rejected, so this placement cannot be paired with that detection approach as the system’s accepted design."
+    },
+    "31=31.4|39=39.5|42=42.4": {
+      "point_id": "P081",
+      "description": "The system would use core Git enhancements to provide large-repository capabilities without requiring a custom client, while each application server independently tracks replica failures and applies its own routing decisions. During planned maintenance, servers would be rebooted with bounded concurrency within each maintenance zone, preserving redundancy while local failure views adapt to unavailable replicas."
+    },
+    "32=32.2|35=35.3": {
+      "point_id": "P020",
+      "description": "Client maintenance and metadata generation would run asynchronously, keeping interactive operations focused on user requests. Repository data would be distributed as packfiles across repository-serving locations rather than as complete filesystem copies, but this distribution choice is rejected and therefore does not form part of the accepted design."
+    },
+    "32=32.2|9=9.1": {
+      "point_id": "P130",
+      "description": "The system performs client maintenance and metadata generation asynchronously, keeping interactive repository operations responsive. Repository replicas are distributed across geographically separated datacenters or regions, supporting disaster survivability and closer access for users; these choices are compatible, though the values do not specify how background work is coordinated across replicas."
+    },
+    "32=32.2|9=9.2": {
+      "point_id": "P175",
+      "description": "Client maintenance and metadata generation would run asynchronously in the background, keeping interactive operations responsive. Repository replicas would be deployed near the proxy to meet communication-latency requirements, while background tasks use that low-latency placement for their interactions."
+    },
+    "33=33.1|34=34.1|40=40.3": {
+      "point_id": "P085",
+      "description": "The system stores its write-ahead log in S3 Standard, supporting durable storage for moderate push-ingestion rates, and propagates repository updates through application-level Git operations, optionally using rsync for synchronization and repair. Clients keep build outputs in sibling directories beside the Git working tree, separating generated artifacts from repository contents."
+    },
+    "33=33.1|37=37.2|9=9.3": {
+      "point_id": "P180",
+      "description": "The system stores its write-ahead log in S3 Standard, using its durable, moderate-throughput tier for push ingestion, while read validation triggers replica catch-up when a newer WAL index is found. Co-located fileserver replicas could support low-latency block replication, but this placement choice is marked rejected and therefore is not part of the accepted design."
+    },
+    "33=33.2|34=34.4|38=38.3": {
+      "point_id": "P053",
+      "description": "The system uses S3 Express One Zone as a low-latency, durable WAL tier, while a maintained Git fork provides system-level repository distribution between replicas. Clients use Git’s partial-clone interface with GVFS to control which files and objects are materialized in working trees; these choices are compatible, assuming the fork preserves that integration."
+    },
+    "33=33.2|36=36.1|9=9.1": {
+      "point_id": "P034",
+      "description": "The system uses S3 Express One Zone as a low-latency object-storage tier for WAL durability and high-rate ingestion, while maintaining fully synchronized repository replicas across geographically separated locations. This improves access proximity and disaster survivability, although the WAL’s single-zone scope may provide a narrower failure domain than the dispersed repository replicas."
+    },
+    "34=34.4|35=35.5": {
+      "point_id": "P166",
+      "description": "Applications access repositories via RPC, while the repositories remain on dedicated fileservers. A system-level Git component, maintained as a suitable fork, provides the Git-based distribution mechanism behind this arrangement; the choices are compatible, though the fork requires ongoing maintenance."
+    },
+    "34=34.6|35=35.3": {
+      "point_id": "P078",
+      "description": "The system would asynchronously distribute large pushed packfiles among repository-serving locations, exposing repository copies through packfile-level distribution rather than whole-filesystem replication. This is broadly compatible with delaying synchronization of unreachable objects, though the distribution architecture is marked rejected."
+    },
+    "35=35.3|36=36.3": {
+      "point_id": "P138",
+      "description": "The system would prioritize consistency and partition tolerance over availability when repository replicas replicate or communication fails. However, packfile-level distribution is marked rejected, so this distribution mechanism is not part of the accepted architecture and does not form a fully adopted combination with the consistency guarantee."
+    },
+    "35=35.4|36=36.1|39=39.1": {
+      "point_id": "P170",
+      "description": "The system would use NFS-backed storage to distribute centralized repository copies, keep those replicas fully synchronized, and provide a co-located GVFS cache server for large repository clients. However, the NFS-based distribution architecture is marked rejected, so this otherwise compatible arrangement is not an accepted design."
+    },
+    "35=35.5|43=43.1": {
+      "point_id": "P111",
+      "description": "Applications access repository instances via RPC, with those instances hosted on dedicated fileservers. The S3-backed write-ahead log is the authoritative state source, so fileserver-hosted repositories can be treated as disposable and reconstructed or replaced from the log; the choices are compatible if disk contents are materialized replicas rather than the authority."
+    },
+    "35=35.7|36=36.3": {
+      "point_id": "P031",
+      "description": "An orchestrator fans out each pushed packfile to repository replicas, coordinating their distribution across the hosting infrastructure. The replicas prioritize consistency and partition tolerance, so during replication or communication failures they may sacrifice availability rather than expose potentially stale or divergent repository state."
+    },
+    "36=36.3|42=42.2|9=9.3": {
+      "point_id": "P101",
+      "description": "The system would prioritize consistency and partition tolerance across repository replicas, while using sequential server or rack reboots to preserve availability during planned maintenance. Co-located replicas would support latency-sensitive block replication, but this placement choice is rejected, so it does not form part of the accepted design."
+    },
+    "37=37.1|39=39.2": {
+      "point_id": "P052",
+      "description": "The system would use conditional object-store ETag checks to verify replica freshness before serving repository reads. However, pairing this with GVFS deployed without its required cache-server infrastructure is internally problematic: replica validation may exist, but the proposed client integration would not provide scalable large-repository operation."
+    },
+    "37=37.2|9=9.1": {
+      "point_id": "P119",
+      "description": "Geographically dispersed replicas serve users closer to their locations while supporting disaster survivability. On reads, validation checks the replica’s WAL index against durable storage and triggers catch-up when a newer index exists, enforcing the selected repository consistency guarantee across locations."
+    },
+    "38=38.1|39=39.1": {
+      "point_id": "P123",
+      "description": "Clients use Git sparse-checkout to populate only selected repository paths, limiting the working-tree content and associated local materialization. A co-located GVFS cache server handles GVFS requests for these large repositories and user groups, providing nearby distribution support; the choices are complementary."
+    },
+    "38=38.1|41=41.1": {
+      "point_id": "P164",
+      "description": "Clients use Git-native sparse-checkout to populate only selected repository paths, limiting working-tree size while retaining repository access. If the serving infrastructure crashes or becomes unavailable, planned maintenance follows the same recovery procedures used for crash and permanent-failure scenarios; the two choices are compatible."
+    },
+    "41=41.1|42=42.2": {
+      "point_id": "P179",
+      "description": "Planned maintenance reuses the repository’s crash- and permanent-failure recovery mechanisms to handle servers being taken out of service. Servers or racks are rebooted sequentially, with concurrency limited as needed to preserve repository availability during the rolling operation."
+    }
+  }
+}
