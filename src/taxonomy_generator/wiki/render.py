@@ -67,6 +67,7 @@ Every page is rendered from the run's data, never written or reworded by an LLM.
 - `wiki/designs/`: sampled design points (only when the export was given design points).
 - `html/`: the same pages as HTML, and `html/graph.html`, an interactive graph of the design space.
 - `raw/run.json`: the input files and settings of this export.
+- `raw/graph.json`, `raw/tree.json`: the design space as data (nodes, typed edges, passage ids; no passage text).
 
 Frontmatter fields (`type`, `status`, `dimension`, `accepted_by`, `rejected_by`, `systems`, `design_points`) are the
 queryable properties; `[[wikilinks]]` connect the pages. Cite passage ids (e.g. `s01_p10`) when answering from this wiki.
@@ -293,4 +294,15 @@ def write(export: Export, out: Path, name: str, case_icon: Path | None = None) -
     copy_images(out / "wiki" / "assets", case_icon)
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
     write_html(export, out, name, graph_node_of, case_icon)
+    write_raw(export, out)
     _remove_stale(before, roots)
+
+
+def write_raw(export: Export, out: Path) -> None:
+    """Write ``raw/graph.json`` and ``raw/tree.json``: the graph and tree data, for queries and agents.
+
+    Same data as the HTML inlines, plus each value's passage ids; never any passage text.
+    """
+    (out / "raw").mkdir(parents=True, exist_ok=True)
+    for name, data in (("graph.json", export.graph), ("tree.json", export.tree)):
+        (out / "raw" / name).write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

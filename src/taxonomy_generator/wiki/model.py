@@ -42,6 +42,8 @@ SYNTHESIS_ORDER = ("synthesis/overview", "synthesis/contested", "synthesis/dropp
 MODEL_LABELS = (("generation_llm", "Generation LLM"), ("evaluation_llm", "Evaluation LLM (judge)"),
                 ("embedding", "Embedding model"))
 PASSAGE_ID = re.compile(r"^s(\d+)_p\d+$")
+# raw/graph.json and raw/tree.json format (ddspace query and coding agents read them).
+GRAPH_SCHEMA_VERSION = 1
 
 
 @dataclass
@@ -339,9 +341,10 @@ class _Builder:
         self.index_page(bool(points))
         self.graph_data(points)
         self.pages.sort(key=lambda p: (p.path != "index", p.path))
-        return Export(pages=self.pages, graph={"nodes": self.nodes, "edges": self.edges,
-                                               "core_rule": self.core_rule_short()}, manifest={},
-                      tree={**self.tree_data(), "core_rule": self.core_rule_short()})
+        identity = {"schema_version": GRAPH_SCHEMA_VERSION, "run": self.inp.run_label, "name": self.inp.taxonomy_name,
+                    "view": self.inp.view, "use_case": self.inp.use_case, "core_rule": self.core_rule_short()}
+        return Export(pages=self.pages, graph={**identity, "nodes": self.nodes, "edges": self.edges}, manifest={},
+                      tree={**identity, **self.tree_data()})
 
     def dimension_page(self, d: Mapping[str, Any]) -> None:
         did = str(d.get("id"))
@@ -910,13 +913,18 @@ class _Builder:
     def graph_data(self, points: Sequence[Mapping[str, Any]]) -> None:
         for d in self.dims:
             did = str(d.get("id"))
+            ev = d.get("evidence") or {}
             self.nodes.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did],
-                               "description": d.get("description") or "", "core": self.is_core(d)})
+                               "description": d.get("description") or "", "core": self.is_core(d),
+                               "values": len(d.get("values") or []),
+                               "evidence": {k: ev.get(k) for k in ("codes", "documents", "sources")}})
             for v in d.get("values") or []:
                 vid = str(v.get("id"))
+                docs = sorted({str(doc) for doc in v.get("supporting_doc_ids") or []}, key=_natural)
                 self.nodes.append({"id": "v:" + vid, "kind": "value", "label": v.get("label"), "status": v.get("status"),
-                                   "href": self.value_path[vid], "dimension": d.get("name"), "core": self.is_core(d),
-                                   "description": v.get("description") or ""})
+                                   "href": self.value_path[vid], "dimension": d.get("name"), "dimension_id": "d:" + did,
+                                   "core": self.is_core(d), "description": v.get("description") or "",
+                                   "passages": [{"doc": doc, "stance": self.stance(v, doc)} for doc in docs]})
                 self.edges.append({"source": "d:" + did, "target": "v:" + vid, "type": "has_value"})
             for r in d.get("relations") or []:
                 t = str(r.get("target_id"))
@@ -927,7 +935,8 @@ class _Builder:
                                        "reading": relation_sentence(r, str(d.get("name")),
                                                                     str(self.dim_by_id[t].get("name")))})
         for sid in self.source_ids:
-            node = {"id": "s:" + sid, "kind": "source", "label": self.source_title(sid), "href": self.source_path[sid]}
+            node = {"id": "s:" + sid, "kind": "source", "label": self.source_title(sid), "href": self.source_path[sid],
+                    "url": (self.inp.sources.get(sid) or {}).get("url", "")}
             if self.inp.source_summaries.get(sid):
                 node.update(description=self.inp.source_summaries[sid], description_note="Generated summary of the source.")
             self.nodes.append(node)
