@@ -22,7 +22,7 @@ from taxonomy_generator.html_report import (
     resolve_report_path,
 )
 from taxonomy_generator.wiki import Inputs, build, llm_texts, okf, write
-from taxonomy_generator.wiki.model import load_corpus, load_sources, source_of
+from taxonomy_generator.wiki.model import load_corpus, load_sources, source_of, view_dimensions
 
 DESIGN_POINT_CHOICES = ("none", "sample", "describe")
 POINTS_PER_GROUP, POINT_SIZES, POINT_SEED = 10, (2, 3), 42
@@ -50,9 +50,7 @@ def producer() -> str:
 
 def selected_dims(taxonomy: Mapping[str, Any]) -> List[Dict[str, Any]]:
     """Return the run's reported design space (selected view; the final iteration when there is none)."""
-    if "selected_clusters" in taxonomy:
-        return list(taxonomy.get("selected_clusters") or [])
-    return list((taxonomy.get("iterations") or [{}])[-1].get("clusters") or [])
+    return view_dimensions(taxonomy, "selected")
 
 
 def dropped_count(taxonomy: Mapping[str, Any]) -> int:

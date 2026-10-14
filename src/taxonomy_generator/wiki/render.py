@@ -270,22 +270,48 @@ def _snapshot(roots: Sequence[Path]) -> Dict[Path, int]:
     return {p: p.stat().st_mtime_ns for root in roots if root.exists() for p in root.rglob("*") if p.is_file()}
 
 
-def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path]) -> None:
-    """Delete files the new export did not rewrite, then folders left empty.
+EXPORTED_MANIFEST = "raw/exported.json"  # paths the last export wrote, so a rebuild removes only those
+
+
+def _hidden(path: Path, root: Path) -> bool:
+    return any(part.startswith(".") for part in path.relative_to(root).parts)
+
+
+def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path], out: Path) -> None:
+    """Delete files an earlier export wrote and this one did not rewrite, then folders left empty.
+
+    Only paths in the previous ``raw/exported.json`` are removed, so a user's own notes and an
+    Obsidian vault config (``.obsidian/``) in ``wiki/`` survive. Without a previous manifest, hidden
+    files and folders are kept and everything else not rewritten is removed.
 
     Files are overwritten in place rather than the folders being deleted and recreated: on a
     synced folder (iCloud Drive, Dropbox) a folder recreated under the same name while its
     deletion is still syncing comes back as a conflict copy ("concepts 2").
     """
-    for path, mtime in before.items():
-        if path.name == "log.md":  # the change log is history, kept across exports
+    after = _snapshot(roots)
+    written = {p for p, mtime in after.items() if before.get(p) != mtime and p.name != "log.md"}
+    manifest = out / EXPORTED_MANIFEST
+    try:
+        previous = {out / rel for rel in json.loads(manifest.read_text(encoding="utf-8"))}
+    except (OSError, ValueError, TypeError):
+        previous = None
+    for path in before:
+        if path.name == "log.md" or path in written or not path.exists():
+            continue  # the change log is history, kept across exports
+        if previous is None:
+            if any(_hidden(path, root) for root in roots if root in path.parents):
+                continue
+        elif path not in previous:
             continue
-        if path.exists() and path.stat().st_mtime_ns == mtime:
-            path.unlink()
+        path.unlink()
     for root in roots:
-        for folder in sorted((p for p in root.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+        folders = (p for p in root.rglob("*") if p.is_dir() and not _hidden(p, root))
+        for folder in sorted(folders, key=lambda p: len(p.parts), reverse=True):
             if not any(folder.iterdir()):
                 folder.rmdir()
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    kept = sorted(p.relative_to(out).as_posix() for p in _snapshot(roots) if p in written)
+    manifest.write_text(json.dumps(kept, indent=1) + "\n", encoding="utf-8")
 
 
 def write(export: Export, out: Path, name: str, case_icon: Path | None = None, *, html_dir: str = "html",
@@ -310,7 +336,7 @@ def write(export: Export, out: Path, name: str, case_icon: Path | None = None, *
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
     write_html(export, out, name, graph_node_of, case_icon, html_dir)
     write_raw(export, out)
-    _remove_stale(before, roots)
+    _remove_stale(before, roots, out)
 
 
 def write_raw(export: Export, out: Path) -> None:

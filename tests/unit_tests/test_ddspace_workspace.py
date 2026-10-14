@@ -257,3 +257,20 @@ def test_corpus_splits_usable_sources_into_passages(ws):
 def test_workspace_defaults_code_the_passage_text_without_summaries(ws):
     settings = load_settings(str(ws.config_path))
     assert settings.summarization.skip is True and settings.open_coding.input == "content"
+
+
+def test_unreadable_pdf_is_flagged_and_does_not_abort_the_scan(ws):
+    (ws.sources_dir / "broken.pdf").write_bytes(b"\x00\x01 not a pdf " * 50)
+    (ws.sources_dir / "notes.md").write_text("# Replica placement\n\n" + _para(400))
+    found = {s.file: s for s in src.scan(ws)}
+    assert found["broken.pdf"].flags == ["unreadable"] and found["broken.pdf"].error
+    assert not src.usable(found["broken.pdf"]) and found["broken.pdf"].words == 0
+    assert src.usable(found["notes.md"]) and "unreadable" in src.FLAG_HELP
+
+
+def test_failed_pdftotext_falls_back_to_pypdf(tmp_path, monkeypatch):
+    path = tmp_path / "paper.pdf"
+    path.write_bytes(_pdf(" ".join(["consensus"] * 40)))
+    monkeypatch.setattr(ex.shutil, "which", lambda name: "/usr/bin/pdftotext")
+    monkeypatch.setattr(ex.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 1, "stdout": ""})())
+    assert "consensus" in ex.extract_pdf(path)

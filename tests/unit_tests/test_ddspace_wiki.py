@@ -229,3 +229,14 @@ def test_a_combination_sampled_twice_is_described_once(tmp_path):
         "novel": [{"point_id": "P002", "values": list(reversed(same))},
                   {"point_id": "P003", "values": [{"dimension_id": "1", "value_id": "1.2"}]}]}}]}
     assert [p["point_id"] for p in wb.missing_descriptions(tmp_path, points)] == ["P001", "P003"]
+
+
+def test_run_without_selection_step_reports_its_final_iteration(ws):
+    tax = _taxonomy()
+    del tax["selected_clusters"]
+    final = tax["iterations"][-1]["clusters"]
+    assert wb.selected_dims(tax) == final
+    from taxonomy_generator.wiki import Inputs, build
+    export = build(Inputs(taxonomy=tax, taxonomy_name="toy", run_label="x", corpus=CORPUS, view="selected"))
+    assert [p for p in export.pages if p.path.startswith("concepts/")]
+    assert len([p for p in export.pages if p.path.startswith("concepts/")]) == len(final)

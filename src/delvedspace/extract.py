@@ -110,14 +110,15 @@ def extract_html(html: str, url: str = "") -> str:
 
 
 def extract_pdf(path: Path) -> str:
-    """Return the text layer of a PDF: ``pdftotext`` when installed, else ``pypdf``.
+    """Return the text layer of a PDF: ``pdftotext`` when installed and it succeeds, else ``pypdf``.
 
     Scanned PDFs have no text layer and come out empty (no OCR); callers flag them.
     """
     if shutil.which("pdftotext"):
         # Reading order (no -layout): slide decks and multi-column PDFs come out as running text.
         out = subprocess.run(["pdftotext", str(path), "-"], capture_output=True, text=True)
-        return out.stdout.strip()
+        if out.returncode == 0:
+            return out.stdout.strip()
     from pypdf import PdfReader
 
     return "\n\n".join((page.extract_text() or "").strip() for page in PdfReader(str(path)).pages).strip()

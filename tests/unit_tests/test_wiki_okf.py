@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from taxonomy_generator.wiki import build, okf, write
-from tests.unit_tests.test_wiki_export import POINTS, _inputs
+from tests.unit_tests.test_wiki_export import POINTS, _inputs, _taxonomy
 
 
 def _front(path):
@@ -91,3 +91,13 @@ def test_broken_links_are_only_warnings(tmp_path):
     page.write_text("---\ntype: Design Decision\n---\n\nSee [missing](/concepts/nope.md).\n")
     errors, warnings = okf.check(tmp_path / "w")
     assert errors == [] and warnings == ["concepts/a.md: broken link /concepts/nope.md"]
+
+
+def test_reserved_slugs_get_a_suffix(tmp_path):
+    tax = _taxonomy()
+    tax["selected_clusters"][0]["values"][0]["label"] = "Index"
+    tax["selected_clusters"][1]["name"] = "Log"
+    write(build(_inputs(taxonomy=tax)), tmp_path, "toy", okf_by="delvedspace/0.1.0")
+    wiki = tmp_path / "wiki"
+    assert (wiki / "entities" / "index-2.md").is_file() and (wiki / "concepts" / "log-2.md").is_file()
+    assert okf.check(wiki)[0] == []

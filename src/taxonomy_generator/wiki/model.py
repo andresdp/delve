@@ -195,15 +195,22 @@ def _capital(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
+def view_dimensions(taxonomy: Mapping[str, Any], view: str) -> List[Any]:
+    """Return the dimensions of a view: ``final`` is the last iteration's clusters.
+
+    ``selected`` is ``selected_clusters`` when the key is present (even if empty); a run without a
+    selection step reports its final iteration.
+    """
+    if view != "final" and "selected_clusters" in taxonomy:
+        return list(taxonomy.get("selected_clusters") or [])
+    return list((taxonomy.get("iterations") or [{}])[-1].get("clusters") or [])
+
+
 class _Builder:
     def __init__(self, inp: Inputs):
         self.inp = inp
         tax = inp.taxonomy
-        if inp.view == "final":
-            self.dims = list((tax.get("iterations") or [{}])[-1].get("clusters") or [])
-        else:
-            self.dims = list(tax.get("selected_clusters") or [])
-        self.dims = [d for d in self.dims if isinstance(d, dict)]
+        self.dims = [d for d in view_dimensions(tax, inp.view) if isinstance(d, dict)]
         self.dim_by_id = {str(d.get("id")): d for d in self.dims}
         self.pages: List[Page] = []
         self.nodes: List[Dict[str, Any]] = []
@@ -212,7 +219,9 @@ class _Builder:
 
     # paths ---------------------------------------------------------------
     def _assign_paths(self) -> None:
-        used: Set[str] = set()
+        # index and log are reserved file names of the OKF bundle in every folder
+        folders = ("concepts", "entities", "sources", "synthesis", "synthesis/systems", "designs")
+        used: Set[str] = {f"{f}/{n}" for f in folders for n in ("index", "log")}
 
         def unique(base: str) -> str:
             path, n = base, 2

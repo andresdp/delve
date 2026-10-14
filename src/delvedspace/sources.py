@@ -28,6 +28,7 @@ FLAG_HELP = {
     "missing": "listed in sources.csv but the file is gone",
     "empty": "no text could be extracted",
     "no_text_layer": "PDF without a text layer (scanned?): run OCR on it first, then replace the file",
+    "unreadable": "the file could not be read (corrupt, encrypted or malformed); the error type is recorded in the manifest (error)",
     "short": "short text, possibly partial",
     "paywall": "looks like a paywall page",
     "bot_block": "looks like a bot-check page",
@@ -52,6 +53,7 @@ class Source:
     words: int = 0
     flags: List[str] = field(default_factory=list)
     sha256: str = ""
+    error: str = ""  # error type when the file could not be read
 
 
 def read_csv(path: Path) -> List[Dict[str, str]]:
@@ -122,7 +124,11 @@ def scan(ws: Workspace) -> List[Source]:
     for path in source_files(ws.sources_dir):
         rel = path.relative_to(ws.sources_dir).as_posix()
         row = by_file.get(rel)
-        text, meta = extract(path, (row or {}).get("url", ""))
+        try:
+            text, meta = extract(path, (row or {}).get("url", ""))
+            error = ""
+        except Exception as exc:  # one unreadable file must not abort the whole scan
+            text, meta, error = "", {}, type(exc).__name__
         if row is None:
             row = {"id": _next_id(rows), "file": rel, "title": _default_title(path, text, meta.get("title", "")),
                    "url": meta.get("url", ""), "source_type": "", "notes": ""}
@@ -130,7 +136,9 @@ def scan(ws: Workspace) -> List[Source]:
             by_file[rel] = row
         n_words = len(text.split())
         fmt = SOURCE_SUFFIXES[path.suffix.lower()]
-        if fmt == "pdf" and n_words < NO_TEXT_LAYER_WORDS:
+        if error:
+            flags = ["unreadable"]
+        elif fmt == "pdf" and n_words < NO_TEXT_LAYER_WORDS:
             flags = ["no_text_layer"]
         elif n_words == 0:
             flags = ["empty"]
@@ -138,7 +146,7 @@ def scan(ws: Workspace) -> List[Source]:
             flags = quality_flags(text)
         (ws.text_dir / f"{row['id']}.md").write_text(text + "\n", encoding="utf-8")
         found[row["id"]] = Source(row["id"], rel, fmt, row.get("title", ""), row.get("url", ""), n_words, flags,
-                                  hashlib.sha256(path.read_bytes()).hexdigest())
+                                  hashlib.sha256(path.read_bytes()).hexdigest(), error)
 
     for row in rows:
         if row["id"] not in found:
@@ -160,7 +168,7 @@ def load_manifest(ws: Workspace) -> List[Source]:
 
 def usable(source: Source) -> bool:
     """Return whether a source goes into the corpus (it has text and its file exists)."""
-    return source.words > 0 and not {"missing", "empty", "no_text_layer"} & set(source.flags)
+    return source.words > 0 and not {"missing", "empty", "no_text_layer", "unreadable"} & set(source.flags)
 
 
 def build_corpus(ws: Workspace, target: int = TARGET_WORDS, min_words: int = MIN_WORDS,
