@@ -131,7 +131,7 @@ ddspace update --feedback "Merge the two data-access dimensions"   # re-mine, se
 ddspace wiki build --yes                                           # wiki/log.md records what changed
 ddspace check                                                      # configuration, missing items, progress per phase
 ddspace reset                                                      # archive runs and wiki; sources and settings stay
-ddspace reset --all --purge                                        # clean the folder down to your sources and settings
+ddspace reset --purge                                              # delete everything except ddspace.yaml and .env
 ```
 
 Every command has `--help`. [USAGE.md](USAGE.md#the-ddspace-command) describes all of them.

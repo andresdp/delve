@@ -139,17 +139,39 @@ def test_reset_all_archives_what_was_built_from_the_sources(built):
     assert states["Sources"] == "pending" and states["Corpus"] == "pending"
 
 
-def test_reset_purge_deletes_instead_of_archiving(built):
+def test_reset_purge_deletes_everything_but_the_settings(built):
     ws = built
-    result = _invoke("reset", "--all", "--purge", "--yes")
+    (ws.root / ".env").write_text("OPENAI_API_KEY=x\n")
+    _invoke("reset", "--yes")                                     # leaves an archive behind
+    (ws.root / "notes.txt").write_text("mine")                    # not created by ddspace
+    (ws.root / "CLAUDE.md").write_text("# My own rules\n\nKeep me.\n")
+    _invoke("agent", "setup", "--claude", "--copilot", "--yes")
+    result = _invoke("reset", "--purge", "--yes")
     assert result.exit_code == 0, result.output
-    assert not (ws.state_dir / "archive").exists() and not ws.corpus_path.exists()
-    assert not (ws.root / "site").exists() and (ws.sources_dir / "a.md").is_file()
-    assert "deleted" in (ws.root / "wiki" / "log.md").read_text()
+    names = {p.name for p in ws.root.iterdir()}
+    assert names == {"ddspace.yaml", ".env", ".gitignore", "sources", "runs", "notes.txt", "CLAUDE.md"}
+    assert not list(ws.sources_dir.iterdir()) and not list(ws.runs_dir.iterdir())
+    assert (ws.root / "CLAUDE.md").read_text() == "# My own rules\n\nKeep me.\n"   # only the ddspace block went
+    assert ws.config()["workspace"]["current_run"] is None
+    assert "notes.txt" in result.output and "not created by ddspace" in result.output
+    states, report = _states(ws)
+    assert states["Sources"] == "pending" and states["Wiki"] == "pending" and states["Agent setup"] == "pending"
 
 
-def test_reset_rejects_wiki_only_with_all(built):
+def test_purge_leaves_user_settings_in_claude_settings(built):
+    ws = built
+    settings = ws.root / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(json.dumps({"model": "x"}))
+    _invoke("agent", "setup", "--claude", "--yes")
+    assert "ddspace query" in settings.read_text()
+    _invoke("reset", "--purge", "--yes")
+    assert json.loads(settings.read_text()) == {"model": "x"}
+
+
+def test_reset_rejects_wiki_only_with_all_or_purge(built):
     assert _invoke("reset", "--all", "--wiki-only", "--yes").exit_code == 1
+    assert _invoke("reset", "--purge", "--wiki-only", "--yes").exit_code == 1
 
 
 def test_purge_asks_before_deleting(built, monkeypatch):

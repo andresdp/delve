@@ -728,16 +728,21 @@ def reset(
     wiki_only: bool = typer.Option(False, "--wiki-only", help="Only the wiki (wiki/, site/, raw/); keep the runs."),
     all_: bool = typer.Option(False, "--all", help="Also everything built from the sources: corpus.json, extracted "
                               "texts, stored source summaries. Your sources, sources.csv and settings stay."),
-    purge: bool = typer.Option(False, "--purge", help="Delete instead of moving to .ddspace/archive/ (cannot be undone)."),
+    purge: bool = typer.Option(False, "--purge", help="Delete everything in the workspace except ddspace.yaml and .env: "
+                               "sources (your files too), sources.csv, corpus, runs, wiki and .ddspace/ (archives "
+                               "included). Asks first; cannot be undone."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Do not ask for confirmation."),
 ) -> None:
     """Start over: move the runs and the wiki (with [bold]--all[/bold], also the corpus) to [bold].ddspace/archive/[/bold]."""
     ws = current_workspace()
-    if wiki_only and all_:
-        fail("Use either --wiki-only or --all.")
+    if wiki_only and (all_ or purge):
+        fail("--wiki-only cannot be combined with --all or --purge.")
+    if purge:
+        _purge(ws, yes)
+        return
     targets = ["wiki", wb.HTML_DIR, "raw"] + ([] if wiki_only else ["runs"]) + (list(SOURCE_DERIVED) if all_ else [])
     scope = "the wiki" if wiki_only else "runs, wiki and everything built from the sources" if all_ else "runs and wiki"
-    ui.header("reset", f"{'Delete' if purge else 'Archive'} {scope}; your sources and settings stay")
+    ui.header("reset", f"Archive {scope}; your sources and settings stay")
     present = [t for t in targets if _present(ws, t)]
     if not present:
         ui.note("Nothing to reset.")
@@ -746,34 +751,78 @@ def reset(
     kept = ["sources/", "sources.csv", "ddspace.yaml", ".env", "AGENTS.md and agent files"]
     kept += [] if all_ else ["corpus.json", "stored source summaries"]
     kept += ["runs/ (the current run stays current)"] if wiki_only else []
-    action = ("[red]Deletes[/red]" if purge else "Moves")
-    ui.plan("About to reset", [(action, ", ".join(f"{t}/" if (ws.root / t).is_dir() else t for t in present)),
-                               ("To", "nowhere: deleted for good" if purge else
-                                f"{runs.relative(ws, archive)}/ {ui.path('(undo by moving them back)')}"),
+    ui.plan("About to reset", [("Moves", ", ".join(f"{t}/" if (ws.root / t).is_dir() else t for t in present)),
+                               ("To", f"{runs.relative(ws, archive)}/ {ui.path('(undo by moving them back)')}"),
                                ("Keeps", ", ".join(kept))])
-    if interactive(yes) and not ui.ask_yes("Delete for good?" if purge else "Reset?", default=False):
+    if interactive(yes) and not ui.ask_yes("Reset?", default=False):
         raise typer.Exit()
     if not yes and not interactive(yes):
         fail("Not a terminal: pass --yes to confirm the reset.")
     for t in present:
-        path = ws.root / t
-        if purge:
-            shutil.rmtree(path) if path.is_dir() else path.unlink()
-        else:
-            (archive / t).parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(path), str(archive / t))
+        (archive / t).parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(ws.root / t), str(archive / t))
     if not wiki_only:
         ws.runs_dir.mkdir(exist_ok=True)
         ws.set("workspace.current_run", None)
     chat.remove_index(ws)  # built from the old wiki; rebuilt by the next wiki build
     (ws.root / "wiki").mkdir(exist_ok=True)
-    where = "deleted" if purge else f"moved to `{runs.relative(ws, archive)}/` (restore by moving them back)"
-    wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {scope}: {where}.")
-    ui.summary("Reset done", [("Deleted" if purge else "Archived", ", ".join(present)),
-                              ("Archive", "" if purge else f"{runs.relative(ws, archive)}/")],
+    wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {scope}: moved to "
+                  f"`{runs.relative(ws, archive)}/` (restore by moving them back).")
+    ui.summary("Reset done", [("Archived", ", ".join(present)), ("Archive", f"{runs.relative(ws, archive)}/")],
                next_steps=[("ddspace wiki build", "rebuild the wiki")] if wiki_only
                else [("ddspace sources", "scan the sources and build the corpus again")] if all_
                else [("ddspace mine", "mine from scratch")])
+
+
+# Kept by `reset --purge`: the settings, the API keys, and the .gitignore written by init.
+PURGE_KEEPS = (CONFIG_NAME, ".env", ".gitignore")
+
+
+def _purge(ws: Workspace, yes: bool) -> None:
+    """Delete everything ddspace manages in the workspace except ddspace.yaml and .env (``reset --purge``)."""
+    ui.header("reset --purge", "Delete everything in the workspace except ddspace.yaml and .env")
+    sources_rel = ws.sources_dir.relative_to(ws.root).as_posix() if ws.sources_dir.is_relative_to(ws.root) else None
+    managed = [t for t in (sources_rel, "sources.csv", "corpus.json", "runs", "wiki", wb.HTML_DIR, "raw",
+                           wsmod.STATE_DIR) if t]
+    present = [t for t in managed if (ws.root / t).exists()]
+    agent_files = [t for t in ("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md", ".claude/settings.json")
+                   if (ws.root / t).is_file()]
+    known = set(managed) | set(PURGE_KEEPS) | {".github", ".claude", "AGENTS.md", "CLAUDE.md"}
+    others = sorted(p.name for p in ws.root.iterdir() if p.name not in known)
+    if not present and not agent_files:
+        ui.note("Nothing to delete.")
+        return
+    n_sources = len(wsmod.source_files(ws.sources_dir))
+    ui.plan("About to delete for good", [
+        ("[red]Deletes[/red]", ", ".join(f"{t}/" if (ws.root / t).is_dir() else t for t in present)
+         + (f" {ui.path(f'(including {n_sources} source file(s))')}" if n_sources else "")),
+        ("Cleans", ", ".join(agent_files) + f" {ui.path('(only what ddspace wrote)')}" if agent_files else ""),
+        ("Keeps", ", ".join(t for t in PURGE_KEEPS if (ws.root / t).exists())),
+        ("Leaves alone", ", ".join(others) + f" {ui.path('(not created by ddspace)')}" if others else ""),
+    ])
+    if interactive(yes) and not ui.ask_yes("Delete for good? This cannot be undone", default=False):
+        raise typer.Exit()
+    if not yes and not interactive(yes):
+        fail("Not a terminal: pass --yes to confirm the purge.")
+    for t in present:
+        path = ws.root / t
+        shutil.rmtree(path) if path.is_dir() else path.unlink()
+    cleaned: List[str] = []
+    for t in agent_files:
+        action = agent.disallow_query(ws.root / t) if t.endswith(".json") else agent.remove_block(ws.root / t)
+        if action:
+            cleaned.append(f"{t} ({action})")
+    for folder in (".github", ".claude"):
+        path = ws.root / folder
+        if path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+    ws.sources_dir.mkdir(parents=True, exist_ok=True)
+    ws.runs_dir.mkdir(exist_ok=True)
+    ws.set("workspace.current_run", None)
+    ui.summary("Workspace purged", [("Deleted", ", ".join(present)), ("Cleaned", ", ".join(cleaned)),
+                                    ("Kept", ", ".join(t for t in PURGE_KEEPS if (ws.root / t).exists()))],
+               next_steps=[(f"Copy your files into {ws.sources_dir.relative_to(ws.root)}/", ".md .txt .html .pdf"),
+                           ("ddspace sources", "scan them and build the corpus")])
 
 
 # ---------------------------------------------------------------- check

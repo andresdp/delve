@@ -126,3 +126,39 @@ def pointer_copilot() -> str:
     """copilot-instructions.md block: point to the guide."""
     return ("For questions about the design space, follow the instructions in `AGENTS.md` at the repository root: "
             "use the `ddspace query` commands and cite passage ids.")
+
+
+def remove_block(path: Path) -> str:
+    """Remove the ddspace block from ``path``; delete the file when nothing else is left. Return the action."""
+    if not path.is_file():
+        return ""
+    old = path.read_text(encoding="utf-8")
+    pattern = re.compile(r"\n*" + re.escape(START) + r".*?" + re.escape(END) + r"\n?", re.S)
+    if not pattern.search(old):
+        return ""
+    rest = pattern.sub("\n", old).strip()
+    if rest:
+        path.write_text(rest + "\n", encoding="utf-8")
+        return "cleaned"
+    path.unlink()
+    return "deleted"
+
+
+def disallow_query(settings_path: Path) -> str:
+    """Remove the ``ddspace query`` allow rule; delete the settings file when it held nothing else."""
+    if not settings_path.is_file():
+        return ""
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    allow = (data.get("permissions") or {}).get("allow") or []
+    if QUERY_PERMISSION not in allow:
+        return ""
+    allow.remove(QUERY_PERMISSION)
+    if not allow:
+        data["permissions"].pop("allow")
+        if not data["permissions"]:
+            data.pop("permissions")
+    if not data:
+        settings_path.unlink()
+        return "deleted"
+    settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return "cleaned"
