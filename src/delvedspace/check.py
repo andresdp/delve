@@ -186,6 +186,8 @@ def phases(ws: Workspace) -> List[Item]:
                         "ddspace wiki build"))
     else:
         out.append(Item("Wiki", DONE, f"built from run {wiki_run}; wiki/, site/, raw/"))
+    # the chat index and AGENTS.md record the graph's run label (the taxonomy's timestamp), not the run folder
+    label = read_json(ws.root / "raw" / "graph.json", {}).get("run") if wiki_run else None
 
     # 5. chat index
     from delvedspace import chat
@@ -195,7 +197,7 @@ def phases(ws: Workspace) -> List[Item]:
         out.append(Item("Chat index (ask)", UNAVAILABLE, 'TreeDex is not installed: pip install "delvedspace[chat]"'))
     elif not meta:
         out.append(Item("Chat index (ask)", PENDING, "not built", "ddspace wiki build" if wiki_run else ""))
-    elif meta.get("run") != wiki_run:
+    elif meta.get("run") != label:
         out.append(Item("Chat index (ask)", STALE, f"built for run {meta.get('run')}", "ddspace wiki build"))
     else:
         out.append(Item("Chat index (ask)", DONE, f"{meta.get('nodes')} nodes, run {meta.get('run')}"))
@@ -208,7 +210,7 @@ def phases(ws: Workspace) -> List[Item]:
     if agent.START not in text:
         out.append(Item("Agent setup", PENDING, "no AGENTS.md (optional: for coding agents)",
                         "ddspace agent setup" if wiki_run else ""))
-    elif wiki_run and f"(run {wiki_run})" not in text:
+    elif label and f"(run {label})" not in text:
         out.append(Item("Agent setup", STALE, "AGENTS.md was written for an older wiki", "ddspace agent setup"))
     else:
         files = [n for n in ("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md") if (ws.root / n).is_file()]

@@ -82,6 +82,18 @@ def test_mined_and_built_workspace_and_a_stale_wiki(ws, monkeypatch):
     assert [i.next for i in report.next_steps] == ["ddspace agent setup"]
 
 
+def test_agent_setup_is_done_when_the_taxonomy_is_stamped_later_than_the_run(ws, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-proj-SECRET")
+    ws.corpus_path.write_text(json.dumps(list(CORPUS.values())))
+    _add_run(ws, "20261013_100000", _taxonomy(), stamp="20261013_101340")
+    assert _invoke("wiki", "build", "--yes").exit_code == 0
+    _invoke("agent", "setup", "--yes")
+    assert "(run 20261013_101340)" in (ws.root / "AGENTS.md").read_text()
+    states, _ = _states(ws)
+    assert states["Wiki"] == "done" and states["Agent setup"] == "done"
+    assert states["Chat index (ask)"] in ("done", "unavailable")
+
+
 def test_a_failed_run_after_the_current_one_is_reported(ws, monkeypatch):
     from delvedspace import runs
     monkeypatch.setenv("OPENAI_API_KEY", "sk-proj-SECRET")

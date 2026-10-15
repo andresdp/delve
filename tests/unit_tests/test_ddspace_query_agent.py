@@ -7,7 +7,7 @@ import shlex
 import pytest
 from typer.testing import CliRunner
 
-from delvedspace import cli
+from delvedspace import agent, cli
 from delvedspace.workspace import Workspace
 from taxonomy_generator.wiki import build, write
 from tests.unit_tests.test_wiki_export import CORPUS, POINTS, _inputs
@@ -81,8 +81,17 @@ def test_every_subcommand_runs(ws, command):
 # ---------------------------------------------------------------- agent setup
 
 
+INSTALL = {"path": "/opt/envs/toy/bin/ddspace", "activate": "conda activate toy"}
+
+
+@pytest.fixture(autouse=True)
+def _installed(monkeypatch):
+    """Setup records where ddspace lives; pin it so the guide and the allow rules are predictable."""
+    monkeypatch.setattr(agent, "install_info", lambda: dict(INSTALL))
+
+
 def _guide_commands(text):
-    block = re.search(r"```bash\n(.*?)```", text, re.S).group(1)
+    block = re.search(r"## Query commands.*?```bash\n(.*?)```", text, re.S).group(1)
     return [shlex.split(line.split("#")[0])[1:] for line in block.splitlines() if line.startswith("ddspace query")]
 
 
@@ -91,6 +100,7 @@ def test_agents_md_examples_use_real_names_and_run(ws):
     assert result.exit_code == 0, result.output
     text = (ws.root / "AGENTS.md").read_text()
     assert "<dimension>" not in text and "Source of truth" in text and "cite" in text.lower()
+    assert "`exclusivity`" in text and "`includes`" in text                 # the fields dims and values return
     commands = _guide_commands(text)
     assert len(commands) == 7
     for args in commands:
@@ -131,9 +141,22 @@ def test_claude_and_copilot_pointers_and_the_allow_rule(ws):
     assert "@AGENTS.md" in (ws.root / "CLAUDE.md").read_text()
     assert "AGENTS.md" in (ws.root / ".github" / "copilot-instructions.md").read_text()
     data = json.loads(settings.read_text())
-    assert data["permissions"]["allow"] == ["Bash(ls:*)", "Bash(ddspace query:*)"] and data["model"] == "x"
+    assert data["permissions"]["allow"] == ["Bash(ls:*)", "Bash(ddspace query:*)",
+                                            "Bash(/opt/envs/toy/bin/ddspace query:*)"] and data["model"] == "x"
     _invoke("agent", "setup", "--claude", "--yes")
     assert json.loads(settings.read_text())["permissions"]["allow"].count("Bash(ddspace query:*)") == 1
+    assert agent.disallow_query(settings) == "cleaned"                 # both rules go, the user's stays
+    assert json.loads(settings.read_text())["permissions"]["allow"] == ["Bash(ls:*)"]
+
+
+def test_guide_says_how_to_reach_ddspace_when_the_shell_lacks_it(ws):
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    text = (ws.root / "AGENTS.md").read_text()
+    assert "ddspace --version" in text
+    assert "/opt/envs/toy/bin/ddspace query info" in text                # the full path, any shell
+    assert "conda activate toy && ddspace query info" in text            # or activate in the same command
+    bare = agent.guide(ws, ws.root, {"path": None, "activate": None})
+    assert "ask the user which environment" in bare and "&& ddspace" not in bare
 
 
 def test_no_allow_rule_when_declined(ws):

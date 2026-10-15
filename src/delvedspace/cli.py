@@ -517,15 +517,17 @@ def agent_setup(
     if ws.root != target and target not in ws.root.parents:
         fail(f"{target} does not contain the workspace {ws.root}.")
     ui.header("agent setup", "Let a coding agent use the wiki")
-    done = [f"{agent.upsert_block(target / 'AGENTS.md', agent.guide(ws, target))} AGENTS.md"]
+    install = agent.install_info()
+    done = [f"{agent.upsert_block(target / 'AGENTS.md', agent.guide(ws, target, install))} AGENTS.md"]
     if claude:
         done.append(f"{agent.upsert_block(target / 'CLAUDE.md', agent.pointer_claude())} CLAUDE.md")
         if allow is None:
             allow = not interactive(yes) or ui.ask_yes(
                 "Let Claude Code run ddspace query (read-only) without a permission prompt each time?", default=True)
         if allow:
-            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json')} .claude/settings.json "
-                        f"({agent.QUERY_PERMISSION})")
+            rules = agent.query_permissions(install)
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
+                        f"({', '.join(rules)})")
     if copilot:
         done.append(f"{agent.upsert_block(target / '.github' / 'copilot-instructions.md', agent.pointer_copilot())} "
                     ".github/copilot-instructions.md")

@@ -21,10 +21,11 @@ def _invoke(*args, input=None):
     return runner.invoke(cli.app, list(args), input=input)
 
 
-def _add_run(ws, run_id, taxonomy, kind="mine", **meta):
+def _add_run(ws, run_id, taxonomy, kind="mine", stamp=None, **meta):
+    """A finished run; ``stamp`` is the taxonomy file's timestamp (a real run writes it later than it starts)."""
     run_dir = ws.runs_dir / run_id
     run_dir.mkdir(parents=True)
-    (run_dir / f"toy_taxonomy_{run_id}.json").write_text(json.dumps(taxonomy))
+    (run_dir / f"toy_taxonomy_{stamp or run_id}.json").write_text(json.dumps(taxonomy))
     runs.save(run_dir, runs.Run(id=run_id, kind=kind, started_at="x", status="ok", **meta))
     ws.set("workspace.current_run", f"runs/{run_id}")
     return run_dir
