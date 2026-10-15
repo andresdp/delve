@@ -251,7 +251,13 @@ def corpus(
 
 def _format_duration(seconds: float) -> str:
     minutes = round(seconds / 60)
+    if minutes < 1:
+        return "under 1 min"
     return f"{minutes} min" if minutes < 90 else f"{minutes / 60:.1f} h"
+
+
+def _format_tokens(tokens: int) -> str:
+    return f"{tokens / 1e6:.1f}M" if tokens >= 1e6 else f"{max(1, round(tokens / 1e3))}k"
 
 
 def _confirm_run(ws: Workspace, title: str, lines: List[str], passages: int, yes: bool) -> bool:
@@ -262,7 +268,7 @@ def _confirm_run(ws: Workspace, title: str, lines: List[str], passages: int, yes
     body = "\n".join(lines + [
         f"Passages: {passages} in about {est.batches} minibatch(es); critic {'on' if critic else 'off'}",
         f"Models: {models.get('generation_llm')} (generation), {models.get('evaluation_llm')} (evaluation)",
-        f"Estimate ({est.basis}): about {est.tokens / 1e6:.1f}M tokens, {_format_duration(est.seconds)}",
+        f"Estimate ({est.basis}): about {_format_tokens(est.tokens)} tokens, {_format_duration(est.seconds)}",
     ])
     console.print(Panel(body, title=title, expand=False))
     return not interactive(yes) or Confirm.ask("Start?", default=True)

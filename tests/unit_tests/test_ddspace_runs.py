@@ -253,3 +253,19 @@ def test_logged_pipeline_run_streams_lines(ws, tmp_path):
     log = tmp_path / "pipeline.log"
     assert runs.run_pipeline(ws, ["--help"], log_path=log, on_line=seen.append) == 0
     assert any("--corpus" in line for line in seen) and "--corpus" in log.read_text()
+
+
+def test_estimate_ignores_test_mode_runs(ws, fake, tmp_path):
+    _invoke("mine", "--yes")
+    new_file = tmp_path / "c.md"
+    new_file.write_text("# C\n\n" + _para(400, "sharding"))
+    _invoke("update", "--test", "--sources", str(new_file), "--yes")
+    assert runs.estimate(ws, 10, 10).basis.endswith(runs.load(ws.root / _current(ws)).seed_run)
+
+
+def test_small_estimates_are_shown_in_thousands(ws, fake, monkeypatch):
+    monkeypatch.setattr(cli, "interactive", lambda yes: not yes)
+    result = _invoke("mine", input="n\n")
+    assert "M tokens" in result.output or "k tokens" in result.output
+    assert "0.0M" not in cli._format_tokens(12_000) and cli._format_tokens(12_000) == "12k"
+    assert cli._format_duration(10) == "under 1 min"

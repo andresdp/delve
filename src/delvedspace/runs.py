@@ -156,11 +156,14 @@ class Estimate:
 
 
 def estimate(ws: Workspace, passages: int, batch_size: int) -> Estimate:
-    """Estimate tokens and time: from this workspace's last successful run when there is one, else from C3."""
+    """Estimate tokens and time: from this workspace's last full run (mine or feedback update), else from C3.
+
+    Test-mode updates only classify new passages, so their cost per passage says little about a full run.
+    """
     batches = max(1, math.ceil(passages / max(1, batch_size)))
     for run_dir in sorted(ws.runs_dir.glob("*"), reverse=True):
         run, taxonomy = load(run_dir), find_taxonomy(run_dir)
-        if not run or run.status != "ok" or taxonomy is None:
+        if not run or run.status != "ok" or run.kind == "update-test" or taxonomy is None:
             continue
         metrics = read_json(taxonomy).get("run_metrics") or {}
         if metrics.get("total_tokens") and run.passages:
