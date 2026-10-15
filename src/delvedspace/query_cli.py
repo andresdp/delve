@@ -8,9 +8,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 import typer
 from rich.console import Console
-from rich.table import Table
+from rich.markup import escape
 
-from delvedspace import runs
+from delvedspace import runs, ui
 from delvedspace.workspace import Workspace, WorkspaceError, read_json
 from taxonomy_generator.wiki import query as q
 
@@ -32,7 +32,7 @@ def _graph_path(graph: Optional[Path]) -> Path:
     try:
         return Workspace.find().root / "raw" / "graph.json"
     except WorkspaceError as exc:
-        err.print(f"[red]Error:[/red] {exc} Or pass --graph <export folder>.")
+        err.print(f"[red]✗ Error:[/red] {exc} Or pass --graph <export folder>.")
         raise typer.Exit(1)
 
 
@@ -41,12 +41,12 @@ def _run(graph: Optional[Path], table: bool, fn: Callable[[q.Graph], Any],
     try:
         data = fn(q.load(_graph_path(graph)))
     except q.NotFound as exc:
-        err.print(f"[red]Not found:[/red] {exc}")
+        err.print(f"[red]✗ Not found:[/red] {escape(str(exc))}")
         if not table:
             typer.echo(json.dumps({"error": str(exc), "candidates": exc.candidates}, indent=2, ensure_ascii=False))
         raise typer.Exit(2)
     except q.QueryError as exc:
-        err.print(f"[red]Error:[/red] {exc}")
+        err.print(f"[red]✗ Error:[/red] {escape(str(exc))}")
         raise typer.Exit(1)
     if table:
         render(data)
@@ -55,12 +55,9 @@ def _run(graph: Optional[Path], table: bool, fn: Callable[[q.Graph], Any],
 
 
 def _table(title: str, columns: List[str], rows: List[List[Any]]) -> None:
-    t = Table(title=title, show_lines=False)
-    for c in columns:
-        t.add_column(c, overflow="fold")
-    for r in rows:
-        t.add_row(*["" if x is None else str(x) for x in r])
-    console.print(t)
+    numeric = {c for c in columns if c in ("values", "outcomes", "relations", "sources", "passages")}
+    ui.table(escape(title), columns, [[escape("" if x is None else str(x)) for x in r] for r in rows],
+             right=sorted(numeric))
 
 
 def _evidence_text(ev: Dict[str, Any]) -> str:
@@ -147,14 +144,14 @@ def _corpus_for_quotes(corpus: Optional[Path], graph: Optional[Path] = None) -> 
         try:
             ws = Workspace.find(start)
         except WorkspaceError as exc:
-            err.print(f"[red]Error:[/red] --quotes needs --corpus outside a workspace ({exc})")
+            err.print(f"[red]✗ Error:[/red] --quotes needs --corpus outside a workspace ({exc})")
             raise typer.Exit(1)
         if (ws.config().get("wiki") or {}).get("quotes") is False:
             err.print("[red]Error:[/red] this wiki was built without quotes (wiki.quotes: false in ddspace.yaml).")
             raise typer.Exit(1)
         path = _run_corpus(ws)
     if not path.is_file():
-        err.print(f"[red]Error:[/red] no corpus at {path}.")
+        err.print(f"[red]✗ Error:[/red] no corpus at {path}.")
         raise typer.Exit(1)
     return q.load_corpus(path)
 

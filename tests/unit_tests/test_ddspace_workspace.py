@@ -328,3 +328,24 @@ def test_sources_from_bad_json_explains(ws):
     bad.write_text('{"documents": []}')
     result = _invoke("sources", "--from-json", str(bad))
     assert result.exit_code == 1 and "Cannot import" in result.output
+
+
+def test_sources_builds_the_corpus_unless_told_not_to(ws):
+    _write_sources(ws.sources_dir)
+    result = _invoke("sources", "--no-corpus")
+    assert result.exit_code == 0 and not ws.corpus_path.exists() and "ddspace corpus" in result.output
+    result = _invoke("sources")
+    assert result.exit_code == 0 and ws.corpus_path.is_file() and "ddspace mine" in result.output
+    assert json.loads(ws.corpus_path.read_text())
+
+
+def test_secrets_show_only_their_first_characters():
+    from delvedspace import ui
+    assert ui.mask_secret("sk-proj-abcdefghij") == "sk-proj-" + "•" * 10
+    assert ui.mask_secret("short") == "short"
+
+
+def test_found_api_key_is_shown_masked(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-proj-SECRETSECRET")
+    result = _invoke("init", str(tmp_path / "w"), "--yes")
+    assert "sk-proj-" in result.output and "SECRETSECRET" not in result.output

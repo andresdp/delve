@@ -73,7 +73,7 @@ def test_build_writes_an_okf_wiki_site_and_query_data(ws):
     assert (ws.root / "wiki" / "index.md").is_file() and (ws.root / "site" / "index.html").is_file()
     assert (ws.root / "raw" / "graph.json").is_file() and not (ws.root / "html").exists()
     assert okf.check(ws.root / "wiki") == ([], [])
-    assert "OKF v0.2 check: passed" in result.output
+    assert re.search(r"OKF v0.2 check\s+passed", result.output)
     saved = ws.config()["wiki"]
     assert saved["quotes"] is True and saved["design_points"] == "sample" and saved["source_summaries"] is False
     assert saved["core_min_sources"] == 2  # 2 sources in the run: a third, but at least 2

@@ -30,7 +30,7 @@ def ws(tmp_path, monkeypatch):
     _add_run(w, "20261013_100000", _taxonomy())
     result = _invoke("wiki", "build", "--yes")
     assert result.exit_code == 0, result.output
-    assert "chat index rebuilt" in result.output
+    assert "rebuilt for ddspace ask" in result.output
     return w
 
 
@@ -157,7 +157,7 @@ def test_reset_removes_the_index(ws):
 def test_without_treedex_the_build_skips_the_index_and_ask_explains(ws, monkeypatch):
     monkeypatch.setattr(chat, "treedex_available", lambda: False)
     result = _invoke("wiki", "build", "--yes")
-    assert result.exit_code == 0 and "chat index skipped" in result.output
+    assert result.exit_code == 0 and "TreeDex is not installed" in result.output
     assert not (ws.state_dir / chat.INDEX_FILE).exists()
     asked = _invoke("ask", "Anything?")
     assert asked.exit_code == 1 and "delvedspace[chat]" in asked.output

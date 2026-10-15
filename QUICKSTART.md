@@ -45,21 +45,21 @@ Campus bike: `ddspace init campus --yes --from-config <repo>/examples/campus-bik
 Replace `<repo>` with the path to your clone. Without `--yes`, `init` asks a few questions instead. Every
 setting is in `ddspace.yaml`, with a comment each.
 
-## 3. Add the sources and build the corpus
+## 3. Add the sources
 
 Your own sources are files you put in `sources/` (`.md`, `.txt`, `.html`, `.pdf`). The examples are JSON
 corpora instead, so import them: each decision becomes one source file.
 
 ```bash
 ddspace sources --from-json <repo>/examples/pharmacy-food/pharmacy_food_architecture_decisions.json
-ddspace corpus
 ```
 
 Campus bike: `--from-json <repo>/examples/campus-bike/campus_bike_architecture_decisions.json`.
 
-`ddspace sources` lists every source with its word count. The decisions are a few dozen words each, so they
-are all flagged `short`; that is expected here and they are still used. `ddspace corpus` then reports
-12 passages (campus bike: 28).
+`ddspace sources` lists every source with its word count, then splits the sources into passages
+(`corpus.json`): 12 passages for pharmacy food, 28 for campus bike. The decisions are a few dozen words each, so
+they are all flagged `short`; that is expected here and they are still used. (`--no-corpus` only scans;
+`ddspace corpus` rebuilds the passages with other sizes.)
 
 ## 4. Mine the design space
 

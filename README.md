@@ -157,8 +157,7 @@ It never downloads anything; you put the sources (`.md`, `.txt`, `.html` saved f
 pip install -e ".[chat]"          # in your environment; provides the ddspace command ([chat]: ddspace ask)
 ddspace init my-space             # asks a few questions (use case, models, size); --yes takes the defaults
 cd my-space && cp ~/Downloads/*.pdf sources/
-ddspace sources                   # extract the text, draft sources.csv, flag empty or scanned files
-ddspace corpus                    # split the sources into passages
+ddspace sources                   # extract the text, draft sources.csv, flag problems, split into passages
 ddspace mine                      # shows an estimate, asks, then mines the design space into runs/
 ddspace wiki build                # wiki/ (Markdown, Open Knowledge Format), site/ (HTML), raw/ (data)
 ddspace wiki open                 # browse it

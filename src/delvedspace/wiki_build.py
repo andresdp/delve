@@ -441,6 +441,6 @@ def _rebuild_chat_index(ws: Workspace) -> str:
 
     if not chat.treedex_available():
         chat.remove_index(ws)  # an index of an older wiki would answer from stale pages
-        return "chat index skipped (TreeDex not installed; ddspace ask unavailable)"
+        return "skipped: TreeDex is not installed, so ddspace ask is unavailable"
     info = chat.build_index(ws)
-    return f"chat index rebuilt: {info['nodes']} nodes, {info['pages']} pages (ddspace ask)"
+    return f"rebuilt for ddspace ask ({info['nodes']} nodes)"

@@ -57,8 +57,15 @@ class ChatError(Exception):
 
 def treedex_available() -> bool:
     """Return whether TreeDex is installed."""
-    try:
-        import treedex  # noqa: F401
+    import contextlib
+    import io
+    import warnings
+
+    try:  # the first import pulls in PyMuPDF, which prints a deprecation notice for its old `fitz` name
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()), \
+                warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            import treedex  # noqa: F401
     except ImportError:
         return False
     return True

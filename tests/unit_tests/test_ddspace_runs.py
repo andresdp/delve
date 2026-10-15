@@ -115,14 +115,14 @@ def test_a_failed_run_keeps_the_current_design_space(ws, fake, monkeypatch):
 def test_mine_needs_a_corpus(ws, fake):
     ws.corpus_path.unlink()
     result = _invoke("mine", "--yes")
-    assert result.exit_code == 1 and "ddspace corpus" in result.output and not fake.calls
+    assert result.exit_code == 1 and "ddspace sources" in result.output and not fake.calls
 
 
 def test_declining_the_confirmation_starts_nothing(ws, fake, monkeypatch):
     monkeypatch.setattr(cli, "interactive", lambda yes: not yes)
     result = _invoke("mine", input="n\n")
     assert result.exit_code == 0 and not fake.calls and not list(ws.runs_dir.iterdir())
-    assert "Estimate (rough, from the C3 sample)" in result.output
+    assert "Estimate" in result.output and "(rough, from the C3 sample)" in result.output
 
 
 def test_update_feedback_seeds_from_the_current_run(ws, fake, tmp_path):
