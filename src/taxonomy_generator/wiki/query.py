@@ -114,8 +114,11 @@ def _values_of(graph: Graph, dim_id: str) -> List[Dict[str, Any]]:
 
 def _value_summary(v: Mapping[str, Any]) -> Dict[str, Any]:
     docs = [p["doc"] for p in v.get("passages") or []]
-    return {**_brief(v), "status": v.get("status"), "description": v.get("description", ""),
-            "sources": len({source_of(d) for d in docs}), "passages": len(docs)}
+    out = {**_brief(v), "status": v.get("status"), "description": v.get("description", ""),
+           "sources": len({source_of(d) for d in docs}), "passages": len(docs)}
+    if v.get("includes"):  # a recoded alternative: the former values it covers (its facets)
+        out["includes"] = list(v["includes"])
+    return out
 
 
 # ---------------------------------------------------------------- commands
@@ -138,7 +141,7 @@ def info(graph: Graph) -> Dict[str, Any]:
 
 
 def dims(graph: Graph, core_only: bool = False) -> List[Dict[str, Any]]:
-    """Return the dimensions with value counts, evidence, relation count and core flag."""
+    """Return the dimensions with value counts, evidence, exclusivity, relation count and core flag."""
     out = []
     for d in _nodes(graph, ["dimension"]):
         if core_only and not d.get("core"):
@@ -149,6 +152,7 @@ def dims(graph: Graph, core_only: bool = False) -> List[Dict[str, Any]]:
                     "candidate_values": sum(v.get("status") != "outcome" for v in values),
                     "outcomes": sum(v.get("status") == "outcome" for v in values),
                     "evidence": d.get("evidence") or {},
+                    "exclusivity": d.get("exclusivity"),
                     "relations": sum(d["id"] in (e["source"], e["target"]) for e in _edges(graph, "relation"))})
     return out
 

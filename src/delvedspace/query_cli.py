@@ -77,11 +77,11 @@ def info(graph: Optional[Path] = GraphOpt, table: bool = TableOpt) -> None:
 @app.command()
 def dims(core: bool = typer.Option(False, "--core", help="Only core dimensions."),
          graph: Optional[Path] = GraphOpt, table: bool = TableOpt) -> None:
-    """List the dimensions with value counts, evidence, relations and the core flag."""
+    """List the dimensions with value counts, evidence, exclusivity, relations and the core flag."""
     _run(graph, table, lambda g: q.dims(g, core_only=core), lambda rows: _table(
-        "Dimensions", ["id", "dimension", "core", "values", "outcomes", "evidence", "relations"],
+        "Dimensions", ["id", "dimension", "core", "values", "outcomes", "evidence", "exclusivity", "relations"],
         [[d["id"], d["label"], "yes" if d["core"] else "", d["values"], d["outcomes"], _evidence_text(d["evidence"]),
-          d["relations"]] for d in rows]))
+          "" if d.get("exclusivity") is None else f"{d['exclusivity']:.2f}", d["relations"]] for d in rows]))
 
 
 @app.command()
@@ -107,8 +107,9 @@ def values_cmd(dimension: str = typer.Argument(..., help="Id, slug or label of a
                graph: Optional[Path] = GraphOpt, table: bool = TableOpt) -> None:
     """List a dimension's values (alternatives and outcomes) with their support."""
     _run(graph, table, lambda g: q.values(g, dimension, status), lambda d: _table(
-        f"Values of {d['dimension']['label']}", ["id", "value", "status", "sources", "passages"],
-        [[v["id"], v["label"], v["status"], v["sources"], v["passages"]] for v in d["values"]]))
+        f"Values of {d['dimension']['label']}", ["id", "value", "status", "sources", "passages", "includes"],
+        [[v["id"], v["label"], v["status"], v["sources"], v["passages"], "; ".join(v.get("includes") or [])]
+         for v in d["values"]]))
 
 
 @app.command()

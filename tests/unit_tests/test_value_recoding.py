@@ -5,7 +5,7 @@ import asyncio
 from taxonomy_generator.evaluation import exclusivity as ex
 from taxonomy_generator.evaluation.gt_match import system_values
 from taxonomy_generator.nodes import value_recoding as vr
-from taxonomy_generator.schemas import CombinationAssignment, RecodedValue, RecodingOutput
+from taxonomy_generator.schemas import CombinationAssignment, ExclusivityRepairOutput, RecodedValue, RecodingOutput
 from taxonomy_generator.wiki import build
 from tests.unit_tests.test_value_exclusivity import _dim, _v
 from tests.unit_tests.test_wiki_export import _inputs
@@ -146,3 +146,87 @@ def test_guards_against_shared_facets_and_broad_alternatives():
     assert vr.fit(dim, broad) == 2 / 3
     assert any("too broad" in p for p in vr.validate(dim, broad, min_fit=0.8))
     assert vr.validate(dim, broad, min_fit=0.5) == []
+
+
+# ------------------------------------------------------------------ wiring in consolidate_values and query output
+
+
+class SchemaModel:
+    """A chat model stand-in: with_structured_output(schema) picks the canned answer for that schema."""
+
+    def __init__(self, answers):
+        self.answers, self.calls, self._schema = answers, [], None
+
+    def with_structured_output(self, schema):
+        bound = SchemaModel(self.answers)
+        bound.calls, bound._schema = self.calls, schema
+        return bound
+
+    async def ainvoke(self, messages):
+        self.calls.append(self._schema.__name__)
+        return self.answers[self._schema.__name__]
+
+
+def _consolidate(monkeypatch, model, **config):
+    """consolidate_values on the provenance dimension, with consolidation and evidence linking stubbed out."""
+    from taxonomy_generator.nodes import value_consolidator as vc
+    from taxonomy_generator.state import State
+
+    dim = _provenance()
+
+    async def no_consolidation(state, configuration, reviewed):
+        return {"clusters": [reviewed], "explanations": ["consolidated"], "status": []}
+
+    async def linked(clusters, codes, embedding, min_similarity):
+        return clusters, {"codes": 1, "assigned": 1, "unassigned": 0, "documents": 1,
+                          "documents_with_evidence": 1, "linked": True}
+
+    monkeypatch.setattr(vc, "_consolidate_values", no_consolidation)
+    monkeypatch.setattr(vc, "link_evidence", linked)
+    monkeypatch.setattr(vc, "load_chat_model", lambda name: model)
+    state = State(clusters=[[dim]], open_codes=[{"doc_id": "s01_p01", "label": "x", "status": "accepted"}],
+                  documents=[{"id": "s01_p01", "content": "We log metrics."}])
+    cfg = {"configurable": {"mode": "train", "visualization_enabled": False, "merge_dimensions": False,
+                            "link_evidence": True, **config}}
+    return asyncio.run(vc.consolidate_values(state, cfg)), dim
+
+
+def test_consolidate_values_runs_recoding_by_default_and_logs_it(monkeypatch):
+    model = SchemaModel({"RecodingOutput": _proposal(_provenance())})
+    result, _ = _consolidate(monkeypatch, model, exclusivity_repair=False)
+    labels = {v["label"] for v in result["clusters"][0][0]["values"]}
+    assert {"Ad-hoc metric logging", "Experiment tracking", "Full lineage"} <= labels
+    assert [e["node"] for e in result["operation_log"]] == ["value_recoding"]
+    assert "Value recoding: 1 dimension(s) selected, 1 recoded" in result["explanations"][0]
+    assert model.calls == ["RecodingOutput"]
+
+
+def test_consolidate_values_logs_repair_then_recoding(monkeypatch):
+    model = SchemaModel({"ExclusivityRepairOutput": ExclusivityRepairOutput(actions=[], rationale="alternatives"),
+                         "RecodingOutput": RecodingOutput(keep=True, values=[], assignments=[], rationale="fine")})
+    result, _ = _consolidate(monkeypatch, model, exclusivity_repair=True)
+    assert [e["node"] for e in result["operation_log"]] == ["exclusivity_repair", "value_recoding"]
+    assert model.calls == ["ExclusivityRepairOutput", "RecodingOutput"]
+
+
+def test_consolidate_values_without_recoding_calls_no_model(monkeypatch):
+    model = SchemaModel({})                                   # any structured call would raise KeyError
+    result, dim = _consolidate(monkeypatch, model, exclusivity_repair=False, value_recoding=False)
+    assert model.calls == []
+    assert [v["label"] for v in result["clusters"][0][0]["values"]] == [v["label"] for v in dim["values"]]
+    assert "operation_log" not in result
+
+
+def test_query_exposes_exclusivity_and_includes():
+    from taxonomy_generator.wiki import query as q
+    dim = _provenance()
+    out, log, _ = _run([dim], [_proposal(dim)])
+    tax = {"taxonomy_name": "toy", "selected_clusters": out, "iterations": [{"clusters": out}],
+           "operation_log": [log], "run_metrics": {}}
+    graph = build(_inputs(taxonomy=tax, systems={}, corpus={})).graph
+    [d] = q.dims(graph)
+    assert d["exclusivity"] == 1.0
+    tracking = next(v for v in q.values(graph, d["id"])["values"] if v["label"] == "Experiment tracking")
+    assert tracking["includes"] == ["Metric recording", "Metadata store"]
+    plain = next(v for v in q.values(graph, d["id"])["values"] if v["label"] == "Manual notes")
+    assert "includes" not in plain
