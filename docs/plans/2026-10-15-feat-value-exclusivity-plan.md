@@ -158,3 +158,19 @@ as a measure: scoreboard row, loop feedback, wiki. The repair is off by default 
 Low exclusivity weakens the space's discriminative power (several values of a dimension coexist in one design);
 it is reported as a limitation of small corpora. Next: one C3 run with the new loop feedback (repair off) to see
 whether mining bundles less from the start.
+
+### C3 run with the loop feedback, repair off (2026-10-15, 1.43M tokens)
+
+Selected views, corrected measure; judged scores from the final scoreboard (one judge sample each).
+
+| Run | Dimensions | Candidates per dimension | Exclusivity (systems) | Exclusivity (sources) | One decision point | Axis vs. value | Orthogonality |
+|---|---|---|---|---|---|---|---|
+| 10-08 | 22 | 6.3 | 0.13 | 0.23 | 0.20 | 0.30 | 0.70 |
+| 10-10 | 31 | 4.5 | 0.40 | 0.38 | 0.30 | 0.20 | 0.70 |
+| 10-15 repair | 42 | 3.7 | 0.37 | 0.44 | 0.30 | 0.30 | 0.30 |
+| 10-15 loop feedback | 25 | 5.6 | 0.47 | 0.33 | 0.40 | 0.50 | 0.30 |
+
+In the loop, exclusivity stayed flat (0.35, 0.31, 0.33 at iterations 4, 6, 8). The loop feedback gives a more
+compact taxonomy with the best "one decision point" and "axis vs. value" scores, but no clear change in
+exclusivity: it is within run-to-run noise (one run per setting). Exclusivity stays a measure and a reported
+limitation; the loop feedback is kept (no cost beyond embeddings).
