@@ -121,3 +121,30 @@ should select few or no dimensions. C3 therefore verifies **safety and mechanics
 
 - Should a recoded dimension keep old values that no source adopts (only rejected)? Proposed: yes, unchanged.
 - Facet-aware matching changes the metric definition; the paper would report both numbers.
+
+## Results (2026-10-15, replays on saved runs)
+
+Guards as implemented: distinct facet sets per alternative (nested levels allowed), fit ≥ 0.5, ≥ 2 sources per new
+value, one retry. (A first guard, "a facet of its own per alternative", rejected exactly the nested levels recoding
+is for; replaced.)
+
+**C3** (loop-feedback run): guards on → no dimension eligible (no shared combinations), 9 flagged as likely cause
+(ii), nothing changed. Guards relaxed (control) → 4 of 20 recoded into broad per-system "styles" (fit 0.36,
+generality 0.32 → 0.30): what the guards prevent.
+
+**C1, C2**: replay of consolidation onward on the 10-02 runs, recoding off vs on; same code, matcher and ground
+truth (matching LLM `gpt-5.6-luna` from the study configs; the 10-02 matches used `gpt-5.4-mini` and an older
+ground-truth commit, so they are not comparable).
+
+| | Exclusivity | Generality | Values | Recoded | Option P | Option R | Option F1 | Exact R | Decision F1 |
+|---|---|---|---|---|---|---|---|---|---|
+| C1 off (paper view) | 0.45 | 0.84 | 117 | — | 0.52 | 0.65 | 0.58 | 0.14 | 0.67 |
+| C1 on | 0.65 | 0.87 | 107 | 8 of 13 | 0.58 | 0.70 | 0.63 | 0.07 | 0.67 |
+| C1 on, facet-aware match | | | | | 0.58 | 0.67 | 0.63 | 0.09 | 0.61 |
+| C2 off (paper view) | 0.70 | 0.71 | 56 | — | 0.40 | 0.46 | 0.43 | 0.07 | 0.53 |
+| C2 on | 0.87 | 0.76 | 52 | 5 of 8 | 0.44 | 0.58 | 0.50 | 0.05 | 0.53 |
+| C2 on, facet-aware match | | | | | 0.44 | 0.53 | 0.48 | 0.05 | 0.53 |
+
+Model view, option F1: C1 0.60 → 0.63, C2 0.45 → 0.54. Recoding raises exclusivity, generality, option precision
+and recall in both cases; exact-name recall drops (values are renamed as alternatives); decision F1 unchanged.
+Facet-aware matching does not help. One replay per setting; the matching LLM is the generator (not independent).
