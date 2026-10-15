@@ -100,7 +100,7 @@ Settings to look at first:
     splits, extracts a sub-decision, merges values or declares a hybrid for the dimensions whose
     sources adopt several values. The wiki shows each dimension's exclusivity and the values adopted
     together.
-  - `value_recoding` (off by default) and the `recoding_*` settings: after evidence linking, the values
+  - `value_recoding` (on by default) and the `recoding_*` settings: after evidence linking, the values
     of a low-exclusivity dimension are rewritten as alternative answers when several sources share
     their combination of values; the old values stay as facets (`includes`). `matcher.use_facets`
     lets the ground-truth matcher see the facets.

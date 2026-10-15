@@ -190,7 +190,7 @@ class TaxonomySettings:
     # kept as facets (includes). Only dimensions with exclusivity below recoding_min_exclusivity, at least
     # recoding_min_sources adopting sources and at least recoding_min_recurring of them on a combination
     # another source shares; every new value must be adopted by recoding_min_sources_per_value sources.
-    value_recoding: bool = False
+    value_recoding: bool = True
     recoding_min_exclusivity: float = 0.8
     recoding_min_sources: int = 3
     recoding_min_recurring: float = 0.3

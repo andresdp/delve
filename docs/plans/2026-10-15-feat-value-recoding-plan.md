@@ -1,7 +1,7 @@
 ---
 title: "feat: value recoding — redefine a dimension's values as exclusive alternatives (exclusivity cause i)"
 type: feat
-status: proposed (2026-10-15), not implemented; verification order C3, then C1 and C2
+status: implemented and on by default (2026-10-15, user decision after the C1–C3 replays)
 date: 2026-10-15
 related: >-
   docs/plans/2026-10-15-feat-value-exclusivity-plan.md (measure, results, E1–E5),
