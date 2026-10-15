@@ -168,3 +168,8 @@ Exclusivity and generality rise in every replay. Expert-option coverage: C2 impr
 recall. With the generator as matcher (`gpt-5.6-luna`) C1 looked +0.05: the non-independent matcher favoured the
 recoded values. Conclusion: recoding is a structural improvement (one value per dimension per source) that keeps
 expert-option coverage in C1 and raises it in C2.
+
+**Reproduce.** Replays: `python benchmark/replay_consolidation.py <run>_taxonomy_<ts>.json --config <study config>
+--set value_recoding=false|true --out <file>` (needs the run's open codes and documents); then
+`python main.py --match-gt <file> --gt benchmark/<case>/gt --config <study config> --matching-llm openai/gpt-5.4-mini`.
+Base runs: C1 `20261002_185546`, C2 `20261002_211657`, C3 `loopfeedback-20261015/…_20261015_113807`.

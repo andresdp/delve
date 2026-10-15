@@ -1,7 +1,7 @@
 ---
 title: "feat: value exclusivity — one value per dimension per system (measured, penalized, repaired); cap applied at selection"
 type: feat
-status: implemented 2026-10-15 (C3 run pending approval) (branch feat/value-exclusivity, from feat/ddspace-tool, 2026-10-15)
+status: implemented 2026-10-15 (branch feat/value-exclusivity); measure, loop feedback and cap at selection in use; the repair step is off by default, superseded by value recoding (2026-10-15-feat-value-recoding-plan.md)
 date: 2026-10-15
 related: >-
   src/taxonomy_generator/nodes/{value_consolidator,evidence_linker,dimension_selector,decision_focus}.py,
@@ -174,3 +174,7 @@ In the loop, exclusivity stayed flat (0.35, 0.31, 0.33 at iterations 4, 6, 8). T
 compact taxonomy with the best "one decision point" and "axis vs. value" scores, but no clear change in
 exclusivity: it is within run-to-run noise (one run per setting). Exclusivity stays a measure and a reported
 limitation; the loop feedback is kept (no cost beyond embeddings).
+
+**Reproduce.** Runs: `examples/c3-git-at-scale/exclusivity-20261015/` (repair on) and `loopfeedback-20261015/`
+(loop feedback, repair off); repair variants replayed with `benchmark/replay_consolidation.py … --set
+exclusivity_repair=true`. Exclusivity of any saved run: `taxonomy_exclusivity` in `evaluation/exclusivity.py`.
