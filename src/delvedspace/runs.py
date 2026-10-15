@@ -9,16 +9,18 @@ workspace ``.env`` and ``ddspace.yaml`` apply. ``run.json`` in the run folder re
 from __future__ import annotations
 
 import math
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 from delvedspace.workspace import Workspace, WorkspaceError, read_json, write_json
 
 RUN_FILE = "run.json"
+LOG_FILE = "pipeline.log"   # the pipeline's full output, when not shown with --verbose
 # Rough cost per passage, measured on the C3 sample (48 passages, critic on, batch 10):
 # 1.46M tokens and 22 minutes. Used only until the workspace has a run of its own.
 TOKENS_PER_PASSAGE = 30_000
@@ -113,9 +115,33 @@ def pipeline_command(argv: List[str]) -> List[str]:
     return [sys.executable, "-m", "taxonomy_generator.pipeline_cli", *argv]
 
 
-def run_pipeline(ws: Workspace, argv: List[str]) -> int:
-    """Run the pipeline in the workspace folder; return its exit code (output goes to the terminal)."""
-    return subprocess.run(pipeline_command(argv), cwd=ws.root).returncode
+def run_pipeline(ws: Workspace, argv: List[str], log_path: Optional[Path] = None,
+                 on_line: Optional[Callable[[str], None]] = None) -> int:
+    """Run the pipeline in the workspace folder; return its exit code.
+
+    Without ``log_path`` the output goes to the terminal. With it, the output is appended to that file
+    and each line is passed to ``on_line`` (for a compact progress display).
+    """
+    if log_path is None:
+        return subprocess.run(pipeline_command(argv), cwd=ws.root).returncode
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    with open(log_path, "a", encoding="utf-8") as log, subprocess.Popen(
+            pipeline_command(argv), cwd=ws.root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, encoding="utf-8", errors="replace") as proc:
+        for line in proc.stdout:
+            log.write(line)
+            if on_line:
+                on_line(line.rstrip("\n"))
+        return proc.wait()
+
+
+def log_tail(log_path: Path, lines: int = 25) -> str:
+    """Return the last ``lines`` non-empty lines of a run log."""
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    return "\n".join([line for line in text.splitlines() if line.strip()][-lines:])
 
 
 @dataclass

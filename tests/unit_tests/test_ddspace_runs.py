@@ -27,11 +27,21 @@ def _para(n: int, word: str = "replica") -> str:
 class FakePipeline:
     """Stands in for ``runs.run_pipeline``: records each call and writes a taxonomy JSON into --output."""
 
-    def __init__(self, code=0, metrics=None):
-        self.calls, self.code, self.metrics = [], code, metrics
+    OUTPUT = ["2026-10-14 10:00:00 [INFO] __main__: Loading corpus from file: corpus.json",
+              "🔬 Open coding minibatch 1", "🔄 Updating taxonomy", "Traceback-like noise line"]
 
-    def __call__(self, ws, argv):
+    def __init__(self, code=0, metrics=None):
+        self.calls, self.code, self.metrics, self.logged = [], code, metrics, []
+
+    def __call__(self, ws, argv, log_path=None, on_line=None):
         self.calls.append(argv)
+        self.logged.append(log_path)
+        if log_path is not None:
+            with open(log_path, "a") as log:
+                for line in self.OUTPUT:
+                    log.write(line + "\n")
+                    if on_line:
+                        on_line(line)
         if self.code == 0 and "--html-report" not in argv:
             out = ws.root / argv[argv.index("--output") + 1]
             data = {"iterations": [{"clusters": [{"id": "1", "name": "Replication", "values": [{}, {}]}]}],
@@ -216,3 +226,30 @@ def test_a_failed_run_keeps_no_corpus_snapshot(ws, monkeypatch):
     monkeypatch.setattr(runs, "run_pipeline", FakePipeline(code=1))
     assert _invoke("mine", "--yes").exit_code == 1
     assert not list(ws.runs_dir.glob(f"*/{runs.RUN_CORPUS}"))
+
+
+def test_mine_is_compact_by_default_and_logs_the_full_output(ws, fake):
+    result = _invoke("mine", "--yes")
+    assert result.exit_code == 0, result.output
+    run_dir = ws.root / _current(ws)
+    log = (run_dir / runs.LOG_FILE).read_text()
+    assert fake.logged[0] == run_dir / runs.LOG_FILE and "Open coding minibatch 1" in log
+    assert "Traceback-like noise line" not in result.output and "pipeline.log" in result.output
+
+
+def test_verbose_shows_the_pipeline_output(ws, fake):
+    assert _invoke("mine", "--yes", "--verbose").exit_code == 0
+    assert fake.logged == [None]
+
+
+def test_a_failed_compact_run_shows_the_end_of_its_log(ws, monkeypatch):
+    monkeypatch.setattr(runs, "run_pipeline", FakePipeline(code=1))
+    result = _invoke("mine", "--yes")
+    assert result.exit_code == 1 and "Traceback-like noise line" in result.output and "pipeline.log" in result.output
+
+
+def test_logged_pipeline_run_streams_lines(ws, tmp_path):
+    seen = []
+    log = tmp_path / "pipeline.log"
+    assert runs.run_pipeline(ws, ["--help"], log_path=log, on_line=seen.append) == 0
+    assert any("--corpus" in line for line in seen) and "--corpus" in log.read_text()

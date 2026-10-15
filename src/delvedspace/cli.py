@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, NoReturn, Optional
@@ -92,7 +93,13 @@ def _ask_settings(s: Settings, sources_count) -> Settings:
     console.print("\n[bold]Models[/bold] (provider/model; OpenAI by default)")
     s.generation_llm = Prompt.ask("  Generation LLM (builds the design space)", default=s.generation_llm)
     s.evaluation_llm = Prompt.ask("  Evaluation LLM (judges it)", default=s.evaluation_llm)
-    s.embedding = Prompt.ask("  Embedding model", default=s.embedding)
+    while True:
+        s.embedding = Prompt.ask("  Embedding model (openai/... or ollama/...; used to merge values and link "
+                                 "evidence)", default=s.embedding)
+        problem = wsmod.embedding_problem(s.embedding)
+        if not problem:
+            break
+        console.print(f"  [red]{problem}[/red]")
     s.sources_dir = Prompt.ask("\nSources folder (your downloaded files: .md .txt .html .pdf)", default=s.sources_dir)
     console.print(f"  {sources_count(s.sources_dir)} source file(s) there now.")
     while True:
@@ -138,12 +145,21 @@ def init(
     max_dimensions: Optional[int] = typer.Option(None, "--max-dimensions", help="Cap on dimensions (0 = none)."),
     batch_size: Optional[int] = typer.Option(None, "--batch-size", help="Passages per update step."),
     critic: Optional[bool] = typer.Option(None, "--critic/--no-critic", help="Run the critic during mining."),
+    from_config: Optional[Path] = typer.Option(None, "--from-config", help="Take the use case, models, dimension "
+                                               "cap and batch size from an existing pipeline config (YAML)."),
 ) -> None:
     """Create a workspace: folders, a commented [bold]ddspace.yaml[/bold] and a .gitignore."""
     root = directory.resolve()
     if (root / CONFIG_NAME).exists() and not force:
         fail(f"{root / CONFIG_NAME} already exists (use --force to overwrite it).")
-    s = Settings(name=name or root.name, use_case=use_case or DEFAULT_USE_CASE)
+    s = Settings(name=name or root.name, use_case=DEFAULT_USE_CASE)
+    if from_config is not None:
+        try:
+            s = wsmod.settings_from_config(from_config, s)
+        except WorkspaceError as exc:
+            fail(str(exc))
+    if use_case:
+        s.use_case = use_case
     for attr, value in (("generation_llm", generation_llm), ("evaluation_llm", evaluation_llm),
                         ("embedding", embedding), ("sources_dir", sources_dir), ("batch_size", batch_size),
                         ("critic", critic)):
@@ -154,6 +170,8 @@ def init(
     ask = interactive(yes)
     if ask:
         s = _ask_settings(s, lambda d: len(wsmod.source_files(root / d)))
+    if wsmod.embedding_problem(s.embedding):
+        fail(wsmod.embedding_problem(s.embedding))
     ws = wsmod.create(root, s)
     _check_api_keys(ws, s, ask)
     n = len(wsmod.source_files(ws.root / s.sources_dir))
@@ -172,9 +190,20 @@ def init(
 
 
 @app.command("sources")
-def sources_cmd() -> None:
+def sources_cmd(
+    from_json: Optional[Path] = typer.Option(None, "--from-json", help="Import a JSON corpus (a list of texts, or "
+                                             "of objects with 'content', or {'documents': [...]}) as one source "
+                                             "file per document, then scan."),
+) -> None:
     """Extract the text of every source file, draft or update [bold]sources.csv[/bold] and flag problems."""
     ws = current_workspace()
+    if from_json is not None:
+        try:
+            written = src.import_json(ws, from_json)
+        except (OSError, ValueError) as exc:
+            fail(f"Cannot import {from_json}: {exc}")
+        console.print(f"Imported {len(written)} document(s) from {from_json.name} into "
+                      f"{ws.sources_dir.relative_to(ws.root)}/ (one file each).")
     if not ws.sources_dir.is_dir():
         fail(f"The sources folder {ws.sources_dir} does not exist.")
     with console.status("Extracting text..."):
@@ -239,8 +268,35 @@ def _confirm_run(ws: Workspace, title: str, lines: List[str], passages: int, yes
     return not interactive(yes) or Confirm.ask("Start?", default=True)
 
 
+# Pipeline steps shown in the compact progress line (the pipeline prints these labels as it goes).
+PIPELINE_STEPS = ("Loading corpus", "Generating summaries", "Creating minibatches", "Open coding minibatch",
+                  "Generating initial taxonomy", "Updating taxonomy", "Checking saturation", "Reviewing taxonomy",
+                  "Consolidating dimensions and values", "Selecting dimensions", "Labeling documents",
+                  "Evaluating final taxonomy", "Evaluating taxonomy", "Aggregating new values", "Saving results")
+
+
+def _run_compact(ws: Workspace, argv: List[str], log_path: Path, title: str) -> int:
+    """Run the pipeline with one live status line (current step, elapsed time); the full output goes to the log."""
+    started = time.monotonic()
+    state = {"step": "Starting", "updates": 0}
+
+    def show(status) -> None:
+        elapsed = int(time.monotonic() - started)
+        status.update(f"{title}: {state['step']} [dim]({elapsed // 60}:{elapsed % 60:02d}; "
+                      f"log: {runs.relative(ws, log_path)})[/dim]")
+
+    with console.status(f"{title}: Starting") as status:
+        def on_line(line: str) -> None:
+            step = next((s for s in PIPELINE_STEPS if s.lower() in line.lower()), None)
+            if step:
+                state["step"] = step + (f" {state['updates'] + 1}" if step == "Updating taxonomy" else "")
+                state["updates"] += step == "Updating taxonomy"
+            show(status)
+        return runs.run_pipeline(ws, argv, log_path=log_path, on_line=on_line)
+
+
 def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: List[str],
-             html_report: bool) -> None:
+             html_report: bool, verbose: bool = False) -> None:
     """Run the pipeline for ``run``, record the outcome and make a successful run current.
 
     The workspace corpus is read before the pipeline starts and saved in the run folder once the run succeeds,
@@ -250,8 +306,10 @@ def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: L
     run.argv = ["--corpus", runs.relative(ws, corpus), "--config", wsmod.CONFIG_NAME,
                 "--output", runs.relative(ws, run_dir), *extra]
     runs.save(run_dir, run)
+    log_path = run_dir / runs.LOG_FILE
     try:
-        code = runs.run_pipeline(ws, run.argv)
+        code = (runs.run_pipeline(ws, run.argv) if verbose
+                else _run_compact(ws, run.argv, log_path, f"Mining ({run.kind})"))
     except KeyboardInterrupt:
         code = 130
     taxonomy = runs.find_taxonomy(run_dir)
@@ -260,14 +318,21 @@ def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: L
     run.taxonomy = taxonomy.name if taxonomy else None
     runs.save(run_dir, run)
     if run.status != "ok":
+        if not verbose and log_path.is_file():
+            console.print(Panel(runs.log_tail(log_path), title=f"Last lines of {runs.relative(ws, log_path)}",
+                                expand=False))
         fail(f"The run failed (exit code {code}); its folder {runs.relative(ws, run_dir)} is kept for inspection. "
              "The current design space is unchanged.")
     if covered is not None:
         (run_dir / runs.RUN_CORPUS).write_bytes(covered)
     ws.set("workspace.current_run", runs.relative(ws, run_dir))
     if html_report or (ws.config().get("wiki") or {}).get("html_report"):
-        runs.run_pipeline(ws, ["--html-report", runs.relative(ws, taxonomy), "--config", wsmod.CONFIG_NAME,
-                               "--output", runs.relative(ws, run_dir)])
+        report_argv = ["--html-report", runs.relative(ws, taxonomy), "--config", wsmod.CONFIG_NAME,
+                       "--output", runs.relative(ws, run_dir)]
+        if verbose:
+            runs.run_pipeline(ws, report_argv)
+        else:
+            _run_compact(ws, report_argv, log_path, "HTML report")
     data = wsmod.read_json(taxonomy)
     dims = wb.selected_dims(data)
     metrics = data.get("run_metrics") or {}
@@ -277,7 +342,8 @@ def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: L
         f"{len(dims)} dimensions, {sum(len(d.get('values') or []) for d in dims)} values"
         + (f"; {metrics.get('total_tokens', 0):,} tokens, {_format_duration(metrics.get('elapsed_seconds', 0))}"
            if metrics else "")
-        + f"\nFiles: {runs.relative(ws, run_dir)}/\n\nNext: [bold]ddspace wiki build[/bold]",
+        + f"\nFiles: {runs.relative(ws, run_dir)}/" + ("" if verbose else f" (full output: {runs.LOG_FILE})")
+        + "\n\nNext: [bold]ddspace wiki build[/bold]",
         title="Done", expand=False))
 
 
@@ -308,6 +374,7 @@ def mine(
     fresh: bool = typer.Option(False, "--fresh", help="Mine from scratch even when a design space exists."),
     max_dimensions: Optional[int] = typer.Option(None, "--max-dimensions", help="Override taxonomy.max_num_clusters (0 = none)."),
     html_report: bool = typer.Option(False, "--html-report", help="Also write the pipeline's HTML report (about 7 MB)."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show the pipeline's full output (default: one progress line; the output goes to the run's pipeline.log)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Start without asking."),
 ) -> None:
     """Generate the design space from the corpus (a new run under [bold]runs/[/bold])."""
@@ -327,7 +394,7 @@ def mine(
     run = runs.Run(id=run_dir.name, kind="mine", started_at=datetime.now().isoformat(timespec="seconds"),
                    source_ids=src.corpus_source_ids(corpus), passages=len(corpus))
     extra = ["-k", str(max_dimensions)] if max_dimensions is not None else []
-    _execute(ws, run, run_dir, ws.corpus_path, extra, html_report)
+    _execute(ws, run, run_dir, ws.corpus_path, extra, html_report, verbose)
 
 
 def _import_sources(ws: Workspace, files: List[Path]) -> None:
@@ -351,6 +418,7 @@ def update(
     test: bool = typer.Option(False, "--test", help="Test mode: dimensions frozen; new sources only add values."),
     new_sources: Optional[List[Path]] = typer.Option(None, "--sources", help="Test mode: new source files to add (copied into the sources folder)."),
     html_report: bool = typer.Option(False, "--html-report", help="Also write the pipeline's HTML report."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show the pipeline's full output (default: one progress line; the output goes to the run's pipeline.log)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Start without asking."),
 ) -> None:
     """Update the current design space: with your [bold]--feedback[/bold], or with new sources in [bold]--test[/bold] mode."""
@@ -382,7 +450,7 @@ def update(
         run = runs.Run(id=run_dir.name, kind="update-feedback", started_at=started, seed_run=seed_dir.name,
                        feedback=text.strip(), passages=len(corpus), source_ids=src.corpus_source_ids(corpus))
         _execute(ws, run, run_dir, ws.corpus_path, ["--taxonomy", runs.relative(ws, seed), "--feedback", text.strip()],
-                 html_report)
+                 html_report, verbose)
         return
 
     if new_sources:
@@ -405,7 +473,7 @@ def update(
     runs.write_corpus(new_corpus, added)
     run = runs.Run(id=run_dir.name, kind="update-test", started_at=started, seed_run=seed_dir.name,
                    source_ids=sorted(covered | set(new_ids)), new_source_ids=new_ids, passages=len(added))
-    _execute(ws, run, run_dir, new_corpus, ["--taxonomy", runs.relative(ws, seed), "--mode", "test"], html_report)
+    _execute(ws, run, run_dir, new_corpus, ["--taxonomy", runs.relative(ws, seed), "--mode", "test"], html_report, verbose)
 
 
 # ---------------------------------------------------------------- agent setup

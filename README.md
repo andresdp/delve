@@ -149,6 +149,7 @@ from the environment; everything else is configured in YAML.
 ## Quick start: the `ddspace` command
 
 `ddspace` works in a *workspace*: a folder with your source files, the settings, the runs and the wiki.
+To try it on a small included example first, follow [QUICKSTART.md](QUICKSTART.md).
 It never downloads anything; you put the sources (`.md`, `.txt`, `.html` saved from a browser, `.pdf`) in
 `sources/` yourself.
 

@@ -274,3 +274,57 @@ def test_failed_pdftotext_falls_back_to_pypdf(tmp_path, monkeypatch):
     monkeypatch.setattr(ex.shutil, "which", lambda name: "/usr/bin/pdftotext")
     monkeypatch.setattr(ex.subprocess, "run", lambda *a, **k: type("R", (), {"returncode": 1, "stdout": ""})())
     assert "consensus" in ex.extract_pdf(path)
+
+
+def test_init_rejects_an_embedding_provider_the_pipeline_cannot_load(tmp_path):
+    result = _invoke("init", str(tmp_path / "w"), "--yes", "--embedding", "anthropic/some-model")
+    assert result.exit_code == 1 and "openai/" in result.output
+    assert not (tmp_path / "w" / "ddspace.yaml").exists()
+
+
+def test_default_embeddings_are_openai(ws):
+    assert ws.config()["models"]["embedding"] == "openai/text-embedding-3-small"
+
+
+def test_init_from_config_takes_the_use_case_models_and_size(tmp_path):
+    cfg = tmp_path / "example.yaml"
+    cfg.write_text("models:\n  generation_llm: openai/gpt-x\n  embedding: openai/text-embedding-3-large\n"
+                   "pipeline:\n  batch_size: 8\ntaxonomy:\n  max_num_clusters: 7\n  use_case: >-\n"
+                   "    Classify bike-sharing\n    decisions.\nevaluation:\n  enabled: false\n")
+    result = _invoke("init", str(tmp_path / "w"), "--yes", "--from-config", str(cfg))
+    assert result.exit_code == 0, result.output
+    c = Workspace(tmp_path / "w").config()
+    assert c["taxonomy"]["use_case"] == "Classify bike-sharing decisions."
+    assert c["taxonomy"]["max_num_clusters"] == 7 and c["pipeline"]["batch_size"] == 8
+    assert c["models"]["generation_llm"] == "openai/gpt-x" and c["evaluation"]["enabled"] is False
+    assert c["models"]["embedding"] == "openai/text-embedding-3-large"
+
+
+def test_init_from_a_missing_config_explains(tmp_path):
+    result = _invoke("init", str(tmp_path / "w"), "--yes", "--from-config", str(tmp_path / "nope.yaml"))
+    assert result.exit_code == 1 and "Cannot read" in result.output
+
+
+@pytest.mark.parametrize("data", [
+    ["Use an API gateway. It routes requests.", "Store events in Kafka."],
+    [{"content": "Use an API gateway. It routes requests."}, {"content": "Store events in Kafka.", "title": "Kafka"}],
+    {"taxonomy_name": "x", "documents": [{"id": "u1", "content": "Use an API gateway. It routes requests."},
+                                         {"id": "u2", "content": "Store events in Kafka."}]},
+])
+def test_sources_from_json_writes_one_file_per_document(ws, data):
+    corpus = ws.root / "decisions.json"
+    corpus.write_text(json.dumps(data))
+    result = _invoke("sources", "--from-json", str(corpus))
+    assert result.exit_code == 0, result.output
+    found = src.load_manifest(ws)
+    assert [s.file for s in found] == ["decisions-01.md", "decisions-02.md"]
+    assert found[0].title == "Use an API gateway" and all(src.usable(s) for s in found)
+    assert _invoke("sources", "--from-json", str(corpus)).exit_code == 0     # importing again adds nothing
+    assert len(src.load_manifest(ws)) == 2
+
+
+def test_sources_from_bad_json_explains(ws):
+    bad = ws.root / "bad.json"
+    bad.write_text('{"documents": []}')
+    result = _invoke("sources", "--from-json", str(bad))
+    assert result.exit_code == 1 and "Cannot import" in result.output

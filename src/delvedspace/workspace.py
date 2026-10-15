@@ -60,6 +60,27 @@ class Settings:
     critic: bool = True
 
 
+def settings_from_config(path: Path, settings: Settings) -> Settings:
+    """Fill ``settings`` from an existing pipeline config (use case, models, dimension cap, batch size)."""
+    try:
+        cfg = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        raise WorkspaceError(f"Cannot read {path}: {exc}") from exc
+    models, tx, pl = cfg.get("models") or {}, cfg.get("taxonomy") or {}, cfg.get("pipeline") or {}
+    if tx.get("use_case"):
+        settings.use_case = " ".join(str(tx["use_case"]).split())
+    for key in ("generation_llm", "evaluation_llm", "embedding"):
+        if models.get(key):
+            setattr(settings, key, str(models[key]))
+    if "max_num_clusters" in tx:
+        settings.max_dimensions = tx["max_num_clusters"] or None
+    if pl.get("batch_size"):
+        settings.batch_size = int(pl["batch_size"])
+    if "enabled" in (cfg.get("evaluation") or {}):
+        settings.critic = bool(cfg["evaluation"]["enabled"])
+    return settings
+
+
 def _scalar(value: Any) -> str:
     """Render a value as a one-line YAML scalar (strings double-quoted)."""
     if value is None:
@@ -207,6 +228,18 @@ def read_json(path: Path, default: Any = None) -> Any:
 def write_json(path: Path, data: Any) -> None:
     """Write ``data`` as indented UTF-8 JSON with a final newline."""
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+EMBEDDING_PROVIDERS = ("openai", "ollama")  # what taxonomy_generator.utils.load_embeddings_model supports
+
+
+def embedding_problem(model: str) -> Optional[str]:
+    """Return why an embedding model setting cannot work, or None when it can."""
+    provider = model.split("/", 1)[0].lower() if "/" in model else ""
+    if provider not in EMBEDDING_PROVIDERS:
+        return (f"embedding model {model!r}: use openai/<model> (e.g. openai/text-embedding-3-small) or "
+                "ollama/<model>; the design space needs embeddings to merge values and link evidence")
+    return None
 
 
 def provider_key(model: str) -> Optional[str]:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import json
 import re
 from dataclasses import asdict, dataclass, field
 from html import unescape
@@ -203,3 +204,36 @@ def append_to_corpus(ws: Workspace, passages: List[dict]) -> None:
 def corpus_source_ids(corpus: List[dict]) -> List[str]:
     """Return the ids of the sources that have passages in ``corpus``."""
     return sorted({p.get("source_id") for p in corpus if p.get("source_id")})
+
+
+def import_json(ws: Workspace, path: Path) -> List[Path]:
+    """Write each document of a JSON corpus as a Markdown source file (``<corpus>-NN.md``); return the files.
+
+    Accepts a list of strings, a list of objects with ``content`` (and optionally ``title``), or an object
+    with such a list under ``documents`` (the pipeline's documents output). Existing files are not overwritten.
+    """
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    docs = data.get("documents") if isinstance(data, dict) else data
+    if not isinstance(docs, list) or not docs:
+        raise ValueError("expected a non-empty list of documents")
+    stem = re.sub(r"[^a-z0-9]+", "-", Path(path).stem.lower()).strip("-") or "doc"
+    ws.sources_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for n, doc in enumerate(docs, start=1):
+        content = doc if isinstance(doc, str) else (doc.get("content") if isinstance(doc, dict) else None)
+        if not content or not str(content).strip():
+            continue
+        text = " ".join(str(content).split())
+        title = (doc.get("title") if isinstance(doc, dict) else None) or _short_title(text)
+        target = ws.sources_dir / f"{stem}-{n:02d}.md"
+        if not target.exists():
+            target.write_text(f"# {title}\n\n{text}\n", encoding="utf-8")
+        written.append(target)
+    return written
+
+
+def _short_title(text: str, words: int = 10) -> str:
+    """Return the first sentence of ``text``, cut to ``words`` words."""
+    first = re.split(r"(?<=[.!?])\s", text, maxsplit=1)[0]
+    parts = first.split()
+    return " ".join(parts[:words]).rstrip(".,;:") + ("..." if len(parts) > words else "")
