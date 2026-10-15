@@ -173,6 +173,17 @@ class TaxonomySettings:
     # most relations stored on one dimension (None = no cap). Extra relations are rejected.
     relation_types: Tuple[str, ...] = DEFAULT_RELATION_TYPES
     max_relations_per_dimension: Optional[int] = 3
+    # Where max_num_clusters applies (CAP_STAGES): "selection" mines without a cap and keeps the
+    # top-k dimensions at selection (the others are dropped, recorded); "generation" gives the cap
+    # to the generation, update and review prompts (the earlier behaviour).
+    cap_stage: str = "selection"
+    # Exclusivity repair after evidence linking: a dimension whose sources adopt several of its
+    # values (exclusivity below exclusivity_min, with at least exclusivity_min_units adopting
+    # sources) is sent to the LLM to split it, extract a sub-decision, merge values that are one
+    # option, or declare a hybrid (evaluation/exclusivity.py).
+    exclusivity_repair: bool = True
+    exclusivity_min: float = 0.8
+    exclusivity_min_units: int = 2
 
 
 @dataclass(frozen=True)
@@ -214,6 +225,7 @@ class OpenCodingSettings:
 
 OPEN_CODING_INPUTS = ("summary", "content")
 EDIT_MODES = ("rewrite", "rewrite_restore", "tools")
+CAP_STAGES = ("selection", "generation")
 
 
 @dataclass(frozen=True)
@@ -284,6 +296,9 @@ class EvaluationSettings:
     # Score the loop's drafts every N iterations (1 = every iteration). The
     # draft of the last minibatch and the final view are always scored.
     every_n_iterations: int = 1
+    # Add the deterministic "Value exclusivity" row (each source adopts one value per dimension)
+    # to every scoreboard: it counts in the overall score and is fed back like the judged rows.
+    exclusivity: bool = True
 
 
 @dataclass(frozen=True)
@@ -426,7 +441,17 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
                                       or max_relations < 1):
         raise ValueError(f"taxonomy.max_relations_per_dimension must be a positive integer or null, "
                          f"got {max_relations!r}")
+    cap_stage = raw.get("cap_stage", TaxonomySettings.cap_stage)
+    if cap_stage not in CAP_STAGES:
+        raise ValueError(f"taxonomy.cap_stage must be one of {CAP_STAGES}, got {cap_stage!r}")
+    exclusivity_min = raw.get("exclusivity_min", TaxonomySettings.exclusivity_min)
+    if isinstance(exclusivity_min, bool) or not isinstance(exclusivity_min, (int, float)) or not 0 <= exclusivity_min <= 1:
+        raise ValueError(f"taxonomy.exclusivity_min must be a number from 0 to 1, got {exclusivity_min!r}")
     return TaxonomySettings(
+        cap_stage=cap_stage,
+        exclusivity_repair=bool(raw.get("exclusivity_repair", TaxonomySettings.exclusivity_repair)),
+        exclusivity_min=float(exclusivity_min),
+        exclusivity_min_units=int(raw.get("exclusivity_min_units", TaxonomySettings.exclusivity_min_units)),
         relation_types=tuple(relation_types),
         max_relations_per_dimension=max_relations,
         edit_mode=edit_mode,
@@ -525,6 +550,7 @@ def _build_evaluation(raw: dict) -> EvaluationSettings:
         save_history=raw.get("save_history", EvaluationSettings.save_history),
         feedback_exclude=tuple(raw.get("feedback_exclude", EvaluationSettings.feedback_exclude) or ()),
         every_n_iterations=raw.get("every_n_iterations", EvaluationSettings.every_n_iterations),
+        exclusivity=bool(raw.get("exclusivity", EvaluationSettings.exclusivity)),
     )
 
 

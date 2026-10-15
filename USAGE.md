@@ -89,8 +89,17 @@ Settings to look at first:
 - **`taxonomy.use_case`**: what the design space is for, e.g. *"Identify the architectural design
   decisions practitioners face when … For each decision, identify the alternative options …"*. It
   steers coding, selection and evaluation.
-- **`taxonomy.max_num_clusters`**: prefer `null`. A hard cap forces broad topics that bundle several
-  decision points.
+- **`taxonomy.max_num_clusters`**: `null` = no cap. With `cap_stage: selection` (the default) the run
+  mines without a cap and keeps the top-k decision points at selection; `cap_stage: generation` gives the
+  cap to the prompts instead, which forces broad topics that bundle several decision points.
+- **One value per dimension per system:** the values of a dimension are alternatives, so each source
+  (system) should adopt one of them.
+  - `evaluation.exclusivity`: the computed *Value exclusivity* row on every scoreboard (a penalty fed
+    back to the update loop);
+  - `exclusivity_repair`, `exclusivity_min`, `exclusivity_min_units`: after evidence linking, the LLM
+    splits, extracts a sub-decision, merges values or declares a hybrid for the dimensions whose
+    sources adopt several values. The wiki shows each dimension's exclusivity and the values adopted
+    together.
 - **Saturation:**
   - `saturation_streak_threshold`: saturated minibatches in a row needed to stop;
   - `saturation_min_coverage`: share of a minibatch's codes that must be covered to count as

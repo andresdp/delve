@@ -706,7 +706,7 @@ def taxonomy_prompt_inputs(state: State, configuration: Configuration, mb_indice
     else:
         data_json = format_docs(minibatch)
     # When max_num_clusters is None, let the LLM determine the count from data
-    max_clusters_value = configuration.max_num_clusters
+    max_clusters_value = configuration.generation_cap
     max_clusters_str = (
         str(max_clusters_value) if max_clusters_value is not None
         else "unlimited — determine the number of dimensions based on what the data naturally supports. Prefer fewer, high-quality dimensions (typically 3–8) over many narrow ones. Only add a dimension when it captures a genuinely orthogonal axis of variation that cannot be merged into an existing one."

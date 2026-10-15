@@ -129,7 +129,11 @@ def _add_edit_record(taxonomy_data: dict, edit_mode: Optional[str], operation_lo
 
 
 def _operation_log_line(entry: dict) -> str:
-    """One-line summary of an operation-log entry (tools or rewrite_restore mode)."""
+    """One-line summary of an operation-log entry (tools or rewrite_restore mode, exclusivity repair)."""
+    if entry.get("node") == "exclusivity_repair":
+        fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+        return (f"exclusivity {fmt(entry.get('before'))} -> {fmt(entry.get('after'))}: "
+                f"{len(entry.get('operations') or [])} repairs applied, {len(entry.get('rejected') or [])} rejected")
     if entry.get("edit_mode") == "rewrite_restore":
         return f"restored {len(entry.get('restored') or [])} dropped evidence-backed values"
     line = (f"{len(entry.get('operations') or [])} operations applied, {len(entry.get('rejected') or [])} rejected, "
@@ -1358,7 +1362,8 @@ async def run(args: argparse.Namespace) -> None:
 
     # Show model info (always visible, even in quiet mode)
     taxonomy_name = effective_config.name
-    max_dims_str = str(effective_config.max_num_clusters) if effective_config.max_num_clusters else "unlimited (LLM decides)"
+    max_dims_str = (f"{effective_config.max_num_clusters} (applied at {'generation' if effective_config.generation_cap else 'selection'})"
+                    if effective_config.max_num_clusters else "unlimited (LLM decides)")
     seed_info = ""
     if taxonomy_input:
         seed_dimensions = "unknown"

@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
+from taxonomy_generator.evaluation.exclusivity import adopting_docs, dimension_exclusivity, unit_from_system_map
 from taxonomy_generator.relations import (
     RELATION_KINDS,
     display_type,
@@ -212,6 +213,11 @@ class _Builder:
         tax = inp.taxonomy
         self.dims = [d for d in view_dimensions(tax, inp.view) if isinstance(d, dict)]
         self.dim_by_id = {str(d.get("id")): d for d in self.dims}
+        # Exclusivity: does each system (with a passage -> system map) or else each source adopt one value
+        # per dimension? Works without a system map (sources stand in for systems).
+        self.unit_kind = "system" if inp.systems else "source"
+        unit = unit_from_system_map(inp.systems) if inp.systems else source_of
+        self.exclusivity = {str(d.get("id")): dimension_exclusivity(d, unit) for d in self.dims}
         self.pages: List[Page] = []
         self.nodes: List[Dict[str, Any]] = []
         self.edges: List[Dict[str, Any]] = []
@@ -368,6 +374,9 @@ class _Builder:
               "relations": [f"{display_type(r.get('type'))} "
                             f"{link(self.dim_path[t], self.dim_by_id[t].get('name'))}" for r, t in rel_out],
               "tags": ["dimension"] + (["core"] if self.is_core(d) else [])}
+        ex = self.exclusivity[did]
+        if ex["score"] is not None:
+            fm["exclusivity"] = round(ex["score"], 2)
         if self.inp.systems:
             fm["systems"] = [link(self.system_path[s], self.system_title(s)) for s in self.dim_systems(d)]
         lines = [f"# {d.get('name')}", "", d.get("description") or "", ""]
@@ -389,6 +398,7 @@ class _Builder:
                 for o, r in rel_in:
                     sentence = relation_sentence(r, link(self.dim_path[str(o.get("id"))], o.get("name")), "this dimension")
                     lines.append(f"- {_capital(sentence)}" + (f". *{r.get('rationale')}*" if r.get("rationale") else ""))
+        lines += self.exclusivity_lines(did)
         lines += ["", "## Evidence", "",
                   f"{ev.get('codes', '?')} open codes from {ev.get('documents', '?')} passages in {ev.get('sources', '?')} sources."]
         support = f"{ev.get('sources', 0)} source{'s' if ev.get('sources', 0) != 1 else ''}"
@@ -398,6 +408,41 @@ class _Builder:
         lines += ["", f"**Core dimension:** {'yes ★' if self.is_core(d) else 'no'} ({support}; "
                       f"core = {self.core_rule_short()})."]
         self.add(self.dim_path[did], d.get("name") or f"Dimension {did}", "dimension", fm, "\n".join(lines))
+
+    def unit_link(self, unit: str) -> str:
+        if self.unit_kind == "system":
+            return link(self.system_path[unit], self.system_title(unit)) if unit in self.system_path else unit
+        return link(self.source_path[unit], unit) if unit in self.source_path else unit
+
+    def value_link(self, vid: str) -> str:
+        v = next((v for d in self.dims for v in d.get("values") or [] if str(v.get("id")) == vid), None)
+        return link(self.value_path[vid], v.get("label")) if v and vid in self.value_path else vid
+
+    def exclusivity_lines(self, did: str) -> List[str]:
+        """The dimension page's exclusivity section: one value per system (or source), and the exceptions."""
+        ex = self.exclusivity[did]
+        if ex["score"] is None:
+            return []
+        units = f"{self.unit_kind}{'s' if ex['units'] != 1 else ''}"
+        lines = ["", "## Exclusivity", "",
+                 f"The values of a dimension are alternatives, so each {self.unit_kind} should adopt one of them. "
+                 f"**{ex['exclusive_units']} of {ex['units']} {units}** adopt one value (or a declared hybrid): "
+                 f"exclusivity {ex['score']:.2f}."]
+        if ex["pairs"]:
+            lines += ["", "Values adopted together:", ""]
+            for pair in ex["pairs"][:5]:
+                lines.append(f"- {self.value_link(pair['values'][0])} and {self.value_link(pair['values'][1])}: "
+                             + ", ".join(self.unit_link(u) for u in pair["units"]))
+            if len(ex["pairs"]) > 5:
+                lines.append(f"- {len(ex['pairs']) - 5} more pair(s)")
+        hybrids = self.dim_by_id[did].get("hybrids") or []
+        if hybrids:
+            lines += ["", "Declared hybrids (values systems deliberately combine):", ""]
+            for h in hybrids:
+                ids = [str(i) for i in (h.get("value_ids") if isinstance(h, Mapping) else h) or []]
+                why = f": *{h.get('reason')}*" if isinstance(h, Mapping) and h.get("reason") else ""
+                lines.append("- " + " + ".join(self.value_link(i) for i in ids) + why)
+        return lines
 
     def value_page(self, d: Mapping[str, Any], v: Mapping[str, Any]) -> None:
         vid, did = str(v.get("id")), str(d.get("id"))
@@ -453,6 +498,15 @@ class _Builder:
         for d, v, stance, n in sorted(uses, key=lambda u: (u[0].get("name", ""), u[1].get("label", ""))):
             lines.append(f"| {cell(link(self.dim_path[str(d.get('id'))], d.get('name')))} | "
                          f"{cell(link(self.value_path[str(v.get('id'))], v.get('label')))} | {stance} | {n} |")
+        several = [d for d in self.dims
+                   if len({str(v.get("id")) for v in d.get("values") or []
+                           if any(source_of(doc) == sid for doc in adopting_docs(v))}) > 1]
+        if several:
+            fm["dimensions_with_several_values"] = len(several)
+            lines += ["", "## Several values in one dimension", "",
+                      "The source adopts more than one value of these dimensions; values of a dimension should be "
+                      "alternatives:", ""]
+            lines += [f"- {link(self.dim_path[str(d.get('id'))], d.get('name'))}" for d in several]
         self.add(self.source_path[sid], title, "source", fm, "\n".join(lines))
 
     def run_summary(self) -> List[str]:
@@ -582,16 +636,22 @@ class _Builder:
             lines.append(f"- {label} ({link(self.dim_path[str(d.get('id'))], d.get('name'))})")
         self.add("synthesis/dropped", "Dropped and unsupported", "synthesis", {"tags": ["synthesis"]}, "\n".join(lines))
 
-    def system_support(self, code: str) -> Dict[str, List[Tuple[Mapping, int]]]:
+    def system_support(self, code: str, rejected: bool = False) -> Dict[str, List[Tuple[Mapping, int]]]:
+        """Values the system's passages adopt (accepted stance), or with ``rejected`` the ones they reject."""
         out: Dict[str, List[Tuple[Mapping, int]]] = defaultdict(list)
         for d in self.dims:
             for v in d.get("values") or []:
                 if v.get("status") not in CANDIDATE_STATUSES:
                     continue
-                n = sum(self.primary_system(doc) == code for doc in v.get("supporting_doc_ids") or [])
+                docs = ((v.get("stances") or {}).get("rejected") or []) if rejected else adopting_docs(v)
+                n = sum(self.primary_system(str(doc)) == code for doc in docs)
                 if n:
                     out[str(d.get("id"))].append((v, n))
         return out
+
+    def several_mark(self, did: str, code: str, n: int) -> str:
+        """`` ⚠`` when a system adopts several values of a dimension that are not a declared hybrid."""
+        return " ⚠" if n > 1 and code in self.exclusivity[did]["conflicts"] else ""
 
     def system_page(self, code: str, points: Sequence[Mapping[str, Any]]) -> None:
         info = self.inp.system_names.get(code) or {}
@@ -602,12 +662,17 @@ class _Builder:
         lines = [f"# {title}", ""]
         if info.get("description"):
             lines += [info["description"], ""]
-        lines += [f"Values supported by passages whose primary system is `{code}` (passage → system map).", "",
-                  "| Dimension | Values (passages) |", "|---|---|"]
-        for did in sorted(support, key=lambda i: self.dim_by_id[i].get("name", "")):
-            opts = items([f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})"
-                          for v, n in sorted(support[did], key=lambda x: (-x[1], x[0].get("label", "")))])
-            lines.append(f"| {cell(link(self.dim_path[did], self.dim_by_id[did].get('name')))} | {cell(opts)} |")
+        rejected = self.system_support(code, rejected=True)
+        lines += [f"Values adopted by passages whose primary system is `{code}` (passage → system map), and the "
+                  "alternatives they considered and rejected. ⚠ marks a dimension where the system adopts several "
+                  "values: values of a dimension should be alternatives.", "",
+                  "| Dimension | Adopted (passages) | Considered and rejected |", "|---|---|---|"]
+        for did in sorted(set(support) | set(rejected), key=lambda i: self.dim_by_id[i].get("name", "")):
+            fmt = lambda found: items([f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})"  # noqa: E731
+                                       for v, n in sorted(found, key=lambda x: (-x[1], x[0].get("label", "")))])
+            mark = self.several_mark(did, code, len(support.get(did, [])))
+            lines.append(f"| {cell(link(self.dim_path[did], self.dim_by_id[did].get('name')))}{mark} | "
+                         f"{cell(fmt(support.get(did, [])))} | {cell(fmt(rejected.get(did, [])))} |")
         mine = [p for p in points if p.get("group") == "attested" and p.get("system") == code]
         if mine:
             lines += ["", "## Attested design points", "", ", ".join(link(self.point_path[p["point_id"]], p["point_id"]) for p in mine)]
@@ -617,9 +682,10 @@ class _Builder:
         support = {c: self.system_support(c) for c in self.system_codes}
         header = "| Dimension | " + " | ".join(link(self.system_path[c], self.system_title(c)) for c in self.system_codes) + " |"
         lines = ["# System × dimension matrix", "",
-                 "For each system, the values of each dimension supported by passages that mainly describe it "
-                 "(number of passages; at most three per cell, the rest on the system's page). Empty cells are "
-                 "dimensions the system's passages do not inform.", "",
+                 "For each system, the values of each dimension adopted by passages that mainly describe it "
+                 "(number of passages; at most three per cell, the rest on the system's page; rejected alternatives "
+                 "are on the system's page). ⚠ marks a system that adopts several values of one dimension. Empty "
+                 "cells are dimensions the system's passages do not adopt a value of.", "",
                  header, "|---|" + "---|" * len(self.system_codes)]
         for d in sorted(self.dims, key=lambda d: d.get("name", "")):
             did = str(d.get("id"))
@@ -629,7 +695,7 @@ class _Builder:
                 entries = [f"{link(self.value_path[str(v.get('id'))], v.get('label'))} ({n})" for v, n in found[:3]]
                 if len(found) > 3:
                     entries.append(f"+{len(found) - 3} more")
-                row.append(cell(items(entries)))
+                row.append(cell(items(entries)) + self.several_mark(did, c, len(found)))
             lines.append("| " + " | ".join(row) + " |")
         self.add("synthesis/system-matrix", "System × dimension matrix", "synthesis", {"tags": ["synthesis"]}, "\n".join(lines))
 
@@ -926,7 +992,9 @@ class _Builder:
             self.nodes.append({"id": "d:" + did, "kind": "dimension", "label": d.get("name"), "href": self.dim_path[did],
                                "description": d.get("description") or "", "core": self.is_core(d),
                                "values": len(d.get("values") or []),
-                               "evidence": {k: ev.get(k) for k in ("codes", "documents", "sources")}})
+                               "evidence": {k: ev.get(k) for k in ("codes", "documents", "sources")},
+                               "exclusivity": (round(self.exclusivity[did]["score"], 3)
+                                               if self.exclusivity[did]["score"] is not None else None)})
             for v in d.get("values") or []:
                 vid = str(v.get("id"))
                 docs = sorted({str(doc) for doc in v.get("supporting_doc_ids") or []}, key=_natural)

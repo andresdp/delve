@@ -42,6 +42,7 @@ from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.nodes.dimension_merger import merge_dimensions
+from taxonomy_generator.nodes.exclusivity_repair import repair_exclusivity
 from taxonomy_generator.nodes.evidence_linker import (
     drop_unsupported_values,
     initial_stances,
@@ -204,11 +205,35 @@ async def consolidate_values(
         if removed:
             note += (f"\nRemoved {len(removed)} value{'s' if len(removed) != 1 else ''} with no supporting "
                      f"document (kept as unsupported_values): " + "; ".join(removed))
+    if configuration.exclusivity_repair:
+        linked, repair_note, repair_log = await _repair_exclusivity(state, configuration, linked)
+        if repair_note:
+            note += "\n" + repair_note
+            result["operation_log"] = [repair_log]
     result["clusters"] = [linked]
     logger.info(note)
     result["explanations"] = [result["explanations"][0] + "\n" + note] if result.get("explanations") else [note]
     result["status"] = list(result.get("status", [])) + [note]
     return result
+
+
+async def _repair_exclusivity(state: State, configuration: Configuration, clusters: List[Dict]):
+    """Run the exclusivity repair; return ``(clusters, note, log)`` (note empty when nothing was sent)."""
+    passages = {str(getattr(d, "id", "") or (d.get("id") if isinstance(d, dict) else "")):
+                getattr(d, "content", None) or (d.get("content", "") if isinstance(d, dict) else "")
+                for d in state.documents or []}
+    repaired, log = await repair_exclusivity(
+        clusters, load_chat_model(configuration.generation_llm), configuration.use_case, passages,
+        min_score=float(configuration.exclusivity_min), min_units=int(configuration.exclusivity_min_units),
+        relation_types=configuration.relation_types or (), max_relations=configuration.max_relations_per_dimension)
+    if not log["dimensions"]:
+        return clusters, "", log
+    fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+    lines = [f"Exclusivity repair: {len(log['dimensions'])} dimension(s) whose sources adopt several values "
+             f"(exclusivity {fmt(log['before'])} -> {fmt(log['after'])}); {len(log['operations'])} repair(s) applied, "
+             f"{len(log['rejected'])} rejected, {len(log['failed_calls'])} failed call(s)."]
+    lines += [f"  - {o['message']} ({o['reason']})" for o in log["operations"]]
+    return repaired, "\n".join(lines), log
 
 
 async def _consolidate_values(state: State, configuration: Configuration, reviewed: List[Dict]) -> dict:

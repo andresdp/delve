@@ -216,6 +216,35 @@ class DimensionFocusOutput(BaseModel):
     values: List[ValueFocus] = Field(description="Actions for the values that should move or become outcomes.")
 
 
+class ExclusivityPart(BaseModel):
+    """One part of a split dimension (exclusivity repair)."""
+
+    name: str = Field(description="Name of the part: the decision it is.")
+    description: str = Field(description="The question the part's values answer.")
+    value_ids: List[str] = Field(description="Ids of the values that go to this part.")
+
+
+class ExclusivityAction(BaseModel):
+    """One repair of a dimension whose sources adopt several of its values."""
+
+    action: Literal["split", "extract", "merge", "hybrid"] = Field(
+        description="split: the dimension bundles several decisions; extract: values answer a sub-question; "
+                    "merge: values are one option; hybrid: systems deliberately combine the values."
+    )
+    value_ids: List[str] = Field(description="Values the action applies to (extract, merge, hybrid); empty for split.")
+    parts: List[ExclusivityPart] = Field(description="The parts (split only); empty otherwise.")
+    name: str = Field(description="New dimension name (extract) or merged label (merge); empty string otherwise.")
+    description: str = Field(description="New dimension's question (extract) or merged description (merge); empty string otherwise.")
+    reason: str = Field(description="One sentence: why this action.")
+
+
+class ExclusivityRepairOutput(BaseModel):
+    """Repairs for one dimension (empty when its values are alternatives after all)."""
+
+    actions: List[ExclusivityAction] = Field(description="Repairs to apply; empty list when none applies.")
+    rationale: str = Field(description="Why sources adopt several values of this dimension.")
+
+
 class ValueMergeOutput(BaseModel):
     """LLM adjudication for one borderline value-merge pair."""
 

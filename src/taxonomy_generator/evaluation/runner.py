@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 from deepeval.test_case import LLMTestCase
 
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.evaluation.exclusivity import scoreboard_row as exclusivity_row
 from taxonomy_generator.evaluation.judge import resolve_judge_model
 from taxonomy_generator.evaluation.metrics import (
     DOCUMENT_GROUNDED_CRITERIA,
@@ -196,6 +197,14 @@ async def run_scoreboard(
                         "evaluated": False,
                     }
                 )
+
+        # Deterministic penalty: sources that adopt several values of one dimension
+        # (evaluation/exclusivity.py). Counts in overall and is fed back like the judged rows.
+        if getattr(configuration, "evaluation_exclusivity", True) is not False:
+            row = exclusivity_row([c for c in clusters if isinstance(c, dict)], threshold)
+            if row:
+                criteria_rows.append(row)
+                scores.append(row["score"])
 
         overall = sum(scores) / len(scores) if scores else None
         return {

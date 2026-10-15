@@ -374,10 +374,45 @@ class Configuration:
         metadata={"description": "Score the loop's drafts every N iterations (1 = every iteration); the last draft and the final view are always scored."},
     )
 
+    evaluation_exclusivity: bool = field(
+        default=None,
+        metadata={"description": "Add the deterministic 'Value exclusivity' row to every scoreboard (counts in overall, fed back)."},
+    )
+
+    cap_stage: str = field(
+        default=None,
+        metadata={"description": "Where max_num_clusters applies: 'selection' (keep the top-k at selection) or 'generation' (given to the prompts)."},
+    )
+
+    exclusivity_repair: bool = field(
+        default=None,
+        metadata={"description": "After evidence linking, repair dimensions whose sources adopt several of their values."},
+    )
+
+    exclusivity_min: float = field(
+        default=None,
+        metadata={"description": "Exclusivity (0-1) below which a dimension goes to the repair step."},
+    )
+
+    exclusivity_min_units: int = field(
+        default=None,
+        metadata={"description": "Adopting sources a dimension needs before the repair step looks at it."},
+    )
+
     evaluation_save_history: bool = field(
         default=None,
         metadata={"description": "Save every scoreboard of a run (evaluation_history) and show scores across iterations."},
     )
+
+    @property
+    def generation_cap(self) -> int | None:
+        """The dimension cap the generation, update and review steps see (``None`` when the cap applies at selection)."""
+        return self.max_num_clusters if self.cap_stage == "generation" else None
+
+    @property
+    def selection_cap(self) -> int | None:
+        """The dimension cap ``select_dimensions`` applies (``None`` when it was given to generation)."""
+        return self.max_num_clusters if self.cap_stage != "generation" else None
 
     # ── LangGraph integration ──────────────────────────────────────────
 
@@ -481,4 +516,9 @@ class Configuration:
             "evaluation_save_history": s.evaluation.save_history,
             "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
             "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
+            "evaluation_exclusivity": s.evaluation.exclusivity,
+            "cap_stage": s.taxonomy.cap_stage,
+            "exclusivity_repair": s.taxonomy.exclusivity_repair,
+            "exclusivity_min": s.taxonomy.exclusivity_min,
+            "exclusivity_min_units": s.taxonomy.exclusivity_min_units,
         }

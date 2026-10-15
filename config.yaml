@@ -62,8 +62,12 @@ taxonomy:
   # Optional name to identify this taxonomy (shown in output and JSON files).
   name: "taxonomy"
 
-  # Maximum number of dimensions the LLM may produce (null = LLM decides from data).
+  # Maximum number of dimensions (null = no cap). Where it applies (cap_stage): "selection" mines
+  # without a cap and keeps the top-k dimensions at selection (the others are dropped, with a
+  # rationale), so the mined dimensions stay decision points; "generation" gives the cap to the
+  # generation, update and review prompts (earlier behaviour: forces broad topics).
   max_num_clusters: 8
+  cap_stage: selection
 
   # Max words for cluster/category names.
   cluster_name_length: 10
@@ -145,6 +149,15 @@ taxonomy:
   # Selective coding: true = an LLM drops dimensions it judges irrelevant to the use case (after the
   # support and decision-point rules); false = keep every dimension that passes those rules.
   relevance_selection: true
+
+  # One value per dimension per system: a dimension's values are alternatives, so each source
+  # (system) should adopt one of them. After evidence linking, a dimension whose sources adopt
+  # several of its values (exclusivity below exclusivity_min, with at least exclusivity_min_units
+  # adopting sources) is sent to the LLM, which may split it, extract a sub-decision (related by
+  # "refines"), merge values that are one option, or declare a hybrid (values deliberately combined).
+  exclusivity_repair: true
+  exclusivity_min: 0.8
+  exclusivity_min_units: 2
 
   # Tolerant saturation: a minibatch also counts as saturated when at least this
   # share of its open codes is already covered by the taxonomy. 1.0 = strict
@@ -272,6 +285,10 @@ evaluation:
   # of the last minibatch and the final view are always scored; feedback reaches only
   # the update that follows a scored draft.
   every_n_iterations: 1
+
+  # Add the computed "Value exclusivity" row (each source adopts one value per dimension) to every
+  # scoreboard: it counts in the overall score and is fed back to the update loop like the judged rows.
+  exclusivity: true
 
 # ---------------------------------------------------------------------------
 # Ground-truth matcher (python main.py --match-gt): scores a design space against an

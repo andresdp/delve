@@ -19,6 +19,7 @@
 - **Drop** a dimension that is not a decision point (its values are not alternative answers to one question, or it holds fewer than two candidate decisions besides `outcome` values), or that concerns a phase, system or activity outside the use case's scope (e.g. training-time choices when the use case is about systems after deployment). Say which in the rationale.
 - Be conservative about dropping: only drop when you can articulate why the dimension cannot affect the use case.
 - Do not restructure, rename, merge, or split dimensions here — this step only filters.
+{cap_rule}
 
 ## Output
 

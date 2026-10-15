@@ -434,7 +434,7 @@ async def tool_mode_node(model: Any, prompt: Any, state: Any, config: Any, confi
     inputs = taxonomy_prompt_inputs(state, configuration, doc_indices, True, format_taxonomy_compact(previous))
     messages = prompt.format_messages(**inputs)
     editor = TaxonomyEditor(previous, [_doc_id(state.documents[i]) for i in doc_indices], review=review,
-                            max_dimensions=configuration.max_num_clusters,
+                            max_dimensions=configuration.generation_cap,
                             relation_types=configuration.relation_types or TaxonomySettings.relation_types,
                             max_relations=configuration.max_relations_per_dimension)
     max_steps = configuration.edit_max_steps or TaxonomySettings.edit_max_steps
