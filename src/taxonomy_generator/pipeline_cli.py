@@ -130,6 +130,11 @@ def _add_edit_record(taxonomy_data: dict, edit_mode: Optional[str], operation_lo
 
 def _operation_log_line(entry: dict) -> str:
     """One-line summary of an operation-log entry (tools or rewrite_restore mode, exclusivity repair)."""
+    if entry.get("node") == "value_recoding":
+        fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+        return (f"value recoding: {len(entry.get('recoded') or [])} of {len(entry.get('selected') or [])} dimensions "
+                f"recoded; exclusivity {fmt(entry.get('before'))} -> {fmt(entry.get('after'))}, "
+                f"generality {fmt(entry.get('generality_before'))} -> {fmt(entry.get('generality_after'))}")
     if entry.get("node") == "exclusivity_repair":
         fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
         return (f"exclusivity {fmt(entry.get('before'))} -> {fmt(entry.get('after'))}: "

@@ -185,6 +185,16 @@ class TaxonomySettings:
     exclusivity_repair: bool = False
     exclusivity_min: float = 0.8
     exclusivity_min_units: int = 2
+    # Value recoding after evidence linking (plan 2026-10-15-feat-value-recoding): the values of a
+    # dimension whose sources adopt several of them are rewritten as alternative answers, the old values
+    # kept as facets (includes). Only dimensions with exclusivity below recoding_min_exclusivity, at least
+    # recoding_min_sources adopting sources and at least recoding_min_recurring of them on a combination
+    # another source shares; every new value must be adopted by recoding_min_sources_per_value sources.
+    value_recoding: bool = False
+    recoding_min_exclusivity: float = 0.8
+    recoding_min_sources: int = 3
+    recoding_min_recurring: float = 0.3
+    recoding_min_sources_per_value: int = 2
 
 
 @dataclass(frozen=True)
@@ -341,6 +351,9 @@ class MatcherSettings:
     # Embeddings mode: keep only a one-to-one assignment of "same" pairs (others become
     # "related"), so one generic value cannot match many options.
     embedding_one_to_one: bool = True
+    # Facet-aware matching: a value's facets (``includes``, from value recoding) are added to its
+    # description, so options it covers can match. Off keeps earlier metrics reproducible.
+    use_facets: bool = False
 
 
 @dataclass(frozen=True)
@@ -453,6 +466,12 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
         exclusivity_repair=bool(raw.get("exclusivity_repair", TaxonomySettings.exclusivity_repair)),
         exclusivity_min=float(exclusivity_min),
         exclusivity_min_units=int(raw.get("exclusivity_min_units", TaxonomySettings.exclusivity_min_units)),
+        value_recoding=bool(raw.get("value_recoding", TaxonomySettings.value_recoding)),
+        recoding_min_exclusivity=float(raw.get("recoding_min_exclusivity", TaxonomySettings.recoding_min_exclusivity)),
+        recoding_min_sources=int(raw.get("recoding_min_sources", TaxonomySettings.recoding_min_sources)),
+        recoding_min_recurring=float(raw.get("recoding_min_recurring", TaxonomySettings.recoding_min_recurring)),
+        recoding_min_sources_per_value=int(raw.get("recoding_min_sources_per_value",
+                                                   TaxonomySettings.recoding_min_sources_per_value)),
         relation_types=tuple(relation_types),
         max_relations_per_dimension=max_relations,
         edit_mode=edit_mode,
@@ -568,6 +587,7 @@ def _build_matcher(raw: dict) -> MatcherSettings:
         mode=raw.get("mode", MatcherSettings.mode),
         same_threshold=raw.get("same_threshold", MatcherSettings.same_threshold),
         embedding_one_to_one=raw.get("embedding_one_to_one", MatcherSettings.embedding_one_to_one),
+        use_facets=bool(raw.get("use_facets", MatcherSettings.use_facets)),
     )
 
 

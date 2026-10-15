@@ -284,6 +284,15 @@ EXCLUSIVITY_REPAIR_PROMPT = _load_prompt(
 )
 
 # ---------------------------------------------------------------------------
+# Value recoding (values of a dimension redefined as exclusive alternatives)
+# ---------------------------------------------------------------------------
+
+VALUE_RECODING_PROMPT = _load_prompt(
+    "value_recoding.md",
+    "Recode the values of the dimension above as alternative answers to its question, or keep them.",
+)
+
+# ---------------------------------------------------------------------------
 # Dimension selection (selective coding as use-case relevance filtering)
 # ---------------------------------------------------------------------------
 
@@ -313,5 +322,6 @@ __all__ = [
     "DIMENSION_MERGE_PROMPT",
     "DIMENSION_SELECTION_PROMPT",
     "EXCLUSIVITY_REPAIR_PROMPT",
+    "VALUE_RECODING_PROMPT",
     "NARRATIVE_SUMMARY_PROMPT",
 ]

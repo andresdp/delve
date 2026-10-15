@@ -398,7 +398,7 @@ class _Builder:
                 for o, r in rel_in:
                     sentence = relation_sentence(r, link(self.dim_path[str(o.get("id"))], o.get("name")), "this dimension")
                     lines.append(f"- {_capital(sentence)}" + (f". *{r.get('rationale')}*" if r.get("rationale") else ""))
-        lines += self.exclusivity_lines(did)
+        lines += self.exclusivity_lines(did) + self.recoding_lines(did)
         lines += ["", "## Evidence", "",
                   f"{ev.get('codes', '?')} open codes from {ev.get('documents', '?')} passages in {ev.get('sources', '?')} sources."]
         support = f"{ev.get('sources', 0)} source{'s' if ev.get('sources', 0) != 1 else ''}"
@@ -444,6 +444,21 @@ class _Builder:
                 lines.append("- " + " + ".join(self.value_link(i) for i in ids) + why)
         return lines
 
+    def recoding_lines(self, did: str) -> List[str]:
+        """What value recoding did to this dimension: recoded, or flagged as grouping several concerns."""
+        log = next((e for e in self.inp.taxonomy.get("operation_log") or [] if e.get("node") == "value_recoding"), None)
+        if not log:
+            return []
+        done = next((r for r in log.get("recoded") or [] if r.get("dimension_id") == did), None)
+        if done:
+            return ["", f"*Values recoded as alternatives: {'; '.join(done.get('from') or [])} → "
+                        f"{'; '.join(done.get('to') or [])}. {done.get('rationale', '')}*"]
+        flagged = next((r for r in log.get("likely_cause_ii") or [] if r.get("id") == did), None)
+        if flagged:
+            return ["", "*The sources combine this dimension's values in many different ways (few shared "
+                        "combinations): the dimension may group several concerns.*"]
+        return []
+
     def value_page(self, d: Mapping[str, Any], v: Mapping[str, Any]) -> None:
         vid, did = str(v.get("id")), str(d.get("id"))
         docs = [str(x) for x in v.get("supporting_doc_ids") or []]
@@ -458,6 +473,8 @@ class _Builder:
             fm["design_points"] = [link(self.point_path[p], p) for p in sorted(self.points_by_value[vid])]
         if v.get("merged_from"):
             fm["merged_from"] = list(v.get("merged_from"))
+        if v.get("includes"):
+            fm["includes"] = [f.get("label", "") for f in v.get("includes") if isinstance(f, Mapping)]
         fm["tags"] = ["value", str(v.get("status")), slugify(d.get("name"))]
         lines = [f"# {v.get('label')}", "", v.get("description") or "", "", "## Evidence", ""]
         if not docs:
@@ -469,6 +486,11 @@ class _Builder:
             lines.append(f"- **{doc}** ({self.stance(v, doc)}) · {link(self.source_path[sid], self.source_title(sid))}{section}")
             if self.inp.quotes and passage.get("content"):
                 lines.append(f"  > {excerpt(passage['content'], self.inp.quote_words)}")
+        if v.get("includes"):
+            lines += ["", "## Includes", "", "This alternative was defined from values the sources combine "
+                      "(value recoding); they are its facets:", ""]
+            lines += [f"- **{f.get('label', '')}**" + (f": {f.get('description')}" if f.get("description") else "")
+                      for f in v.get("includes") if isinstance(f, Mapping)]
         if v.get("merged_from"):
             lines += ["", "## Merged from", ""] + [f"- {m}" for m in v.get("merged_from")]
         if self.points_by_value.get(vid):
@@ -1001,7 +1023,9 @@ class _Builder:
                 self.nodes.append({"id": "v:" + vid, "kind": "value", "label": v.get("label"), "status": v.get("status"),
                                    "href": self.value_path[vid], "dimension": d.get("name"), "dimension_id": "d:" + did,
                                    "core": self.is_core(d), "description": v.get("description") or "",
-                                   "passages": [{"doc": doc, "stance": self.stance(v, doc)} for doc in docs]})
+                                   "passages": [{"doc": doc, "stance": self.stance(v, doc)} for doc in docs],
+                                   **({"includes": [f.get("label", "") for f in v.get("includes") if isinstance(f, Mapping)]}
+                                      if v.get("includes") else {})})
                 self.edges.append({"source": "d:" + did, "target": "v:" + vid, "type": "has_value"})
             for r in d.get("relations") or []:
                 t = str(r.get("target_id"))

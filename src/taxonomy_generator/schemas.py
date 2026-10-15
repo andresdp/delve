@@ -247,6 +247,31 @@ class ExclusivityRepairOutput(BaseModel):
     rationale: str = Field(description="Why sources adopt several values of this dimension.")
 
 
+class RecodedValue(BaseModel):
+    """One new value of a recoded dimension: an alternative answer that includes old values as facets."""
+
+    key: str = Field(description="Short key for this new value (A, B, C, ...), used by the assignments.")
+    label: str = Field(description="Concise label: a noun phrase naming the alternative.")
+    description: str = Field(description="One or two sentences: what this alternative is, as an answer to the dimension's question.")
+    includes: List[str] = Field(description="Ids of the current values this alternative includes (its facets).")
+
+
+class CombinationAssignment(BaseModel):
+    """The new value an observed combination belongs to."""
+
+    combination: str = Field(description="The combination's key, as given (C1, C2, ...).")
+    value_key: str = Field(description="Key of the new value it is assigned to.")
+
+
+class RecodingOutput(BaseModel):
+    """Recoding of one dimension's values as exclusive alternatives (or keep, when they already are)."""
+
+    keep: bool = Field(description="True when the current values already are alternatives, or no sensible recoding exists.")
+    values: List[RecodedValue] = Field(description="The new values; empty when keep is true.")
+    assignments: List[CombinationAssignment] = Field(description="One entry per combination; empty when keep is true.")
+    rationale: str = Field(description="One or two sentences on why sources combine these values and how the recoding resolves it.")
+
+
 class ValueMergeOutput(BaseModel):
     """LLM adjudication for one borderline value-merge pair."""
 

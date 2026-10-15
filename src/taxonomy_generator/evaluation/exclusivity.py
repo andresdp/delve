@@ -165,6 +165,36 @@ def scoreboard_row(dims: Sequence[Mapping[str, Any]], threshold: float, unit: Un
             "reason": feedback(report), "evaluated": True, "deterministic": True, "fragmentation": frag}
 
 
+def value_combinations(dim: Mapping[str, Any], unit: Unit = source_of) -> Dict[frozenset, List[str]]:
+    """The combinations of a dimension: each set of candidate values some unit adopts → the units adopting exactly it."""
+    adopted: Dict[str, Set[str]] = defaultdict(set)
+    for v in dim.get("values") or []:
+        if isinstance(v, Mapping):
+            for doc in adopting_docs(v):
+                u = unit(doc)
+                if u:
+                    adopted[u].add(str(v.get("id")))
+    out: Dict[frozenset, List[str]] = defaultdict(list)
+    for u, vids in adopted.items():
+        out[frozenset(vids)].append(u)
+    return {k: sorted(v, key=_natural) for k, v in out.items()}
+
+
+def recurring_share(dim: Mapping[str, Any], unit: Unit = source_of) -> float:
+    """Share of adopting units whose combination another unit shares (0 when no unit adopts anything)."""
+    combos = value_combinations(dim, unit)
+    total = sum(len(us) for us in combos.values())
+    return sum(len(us) for us in combos.values() if len(us) >= 2) / total if total else 0.0
+
+
+def generality(dims: Iterable[Mapping[str, Any]], unit: Unit = source_of) -> Optional[float]:
+    """Share of adopted candidate values that two or more units adopt (per-unit bundles lower it)."""
+    counts = [len({u for u in (unit(d) for d in adopting_docs(v)) if u})
+              for dim in dims if isinstance(dim, Mapping) for v in dim.get("values") or [] if isinstance(v, Mapping)]
+    counts = [c for c in counts if c]
+    return sum(c >= 2 for c in counts) / len(counts) if counts else None
+
+
 def unit_from_system_map(systems: Mapping[str, Mapping[str, Any]]) -> Unit:
     """A unit function from a passage → system map (``{"passage": {"primary": code}}``); ``GENERAL`` is no system."""
     def unit(doc: str) -> Optional[str]:
@@ -178,4 +208,5 @@ def _natural(text: str) -> Tuple:
 
 
 __all__ = ["CRITERION_NAME", "adopting_docs", "dimension_exclusivity", "taxonomy_exclusivity", "feedback",
-           "scoreboard_row", "unit_from_system_map"]
+           "scoreboard_row", "unit_from_system_map", "value_combinations", "recurring_share", "generality",
+           "fragmentation"]

@@ -101,6 +101,7 @@ class MatcherConfig:
     mode: str = "judge"
     same_threshold: float = 0.18
     embedding_one_to_one: bool = True
+    use_facets: bool = False
 
     @classmethod
     def from_settings(cls, settings: Any) -> MatcherConfig:
@@ -125,6 +126,7 @@ class MatcherConfig:
             mode=check_mode(m.mode),
             same_threshold=float(m.same_threshold),
             embedding_one_to_one=bool(m.embedding_one_to_one),
+            use_facets=bool(getattr(m, "use_facets", False)),
         )
 
     def as_record(self) -> dict[str, Any]:
@@ -199,8 +201,12 @@ def system_dimensions(clusters: Sequence[dict]) -> list[dict[str, str]]:
             for c in clusters if isinstance(c, dict)]
 
 
-def system_values(clusters: Sequence[dict], include_outcomes: bool = False) -> list[Item]:
-    """Adapter for DelveDSpace taxonomies: candidate values (and outcomes on request)."""
+def system_values(clusters: Sequence[dict], include_outcomes: bool = False, use_facets: bool = False) -> list[Item]:
+    """Adapter for DelveDSpace taxonomies: candidate values (and outcomes on request).
+
+    With ``use_facets``, a recoded value's facets (``includes``) are appended to its description, so a
+    ground-truth option it covers can match it (``matcher.use_facets``).
+    """
     items = []
     for cluster in clusters:
         if not isinstance(cluster, dict):
@@ -213,8 +219,12 @@ def system_values(clusters: Sequence[dict], include_outcomes: bool = False) -> l
                 continue
             if status not in CANDIDATE_STATUSES and status != "outcome":
                 logger.warning("Value %s has unknown status %r; kept as a candidate", value.get("id"), status)
+            description = value.get("description", "")
+            facets = [f.get("label", "") for f in value.get("includes") or [] if isinstance(f, dict)]
+            if use_facets and facets:
+                description = f"{description} Includes: {'; '.join(facets)}.".strip()
             items.append(Item(id=str(value.get("id")), name=value.get("label", ""),
-                              description=value.get("description", ""), parent_ids=[str(cluster.get("id"))],
+                              description=description, parent_ids=[str(cluster.get("id"))],
                               parent_name=cluster.get("name", ""), status=status))
     return items
 
@@ -809,7 +819,7 @@ async def run_match(taxonomy_path: str, gt_folder: str, settings: Any, matching_
     clusters = load_seed_taxonomy(taxonomy_path, view=view)
     views = load_gt_folder(gt_folder)
     dimensions = system_dimensions(clusters)
-    values = system_values(clusters, include_outcomes=config.include_outcomes)
+    values = system_values(clusters, include_outcomes=config.include_outcomes, use_facets=config.use_facets)
     options = ground_truth_options(views)
     embed = embed or embedder_from_config(config)
     if judge_model is None and config.mode == "judge":
