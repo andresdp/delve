@@ -137,7 +137,9 @@ def test_guards_against_shared_facets_and_broad_alternatives():
     no_own = _proposal(dim, values=[RecodedValue(key="A", label="a", description="", includes=["1.1", "1.2", "1.3", "1.4"]),
                                     RecodedValue(key="B", label="b", description="", includes=["1.1", "1.2", "1.3", "1.4"])],
                        assign={("1.1",): "A", ("1.1", "1.2"): "A", ("1.3", "1.4"): "B"})
-    assert any("no facet of its own" in p for p in vr.validate(dim, no_own))
+    assert any("include the same facets" in p for p in vr.validate(dim, no_own))
+    levels = _proposal(dim)                                     # {1.1} and {1.1, 1.2} nest: allowed
+    assert vr.validate(dim, levels, min_fit=0.5) == []
     broad = _proposal(dim, values=[RecodedValue(key="A", label="tracking", description="", includes=["1.1", "1.2"]),
                                    RecodedValue(key="C", label="lineage", description="", includes=["1.3", "1.4"])],
                       assign={("1.1",): "A", ("1.1", "1.2"): "A", ("1.3", "1.4"): "C"})

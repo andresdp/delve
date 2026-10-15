@@ -131,11 +131,12 @@ def validate(dim: Mapping[str, Any], proposal: RecodingOutput, min_sources_per_v
     if extra:
         problems.append(f"unknown combinations: {', '.join(extra)}")
     if not problems:
-        shared = set.intersection(*includes.values()) if includes else set()
-        for v in proposal.values:
-            if not includes[v.key] - shared:
-                problems.append(f"new value {v.key} '{v.label}' has no facet of its own (all its facets are in every "
-                                "alternative): an alternative must differ from the others")
+        seen: Dict[frozenset, str] = {}
+        for v in proposal.values:  # nested alternatives (levels: {x} and {x, y}) are fine; identical ones are not
+            facets = frozenset(includes[v.key])
+            if facets in seen:
+                problems.append(f"new values {seen[facets]} and {v.key} include the same facets: alternatives must differ")
+            seen.setdefault(facets, v.key)
         f = fit(dim, proposal)
         if f is not None and f < min_fit:
             problems.append(f"only {f:.0%} of the sources adopt exactly the facets of their new value (at least "
