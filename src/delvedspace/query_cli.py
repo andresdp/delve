@@ -10,7 +10,8 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from delvedspace.workspace import Workspace, WorkspaceError
+from delvedspace import runs
+from delvedspace.workspace import Workspace, WorkspaceError, read_json
 from taxonomy_generator.wiki import query as q
 
 app = typer.Typer(
@@ -131,6 +132,12 @@ def evidence(value: str = typer.Argument(..., help="Id, slug or label of a value
     _run(graph, table, lambda g: q.evidence(g, value, stance, texts), render)
 
 
+def _run_corpus(ws: Workspace) -> Path:
+    """Return the corpus of the run the wiki was built from (the workspace corpus for older runs)."""
+    run = read_json(ws.root / "raw" / "run.json", {}).get("run")
+    return runs.run_corpus_path(ws, ws.runs_dir / str(run)) if run else ws.corpus_path
+
+
 def _corpus_for_quotes(corpus: Optional[Path], graph: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
     path = corpus
     if path is None:
@@ -145,7 +152,7 @@ def _corpus_for_quotes(corpus: Optional[Path], graph: Optional[Path] = None) -> 
         if (ws.config().get("wiki") or {}).get("quotes") is False:
             err.print("[red]Error:[/red] this wiki was built without quotes (wiki.quotes: false in ddspace.yaml).")
             raise typer.Exit(1)
-        path = ws.corpus_path
+        path = _run_corpus(ws)
     if not path.is_file():
         err.print(f"[red]Error:[/red] no corpus at {path}.")
         raise typer.Exit(1)

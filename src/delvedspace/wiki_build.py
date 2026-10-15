@@ -22,7 +22,12 @@ from taxonomy_generator.html_report import (
     resolve_report_path,
 )
 from taxonomy_generator.wiki import Inputs, build, llm_texts, okf, write
-from taxonomy_generator.wiki.model import load_corpus, load_sources, source_of, view_dimensions
+from taxonomy_generator.wiki.model import (
+    load_corpus,
+    load_sources,
+    source_of,
+    view_dimensions,
+)
 
 DESIGN_POINT_CHOICES = ("none", "sample", "describe")
 POINTS_PER_GROUP, POINT_SIZES, POINT_SEED = 10, (2, 3), 42
@@ -137,14 +142,33 @@ def _gather(calls: List[Any], concurrency: int) -> List[Any]:
     return asyncio.run(run_all())
 
 
-def ensure_summaries(ws: Workspace, model_name: str, concurrency: int = 4) -> Tuple[Dict[str, str], str, int]:
-    """Summarize the sources that have no stored summary; return (summaries, model, newly written)."""
+@dataclass
+class LlmOutcome:
+    """How many LLM texts were stored in a call, how many failed, and the first error message."""
+
+    written: int = 0
+    failed: int = 0
+    first_error: str = ""
+
+    def record(self, error: BaseException) -> None:
+        """Count one failed call."""
+        self.failed += 1
+        self.first_error = self.first_error or f"{type(error).__name__}: {error}"
+
+
+def ensure_summaries(ws: Workspace, model_name: str,
+                     concurrency: int = 4) -> Tuple[Dict[str, str], str, LlmOutcome]:
+    """Summarize the sources that have no stored summary; return (summaries, model, outcome).
+
+    A failed call is counted, not stored: that source is still missing, so the next build retries it.
+    """
     from taxonomy_generator.utils import load_chat_model
 
     path = ws.state_dir / SUMMARIES_FILE
     stored, stored_model = _stored(path, "summaries")
     texts = _source_texts(ws)
     todo = missing_summaries(ws, texts)
+    outcome = LlmOutcome()
     if todo:
         model = load_chat_model(model_name)
 
@@ -156,13 +180,16 @@ def ensure_summaries(ws: Workspace, model_name: str, concurrency: int = 4) -> Tu
             return one
 
         for result in _gather([call(sid) for sid in todo], concurrency):
-            if not isinstance(result, BaseException):
+            if isinstance(result, BaseException):
+                outcome.record(result)
+            else:
                 stored[result[0]] = result[1]
+                outcome.written += 1
         ws.state_dir.mkdir(exist_ok=True)
         write_json(path, {"model": model_name, "generated": dt.date.today().isoformat(),
                           "prompt_version": llm_texts.SUMMARY_PROMPT_VERSION, "summaries": stored})
     summaries = {sid: e["summary"] for sid, e in stored.items() if sid in texts and e.get("summary")}
-    return summaries, stored_model or model_name, len(todo)
+    return summaries, stored_model or model_name, outcome
 
 
 def ensure_points(run_dir: Path, dims: List[Dict[str, Any]], corpus_ids: List[str]) -> Dict[str, Any]:
@@ -202,13 +229,17 @@ def missing_descriptions(run_dir: Path, points: Mapping[str, Any]) -> List[Dict[
 
 
 def ensure_descriptions(run_dir: Path, points: Mapping[str, Any], dims: List[Dict[str, Any]], domain: str,
-                        model_name: str, concurrency: int = 6) -> Tuple[Dict[str, str], str, int]:
-    """Describe the points that have no stored description; return (descriptions, model, newly written)."""
+                        model_name: str, concurrency: int = 6) -> Tuple[Dict[str, str], str, LlmOutcome]:
+    """Describe the points that have no stored description; return (descriptions, model, outcome).
+
+    A failed or empty call is not stored: that combination is still missing, so the next build retries it.
+    """
     from taxonomy_generator.utils import load_chat_model
 
     path = run_dir / DESCRIPTIONS_FILE
     stored, stored_model = _stored(path, "descriptions")
     todo = missing_descriptions(run_dir, points)
+    outcome = LlmOutcome()
     if todo:
         model = load_chat_model(model_name)
         by_id = {str(d.get("id")): d for d in dims}
@@ -219,13 +250,18 @@ def ensure_descriptions(run_dir: Path, points: Mapping[str, Any], dims: List[Dic
             return one
 
         for result in _gather([call(p) for p in todo], concurrency):
-            if not isinstance(result, BaseException) and result[1]:
+            if isinstance(result, BaseException):
+                outcome.record(result)
+            elif result[1]:
                 stored[point_signature(result[0])] = {"point_id": result[0].get("point_id"), "description": result[1]}
+                outcome.written += 1
+            else:
+                outcome.record(ValueError("empty description"))
         write_json(path, {"model": model_name, "generated": dt.date.today().isoformat(),
                           "prompt_version": llm_texts.DESCRIPTION_PROMPT_VERSION, "design_points": POINTS_FILE,
                           "descriptions": dict(sorted(stored.items()))})
     return ({k: v["description"] for k, v in stored.items() if v.get("description")},
-            stored_model or model_name, len(todo))
+            stored_model or model_name, outcome)
 
 
 # ---------------------------------------------------------------- change log
@@ -319,6 +355,9 @@ class Result:
     log: str
     summaries_written: int = 0
     descriptions_written: int = 0
+    summaries_failed: int = 0
+    descriptions_failed: int = 0
+    first_llm_error: str = ""
     okf_errors: Optional[List[str]] = None
 
 
@@ -336,21 +375,22 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
     use_case = " ".join(str(tx.get("use_case") or "").split())
     name = str(tx.get("name") or taxonomy.get("taxonomy_name") or ws.root.name)
     dims = selected_dims(taxonomy)
-    corpus = load_corpus(ws.corpus_path) if ws.corpus_path.is_file() else {}
+    corpus_file = runs.run_corpus_path(ws, run_dir)
+    corpus = load_corpus(corpus_file) if corpus_file.is_file() else {}
     run = runs.load(run_dir)
 
-    summaries, summary_model, n_summaries = {}, "", 0
+    summaries, summary_model, sum_out = {}, "", LlmOutcome()
     if opts.source_summaries:
         if llm:
-            summaries, summary_model, n_summaries = ensure_summaries(ws, models.get("generation_llm", ""))
+            summaries, summary_model, sum_out = ensure_summaries(ws, models.get("generation_llm", ""))
         else:
             summaries, summary_model = stored_summaries(ws)
-    points, descriptions, point_model, n_desc = None, {}, "", 0
+    points, descriptions, point_model, desc_out = None, {}, "", LlmOutcome()
     if opts.design_points in ("sample", "describe"):
         points = ensure_points(run_dir, dims, list(corpus))
         if opts.design_points == "describe" and llm:
-            descriptions, point_model, n_desc = ensure_descriptions(run_dir, points, dims, name,
-                                                                    models.get("generation_llm", ""))
+            descriptions, point_model, desc_out = ensure_descriptions(run_dir, points, dims, name,
+                                                                      models.get("generation_llm", ""))
         elif opts.design_points == "describe":
             descriptions, point_model = stored_descriptions(run_dir)
 
@@ -387,6 +427,8 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
     append_log(ws.root / "wiki" / "log.md", entry)
     errors, _warnings = okf.check(ws.root / "wiki")
     return Result(pages=len(export.pages), nodes=len(export.graph["nodes"]), edges=len(export.graph["edges"]),
-                  core=core_count(dims, opts.core_min_sources), log=entry, summaries_written=n_summaries,
-                  descriptions_written=n_desc, okf_errors=errors)
+                  core=core_count(dims, opts.core_min_sources), log=entry, summaries_written=sum_out.written,
+                  descriptions_written=desc_out.written, summaries_failed=sum_out.failed,
+                  descriptions_failed=desc_out.failed, first_llm_error=sum_out.first_error or desc_out.first_error,
+                  okf_errors=errors)
 

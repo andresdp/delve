@@ -240,3 +240,81 @@ def test_run_without_selection_step_reports_its_final_iteration(ws):
     export = build(Inputs(taxonomy=tax, taxonomy_name="toy", run_label="x", corpus=CORPUS, view="selected"))
     assert [p for p in export.pages if p.path.startswith("concepts/")]
     assert len([p for p in export.pages if p.path.startswith("concepts/")]) == len(final)
+
+
+def _texts_workspace(ws):
+    """Two scanned sources with extracted text, for the source-summary tests."""
+    (ws.state_dir / "text").mkdir(parents=True)
+    ws.sources_csv.write_text("id,file,title,url,source_type,notes\ns1,a.md,Alpha,,,\ns2,b.md,Beta,,,\n")
+    for sid in ("s1", "s2"):
+        (ws.text_dir / f"{sid}.md").write_text("Some text about replicas.")
+    ws.manifest_path.write_text(json.dumps([
+        {"id": "s1", "file": "a.md", "format": "md", "title": "Alpha", "words": 400, "sha256": "h1"},
+        {"id": "s2", "file": "b.md", "format": "md", "title": "Beta", "words": 400, "sha256": "h2"}]))
+
+
+def test_failed_summaries_are_reported_and_retried(ws, fake_llm, monkeypatch):
+    ws.set("wiki.source_summaries", True)
+    ws.set("wiki.design_points", "none")
+    _texts_workspace(ws)
+    ok = llm_texts.summarize
+
+    async def flaky(model, title, text):
+        if title == "Beta":
+            raise RuntimeError("rate limited")
+        return await ok(model, title, text)
+
+    monkeypatch.setattr(llm_texts, "summarize", flaky)
+    first = _invoke("wiki", "build", "--yes")
+    assert first.exit_code == 0, first.output
+    flat = " ".join(first.output.split())
+    assert "1 of 2 source summaries failed" in flat and "rate limited" in flat
+    assert "source summaries written" not in flat or "2 source summaries written" not in flat
+    assert list(wb.stored_summaries(ws)[0]) == ["s1"]
+    assert wb.missing_summaries(ws) == ["s2"]
+    monkeypatch.setattr(llm_texts, "summarize", ok)
+    calls = fake_llm.calls
+    second = _invoke("wiki", "build", "--yes")
+    assert second.exit_code == 0 and "failed" not in second.output
+    assert fake_llm.calls == calls + 1 and wb.missing_summaries(ws) == []   # only the failed one again
+
+
+def test_failed_descriptions_are_reported_and_retried(ws, fake_llm, monkeypatch):
+    ws.set("wiki.design_points", "describe")
+    ok = llm_texts.describe
+    bad = {}
+
+    async def flaky(model, point, dims, domain):
+        bad.setdefault("id", point["point_id"])
+        if point["point_id"] == bad["id"]:
+            raise RuntimeError("boom")
+        return await ok(model, point, dims, domain)
+
+    monkeypatch.setattr(llm_texts, "describe", flaky)
+    first = _invoke("wiki", "build", "--yes")
+    assert first.exit_code == 0, first.output
+    assert "design-point descriptions failed" in first.output and "boom" in first.output
+    run_dir = ws.root / ws.config()["workspace"]["current_run"]
+    points = json.loads((run_dir / wb.POINTS_FILE).read_text())
+    assert [p["point_id"] for p in wb.missing_descriptions(run_dir, points)] == [bad["id"]]
+    monkeypatch.setattr(llm_texts, "describe", ok)
+    calls = fake_llm.calls
+    assert _invoke("wiki", "build", "--yes").exit_code == 0
+    assert fake_llm.calls == calls + 1 and wb.missing_descriptions(run_dir, points) == []
+
+
+def test_wiki_quotes_come_from_the_run_corpus(ws):
+    run_dir = ws.runs_dir / "20261013_100000"
+    (run_dir / runs.RUN_CORPUS).write_text(json.dumps(
+        [{**p, "content": f"snapshot {p['id']}"} for p in CORPUS.values()]))
+    ws.corpus_path.write_text(json.dumps([{**p, "content": "today"} for p in CORPUS.values()]))
+    assert _invoke("wiki", "build", "--yes").exit_code == 0
+    pages = "\n".join(p.read_text() for p in (ws.root / "wiki").rglob("*.md"))
+    assert "snapshot " in pages and "today" not in pages
+
+
+def test_run_without_a_snapshot_falls_back_to_the_workspace_corpus(ws):
+    run_dir = ws.runs_dir / "20261013_100000"
+    assert not (run_dir / runs.RUN_CORPUS).exists()
+    assert runs.run_corpus_path(ws, run_dir) == ws.corpus_path
+    assert _invoke("wiki", "build", "--yes").exit_code == 0

@@ -200,3 +200,19 @@ def test_estimate_scales_from_the_last_successful_run(ws, fake):
 
 def test_pipeline_command_runs_the_installed_pipeline(ws):
     assert runs.run_pipeline(ws, ["--help"]) == 0
+
+
+def test_a_run_keeps_the_corpus_it_covers(ws, fake):
+    covered = json.loads(ws.corpus_path.read_text())
+    assert _invoke("mine", "--yes").exit_code == 0
+    run_dir = ws.root / _current(ws)
+    assert json.loads((run_dir / runs.RUN_CORPUS).read_text()) == covered
+    ws.corpus_path.write_text("[]")
+    assert json.loads((run_dir / runs.RUN_CORPUS).read_text()) == covered
+    assert "runs/*/corpus*.json" in (ws.root / ".gitignore").read_text()
+
+
+def test_a_failed_run_keeps_no_corpus_snapshot(ws, monkeypatch):
+    monkeypatch.setattr(runs, "run_pipeline", FakePipeline(code=1))
+    assert _invoke("mine", "--yes").exit_code == 1
+    assert not list(ws.runs_dir.glob(f"*/{runs.RUN_CORPUS}"))

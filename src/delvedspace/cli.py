@@ -241,7 +241,12 @@ def _confirm_run(ws: Workspace, title: str, lines: List[str], passages: int, yes
 
 def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: List[str],
              html_report: bool) -> None:
-    """Run the pipeline for ``run``, record the outcome and make a successful run current."""
+    """Run the pipeline for ``run``, record the outcome and make a successful run current.
+
+    The workspace corpus is read before the pipeline starts and saved in the run folder once the run succeeds,
+    so the wiki and ``query evidence --quotes`` show the passages the design space was built from.
+    """
+    covered = ws.corpus_path.read_bytes() if ws.corpus_path.is_file() else None
     run.argv = ["--corpus", runs.relative(ws, corpus), "--config", wsmod.CONFIG_NAME,
                 "--output", runs.relative(ws, run_dir), *extra]
     runs.save(run_dir, run)
@@ -257,6 +262,8 @@ def _execute(ws: Workspace, run: runs.Run, run_dir: Path, corpus: Path, extra: L
     if run.status != "ok":
         fail(f"The run failed (exit code {code}); its folder {runs.relative(ws, run_dir)} is kept for inspection. "
              "The current design space is unchanged.")
+    if covered is not None:
+        (run_dir / runs.RUN_CORPUS).write_bytes(covered)
     ws.set("workspace.current_run", runs.relative(ws, run_dir))
     if html_report or (ws.config().get("wiki") or {}).get("html_report"):
         runs.run_pipeline(ws, ["--html-report", runs.relative(ws, taxonomy), "--config", wsmod.CONFIG_NAME,
@@ -540,6 +547,13 @@ def wiki_build_cmd(
         extras.append(f"{result.summaries_written} source summaries written")
     if result.descriptions_written:
         extras.append(f"{result.descriptions_written} design-point descriptions written")
+    failed = [(result.summaries_failed, "source summaries", result.summaries_written + result.summaries_failed),
+              (result.descriptions_failed, "design-point descriptions",
+               result.descriptions_written + result.descriptions_failed)]
+    for n_failed, what, total in failed:
+        if n_failed:
+            console.print(f"[yellow]![/yellow] {n_failed} of {total} {what} failed (first error: "
+                          f"{result.first_llm_error}); run `ddspace wiki build` again to retry.")
     okf_line = ("OKF v0.2 check: passed" if not result.okf_errors
                 else f"[red]OKF v0.2 check: {len(result.okf_errors)} problem(s); run `ddspace wiki check`[/red]")
     console.print(Panel(

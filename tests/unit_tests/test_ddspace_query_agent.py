@@ -157,3 +157,23 @@ def test_evidence_quotes_follow_graph_from_the_parent_folder(ws, monkeypatch):
         assert result.exit_code == 0, result.output
         texts = [p["text"] for s in json.loads(result.output)["sources"] for p in s["passages"]]
         assert "Continuity writes a WAL to S3." in texts
+
+
+def _quote_texts(*args):
+    result = _invoke("query", "evidence", "WAL in S3", "--quotes", *args)
+    assert result.exit_code == 0, result.output
+    return [p["text"] for s in json.loads(result.output)["sources"] for p in s["passages"]]
+
+
+def test_evidence_quotes_come_from_the_run_corpus(ws):
+    run_dir = ws.runs_dir / "20261008_000000"      # the run the synthetic wiki was built from
+    run_dir.mkdir(parents=True)
+    (run_dir / "corpus.json").write_text(json.dumps(list(CORPUS.values())))
+    ws.corpus_path.write_text(json.dumps([{**p, "text": "changed later"} for p in CORPUS.values()]))
+    assert "Continuity writes a WAL to S3." in _quote_texts()
+    assert "changed later" not in _quote_texts()
+
+
+def test_evidence_quotes_fall_back_to_the_workspace_corpus_without_a_run_snapshot(ws):
+    (ws.runs_dir / "20261008_000000").mkdir(parents=True)
+    assert "Continuity writes a WAL to S3." in _quote_texts()

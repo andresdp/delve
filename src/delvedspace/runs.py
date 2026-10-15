@@ -100,6 +100,9 @@ def current_taxonomy(ws: Workspace) -> Path:
     return taxonomy
 
 
+RUN_CORPUS = "corpus.json"    # snapshot in the run folder (ignored by git: runs/*/corpus*.json)
+
+
 def relative(ws: Workspace, path: Path) -> str:
     """Return ``path`` relative to the workspace root, with forward slashes."""
     return path.resolve().relative_to(ws.root).as_posix()
@@ -145,6 +148,12 @@ def estimate(ws: Workspace, passages: int, batch_size: int) -> Estimate:
 def read_corpus(path: Path) -> List[Dict]:
     """Return the passages of a corpus JSON file."""
     return read_json(path)
+
+
+def run_corpus_path(ws: Workspace, run_dir: Path) -> Path:
+    """Return the corpus the run's design space covers: its own snapshot, else the workspace corpus (older runs)."""
+    snapshot = run_dir / RUN_CORPUS
+    return snapshot if snapshot.is_file() else ws.corpus_path
 
 
 def write_corpus(path: Path, passages: List[Dict]) -> None:
