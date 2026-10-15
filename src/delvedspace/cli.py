@@ -713,43 +713,113 @@ def _free_archive(ws: Workspace) -> Path:
     fail("Could not create an archive folder.")
 
 
+# Derived from the sources (rebuilt by `ddspace sources`); removed by `reset --all`. Stored source summaries cost
+# LLM calls to recreate.
+SOURCE_DERIVED = ("corpus.json", ".ddspace/text", ".ddspace/sources.json", ".ddspace/source_summaries.json")
+
+
+def _present(ws: Workspace, rel: str) -> bool:
+    path = ws.root / rel
+    return _has_content(path) if path.is_dir() else path.is_file()
+
+
 @app.command()
 def reset(
     wiki_only: bool = typer.Option(False, "--wiki-only", help="Only the wiki (wiki/, site/, raw/); keep the runs."),
+    all_: bool = typer.Option(False, "--all", help="Also everything built from the sources: corpus.json, extracted "
+                              "texts, stored source summaries. Your sources, sources.csv and settings stay."),
+    purge: bool = typer.Option(False, "--purge", help="Delete instead of moving to .ddspace/archive/ (cannot be undone)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Do not ask for confirmation."),
 ) -> None:
-    """Start over: move the runs and the wiki to [bold].ddspace/archive/[/bold]; sources and settings stay."""
+    """Start over: move the runs and the wiki (with [bold]--all[/bold], also the corpus) to [bold].ddspace/archive/[/bold]."""
     ws = current_workspace()
-    targets = ["wiki", wb.HTML_DIR, "raw"] + ([] if wiki_only else ["runs"])
-    ui.header("reset", "Archive the runs and the wiki; sources and settings stay")
-    present = [t for t in targets if _has_content(ws.root / t)]
+    if wiki_only and all_:
+        fail("Use either --wiki-only or --all.")
+    targets = ["wiki", wb.HTML_DIR, "raw"] + ([] if wiki_only else ["runs"]) + (list(SOURCE_DERIVED) if all_ else [])
+    scope = "the wiki" if wiki_only else "runs, wiki and everything built from the sources" if all_ else "runs and wiki"
+    ui.header("reset", f"{'Delete' if purge else 'Archive'} {scope}; your sources and settings stay")
+    present = [t for t in targets if _present(ws, t)]
     if not present:
-        ui.note("Nothing to reset: no runs or wiki yet.")
+        ui.note("Nothing to reset.")
         return
     archive = _free_archive(ws)
-    kept = ["sources/", "sources.csv", "corpus.json", "ddspace.yaml (with the wiki answers)", ".env",
-            "AGENTS.md and agent files", "stored source summaries"] + (["runs/ (the current run stays current)"]
-                                                                       if wiki_only else [])
-    ui.plan("About to reset", [("Moves", ", ".join(f"{t}/" for t in present)),
-                               ("To", f"{runs.relative(ws, archive)}/ {ui.path('(undo by moving the folders back)')}"),
+    kept = ["sources/", "sources.csv", "ddspace.yaml", ".env", "AGENTS.md and agent files"]
+    kept += [] if all_ else ["corpus.json", "stored source summaries"]
+    kept += ["runs/ (the current run stays current)"] if wiki_only else []
+    action = ("[red]Deletes[/red]" if purge else "Moves")
+    ui.plan("About to reset", [(action, ", ".join(f"{t}/" if (ws.root / t).is_dir() else t for t in present)),
+                               ("To", "nowhere: deleted for good" if purge else
+                                f"{runs.relative(ws, archive)}/ {ui.path('(undo by moving them back)')}"),
                                ("Keeps", ", ".join(kept))])
-    if interactive(yes) and not ui.ask_yes("Reset?", default=False):
+    if interactive(yes) and not ui.ask_yes("Delete for good?" if purge else "Reset?", default=False):
         raise typer.Exit()
     if not yes and not interactive(yes):
         fail("Not a terminal: pass --yes to confirm the reset.")
-    archive.mkdir(parents=True)
     for t in present:
-        shutil.move(str(ws.root / t), str(archive / t))
+        path = ws.root / t
+        if purge:
+            shutil.rmtree(path) if path.is_dir() else path.unlink()
+        else:
+            (archive / t).parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(path), str(archive / t))
     if not wiki_only:
         ws.runs_dir.mkdir(exist_ok=True)
         ws.set("workspace.current_run", None)
-    chat.remove_index(ws)  # built from the archived wiki
+    chat.remove_index(ws)  # built from the old wiki; rebuilt by the next wiki build
     (ws.root / "wiki").mkdir(exist_ok=True)
-    wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {'wiki' if wiki_only else 'runs and wiki'} "
-                  f"moved to `{runs.relative(ws, archive)}/` (restore by moving the folders back).")
-    ui.summary("Reset done", [("Archived", f"{', '.join(present)} in {runs.relative(ws, archive)}/")],
+    where = "deleted" if purge else f"moved to `{runs.relative(ws, archive)}/` (restore by moving them back)"
+    wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {scope}: {where}.")
+    ui.summary("Reset done", [("Deleted" if purge else "Archived", ", ".join(present)),
+                              ("Archive", "" if purge else f"{runs.relative(ws, archive)}/")],
                next_steps=[("ddspace wiki build", "rebuild the wiki")] if wiki_only
+               else [("ddspace sources", "scan the sources and build the corpus again")] if all_
                else [("ddspace mine", "mine from scratch")])
+
+
+# ---------------------------------------------------------------- check
+
+
+CHECK_MARKS = {"done": "[green]✓[/green]", "stale": "[yellow]![/yellow]", "pending": "[dim]○[/dim]",
+               "failed": "[red]✗[/red]", "unavailable": "[dim]–[/dim]"}
+
+
+@app.command("check")
+def check_cmd(as_json: bool = typer.Option(False, "--json", help="Print the report as JSON.")) -> None:
+    """Show the configuration, what is missing, and how far each phase (sources to agent setup) has got."""
+    from rich.table import Table
+
+    from delvedspace import check as chk
+
+    ws = current_workspace()
+    report = chk.check(ws)
+    if as_json:
+        import json as _json
+
+        typer.echo(_json.dumps(report.as_dict(), indent=2, ensure_ascii=False))
+        return
+    ui.header("check", f"Workspace {report.workspace} in {ui.short_path(ws.root)}")
+    for title, items, numbered in (("Configuration", report.config, False), ("Pipeline", report.phases, True)):
+        ui.section(title)
+        grid = Table.grid(padding=(0, 2))
+        grid.add_column(no_wrap=True)
+        grid.add_column(no_wrap=True)
+        grid.add_column(no_wrap=True)
+        grid.add_column(overflow="fold")
+        for i, item in enumerate(items, start=1):
+            label = f"{i}. {item.name}" if numbered and item.name != "Last run" else item.name
+            state = f"[dim]{item.state}[/dim]" if item.state == "done" else item.state
+            detail = escape(item.detail)
+            grid.add_row(f"  {CHECK_MARKS.get(item.state, '')}", label, state,
+                         f"[dim]{detail}[/dim]" if item.state in ("pending", "unavailable") else detail)
+        console.print(grid)
+    steps = report.next_steps
+    if not steps:
+        ui.summary("All set", text="Every phase is up to date.",
+                   next_steps=[("ddspace ask \"...\"", "ask the wiki a question"),
+                               ("ddspace update --feedback \"...\"", "refine the design space")])
+    else:
+        ui.summary("What to do next", next_steps=[(i.next, f"{i.name} ({i.state})") for i in steps],
+                   style="yellow" if any(i.state in ("stale", "failed") for i in steps) else ui.ACCENT)
 
 
 # ---------------------------------------------------------------- ask

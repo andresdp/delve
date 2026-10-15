@@ -218,7 +218,8 @@ def summary(title: str, rows: Iterable[Tuple[str, str]] = (), next_steps: Iterab
         grid.add_column(style="dim")
         for cmd, why in steps:  # commands in the accent style; plain instructions (e.g. copy files) as text
             grid.add_row(command(cmd) if cmd.startswith(("ddspace", "cd ")) else escape(cmd), why)
-        parts.append(Text.from_markup("\n[bold]Next[/bold]"))
+        if parts:  # a panel with only next steps needs no heading for them
+            parts.append(Text.from_markup("\n[bold]Next[/bold]"))
         parts.append(grid)
     mark = {"green": "✓ ", "red": "✗ ", "yellow": "! "}.get(style, "")
     console.print(Panel(Group(*parts), title=f"[bold]{mark}{title}[/bold]", title_align="left",

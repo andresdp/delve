@@ -129,7 +129,9 @@ processing, and which decisions support each? Cite passages."* The agent reads `
 ```bash
 ddspace update --feedback "Merge the two data-access dimensions"   # re-mine, seeded with the current design space
 ddspace wiki build --yes                                           # wiki/log.md records what changed
+ddspace check                                                      # configuration, missing items, progress per phase
 ddspace reset                                                      # archive runs and wiki; sources and settings stay
+ddspace reset --all --purge                                        # clean the folder down to your sources and settings
 ```
 
 Every command has `--help`. [USAGE.md](USAGE.md#the-ddspace-command) describes all of them.
