@@ -195,6 +195,8 @@ class TaxonomySettings:
     recoding_min_sources: int = 3
     recoding_min_recurring: float = 0.3
     recoding_min_sources_per_value: int = 2
+    # Share of sources that must adopt exactly the facets of their new value (rejects too-broad alternatives).
+    recoding_min_fit: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -472,6 +474,7 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
         recoding_min_recurring=float(raw.get("recoding_min_recurring", TaxonomySettings.recoding_min_recurring)),
         recoding_min_sources_per_value=int(raw.get("recoding_min_sources_per_value",
                                                    TaxonomySettings.recoding_min_sources_per_value)),
+        recoding_min_fit=float(raw.get("recoding_min_fit", TaxonomySettings.recoding_min_fit)),
         relation_types=tuple(relation_types),
         max_relations_per_dimension=max_relations,
         edit_mode=edit_mode,

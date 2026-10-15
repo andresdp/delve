@@ -235,7 +235,8 @@ async def _recode_values(state: State, configuration: Configuration, clusters: L
         min_exclusivity=float(configuration.recoding_min_exclusivity),
         min_sources=int(configuration.recoding_min_sources),
         min_recurring=float(configuration.recoding_min_recurring),
-        min_sources_per_value=int(configuration.recoding_min_sources_per_value))
+        min_sources_per_value=int(configuration.recoding_min_sources_per_value),
+        min_fit=float(configuration.recoding_min_fit))
     fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
     lines = [f"Value recoding: {len(log['selected'])} dimension(s) selected, {len(log['recoded'])} recoded, "
              f"{len(log['kept'])} kept, {len(log['likely_cause_ii'])} likely grouping several concerns; exclusivity "

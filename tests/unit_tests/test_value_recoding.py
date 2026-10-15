@@ -130,3 +130,17 @@ def test_wiki_and_matcher_show_the_facets():
     faceted = {i.name: i.description for i in system_values(out, use_facets=True)}
     assert "Includes" not in plain["Experiment tracking"]
     assert faceted["Experiment tracking"].endswith("Includes: Metric recording; Metadata store.")
+
+
+def test_guards_against_shared_facets_and_broad_alternatives():
+    dim = _provenance()
+    no_own = _proposal(dim, values=[RecodedValue(key="A", label="a", description="", includes=["1.1", "1.2", "1.3", "1.4"]),
+                                    RecodedValue(key="B", label="b", description="", includes=["1.1", "1.2", "1.3", "1.4"])],
+                       assign={("1.1",): "A", ("1.1", "1.2"): "A", ("1.3", "1.4"): "B"})
+    assert any("no facet of its own" in p for p in vr.validate(dim, no_own))
+    broad = _proposal(dim, values=[RecodedValue(key="A", label="tracking", description="", includes=["1.1", "1.2"]),
+                                   RecodedValue(key="C", label="lineage", description="", includes=["1.3", "1.4"])],
+                      assign={("1.1",): "A", ("1.1", "1.2"): "A", ("1.3", "1.4"): "C"})
+    assert vr.fit(dim, broad) == 2 / 3
+    assert any("too broad" in p for p in vr.validate(dim, broad, min_fit=0.8))
+    assert vr.validate(dim, broad, min_fit=0.5) == []

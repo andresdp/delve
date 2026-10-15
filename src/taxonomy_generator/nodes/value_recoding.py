@@ -83,7 +83,18 @@ def _payload(dim: Mapping[str, Any], passages: Mapping[str, str]) -> Dict[str, s
     return {"dimension_json": dump(dimension), "combinations_json": dump(combos)}
 
 
-def validate(dim: Mapping[str, Any], proposal: RecodingOutput, min_sources_per_value: int = 2) -> List[str]:
+def fit(dim: Mapping[str, Any], proposal: RecodingOutput) -> Optional[float]:
+    """Share of sources whose combination is exactly the facets of the new value it is assigned to."""
+    combos = _combo_keys(dim)
+    includes = {v.key: {str(i) for i in v.includes} for v in proposal.values}
+    total = sum(len(u) for _v, u in combos.values())
+    exact = sum(len(combos[a.combination][1]) for a in proposal.assignments
+                if a.combination in combos and combos[a.combination][0] == includes.get(a.value_key))
+    return exact / total if total else None
+
+
+def validate(dim: Mapping[str, Any], proposal: RecodingOutput, min_sources_per_value: int = 2,
+             min_fit: float = 0.0) -> List[str]:
     """Problems that make a recoding unusable (empty when it can be applied)."""
     if proposal.keep:
         return []
@@ -120,6 +131,16 @@ def validate(dim: Mapping[str, Any], proposal: RecodingOutput, min_sources_per_v
     if extra:
         problems.append(f"unknown combinations: {', '.join(extra)}")
     if not problems:
+        shared = set.intersection(*includes.values()) if includes else set()
+        for v in proposal.values:
+            if not includes[v.key] - shared:
+                problems.append(f"new value {v.key} '{v.label}' has no facet of its own (all its facets are in every "
+                                "alternative): an alternative must differ from the others")
+        f = fit(dim, proposal)
+        if f is not None and f < min_fit:
+            problems.append(f"only {f:.0%} of the sources adopt exactly the facets of their new value (at least "
+                            f"{min_fit:.0%} needed): the alternatives are too broad; define them closer to the "
+                            "combinations the sources adopt")
         for v in proposal.values:
             n = sum(len(combos[c][1]) for c, ts in assigned.items() if ts == [v.key])
             if n < min_sources_per_value:
@@ -136,9 +157,7 @@ def apply(dim: dict, proposal: RecodingOutput) -> Dict[str, Any]:
     units_by_key: Dict[str, Set[str]] = {}
     for a in proposal.assignments:
         units_by_key.setdefault(a.value_key, set()).update(combos[a.combination][1])
-    exact = sum(len(combos[a.combination][1]) for a in proposal.assignments
-                if combos[a.combination][0] == {str(i) for i in next(v for v in proposal.values
-                                                                        if v.key == a.value_key).includes})
+    share = fit(dim, proposal)  # before the values change
     new_values = []
     for i, nv in enumerate(proposal.values, start=1):
         units = units_by_key.get(nv.key, set())
@@ -159,8 +178,7 @@ def apply(dim: dict, proposal: RecodingOutput) -> Dict[str, Any]:
         v["id"] = f"{dim.get('id')}.{j}"
     dim["values"] = new_values + rest
     dim.pop("hybrids", None)  # hybrids named old value ids
-    total = sum(len(u) for _vids, u in combos.values())
-    return {"sources": total, "fit": exact / total if total else None}
+    return {"sources": sum(len(u) for _vids, u in combos.values()), "fit": share}
 
 
 async def recode_values(
@@ -172,6 +190,7 @@ async def recode_values(
     min_sources: int = 3,
     min_recurring: float = 0.3,
     min_sources_per_value: int = 2,
+    min_fit: float = 0.5,
     concurrency: int = 5,
 ) -> Tuple[List[dict], Dict[str, Any]]:
     """Recode the eligible dimensions. Returns ``(clusters, log)``; the input is not modified."""
@@ -219,7 +238,7 @@ async def recode_values(
             proposal = await propose(dim, note)
             if proposal is None:
                 return
-            problems = validate(dim, proposal, min_sources_per_value)
+            problems = validate(dim, proposal, min_sources_per_value, min_fit)
             if not problems:
                 break
             log["rejected"].append({"dimension_id": entry["id"], "attempt": attempt, "problems": problems})
@@ -231,9 +250,9 @@ async def recode_values(
             log["kept"].append({"dimension_id": entry["id"], "rationale": proposal.rationale})
             return
         old_labels = [v.get("label", "") for v in adoptable(dim)]
-        fit = apply(dim, proposal)
+        record = apply(dim, proposal)
         log["recoded"].append({"dimension_id": entry["id"], "name": dim.get("name", ""), "rationale": proposal.rationale,
-                               "from": old_labels, "to": [v.label for v in proposal.values], **fit})
+                               "from": old_labels, "to": [v.label for v in proposal.values], **record})
         log["operations"].append({"dimension_id": entry["id"], "action": "recode",
                                   "message": f"recoded {len(old_labels)} values of dimension {entry['id']} "
                                              f"'{dim.get('name', '')}' as {len(proposal.values)} alternatives"})

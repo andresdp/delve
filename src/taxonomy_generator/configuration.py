@@ -409,6 +409,11 @@ class Configuration:
         metadata={"description": "Sources each new value must be adopted by."},
     )
 
+    recoding_min_fit: float = field(
+        default=None,
+        metadata={"description": "Share of sources that must adopt exactly the facets of their new value."},
+    )
+
     exclusivity_repair: bool = field(
         default=None,
         metadata={"description": "After evidence linking, repair dimensions whose sources adopt several of their values."},
@@ -551,4 +556,5 @@ class Configuration:
             "recoding_min_sources": s.taxonomy.recoding_min_sources,
             "recoding_min_recurring": s.taxonomy.recoding_min_recurring,
             "recoding_min_sources_per_value": s.taxonomy.recoding_min_sources_per_value,
+            "recoding_min_fit": s.taxonomy.recoding_min_fit,
         }
