@@ -71,7 +71,7 @@ old values it covers.
    (ii); the before/after measures below.
 
 Place: after evidence linking in `consolidate_values`, before selection (same place as the repair; the repair stays
-off). Setting `taxonomy.value_recoding` (default **false** until verified).
+off). Setting `taxonomy.value_recoding` (proposed off until verified; on by default since the replays, see the status line).
 
 ### Measures (exclusivity alone is not the result)
 
