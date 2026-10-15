@@ -148,3 +148,23 @@ ground-truth commit, so they are not comparable).
 Model view, option F1: C1 0.60 → 0.63, C2 0.45 → 0.54. Recoding raises exclusivity, generality, option precision
 and recall in both cases; exact-name recall drops (values are renamed as alternatives); decision F1 unchanged.
 Facet-aware matching does not help. One replay per setting; the matching LLM is the generator (not independent).
+
+### Independent matcher and a repeat (2026-10-15)
+
+Matches redone with `--matching-llm openai/gpt-5.4-mini` (independent of the generator; the matcher of the 10-02
+baselines, whose numbers the "off" replay reproduces for C1). "on2" is a second recoding replay.
+
+| | Exclusivity | Generality | Values | Recoded | Option F1 paper | Option F1 model | Exact R paper | Decision F1 paper |
+|---|---|---|---|---|---|---|---|---|
+| C1 off | 0.45 | 0.84 | 117 | — | 0.50 | 0.59 | 0.47 | 0.76 |
+| C1 on | 0.65 | 0.87 | 107 | 8 | 0.47 | 0.54 | 0.30 | 0.73 |
+| C1 on2 | 0.65 | 0.85 | 112 | 8 | 0.54 | 0.61 | 0.37 | 0.70 |
+| C2 off | 0.70 | 0.71 | 56 | — | 0.25 | 0.30 | 0.16 | 0.42 |
+| C2 on | 0.87 | 0.76 | 52 | 5 | 0.29 | 0.36 | 0.16 | 0.53 |
+| C2 on2 | 0.90 | 0.82 | 48 | 6 | 0.30 | 0.34 | 0.14 | 0.53 |
+
+Exclusivity and generality rise in every replay. Expert-option coverage: C2 improves in both replays (option F1
++0.04 to +0.06, decision F1 +0.11); C1 is neutral (−0.03 and +0.04 option F1, mean about 0) with lower exact-name
+recall. With the generator as matcher (`gpt-5.6-luna`) C1 looked +0.05: the non-independent matcher favoured the
+recoded values. Conclusion: recoding is a structural improvement (one value per dimension per source) that keeps
+expert-option coverage in C1 and raises it in C2.
