@@ -154,7 +154,7 @@ It never downloads anything; you put the sources (`.md`, `.txt`, `.html` saved f
 `sources/` yourself.
 
 ```bash
-pip install -e .                  # in your environment; provides the ddspace command
+pip install -e ".[chat]"          # in your environment; provides the ddspace command ([chat]: ddspace ask)
 ddspace init my-space             # asks a few questions (use case, models, size); --yes takes the defaults
 cd my-space && cp ~/Downloads/*.pdf sources/
 ddspace sources                   # extract the text, draft sources.csv, flag empty or scanned files
@@ -171,6 +171,7 @@ ddspace update --feedback "Merge the two caching dimensions"   # re-mine, seeded
 ddspace update --test --sources new-article.html               # dimensions frozen; new sources add values
 ddspace wiki build                                             # the wiki's log.md records what changed
 ddspace query values "Replica placement" --table               # read-only questions, no LLM
+ddspace ask "Which alternatives exist for replica placement?"  # an answer from the wiki, citing passages
 ddspace reset                                                  # archive runs and wiki, start over
 ```
 

@@ -359,6 +359,7 @@ class Result:
     descriptions_failed: int = 0
     first_llm_error: str = ""
     okf_errors: Optional[List[str]] = None
+    chat: str = ""                      # what happened to the chat index (built, or why not)
 
 
 def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True) -> Result:
@@ -426,9 +427,20 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
     entry = log_entry(run, run_dir, diff(old, export.graph), export.graph, same_run=old_run == run_dir.name)
     append_log(ws.root / "wiki" / "log.md", entry)
     errors, _warnings = okf.check(ws.root / "wiki")
+    chat_note = _rebuild_chat_index(ws)
     return Result(pages=len(export.pages), nodes=len(export.graph["nodes"]), edges=len(export.graph["edges"]),
                   core=core_count(dims, opts.core_min_sources), log=entry, summaries_written=sum_out.written,
                   descriptions_written=desc_out.written, summaries_failed=sum_out.failed,
                   descriptions_failed=desc_out.failed, first_llm_error=sum_out.first_error or desc_out.first_error,
-                  okf_errors=errors)
+                  okf_errors=errors, chat=chat_note)
 
+
+def _rebuild_chat_index(ws: Workspace) -> str:
+    """Re-create the chat index for ``ddspace ask`` from the new wiki; return a one-line note."""
+    from delvedspace import chat
+
+    if not chat.treedex_available():
+        chat.remove_index(ws)  # an index of an older wiki would answer from stale pages
+        return "chat index skipped (TreeDex not installed; ddspace ask unavailable)"
+    info = chat.build_index(ws)
+    return f"chat index rebuilt: {info['nodes']} nodes, {info['pages']} pages (ddspace ask)"

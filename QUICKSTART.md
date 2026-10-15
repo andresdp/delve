@@ -16,7 +16,7 @@ two file paths change.
 From the repository root, in your Python environment (3.10 or newer):
 
 ```bash
-pip install -e .
+pip install -e ".[chat]"     # [chat] adds ddspace ask (TreeDex); leave it out if you do not need it
 ddspace --version
 ```
 
@@ -105,6 +105,14 @@ ddspace query relations --table
 ```
 
 Names can be ids (`d:3`, `v:3.1`), slugs or labels; a unique part of a label also works.
+
+With the built-in chat (the mining LLM answers from the wiki; about two LLM calls per question):
+
+```bash
+ddspace ask "Which alternatives exist for handling payments, and which decisions support them?"
+```
+
+It lists the wiki pages it used and the passage ids it cites. Each `ddspace wiki build` rebuilds its index.
 
 Through a coding agent (Claude Code, GitHub Copilot in agent mode):
 

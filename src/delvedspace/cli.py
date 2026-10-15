@@ -11,11 +11,12 @@ from typing import List, NoReturn, Optional
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 
-from delvedspace import __version__, agent, query_cli, runs
+from delvedspace import __version__, agent, chat, query_cli, runs
 from delvedspace import sources as src
 from delvedspace import wiki_build as wb
 from delvedspace import workspace as wsmod
@@ -47,8 +48,8 @@ def interactive(yes: bool) -> bool:
 
 
 def fail(message: str, code: int = 1) -> NoReturn:
-    """Print an error and exit."""
-    console.print(f"[red]Error:[/red] {message}")
+    """Print an error and exit (the message is plain text: brackets such as [chat] are kept)."""
+    console.print(f"[red]Error:[/red] {escape(message)}")
     raise typer.Exit(code)
 
 
@@ -628,7 +629,7 @@ def wiki_build_cmd(
         if n_failed:
             console.print(f"[yellow]![/yellow] {n_failed} of {total} {what} failed (first error: "
                           f"{result.first_llm_error}); run `ddspace wiki build` again to retry.")
-    okf_line = ("OKF v0.2 check: passed" if not result.okf_errors
+    okf_line = (f"{result.chat}\n" if result.chat else "") + ("OKF v0.2 check: passed" if not result.okf_errors
                 else f"[red]OKF v0.2 check: {len(result.okf_errors)} problem(s); run `ddspace wiki check`[/red]")
     console.print(Panel(
         f"Run {run_dir.name}: {result.pages} pages, {result.core} core dimension(s) (≥ {opts.core_min_sources} sources)"
@@ -722,11 +723,55 @@ def reset(
     if not wiki_only:
         ws.runs_dir.mkdir(exist_ok=True)
         ws.set("workspace.current_run", None)
+    chat.remove_index(ws)  # built from the archived wiki
     (ws.root / "wiki").mkdir(exist_ok=True)
     wb.append_log(ws.root / "wiki" / "log.md", f"- **Reset** The previous {'wiki' if wiki_only else 'runs and wiki'} "
                   f"moved to `{runs.relative(ws, archive)}/` (restore by moving the folders back).")
     console.print(f"[green]✓[/green] Archived {', '.join(present)} in {runs.relative(ws, archive)}/. "
                   + ("Next: `ddspace wiki build`." if wiki_only else "Next: `ddspace mine`."))
+
+
+# ---------------------------------------------------------------- ask
+
+
+@app.command()
+def ask(
+    question: str = typer.Argument(..., help="Your question about the design space, in quotes."),
+    as_json: bool = typer.Option(False, "--json", help="Print the answer, pages and cited passages as JSON."),
+    show_context: bool = typer.Option(False, "--why", help="Also show why these wiki pages were picked."),
+) -> None:
+    """Answer one question from the wiki with the mining LLM (two LLM calls: pick pages, then answer)."""
+    ws = current_workspace()
+    try:
+        with console.status("Reading the wiki...") if not as_json else _nullcontext():
+            answer = chat.ask(ws, question)
+    except (chat.ChatError, WorkspaceError) as exc:
+        fail(str(exc))
+    if as_json:
+        typer.echo(chat.answer_json(answer))
+        return
+    from rich.markdown import Markdown
+
+    console.print(Panel(Markdown(answer.answer), title="Answer", expand=False))
+    if answer.pages:
+        console.print("[bold]Wiki pages used[/bold]")
+        for page in answer.pages:
+            console.print(f"  {page['title']}  [dim]{page['path']}[/dim]")
+    if answer.cited_passages:
+        console.print(f"[bold]Passages cited[/bold] {', '.join(answer.cited_passages)}  "
+                      "[dim](ddspace query evidence <value> --quotes shows them)[/dim]")
+    if show_context and answer.reasoning:
+        console.print(f"[dim]Why these pages: {answer.reasoning}[/dim]")
+    console.print(f"[dim]{answer.llm_calls} LLM calls, {_format_tokens(answer.tokens)} tokens; wiki of run "
+                  f"{answer.run}[/dim]")
+
+
+class _nullcontext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
 
 
 if __name__ == "__main__":  # pragma: no cover
