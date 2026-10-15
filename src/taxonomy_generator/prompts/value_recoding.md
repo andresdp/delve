@@ -24,7 +24,7 @@ Each combination has a key, the current values it contains, the sources adopting
 - `includes`: the current values each new value covers (its facets). Every current value listed in the dimension must be included in at least one new value; a current value may be included in several new values when it is part of several alternatives.
 - `assignments`: assign **every** combination key to exactly one new value: the alternative that source combination represents. The new value must include every current value of that combination.
 - Each new value must include at least one current value that the other new values do not include: alternatives must differ. Define them close to the combinations: most sources should adopt **exactly** the facets of the new value they are assigned to, so avoid broad catch-all alternatives.
-- Each new value must be the answer of **at least two sources** (through the combinations assigned to it). Prefer few, general alternatives over one value per source.
+- Each new value must be the answer of **at least two sources** (through the combinations assigned to it). Prefer few alternatives over one value per source.
 - Use at least two new values, and no more new values than the current candidate values.
 - Set `keep` to true (and leave `values` and `assignments` empty) when the current values already are alternatives, or when the combinations show unrelated concerns that no set of alternatives can express.
 
