@@ -130,3 +130,31 @@ untouched (defaults apply). Tests for U1–U5.
 
 - A system map in the pipeline (units stay sources).
 - Strict enforcement (forcing one value per system).
+
+## Results (2026-10-15)
+
+C3 uncapped run with the repair (1.69M tokens), then the improved repair replayed on its reviewed taxonomy.
+Exclusivity by source on the selected view, with the corrected measure (dimensions with fewer than two
+candidate decisions or adopted by fewer than two sources left out):
+
+| Run | Dimensions | Exclusivity |
+|---|---|---|
+| 10-10, no feature | 31 | 0.38 |
+| 10-15, first repair | 42 | 0.44 |
+| replay, repair with move/outcome and retry | 31 | 0.43 |
+| replay, same plus the single-candidate guard | 36 | 0.34 |
+
+Differences are within run-to-run noise (the judge's orthogonality gave 0.30, 0.60 and 0.30 on near-identical
+taxonomies). The earlier 0.23 → 0.38 gain was partly an artifact: single-candidate dimensions scored as
+exclusive, then selection dropped them.
+
+**Cause.** With five sources that mostly describe one system each, many design questions show one option. The
+rule "a decision point needs two candidate decisions" (`min_candidate_decisions: 2`) makes the LLM bundle
+unrelated mechanisms into one dimension (e.g. replica locking + majority-vote rollback), and the repair cannot
+undo it without creating single-option dimensions.
+
+**Decision (user, 2026-10-15), E5.** Keep the two-candidate rule (no superfluous dimensions) and use exclusivity
+as a measure: scoreboard row, loop feedback, wiki. The repair is off by default (`exclusivity_repair: false`).
+Low exclusivity weakens the space's discriminative power (several values of a dimension coexist in one design);
+it is reported as a limitation of small corpora. Next: one C3 run with the new loop feedback (repair off) to see
+whether mining bundles less from the start.

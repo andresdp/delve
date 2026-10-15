@@ -180,8 +180,9 @@ class TaxonomySettings:
     # Exclusivity repair after evidence linking: a dimension whose sources adopt several of its
     # values (exclusivity below exclusivity_min, with at least exclusivity_min_units adopting
     # sources) is sent to the LLM to split it, extract a sub-decision, merge values that are one
-    # option, or declare a hybrid (evaluation/exclusivity.py).
-    exclusivity_repair: bool = True
+    # option, or declare a hybrid (evaluation/exclusivity.py). Off by default: on small corpora it
+    # conflicts with min_candidate_decisions (plan 2026-10-15, results); exclusivity stays measured.
+    exclusivity_repair: bool = False
     exclusivity_min: float = 0.8
     exclusivity_min_units: int = 2
 
