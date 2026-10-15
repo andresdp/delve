@@ -33,6 +33,7 @@ from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.evaluation.runner import run_scoreboard, sample_documents
+from taxonomy_generator.nodes.evidence_linker import link_evidence
 from taxonomy_generator.state import State
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,24 @@ def _skip_loop_draft(state: State, configuration: Configuration) -> bool:
     if state.minibatches and state.open_code_batch_index >= len(state.minibatches):
         return False
     return (len(state.clusters) - 1) % every != 0
+
+
+async def _linked_draft(state: State, configuration: Configuration, view: List[Dict], mode_label: str):
+    """A loop draft with its evidence linked from the open codes so far (embeddings only), for the exclusivity row.
+
+    Drafts cite only the passages the LLM copied forward, so exclusivity computed from them is noisy; the
+    final view is already linked. ``None`` (score the view as is) when linking is off or fails.
+    """
+    if (mode_label != "loop draft, pre-selection" or not getattr(configuration, "link_evidence", False)
+            or getattr(configuration, "evaluation_exclusivity", True) is False or not state.open_codes):
+        return None
+    try:
+        linked, stats = await link_evidence(view, state.open_codes, configuration.embedding,
+                                            float(configuration.evidence_min_similarity))
+        return linked if stats.get("linked") else None
+    except Exception as exc:  # noqa: BLE001 — the row then uses the draft as is
+        logger.warning("Evidence linking for the exclusivity row failed: %s", exc)
+        return None
 
 
 async def evaluate_taxonomy(
@@ -124,7 +143,9 @@ async def evaluate_taxonomy(
         mode_label, len(view), len(documents),
     )
 
-    scoreboard = await run_scoreboard(view, documents, configuration)
+    linked = await _linked_draft(state, configuration, view, mode_label)
+    extra = {"exclusivity_view": linked} if linked is not None else {}
+    scoreboard = await run_scoreboard(view, documents, configuration, **extra)
     if scoreboard.get("unavailable"):
         logger.warning("Taxonomy evaluation unavailable: %s", scoreboard.get("error"))
     # Which view was scored, so the saved history can be read per iteration:

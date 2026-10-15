@@ -222,6 +222,9 @@ def format_taxonomy(clusters: List[Dict[str, str]], include_values: bool = True)
 
 MAX_FEEDBACK_CRITERIA = 5
 MAX_REASON_CHARS = 700
+# The computed Value exclusivity row gets its own section (evidence, not a judge's opinion).
+EXCLUSIVITY_ROW = "Value exclusivity"
+MAX_EXCLUSIVITY_CHARS = 1800
 
 
 def _shorten(text: str, limit: int) -> str:
@@ -259,8 +262,12 @@ def format_evaluation_summary(scoreboard: Dict, exclude: Iterable[str] = ()) -> 
         if c.get("evaluated") is not False and isinstance(c.get("score"), (int, float))
         and c.get("name") not in excluded
     ]
-    if not criteria:
+    exclusivity = next((c for c in criteria if c.get("name") == EXCLUSIVITY_ROW and c.get("deterministic")), None)
+    criteria = [c for c in criteria if c is not exclusivity]
+    if not criteria and not exclusivity:
         return ""
+    if not criteria:
+        return _exclusivity_feedback(exclusivity, scoreboard)
 
     criteria = sorted(criteria, key=lambda c: c["score"])
     threshold = criteria[0].get("threshold")
@@ -296,6 +303,29 @@ def format_evaluation_summary(scoreboard: Dict, exclude: Iterable[str] = ()) -> 
     if to_keep:
         kept = ", ".join(f"{c.get('name', 'Unnamed criterion')} {c['score']:.2f}" for c in to_keep)
         lines.append(f"Passing criteria (preserve what they reward): {kept}.")
+    if exclusivity:
+        lines.append(_exclusivity_feedback(exclusivity, scoreboard, header=False))
+    return "\n".join(lines)
+
+
+def _exclusivity_feedback(row: Dict, scoreboard: Dict, header: bool = True) -> str:
+    """The Value exclusivity section of the feedback: the score, how fragmented the view is, and the conflicts."""
+    frag = row.get("fragmentation") or {}
+    lines = ["Automated evaluation summary for the current taxonomy."] if header else []
+    lines.append(f"Value exclusivity (computed from the evidence, not a judge): {row['score']:.2f}, the share of "
+                 "sources that adopt one value per dimension.")
+    if frag:
+        lines.append(f"Keep the taxonomy compact while fixing it: {frag.get('dimensions')} dimensions, "
+                     f"{frag.get('candidates_per_dimension')} candidate decisions per dimension; do not create "
+                     "dimensions with a single candidate decision.")
+    if row.get("score", 1) < 1:
+        kept, size = [], 0
+        for line in str(row.get("reason") or "").splitlines():  # whole lines (one per dimension), up to the limit
+            if size + len(line) > MAX_EXCLUSIVITY_CHARS and kept:
+                break
+            kept.append(line)
+            size += len(line)
+        lines += kept
     return "\n".join(lines)
 
 

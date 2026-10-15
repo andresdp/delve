@@ -29,7 +29,7 @@ from taxonomy_generator.nodes.decision_focus import recompute_evidence
 from taxonomy_generator.nodes.evidence_linker import CANDIDATE_STATUSES, initial_stances, status_from_stances
 from taxonomy_generator.prompts import EXCLUSIVITY_REPAIR_PROMPT
 from taxonomy_generator.schemas import ExclusivityAction, ExclusivityRepairOutput
-from taxonomy_generator.taxonomy_editor import TaxonomyEditor
+from taxonomy_generator.taxonomy_editor import EditError, TaxonomyEditor
 
 logger = logging.getLogger(__name__)
 
@@ -109,41 +109,77 @@ async def repair_exclusivity(
     rejected operations, the failed calls and each call's rationale.
     """
     clusters = copy.deepcopy([c for c in clusters if isinstance(c, dict)])
-    before = taxonomy_exclusivity(clusters)
+    before = taxonomy_exclusivity(clusters, min_units=min_units)
+    dims_before = len(clusters)
     targets = [r for r in before["dimensions"] if r["score"] is not None and r["score"] < min_score
                and r["units"] >= min_units and r["pairs"]]
     log: Dict[str, Any] = {"node": "exclusivity_repair", "before": before["score"], "after": before["score"],
+                           "dimensions_before": dims_before, "dimensions_after": dims_before,
                            "dimensions": [r["id"] for r in targets], "operations": [], "rejected": [],
                            "failed_calls": [], "rationales": {}}
     if not targets:
         return clusters, log
 
-    by_id = {str(c.get("id")): c for c in clusters}
     structured = model.with_structured_output(ExclusivityRepairOutput)
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
-    async def propose(row: Mapping[str, Any]):
-        dim = by_id[row["id"]]
+    async def propose(row: Mapping[str, Any], current: List[dict], retry_note: str):
+        dim = next(c for c in current if str(c.get("id")) == row["id"])
         async with semaphore:
             try:
-                messages = EXCLUSIVITY_REPAIR_PROMPT.format_messages(use_case=use_case,
-                                                                     **_payload(dim, row, clusters, passages))
+                messages = EXCLUSIVITY_REPAIR_PROMPT.format_messages(
+                    use_case=use_case, retry_note=retry_note, **_payload(dim, row, current, passages))
                 return row["id"], await structured.ainvoke(messages)
             except Exception as exc:  # noqa: BLE001 — a failed call keeps this dimension unchanged
                 logger.warning("Exclusivity repair call failed for dimension %s: %s", row["id"], exc)
                 log["failed_calls"].append({"dimension_id": row["id"], "error": f"{type(exc).__name__}: {exc}"})
                 return row["id"], None
 
-    proposals = [(d, p) for d, p in await asyncio.gather(*(propose(r) for r in targets)) if p is not None]
+    # Round 1 on every target; round 2 only on dimensions whose proposals were rejected, with the errors.
+    notes: Dict[str, str] = {}
+    for round_no in (1, 2):
+        if round_no == 2:
+            rows = {r["id"]: r for r in taxonomy_exclusivity(clusters)["dimensions"]}
+            targets = [rows[d] for d in notes if d in rows and rows[d]["pairs"]]
+            if not targets:
+                break
+        answers = await asyncio.gather(*(propose(r, clusters, notes.get(r["id"], "")) for r in targets))
+        proposals = [(d, p) for d, p in answers if p is not None]
+        for dim_id, proposal in proposals:
+            log["rationales"][dim_id if round_no == 1 else f"{dim_id} (retry)"] = proposal.rationale
+        clusters, notes = _apply_round(clusters, proposals, log, round_no, relation_types, max_relations)
+        if not notes:
+            break
+
+    clusters = recompute_evidence(clusters)
+    log["after"] = taxonomy_exclusivity(clusters, min_units=min_units)["score"]
+    log["dimensions_after"] = len(clusters)
+    return clusters, log
+
+
+RETRY_NOTE = ("## Your previous proposal\n\nThese actions for this dimension were rejected:\n\n{errors}\n\n"
+              "Propose corrected actions. Every split part needs at least two candidate decisions, and so does an "
+              "extracted dimension: move a lone value to the existing dimension whose question it answers, or make "
+              "it an outcome if it is a goal or an effect rather than an option.")
+
+
+def _apply_round(clusters: List[dict], proposals: Sequence[Tuple[str, ExclusivityRepairOutput]], log: Dict[str, Any],
+                 round_no: int, relation_types: Sequence[str],
+                 max_relations: Optional[int]) -> Tuple[List[dict], Dict[str, str]]:
+    """Apply one round of proposals; return the clusters and, per dimension, a note on its rejected actions."""
+    rejected: Dict[str, List[str]] = {}
 
     def record(ok: bool, dim_id: str, action: ExclusivityAction, message: str) -> None:
-        entry = {"dimension_id": dim_id, "action": action.action, "reason": action.reason, "message": message}
+        entry = {"dimension_id": dim_id, "action": action.action, "reason": action.reason, "message": message,
+                 "round": round_no}
         (log["operations"] if ok else log["rejected"]).append(entry)
+        if not ok:
+            rejected.setdefault(dim_id, []).append(f"- {action.action} {', '.join(action.value_ids)}: {message}")
 
+    by_id = {str(c.get("id")): c for c in clusters}
     # 1. merges, directly (the editor merges neither stances nor values of different status)
     aliases: Dict[str, str] = {}
     for dim_id, proposal in proposals:
-        log["rationales"][dim_id] = proposal.rationale
         for action in proposal.actions:
             if action.action == "merge":
                 try:
@@ -151,24 +187,42 @@ async def repair_exclusivity(
                                                                   action.description))
                     for other in action.value_ids[1:]:
                         aliases[str(other)] = str(action.value_ids[0])
-                except ValueError as exc:
+                except (ValueError, KeyError) as exc:
                     record(False, dim_id, action, str(exc))
 
-    # 2. splits and extractions, through the editor (validated, atomic per operation)
+    # 2. moves, outcomes, splits and extractions, through the editor (validated, atomic per operation)
     types = tuple(dict.fromkeys(list(relation_types) + ["refines"]))
     editor = TaxonomyEditor(clusters, batch_doc_ids=[], review=True, max_dimensions=None,
                             relation_types=types, max_relations=max_relations)
     resolve = lambda vid: editor.resolve_value(aliases.get(str(vid), str(vid)))  # noqa: E731
-    for dim_id, proposal in proposals:
-        for action in proposal.actions:
-            if action.action == "split":
-                parts = [{"name": p.name, "description": p.description,
-                          "value_ids": [resolve(v) for v in p.value_ids]} for p in action.parts]
-                ok, message = editor.apply("split_dimension", {"dimension_id": dim_id, "parts": parts})
+    order = {"move": 0, "outcome": 0, "split": 1, "extract": 1}  # values leave first, then the dimension is split
+    actions = sorted(((d, a) for d, p in proposals for a in p.actions if a.action in order),
+                     key=lambda x: order[x[1].action])
+    for dim_id, action in actions:
+        if action.action in ("move", "outcome"):
+            problem = _leaves_one_candidate(editor, [resolve(v) for v in action.value_ids])
+            if problem:
+                record(False, dim_id, action, problem)
+                continue
+        if action.action == "move":
+            for vid in action.value_ids:
+                ok, message = editor.apply("move_value", {"value_id": resolve(vid),
+                                                          "to_dimension_id": action.to_dimension_id,
+                                                          "reason": action.reason})
                 record(ok, dim_id, action, message)
-            elif action.action == "extract":
-                ok, message = _extract(editor, dim_id, [resolve(v) for v in action.value_ids], action)
+        elif action.action == "outcome":
+            for vid in action.value_ids:
+                ok, message = editor.apply("set_status", {"value_id": resolve(vid), "status": "outcome",
+                                                          "reason": action.reason})
                 record(ok, dim_id, action, message)
+        elif action.action == "split":
+            parts = [{"name": p.name, "description": p.description,
+                      "value_ids": [resolve(v) for v in p.value_ids]} for p in action.parts]
+            ok, message = editor.apply("split_dimension", {"dimension_id": dim_id, "parts": parts})
+            record(ok, dim_id, action, message)
+        else:
+            ok, message = _extract(editor, dim_id, [resolve(v) for v in action.value_ids], action)
+            record(ok, dim_id, action, message)
     result = editor.result()
 
     # 3. hybrids, on the dimension that holds every value afterwards
@@ -183,10 +237,31 @@ async def repair_exclusivity(
                 continue
             home[0].setdefault("hybrids", []).append({"value_ids": ids, "reason": action.reason})
             record(True, dim_id, action, f"declared hybrid {', '.join(ids)} in dimension {home[0].get('id')}")
+    return result, {d: RETRY_NOTE.format(errors="\n".join(e)) for d, e in rejected.items()}
 
-    result = recompute_evidence(result)
-    log["after"] = taxonomy_exclusivity(result)["score"]
-    return result, log
+
+def _leaves_one_candidate(editor: TaxonomyEditor, value_ids: List[str]) -> str:
+    """Why taking ``value_ids`` out would leave a dimension with one candidate decision ("" when it would not).
+
+    Selection drops a dimension with a single candidate decision, so its last value would be lost: move it
+    too (emptying the dimension) or keep the values where they are.
+    """
+    leaving: Dict[str, set] = {}
+    for vid in value_ids:
+        try:
+            dim, _value = editor._value(vid)  # noqa: SLF001
+        except EditError:  # an unknown id: the operation itself reports it
+            return ""
+        leaving.setdefault(str(dim["id"]), set()).add(str(vid))
+    for did, ids in leaving.items():
+        dim = editor._dim(did)  # noqa: SLF001
+        left = [v for v in dim["values"] if str(v.get("id")) not in ids
+                and v.get("status", "accepted") in CANDIDATE_STATUSES]
+        if len(left) == 1:
+            return (f"dimension {did} '{dim.get('name', '')}' would keep one candidate decision "
+                    f"({left[0].get('id')} '{left[0].get('label', '')}'), and a dimension with one candidate is dropped "
+                    "with its value: move that value as well, or keep the values where they are")
+    return ""
 
 
 def _extract(editor: TaxonomyEditor, dim_id: str, value_ids: List[str], action: ExclusivityAction) -> Tuple[bool, str]:
@@ -195,6 +270,14 @@ def _extract(editor: TaxonomyEditor, dim_id: str, value_ids: List[str], action: 
     applied = len(editor.operations)
     if not value_ids:
         return False, "extract needs value_ids"
+    try:
+        candidates = sum(editor._value(v)[1].get("status", "accepted") in CANDIDATE_STATUSES  # noqa: SLF001
+                         for v in value_ids)
+    except Exception as exc:  # noqa: BLE001 — an unknown value id
+        return False, str(exc)
+    if candidates < 2:
+        return False, (f"the new dimension would keep {candidates} candidate decision(s); a decision point needs at "
+                       "least 2. Move a lone value to the existing dimension whose question it answers instead")
     ok, message = editor.apply("add_dimension", {"name": action.name, "description": action.description})
     if ok:
         new_id = str(editor.clusters[-1]["id"])

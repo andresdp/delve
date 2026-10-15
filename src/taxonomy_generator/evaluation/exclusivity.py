@@ -103,43 +103,66 @@ def dimension_exclusivity(dim: Mapping[str, Any], unit: Unit = source_of) -> Dic
     }
 
 
-def taxonomy_exclusivity(dims: Iterable[Mapping[str, Any]], unit: Unit = source_of) -> Dict[str, Any]:
-    """Exclusivity of a taxonomy view: the weighted score and one row per dimension (lowest first)."""
-    rows = [dimension_exclusivity(d, unit) for d in dims if isinstance(d, Mapping)]
-    scored = [r for r in rows if r["units"]]
+def taxonomy_exclusivity(dims: Iterable[Mapping[str, Any]], unit: Unit = source_of, min_units: int = 1) -> Dict[str, Any]:
+    """Exclusivity of a taxonomy view: the weighted score and one row per dimension (lowest first).
+
+    Dimensions adopted by fewer than ``min_units`` units, and dimensions with fewer than two candidate
+    decisions, are listed (``score`` kept) but left out of the taxonomy score: with one adopting source
+    the score is 0 or 1 by chance, and a single-option dimension is exclusive by construction.
+    """
+    dims = [d for d in dims if isinstance(d, Mapping)]
+    rows = [dimension_exclusivity(d, unit) for d in dims]
+    # A dimension with fewer than two candidate decisions is not a decision point: it is exclusive by
+    # construction, so counting it would reward stranding values in single-option dimensions.
+    deciding = {str(d.get("id")) for d in dims if sum(1 for v in d.get("values") or [] if isinstance(v, Mapping)
+                                                      and v.get("status", "accepted") in CANDIDATE_STATUSES) >= 2}
+    scored = [r for r in rows if r["units"] and r["units"] >= min_units and r["id"] in deciding]
     total = sum(r["units"] for r in scored)
     score = sum(r["exclusive_units"] for r in scored) / total if total else None
     scored.sort(key=lambda r: (r["score"], -r["units"], _natural(r["id"])))
     return {"score": score, "units": total, "exclusive_units": sum(r["exclusive_units"] for r in scored),
-            "dimensions": scored + [r for r in rows if not r["units"]]}
+            "dimensions": scored + [r for r in rows if r not in scored]}
 
 
-def feedback(report: Mapping[str, Any], limit: int = 5) -> str:
-    """Actionable feedback for the next update: the dimensions whose systems adopt several values."""
-    weak = [r for r in report.get("dimensions") or [] if r.get("score") is not None and r["score"] < 1][:limit]
+def fragmentation(dims: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """The companion of exclusivity: splitting everything raises exclusivity, so report how fragmented the view is."""
+    candidates = [sum(1 for v in d.get("values") or [] if isinstance(v, Mapping)
+                      and v.get("status", "accepted") in CANDIDATE_STATUSES) for d in dims]
+    return {"dimensions": len(candidates),
+            "candidates_per_dimension": round(sum(candidates) / len(candidates), 1) if candidates else 0.0,
+            "single_candidate_dimensions": sum(1 for c in candidates if c < 2)}
+
+
+def feedback(report: Mapping[str, Any], limit: int = 4) -> str:
+    """Actionable feedback for the next update: the dimensions whose sources adopt several values, with evidence."""
+    weak = [r for r in report.get("dimensions") or [] if r.get("score") is not None and r["score"] < 1
+            and r["pairs"]][:limit]
     if not weak:
-        return "Every system adopts one value per dimension (or a declared hybrid)."
+        return "Every source adopts one value per dimension (or a declared hybrid)."
     lines = []
     for r in weak:
-        pair = r["pairs"][0] if r["pairs"] else None
-        top = (f"; e.g. values {pair['values'][0]} '{pair['labels'][0]}' and {pair['values'][1]} "
-               f"'{pair['labels'][1]}' are adopted together by {', '.join(pair['units'][:4])}") if pair else ""
+        pair = r["pairs"][0]
         lines.append(
             f"- Dimension {r['id']} '{r['name']}': {r['units'] - r['exclusive_units']} of {r['units']} sources adopt "
-            f"several of its values (up to {r['max_values_per_unit']}){top}. Values used together are not "
-            "alternatives: split the dimension into the questions they answer, move a value that answers a "
-            "sub-question to its own dimension, or merge two values that are one option.")
+            f"several of its values. Values {pair['values'][0]} '{pair['labels'][0]}' and {pair['values'][1]} "
+            f"'{pair['labels'][1]}' are adopted together by {', '.join(pair['units'][:4])} "
+            f"(passages {', '.join(pair['docs'][:3])}).")
+    lines.append("Values one source uses together are not alternatives. Split such a dimension into the questions "
+                 "its values answer (every part keeps at least two candidate decisions), move a value to the existing "
+                 "dimension whose question it answers, or merge two values that are the same option.")
     return "\n".join(lines)
 
 
-def scoreboard_row(dims: Sequence[Mapping[str, Any]], threshold: float, unit: Unit = source_of) -> Optional[Dict]:
-    """The deterministic **Value exclusivity** scoreboard row, or ``None`` when no source adopts any value."""
-    report = taxonomy_exclusivity(dims, unit)
+def scoreboard_row(dims: Sequence[Mapping[str, Any]], threshold: float, unit: Unit = source_of,
+                   min_units: int = 2) -> Optional[Dict]:
+    """The deterministic **Value exclusivity** scoreboard row, or ``None`` when too few sources adopt values."""
+    report = taxonomy_exclusivity(dims, unit, min_units=min_units)
     if report["score"] is None:
         return None
+    frag = fragmentation(dims)
     return {"name": CRITERION_NAME, "description": CRITERION_DESCRIPTION, "threshold": threshold,
             "score": float(report["score"]), "passed": bool(report["score"] >= threshold),
-            "reason": feedback(report), "evaluated": True, "deterministic": True}
+            "reason": feedback(report), "evaluated": True, "deterministic": True, "fragmentation": frag}
 
 
 def unit_from_system_map(systems: Mapping[str, Mapping[str, Any]]) -> Unit:

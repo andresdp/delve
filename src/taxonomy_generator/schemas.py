@@ -227,11 +227,13 @@ class ExclusivityPart(BaseModel):
 class ExclusivityAction(BaseModel):
     """One repair of a dimension whose sources adopt several of its values."""
 
-    action: Literal["split", "extract", "merge", "hybrid"] = Field(
-        description="split: the dimension bundles several decisions; extract: values answer a sub-question; "
-                    "merge: values are one option; hybrid: systems deliberately combine the values."
+    action: Literal["move", "merge", "split", "extract", "outcome", "hybrid"] = Field(
+        description="move: values answer an existing dimension's question; merge: values are one option; "
+                    "split: the dimension bundles several decisions; extract: values answer a sub-question; "
+                    "outcome: values are goals or effects, not options; hybrid: systems deliberately combine the values."
     )
-    value_ids: List[str] = Field(description="Values the action applies to (extract, merge, hybrid); empty for split.")
+    value_ids: List[str] = Field(description="Values the action applies to; empty for split.")
+    to_dimension_id: str = Field(description="Target dimension id for move; empty string otherwise.")
     parts: List[ExclusivityPart] = Field(description="The parts (split only); empty otherwise.")
     name: str = Field(description="New dimension name (extract) or merged label (merge); empty string otherwise.")
     description: str = Field(description="New dimension's question (extract) or merged description (merge); empty string otherwise.")

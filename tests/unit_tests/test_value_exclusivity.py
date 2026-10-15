@@ -88,7 +88,8 @@ def test_taxonomy_score_is_weighted_and_dimensions_without_adopters_are_left_out
 def test_scoreboard_row_names_the_dimension_and_the_fix():
     row = ex.scoreboard_row([_commit()], 0.5)
     assert row["name"] == ex.CRITERION_NAME and row["deterministic"] and row["passed"] is False
-    assert "Dimension 1 'Replica commit'" in row["reason"] and "split the dimension" in row["reason"]
+    assert "Dimension 1 'Replica commit'" in row["reason"] and "Split such a dimension" in row["reason"]
+    assert "passages s01_p01" in row["reason"] and row["fragmentation"]["dimensions"] == 1
     assert ex.scoreboard_row([_dim("9", "None", [])], 0.5) is None
 
 
@@ -126,8 +127,8 @@ class FakeModel:
         return answer
 
 
-def _act(action, value_ids=(), parts=(), name="", description="", reason="because"):
-    return ExclusivityAction(action=action, value_ids=list(value_ids), parts=list(parts), name=name,
+def _act(action, value_ids=(), parts=(), name="", description="", reason="because", to=""):
+    return ExclusivityAction(action=action, value_ids=list(value_ids), parts=list(parts), name=name, to_dimension_id=to,
                              description=description, reason=reason)
 
 
@@ -148,11 +149,11 @@ def test_only_dimensions_below_the_threshold_are_sent():
 def test_extract_moves_a_sub_decision_to_a_dimension_that_refines_the_original():
     clusters = [_commit()]
     answer = ExclusivityRepairOutput(rationale="locking is a mechanism",
-                                     actions=[_act("extract", ["1.2"], name="Reference locking scope",
+                                     actions=[_act("extract", ["1.2", "1.3"], name="Reference locking scope",
                                                    description="How are references locked?")])
     out, log, _ = _repair(clusters, {"1": answer})
     new = next(d for d in out if d["name"] == "Reference locking scope")
-    assert [v["label"] for v in new["values"]] == ["Reference locking"]
+    assert [v["label"] for v in new["values"]] == ["Reference locking", "Majority vote"]
     assert {"target_id": "1", "type": "refines"}.items() <= new["relations"][0].items()
     assert log["after"] == 1.0 and log["before"] < 1 and len(log["operations"]) == 1
     assert clusters[0]["values"][1]["id"] == "1.2"                            # the input is not modified
@@ -182,6 +183,34 @@ def test_split_and_hybrid_and_invalid_proposals():
         rationale="x", actions=[bad_split, hybrid, _act("merge", ["1.1", "9.9"])])})
     assert len(log["rejected"]) == 2 and out[0]["hybrids"] == [{"value_ids": ["1.1", "1.2"], "reason": "combined by design"}]
     assert log["after"] == 1.0
+
+
+class SequenceModel(FakeModel):
+    """Answers the same dimension with successive proposals (round 1, then the retry), keeping the prompts."""
+
+    def __init__(self, answers):
+        super().__init__({})
+        self.queue, self.prompts = list(answers), []
+
+    async def ainvoke(self, messages):
+        self.prompts.append("\n".join(m.content for m in messages))
+        return self.queue.pop(0)
+
+
+def test_a_rejected_proposal_is_retried_with_the_error_and_moves_and_outcomes_apply():
+    other = _dim("2", "Locking", [_v("2.1", "Per-repo lock", accepted=["s05_p01"]), _v("2.2", "Global lock", accepted=["s06_p01"])])
+    first = ExclusivityRepairOutput(rationale="locking", actions=[_act("extract", ["1.2"], name="Lock", description="?")])
+    retry = ExclusivityRepairOutput(rationale="move it", actions=[_act("move", ["1.2"], to="2")])
+    model = SequenceModel([first, retry])
+    out, log = asyncio.run(repair_exclusivity([_commit(), other], model, "Git", {}))
+    assert len(model.prompts) == 2 and "previous proposal" in model.prompts[1] and "1 candidate" in model.prompts[1]
+    assert [o["round"] for o in log["operations"]] == [2] and log["rejected"][0]["round"] == 1
+    assert "Reference locking" in [v["label"] for v in out[1]["values"]] and log["after"] == 1.0
+    assert log["dimensions_before"] == log["dimensions_after"] == 2              # no new dimension
+
+    as_outcome = ExclusivityRepairOutput(rationale="goal", actions=[_act("outcome", ["1.2"])])
+    out, log = asyncio.run(repair_exclusivity([_commit()], SequenceModel([as_outcome]), "Git", {}))
+    assert next(v for v in out[0]["values"] if v["label"] == "Reference locking")["status"] == "outcome"
 
 
 def test_a_failed_call_leaves_the_dimension_unchanged():
@@ -247,3 +276,32 @@ def test_system_pages_split_adopted_and_rejected_values():
     row = next(line for line in fs.body.splitlines() if "Source of truth" in line)
     adopted, rejected = row.split(" | ")[1], row.split(" | ")[2]
     assert "WAL in S3" not in adopted and "WAL in S3" in rejected
+
+
+def test_exclusivity_feedback_has_its_own_section_with_whole_lines():
+    dims = [_dim(str(i), f"Decision {i}", [_v(f"{i}.1", "a", accepted=["s01_p01", "s02_p01"]),
+                                          _v(f"{i}.2", "b", accepted=["s01_p02", "s02_p02"])]) for i in range(1, 5)]
+    row = ex.scoreboard_row(dims, 0.5)
+    judged = {"name": "Clarity", "score": 0.4, "threshold": 0.5, "reason": "x" * 900, "evaluated": True}
+    text = format_evaluation_summary({"criteria": [judged, row], "overall": 0.2})
+    assert "Value exclusivity (computed from the evidence, not a judge): 0.00" in text
+    assert all(f"Dimension {i} 'Decision {i}'" in text for i in range(1, 5))     # not cut at 700 characters
+    assert "do not create dimensions with a single candidate decision" in text
+    assert "- Value exclusivity:" not in text                                   # not among the judged issues
+    only = format_evaluation_summary({"criteria": [row], "overall": 0.0})
+    assert only.startswith("Automated evaluation summary") and "Decision 1" in only
+
+
+def test_a_move_that_would_leave_one_candidate_is_rejected():
+    other = _dim("2", "Locking", [_v("2.1", "Per-repo lock", accepted=["s05_p01"]), _v("2.2", "Global lock", accepted=["s06_p01"])])
+    move = ExclusivityRepairOutput(rationale="x", actions=[_act("move", ["1.1", "1.2"], to="2")])   # leaves 1.3 alone
+    keep = ExclusivityRepairOutput(rationale="x", actions=[])
+    out, log = asyncio.run(repair_exclusivity([_commit(), other], SequenceModel([move, keep]), "Git", {}))
+    assert "would keep one candidate decision (1.3 'Majority vote')" in log["rejected"][0]["message"]
+    assert [v["id"] for v in out[0]["values"]] == ["1.1", "1.2", "1.3", "1.4"]
+
+
+def test_single_candidate_dimensions_do_not_count():
+    single = _dim("5", "Lonely", [_v("5.1", "Only option", accepted=["s01_p01", "s02_p01"])])
+    assert ex.taxonomy_exclusivity([single])["score"] is None
+    assert ex.taxonomy_exclusivity([_commit(), single])["score"] == pytest.approx(1 / 3)
