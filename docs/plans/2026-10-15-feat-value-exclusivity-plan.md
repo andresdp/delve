@@ -178,3 +178,37 @@ limitation; the loop feedback is kept (no cost beyond embeddings).
 **Reproduce.** Runs: `examples/c3-git-at-scale/exclusivity-20261015/` (repair on) and `loopfeedback-20261015/`
 (loop feedback, repair off); repair variants replayed with `benchmark/replay_consolidation.py … --set
 exclusivity_repair=true`. Exclusivity of any saved run: `taxonomy_exclusivity` in `evaluation/exclusivity.py`.
+
+### Prompting values as alternatives, and a co-adoption warning (2026-10-16, branch `feat/value-alternatives-prompts`, parked)
+
+**Changes** (commit `8fd22c5`):
+
+1. The tools prompt's granularity rule, and `finish`'s structural check, no longer advise "fewer, broader decision
+   points": they merge sibling dimensions only when their values are rival answers to one question.
+2. An operational test for alternatives in the generation, update, review and tools prompts: "a system takes one
+   value *instead of* another; values one system uses together are complementary".
+3. A deterministic editor warning in `add_value` and `add_evidence`: the source of the cited documents already
+   adopts another accepted or mixed value of the same dimension.
+
+**Test.** C3 sample config (cap 8 at selection; mining uncapped); 2 baseline runs (`feat/ddspace-tool`, `bf3490d`)
+and 2 treatment runs. Outputs are in `output/ab-exclusivity/`, gitignored. The uncapped view is rebuilt with the
+support rules (no LLM).
+
+| | Excl. by source (cap 8) | Excl. by system (cap 8) | Excl. by source (uncapped) | Generality (cap 8) | Max values per dimension | Overall |
+|---|---|---|---|---|---|---|
+| Baseline 1 / 2 | 0.35 / 0.56 | 0.33 / 0.43 | 0.26 / 0.42 | 0.39 / 0.50 | 33 / 16 | 0.65 / 0.70 |
+| Treatment 1 / 2 | 0.29 / 0.40 | 0.15 / 0.25 | 0.29 / 0.32 | 0.43 / 0.42 | 12 / 12 | 0.63 / 0.66 |
+
+**Result: no gain.**
+- The baselines alone differ by 0.21. By system, both treatment runs score below both baselines.
+- Dimensions are narrower (at most 12 values), but the judged orthogonality, "one decision point" and "axis vs. value"
+  do not improve.
+- **The warning fires 163–176 times per run**, on most of the roughly 250 additions. Each C3 source describes one
+  system combining many techniques, so the signal is everywhere and the model mostly ignores it: it moved 5 and 21
+  values, against 4 and 8 in the baselines. Where it acts, the fix (a technique in its own decision) usually needs
+  a dimension with a single candidate, which `min_candidate_decisions: 2` forbids: the same small-corpus limit as
+  the repair step (E5).
+
+**Decision (user, 2026-10-16):** not used in the main runs; the method stays as on `feat/ddspace-tool`. The branch
+is parked. The changes may behave differently on C1/C2 (about 30 sources, each covering several systems), where
+the warning would be rarer. That test (about 8M tokens per C1 run) comes after the deadline.
