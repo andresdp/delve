@@ -4,11 +4,64 @@ Shared domain vocabulary for this project — entities, named processes, and sta
 
 ## Relationships
 
-A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus. Ground-Truth Matching scores one Taxonomy view against each Ground Truth View of an expert study, under an Evaluation Frame fixed before any score is seen. Three LLM Roles divide the model work: the generation role builds the Taxonomy, the evaluation role produces Scoreboards and adjudicates Consistency Comparisons, and the matching role judges Ground-Truth Matching. An Edit Mode decides how each update and review changes the Taxonomy; tools and rewrite_restore runs keep an Operation Log, and a Stage Funnel traces where expert options are lost across the Iterations.
+The Design-Space Model defines what a design space is; a Mining Procedure (today the agentic Grounded-Theory Emulation) is one way to produce an instance of it, and an expert-authored design space is another. A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus. Ground-Truth Matching scores one Taxonomy view against each Ground Truth View of an expert study, under an Evaluation Frame fixed before any score is seen. Three LLM Roles divide the model work: the generation role builds the Taxonomy, the evaluation role produces Scoreboards and adjudicates Consistency Comparisons, and the matching role judges Ground-Truth Matching. An Edit Mode decides how each update and review changes the Taxonomy; tools and rewrite_restore runs keep an Operation Log, and a Stage Funnel traces where expert options are lost across the Iterations.
 
 ## Taxonomy
 
 The evolving structure a corpus is organized into: a set of Dimensions, each with its Values and Relations to other Dimensions. Built up across multiple Iterations rather than produced in one pass.
+
+## Design-Space Model
+
+**What it is:** the definition of a design space and its elements, independent of how a given design space is
+produced:
+- Dimensions (decision points) and their Values (candidate decisions with a Decision Status, or outcomes);
+- Relations between Dimensions;
+- evidence links to passages;
+- the design points one can sample from it.
+
+**Who produces instances:** a Mining Procedure, an expert who authors a design space directly, or a simple
+procedure such as one long prompt. Their outputs are comparable as instances of one model. The expert models used
+for Ground-Truth Matching are instances too.
+
+**What works on any instance:** the wiki, the queries and the matcher read the model, not the procedure that
+produced it. Today the model lives in the run's taxonomy JSON; a planned data layer would make it a first-class
+model with its own operations and storage.
+
+## Mining Procedure
+
+A way of producing a Design-Space Model instance from textual sources. Delve's current procedure is an agentic
+Grounded-Theory Emulation:
+- open coding of passages;
+- revision of the Taxonomy through validated operations;
+- Critic feedback and a coverage-based stopping rule;
+- integration: consolidation, Evidence Linking, selection.
+
+Other procedures, algorithmic or human, can replace it without changing the model or the tools built on it.
+
+## Grounded-Theory Emulation
+
+**The setting it emulates:** a team of grounded-theory researchers.
+- Several coders open-code the sources independently.
+- They compare and reconcile their codes until they reach a consensus.
+- The categories are then integrated through axial and selective coding, with memos and peer debriefing.
+- Sampling continues until theoretical saturation.
+
+**How Delve's agents map onto it:**
+
+| Team practice | Delve |
+|---|---|
+| Coders | the Coder (Open Coding) |
+| Constant comparison and integration | the Taxonomist |
+| Peer debriefing and the stopping judgement | the Critic (Scoreboard, coverage check) |
+| Consolidation and scoping | the Integrator |
+
+**The current procedure simplifies this setting:**
+- A **single Coder** with no independent second coding, so there is no inter-coder agreement and no consensus step.
+  Reconciliation happens in one integrating analyst, the Taxonomist, whose edits are rule-checked.
+- **No theoretical sampling:** the corpus is fixed.
+- **Conceptual coverage instead of theoretical saturation.**
+
+Several Coder agents with a consensus step are possible future work.
 
 ## Iteration
 
