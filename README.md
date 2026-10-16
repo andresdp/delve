@@ -21,7 +21,7 @@ For corpus preparation, configuration, all commands and the output files, see
 **[USAGE.md](USAGE.md)**.
 
 🔎 **[Browse a sample wiki online](https://andresdp.github.io/delve/)**: case C3, on scaling Git hosting,
-capped at 5 dimensions.
+capped at 8 dimensions.
 
 ## What you get
 

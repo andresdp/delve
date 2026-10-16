@@ -1,4 +1,4 @@
-# C3 sample: Git at scale, 5 dimensions
+# C3 sample: Git at scale, 8 dimensions
 
 A small, published snapshot of DelveDSpace's output for case C3. The case is how teams made Git repositories
 work at scale: very many repositories, very large repositories and very many users. The snapshot exists to
@@ -15,7 +15,7 @@ outputs that quote the corpus are not committed.
 
 **Open the wiki:** [browse it online](https://andresdp.github.io/delve/). It is published with GitHub Pages by
 `.github/workflows/sample-wiki-pages.yml`, because GitHub shows HTML files in the repository as source. Alternatively, open
-[`c3-git-at-scale-sample_taxonomy_20261010_232242_wiki/html/index.html`](c3-git-at-scale-sample_taxonomy_20261010_232242_wiki/html/index.html)
+[`c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html`](c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html)
 from a local clone; the wiki works offline. It has a graph view and a tree view, linked from every page.
 
 ## How it was produced
@@ -28,16 +28,25 @@ from a local clone; the wiki works offline. It has a graph view and a tree view,
 
   The sources are listed in [`benchmark/c3-git-at-scale/sources.csv`](../../../benchmark/c3-git-at-scale/sources.csv).
 - **Settings:** [`../c3_git_at_scale_sample_config.yaml`](../c3_git_at_scale_sample_config.yaml). These are the C3
-  study settings, except `max_num_clusters: 5` and the output folder. The LLM is `openai/gpt-5.6-luna` for
-  generation, evaluation and matching, and the embedding model is `text-embedding-3-small`.
-- **Run:** 2026-10-10, about 22 minutes and 1.46M tokens. The run kept 5 dimensions (4 in one intermediate
-  draft). The final view has 196 values. Its overall evaluation score is 0.63.
-- **Dimensions:** with only 5 allowed, each one is broad, with 18–61 values each (no dimension holds more than
-  a third of the values). The uncapped study run found 22 narrower dimensions in the same corpus.
-- **Relations:** 5 relations between the dimensions, each written as a sentence (e.g. "Client Repository and
-  Working-Tree Scaling requires Repository Storage Representation to be decided first"). The wiki's
-  "Relations between dimensions" page explains how to read them; relations are inferred by the model and, unlike
-  values, are not checked against passages.
+  study settings, except `max_num_clusters: 8` and the output folder. The cap applies at selection
+  (`taxonomy.cap_stage: selection`): mining is not capped, and selection keeps the 8 dimensions with the most
+  evidence. The LLM is `openai/gpt-5.6-luna` for generation and evaluation, `openai/gpt-5.4-mini` for matching,
+  and the embedding model is `text-embedding-3-small`. Value recoding is on (the default).
+- **Run:** 2026-10-16, about 20 minutes and 0.85M tokens, 8 iterations. Mining found 24 dimensions; selection
+  kept 8, with 89 values (3–33 per dimension). Its overall evaluation score is 0.65.
+- **Dimensions:** they cover both sides of the case:
+  - **server side:** replica write coordination, topology, synchronization and state comparison, and repository
+    placement and read routing;
+  - **client side and maintenance:** client repository performance strategy, large-repository object
+    acquisition, compaction maintenance.
+
+  All 5 sources contribute. A first try with a cap of 5 kept only server-side replication dimensions: three of
+  the five sources discuss replication, so those dimensions have the most evidence.
+- **Value exclusivity:** 0.35, the share of sources that adopt exactly one value of a dimension. It is low, as
+  expected with 5 sources that each describe mostly one system. Value recoding found no dimension it could
+  recode.
+- **Relations:** the run inferred 5 relations between dimensions, but none connects two of the 8 selected ones.
+  The sample therefore shows no relations; the study run does.
 - **Design points:**
   - 24 sampled points: attested, novel and control groups, with 2 or 3 dimensions each and 4 points per group
     and size;
@@ -54,7 +63,7 @@ from a local clone; the wiki works offline. It has a graph view and a tree view,
 | `*_documents_<ts>.json` | Each passage with its assigned dimension and value |
 | `*_clusters_<ts>.json` | The design space as a tree, with the labeled passages nested in it |
 | `*_open_codes_<ts>.json` | All open codes (passage id, label, rationale, status) |
-| `*_design_points.json`, `*_design_points_sheet.csv`, `*_design_points_descriptions.json` | The 24 sampled design points, a rating sheet, and their descriptions |
+| `*_design_points.json`, `*_design_points_sheet.csv`, `*_design_points_descriptions.json` | The 24 sampled design points (attested by 3 systems: Cursor's, GitHub Spokes and Microsoft Scalar), a rating sheet, and their descriptions |
 | `taxonomy_biplot_*.html`, `taxonomy_vectors_*.csv` | PCA biplot of the values, and their axis coordinates |
 | `*_wiki/` | The design-space wiki: `html/` (open `index.html`), `wiki/` (Markdown, Obsidian-compatible) and `raw/run.json` |
 
@@ -89,6 +98,9 @@ python benchmark/export_wiki.py $RUN.json \
        --systems benchmark/c3-git-at-scale/passage_systems.csv \
        --system-names benchmark/c3-git-at-scale/systems.csv \
        --design-points ${RUN}_design_points.json \
+       --design-point-descriptions ${RUN}_design_points_descriptions.json \
+       --source-summaries benchmark/c3-git-at-scale/source_summaries.json \
+       --report examples/c3-git-at-scale/sample/c3-git-at-scale-sample_report_<timestamp>.md \
        --config examples/c3-git-at-scale/c3_git_at_scale_sample_config.yaml --evaluation
 ```
 
