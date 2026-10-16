@@ -158,7 +158,8 @@ ddspace query show "{dim}"{where}            # one node and its neighbors
 ddspace query search "{word}"{where}              # find nodes by keyword
 ```
 
-A node can be named by id (`d:3`, `v:3.1`, `s:s2`), by slug, or by label (exact or a unique partial match).
+A node can be named by id (`d:3`, `v:3.1`, `s:s2`), by slug, or by name: the label exactly, ignoring case,
+spacing and punctuation (`event driven architecture`), or failing that a unique partial match.
 Exit code 2 means nothing matched; the JSON then lists close matches.
 
 ## Interpreting a combination (design point)

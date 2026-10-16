@@ -2,7 +2,8 @@
 
 Pure functions, no LLM calls. Every function returns plain JSON-ready data; ``ddspace query`` prints it as
 JSON or as a table. A node is given by id (``d:3``, ``v:3.1``, ``s:s01``), by slug or href
-(``concepts/replica-placement``), or by its label (exact, case-insensitive; or a unique partial match).
+(``concepts/replica-placement``), or by its name: the label exactly, ignoring case, spacing and punctuation
+(``event driven architecture`` names "Event-driven architecture"); failing that, a unique partial match.
 """
 
 from __future__ import annotations
@@ -76,6 +77,11 @@ def _norm(text: Any) -> str:
     return " ".join(str(text or "").split()).casefold()
 
 
+def _name_key(text: Any) -> str:
+    """A name compared by its words only: case, spacing and punctuation (``-``, ``/``, ``_``, quotes) ignored."""
+    return " ".join(re.sub(r"[\W_]+", " ", str(text or "")).split()).casefold()
+
+
 def _nodes(graph: Graph, kinds: Optional[Iterable[str]]) -> List[Dict[str, Any]]:
     wanted = set(kinds or KIND_PREFIX)
     return [n for n in graph.get("nodes") or [] if n.get("kind") in wanted]
@@ -88,13 +94,14 @@ def resolve(graph: Graph, ref: str, kinds: Optional[Sequence[str]] = None,
     ``pool`` narrows the search to those nodes (e.g. the values of one dimension).
     """
     pool = _nodes(graph, kinds) if pool is None else pool
-    ref_s, key = str(ref).strip(), _norm(ref)
+    ref_s, key, name = str(ref).strip(), _norm(ref), _name_key(ref)
     if re.fullmatch(r"(s:)?s0*\d+", ref_s):  # sources: s01, s1 and s:s1 are the same
         ref_s = "s:" + source_of(ref_s.removeprefix("s:") + "_p1")
     steps = [
         lambda n: n["id"] == ref_s or any(n["id"] == p + ref_s for p in KIND_PREFIX.values()),
         lambda n: n.get("href") == ref_s.strip("/") or str(n.get("href", "")).rsplit("/", 1)[-1] == ref_s,
         lambda n: _norm(n.get("label")) == key,
+        lambda n: name and _name_key(n.get("label")) == name,   # same words: "event driven architecture"
         lambda n: key and key in _norm(n.get("label")),
     ]
     for match in steps:

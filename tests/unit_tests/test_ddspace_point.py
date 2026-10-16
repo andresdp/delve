@@ -94,3 +94,10 @@ def test_cli_checks_only_with_no_llm_and_exits_2_on_unknown_names(root):
 def test_cli_without_a_recorded_model_asks_for_one(root):
     result = runner.invoke(cli.app, ["point", "WAL in S3", "--graph", str(root)])
     assert result.exit_code == 1 and "--model" in result.output
+
+
+@pytest.mark.parametrize("name", ["three-phase commit", "THREE PHASE COMMIT", "three_phase  commit",
+                                  "replication=three phase commit"])
+def test_names_match_ignoring_case_spacing_and_punctuation(root, name):
+    info = q.point(q.load(root / "raw" / "graph.json"), [name])
+    assert info["values"][0]["id"] == "v:2.1"
