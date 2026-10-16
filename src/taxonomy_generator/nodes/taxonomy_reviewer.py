@@ -50,7 +50,8 @@ async def review_taxonomy(
     """
     configuration = Configuration.from_runnable_config(config)
 
-    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or ())
+    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or (),
+                               include_evaluation=configuration.evaluation_loop_feedback is not False)
 
     review_size = configuration.review_sample_size or configuration.batch_size
     indices = list(range(len(state.documents)))
