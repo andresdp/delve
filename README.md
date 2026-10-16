@@ -171,6 +171,7 @@ ddspace update --test --sources new-article.html               # dimensions froz
 ddspace wiki build                                             # the wiki's log.md records what changed
 ddspace query values "Replica placement" --table               # read-only questions, no LLM
 ddspace ask "Which alternatives exist for replica placement?"  # an answer from the wiki, citing passages
+ddspace point "Leader-based" "WAL in S3" --table                 # interpret one combination; nothing stored
 ddspace check                                                  # what is configured, missing, and done so far
 ddspace reset                                                  # archive runs and wiki (--all: also the corpus)
 ```

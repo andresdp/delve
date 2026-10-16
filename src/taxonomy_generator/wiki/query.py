@@ -81,9 +81,13 @@ def _nodes(graph: Graph, kinds: Optional[Iterable[str]]) -> List[Dict[str, Any]]
     return [n for n in graph.get("nodes") or [] if n.get("kind") in wanted]
 
 
-def resolve(graph: Graph, ref: str, kinds: Optional[Sequence[str]] = None) -> Dict[str, Any]:
-    """Return the one node ``ref`` names (id, slug/href or label); raise ``NotFound`` otherwise."""
-    pool = _nodes(graph, kinds)
+def resolve(graph: Graph, ref: str, kinds: Optional[Sequence[str]] = None,
+            pool: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    """Return the one node ``ref`` names (id, slug/href or label); raise ``NotFound`` otherwise.
+
+    ``pool`` narrows the search to those nodes (e.g. the values of one dimension).
+    """
+    pool = _nodes(graph, kinds) if pool is None else pool
     ref_s, key = str(ref).strip(), _norm(ref)
     if re.fullmatch(r"(s:)?s0*\d+", ref_s):  # sources: s01, s1 and s:s1 are the same
         ref_s = "s:" + source_of(ref_s.removeprefix("s:") + "_p1")
@@ -231,3 +235,74 @@ def search(graph: Graph, text: str, kind: Optional[str] = None) -> List[Dict[str
     by_desc = [{**_brief(n), "match": "description"} for n in pool
                if key not in _norm(n.get("label")) and key in _norm(n.get("description"))]
     return by_label + by_desc
+
+
+ADOPTS = ("accepts", "supports", "both")
+
+
+def _point_value(graph: Graph, ref: str) -> Dict[str, Any]:
+    """A value named alone, or as ``Dimension=Value`` when its label is not unique across dimensions."""
+    dim_ref, sep, value_ref = str(ref).partition("=")
+    if sep and dim_ref.strip() and value_ref.strip():
+        d = resolve(graph, dim_ref.strip(), ["dimension"])
+        return resolve(graph, value_ref.strip(), pool=_values_of(graph, d["id"]))
+    return resolve(graph, ref, ["value"])
+
+
+def point(graph: Graph, refs: Sequence[str]) -> Dict[str, Any]:
+    """Assemble a design point from values (one per dimension) and check it, without an LLM.
+
+    Returns the chosen values, the wiki's design point with exactly these values when there is one (with its
+    stored description), the sources whose passages adopt every value, the relations among the chosen
+    dimensions, and warnings: two values of one dimension, an outcome or a rejected value as a choice, a
+    required dimension left out. Nothing is written: the design space and the wiki stay as they are.
+    """
+    if not refs:
+        raise QueryError("Name at least one value, e.g. ddspace point \"Dimension=Value\" \"Other value\".")
+    chosen: List[Dict[str, Any]] = []
+    for ref in refs:
+        v = _point_value(graph, ref)
+        if all(c["id"] != v["id"] for c in chosen):
+            chosen.append(v)
+    warnings: List[str] = []
+    by_dim: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for v in chosen:
+        by_dim[v["dimension_id"]].append(v)
+        if v.get("status") == "outcome":
+            warnings.append(f"'{v['label']}' is an outcome (an effect of decisions), not a choice.")
+        elif v.get("status") == "rejected":
+            warnings.append(f"'{v['label']}' was rejected by the sources that discuss it.")
+    for vals in by_dim.values():
+        if len(vals) > 1:
+            warnings.append(f"{len(vals)} values of '{vals[0]['dimension']}' "
+                            f"({', '.join(x['label'] for x in vals)}): a system takes one value per dimension.")
+    dims = set(by_dim)
+    rels = []
+    for e in _edges(graph, "relation"):
+        if e["source"] in dims and e["target"] in dims:
+            rels.append({"type": e.get("relation"), "reading": e.get("reading", "")})
+        elif e.get("relation") == "requires" and e["source"] in dims:
+            target = graph["_by_id"].get(e["target"], {}).get("label", e["target"])
+            warnings.append(f"{e.get('reading', '')}; '{target}' is not in the point.")
+    adopters = [{source_of(p["doc"]) for p in v.get("passages") or [] if p.get("stance") in ADOPTS} for v in chosen]
+    attested = [_brief(graph["_by_id"].get("s:" + s) or {"id": "s:" + s, "kind": "source", "label": s})
+                for s in sorted(set.intersection(*adopters),
+                                key=lambda s: [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)])]
+    wanted = {v["id"] for v in chosen}
+    members: Dict[str, set] = defaultdict(set)
+    for e in _edges(graph, "design"):
+        members[e["source"]].add(e["target"])
+    existing = next((graph["_by_id"][p] for p, vs in sorted(members.items()) if vs == wanted
+                     and p in graph["_by_id"]), None)
+    return {
+        "values": [{**_brief(v), "status": v.get("status"), "description": v.get("description", ""),
+                    "dimension": v.get("dimension"), "dimension_id": v.get("dimension_id"),
+                    "dimension_description": graph["_by_id"].get(v["dimension_id"], {}).get("description", "")}
+                   for v in chosen],
+        "existing": ({**_brief(existing), "group": existing.get("group"), "tag": existing.get("tag")}
+                     if existing else None),
+        "description": existing.get("description") if existing else None,
+        "attested_by": attested,
+        "relations": rels,
+        "warnings": warnings,
+    }

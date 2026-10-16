@@ -161,6 +161,18 @@ ddspace query search "{word}"{where}              # find nodes by keyword
 A node can be named by id (`d:3`, `v:3.1`, `s:s2`), by slug, or by label (exact or a unique partial match).
 Exit code 2 means nothing matched; the JSON then lists close matches.
 
+## Interpreting a combination (design point)
+
+```bash
+ddspace point "{value}" "<another value>"{where}     # one value per dimension; Dimension=Value if ambiguous
+```
+
+Returns the chosen values, warnings (two values of one decision, an outcome or a rejected value as a choice, a
+required decision left out), the sources that adopt every value (`attested_by`; empty means a novel
+combination), and a description. The description is the wiki's own when this point is in the wiki, otherwise
+it is generated now with one LLM call (`description_source: generated`). It is never stored and does not
+change the design space; like other generated text it is not evidence. Add `--no-llm` for the checks only.
+
 ## Rules
 
 1. Read-only: never edit `wiki/`, `raw/` or `runs/`; they are regenerated. To change the design space, suggest

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import sys
@@ -20,6 +21,7 @@ from delvedspace import workspace as wsmod
 from delvedspace.corpus import MAX_WORDS, MIN_WORDS, TARGET_WORDS
 from delvedspace.workspace import CONFIG_NAME, Settings, Workspace, WorkspaceError
 from taxonomy_generator.wiki import okf
+from taxonomy_generator.wiki import query as q
 
 app = typer.Typer(
     name="ddspace",
@@ -918,6 +920,60 @@ def ask(
         ui.note(escape(answer.reasoning))
     console.print()
     ui.note(f"{answer.llm_calls} LLM calls, {_format_tokens(answer.tokens)} tokens; wiki of run {answer.run}")
+
+
+# ---------------------------------------------------------------- point
+
+
+@app.command()
+def point(
+    values: List[str] = typer.Argument(..., help="The values to combine, one per dimension: a value's id or label, "
+                                       "or Dimension=Value when the label is not unique."),
+    no_llm: bool = typer.Option(False, "--no-llm", help="Only the checks; no description is generated."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model for the description "
+                                        "(default: the one that wrote the wiki's descriptions)."),
+    graph: Optional[Path] = query_cli.GraphOpt,
+    table: bool = query_cli.TableOpt,
+) -> None:
+    """Interpret a design point (one value per dimension). Returns the wiki's description when it has this point,
+    else generates one with one LLM call. Nothing is stored; the design space and the wiki do not change."""
+    from delvedspace import point as pt
+
+    path = query_cli._graph_path(graph)
+    try:
+        if table:
+            with ui.status("Describing the design point..." if not no_llm else "Checking the design point..."):
+                data = pt.point(path, values, llm=not no_llm, model_override=model)
+        else:
+            data = pt.point(path, values, llm=not no_llm, model_override=model)
+    except q.NotFound as exc:
+        query_cli.err.print(f"[red]✗ Not found:[/red] {escape(str(exc))}")
+        if not table:
+            typer.echo(json.dumps({"error": str(exc), "candidates": exc.candidates}, indent=2, ensure_ascii=False))
+        raise typer.Exit(2)
+    except (q.QueryError, pt.PointError) as exc:
+        fail(str(exc))
+    if not table:
+        typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+    ui.table("Design point", ["dimension", "value", "status"],
+             [[escape(v["dimension"]), escape(v["label"]), v["status"]] for v in data["values"]])
+    ex = data["existing"]
+    ui.note(f"In the wiki as {ex['label']} ({ex['group']})" if ex else "Not one of the wiki's design points")
+    ui.note("Attested by " + (", ".join(escape(str(s["label"])) for s in data["attested_by"]) if data["attested_by"]
+                              else "no source: no source adopts every value (novel)"))
+    for r in data["relations"]:
+        ui.note(escape(r["reading"]))
+    for w in data["warnings"]:
+        ui.warn(escape(w))
+    if data["description"]:
+        from rich.panel import Panel
+
+        title = "Description (stored)" if data["description_source"] == "stored" else "Description (generated)"
+        console.print(Panel(escape(data["description"]), title=f"[bold]{title}[/bold]", title_align="left",
+                            border_style=ui.ACCENT, expand=False, padding=(0, 1)))
+        if data.get("note"):
+            ui.note(data["note"])
 
 
 class _nullcontext:
