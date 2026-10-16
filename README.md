@@ -255,13 +255,13 @@ architecture; settings added since then are documented in `config.yaml` and in [
 ## Background and acknowledgements
 
 DelveDSpace started as an implementation of **TnT-LLM** ("Text Mining at Scale with Large Language Models",
-Wan et al., [arXiv:2403.12173](https://arxiv.org/abs/2403.12173)), forked from Delve
+Wan et al., [arXiv:2403.12173](https://arxiv.org/abs/2403.12173)), forked from Delve by Andres Torres
 ([andrestorres123/delve](https://github.com/andrestorres123/delve)), itself based on
 [hinthornw/tnt-llm](https://github.com/hinthornw/tnt-llm). It keeps TnT-LLM's minibatch
 generate-update-review loop, but now builds grounded-theory design spaces (open coding, decision
 statuses, evidence linking, saturation, consolidation, selection and evaluation feedback) instead of
-flat label taxonomies for training classifiers. Thanks to the TnT-LLM authors and to
-[Will Fu-Hinthorn](https://github.com/hinthornw) for the original implementation.
+flat label taxonomies for training classifiers. Thanks to the TnT-LLM authors, to
+[Will Fu-Hinthorn](https://github.com/hinthornw) for the original implementation, and to Andres Torres for Delve.
 
 ## License
 
