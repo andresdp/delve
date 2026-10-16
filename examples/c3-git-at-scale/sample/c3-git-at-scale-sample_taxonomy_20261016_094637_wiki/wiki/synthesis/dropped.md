@@ -1,8 +1,11 @@
 ---
+type: Synthesis
 title: Dropped and unsupported
-type: synthesis
 tags:
 - synthesis
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Dropped and unsupported

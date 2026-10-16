@@ -1,6 +1,7 @@
 ---
+type: Design Decision
 title: Compaction Maintenance Technique
-type: dimension
+description: Which repacking and object-cleanup techniques maintain compact repository storage?
 id: '12'
 core: true
 values: 6
@@ -16,8 +17,11 @@ tags:
 - core
 exclusivity: 0.5
 systems:
-- '[[synthesis/systems/cur-cont|Cursor Continuity and Origin]]'
-- '[[synthesis/systems/ms-scalar|Microsoft Scalar]]'
+- /synthesis/systems/cur-cont.md
+- /synthesis/systems/ms-scalar.md
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Compaction Maintenance Technique
@@ -28,12 +32,12 @@ Which repacking and object-cleanup techniques maintain compact repository storag
 
 | Value | Status | Passages |
 |---|---|---|
-| [[entities/background-incremental-maintenance|Background incremental maintenance]] | accepted | 8 |
-| [[entities/loose-object-cleanup|Loose-object cleanup]] | accepted | 1 |
-| [[entities/single-pack-full-repacking|Single-pack full repacking]] | rejected | 1 |
-| [[entities/loose-object-storage-overhead|Loose-object storage overhead]] | outcome | 1 |
-| [[entities/pack-count-and-storage-reduction|Pack-count and storage reduction]] | outcome | 1 |
-| [[entities/pack-index-scan-growth|Pack-index scan growth]] | outcome | 1 |
+| [Background incremental maintenance](/entities/background-incremental-maintenance.md) | accepted | 8 |
+| [Loose-object cleanup](/entities/loose-object-cleanup.md) | accepted | 1 |
+| [Single-pack full repacking](/entities/single-pack-full-repacking.md) | rejected | 1 |
+| [Loose-object storage overhead](/entities/loose-object-storage-overhead.md) | outcome | 1 |
+| [Pack-count and storage reduction](/entities/pack-count-and-storage-reduction.md) | outcome | 1 |
+| [Pack-index scan growth](/entities/pack-index-scan-growth.md) | outcome | 1 |
 
 ## Exclusivity
 
@@ -41,7 +45,7 @@ The values of a dimension are alternatives, so each system should adopt one of t
 
 Values adopted together:
 
-- [[entities/background-incremental-maintenance|Background incremental maintenance]] and [[entities/loose-object-cleanup|Loose-object cleanup]]: [[synthesis/systems/ms-scalar|Microsoft Scalar]]
+- [Background incremental maintenance](/entities/background-incremental-maintenance.md) and [Loose-object cleanup](/entities/loose-object-cleanup.md): [Microsoft Scalar](/synthesis/systems/ms-scalar.md)
 
 ## Evidence
 

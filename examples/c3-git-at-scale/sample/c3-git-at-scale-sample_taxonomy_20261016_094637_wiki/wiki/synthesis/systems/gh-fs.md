@@ -1,11 +1,15 @@
 ---
+type: System
 title: GitHub filesystem distribution
-type: system
+description: 'GitHub before Spokes: NFS, GFS and DRBD filesystem distribution, then single-copy RPC fileservers.'
 code: GH-FS
 organization: GitHub
 dimensions: 0
 tags:
 - system
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # GitHub filesystem distribution
@@ -16,6 +20,6 @@ Values adopted by passages whose primary system is `GH-FS` (passage → system m
 
 | Dimension | Adopted (passages) | Considered and rejected |
 |---|---|---|
-| [[concepts/large-repository-object-acquisition|Large-Repository Object Acquisition]] |  | • [[entities/gvfs-without-cache-infrastructure|GVFS without cache infrastructure]] (1)<br>• [[entities/packfile-based-git-networking|Packfile-based Git networking]] (1) |
-| [[concepts/replica-synchronization-mechanism|Replica Synchronization Mechanism]] |  | • [[entities/drbd-block-level-replication|DRBD block-level replication]] (1) |
-| [[concepts/repository-placement-and-read-routing|Repository Placement and Read Routing]] |  | • [[entities/external-routing-database-placement|External routing-database placement]] (1) |
+| [Large-Repository Object Acquisition](/concepts/large-repository-object-acquisition.md) |  | • [GVFS without cache infrastructure](/entities/gvfs-without-cache-infrastructure.md) (1)<br>• [Packfile-based Git networking](/entities/packfile-based-git-networking.md) (1) |
+| [Replica Synchronization Mechanism](/concepts/replica-synchronization-mechanism.md) |  | • [DRBD block-level replication](/entities/drbd-block-level-replication.md) (1) |
+| [Repository Placement and Read Routing](/concepts/repository-placement-and-read-routing.md) |  | • [External routing-database placement](/entities/external-routing-database-placement.md) (1) |

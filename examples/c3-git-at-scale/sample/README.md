@@ -65,7 +65,7 @@ from a local clone; the wiki works offline. It has a graph view and a tree view,
 | `*_open_codes_<ts>.json` | All open codes (passage id, label, rationale, status) |
 | `*_design_points.json`, `*_design_points_sheet.csv`, `*_design_points_descriptions.json` | The 24 sampled design points (attested by 3 systems: Cursor's, GitHub Spokes and Microsoft Scalar), a rating sheet, and their descriptions |
 | `taxonomy_biplot_*.html`, `taxonomy_vectors_*.csv` | PCA biplot of the values, and their axis coordinates |
-| `*_wiki/` | The design-space wiki: `html/` (open `index.html`), `wiki/` (Markdown, Obsidian-compatible) and `raw/run.json` |
+| `*_wiki/` | The design-space wiki: `html/` (open `index.html`), `wiki/` (an Open Knowledge Format v0.2 bundle, also readable in Obsidian) and `raw/` (`run.json`, `graph.json`, `tree.json`) |
 
 The pipeline's message log is left out (it is gitignored).
 

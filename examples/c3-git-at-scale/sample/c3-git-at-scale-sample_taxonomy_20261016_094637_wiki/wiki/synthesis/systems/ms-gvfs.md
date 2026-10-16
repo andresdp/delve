@@ -1,11 +1,15 @@
 ---
+type: System
 title: Microsoft VFS for Git (GVFS)
-type: system
+description: Virtualized filesystem on the client and the GVFS protocol with cache servers.
 code: MS-GVFS
 organization: Microsoft
 dimensions: 1
 tags:
 - system
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Microsoft VFS for Git (GVFS)
@@ -16,4 +20,4 @@ Values adopted by passages whose primary system is `MS-GVFS` (passage → system
 
 | Dimension | Adopted (passages) | Considered and rejected |
 |---|---|---|
-| [[concepts/large-repository-object-acquisition|Large-Repository Object Acquisition]] ⚠ | • [[entities/gvfs-demand-driven-transfer|GVFS demand-driven transfer]] (1)<br>• [[entities/gvfs-without-cache-infrastructure|GVFS without cache infrastructure]] (1)<br>• [[entities/partial-clone-transfer|Partial clone transfer]] (1)<br>• [[entities/standard-git-gvfs-protocol-support|Standard-Git GVFS protocol support]] (1) |  |
+| [Large-Repository Object Acquisition](/concepts/large-repository-object-acquisition.md) ⚠ | • [GVFS demand-driven transfer](/entities/gvfs-demand-driven-transfer.md) (1)<br>• [GVFS without cache infrastructure](/entities/gvfs-without-cache-infrastructure.md) (1)<br>• [Partial clone transfer](/entities/partial-clone-transfer.md) (1)<br>• [Standard-Git GVFS protocol support](/entities/standard-git-gvfs-protocol-support.md) (1) |  |

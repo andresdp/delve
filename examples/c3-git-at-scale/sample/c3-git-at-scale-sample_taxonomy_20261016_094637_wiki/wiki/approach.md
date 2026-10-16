@@ -1,8 +1,11 @@
 ---
+type: Reference
 title: Approach
-type: reference
 tags:
 - reference
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Approach: how DelveDSpace mines a design space
@@ -11,7 +14,7 @@ tags:
 
 ## What a design space is
 
-A **design space** organizes the design decisions of a domain. Each **dimension** is one decision point, phrased as a question a designer must answer (*where does the source of truth for a repository live?*). Its **values** are the alternative answers found in the documents. Values carry a **status**: *accepted* (a source adopts it), *rejected* (a source considered and declined it), *mixed* (some sources adopt it, others reject it) or *outcome* (an effect of decisions, such as a cost or result, rather than a choice). **Relations** link dimensions that interact (*requires*, *affects*, *constrains*, *co-occurs with*; see [[relations|Relations between dimensions]]). Every value keeps its **evidence**: the passages that support it.
+A **design space** organizes the design decisions of a domain. Each **dimension** is one decision point, phrased as a question a designer must answer (*where does the source of truth for a repository live?*). Its **values** are the alternative answers found in the documents. Values carry a **status**: *accepted* (a source adopts it), *rejected* (a source considered and declined it), *mixed* (some sources adopt it, others reject it) or *outcome* (an effect of decisions, such as a cost or result, rather than a choice). **Relations** link dimensions that interact (*requires*, *affects*, *constrains*, *co-occurs with*; see [Relations between dimensions](/relations.md)). Every value keeps its **evidence**: the passages that support it.
 
 ## Grounded theory in brief
 

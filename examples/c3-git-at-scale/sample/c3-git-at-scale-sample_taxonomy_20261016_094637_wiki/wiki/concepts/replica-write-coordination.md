@@ -1,6 +1,7 @@
 ---
+type: Design Decision
 title: Replica Write Coordination
-type: dimension
+description: How are replicated repository writes ordered, committed, and accepted?
 id: '30'
 core: true
 values: 20
@@ -16,8 +17,11 @@ tags:
 - core
 exclusivity: 0.0
 systems:
-- '[[synthesis/systems/cur-cont|Cursor Continuity and Origin]]'
-- '[[synthesis/systems/gh-spokes|GitHub Spokes]]'
+- /synthesis/systems/cur-cont.md
+- /synthesis/systems/gh-spokes.md
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Replica Write Coordination
@@ -28,26 +32,26 @@ How are replicated repository writes ordered, committed, and accepted?
 
 | Value | Status | Passages |
 |---|---|---|
-| [[entities/consensus-free-write-acceptance|Consensus-free write acceptance]] | accepted | 3 |
-| [[entities/consistency-and-partition-tolerance-priority|Consistency-and-partition-tolerance priority]] | accepted | 1 |
-| [[entities/durability-gated-write-acceptance|Durability-gated write acceptance]] | accepted | 2 |
-| [[entities/orchestrated-push-fan-out|Orchestrated push fan-out]] | accepted | 1 |
-| [[entities/overlapped-replica-coordination-work|Overlapped replica-coordination work]] | accepted | 1 |
-| [[entities/per-write-voting-without-a-primary|Per-write voting without a primary]] | accepted | 1 |
-| [[entities/read-preserving-replicated-write-optimization|Read-preserving replicated-write optimization]] | accepted | 2 |
-| [[entities/replica-based-distributed-locking|Replica-based distributed locking]] | accepted | 1 |
-| [[entities/rollback-of-non-majority-writes|Rollback of non-majority writes]] | accepted | 1 |
-| [[entities/single-local-repository-synchronization|Single-local-repository synchronization]] | accepted | 1 |
-| [[entities/strict-majority-coordinated-writes|Strict-majority coordinated writes]] | accepted | 8 |
-| [[entities/three-phase-commit-coordination|Three-phase commit coordination]] | accepted | 4 |
-| [[entities/transactional-git-reference-updates|Transactional Git reference updates]] | accepted | 2 |
-| [[entities/unsynchronized-packfile-distribution|Unsynchronized packfile distribution]] | accepted | 1 |
-| [[entities/reference-update-amplification|Reference-update amplification]] | outcome | 1 |
-| [[entities/replica-round-trip-coordination-latency|Replica round-trip coordination latency]] | outcome | 1 |
-| [[entities/replica-count-push-throughput-degradation|Replica-count push-throughput degradation]] | outcome | 1 |
-| [[entities/replica-distance-reference-update-limit|Replica-distance reference-update limit]] | outcome | 4 |
-| [[entities/slowest-replica-consensus-latency|Slowest-replica consensus latency]] | outcome | 1 |
-| [[entities/write-unavailability-during-replication-shortfall|Write unavailability during replication shortfall]] | outcome | 1 |
+| [Consensus-free write acceptance](/entities/consensus-free-write-acceptance.md) | accepted | 3 |
+| [Consistency-and-partition-tolerance priority](/entities/consistency-and-partition-tolerance-priority.md) | accepted | 1 |
+| [Durability-gated write acceptance](/entities/durability-gated-write-acceptance.md) | accepted | 2 |
+| [Orchestrated push fan-out](/entities/orchestrated-push-fan-out.md) | accepted | 1 |
+| [Overlapped replica-coordination work](/entities/overlapped-replica-coordination-work.md) | accepted | 1 |
+| [Per-write voting without a primary](/entities/per-write-voting-without-a-primary.md) | accepted | 1 |
+| [Read-preserving replicated-write optimization](/entities/read-preserving-replicated-write-optimization.md) | accepted | 2 |
+| [Replica-based distributed locking](/entities/replica-based-distributed-locking.md) | accepted | 1 |
+| [Rollback of non-majority writes](/entities/rollback-of-non-majority-writes.md) | accepted | 1 |
+| [Single-local-repository synchronization](/entities/single-local-repository-synchronization.md) | accepted | 1 |
+| [Strict-majority coordinated writes](/entities/strict-majority-coordinated-writes.md) | accepted | 8 |
+| [Three-phase commit coordination](/entities/three-phase-commit-coordination.md) | accepted | 4 |
+| [Transactional Git reference updates](/entities/transactional-git-reference-updates.md) | accepted | 2 |
+| [Unsynchronized packfile distribution](/entities/unsynchronized-packfile-distribution.md) | accepted | 1 |
+| [Reference-update amplification](/entities/reference-update-amplification.md) | outcome | 1 |
+| [Replica round-trip coordination latency](/entities/replica-round-trip-coordination-latency.md) | outcome | 1 |
+| [Replica-count push-throughput degradation](/entities/replica-count-push-throughput-degradation.md) | outcome | 1 |
+| [Replica-distance reference-update limit](/entities/replica-distance-reference-update-limit.md) | outcome | 4 |
+| [Slowest-replica consensus latency](/entities/slowest-replica-consensus-latency.md) | outcome | 1 |
+| [Write unavailability during replication shortfall](/entities/write-unavailability-during-replication-shortfall.md) | outcome | 1 |
 
 ## Exclusivity
 
@@ -55,11 +59,11 @@ The values of a dimension are alternatives, so each system should adopt one of t
 
 Values adopted together:
 
-- [[entities/strict-majority-coordinated-writes|Strict-majority coordinated writes]] and [[entities/consensus-free-write-acceptance|Consensus-free write acceptance]]: [[synthesis/systems/cur-cont|Cursor Continuity and Origin]], [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/strict-majority-coordinated-writes|Strict-majority coordinated writes]] and [[entities/three-phase-commit-coordination|Three-phase commit coordination]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/strict-majority-coordinated-writes|Strict-majority coordinated writes]] and [[entities/transactional-git-reference-updates|Transactional Git reference updates]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/strict-majority-coordinated-writes|Strict-majority coordinated writes]] and [[entities/per-write-voting-without-a-primary|Per-write voting without a primary]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/strict-majority-coordinated-writes|Strict-majority coordinated writes]] and [[entities/rollback-of-non-majority-writes|Rollback of non-majority writes]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
+- [Strict-majority coordinated writes](/entities/strict-majority-coordinated-writes.md) and [Consensus-free write acceptance](/entities/consensus-free-write-acceptance.md): [Cursor Continuity and Origin](/synthesis/systems/cur-cont.md), [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Strict-majority coordinated writes](/entities/strict-majority-coordinated-writes.md) and [Three-phase commit coordination](/entities/three-phase-commit-coordination.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Strict-majority coordinated writes](/entities/strict-majority-coordinated-writes.md) and [Transactional Git reference updates](/entities/transactional-git-reference-updates.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Strict-majority coordinated writes](/entities/strict-majority-coordinated-writes.md) and [Per-write voting without a primary](/entities/per-write-voting-without-a-primary.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Strict-majority coordinated writes](/entities/strict-majority-coordinated-writes.md) and [Rollback of non-majority writes](/entities/rollback-of-non-majority-writes.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
 - 75 more pair(s)
 
 *The sources combine this dimension's values in many different ways (few shared combinations): the dimension may group several concerns.*

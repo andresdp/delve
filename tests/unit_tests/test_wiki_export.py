@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from taxonomy_generator.wiki import Inputs, build, write
+from taxonomy_generator.wiki import Inputs, build, okf, write
 from taxonomy_generator.wiki.model import excerpt, slugify
 
 _spec = importlib.util.spec_from_file_location(
@@ -179,8 +179,10 @@ def test_cli_writes_the_export(tmp_path):
     dp.write_text(json.dumps(POINTS), encoding="utf-8")
     assert cli.main([str(run), "--corpus", str(corpus), "--sources", str(sources), "--design-points", str(dp)]) == 0
     out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
-    assert (out / ".llmwiki.yaml").exists() and (out / "SCHEMA.md").exists()
-    assert (out / "wiki" / "sources" / "s1.md").read_text(encoding="utf-8").startswith("---\ntitle: Spokes post")
+    assert not (out / ".llmwiki.yaml").exists() and not (out / "SCHEMA.md").exists()   # OKF bundle by default
+    assert okf.check(out / "wiki") == ([], [])
+    assert "Export** Wiki exported from run 20261008_000000" in (out / "wiki" / "log.md").read_text(encoding="utf-8")
+    assert "title: Spokes post" in (out / "wiki" / "sources" / "s1.md").read_text(encoding="utf-8")
     manifest = json.loads((out / "raw" / "run.json").read_text(encoding="utf-8"))
     assert manifest["quotes"] is True and manifest["pages"] > 10
     assert (out / "html" / "designs" / "p001.html").exists()
@@ -312,7 +314,7 @@ def test_cli_can_sample_design_points_at_export(tmp_path):
     assert (out / "wiki" / "synthesis" / "design-points.md").exists()
     expected = sample_points(_taxonomy()["selected_clusters"], load_system_map(sysmap, "primary"), [2], 3, 42)
     ids = sorted(p["point_id"] for s in expected for g in s["groups"].values() for p in g)
-    assert sorted(p.stem.upper() for p in (out / "wiki" / "designs").glob("*.md")) == ids
+    assert sorted(p.stem.upper() for p in (out / "wiki" / "designs").glob("p*.md")) == ids
     manifest = json.loads((out / "raw" / "run.json").read_text(encoding="utf-8"))
     assert manifest["design_points"].startswith("sampled at export (k=2, n=3, seed=42)")
 
@@ -574,3 +576,13 @@ def test_reexport_without_manifest_keeps_hidden_files(tmp_path):
     (tmp_path / "wiki" / ".obsidian" / "app.json").write_text("{}")
     write(build(_inputs()), tmp_path, "toy")
     assert (tmp_path / "wiki" / ".obsidian" / "app.json").is_file()
+
+
+def test_cli_llmwiki_layout_on_request_and_okf_again_cleans_it(tmp_path):
+    run, _ = _cli_run(tmp_path)
+    out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
+    assert cli.main([str(run), "--llmwiki-layout"]) == 0
+    assert (out / ".llmwiki.yaml").exists() and (out / "SCHEMA.md").exists()
+    assert "[[" in (out / "wiki" / "sources" / "s1.md").read_text(encoding="utf-8")
+    assert cli.main([str(run)]) == 0                       # re-export as OKF: the legacy files go
+    assert not (out / ".llmwiki.yaml").exists() and okf.check(out / "wiki")[0] == []

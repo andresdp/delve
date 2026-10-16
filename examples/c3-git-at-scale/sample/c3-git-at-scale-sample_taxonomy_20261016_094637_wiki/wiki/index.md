@@ -1,77 +1,21 @@
 ---
-title: c3-git-at-scale-sample
-type: index
-run: '20261016_094637'
-view: selected
-dimensions: 8
-values: 89
-sources: 5
-generation_llm: openai/gpt-5.6-luna
-evaluation_llm: openai/gpt-5.6-luna
-embedding: openai/text-embedding-3-small
-tags:
-- index
+okf_version: "0.2"
 ---
-
-![DelveDSpace](assets/delvedspace-logo.svg)
 
 # c3-git-at-scale-sample
 
-This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design space organizes the architectural design decisions the documents discuss: each **dimension** is one decision a designer faces, and its **values** are the alternatives the documents describe. Every page is generated from the run's data, without rewording, and links to the evidence behind it. New to design spaces or to how they are mined? Start with [[approach|Approach]].
+## Start here
 
-Run 20261016_094637 (selected view): 8 dimensions, 89 values, 5 sources.
+* [c3-git-at-scale-sample](/overview.md)
+* [Approach](/approach.md)
+* [Relations between dimensions](/relations.md)
+* [Change log](/log.md) - What changed in each build
 
-## Use case
+## Contents
 
-*What the run was asked to find: the question that oriented the mining.*
-
-Identify the architectural design decisions involved in making Git repositories work at scale, for very many repositories, very large repositories and very many users, on the hosting servers and on the clients, as documented in an engineering article and official engineering background material by the teams that built such systems. For each decision, identify the alternative options the teams adopted or considered and rejected, the forces (quality attributes, constraints and practical concerns) that drive the choice between them, and how decisions relate to one another. Each dimension must name one architectural design decision; its values are the alternative options for that decision.
-
-## Dimensions
-
-*A dimension is one design decision, phrased as a question a designer must answer. Its values are the alternative answers found in the sources, each with a status: **accepted** (adopted), **rejected** (considered and discarded), **mixed** (adopted by some sources, rejected by others) or **outcome** (an effect of decisions, not a choice).*
-
-**Core dimensions** (8 of 8) have evidence from ≥ 2 sources, or supported by ≥ 2 systems: the axes the sources share. The others rest on a single source or system.
-
-### Core
-
-- ★ [[concepts/client-repository-performance-strategy|Client Repository Performance Strategy]]: 33 values
-- ★ [[concepts/compaction-maintenance-technique|Compaction Maintenance Technique]]: 6 values
-- ★ [[concepts/large-repository-object-acquisition|Large-Repository Object Acquisition]]: 9 values
-- ★ [[concepts/replica-state-comparison|Replica State Comparison]]: 4 values
-- ★ [[concepts/replica-synchronization-mechanism|Replica Synchronization Mechanism]]: 5 values
-- ★ [[concepts/replica-topology|Replica Topology]]: 3 values
-- ★ [[concepts/replica-write-coordination|Replica Write Coordination]]: 20 values
-- ★ [[concepts/repository-placement-and-read-routing|Repository Placement and Read Routing]]: 9 values
-
-## Synthesis
-
-*Pages that look at the design space as a whole.*
-
-- [[synthesis/overview|Overview]]: use case, run summary, narrative summary, and every dimension with its values by status
-- [[synthesis/contested|Contested decisions]]: values some sources adopt and others reject
-- [[synthesis/dropped|Dropped and unsupported]]: dimensions removed during selection, and values without evidence
-- [[synthesis/system-matrix|System × dimension matrix]]: which value each system takes in each dimension
-- [[synthesis/design-points|Design points]]: sampled combinations of values across dimensions
-- [[synthesis/evaluation|Evaluation]]: how an LLM judge scored the design space, criterion by criterion
-
-## Systems
-
-*The concrete solutions the sources describe. A system's page shows the values its passages support, i.e. its position in the design space.*
-
-- [[synthesis/systems/cur-cont|Cursor Continuity and Origin]]
-- [[synthesis/systems/gh-fs|GitHub filesystem distribution]]
-- [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[synthesis/systems/goog-dht|Google JGit on a DHT]]
-- [[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]]
-- [[synthesis/systems/ms-scalar|Microsoft Scalar]]
-
-## Sources
-
-*The documents the design space was mined from. A source's page lists the decisions it informs and whether it adopts or rejects each value.*
-
-- [[sources/s1|Git at any scale]]: This technical article from Cursor describes the architecture of its Origin Git-hosting platform and Continuity storage system.
-- [[sources/s2|Stretching Spokes]]: This is a technical architecture article about GitHub’s Spokes system for replicating Git repositories across geographically distant datacenters, including GitHub Enterprise.
-- [[sources/s3|Building resilience in Spokes]]: This is a technical architecture document about GitHub’s Spokes replication system, formerly called DGit, which stores repositories, wikis, and gists.
-- [[sources/s4|Scalar philosophy]]: This document describes Scalar, Microsoft’s Git performance configuration tool, and its relationship to custom Git builds and upstream Git features.
-- [[sources/s5|Introducing Scalar]]: This technical announcement from Microsoft introduces Scalar, a .NET tool for improving Git performance in very large repositories.
+* [Design decisions (dimensions)](/concepts/index.md) - 8 pages
+* [Alternatives and outcomes (values)](/entities/index.md) - 89 pages
+* [Synthesis](/synthesis/index.md) - 6 pages
+* [Systems](/synthesis/systems/index.md) - 6 pages
+* [Sources](/sources/index.md) - 5 pages
+* [Design points](/designs/index.md) - 24 pages

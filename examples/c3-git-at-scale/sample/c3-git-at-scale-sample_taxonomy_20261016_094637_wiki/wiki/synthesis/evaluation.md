@@ -1,11 +1,14 @@
 ---
+type: Synthesis
 title: Evaluation
-type: synthesis
 overall: 0.65
 judge: openai/gpt-5.6-luna
 tags:
 - synthesis
 - evaluation
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Evaluation

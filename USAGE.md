@@ -234,8 +234,8 @@ python benchmark/export_wiki.py examples/campus-bike/campus-bike_taxonomy_202610
 
 `--config` adds the use case to the index and the overview. Without `--out`, the wiki is written next to the run, in `<run>_wiki/`, which has three folders:
 - `html/`: the pages;
-- `wiki/`: Markdown, also readable in Obsidian;
-- `raw/`: the export manifest.
+- `wiki/`: an Open Knowledge Format (OKF v0.2) bundle, as `ddspace wiki build` writes it, also readable in Obsidian. The export ends with the OKF check (`OKF v0.2 check: 0 errors, 0 warnings`); `--llmwiki-layout` writes the older layout with `[[wikilinks]]`, `.llmwiki.yaml` and `SCHEMA.md` instead;
+- `raw/`: the export manifest (`run.json`), and `graph.json` and `tree.json` for queries and agents.
 
 Full export, using the git-at-scale case study (C3) as the example:
 

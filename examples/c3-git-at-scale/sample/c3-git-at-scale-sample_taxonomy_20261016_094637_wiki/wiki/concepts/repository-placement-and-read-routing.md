@@ -1,6 +1,7 @@
 ---
+type: Design Decision
 title: Repository Placement and Read Routing
-type: dimension
+description: How are repositories placed and requests routed to suitable hosting replicas?
 id: '13'
 core: true
 values: 9
@@ -16,9 +17,12 @@ tags:
 - core
 exclusivity: 0.0
 systems:
-- '[[synthesis/systems/cur-cont|Cursor Continuity and Origin]]'
-- '[[synthesis/systems/gh-fs|GitHub filesystem distribution]]'
-- '[[synthesis/systems/gh-spokes|GitHub Spokes]]'
+- /synthesis/systems/cur-cont.md
+- /synthesis/systems/gh-fs.md
+- /synthesis/systems/gh-spokes.md
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Repository Placement and Read Routing
@@ -29,15 +33,15 @@ How are repositories placed and requests routed to suitable hosting replicas?
 
 | Value | Status | Passages |
 |---|---|---|
-| [[entities/closest-sufficiently-fresh-replica-routing|Closest sufficiently fresh replica routing]] | accepted | 1 |
-| [[entities/explicit-repository-location-tracking|Explicit repository-location tracking]] | accepted | 1 |
-| [[entities/rendezvous-hashed-repository-routing|Rendezvous-hashed repository routing]] | accepted | 2 |
-| [[entities/single-replica-read-routing|Single-replica read routing]] | accepted | 3 |
-| [[entities/stale-routing-recovery|Stale-routing recovery]] | accepted | 2 |
-| [[entities/stateless-repository-placement|Stateless repository placement]] | accepted | 1 |
-| [[entities/external-routing-database-placement|External routing-database placement]] | rejected | 1 |
-| [[entities/per-server-repository-location-tracking|Per-server repository location tracking]] | rejected | 1 |
-| [[entities/single-on-disk-repository-behind-http|Single on-disk repository behind HTTP]] | rejected | 1 |
+| [Closest sufficiently fresh replica routing](/entities/closest-sufficiently-fresh-replica-routing.md) | accepted | 1 |
+| [Explicit repository-location tracking](/entities/explicit-repository-location-tracking.md) | accepted | 1 |
+| [Rendezvous-hashed repository routing](/entities/rendezvous-hashed-repository-routing.md) | accepted | 2 |
+| [Single-replica read routing](/entities/single-replica-read-routing.md) | accepted | 3 |
+| [Stale-routing recovery](/entities/stale-routing-recovery.md) | accepted | 2 |
+| [Stateless repository placement](/entities/stateless-repository-placement.md) | accepted | 1 |
+| [External routing-database placement](/entities/external-routing-database-placement.md) | rejected | 1 |
+| [Per-server repository location tracking](/entities/per-server-repository-location-tracking.md) | rejected | 1 |
+| [Single on-disk repository behind HTTP](/entities/single-on-disk-repository-behind-http.md) | rejected | 1 |
 
 ## Exclusivity
 
@@ -45,11 +49,11 @@ The values of a dimension are alternatives, so each system should adopt one of t
 
 Values adopted together:
 
-- [[entities/rendezvous-hashed-repository-routing|Rendezvous-hashed repository routing]] and [[entities/stale-routing-recovery|Stale-routing recovery]]: [[synthesis/systems/cur-cont|Cursor Continuity and Origin]], [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/stateless-repository-placement|Stateless repository placement]] and [[entities/rendezvous-hashed-repository-routing|Rendezvous-hashed repository routing]]: [[synthesis/systems/cur-cont|Cursor Continuity and Origin]]
-- [[entities/stateless-repository-placement|Stateless repository placement]] and [[entities/stale-routing-recovery|Stale-routing recovery]]: [[synthesis/systems/cur-cont|Cursor Continuity and Origin]]
-- [[entities/explicit-repository-location-tracking|Explicit repository-location tracking]] and [[entities/rendezvous-hashed-repository-routing|Rendezvous-hashed repository routing]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/explicit-repository-location-tracking|Explicit repository-location tracking]] and [[entities/stale-routing-recovery|Stale-routing recovery]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
+- [Rendezvous-hashed repository routing](/entities/rendezvous-hashed-repository-routing.md) and [Stale-routing recovery](/entities/stale-routing-recovery.md): [Cursor Continuity and Origin](/synthesis/systems/cur-cont.md), [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Stateless repository placement](/entities/stateless-repository-placement.md) and [Rendezvous-hashed repository routing](/entities/rendezvous-hashed-repository-routing.md): [Cursor Continuity and Origin](/synthesis/systems/cur-cont.md)
+- [Stateless repository placement](/entities/stateless-repository-placement.md) and [Stale-routing recovery](/entities/stale-routing-recovery.md): [Cursor Continuity and Origin](/synthesis/systems/cur-cont.md)
+- [Explicit repository-location tracking](/entities/explicit-repository-location-tracking.md) and [Rendezvous-hashed repository routing](/entities/rendezvous-hashed-repository-routing.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Explicit repository-location tracking](/entities/explicit-repository-location-tracking.md) and [Stale-routing recovery](/entities/stale-routing-recovery.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
 - 7 more pair(s)
 
 *The sources combine this dimension's values in many different ways (few shared combinations): the dimension may group several concerns.*

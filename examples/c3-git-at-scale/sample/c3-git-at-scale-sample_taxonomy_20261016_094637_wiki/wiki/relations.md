@@ -1,8 +1,11 @@
 ---
+type: Reference
 title: Relations between dimensions
-type: reference
 tags:
 - reference
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Relations between dimensions

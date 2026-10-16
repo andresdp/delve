@@ -3,14 +3,16 @@ r"""Export one Delve run as a browsable design-space wiki (docs/DESIGN_SPACE_EXP
 
 Writes, into ``--out`` (default ``<run folder>/<run>_wiki/``):
 
-- ``wiki/``: markdown pages with YAML frontmatter and ``[[wikilinks]]`` in the
-  llmwiki-cli layout (``concepts/`` dimensions, ``entities/`` options, ``sources/``,
-  ``synthesis/`` with an overview that includes the use case, a run summary and the
-  run's narrative summary; ``designs/`` when design points are given; an evaluation
-  page with ``--evaluation``), also an Obsidian vault;
+- ``wiki/``: an Open Knowledge Format (OKF v0.2) bundle, as ``ddspace wiki build`` writes it: Markdown
+  pages with typed YAML frontmatter, an ``index.md`` per folder, and a ``log.md`` change log
+  (``concepts/`` dimensions, ``entities/`` options, ``sources/``, ``synthesis/`` with an overview that
+  includes the use case, a run summary and the run's narrative summary; ``designs/`` when design points
+  are given; an evaluation page with ``--evaluation``), also readable as an Obsidian vault. The export ends
+  with the OKF conformance check. ``--llmwiki-layout`` writes the older layout instead (``[[wikilinks]]``,
+  ``.llmwiki.yaml``, ``SCHEMA.md``);
 - ``html/``: the same pages as static HTML plus ``graph.html``, an interactive graph.
   Everything opens from ``file://`` (no server, no internet);
-- ``.llmwiki.yaml``, ``SCHEMA.md``, ``raw/run.json`` (inputs and options).
+- ``raw/``: ``run.json`` (inputs and options), ``graph.json`` and ``tree.json`` (for queries and agents).
 
 No LLM calls: pages are rendered from the run data. Value pages quote the
 supporting passages when ``--corpus`` is given. Those quotes are third-party
@@ -45,7 +47,9 @@ import yaml  # noqa: E402
 from taxonomy_generator.html_report import (  # noqa: E402
     _extract_narrative_summary, _extract_timestamp, resolve_report_path)
 from taxonomy_generator.evaluation.design_points import load_system_map as dp_system_map, sample_points  # noqa: E402
-from taxonomy_generator.wiki import Inputs, build, write  # noqa: E402
+from delvedspace import __version__  # noqa: E402
+from delvedspace.wiki_build import append_log  # noqa: E402
+from taxonomy_generator.wiki import Inputs, build, okf, write  # noqa: E402
 from taxonomy_generator.wiki.model import (  # noqa: E402
     load_corpus, load_point_descriptions, load_source_summaries, load_sources, load_system_map, load_system_names)
 
@@ -96,6 +100,9 @@ def main(argv=None) -> int:
     ap.add_argument("--no-quotes", action="store_true", help="passage ids only, no quoted text (shareable export)")
     ap.add_argument("--quote-words", type=int, default=60)
     ap.add_argument("--out", type=Path, help="output folder (default: <run folder>/<run>_wiki)")
+    ap.add_argument("--llmwiki-layout", action="store_true",
+                    help="write wiki/ in the older llmwiki-cli layout ([[wikilinks]], .llmwiki.yaml, SCHEMA.md) "
+                         "instead of an OKF v0.2 bundle")
     args = ap.parse_args(argv)
     if args.design_points and args.sample_design_points:
         ap.error("use either --design-points <file> or --sample-design-points, not both")
@@ -181,7 +188,10 @@ def main(argv=None) -> int:
         "pages": len(export.pages), "graph_nodes": len(export.graph["nodes"]), "graph_edges": len(export.graph["edges"]),
     }
     out = args.out or path.parent / f"{path.with_suffix('').name}_wiki"
-    write(export, out, name, case_icon)
+    if args.llmwiki_layout:
+        write(export, out, name, case_icon)
+    else:
+        _write_okf(export, out, name, case_icon, run_label)
     kinds = {}
     for p in export.pages:
         kinds[p.kind] = kinds.get(p.kind, 0) + 1
@@ -189,6 +199,22 @@ def main(argv=None) -> int:
           f"graph {len(export.graph['nodes'])} nodes, {len(export.graph['edges'])} edges")
     print(f"-> {out}/html/index.html (graph: html/graph.html)")
     return 0
+
+
+def _write_okf(export, out: Path, name: str, case_icon, run_label: str) -> None:
+    """Write the export with ``wiki/`` as an OKF bundle, log the export, and report the conformance check."""
+    write(export, out, name, case_icon, okf_by=f"delvedspace/{__version__}")
+    for legacy in (".llmwiki.yaml", "SCHEMA.md"):  # left by an earlier export in the llmwiki layout
+        (out / legacy).unlink(missing_ok=True)
+    log = out / "wiki" / "log.md"
+    if f"run {run_label}" not in log.read_text(encoding="utf-8"):
+        dims = sum(n.get("kind") == "dimension" for n in export.graph["nodes"])
+        vals = sum(n.get("kind") == "value" for n in export.graph["nodes"])
+        append_log(log, f"- **Export** Wiki exported from run {run_label}: {dims} dimensions, {vals} values.")
+    errors, warnings = okf.check(out / "wiki")
+    print(f"OKF v0.2 check: {len(errors)} errors, {len(warnings)} warnings")
+    for line in errors[:10]:
+        print(f"  error: {line}")
 
 
 if __name__ == "__main__":

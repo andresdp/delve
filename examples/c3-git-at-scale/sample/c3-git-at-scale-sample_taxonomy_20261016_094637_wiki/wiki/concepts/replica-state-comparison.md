@@ -1,6 +1,7 @@
 ---
+type: Design Decision
 title: Replica State Comparison
-type: dimension
+description: Which checksum or state-comparison technique verifies equivalence between replica contents?
 id: '27'
 core: true
 values: 4
@@ -16,7 +17,10 @@ tags:
 - core
 exclusivity: 0.0
 systems:
-- '[[synthesis/systems/gh-spokes|GitHub Spokes]]'
+- /synthesis/systems/gh-spokes.md
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Replica State Comparison
@@ -27,10 +31,10 @@ Which checksum or state-comparison technique verifies equivalence between replic
 
 | Value | Status | Passages |
 |---|---|---|
-| [[entities/checksum-based-replica-state-comparison|Checksum-based replica state comparison]] | accepted | 1 |
-| [[entities/incremental-xor-checksum-maintenance|Incremental XOR checksum maintenance]] | accepted | 1 |
-| [[entities/full-checksum-recomputation|Full checksum recomputation]] | mixed | 2 |
-| [[entities/checksum-equality-as-logical-content-equivalence|Checksum equality as logical-content equivalence]] | outcome | 1 |
+| [Checksum-based replica state comparison](/entities/checksum-based-replica-state-comparison.md) | accepted | 1 |
+| [Incremental XOR checksum maintenance](/entities/incremental-xor-checksum-maintenance.md) | accepted | 1 |
+| [Full checksum recomputation](/entities/full-checksum-recomputation.md) | mixed | 2 |
+| [Checksum equality as logical-content equivalence](/entities/checksum-equality-as-logical-content-equivalence.md) | outcome | 1 |
 
 ## Exclusivity
 
@@ -38,9 +42,9 @@ The values of a dimension are alternatives, so each system should adopt one of t
 
 Values adopted together:
 
-- [[entities/checksum-based-replica-state-comparison|Checksum-based replica state comparison]] and [[entities/incremental-xor-checksum-maintenance|Incremental XOR checksum maintenance]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/checksum-based-replica-state-comparison|Checksum-based replica state comparison]] and [[entities/full-checksum-recomputation|Full checksum recomputation]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
-- [[entities/incremental-xor-checksum-maintenance|Incremental XOR checksum maintenance]] and [[entities/full-checksum-recomputation|Full checksum recomputation]]: [[synthesis/systems/gh-spokes|GitHub Spokes]]
+- [Checksum-based replica state comparison](/entities/checksum-based-replica-state-comparison.md) and [Incremental XOR checksum maintenance](/entities/incremental-xor-checksum-maintenance.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Checksum-based replica state comparison](/entities/checksum-based-replica-state-comparison.md) and [Full checksum recomputation](/entities/full-checksum-recomputation.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
+- [Incremental XOR checksum maintenance](/entities/incremental-xor-checksum-maintenance.md) and [Full checksum recomputation](/entities/full-checksum-recomputation.md): [GitHub Spokes](/synthesis/systems/gh-spokes.md)
 
 ## Evidence
 

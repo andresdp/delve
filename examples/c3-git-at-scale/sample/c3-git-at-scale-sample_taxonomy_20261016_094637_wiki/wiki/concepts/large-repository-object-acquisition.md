@@ -1,6 +1,7 @@
 ---
+type: Design Decision
 title: Large-Repository Object Acquisition
-type: dimension
+description: How clients obtain Git data for very large repositories, contrasting complete transfer with demand-driven, server-assisted acquisition.
 id: '6'
 core: true
 values: 9
@@ -16,10 +17,13 @@ tags:
 - core
 exclusivity: 0.33
 systems:
-- '[[synthesis/systems/gh-fs|GitHub filesystem distribution]]'
-- '[[synthesis/systems/goog-dht|Google JGit on a DHT]]'
-- '[[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]]'
-- '[[synthesis/systems/ms-scalar|Microsoft Scalar]]'
+- /synthesis/systems/gh-fs.md
+- /synthesis/systems/goog-dht.md
+- /synthesis/systems/ms-gvfs.md
+- /synthesis/systems/ms-scalar.md
+generated:
+  by: delvedspace/0.1.0.dev0
+  at: '2026-10-16T09:46:37-03:00'
 ---
 
 # Large-Repository Object Acquisition
@@ -30,15 +34,15 @@ How clients obtain Git data for very large repositories, contrasting complete tr
 
 | Value | Status | Passages |
 |---|---|---|
-| [[entities/gvfs-demand-driven-transfer|GVFS demand-driven transfer]] | accepted | 7 |
-| [[entities/gvfs-style-object-download-cache-servers|GVFS-style object-download cache servers]] | accepted | 2 |
-| [[entities/partial-clone-transfer|Partial clone transfer]] | accepted | 3 |
-| [[entities/gvfs-without-cache-infrastructure|GVFS without cache infrastructure]] | mixed | 3 |
-| [[entities/packfile-based-git-networking|Packfile-based Git networking]] | mixed | 4 |
-| [[entities/standard-git-gvfs-protocol-support|Standard-Git GVFS protocol support]] | mixed | 5 |
-| [[entities/complete-object-transfer|Complete object transfer]] | outcome | 1 |
-| [[entities/packfile-transfer-availability-limitation|Packfile transfer availability limitation]] | outcome | 1 |
-| [[entities/repository-size-threshold-for-gvfs-deployment|Repository-size threshold for GVFS deployment]] | outcome | 1 |
+| [GVFS demand-driven transfer](/entities/gvfs-demand-driven-transfer.md) | accepted | 7 |
+| [GVFS-style object-download cache servers](/entities/gvfs-style-object-download-cache-servers.md) | accepted | 2 |
+| [Partial clone transfer](/entities/partial-clone-transfer.md) | accepted | 3 |
+| [GVFS without cache infrastructure](/entities/gvfs-without-cache-infrastructure.md) | mixed | 3 |
+| [Packfile-based Git networking](/entities/packfile-based-git-networking.md) | mixed | 4 |
+| [Standard-Git GVFS protocol support](/entities/standard-git-gvfs-protocol-support.md) | mixed | 5 |
+| [Complete object transfer](/entities/complete-object-transfer.md) | outcome | 1 |
+| [Packfile transfer availability limitation](/entities/packfile-transfer-availability-limitation.md) | outcome | 1 |
+| [Repository-size threshold for GVFS deployment](/entities/repository-size-threshold-for-gvfs-deployment.md) | outcome | 1 |
 
 ## Exclusivity
 
@@ -46,11 +50,11 @@ The values of a dimension are alternatives, so each system should adopt one of t
 
 Values adopted together:
 
-- [[entities/gvfs-demand-driven-transfer|GVFS demand-driven transfer]] and [[entities/partial-clone-transfer|Partial clone transfer]]: [[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]], [[synthesis/systems/ms-scalar|Microsoft Scalar]]
-- [[entities/gvfs-demand-driven-transfer|GVFS demand-driven transfer]] and [[entities/standard-git-gvfs-protocol-support|Standard-Git GVFS protocol support]]: [[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]], [[synthesis/systems/ms-scalar|Microsoft Scalar]]
-- [[entities/gvfs-demand-driven-transfer|GVFS demand-driven transfer]] and [[entities/gvfs-without-cache-infrastructure|GVFS without cache infrastructure]]: [[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]], [[synthesis/systems/ms-scalar|Microsoft Scalar]]
-- [[entities/partial-clone-transfer|Partial clone transfer]] and [[entities/standard-git-gvfs-protocol-support|Standard-Git GVFS protocol support]]: [[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]], [[synthesis/systems/ms-scalar|Microsoft Scalar]]
-- [[entities/partial-clone-transfer|Partial clone transfer]] and [[entities/gvfs-without-cache-infrastructure|GVFS without cache infrastructure]]: [[synthesis/systems/ms-gvfs|Microsoft VFS for Git (GVFS)]], [[synthesis/systems/ms-scalar|Microsoft Scalar]]
+- [GVFS demand-driven transfer](/entities/gvfs-demand-driven-transfer.md) and [Partial clone transfer](/entities/partial-clone-transfer.md): [Microsoft VFS for Git (GVFS)](/synthesis/systems/ms-gvfs.md), [Microsoft Scalar](/synthesis/systems/ms-scalar.md)
+- [GVFS demand-driven transfer](/entities/gvfs-demand-driven-transfer.md) and [Standard-Git GVFS protocol support](/entities/standard-git-gvfs-protocol-support.md): [Microsoft VFS for Git (GVFS)](/synthesis/systems/ms-gvfs.md), [Microsoft Scalar](/synthesis/systems/ms-scalar.md)
+- [GVFS demand-driven transfer](/entities/gvfs-demand-driven-transfer.md) and [GVFS without cache infrastructure](/entities/gvfs-without-cache-infrastructure.md): [Microsoft VFS for Git (GVFS)](/synthesis/systems/ms-gvfs.md), [Microsoft Scalar](/synthesis/systems/ms-scalar.md)
+- [Partial clone transfer](/entities/partial-clone-transfer.md) and [Standard-Git GVFS protocol support](/entities/standard-git-gvfs-protocol-support.md): [Microsoft VFS for Git (GVFS)](/synthesis/systems/ms-gvfs.md), [Microsoft Scalar](/synthesis/systems/ms-scalar.md)
+- [Partial clone transfer](/entities/partial-clone-transfer.md) and [GVFS without cache infrastructure](/entities/gvfs-without-cache-infrastructure.md): [Microsoft VFS for Git (GVFS)](/synthesis/systems/ms-gvfs.md), [Microsoft Scalar](/synthesis/systems/ms-scalar.md)
 - 10 more pair(s)
 
 *The sources combine this dimension's values in many different ways (few shared combinations): the dimension may group several concerns.*
