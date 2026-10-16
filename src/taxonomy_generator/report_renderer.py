@@ -319,7 +319,7 @@ def render_evaluation(scoreboard: Dict[str, Any] | None) -> str:
         "|---|---|---|---|",
     ]
     for row in criteria:
-        name = str(row.get("name") or "?")
+        name = str(row.get("name") or "?") + (" (computed, no judge)" if row.get("deterministic") else "")
         if row.get("evaluated", True):
             score = row.get("score")
             score_str = f"{score:.2f}" if score is not None else "—"

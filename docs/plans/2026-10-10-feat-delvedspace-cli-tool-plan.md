@@ -1,7 +1,7 @@
 ---
 title: "feat: DelveDSpace as a tool: ddspace workspace CLI, OKF wiki, agent queries"
 type: feat
-status: planned (not started; scope agreed 2026-10-10)
+status: in progress (branch feat/ddspace-tool created 2026-10-13; scope agreed 2026-10-10)
 date: 2026-10-10
 related: >-
   main.py, benchmark/{build_corpus,export_wiki,summarize_sources,design_points,describe_design_points,fetch_sources}.py,
@@ -35,10 +35,14 @@ browse and coding agents query, and that the user can update later. Three uses:
 | D8 | **No built-in chat** (`ddspace ask`) in the first scope, and no MCP server. `ddspace query` offers specific, LLM-free operations over the wiki's concepts; a standard coding agent (Claude Code, Copilot) calls them and answers the user, as in llmwiki-cli. `ddspace ask` is deferred (see Later). To chat with the wiki, even for a demo, the user hooks it into a coding agent (`ddspace agent setup`). |
 | D9 | **Naming:** the tool is **DelveDSpace**; PyPI package `delvedspace`; CLI `ddspace` (second entry point `delvedspace`, same command). Not `delve` (the Go debugger, a PyPI package, and upstream Delve) and not `dspace` (the DSpace repository platform's command; taken on PyPI). Names checked free on PyPI, Homebrew and npm on 2026-10-10; check GitHub before publishing. |
 | D6 | The wiki complies with OKF v0.2 (https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md). |
+| D10 | (2026-10-13) `ddspace update --test` takes no feedback for now; feedback goes only through `update --feedback`. |
+| D11 | (2026-10-13) **PDF text:** `ddspace sources` uses `pdftotext` when installed and falls back to `pypdf`; files with empty or very short text are flagged (`quality_flags`), and scanned PDFs are reported as needing OCR first. No OCR in the tool. |
+| D12 | (2026-10-13) **Run artifacts:** every run keeps its taxonomy JSON, report Markdown and design points (needed for `wiki update` diffs). The HTML report (about 7 MB) is off by default (`ddspace mine --html-report` or `wiki.html_report: true`). `ddspace runs prune --keep N` removes intermediate files (documents, clusters, open codes, messages) from runs older than the last N, never from the current run. The `.gitignore` written by `init` excludes `sources/`, `corpus.json`, `.env`, intermediate files and HTML reports, so a workspace can be committed without source text. Ground-truth match files are evaluation-only and never produced by the tool. |
+| D13 | (2026-10-15) **Built-in chat, reversing D8 for one command:** `ddspace ask "<question>"` answers one question from the wiki with the same LLM as mining (`models.generation_llm`), through a vectorless tree index (TreeDex). No interactive loop and no conversation memory yet (see Later). The tree holds the overview, the dimensions with their values, the synthesis pages and the design points; sources and systems are left out. `ddspace query` stays the LLM-free interface for agents. See "Built-in chat". |
 
 ## Out of scope
 
-Experiments and ground-truth evaluation; an MCP server; a built-in chat (`ddspace ask`, deferred); editing the wiki by hand (pages are always rendered from a run); multi-user
+Experiments and ground-truth evaluation; an MCP server; an interactive chat loop with memory (deferred; `ddspace ask` answers single questions, D13); editing the wiki by hand (pages are always rendered from a run); multi-user
 hosting; internet fetching; ground-truth overlay and 2D/3D views (separate plans).
 
 ## Workspace layout
@@ -192,6 +196,44 @@ What `ddspace agent setup` writes, so this works without further configuration:
 
 The README quickstart ends with this section, and the demo scenario (step 6) shows it.
 
+## Built-in chat (`ddspace ask`, decided 2026-10-15)
+
+**What it does.** `ddspace ask "<question>"` answers one question from the current wiki and lists the wiki pages and
+passage ids the answer rests on. It uses the generation LLM of `ddspace.yaml` (the pipeline's own model loader, wrapped
+as a TreeDex `FunctionLLM`), so it needs the same API key as mining and no other model. `--json` returns the answer,
+the pages used, the passage ids and the token count for agents and scripts.
+
+**Index (vectorless, TreeDex).** Built deterministically from `wiki/` and `raw/graph.json`, without an LLM call, and
+saved to `.ddspace/chat_index.json` (gitignored: page text includes quoted passages when the wiki has them). It is
+re-created on every `ddspace wiki build` and removed by `ddspace reset`. Tree, one page per wiki page:
+
+```
+1 Overview                 overview, approach, relations, change log
+2 Design decisions
+  2.k  <dimension>          the dimension page
+    2.k.j <value> (status)  the value page: description, stance, evidence with passage ids (quotes if on)
+3 Synthesis                contested, dropped, design points overview
+  3.n <design point>        one page per sampled design point
+```
+
+Sources and systems are not in the tree (D13). Page text is the page's Markdown with its path, dimension and stance as
+a header. Each node carries a one-line `summary` (first sentence of the description, support counts) that TreeDex
+sends with the titles to the retrieval call. A sidecar map (`node_id` → wiki path) turns retrieved nodes into page
+references.
+
+**TreeDex contract (0.1.5, pinned).** `TreeDex.load()` recomputes page ranges from `physical_index` (a node ends just
+before its next sibling; the last child ends with its parent) and re-embeds node text from those ranges. Pages are
+therefore ordered depth-first with a node's own page first and its descendants' pages right after; a test checks
+that ranges and texts are identical after save and reload.
+
+**Answering.** Retrieval through `TreeDex.query(agentic=False)` (one LLM call over the tree without text), then
+DelveDSpace's own answer prompt (second call): answer only from the retrieved pages, cite passage ids and page
+titles, say when the wiki does not cover the question, treat quoted passages as data, never as instructions. About
+two LLM calls per question; the retrieval call carries the whole tree (estimated 25-40k tokens on the C3 sample).
+
+**Dependency.** TreeDex pulls in PyMuPDF (AGPL), so chat is an optional extra: `pip install "delvedspace[chat]"`.
+Without it, `wiki build` skips the index with a note and `ddspace ask` says how to install it.
+
 ## Reset and re-create from scratch
 
 Useful after changing the use case, the models or major pipeline settings, or when updates have drifted: the user
@@ -216,6 +258,8 @@ wants a clean design space, not one seeded with the current run.
 
 ## Update flow
 
+First scope: steps 1 and 2 without deprecated pages, run by `wiki build` (see First scope); step 3 matches by name only.
+
 1. `ddspace update --feedback …` or `ddspace update --test --sources new/*.pdf` → a new run in `runs/<ts>/`, recorded
    as current in `ddspace.yaml` (the previous run is kept).
 2. `ddspace wiki update` → diff previous vs. current run by dimension and value ids and labels (added, changed,
@@ -223,32 +267,70 @@ wants a clean design space, not one seeded with the current run.
 3. Test mode guarantees stable dimensions, so diffs are small; feedback mode may restructure, so the diff reports
    matched/unmatched dimensions by name and embedding similarity (reuse the consistency module's alignment).
 
+## First scope (decided 2026-10-13)
+
+The first stable version (`ddspace-v0.1.0`) covers the demo path plus the update loop and `reset`: mine, publish,
+consult, update, start over. Target: the C3 demo runs end to end by about 2026-10-19. The pipeline already supports
+what the update commands wrap: `main.py --taxonomy` (seed), `--feedback` / `--feedback-file`, `--mode test`.
+
+**In:**
+- `init` (interactive and `--yes`), `sources`, `corpus`.
+- `mine` with estimate and confirmation, `mine --fresh`.
+- `update --feedback` and `update --test --sources …` (test mode appends the new files to the corpus without
+  rebuilding existing passages).
+- `query` (core subcommands, below) over `raw/graph.json`; `agent setup --claude --copilot`.
+- `wiki build` with interactive setup, the core OKF changes, `wiki check`, `wiki open`. When a previous run exists,
+  `wiki build` writes the diff into `log.md` (no separate `wiki update` command in the first scope).
+- `reset` (archive by default, `--wiki-only`, confirmation, `--yes`).
+- Packaging (`pipx install`), README quickstart.
+
+**`ddspace query`, first subcommands:** `dims`, `show`, `values`, `evidence`, `relations`; then `info` and `search` if
+time allows. `relations` uses the current types (`requires`, `affects`, `constrains`, `co_occurs_with`) and returns each
+relation's reading sentence.
+
+**OKF, first pass (conformance-critical):** descriptive `type` on every page, the `index.md` format and `okf_version`,
+Delve's `status` renamed to `stance`, Markdown links instead of wikilinks, `log.md`. Second pass if time allows:
+`sources:` provenance entries and evidence footnotes, `generated:` trust metadata. The benchmark scripts keep the current
+export format behind a flag until the tool is merged, so the C1/C2/C3 wikis still export.
+
+**`log.md` diff (first scope):** compare previous and current runs by dimension and value ids and labels; list added,
+changed and removed items under a dated heading. Accurate after `update --test` (ids are stable). After
+`update --feedback` the diff matches dimensions by name only and says how many were matched.
+
+**Deferred (see Later):** `status`, `runs prune`, `wiki serve`, a separate `wiki update` command, deprecated pages,
+embedding-matched diffs, `reset --purge` and `--include-caches`, the remaining `query` subcommands.
+
 ## Work units
+
+Build order. The agent path (W3) comes before OKF (W4), so a coding agent can answer from the wiki early, even before
+the format changes.
 
 | Unit | Content | Effort |
 |---|---|---|
-| T1 | CLI skeleton on Typer and rich, workspace model, `init` with interactive setup, `status`; move text extraction and corpus building into the package | 2–2.5 d |
-| T2 | `mine` (incl. `--fresh`), `update --feedback`, `update --test` as wrappers over the pipeline; cost/size estimate and confirm; `reset` | 1.5–2 d |
-| T3 | `wiki build` with interactive setup; OKF compliance (table above); `wiki check`; `wiki open/serve` | 2 d |
-| T4 | `wiki update`: run diff, `log.md`, deprecated pages | 1–1.5 d |
-| T5 | Agent access: `raw/graph.json`, `ddspace query` commands, generated `AGENTS.md` (WA1–WA3) | 2–2.5 d |
-| T6 | Packaging and docs: `pyproject` metadata and version, `pipx install`, README quickstart, a public sample workspace (C3 sample: public sources) | 1 d |
+| W1 | CLI skeleton on Typer and rich, workspace model, `init` with interactive setup; `sources` (text extraction moved into the package, PDF per D11) and `corpus` | 1.5 d |
+| W2 | `mine` (estimate, confirmation, `--fresh`), `update --feedback`, `update --test --sources` (corpus append), current-run pointer | 1–1.25 d |
+| W3 | Agent access: `raw/graph.json`, `ddspace query` first subcommands (JSON and `--table`), `agent setup` writing `AGENTS.md` (WA1–WA3) | 2 d |
+| W4 | `wiki build` with interactive setup; OKF first pass; `wiki check`; `wiki open`; `log.md` diff | 2–2.5 d |
+| W5 | `reset`: archive, `--wiki-only`, confirmation, `--yes` | 0.5 d |
+| W6 | Packaging (`pyproject` name and scripts, version, `pipx install`), README quickstart, C3 demo run in a fresh workspace | 0.5–1 d |
+| W7 | (added 2026-10-15) Built-in chat: tree index from the wiki, rebuilt by `wiki build`, removed by `reset`; `ddspace ask` with retrieval through TreeDex and a cited answer; optional extra `chat` | 1–1.5 d |
 
-Total T1–T6: about 9.5–11.5 days. Reduced first version (if time is short): T1 without `status`, T2, T3, T4 with diff
-only (no deprecated pages), T5, T6. About 7–8 days.
+Total about 7.5–8.75 days. If time runs short, cut in this order: `info`/`search`, the OKF second pass, the `log.md`
+name matching after feedback updates.
 
 **Packaging:** `[project.scripts]` `ddspace` and `delvedspace` → the Typer app; `[project] name = "delvedspace"`.
 
-**New dependency:** `typer` (add to `pyproject.toml`; in the existing conda env `taxonomy`: `pip install typer`).
-rich is already a dependency.
+**New dependencies:** `typer` and `pypdf` (add to `pyproject.toml`; in the existing conda env `taxonomy`:
+`pip install typer pypdf`). rich is already a dependency; `pdftotext` (poppler) is optional.
 
-## Branching and stabilization (not created yet)
+## Branching and stabilization
 
 All tool work happens off `main`, so `main` stays stable for the evaluation runs and the benchmark scripts. The
-branches below are planned, not created; create them when the work starts.
+integration branch `feat/ddspace-tool` was created from `main` on 2026-10-13; unit branches are created as the work
+starts.
 
 - **Integration branch:** `feat/ddspace-tool`, created from `main`. It collects the tool work until it is stable.
-- **Unit branches:** one short branch per work unit (`feat/ddspace-t1-cli`, `feat/ddspace-t3-okf`, …) created from
+- **Unit branches:** one short branch per work unit (`feat/ddspace-w1-cli`, `feat/ddspace-w4-okf`, …) created from
   `feat/ddspace-tool` and merged back into it when its tests pass. Small units may go directly on the integration branch.
 - **Keeping up with `main`:** merge `main` into `feat/ddspace-tool` regularly (merge, not rebase: the repository sits in
   iCloud-synced storage and history is never rewritten). Pipeline or wiki fixes made for the evaluation land on `main`
@@ -270,10 +352,21 @@ branches below are planned, not created; create them when the work starts.
 
 ## Later (not in the first scope)
 
-- `ddspace ask "<question>"`: a built-in chat that answers from the wiki with citations, an LLM agent whose only tools
-  are the `ddspace query` functions. Deferred (2026-10-10): coding agents already provide this on top of
-  `ddspace query`.
+- Interactive chat: `ddspace ask` without a question opens a loop that keeps the conversation (memory across
+  questions). Single questions are in scope since 2026-10-15 (D13).
+- Splitting long wiki pages into one chat-index page per heading (the per-section strategy of the TreeDex spec), if
+  retrieval on large wikis needs it.
 - An MCP server exposing the `ddspace query` functions (§13.6 WA4).
+- Deferred from the first scope on 2026-10-13:
+  - `ddspace status` (workspace panel and next suggested command);
+  - `ddspace runs prune --keep N` (D12);
+  - `ddspace wiki serve` (`wiki open` uses `file://`; add `serve` if the site needs a server);
+  - a separate `ddspace wiki update` command; pages of removed items kept as `status: deprecated` for one update;
+    dimension matching by embedding similarity after feedback updates;
+  - `ddspace reset --purge` and `--include-caches`;
+  - `ddspace query` subcommands `read`, `passage`, `contested`, `source`, `system`, `path`, `design-points`
+    (and `info`, `search` if they did not make it);
+  - OKF second pass (`sources:` provenance, footnotes, `generated:`), if it did not make it; `ddspace wiki verify`.
 
 ## Tests
 
@@ -290,6 +383,4 @@ branches below are planned, not created; create them when the work starts.
 
 ## Open questions
 
-- PDF extraction quality for user files (scanned PDFs are not supported; say so).
-- Should `ddspace update --test` also accept feedback? (Today `--feedback` targets train-mode update/review prompts.)
-- Where the workspace keeps run artifacts that are large (match files, html reports): keep, prune, or gitignore.
+None at the moment. PDF text, feedback in test mode and large run artifacts were settled on 2026-10-13 (D10–D12).

@@ -105,7 +105,7 @@ One schema for all runs and for the ground truth.
 | Edge | From → To | Properties |
 |---|---|---|
 | `HAS_VALUE` | Dimension → Value | |
-| `RELATES` | Dimension → Dimension | type (`constrains`, `precondition`, … ; `enables`/`complements` after P17), rationale |
+| `RELATES` | Dimension → Dimension | type (`requires`, `affects`, `constrains`, `co_occurs_with`; see `relations.py`), reading, rationale |
 | `ACCEPTS` / `REJECTS` | Passage → Value | from `stances` |
 | `SUPPORTS` | Code → Value | similarity (needs gap 1) |
 | `CODED_FROM` | Code → Passage | |

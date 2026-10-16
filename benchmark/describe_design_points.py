@@ -40,27 +40,9 @@ from dotenv import load_dotenv  # noqa: E402
 from taxonomy_generator.evaluation.design_points import point_signature  # noqa: E402
 from taxonomy_generator.utils import load_chat_model  # noqa: E402
 
-PROMPT_VERSION = "1"
-PROMPT = """A design space for "{domain}" was mined from engineering documents. Each dimension is one design
-decision; each value is an alternative answer. Below is one combination of values, one per dimension.
-
-{choices}
-
-In 2-3 sentences (at most 70 words), describe the solution, or solution fragment, that this combination implies:
-how the chosen values would work together in one system. If two choices are in evident tension or do not fit
-together, say so briefly. Be concrete and neutral; do not invent details beyond the values given.
-
-Description:"""
-
-
-def choices_text(point: dict, dims: dict) -> str:
-    lines = []
-    for s in point.get("values") or []:
-        d = dims.get(str(s.get("dimension_id"))) or {}
-        question = d.get("description") or ""
-        lines.append(f"- Dimension: {s.get('dimension')}" + (f" ({question})" if question else "")
-                     + f"\n  Value: {s.get('label')}: {s.get('description')} [status: {s.get('status')}]")
-    return "\n".join(lines)
+from taxonomy_generator.wiki.llm_texts import (  # noqa: E402, F401  (shared with ddspace; re-exported)
+    DESCRIPTION_PROMPT as PROMPT, DESCRIPTION_PROMPT_VERSION as PROMPT_VERSION, choices_text,
+)
 
 
 async def run(dp_path: Path, model_name: str, force: bool, concurrency: int) -> dict:

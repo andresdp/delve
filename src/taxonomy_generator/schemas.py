@@ -216,6 +216,62 @@ class DimensionFocusOutput(BaseModel):
     values: List[ValueFocus] = Field(description="Actions for the values that should move or become outcomes.")
 
 
+class ExclusivityPart(BaseModel):
+    """One part of a split dimension (exclusivity repair)."""
+
+    name: str = Field(description="Name of the part: the decision it is.")
+    description: str = Field(description="The question the part's values answer.")
+    value_ids: List[str] = Field(description="Ids of the values that go to this part.")
+
+
+class ExclusivityAction(BaseModel):
+    """One repair of a dimension whose sources adopt several of its values."""
+
+    action: Literal["move", "merge", "split", "extract", "outcome", "hybrid"] = Field(
+        description="move: values answer an existing dimension's question; merge: values are one option; "
+                    "split: the dimension bundles several decisions; extract: values answer a sub-question; "
+                    "outcome: values are goals or effects, not options; hybrid: systems deliberately combine the values."
+    )
+    value_ids: List[str] = Field(description="Values the action applies to; empty for split.")
+    to_dimension_id: str = Field(description="Target dimension id for move; empty string otherwise.")
+    parts: List[ExclusivityPart] = Field(description="The parts (split only); empty otherwise.")
+    name: str = Field(description="New dimension name (extract) or merged label (merge); empty string otherwise.")
+    description: str = Field(description="New dimension's question (extract) or merged description (merge); empty string otherwise.")
+    reason: str = Field(description="One sentence: why this action.")
+
+
+class ExclusivityRepairOutput(BaseModel):
+    """Repairs for one dimension (empty when its values are alternatives after all)."""
+
+    actions: List[ExclusivityAction] = Field(description="Repairs to apply; empty list when none applies.")
+    rationale: str = Field(description="Why sources adopt several values of this dimension.")
+
+
+class RecodedValue(BaseModel):
+    """One new value of a recoded dimension: an alternative answer that includes old values as facets."""
+
+    key: str = Field(description="Short key for this new value (A, B, C, ...), used by the assignments.")
+    label: str = Field(description="Concise label: a noun phrase naming the alternative.")
+    description: str = Field(description="One or two sentences: what this alternative is, as an answer to the dimension's question.")
+    includes: List[str] = Field(description="Ids of the current values this alternative includes (its facets).")
+
+
+class CombinationAssignment(BaseModel):
+    """The new value an observed combination belongs to."""
+
+    combination: str = Field(description="The combination's key, as given (C1, C2, ...).")
+    value_key: str = Field(description="Key of the new value it is assigned to.")
+
+
+class RecodingOutput(BaseModel):
+    """Recoding of one dimension's values as exclusive alternatives (or keep, when they already are)."""
+
+    keep: bool = Field(description="True when the current values already are alternatives, or no sensible recoding exists.")
+    values: List[RecodedValue] = Field(description="The new values; empty when keep is true.")
+    assignments: List[CombinationAssignment] = Field(description="One entry per combination; empty when keep is true.")
+    rationale: str = Field(description="One or two sentences on why sources combine these values and how the recoding resolves it.")
+
+
 class ValueMergeOutput(BaseModel):
     """LLM adjudication for one borderline value-merge pair."""
 

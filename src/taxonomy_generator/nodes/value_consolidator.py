@@ -42,6 +42,8 @@ from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
 from taxonomy_generator.nodes.dimension_merger import merge_dimensions
+from taxonomy_generator.nodes.exclusivity_repair import repair_exclusivity
+from taxonomy_generator.nodes.value_recoding import recode_values
 from taxonomy_generator.nodes.evidence_linker import (
     drop_unsupported_values,
     initial_stances,
@@ -204,11 +206,60 @@ async def consolidate_values(
         if removed:
             note += (f"\nRemoved {len(removed)} value{'s' if len(removed) != 1 else ''} with no supporting "
                      f"document (kept as unsupported_values): " + "; ".join(removed))
+    if configuration.exclusivity_repair:
+        linked, repair_note, repair_log = await _repair_exclusivity(state, configuration, linked)
+        if repair_note:
+            note += "\n" + repair_note
+            result["operation_log"] = [repair_log]
+    if configuration.value_recoding:
+        linked, recode_note, recode_log = await _recode_values(state, configuration, linked)
+        note += "\n" + recode_note
+        result["operation_log"] = list(result.get("operation_log") or []) + [recode_log]
     result["clusters"] = [linked]
     logger.info(note)
     result["explanations"] = [result["explanations"][0] + "\n" + note] if result.get("explanations") else [note]
     result["status"] = list(result.get("status", [])) + [note]
     return result
+
+
+def _passages(state: State) -> Dict[str, str]:
+    return {str(getattr(d, "id", "") or (d.get("id") if isinstance(d, dict) else "")):
+            getattr(d, "content", None) or (d.get("content", "") if isinstance(d, dict) else "")
+            for d in state.documents or []}
+
+
+async def _recode_values(state: State, configuration: Configuration, clusters: List[Dict]):
+    """Run value recoding; return ``(clusters, note, log)``."""
+    recoded, log = await recode_values(
+        clusters, load_chat_model(configuration.generation_llm), configuration.use_case, _passages(state),
+        min_exclusivity=float(configuration.recoding_min_exclusivity),
+        min_sources=int(configuration.recoding_min_sources),
+        min_recurring=float(configuration.recoding_min_recurring),
+        min_sources_per_value=int(configuration.recoding_min_sources_per_value),
+        min_fit=float(configuration.recoding_min_fit))
+    fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+    lines = [f"Value recoding: {len(log['selected'])} dimension(s) selected, {len(log['recoded'])} recoded, "
+             f"{len(log['kept'])} kept, {len(log['likely_cause_ii'])} likely grouping several concerns; exclusivity "
+             f"{fmt(log['before'])} -> {fmt(log['after'])}, generality {fmt(log['generality_before'])} -> "
+             f"{fmt(log['generality_after'])}, values {log['values_before']} -> {log['values_after']}, fit {fmt(log.get('fit'))}."]
+    lines += [f"  - {r['name']}: {'; '.join(r['from'])} -> {'; '.join(r['to'])}" for r in log["recoded"]]
+    return recoded, "\n".join(lines), log
+
+
+async def _repair_exclusivity(state: State, configuration: Configuration, clusters: List[Dict]):
+    """Run the exclusivity repair; return ``(clusters, note, log)`` (note empty when nothing was sent)."""
+    repaired, log = await repair_exclusivity(
+        clusters, load_chat_model(configuration.generation_llm), configuration.use_case, _passages(state),
+        min_score=float(configuration.exclusivity_min), min_units=int(configuration.exclusivity_min_units),
+        relation_types=configuration.relation_types or (), max_relations=configuration.max_relations_per_dimension)
+    if not log["dimensions"]:
+        return clusters, "", log
+    fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+    lines = [f"Exclusivity repair: {len(log['dimensions'])} dimension(s) whose sources adopt several values "
+             f"(exclusivity {fmt(log['before'])} -> {fmt(log['after'])}); {len(log['operations'])} repair(s) applied, "
+             f"{len(log['rejected'])} rejected, {len(log['failed_calls'])} failed call(s)."]
+    lines += [f"  - {o['message']} ({o['reason']})" for o in log["operations"]]
+    return repaired, "\n".join(lines), log
 
 
 async def _consolidate_values(state: State, configuration: Configuration, reviewed: List[Dict]) -> dict:

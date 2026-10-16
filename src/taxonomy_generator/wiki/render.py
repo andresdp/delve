@@ -27,6 +27,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 
+from taxonomy_generator.wiki import okf
 from taxonomy_generator.wiki.model import SYNTHESIS_ORDER, Export, Page
 
 WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
@@ -67,6 +68,7 @@ Every page is rendered from the run's data, never written or reworded by an LLM.
 - `wiki/designs/`: sampled design points (only when the export was given design points).
 - `html/`: the same pages as HTML, and `html/graph.html`, an interactive graph of the design space.
 - `raw/run.json`: the input files and settings of this export.
+- `raw/graph.json`, `raw/tree.json`: the design space as data (nodes, typed edges, passage ids; no passage text).
 
 Frontmatter fields (`type`, `status`, `dimension`, `accepted_by`, `rejected_by`, `systems`, `design_points`) are the
 queryable properties; `[[wikilinks]]` connect the pages. Cite passage ids (e.g. `s01_p10`) when answering from this wiki.
@@ -84,6 +86,11 @@ def write_markdown(export: Export, out: Path, name: str) -> None:
                         "paths": {"raw": "raw", "wiki": "wiki", "schema": "SCHEMA.md"}}, sort_keys=False),
         encoding="utf-8")
     (out / "SCHEMA.md").write_text(SCHEMA, encoding="utf-8")
+    write_manifest(export, out)
+
+
+def write_manifest(export: Export, out: Path) -> None:
+    """Write ``raw/run.json``: the input files and settings of the export."""
     (out / "raw").mkdir(exist_ok=True)
     (out / "raw" / "run.json").write_text(json.dumps(export.manifest, indent=2, ensure_ascii=False) + "\n",
                                           encoding="utf-8")
@@ -205,8 +212,8 @@ def copy_images(assets: Path, case_icon: Path | None) -> None:
 
 
 def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str],
-               case_icon: Path | None = None) -> None:
-    root = out / "html"
+               case_icon: Path | None = None, html_dir: str = "html") -> None:
+    root = out / html_dir
     assets = root / "assets"
     copy_images(assets, case_icon)
     shutil.copyfile(TEMPLATES / "style.css", assets / "style.css")
@@ -263,34 +270,80 @@ def _snapshot(roots: Sequence[Path]) -> Dict[Path, int]:
     return {p: p.stat().st_mtime_ns for root in roots if root.exists() for p in root.rglob("*") if p.is_file()}
 
 
-def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path]) -> None:
-    """Delete files the new export did not rewrite, then folders left empty.
+EXPORTED_MANIFEST = "raw/exported.json"  # paths the last export wrote, so a rebuild removes only those
+
+
+def _hidden(path: Path, root: Path) -> bool:
+    return any(part.startswith(".") for part in path.relative_to(root).parts)
+
+
+def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path], out: Path) -> None:
+    """Delete files an earlier export wrote and this one did not rewrite, then folders left empty.
+
+    Only paths in the previous ``raw/exported.json`` are removed, so a user's own notes and an
+    Obsidian vault config (``.obsidian/``) in ``wiki/`` survive. Without a previous manifest, hidden
+    files and folders are kept and everything else not rewritten is removed.
 
     Files are overwritten in place rather than the folders being deleted and recreated: on a
     synced folder (iCloud Drive, Dropbox) a folder recreated under the same name while its
     deletion is still syncing comes back as a conflict copy ("concepts 2").
     """
-    for path, mtime in before.items():
-        if path.exists() and path.stat().st_mtime_ns == mtime:
-            path.unlink()
+    after = _snapshot(roots)
+    written = {p for p, mtime in after.items() if before.get(p) != mtime and p.name != "log.md"}
+    manifest = out / EXPORTED_MANIFEST
+    try:
+        previous = {out / rel for rel in json.loads(manifest.read_text(encoding="utf-8"))}
+    except (OSError, ValueError, TypeError):
+        previous = None
+    for path in before:
+        if path.name == "log.md" or path in written or not path.exists():
+            continue  # the change log is history, kept across exports
+        if previous is None:
+            if any(_hidden(path, root) for root in roots if root in path.parents):
+                continue
+        elif path not in previous:
+            continue
+        path.unlink()
     for root in roots:
-        for folder in sorted((p for p in root.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+        folders = (p for p in root.rglob("*") if p.is_dir() and not _hidden(p, root))
+        for folder in sorted(folders, key=lambda p: len(p.parts), reverse=True):
             if not any(folder.iterdir()):
                 folder.rmdir()
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    kept = sorted(p.relative_to(out).as_posix() for p in _snapshot(roots) if p in written)
+    manifest.write_text(json.dumps(kept, indent=1) + "\n", encoding="utf-8")
 
 
-def write(export: Export, out: Path, name: str, case_icon: Path | None = None) -> None:
-    """Write the whole export (replacing ``wiki/`` and ``html/`` from a previous export of the same run).
+def write(export: Export, out: Path, name: str, case_icon: Path | None = None, *, html_dir: str = "html",
+          okf_by: str | None = None, okf_stale_after: str | None = None) -> None:
+    """Write the whole export (replacing ``wiki/`` and the HTML folder from a previous export of the same run).
 
     ``case_icon`` (an SVG) is shown on the index and next to the wiki name; the
-    DelveDSpace logo and icon are always included.
+    DelveDSpace logo and icon are always included. With ``okf_by`` (the producer, e.g.
+    ``delvedspace/0.1.0``) ``wiki/`` is written as an Open Knowledge Format bundle (see ``okf.py``)
+    instead of the wikilink layout with ``.llmwiki.yaml`` and ``SCHEMA.md``; a ``log.md`` in it is kept.
     """
     out = Path(out)
-    roots = [out / "wiki", out / "html"]
+    roots = [out / "wiki", out / html_dir]
     before = _snapshot(roots)
     out.mkdir(parents=True, exist_ok=True)
-    write_markdown(export, out, name)
+    if okf_by:
+        okf.write(export, out / "wiki", name, okf_by, str(export.graph.get("run") or ""), okf_stale_after)
+        write_manifest(export, out)
+    else:
+        write_markdown(export, out, name)
     copy_images(out / "wiki" / "assets", case_icon)
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
-    write_html(export, out, name, graph_node_of, case_icon)
-    _remove_stale(before, roots)
+    write_html(export, out, name, graph_node_of, case_icon, html_dir)
+    write_raw(export, out)
+    _remove_stale(before, roots, out)
+
+
+def write_raw(export: Export, out: Path) -> None:
+    """Write ``raw/graph.json`` and ``raw/tree.json``: the graph and tree data, for queries and agents.
+
+    Same data as the HTML inlines, plus each value's passage ids; never any passage text.
+    """
+    (out / "raw").mkdir(parents=True, exist_ok=True)
+    for name, data in (("graph.json", export.graph), ("tree.json", export.tree)):
+        (out / "raw" / name).write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")

@@ -5,7 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 
-import main as main_module
+from taxonomy_generator import pipeline_cli as main_module
 
 NAME = "solo"
 TIMESTAMP = "20260101_000000"

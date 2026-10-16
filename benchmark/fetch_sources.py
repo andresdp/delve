@@ -32,7 +32,6 @@ import csv
 import hashlib
 import json
 import re
-import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -40,8 +39,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import httpx
-import trafilatura
-from bs4 import BeautifulSoup
+
+from delvedspace.extract import (  # noqa: F401  (moved into the package; re-exported here)
+    BLOCK_MARKERS, MIN_WORDS, clean_text, extract_html, extract_pdf, extract_raw, quality_flags,
+    site_extract, trim_sections,
+)
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -50,12 +52,6 @@ USER_AGENT = (
 # The Wayback Machine rate-limits (429) browser-like agents but serves an
 # identified research agent; live sites are fetched with the browser agent.
 ARCHIVE_USER_AGENT = "delve-benchmark/0.1 (research; source recovery for ADD-Bench)"
-MIN_WORDS = 300  # below this, a page is flagged as "short" (likely partial)
-BLOCK_MARKERS = {
-    "paywall": ["member-only story", "sign up to read", "subscribe to continue", "become a member to read"],
-    "bot_block": ["just a moment...", "attention required", "enable javascript and cookies",
-                  "verify you are human", "access denied"],
-}
 WAYBACK_RE = re.compile(r"^https?://web\.archive\.org/web/(\d+)(?:id_)?/(.+)$")
 
 
@@ -99,111 +95,6 @@ def fetch(client: httpx.Client, url: str, retries: int = 4) -> Tuple[Optional[ht
 def is_pdf(resp: httpx.Response, url: str) -> bool:
     ctype = resp.headers.get("content-type", "").lower()
     return "pdf" in ctype or url.lower().split("?")[0].endswith(".pdf") or resp.content[:5] == b"%PDF-"
-
-
-# Sections that are not part of the source's argument (removed from the heading up to the
-# next heading of the same or higher level). Reference lists and keyword/related blocks
-# inject unrelated concepts that open coding would otherwise pick up.
-NON_CONTENT_SECTION = re.compile(
-    r"^(references?|bibliography|sources( ?& ?references)?|further reading|see also|"
-    r"related (content|posts|articles|reading)|read next|more from\b.*|you may also like|tags|comments|"
-    r".*keyword cluster.*)\s*:?$",
-    re.I,
-)
-HEADING = re.compile(r"^(#{1,6})\s*\**(.+?)\**\s*$")
-
-
-def trim_sections(text: str) -> Tuple[str, List[str]]:
-    """Drop non-content sections (references, related content, SEO keyword lists, ...)."""
-    out, removed, skip_level = [], [], None
-    for line in text.splitlines():
-        m = HEADING.match(line.strip())
-        if m:
-            level, title = len(m.group(1)), m.group(2).strip()
-            if skip_level is not None and level <= skip_level:
-                skip_level = None
-            if skip_level is None and NON_CONTENT_SECTION.match(title):
-                skip_level = level
-                removed.append(title)
-                continue
-        if skip_level is None:
-            out.append(line)
-    return "\n".join(out).strip(), removed
-
-
-def _blocks_text(elements) -> str:
-    parts = []
-    for el in elements:
-        for li in el.find_all("li"):
-            li.insert_before("\n- ")
-        parts.append(re.sub(r"\n\s*\n+", "\n\n", el.get_text("\n", strip=True)))
-    return "\n\n".join(p for p in parts if p)
-
-
-def site_extract(html: str, url: str) -> Optional[str]:
-    """Site-specific extraction where generic main-text extraction loses content."""
-    host = httpx.URL(url).host if url else ""
-    target = url.split("/web/", 1)[-1] if "web.archive.org" in host else url
-    soup = BeautifulSoup(html, "lxml")
-    if "stackexchange.com" in target or "stackoverflow.com" in target:
-        # Question and all answers (generic extraction keeps only the question).
-        posts = soup.select("div.s-prose") or soup.select("div.post-text")
-        if posts:
-            labelled = [("## Question" if i == 0 else f"## Answer {i}") + "\n\n" + _blocks_text([p])
-                        for i, p in enumerate(posts)]
-            return "\n\n".join(labelled)
-    if "linkedin.com/pulse" in target:
-        # Article blocks, including list items that generic extraction drops.
-        body = soup.select_one('[data-test-id="article-content-blocks"]') or soup.select_one("article")
-        if body:
-            title = soup.select_one("h1")
-            return ((f"# {title.get_text(strip=True)}\n\n" if title else "") + _blocks_text([body]))
-    return None
-
-
-def extract_html(html: str, url: str = "") -> str:
-    text = site_extract(html, url) or trafilatura.extract(
-        html, output_format="markdown", include_comments=False,
-        include_tables=True, favor_recall=True,
-    ) or ""
-    if len(text.split()) < MIN_WORDS // 2:
-        soup = BeautifulSoup(html, "lxml")
-        for tag in soup(["script", "style", "nav", "header", "footer", "noscript"]):
-            tag.decompose()
-        fallback = re.sub(r"\n\s*\n+", "\n\n", soup.get_text("\n")).strip()
-        if len(fallback.split()) > len(text.split()):
-            text = fallback
-    if "lesswrong.com" in url:
-        # Keep the post; drop the comment thread and the karma/vote counters that follow it.
-        lines = text.splitlines()
-        cut = next((i for i, l in enumerate(lines) if l.strip() == "Comments"), len(lines))
-        text = "\n".join(lines[:cut])
-    return text.strip()
-
-
-def extract_pdf(path: Path) -> str:
-    # Reading order (no -layout): slide decks and multi-column PDFs come out as running text.
-    out = subprocess.run(["pdftotext", str(path), "-"], capture_output=True, text=True)
-    return out.stdout.strip()
-
-
-def clean_text(text: str) -> Tuple[str, List[str]]:
-    text, removed = trim_sections(text)
-    # Collapse whitespace-only bullet lines ("- " followed by the item on the next line).
-    text = re.sub(r"(?m)^-\s*\n(?=\S)", "- ", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip(), removed
-
-
-def quality_flags(text: str) -> List[str]:
-    flags = []
-    if len(text.split()) < MIN_WORDS:
-        flags.append("short")
-    low = text.lower()[:5000]
-    for flag, markers in BLOCK_MARKERS.items():
-        if any(m in low for m in markers):
-            flags.append(flag)
-    return flags
 
 
 def process(client: httpx.Client, row: Dict[str, str], out: Path, force: bool,
@@ -284,15 +175,6 @@ def process(client: httpx.Client, row: Dict[str, str], out: Path, force: bool,
         "flags": flags, "status": "ok" if not flags else "check", "retrieved_at": retrieved,
         "removed_sections": removed, "attempts": attempts, "notes": row.get("notes", ""),
     }
-
-
-def extract_raw(raw_path: Path, url: str) -> Tuple[str, List[str]]:
-    """Extract and clean the text of a saved raw file (HTML or PDF)."""
-    if raw_path.suffix == ".pdf":
-        text = extract_pdf(raw_path)
-    else:
-        text = extract_html(raw_path.read_bytes().decode("utf-8", errors="replace"), url)
-    return clean_text(text)
 
 
 def write_text(path: Path, row: Dict[str, str], url: str, via: str, retrieved: str, text: str) -> None:

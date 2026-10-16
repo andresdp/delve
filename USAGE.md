@@ -8,6 +8,7 @@ How to prepare a corpus, configure a run, use the command line, read the outputs
 call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works and how to install it, see the
 [README](README.md).
 
+- [The `ddspace` command](#the-ddspace-command)
 - [Preparing a corpus](#preparing-a-corpus)
 - [Configuration](#configuration)
 - [Command-line reference](#command-line-reference)
@@ -15,6 +16,47 @@ call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works an
 - [Exploring a run as a wiki](#exploring-a-run-as-a-wiki)
 - [Evaluation](#evaluation)
 - [Using DelveDSpace from Python](#using-delvedspace-from-python)
+
+## The `ddspace` command
+
+`ddspace` wraps the pipeline and the wiki export around a workspace folder. `ddspace <command> --help` lists
+every option.
+
+```
+my-space/
+  ddspace.yaml     settings: the pipeline configuration (below) plus workspace: and wiki: blocks
+  .env             API keys (gitignored)
+  sources/         your files: .md .txt .html .pdf, one file = one source (gitignored)
+  sources.csv      one row per source: id (s1, s2, ...), file, title, url, source_type, notes; edit freely
+  corpus.json      passages s01_p01, s01_p02, ... (gitignored: it contains the source text)
+  runs/<time>/     one folder per mine or update: taxonomy JSON, report, run.json
+  wiki/            the current design space as Markdown, an Open Knowledge Format v0.2 bundle, with log.md
+  site/            the same as HTML, with the interactive graph and tree
+  raw/             graph.json and tree.json, read by `ddspace query` (no passage text)
+  AGENTS.md        written by `ddspace agent setup`
+  .ddspace/        extracted texts, stored source summaries, the chat index, archives of resets (gitignored)
+```
+
+| Command | What it does |
+|---|---|
+| `ddspace init [DIR]` | Create a workspace. Asks for the use case, the models (OpenAI by default), the sources folder, the maximum number of dimensions, the minibatch size and whether to run the critic; checks the API key and offers to write `.env`. `--yes` (or no terminal) takes the defaults; every answer also has an option. `--from-config FILE` takes the use case, models, dimension cap and batch size from an existing pipeline config. The embedding model must be `openai/...` (default `text-embedding-3-small`) or `ollama/...`: embeddings are required to merge values and dimensions and to link evidence. |
+| `ddspace sources` | Extract the text of every file in `sources/` (PDFs with `pdftotext` when installed, else `pypdf`), add new files to `sources.csv` with the next id (existing ids and edits are kept), and flag files that are empty, short, blocked, unreadable or scanned (no text layer: run OCR first). `--from-json FILE` first imports a JSON corpus (a list of texts, or of objects with `content`) as one source file per document. Then builds the corpus (passages), unless `--no-corpus`. |
+| `ddspace corpus` | Rebuild the passages (about 300 words, at paragraph and heading boundaries; `ddspace sources` already does this with the defaults), e.g. with `--target-words`. |
+| `ddspace mine` | Run the pipeline into `runs/<time>/` after showing the corpus size, the models and a token/time estimate; the run becomes current. Refuses to replace an existing design space unless `--fresh`. `--html-report` also writes the pipeline's single-page HTML report (about 7 MB). The console shows one progress line; the full output goes to `runs/<time>/pipeline.log` (`--verbose` shows it instead; same for `update`). |
+| `ddspace update --feedback TEXT` (or `--feedback-file F`) | Re-mine the corpus, seeded with the current design space and your feedback. |
+| `ddspace update --test [--sources FILES]` | Add new sources (copied into `sources/`, or already dropped there) and classify only their passages, with the dimensions frozen: new sources add values. |
+| `ddspace wiki build` | Export the current run (or `--run`) into `wiki/`, `site/` and `raw/`. Asks once whether to quote passages (no for a public wiki), whether to summarize the sources (one LLM call each, stored), whether to sample design points (and describe them, one LLM call each) and the core threshold (suggested: a third of the sources); answers are saved in `ddspace.yaml` under `wiki:`. Adds a dated entry to `wiki/log.md` with what changed since the last build. `--ask` asks again; `--no-llm` uses stored texts only. |
+| `ddspace wiki check` | Check `wiki/` against OKF v0.2 (frontmatter `type`, `index.md` and `log.md` structure); broken links are warnings. |
+| `ddspace wiki open` | Open `site/index.html`. |
+| `ddspace query info\|dims\|values\|evidence\|relations\|show\|search` | Read-only questions over `raw/graph.json`, no LLM: JSON for agents, `--table` for people. Name nodes by id (`d:3`, `v:3.1`, `s:s2`), slug or name: the label exactly, ignoring case, spacing and punctuation (`event driven architecture`), or failing that a unique partial match. `evidence --quotes` adds the passage text. Exit code 2 when a name matches nothing (with close matches). `--graph DIR` queries any export. |
+| `ddspace ask "QUESTION"` | Answer one question from the wiki with the mining LLM (`models.generation_llm`): a vectorless tree index of the wiki (TreeDex) picks the relevant dimension, value, synthesis and design-point pages, then the answer is written from those pages only, citing passage ids. About two LLM calls per question (roughly 25-30k tokens on the C3 sample). `--json` for scripts; `--why` shows why the pages were picked. The index is rebuilt by every `wiki build` and removed by `reset`. Needs the optional extra: `pip install "delvedspace[chat]"`. |
+| `ddspace point VALUE...` | Interpret a design point: one value per dimension, named by id or label (`Dimension=Value` when a label is not unique). Returns the values, warnings (two values of one dimension, an outcome or a rejected value as a choice, a required dimension left out), the sources that adopt every value (empty: a novel combination), the relations among the chosen dimensions, and a description: the wiki's stored one when the wiki has this point, otherwise one LLM call with the same prompt and model as the wiki's descriptions (`--model` to change it). Nothing is stored; the design space and the wiki do not change. `--no-llm` for the checks only; JSON by default, `--table` for people; `--graph DIR` for any export. |
+| `ddspace agent setup` | Write `AGENTS.md` for coding agents; `--claude` adds `CLAUDE.md` and, if allowed, a permission for `ddspace query`; `--copilot` adds `.github/copilot-instructions.md`; `--dir` sets up a project folder that contains the workspace. Existing files keep their content. |
+| `ddspace check` | Show the configuration (settings load, use case, models, API keys masked, size) and every phase with its state: sources, corpus, design space, wiki, chat index, agent setup; each is done, stale (an earlier phase changed since), pending or failed, and the panel at the end names the commands to run next. Read-only, no LLM; `--json` for scripts and agents. |
+| `ddspace reset` | Move `runs/`, `wiki/`, `site/` and `raw/` to `.ddspace/archive/<time>/` and clear the current run. `--wiki-only`: only the wiki. `--all`: also everything built from the sources (`corpus.json`, extracted texts, stored source summaries), so `ddspace sources` starts over. Kept by these: `sources/`, `sources.csv` (your edits), `ddspace.yaml`, `.env`, agent files. `--purge`: delete everything in the workspace except `ddspace.yaml` and `.env` (and the `.gitignore` written by `init`): your source files, `sources.csv`, the corpus, runs, wiki and all of `.ddspace/`, archives included; agent files lose only what ddspace wrote, and files ddspace did not create are left alone. It asks first and cannot be undone. `--yes` for scripts. |
+
+Workspace defaults differ from `config.yaml` in two places, because the passages are already short:
+summarization is skipped and open coding reads the passage text.
 
 ## Preparing a corpus
 
@@ -48,8 +90,21 @@ Settings to look at first:
 - **`taxonomy.use_case`**: what the design space is for, e.g. *"Identify the architectural design
   decisions practitioners face when … For each decision, identify the alternative options …"*. It
   steers coding, selection and evaluation.
-- **`taxonomy.max_num_clusters`**: prefer `null`. A hard cap forces broad topics that bundle several
-  decision points.
+- **`taxonomy.max_num_clusters`**: `null` = no cap. With `cap_stage: selection` (the default) the run
+  mines without a cap and keeps the top-k decision points at selection; `cap_stage: generation` gives the
+  cap to the prompts instead, which forces broad topics that bundle several decision points.
+- **One value per dimension per system:** the values of a dimension are alternatives, so each source
+  (system) should adopt one of them.
+  - `evaluation.exclusivity`: the computed *Value exclusivity* row on every scoreboard (a penalty fed
+    back to the update loop);
+  - `exclusivity_repair` (off by default), `exclusivity_min`, `exclusivity_min_units`: after evidence linking, the LLM
+    splits, extracts a sub-decision, merges values or declares a hybrid for the dimensions whose
+    sources adopt several values. The wiki shows each dimension's exclusivity and the values adopted
+    together.
+  - `value_recoding` (on by default) and the `recoding_*` settings: after evidence linking, the values
+    of a low-exclusivity dimension are rewritten as alternative answers when several sources share
+    their combination of values; the old values stay as facets (`includes`). `matcher.use_facets`
+    lets the ground-truth matcher see the facets.
 - **Saturation:**
   - `saturation_streak_threshold`: saturated minibatches in a row needed to stop;
   - `saturation_min_coverage`: share of a minibatch's codes that must be covered to count as
@@ -166,7 +221,7 @@ The HTML works offline. Open `html/index.html` in a browser, or copy the whole `
 
 A committed example can be [browsed online](https://andresdp.github.io/delve/). It is published with GitHub Pages
 (`.github/workflows/sample-wiki-pages.yml`), because GitHub shows HTML files in the repository as source. Locally, open
-`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261010_232242_wiki/html/index.html`. The
+`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html`. The
 sample's [README](examples/c3-git-at-scale/sample/README.md) gives the exact commands that produced it.
 
 Minimal export. Only the run is required:

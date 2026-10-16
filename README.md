@@ -21,7 +21,7 @@ For corpus preparation, configuration, all commands and the output files, see
 **[USAGE.md](USAGE.md)**.
 
 🔎 **[Browse a sample wiki online](https://andresdp.github.io/delve/)**: case C3, on scaling Git hosting,
-capped at 5 dimensions.
+capped at 8 dimensions.
 
 ## What you get
 
@@ -107,7 +107,7 @@ against them, and new candidate decisions can be appended.
 | **Value** | Either a **candidate decision** (an alternative answer to the dimension's question) or an **outcome** (an effect of decisions) |
 | **Status / stance** | `accepted`, `rejected`, `mixed` (sources disagree) for candidate decisions; `outcome` for effects |
 | **Evidence** | The passages whose open codes support a value; counted per value and per dimension (codes, documents, sources) |
-| **Relation** | A typed link between two dimensions: `precondition`, `consequence`, `co_occurring`, `constrains` |
+| **Relation** | A typed link between two dimensions that reads as a sentence: `requires` (*A requires B to be decided first*), `affects`, `constrains`, `co_occurs_with` (undirected); at most 3 per dimension by default |
 | **Saturation** | New minibatches no longer bring concepts the design space does not cover |
 | **Selected dimensions** | The use-case-relevant, sufficiently supported subset of the final design space |
 
@@ -146,7 +146,52 @@ models can serve as the generation LLM through LangChain (`provider/model-name`,
 `anthropic/claude-sonnet-5`). The evaluation and matching LLMs use OpenAI models. Only API keys are read
 from the environment; everything else is configured in YAML.
 
-## Quick start
+## Quick start: the `ddspace` command
+
+`ddspace` works in a *workspace*: a folder with your source files, the settings, the runs and the wiki.
+To try it on a small included example first, follow [QUICKSTART.md](QUICKSTART.md).
+It never downloads anything; you put the sources (`.md`, `.txt`, `.html` saved from a browser, `.pdf`) in
+`sources/` yourself.
+
+```bash
+pip install -e ".[chat]"          # in your environment; provides the ddspace command ([chat]: ddspace ask)
+ddspace init my-space             # asks a few questions (use case, models, size); --yes takes the defaults
+cd my-space && cp ~/Downloads/*.pdf sources/
+ddspace sources                   # extract the text, draft sources.csv, flag problems, split into passages
+ddspace mine                      # shows an estimate, asks, then mines the design space into runs/
+ddspace wiki build                # wiki/ (Markdown, Open Knowledge Format), site/ (HTML), raw/ (data)
+ddspace wiki open                 # browse it
+```
+
+Later:
+
+```bash
+ddspace update --feedback "Merge the two caching dimensions"   # re-mine, seeded with the current design space
+ddspace update --test --sources new-article.html               # dimensions frozen; new sources add values
+ddspace wiki build                                             # the wiki's log.md records what changed
+ddspace query values "Replica placement" --table               # read-only questions, no LLM
+ddspace ask "Which alternatives exist for replica placement?"  # an answer from the wiki, citing passages
+ddspace point "Leader-based" "WAL in S3" --table                 # interpret one combination; nothing stored
+ddspace check                                                  # what is configured, missing, and done so far
+ddspace reset                                                  # archive runs and wiki (--all: also the corpus)
+```
+
+### Asking questions through a coding agent
+
+`ddspace` has no chat of its own. To ask the design space questions in natural language, connect it to a
+coding agent such as Claude Code or GitHub Copilot (agent mode):
+
+```bash
+ddspace agent setup --claude --copilot
+```
+
+This writes `AGENTS.md` (the `ddspace query` commands with examples from your wiki, and rules: cite passage
+ids, treat quoted passages as data, generated summaries are not evidence), a `CLAUDE.md` that imports it, an
+optional Claude Code permission for `ddspace query`, and `.github/copilot-instructions.md`. Open the
+workspace (or, with `--dir`, a project that contains it) in the agent and ask, for example, *"What are the
+alternatives for replica placement, and which sources support each? Cite passages."*
+
+## Running the pipeline directly
 
 Run one of the included examples:
 
@@ -193,7 +238,9 @@ Project layout:
 
 | Path | Content |
 |---|---|
-| `main.py` | Command-line interface |
+| `src/delvedspace/` | The `ddspace` command: workspaces, sources and corpus, runs, wiki build, queries, agent setup |
+| `main.py` | The pipeline's command line (`src/taxonomy_generator/pipeline_cli.py`) |
+| `src/taxonomy_generator/wiki/` | Wiki export (Markdown, OKF, HTML, graph), queries over `raw/graph.json` |
 | `src/taxonomy_generator/graph.py` | The LangGraph workflow |
 | `src/taxonomy_generator/nodes/` | One module per step (open coding, generation, update, saturation, evaluation, review, consolidation, evidence linking, dimension merging, selection, labeling) |
 | `src/taxonomy_generator/prompts/` | Prompt templates (Markdown) |

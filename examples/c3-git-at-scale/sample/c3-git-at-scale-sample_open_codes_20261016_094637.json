@@ -1,0 +1,2033 @@
+{
+  "taxonomy_name": "c3-git-at-scale-sample",
+  "open_codes": [
+    {
+      "doc_id": "s01_p03",
+      "label": "DHT-backed Git object storage",
+      "rationale": "The document describes storing content-addressed Git objects in a distributed hash table as an object-level scaling design. Although it supported normal Git operations, the design was ultimately discarded because Git clone still required packfiles over the network and performed poorly.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p03",
+      "label": "Custom JGit storage abstraction",
+      "rationale": "JGit supplied the interfaces and factories needed to replace ordinary on-disk packfiles with a distributed hash table, making the DHT-backed design technically possible.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p03",
+      "label": "Sequential DAG traversal over distributed storage",
+      "rationale": "Git operations must walk commits, trees, files, subtrees, and parent pointers step by step; the next object key is unknown until the previous object is fetched, creating repeated remote dependencies.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p03",
+      "label": "Distributed-store round-trip amplification",
+      "rationale": "When each step of a Git DAG walk requires a round trip to a distributed store, even simple repository operations become increasingly expensive at scale.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p03",
+      "label": "Git-protocol packfile transfer requirement",
+      "rationale": "The document identifies a protocol constraint: Git sends packfiles over the network during cloning regardless of how objects are stored on the server, limiting the benefits of object-level distribution.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p03",
+      "label": "Poor clone performance",
+      "rationale": "The DHT-based implementation achieved results good enough for normal Git operations, but its clone performance was bad enough that the overall design was discarded.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "WAL-based repository storage",
+      "rationale": "The system adopts a write-ahead-log architecture as an alternative to depending on an external relational database for Git references or object data. The choice is driven by prioritizing Git-data consistency over operational simplicity and database transaction scalability.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "External relational database dependency",
+      "rationale": "A design using blob storage for packfiles and a relational database for references is explicitly described as an alternative that the team declined, because operating an external database and synchronizing repository state would weaken the preferred consistency model.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "WAL durability before push acknowledgement",
+      "rationale": "Pushes are not acknowledged until the complete operation has been persisted to the WAL, making durable logging the acceptance point for client-visible repository changes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "Linearized push processing",
+      "rationale": "The system linearizes all pushes rather than allowing concurrent push effects to form an ambiguous ordering, supporting consistent repository states and traceable operation history.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "Fully consistent repository views",
+      "rationale": "Every accessed repository view is maintained as fully consistent, avoiding partially applied or divergent views in a system exposed to corruption, repacking bugs, and push races.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "Complete WAL provenance for repository operations",
+      "rationale": "Fundamental repository operations, including pushes and repacks, are recorded in the WAL so that every historical repository state can be inspected and replicas can be rewound or fast-forwarded.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p15",
+      "label": "On-disk Git repository with standard Git tooling",
+      "rationale": "Git operations continue to run on a normal repository on disk using off-the-shelf Git tooling, rather than introducing a specialized implementation; this limits the number of new bugs added to the system.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Immediate reboot for planned maintenance",
+      "rationale": "Directly rebooting or unplugging a server is explicitly described as an overly disruptive approach because it breaks in-progress reads, especially long-running repository clones.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Quiescing period before server reboot",
+      "rationale": "Planned reboots begin by marking the server offline for new reads while allowing existing operations to complete, reusing failure-handling logic without interrupting long-running clients.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Read admission exclusion during quiescing",
+      "rationale": "While quiescing, the server is excluded from new read operations so newly started requests do not become dependent on a server that is about to shut down.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Completion of in-progress reads during quiescing",
+      "rationale": "Existing reads, including clones of large repositories, are allowed to finish before shutdown to avoid losing potentially hours of client progress.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Continued write replication during quiescing",
+      "rationale": "Writes continue to be sent to the quiescing server because writes run on all replicas and stopping them would let that replica fall arbitrarily far behind.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Replica voting without the rebooting server",
+      "rationale": "In-progress writes can proceed because the other two replicas can vote without the server being rebooted, preserving write availability during maintenance.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Interrupted clone progress loss",
+      "rationale": "Breaking a long-running read such as a large-repository clone forces a restart on another replica and loses all progress made up to interruption.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p07",
+      "label": "Quiescing duration variability",
+      "rationale": "The maintenance delay varies from seconds to many hours depending on the long-running reads active on the server.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Per-application-server file-server failure detection",
+      "rationale": "Failure detectors operate across each application server and each file server, so a resolver failure on one application server produces a localized, rather than system-wide, view of file-server availability.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Three-copy repository replication",
+      "rationale": "Spokes keeps at least three copies of every repository, wiki, and gist to preserve repository data through server, disk, rack, or controller failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Cross-rack replica placement",
+      "rationale": "Replicas are placed in different racks, protecting repository data against failure of an entire rack rather than only an individual node.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Strict-majority write acceptance",
+      "rationale": "Repository updates are accepted only when a strict majority of replicas applies the change and obtains the same result, supporting durable and consistent updates.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Single-extra-copy durability strategy",
+      "rationale": "The document notes that one additional copy would be sufficient to survive a single-node failure, but this option does not provide the majority-based coordination needed for conflicting concurrent writes.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Majority-held exclusive write locks",
+      "rationale": "Each write acquires an exclusive lock on a majority of replicas, preventing two conflicting writes from acquiring a majority simultaneously.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Replica-wide write serialization",
+      "rationale": "Conflicting writes are applied or rejected in the same order on every replica, ensuring that replicas converge on the same result.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p05",
+      "label": "Localized impact of a faulty application server",
+      "rationale": "When one staging application server lost DNS resolution, its incorrect offline determinations were isolated to that server; other application servers continued normally and production traffic was unaffected.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "Periodic repository compaction",
+      "rationale": "The document treats compaction as necessary because unbounded WAL growth makes full restores increasingly expensive and accumulating Git packfiles makes object lookup inefficient.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "Primary-only compaction",
+      "rationale": "The system assigns compaction work only to the primary replica, avoiding concurrent maintenance operations across multiple Spokes nodes for the same repository.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "Coupled disk-repository and WAL compaction",
+      "rationale": "The compaction result is applied to both the on-disk Git repository and the write-ahead log, keeping the persisted repository and replication stream aligned.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "WAL-propagated compaction events",
+      "rationale": "Replicas follow compaction events through the WAL, allowing the primary to coordinate repository maintenance without having every replica independently perform the operation.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "Replica-side repacking",
+      "rationale": "Replicas do not repack repositories themselves; the document explicitly describes avoiding replica-side compaction because repacking is CPU-heavy and can create availability problems.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "S3 distribution of compacted packs",
+      "rationale": "Replicas obtain already-compacted packfiles from S3 instead of generating them locally, shifting the scaling cost from replica CPU to network bandwidth.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "CPU-heavy repacking burden",
+      "rationale": "Even incremental repacking consumes substantial CPU, creating a practical scaling constraint when the operation must otherwise run on every repository replica.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p13",
+      "label": "Maintenance-induced repository failover",
+      "rationale": "The document reports that accidentally triggering maintenance on multiple nodes for the same repository can cause the repository to fail over, making availability a key force behind primary-only compaction.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p07",
+      "label": "Filesystem monitoring for modified-path discovery",
+      "rationale": "The repository uses Git’s fsmonitor feature to identify paths modified since the last index update, avoiding an unrestricted scan of the working directory.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p07",
+      "label": "Watchman-based filesystem monitoring",
+      "rationale": "Scalar configures the repository to use the Watchman tool alongside Git’s fsmonitor support to discover modified paths.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p07",
+      "label": "Selective inspection of modified paths",
+      "rationale": "After discovering changes, Git inspects only the modified paths rather than every populated path, reducing work for large working directories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p07",
+      "label": "Large sparse-checkout working set",
+      "rationale": "The document describes repositories with hundreds of thousands of populated files out of millions of tracked files, establishing the scale constraint that motivates optimized modified-file detection.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p07",
+      "label": "Reduced git-status latency",
+      "rationale": "With fsmonitor enabled, git status completes in 1.5 seconds instead of 12.2 seconds for the cited large working set.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p16",
+      "label": "Reliable Git repository hosting",
+      "rationale": "The document describes building Origin to prevent developers and CI systems from being blocked by repository push and pull failures, making hosting reliability a central architectural objective.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p16",
+      "label": "Scalable version-control platform",
+      "rationale": "Origin is presented as a platform intended to address increasing code volume, pull requests, and CI runs while providing more scale for customers.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p16",
+      "label": "Performance-oriented repository infrastructure",
+      "rationale": "The stated focus includes improving performance alongside reliability and scale, indicating performance as a deliberate property of the platform being built.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p16",
+      "label": "Low-disruption migration path",
+      "rationale": "The platform is designed to provide a smooth off-ramp and make migration as painless as possible, identifying migration ease as an adopted operational and architectural concern.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p16",
+      "label": "Evolutionary version-control architecture",
+      "rationale": "The team commits to continuing to evolve its platform as the version-control landscape changes, rather than treating the initial system as fixed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "GVFS object-transfer protocol",
+      "rationale": "The teams created GVFS to reduce the amount of Git object data transferred for very large repositories, addressing the server, client, network, and object-verification costs of complete clones.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "Central-server coupling for missing objects",
+      "rationale": "GVFS deliberately relaxes Git’s fully distributed model by relying somewhat more on a central server to provide objects that are not present locally.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "Commits-and-trees-only initial clone",
+      "rationale": "The initial GVFS clone downloads pack-files containing commits and trees while omitting other objects, providing enough data for working-directory views and history inspection with substantially less transfer.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "On-demand Git object retrieval",
+      "rationale": "GVFS dynamically downloads missing Git objects as they are needed, avoiding transfer of the complete object history during the initial clone.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "Sparse-checkout and object-transfer coordination",
+      "rationale": "The document connects sparse checkout with reduced object transfer: a smaller populated working directory requires fewer objects, so the two mechanisms reinforce each other for large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "Co-located GVFS cache servers",
+      "rationale": "GVFS requests can be proxied through cache servers located near end users and build machines, an architectural choice intended to improve scalability of object delivery.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "Complete object-transfer burden",
+      "rationale": "A conventional complete copy requires transferring more than 100 GB for the Windows repository and verifying roughly 90 million objects, creating substantial network, server, client, and latency costs.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p08",
+      "label": "Reduced transfer latency and central-server stress",
+      "rationale": "Proxy caching is reported to increase throughput and reduce latency while also decreasing load on the central server.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p06",
+      "label": "Sparse-checkout repository design",
+      "rationale": "The document presents sparse-checkout as a repository design approach that allows developers to populate only a fraction of the repository while retaining the paths needed for daily work. It is especially relevant when repositories contain many tracked files.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p06",
+      "label": "Sparse working directory as the default clone mode",
+      "rationale": "Scalar adopts sparse working directories by making them the default behavior of `scalar clone`, reducing client-side populated size for large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p06",
+      "label": "Root-directory initial population",
+      "rationale": "The default sparse mode initially populates only files in the repository root, deferring additional directory population until the user requests it. This limits initial data transfer and working-directory work.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p06",
+      "label": "Full-clone override",
+      "rationale": "The document identifies a full working-directory clone as an alternative to the sparse default and exposes it through the `--full-clone` option. The option is supported for users who need all tracked files populated.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p06",
+      "label": "Populated-file minimization priority",
+      "rationale": "The document prioritizes minimizing the number of populated files over minimizing total repository paths because populating files involves substantially more data handling than adjusting index entries.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p06",
+      "label": "High cost of populated-file modification detection",
+      "rationale": "Determining which populated files users modified is described as even more expensive than populating files, establishing an operational cost that strengthens the sparse-population design rationale.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Three-phase commit for replica synchronization",
+      "rationale": "The document identifies three-phase commit as the core mechanism for keeping replicas synchronized and describes replicas responding to a coordinator’s prepare, commit, or rollback instructions.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Git reference-update transactions",
+      "rationale": "Transactions for Git reference updates were implemented in Git and exposed through interfaces such as `git update-ref --stdin`, enabling coordinated updates across replicas.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Deterministic transaction results across replicas",
+      "rationale": "The implementation includes work to ensure that reference-update transactions produce deterministic results on every replica, which is necessary for consistent replica state.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Pre-transaction acquisition of local reference locks",
+      "rationale": "Git acquires all necessary local reference locks before validating or committing a reference-update transaction, coordinating concurrent access to references.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Reference-value validation before commit",
+      "rationale": "Before committing, Git verifies that old reference values match expectations and that proposed new values are valid, preventing inconsistent updates.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Atomic transaction rollback",
+      "rationale": "When validation fails, the entire tentative reference-update transaction is rolled back rather than partially applied, preserving consistency.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p04",
+      "label": "Reference-operation speedups",
+      "rationale": "The teams implemented multiple performance improvements for reference-related operations to reduce the time required to update a reference on an individual replica, in addition to addressing network latency.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "Write-ahead log in S3 as repository source of truth",
+      "rationale": "Continuity treats local repository copies as warm caches and keeps authoritative state in an S3-backed write-ahead log, allowing repository instances to exist on any server.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "Stateless repository placement",
+      "rationale": "The system does not require authoritative per-repository placement state; any server can serve a repository, and missing local state can be reconstructed from the WAL.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "Per-server repository location tracking",
+      "rationale": "The document contrasts Continuity with Spokes by rejecting the need to track the location of every repository on every server, because such tracking makes clusters difficult to operate.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "On-demand repository materialization from the WAL",
+      "rationale": "When a repository is absent from a host's local disk, the system reconstructs it from the S3 WAL; avoiding constant materialization preserves efficiency while retaining flexible placement.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "Rendezvous-hashed repository routing",
+      "rationale": "In healthy production operation, rendezvous hashing maps repository IDs to expected nodes, using only the repository ID and the current set of healthy cluster nodes as routing state.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "Stale-routing tolerance",
+      "rationale": "Routing state is allowed to become inconsistent, such as after a node failure; the system prioritizes correctness under degradation by materializing the repository on a newly selected node.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "Consensus-free repository primaries",
+      "rationale": "Continuity avoids elections and consensus over which server is primary; any server may accept a push, which removes the operational coordination required for primary ownership.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p11",
+      "label": "S3 atomic compare-and-swap for WAL updates",
+      "rationale": "Concurrent updates to the write-ahead log are synchronized through atomic CAS operations on S3, making it safe for any repository instance to receive a push.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "Block-level filesystem replication",
+      "rationale": "The teams tried replicating the filesystem at the block level to support repository distribution, but the approach was abandoned because it was operationally terrible and did not provide sufficient performance.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "GFS-based repository storage",
+      "rationale": "GFS was used in a short-lived deployment for distributed repository storage, but it hit the same fundamental limitations as the other networked-filesystem approaches and was not retained.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "DRBD-based repository storage",
+      "rationale": "DRBD supported a longer-lived attempt to replicate repository storage, but it was ultimately rejected because day-to-day operation was poor and performance gains were inadequate.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "Size-minimizing packfile layout",
+      "rationale": "Packfiles are generated primarily to minimize their size, resulting in objects being distributed throughout the pack rather than laid out according to their positions in the Git object graph.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "Delta-compressed packfile objects",
+      "rationale": "Most objects are stored as deltas on top of other objects in the same packfile rather than as complete objects, reducing storage size but requiring additional physical hops during reads.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "Networked filesystem for repository operations",
+      "rationale": "The document explains that Git’s random walks across large packfiles do not work effectively on file- or block-replicated networked filesystems, because acceptable performance would require caching the whole file locally, which is infeasible with hundreds of thousands of repositories.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "RPC access to dedicated repository fileservers",
+      "rationale": "GitHub gave up distributing the filesystem, placed repositories on dedicated fileservers, developed an RPC system, and changed the Rails application to perform repository operations remotely.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p05",
+      "label": "Horizontal scalability without repository redundancy",
+      "rationale": "The RPC/fileserver architecture provided substantial horizontal scalability, but each repository remained on only one machine, leaving availability and performance for the busiest repositories unresolved.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Chaos-monkey testing on file servers",
+      "rationale": "The team explicitly does not use random single-node failure testing on Spokes file servers because abrupt interruptions would disrupt long-running reads.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Quiesced rolling reboots",
+      "rationale": "The adopted substitute for chaos testing is to quiesce and reboot servers sequentially when maintenance requires a reboot, preserving outstanding read operations while still exercising failover behavior.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Rack-based availability zones",
+      "rationale": "Racks are treated as availability zones, providing the basis for organizing maintenance and failure isolation at rack granularity.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Whole-rack quiescing",
+      "rationale": "The team quiesces an entire rack before proceeding with its reboots, rather than independently rebooting servers without rack-level coordination.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Five-server reboot concurrency limit",
+      "rationale": "After servers finish quiescing, no more than five servers in a rack are rebooted at once, limiting the scope of simultaneous disruption while keeping rolling maintenance practical.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Unplanned server unplugging for retirement",
+      "rationale": "Simply unplugging a server is rejected because it interrupts in-progress reads and temporarily reduces every hosted repository from three copies to two, increasing exposure to another failure and later write rejection.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s03_p08",
+      "label": "Two-copy degraded repository state",
+      "rationale": "A suddenly missing server leaves its repositories with two copies; this supports reads and writes but cannot tolerate an additional failure, creating several hours of elevated operational risk.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "On-disk repositories as consensus source of truth",
+      "rationale": "Spokes relies on repository copies stored on disk as the authoritative basis for consensus, making the state of every replicated copy operationally critical.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "Pet-style repository operations",
+      "rationale": "The document frames repositories as “pets, not cattle,” requiring individualized knowledge, monitoring, validation, and repair rather than interchangeable infrastructure treatment.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "Repository-to-machine routing table",
+      "rationale": "An external database is used to track exactly where every repository is replicated, providing the routing information needed to locate copies across machines.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "External routing-database dependency",
+      "rationale": "The routing table introduces an additional external dependency and a potential availability issue for large-scale repository operations.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "Continuously updated repository checksums",
+      "rationale": "Every repository is checksummed and the checksum information is continually updated in the routing table to validate on-disk copies.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "Automated repository repair scheduling",
+      "rationale": "When a repository copy becomes unhealthy, the system must detect the problem and schedule a repair job to restore it to a healthy state.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "Replica quorum for push acceptance",
+      "rationale": "The system requires sufficient healthy repository copies to maintain quorum; with two of three copies corrupt, it can no longer accept pushes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p09",
+      "label": "High operational burden at scale",
+      "rationale": "The combination of per-repository location tracking, continuous integrity checks, rapid failure detection, and repair makes Spokes difficult and costly to operate at scale.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Compressed Git index",
+      "rationale": "Scalar registration adds compression to the .git/index file, reducing local repository metadata overhead for large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Hourly background remote fetching",
+      "rationale": "Scalar configures periodic background git fetch operations to keep client repositories synchronized with their remotes without requiring users to initiate every fetch.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Automatic commit-graph and multi-pack-index maintenance",
+      "rationale": "Scalar updates advanced Git data structures in the background, supporting efficient repository operations as repository history and pack data grow.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Builtin file system monitor",
+      "rationale": "On macOS and Windows, Scalar configures Git's builtin file system monitor to accelerate commands such as git status and git add in large working directories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Partial clone for checkout-specific downloads",
+      "rationale": "Scalar clone uses Git's partial clone feature so a client downloads only the files needed for the current checkout, reducing initial transfer and local storage requirements.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Sparse checkout working directories",
+      "rationale": "Scalar clone enables sparse-checkout to minimize the number of files materialized in the working directory, limiting client filesystem and command overhead for large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p02",
+      "label": "Separate source and build-artifact directories",
+      "rationale": "Scalar clone places the repository inside /src so build artifacts can be stored outside the Git repository, such as in /bin or /packages, avoiding unnecessary repository working-tree contents.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Virtualized filesystem for repository-scale access",
+      "rationale": "VFS for Git uses a virtualized filesystem to bypass assumptions about repository size and enable the Windows repository to operate at previously impractical scale. This approach addresses the storage and performance costs of Git repositories containing complete history.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Native Git scalability improvements without filesystem virtualization",
+      "rationale": "Microsoft began a separate effort to support very large repositories without requiring a virtualized filesystem, shifting scalability work into Git itself so the improvements could benefit repositories and users more broadly.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Commit-graph file",
+      "rationale": "The commit-graph file is identified as a contribution to the Git client intended to improve performance for large repositories, particularly by reducing the cost of history-related operations.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Sparse-checkout performance improvements",
+      "rationale": "Improvements to sparse-checkout are listed among the Git client changes developed to reduce the amount of repository data that must be handled locally, supporting large-repository workflows.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Recommended Git configuration values",
+      "rationale": "Scalar accelerates Git commands by setting configuration values recommended for repository-scale performance rather than requiring users to tune Git manually.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Background repository maintenance",
+      "rationale": "Scalar runs maintenance in the background to improve Git command performance while reducing the need for developers to wait for maintenance work during interactive operations.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "GVFS-protocol cloning through Azure Repos",
+      "rationale": "Scalar supports cloning through the GVFS protocol when the repository is hosted by Azure Repos, providing a protocol-specific scaling path for extremely large repositories such as Microsoft Office.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p01",
+      "label": "Repository performance tracing and user-feedback analysis",
+      "rationale": "Microsoft used a custom tracing system and user feedback to identify performance bottlenecks, providing the diagnostic basis for prioritizing client and repository-scale improvements.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Rails monolith architecture",
+      "rationale": "GitHub’s platform started as and mostly remained a Rails monolith, establishing the application architecture whose scaling constraints shaped repository-storage decisions.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Co-located repository copies on local disk",
+      "rationale": "The initial deployment placed repository copies on disk next to the Ruby server, using local filesystem access before horizontal scaling created a shared-storage problem.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Horizontal scaling through additional Rails instances",
+      "rationale": "The article presents deploying more application instances as the normal way to scale Rails; with Git repositories, this creates the requirement for every instance to access repository data.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Filesystem-level distribution of Git data",
+      "rationale": "The early systems team chose to distribute the filesystem rather than change Git or operate directly on packfiles, intending to preserve the Rails application and avoid Git-specific implementation work.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Centralized NFS repository storage",
+      "rationale": "NFS was considered as the most obvious centralized distributed-filesystem design for all repositories, but the team explicitly discarded it because Git’s filesystem assumptions did not work reliably over the network.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Local-filesystem semantics for Git operations",
+      "rationale": "Git’s default behavior assumes local filesystem properties such as locking, tearing, reading, and syncing; these assumptions are a key compatibility constraint when selecting repository-storage architecture.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p04",
+      "label": "Network-filesystem performance and correctness problems",
+      "rationale": "The attempted networked-filesystem approaches produced slow and buggy behavior, demonstrating the operational and quality trade-offs that prevented filesystem distribution from solving the scaling problem.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p02",
+      "label": "Custom Git client dependency",
+      "rationale": "Scalar currently requires a custom Git version, demonstrated by the documented version requirement. This is a client-side architectural constraint for accelerating very large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p02",
+      "label": "Core Git feature contribution plan",
+      "rationale": "The team plans to contribute Scalar’s features to the core Git client so that the custom Git requirement can eventually be removed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p02",
+      "label": "Repository registration as activation mechanism",
+      "rationale": "Users must run `scalar register` from a repository to make Scalar aware of it and activate Scalar-specific local configuration and maintenance.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p02",
+      "label": "Background repository maintenance",
+      "rationale": "Registering a repository starts background maintenance intended to accelerate Git commands in existing, potentially very large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p02",
+      "label": "Maintenance pause and unregister controls",
+      "rationale": "Scalar provides `scalar pause` to delay maintenance and `scalar unregister` to stop future maintenance, making background activity controllable by repository users.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p02",
+      "label": "Commit-graph generation and verification",
+      "rationale": "The documented maintenance log shows Scalar writing a Git commit graph and then verifying it, using commit-graph structures to support repository-scale performance.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "Background repository maintenance",
+      "rationale": "VFS for Git and Scalar maintain repositories through background processes so users do not wait for expensive maintenance operations during commands such as commit or fetch.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "Incremental maintenance operations",
+      "rationale": "The document states that VFS for Git and Scalar perform background maintenance incrementally to reduce the additional CPU and memory load on the client machine.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "Foreground automatic garbage collection",
+      "rationale": "The conventional Git approach runs automatic garbage collection at the end of common commands, but the lesson rejects making users wait for this expensive foreground operation because it can block commands for minutes.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "Disabling automatic garbage collection",
+      "rationale": "Setting gc.auto to zero is presented as an available alternative, but it is not the adopted solution because accumulated objects cause repository performance to decay over time.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "Command blocking from garbage collection",
+      "rationale": "Automatic garbage collection can block simple operations such as git commit for minutes when it performs a complete object-data rewrite and compression step.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "System-wide resource exhaustion during repository rewrites",
+      "rationale": "Rewriting tens of gigabytes can consume all available CPU and memory, bringing the entire system to a standstill.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p09",
+      "label": "Repository performance decay after GC disabling",
+      "rationale": "When automatic garbage collection is disabled, new objects accumulate through daily work and repository performance gradually deteriorates.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Automatic garbage-collection suppression",
+      "rationale": "Scalar sets `gc.auto=0` so ordinary Git commands are not blocked by expensive maintenance; repository cleanup is delegated to background maintenance.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Background Git object-database maintenance",
+      "rationale": "Background maintenance keeps the Git object database clean while avoiding maintenance work during interactive Git commands.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Fetch-time commit-graph writing suppression",
+      "rationale": "Scalar sets `fetch.writeCommitGraph=false` to prevent `git fetch` from performing commit-graph writes synchronously.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Background commit-graph generation",
+      "rationale": "Commit graphs are written in the background rather than during fetch, reducing the interactive cost of repository synchronization.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Ahead-behind status calculation suppression",
+      "rationale": "Scalar sets `status.aheadBehind=false` to remove the potentially expensive calculation comparing the local branch with its remote-tracking branch.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Watchman-backed filesystem monitoring hook",
+      "rationale": "Scalar configures `core.fsmonitor` to use a hook communicating with Watchman when Watchman is installed, supporting faster detection of working-tree changes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p10",
+      "label": "Background configuration refresh for registered repositories",
+      "rationale": "The configuration step runs in the background so newer Scalar versions can update settings in registered repositories after installation.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "S3-backed write-ahead log",
+      "rationale": "The system stores the write-ahead log in S3, using S3 as the durable, highly scalable source of truth from which replicas can catch up.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "Optimistic UDP gossip replication",
+      "rationale": "Replicas disseminate catch-up metadata through gossip UDP packets rather than relying on reliable transport; lost or misrouted packets are tolerated because reads verify state against S3.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "Direct replica catch-up from S3",
+      "rationale": "Each replica uses the metadata received through gossip to retrieve the required WAL state directly from S3, avoiding dependence on another replica for synchronization.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "ETag-conditional read verification",
+      "rationale": "Before serving a fetch or clone, a replica performs a conditional S3 GET using the ETag of the WAL index it has processed; a current ETag confirms freshness, while a changed ETag triggers catch-up.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "Globally consistent replica reads",
+      "rationale": "The S3 verification mechanism makes reads from all replicas fully consistent, including when replication packets are lost or network topology changes.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "Elastic per-repository replica sizing",
+      "rationale": "The architecture assigns replicas according to repository demand: large monorepositories can use hundreds of replicas for CI load, while tiny repositories can use one replica because S3 provides the authoritative copy.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p12",
+      "label": "Idle-replica disk garbage collection",
+      "rationale": "Replicas that have received no traffic for a while are removed from node disk and materialized again from the WAL when a subsequent fetch arrives, reducing storage use for inactive repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Sparse-checkout scalar clone",
+      "rationale": "The clone uses Git sparse-checkout so the initial working directory contains only a limited subset of repository files, reducing client-side work for a large repository.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Cone-mode sparse-checkout",
+      "rationale": "The sparse-checkout configuration uses cone mode, restricting the initial working tree to root-level files and supporting scalable selection of repository content.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Incremental working-tree expansion",
+      "rationale": "Additional files are made available with `git sparse-checkout set`, allowing clients to expand the working directory only when needed instead of materializing the entire repository immediately.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Full working-tree materialization option",
+      "rationale": "The document provides `git sparse-checkout disable` as the mechanism for fully populating the working directory when a complete checkout is required.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Nested source working directory",
+      "rationale": "The clone places the repository under a `scalar` directory with the working directory inside a nested `src` directory, creating room for sibling directories outside the source tree.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Sibling build-output directories",
+      "rationale": "The nested source layout enables build output files to reside in sibling directories, preventing Git from having to manage those files in the repository working directory.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p04",
+      "label": "Reduced Git work-tree management load",
+      "rationale": "The described sparse checkout and directory layout reduce the work Git performs while managing the repository, which the document identifies as a lesson for improving Git speed.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "Incremental pack-file repacking",
+      "rationale": "Scalar adopts incremental repacking instead of rewriting the entire repository at once, selecting batches of small pack-files to control pack-file growth and maintenance impact.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "Multi-pack-index-based repack coordination",
+      "rationale": "The multi-pack-index is used to identify the objects being repacked and to coordinate the transition from old pack-files to the newly created pack-file.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "Object-reference redirection to new pack-files",
+      "rationale": "After adding a new pack-file, Git updates multi-pack-index object references so processes using the new index read from the new pack-file rather than the old ones.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "Deferred obsolete-pack deletion",
+      "rationale": "Old pack-files are retained until the multi-pack-index shows that they have no referenced objects, preventing deletion while they may still be needed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "Two-step repack-and-expire maintenance",
+      "rationale": "The system separates `git multi-pack-index repack` from `git multi-pack-index expire` to avoid disrupting foreground Git commands run by users.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "Pack-file count and storage reduction",
+      "rationale": "Deployment results show repositories improving from thousands of packs totaling 150–200 GB to fewer than one hundred packs totaling 30–50 GB, demonstrating reduced storage costs and pack-management pressure.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p13",
+      "label": "File-handle scalability pressure",
+      "rationale": "Unbounded pack-file growth creates a client-side scalability problem because Git cannot keep file handles open for all pack-files simultaneously.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "WAL-first storage architecture",
+      "rationale": "Continuity uses a write-ahead-log-first design to provide consistent horizontal scaling while preserving hard durability and consistency guarantees.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "Fully consistent replica cluster",
+      "rationale": "All replicas are described as fully consistent, enabling the same repository state to serve Git protocol operations and Origin RPC operations across nodes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "Arbitrary replica horizontal scaling",
+      "rationale": "The architecture permits deployment of an arbitrary number of replicas, with read-only Git-operation throughput growing linearly as replicas are added.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "Replicated WAL updates on object storage",
+      "rationale": "Cluster push throughput is governed by the latency of updating the WAL on S3, while compacted data is replicated to the other nodes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "S3 Standard storage tier",
+      "rationale": "S3 Standard is used for clusters that sustain push ingestion while compacting and replicating data, providing a stated throughput level of up to 120 pushes per second.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "S3 Express One Zone storage tier",
+      "rationale": "High-performance clusters are deployed on S3 Express One Zone to obtain lower PUT latency and higher push-ingestion throughput than S3 Standard.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "Replication-compaction coupling",
+      "rationale": "The document identifies replication and compaction as interdependent scaling factors: replicated pushes require compaction to be replicated or performed independently on each replica, and increased push rates degrade read performance through compaction work.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p14",
+      "label": "Git compaction throughput bottleneck",
+      "rationale": "With lower-latency S3 Express One Zone, object-storage latency is no longer the limiting factor; the system is effectively constrained by Git's ability to compact on-disk data.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Git-integrated custom filesystem watcher",
+      "rationale": "Scalar uses a custom watcher in Git rather than the more general Watchman so the watcher can understand Git semantics such as .gitignore patterns and avoid unnecessary scans. This supports scaling repositories with growing modified size.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Sparse-checkout for populated-size scaling",
+      "rationale": "The document identifies sparse-checkout as the adopted mechanism for scaling repository populated size by avoiding a complete working-tree population, while noting that the feature still requires further improvement.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Virtualized filesystem for populated-size scaling",
+      "rationale": "VFS for Git is no longer the approach used by Scalar; the document contrasts its virtualization and deferred-cost behavior with the current sparse-checkout approach.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Parallel checkout processing",
+      "rationale": "The document identifies checkout as a new bottleneck after moving away from virtualization and reports investigation of a parallel implementation to improve performance. The resulting performance effect is not yet reported as an achieved outcome.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Partial-clone interface for GVFS protocol integration",
+      "rationale": "Scalar reworked Git's interaction with the GVFS protocol so that it operates through Git's partial-clone interface, allowing improvements to the two experiences to benefit each other and avoiding local copies of every reachable object.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "GVFS-style object-download cache servers",
+      "rationale": "The document proposes separating branch-update authority from pack-file delivery through an additional fetch-objects endpoint, reflecting the need to serve many engineers and build machines without making the central server handle every object transfer.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Periodic foreground garbage collection for very large repositories",
+      "rationale": "The document states that relying on periodic foreground garbage collection is not feasible for very large repositories, motivating a planned shift toward background maintenance in the core Git client.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p15",
+      "label": "Checkout performance regression after virtualization removal",
+      "rationale": "The document reports that git checkout is slower with sparse-checkout than it was with VFS for Git because virtualization could defer populated-size costs; this is an observed performance trade-off rather than a newly adopted design.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p14",
+      "label": "Reduced Scalar scope",
+      "rationale": "The document explicitly states that Scalar is intentionally being made to do less, limiting its role as Git itself gains needed capabilities.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p14",
+      "label": "Core Git capability investment",
+      "rationale": "The team is investing in making core Git do more, including planned contributions that address capabilities currently supplied by Scalar.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p14",
+      "label": "Scalar as an interim performance layer",
+      "rationale": "Scalar is described as the mechanism used to obtain the performance required today while Git’s native capabilities improve.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p14",
+      "label": "Transition to core Git without Scalar",
+      "rationale": "The intended direction is to move from using Scalar to relying only on the core Git client as Git improves.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p14",
+      "label": "Persistent Scalar dependency",
+      "rationale": "The document frames continued reliance on Scalar as something the planned Git improvements are intended to eliminate, rather than the desired long-term architecture.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p14",
+      "label": "Removal of management layers above Git",
+      "rationale": "Scalar serves as an example of features that should be incorporated into Git so that additional management layers are no longer needed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p01",
+      "label": "Distributed version control for decentralized kernel development",
+      "rationale": "Git was designed as a distributed replacement for BitKeeper because Linux kernel development involved many maintainers working across decentralized subsystems. The distributed architecture fit that workflow.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p01",
+      "label": "Centralized repository hosting for organizational workflows",
+      "rationale": "Although users retain distributed-model capabilities, the document describes open-source projects and companies as relying heavily on a centralized host rather than operating through a fully decentralized workflow.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p01",
+      "label": "Offline work capability",
+      "rationale": "The document identifies working offline as a retained advantage of Git's distributed model, relevant to client-side repository architecture.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p01",
+      "label": "Delayed push capability",
+      "rationale": "The document identifies delaying pushes as another distributed-model advantage retained by users even when they rely on centralized hosting.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p01",
+      "label": "Git hosting scalability difficulty",
+      "rationale": "The document characterizes hosting Git repositories at scale as exceptionally difficult, establishing repository scale as a major architectural and operational challenge.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p01",
+      "label": "Distributed-model and centralized-workflow mismatch",
+      "rationale": "The document reports that Git's distributed nature can hinder typical projects and companies because their workflows are not decentralized, despite their use of selected distributed capabilities.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Loose-object cleanup",
+      "rationale": "The maintenance step removes accumulated loose-object overhead, addressing the performance and disk-space costs of storing objects individually.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Pack-file delta compression",
+      "rationale": "Pack-files are used because delta encoding stores Git objects more compactly than separate loose-object files, reducing storage overhead at scale.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Single-pack repacking",
+      "rationale": "Consolidating accumulated pack-files into one pack-file is described as the normal garbage-collection approach, but rewriting all data becomes impractical when the repository contains too much data.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Multi-pack index",
+      "rationale": "The document identifies the Git multi-pack-index as the adopted solution for maintaining efficient object lookup across multiple pack-files without rewriting all repository data into one pack-file.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Cross-pack object-location tracking",
+      "rationale": "The multi-pack index records where objects reside across multiple pack-files, preserving lookup performance while enabling smaller maintenance steps.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Background multi-pack-index generation",
+      "rationale": "Scalar runs the multi-pack-index write operation in the background, making index creation a background maintenance activity rather than an operation that blocks foreground work.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Pack-index scan growth",
+      "rationale": "As pack-files accumulate, inspecting a long list of individual pack-indexes makes object lookup slower; this is the performance problem the multi-pack index addresses.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p12",
+      "label": "Loose-object storage overhead",
+      "rationale": "Accumulating loose objects is reported to consume more disk space and create significant performance drawbacks compared with packed storage.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "DRBD filesystem block-level replication",
+      "rationale": "The earlier repository-replication architecture was abandoned because its sensitivity to latency required replicas to remain colocated, which was considered undesirable and motivated development of Spokes.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "Spokes repository replication",
+      "rationale": "Spokes was adopted to replace DRBD and enable repository replicas to be placed farther apart, supporting distant-replica operation for a very large repository population.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "Distant Spokes replica placement",
+      "rationale": "The engineering team runs Spokes replicas at increasing distances and treats geographic separation as an important scalability capability, despite the resulting inter-replica latency.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "Inter-replica latency as reference-update throughput constraint",
+      "rationale": "Greater replica distance increases synchronization latency and reduces the maximum reference-update rate sustainable per repository; this is especially consequential for repositories with unusually frequent user or internally generated reference updates.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "Reference-update amplification from pull-request bookkeeping",
+      "rationale": "A single user push can produce many additional reference updates, including synchronization, test-merge, and test-rebase references; in some repositories one push triggers more than one hundred updates, increasing the write scalability burden on replicated repositories.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "Per-repository reference-update latency budget",
+      "rationale": "Spokes must support at least a few reference updates per second in one repository, implying a budget of a few hundred milliseconds per update; this requirement is driven by high-latency replicas and unexpected high-activity workflows.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p02",
+      "label": "Read-preserving write optimization",
+      "rationale": "Any mechanism used to accelerate replicated reference writes must avoid degrading reads, because repository reads outnumber writes by approximately 100 to 1.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Identical distributed repository instances",
+      "rationale": "Git's distributed version-control model makes every repository instance identical, so a hosted repository has no inherently special server-side representation. This creates the architectural constraint that server-side scaling must preserve repository equivalence.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Packfile-based repository storage",
+      "rationale": "Git compresses code and metadata into packfiles for repository storage. The document presents packfiles as a fundamental part of Git's storage design and therefore as the existing storage choice that hosting systems must accommodate.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Packfile-based Git networking",
+      "rationale": "Push and fetch operations transfer packfiles, and the server is required to receive and send them over the network. This constrains server-side alternatives because client-facing Git operations must remain packfile-compatible.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Filesystem-resident packfiles",
+      "rationale": "Packfiles must exist on a filesystem for Git to access them. This implementation constraint makes packfile storage difficult to distribute across many disks and machines.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "HTTP front end over a single on-disk repository",
+      "rationale": "The document presents placing an HTTP daemon in front of one on-disk repository as the simple hosting approach, but explains that it has a very low scalability and reliability ceiling; it is therefore not suitable for repositories hosted at scale.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Packfile-induced availability limitation",
+      "rationale": "Companies hosting Git at scale found that the packfile-based design limited availability because large packfiles had to reside on filesystem-backed storage, making repository access vulnerable to server or storage failures.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Packfile-induced scalability limitation",
+      "rationale": "The document reports that packfiles limited scalability: large binary files are difficult to manage across many servers, while the simple single-machine design cannot support sufficiently parallel Git operations.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p02",
+      "label": "Multi-disk and multi-machine repository placement",
+      "rationale": "The document identifies distributing a repository across many disks and machines as the desired direction for parallel Git operations and continued availability after server crashes, while leaving the implementation challenge unresolved.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Three-phase commit consensus",
+      "rationale": "Spokes uses three-phase commit because it maps elegantly to the Git transaction model and provides fully consistent repository operations across replicas.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Three-replica repository replication",
+      "rationale": "The system initially adopted three replicas per repository as the capacity and redundancy sweet spot, allowing continued push acceptance after one machine failure.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Fixed replication floor for small repositories",
+      "rationale": "Spokes retains three replicas even for vast numbers of small or throwaway repositories because reducing the replica count would compromise full consistency and create data-loss risk.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Consensus latency bound by the slowest replica",
+      "rationale": "Every three-phase-commit step is constrained by the slowest server in the cluster, making replica latency a central scalability force.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Horizontal scalability ceiling for large repositories",
+      "rationale": "Three replicas cannot provide sufficient traffic capacity for massive enterprise monorepos, especially under CI load; adding replicas is limited by the resulting tail-at-scale effects.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Push-throughput degradation with replica count",
+      "rationale": "The document reports that increasing the number of replicas worsens push throughput because each consensus step waits on the slowest participant.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p08",
+      "label": "Idle-replica resource overhead",
+      "rationale": "The three-replica minimum forces Spokes to maintain mostly idle copies for numerous small, barely used repositories, producing a high resource floor at large repository counts.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Primary heartbeat failure detection",
+      "rationale": "The document explicitly states that Spokes uses heartbeats, but not as its primary mechanism for detecting failed nodes.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Heartbeat-based load polling and recovery confirmation",
+      "rationale": "Heartbeats are adopted for polling system load and for providing an all-clear signal that marks a previously offline node online again.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Preference-ordered replica lists",
+      "rationale": "Routing queries return several up-to-date repository replicas in preference order, allowing operations to select the preferred available copy.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Operation-level replica failover",
+      "rationale": "For clean failures such as refused connections or timeouts, each operation tries another repository replica when the first-choice host fails.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Advisory node-offline detection",
+      "rationale": "Offline detection is used only as an optimization: it changes routing preference temporarily rather than serving as an authoritative determination that a node cannot be used.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Replica retention after repeated failures",
+      "rationale": "After three consecutive failures, a replica is moved to the end of the read preference order instead of being removed, preserving the possibility of using it if other replicas fail.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "RPC failover pattern monitoring",
+      "rationale": "The team uses graphs of RPCs redirected between servers as its best detector for discovering misbehaving or unavailable servers, complementing per-operation failure handling.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p04",
+      "label": "Per-application-server failure views",
+      "rationale": "Failure detection is deliberately MxN: each application server maintains its own list of file servers considered offline, limiting the impact of network-local and application-server-specific faults.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Git application-level replication",
+      "rationale": "Spokes performs replication at the Git application level, replacing filesystem block-level replication so repository updates can be replicated with Git-specific semantics.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Filesystem block-level replication",
+      "rationale": "The older replication approach operated at the filesystem block level and was replaced by Spokes’ Git application-level approach.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Proxy-mediated multi-fileserver replication",
+      "rationale": "Every repository push passes through a proxy that transparently replicates the update to multiple fileservers, separating client-facing pushes from replica distribution.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Quorum-based update durability",
+      "rationale": "Spokes is designed to replicate every Git update safely to all replicas in most cases and to at least a quorum in every case, providing a minimum durability guarantee during failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Geographically distributed repository replicas",
+      "rationale": "The system allows replicas to span widely separated datacenters and continents rather than keeping all copies geographically close, improving disaster survivability and enabling regional read locality.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Low-latency replica proximity requirement",
+      "rationale": "Early Spokes versions required low-latency communication between the proxy and every replica to sustain high update rates, constraining replicas to nearby locations; this constraint was overcome for wider distribution.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p01",
+      "label": "Regional read routing",
+      "rationale": "Placing replicas in multiple regions enables Git read requests to be directed to a nearby replica, reducing network transit time for users.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p06",
+      "label": "Coalesced bookkeeping-update transactions",
+      "rationale": "Bookkeeping reference updates are combined into fewer transactions to reduce the processing burden caused by cascades of updates.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p06",
+      "label": "Priority scheduling for user-initiated reference updates",
+      "rationale": "User-initiated updates are given priority over non-time-critical bookkeeping updates so that long bookkeeping cascades do not block or time out user requests.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p06",
+      "label": "Closest synchronized-replica read routing",
+      "rationale": "Git fetches and clones are routed to the geographically closest Spokes replica that is sufficiently up to date, improving transfer locality while preserving read correctness.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p06",
+      "label": "Geo-replicated Spokes replicas",
+      "rationale": "Spokes is used to replicate Git repositories across geographical locations for both GitHub.com and GitHub Enterprise, enabling users near a replica to obtain faster Git transfers.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p06",
+      "label": "Non-voting geo-replication hosts",
+      "rationale": "Geo-replicated hosts are configured as non-voting so that pushes to the main hosts continue to work when a replica is temporarily unreachable.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p06",
+      "label": "Replica freshness detection",
+      "rationale": "Spokes determines which replicas are up to date before routing reads, providing the mechanism needed to safely use geographically distributed replicas.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Checksum-based replica state comparison",
+      "rationale": "The system uses a Spokes checksum to summarize each replica and compare whether replicas hold the same logical contents.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Reference-state checksum composition",
+      "rationale": "The checksum incorporates every reference name and value, along with additional replica state, so it represents the replica’s logical contents.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Per-update replica consistency checking",
+      "rationale": "A Spokes checksum is computed for every replica after each update as an additional check that replicas remain synchronized.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Incremental checksum maintenance",
+      "rationale": "The checksum is updated incrementally whenever possible to avoid the expense of recomputing it from scratch in repositories with many references.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Exclusive-or checksum aggregation",
+      "rationale": "The checksum is defined as the exclusive-or of the hashes of individual reference-name and value pairs, enabling efficient incremental updates.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Full checksum recomputation",
+      "rationale": "Computing the checksum from scratch for every update is explicitly avoided because its cost would limit the maximum rate of reference updates.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Constant-time reference-update checksum formula",
+      "rationale": "When a reference changes, the system derives the new checksum by XORing out the old pair hash and XORing in the new pair hash, using the prior checksum rather than scanning all references.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p05",
+      "label": "Checksum equality as logical-content equivalence",
+      "rationale": "The document reports that equal Spokes checksums guarantee that two replicas contain the same logical contents.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p01",
+      "label": "Multi-copy repository replication",
+      "rationale": "Spokes maintains at least three copies of every repository and gist to support durable, highly available access when servers or networks fail.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p01",
+      "label": "Application-level Git replication system",
+      "rationale": "The document describes Spokes as an application-level replication system for Git, positioning replication above the underlying Git storage system.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p01",
+      "label": "Git-and-rsync replication mechanism",
+      "rationale": "Spokes combines Git and rsync to replicate repository content, rather than relying on only one replication mechanism.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p01",
+      "label": "Repository repair and rebalancing operations",
+      "rationale": "The replication system includes repair and rebalancing as explicit operational mechanisms for maintaining replicated repositories across file servers.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Working-directory inspection by core commands",
+      "rationale": "The core commands—status, add, and checkout—inspect the working directory to compare Git’s view with on-disk state, making this inspection a central client-side operation that must scale with repository size.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Complete tracked-path index",
+      "rationale": "The Git index represents every tracked path at the current HEAD and is read and written by each core command, providing the baseline structure for repository state inspection.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Updated index file format",
+      "rationale": "The Windows OS repository uses an updated index format to reduce the size and I/O burden of an index containing millions of entries.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Untracked cache",
+      "rationale": "The document recommends enabling Git’s untracked cache through the many-files feature to reduce work associated with examining large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Single-file index stream I/O",
+      "rationale": "Index data is read and written as a stream from a single file, an implementation approach whose cost is primarily tied to file I/O rather than high per-entry processing overhead.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Multi-million-entry index",
+      "rationale": "The Windows OS repository’s index contains more than three million entries, documenting the scale that the index-based design must support.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Index compression from 400 MB to 250 MB",
+      "rationale": "The updated index format reduces the index file from 400 MB to 250 MB, lowering the amount of data that core commands must read and write.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p05",
+      "label": "Low average index-entry processing time",
+      "rationale": "Despite the large index, the document reports that the average time per index entry is very low because the dominant cost is streaming the single index file.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Three-replica repository placement",
+      "rationale": "Spokes keeps at least three replicas of every repository to preserve availability and durability through server failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Majority write quorum with a two-replica minimum",
+      "rationale": "Writes are accepted only when a majority of replicas, and always at least two, commit the write and produce the same repository state, enforcing consistent ordering and durable storage across failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Live-traffic-based failure detection",
+      "rationale": "Spokes determines that a server is offline by monitoring live application traffic, allowing the system to identify failures without relying on a separately described probe mechanism.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Failure-aware request routing",
+      "rationale": "After detecting an offline server, Spokes routes around it so repository operations can continue despite the failure.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Automated permanent-failure repair",
+      "rationale": "Spokes automatically repairs repository replication after a disk or server fails permanently, enabling rapid recovery of the desired replica level.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Retirement through active-replica exclusion",
+      "rationale": "A server prepared for retirement is removed from the count of active replicas while remaining available for reads and writes; replication checks then create replacement replicas as though the server had disappeared.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p09",
+      "label": "Rack-level availability zones",
+      "rationale": "Repository replicas are placed so that no two replicas share a rack, protecting availability and durability against rack-wide power or networking failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Majority-based write quorum",
+      "rationale": "Spokes treats a write as durable when a majority of replicas accepts it; two of three replicas suffice, while three of four or five are required. This provides durability and continued operation despite replica failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Per-write voting without a primary replica",
+      "rationale": "Instead of electing a primary server whose write order governs all replicas, Spokes treats every write as an election that directly selects the winning order and outcome.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Rollback of non-majority writes",
+      "rationale": "Writes that cannot be applied identically at a majority are reverted on replicas where they were applied, preserving agreement among the surviving replicas.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Isolation of losing replicas",
+      "rationale": "Replicas on the losing side of a write vote are marked unhealthy and removed from read and write service until repaired, preventing inconsistent replicas from serving repository traffic.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Automatic replica repair",
+      "rationale": "Unhealthy replicas are repaired automatically and quickly, allowing the remaining majority to continue accepting reads and writes while recovery occurs.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Periodic replica-count reconciliation",
+      "rationale": "Spokes periodically checks whether every repository has its desired number of replicas and creates additional replicas when the count is too low, including after an entire server is removed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "N-to-N replica reconstruction",
+      "rationale": "After a server failure, new replicas may be created anywhere and copied from either surviving copy of each repository; recovery therefore distributes reconstruction across the cluster rather than relying on a single source or destination.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p06",
+      "label": "Short-lived non-unanimous voting impact",
+      "rationale": "Non-unanimous votes occur only a few dozen times on a typical day, usually because a busy or timed-out replica is bypassed; the lagging replica generally recovers within minutes without visible repository-availability impact.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Hourly background repository fetch",
+      "rationale": "The client runs `git fetch` approximately once per hour in the background so downloading newly received objects occurs outside the user's foreground command, keeping the local object database close to the remotes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Preservation of local and remote-tracking branches",
+      "rationale": "The background fetch intentionally leaves local branches, including `refs/remotes`, unchanged, preserving the user's normal ref-update workflow and requiring a foreground fetch when current remote refs are needed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Hidden remote-ref namespace",
+      "rationale": "A custom refspec places fetched remote refs under `refs/scalar/hidden/<remote>/<branch>`, providing starting points for commit-graph generation without changing the visible local branch and remote-tracking references.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Background commit-graph maintenance",
+      "rationale": "The commit-graph is updated asynchronously rather than relying on foreground fetches, maintaining performance for repositories with hundreds of thousands of commits while avoiding additional foreground-fetch work.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Reachability-based commit-graph coverage",
+      "rationale": "The background operation uses `--reachable` so the commit-graph includes every reachable commit, including commits reachable through the hidden Scalar refs.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Incremental split commit-graph format",
+      "rationale": "The operation uses `--split` to update the commit-graph incrementally, minimizing the cost of repeated background maintenance on large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p11",
+      "label": "Foreground-fetch overhead",
+      "rationale": "Writing the commit-graph during a normal foreground `git fetch` introduces extra overhead; moving that work to the background recovers time from the user-facing fetch operation.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "Automatic configuration of advanced Git settings",
+      "rationale": "Scalar automatically configures Git repositories to use performance features that are difficult for users to discover and tune manually, particularly for very large repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "Core Git implementation of performance features",
+      "rationale": "The team implements new capabilities in Git rather than adding equivalent functionality to Scalar, making the underlying client more powerful while keeping Scalar small.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "Background maintenance in Git",
+      "rationale": "Background maintenance was ported into Git as an example of moving performance functionality into the core client, reducing Scalar-specific complexity.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "Scalar as a thin configuration layer",
+      "rationale": "Scalar is intentionally designed to do little more than the standard Git client, with its main role being configuration of advanced Git settings rather than duplicating Git behavior.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "GVFS Protocol integration",
+      "rationale": "Scalar uses the GVFS Protocol to support performance improvements associated with large repositories, although this protocol is treated as specific to Scalar and its hosting context.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "GVFS Protocol in the standard Git client",
+      "rationale": "The team explicitly does not intend to bring Scalar's GVFS Protocol support into standard Git; partial clone is the standardized alternative adopted by the Git project and supported by services such as GitHub.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "Partial clone for large-repository transfer optimization",
+      "rationale": "The document recommends partial clone when supported by the hosting service because it greatly reduces clone and fetch times and lowers the required local disk space.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s04_p01",
+      "label": "Default-off advanced Git features",
+      "rationale": "Advanced performance features are disabled by default for compatibility reasons, creating a trade-off between broad compatibility and out-of-the-box performance optimization.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "Background maintenance scheduling",
+      "rationale": "The document describes `scalar register` as providing a background maintenance schedule for repository tasks such as fetching, commit-graph updates, and object cleanup, reducing the need for users to run these operations manually.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "Consolidated maintenance command",
+      "rationale": "Scalar provides `scalar run all` to execute all maintenance steps in one foreground command, allowing users to run maintenance on their own schedule or alongside background maintenance.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "Automatic repository registration after Scalar cloning",
+      "rationale": "`scalar clone` automatically registers the new enlistment so it receives the recommended configuration and ongoing maintenance, an important mechanism for consistently managing client repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "GVFS protocol for large repositories and user groups",
+      "rationale": "The document presents the GVFS protocol as an option for sufficiently large repositories used by large groups of users, supporting scalable repository access through Scalar cloning.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "Co-located GVFS cache server",
+      "rationale": "For sufficiently large repositories with many users, the document recommends setting up a cache server near the repository to handle GVFS protocol requests and provide the infrastructure needed for scalable access.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "GVFS deployment without cache infrastructure",
+      "rationale": "The document indicates that using the GVFS protocol without the resources to establish the required cache-server infrastructure may not be a suitable approach.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "Git protocol for infrastructure-constrained repositories",
+      "rationale": "When an organization cannot provide GVFS cache-server infrastructure, the document suggests using `scalar register` with an existing Git-protocol repository instead, trading the GVFS deployment requirements for the conventional protocol.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s05_p03",
+      "label": "Repository-size limitation of the example deployment",
+      "rationale": "The example Scalar repository is explicitly described as too small to require GVFS, illustrating that the protocol and cache-server architecture are driven by repository size and the number of users rather than being universally necessary.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p02",
+      "label": "Consistency and partition tolerance priority",
+      "rationale": "Spokes explicitly prioritizes consistency and partition tolerance over availability, establishing the system’s resilience trade-off under node failures or communication partitions.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p02",
+      "label": "Synchronous commitment to two replicas",
+      "rationale": "Spokes accepts a write only when it can commit the write synchronously to at least two replicas, using replica count and synchronous persistence to protect against permanent data loss.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p02",
+      "label": "Write acceptance gated by replica availability",
+      "rationale": "The system refuses writes that cannot be committed to the minimum required number of replicas, rather than accepting data that may not be durably stored.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p02",
+      "label": "Availability sacrifice for durability",
+      "rationale": "The document describes the adopted trade-off in which write availability is temporarily lost when sufficient copies cannot be created, preserving the promise not to lose accepted data.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p02",
+      "label": "Durability evaluated at write acceptance",
+      "rationale": "Durability is tied to the moment a push, merge, edit, or repository creation is accepted; the relevant decision is how many copies are stored and where before making that promise.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p02",
+      "label": "Write unavailability during replication shortfall",
+      "rationale": "When the minimum replica count cannot be achieved, the resulting effect is temporary unavailability for writes while durability is maintained.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p03",
+      "label": "Three-phase commit protocol",
+      "rationale": "The system uses three-phase commit to update distant replicas while coordinating changes across them, accepting the cost of multiple network round-trips for replica consistency.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p03",
+      "label": "Replica-based distributed locking",
+      "rationale": "Replicas are additionally used as a distributed lock so that database updates occur in the correct order.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p03",
+      "label": "Four-round-trip replica update",
+      "rationale": "The combined commit and locking approach requires four round-trips to distant replicas, creating a measurable communication cost.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s02_p03",
+      "label": "Network-wait work overlap",
+      "rationale": "The coordinator performs other work while communication is in progress, such as acquiring one replica lock while another replica computes a checksum and the coordinator reads from the database.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s02_p03",
+      "label": "Distant-replica latency budget",
+      "rationale": "The design is constrained by the substantial latency of network round-trips to distant replicas, with a continental-US round-trip taking approximately 60–80 milliseconds and consuming the available time budget.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s03_p03",
+      "label": "Three-way repository replication",
+      "rationale": "Each repository is replicated on three servers so an up-to-date replica remains available when an individual server crashes or provides degraded service.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p03",
+      "label": "Failure-aware request routing",
+      "rationale": "Spokes detects unavailable or degraded file servers and routes requests around them, using replication to preserve availability despite individual component failures.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p03",
+      "label": "Combined heartbeat and real-traffic health detection",
+      "rationale": "Spokes uses both heartbeats and failures observed while processing real application traffic to identify file-server problems.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p03",
+      "label": "Heartbeat-only health detection",
+      "rationale": "Relying solely on periodic heartbeats is rejected because heartbeats react too slowly at the system’s request volume and test only limited functionality, missing failures such as corrupt Git binaries, stalled disks, or failing authenticated operations.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s03_p03",
+      "label": "Three-consecutive-request failure threshold",
+      "rationale": "Spokes marks a node offline only after three requests fail in a row, filtering occasional legitimate application-level failures such as deleted-branch reads or unauthorized pushes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s03_p03",
+      "label": "False-positive node eviction",
+      "rationale": "The threshold can temporarily mark a healthy node offline when three requests fail by chance, but the document reports that this occurs infrequently and has a small availability penalty.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Multi-replica repository storage",
+      "rationale": "Spokes stores several copies of each Git repository on different servers so repository data can be distributed across replicas and remain available for serving requests.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Orchestrated push fan-out",
+      "rationale": "An orchestrator distributes each pushed packfile and reference transaction to every repository instance, ensuring that all replicas receive the push.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Three-phase commit for reference transactions",
+      "rationale": "Spokes applies 3PC to the smaller reference transaction and accepts a push only when a majority of nodes acknowledge it, providing consensus for publication of the changes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Unsynchronized packfile distribution",
+      "rationale": "Packfiles are fanned out to all hosts without consensus synchronization because pushed objects are not reachable until the references are updated.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Git reference-transaction locking",
+      "rationale": "The design uses Git's ability to prepare a reference transaction by locking the reference, verifying its expected value, and holding the lock until commit or abort.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Single-replica read routing",
+      "rationale": "Once pushes are synchronized across replicas, fetches and clones can be routed to any one replica rather than requiring coordinated reads across nodes.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p07",
+      "label": "Fully synchronized repository replicas",
+      "rationale": "The described design results in every replica being up to date after a push, which enables safe reads from any individual replica.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Packfile-level application replication",
+      "rationale": "Spokes replicates Git data at the packfile level rather than distributing or modifying Git itself, preserving compatibility with Git's repository and packfile behavior.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Git-level distribution",
+      "rationale": "The architecture explicitly avoids distributing Git itself, choosing packfile-level replication instead to avoid maintaining a distributed Git implementation.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Plain Git repositories on local NVMe disks",
+      "rationale": "Spokes stores repositories in their native Git format on local NVMe drives to support random packfile reads, fast Git operations, and efficient clones.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Git implementation fork for unusual repositories",
+      "rationale": "The approach avoids maintaining a fork of Git capable of operating on unusual repositories, allowing the team to build a product on top of Git instead.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Fully consistent replica synchronization",
+      "rationale": "Spokes keeps all replicated copies consistently in sync because Git clients and CI workflows require a commit to be immediately readable after it is pushed or fetched.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Eventual-consistency repository views",
+      "rationale": "The document describes eventual consistency as unsuitable for Git repositories because missing a newly pushed commit creates sharp edges for clients, backend operations, CI, and user experience.",
+      "status": "rejected"
+    },
+    {
+      "doc_id": "s01_p06",
+      "label": "Replica-consistency complexity cost",
+      "rationale": "Maintaining fully synchronized copies imposes a very high system complexity cost, identified as the price of avoiding eventual-consistency failures.",
+      "status": "outcome"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "Simple storage-system architecture",
+      "rationale": "Continuity is explicitly designed as a simple system because the team considers simplicity necessary for operability at scale, rather than adding operationally complex storage components.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "S3-compatible object storage for the write-ahead log",
+      "rationale": "The system stores its WAL in S3-compatible object storage, runs on S3 in production, and preserves deployment flexibility across cloud providers instead of depending on a proprietary storage service.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "Durable push acknowledgement",
+      "rationale": "A push is not acknowledged until its WAL entry has been fully persisted, prioritizing durability and preventing clients from receiving success before the server has safely recorded the push.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "Separate object storage for each pushed packfile",
+      "rationale": "Each push is stored as a separate object, while the pushed packfile is written to local disk and uploaded to object storage concurrently; this defines the durable ingestion path for repository updates.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "WAL-indexed reference publication",
+      "rationale": "A push becomes visible only after its reference transaction is prepared on a local repository and a pointer to the WAL entry is recorded in the WAL index object, enforcing ordered and linearizable publication rather than exposing merely uploaded WAL data.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "Batched object-storage writes",
+      "rationale": "The implementation avoids one S3 write per push and uses carefully tuned batching to remove S3 PUT latency as a hard push-throughput limit in busy repositories.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "Single-local-repository synchronization",
+      "rationale": "Reference transactions are synchronized with one local repository instead of a quorum of replicas, reducing coordination overhead while supporting push ingestion at disk speed.",
+      "status": "accepted"
+    },
+    {
+      "doc_id": "s01_p10",
+      "label": "Normal Git repository on local NVMe storage",
+      "rationale": "Continuity retains a standard Git repository on a very fast NVMe drive, reusing the upstream Git client and its optimizations rather than implementing a specialized Git-compatible storage layer.",
+      "status": "accepted"
+    }
+  ]
+}

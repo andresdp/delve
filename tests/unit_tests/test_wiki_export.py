@@ -553,3 +553,24 @@ def test_graph_page_can_filter_and_hide_relations_and_links_the_reference(tmp_pa
                    'href="relations.html"', "REL_DASH", "rel-filter"):
         assert marker in page, marker
     assert (tmp_path / "html" / "relations.html").exists()
+
+
+def test_reexport_keeps_user_files_in_wiki(tmp_path):
+    write(build(_inputs(design_points=POINTS)), tmp_path, "toy")
+    (tmp_path / "wiki" / ".obsidian").mkdir()
+    (tmp_path / "wiki" / ".obsidian" / "app.json").write_text("{}")
+    (tmp_path / "wiki" / "notes").mkdir()
+    (tmp_path / "wiki" / "notes" / "my-note.md").write_text("mine")
+    write(build(_inputs()), tmp_path, "toy")  # drops the design pages
+    assert (tmp_path / "wiki" / ".obsidian" / "app.json").is_file()
+    assert (tmp_path / "wiki" / "notes" / "my-note.md").is_file()
+    assert not (tmp_path / "wiki" / "designs").exists()
+
+
+def test_reexport_without_manifest_keeps_hidden_files(tmp_path):
+    write(build(_inputs()), tmp_path, "toy")
+    (tmp_path / "raw" / "exported.json").unlink()
+    (tmp_path / "wiki" / ".obsidian").mkdir()
+    (tmp_path / "wiki" / ".obsidian" / "app.json").write_text("{}")
+    write(build(_inputs()), tmp_path, "toy")
+    assert (tmp_path / "wiki" / ".obsidian" / "app.json").is_file()

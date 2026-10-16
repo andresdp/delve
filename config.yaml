@@ -13,7 +13,7 @@ models:
   # adjudication, saturation critic).
   evaluation_llm: "openai/gpt-5.6-luna"
   # Matching LLM: judges value-option pairs in ground-truth matching (--match-gt; OpenAI).
-  matching_llm: "openai/gpt-5.6-luna"
+  matching_llm: "openai/gpt-5.4-mini"
 
   # Embedding model — used for value consolidation and taxonomy biplot axis positions.
   # Supported providers: openai/<model>, ollama/<model>.
@@ -62,8 +62,12 @@ taxonomy:
   # Optional name to identify this taxonomy (shown in output and JSON files).
   name: "taxonomy"
 
-  # Maximum number of dimensions the LLM may produce (null = LLM decides from data).
+  # Maximum number of dimensions (null = no cap). Where it applies (cap_stage): "selection" mines
+  # without a cap and keeps the top-k dimensions at selection (the others are dropped, with a
+  # rationale), so the mined dimensions stay decision points; "generation" gives the cap to the
+  # generation, update and review prompts (earlier behaviour: forces broad topics).
   max_num_clusters: 8
+  cap_stage: selection
 
   # Max words for cluster/category names.
   cluster_name_length: 10
@@ -145,6 +149,32 @@ taxonomy:
   # Selective coding: true = an LLM drops dimensions it judges irrelevant to the use case (after the
   # support and decision-point rules); false = keep every dimension that passes those rules.
   relevance_selection: true
+
+  # One value per dimension per system: a dimension's values are alternatives, so each source
+  # (system) should adopt one of them. After evidence linking, a dimension whose sources adopt
+  # several of its values (exclusivity below exclusivity_min, with at least exclusivity_min_units
+  # adopting sources) is sent to the LLM, which may split it, extract a sub-decision (related by
+  # "refines"), merge values that are one option, or declare a hybrid (values deliberately combined).
+  # Off by default: with few sources, many questions show one option, and the rule above (two
+  # candidate decisions per dimension) then blocks the splits the repair needs. Exclusivity is
+  # still measured, shown in the wiki and fed back to the loop (evaluation.exclusivity).
+  exclusivity_repair: false
+  exclusivity_min: 0.8
+  exclusivity_min_units: 2
+
+  # Value recoding (on by default; verified on C1-C3 replays, plan 2026-10-15): the values of a dimension whose sources adopt several of
+  # them are rewritten as alternative answers to its question, the old values kept as facets
+  # (includes). Only when exclusivity is below recoding_min_exclusivity, at least recoding_min_sources
+  # sources adopt values, and at least recoding_min_recurring of them share their combination with
+  # another source; every new value must be adopted by recoding_min_sources_per_value sources.
+  # Dimensions with scattered combinations are only flagged (they may group several concerns).
+  value_recoding: true
+  recoding_min_exclusivity: 0.8
+  recoding_min_sources: 3
+  recoding_min_recurring: 0.3
+  recoding_min_sources_per_value: 2
+  # Share of sources that must adopt exactly the values their new value includes.
+  recoding_min_fit: 0.5
 
   # Tolerant saturation: a minibatch also counts as saturated when at least this
   # share of its open codes is already covered by the taxonomy. 1.0 = strict
@@ -272,6 +302,10 @@ evaluation:
   # of the last minibatch and the final view are always scored; feedback reaches only
   # the update that follows a scored draft.
   every_n_iterations: 1
+
+  # Add the computed "Value exclusivity" row (each source adopts one value per dimension) to every
+  # scoreboard: it counts in the overall score and is fed back to the update loop like the judged rows.
+  exclusivity: true
 
 # ---------------------------------------------------------------------------
 # Ground-truth matcher (python main.py --match-gt): scores a design space against an

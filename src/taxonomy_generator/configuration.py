@@ -374,10 +374,75 @@ class Configuration:
         metadata={"description": "Score the loop's drafts every N iterations (1 = every iteration); the last draft and the final view are always scored."},
     )
 
+    evaluation_exclusivity: bool = field(
+        default=None,
+        metadata={"description": "Add the deterministic 'Value exclusivity' row to every scoreboard (counts in overall, fed back)."},
+    )
+
+    cap_stage: str = field(
+        default=None,
+        metadata={"description": "Where max_num_clusters applies: 'selection' (keep the top-k at selection) or 'generation' (given to the prompts)."},
+    )
+
+    value_recoding: bool = field(
+        default=None,
+        metadata={"description": "Rewrite the values of low-exclusivity dimensions as alternatives (old values kept as facets)."},
+    )
+
+    recoding_min_exclusivity: float = field(
+        default=None,
+        metadata={"description": "Exclusivity below which a dimension may be recoded."},
+    )
+
+    recoding_min_sources: int = field(
+        default=None,
+        metadata={"description": "Adopting sources a dimension needs before it may be recoded."},
+    )
+
+    recoding_min_recurring: float = field(
+        default=None,
+        metadata={"description": "Share of sources on a shared combination a dimension needs to be recoded."},
+    )
+
+    recoding_min_sources_per_value: int = field(
+        default=None,
+        metadata={"description": "Sources each new value must be adopted by."},
+    )
+
+    recoding_min_fit: float = field(
+        default=None,
+        metadata={"description": "Share of sources that must adopt exactly the facets of their new value."},
+    )
+
+    exclusivity_repair: bool = field(
+        default=None,
+        metadata={"description": "After evidence linking, repair dimensions whose sources adopt several of their values."},
+    )
+
+    exclusivity_min: float = field(
+        default=None,
+        metadata={"description": "Exclusivity (0-1) below which a dimension goes to the repair step."},
+    )
+
+    exclusivity_min_units: int = field(
+        default=None,
+        metadata={"description": "Adopting sources a dimension needs before the repair step looks at it."},
+    )
+
     evaluation_save_history: bool = field(
         default=None,
         metadata={"description": "Save every scoreboard of a run (evaluation_history) and show scores across iterations."},
     )
+
+    @property
+    def generation_cap(self) -> int | None:
+        """The dimension cap the generation, update and review steps see (``None`` when the cap applies at selection)."""
+        return self.max_num_clusters if self.cap_stage == "generation" else None
+
+    @property
+    def selection_cap(self) -> int | None:
+        """The dimension cap ``select_dimensions`` applies (``None`` when it was given to generation)."""
+        return self.max_num_clusters if self.cap_stage != "generation" else None
 
     # ── LangGraph integration ──────────────────────────────────────────
 
@@ -481,4 +546,15 @@ class Configuration:
             "evaluation_save_history": s.evaluation.save_history,
             "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
             "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
+            "evaluation_exclusivity": s.evaluation.exclusivity,
+            "cap_stage": s.taxonomy.cap_stage,
+            "exclusivity_repair": s.taxonomy.exclusivity_repair,
+            "exclusivity_min": s.taxonomy.exclusivity_min,
+            "exclusivity_min_units": s.taxonomy.exclusivity_min_units,
+            "value_recoding": s.taxonomy.value_recoding,
+            "recoding_min_exclusivity": s.taxonomy.recoding_min_exclusivity,
+            "recoding_min_sources": s.taxonomy.recoding_min_sources,
+            "recoding_min_recurring": s.taxonomy.recoding_min_recurring,
+            "recoding_min_sources_per_value": s.taxonomy.recoding_min_sources_per_value,
+            "recoding_min_fit": s.taxonomy.recoding_min_fit,
         }

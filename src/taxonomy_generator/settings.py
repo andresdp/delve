@@ -173,6 +173,30 @@ class TaxonomySettings:
     # most relations stored on one dimension (None = no cap). Extra relations are rejected.
     relation_types: Tuple[str, ...] = DEFAULT_RELATION_TYPES
     max_relations_per_dimension: Optional[int] = 3
+    # Where max_num_clusters applies (CAP_STAGES): "selection" mines without a cap and keeps the
+    # top-k dimensions at selection (the others are dropped, recorded); "generation" gives the cap
+    # to the generation, update and review prompts (the earlier behaviour).
+    cap_stage: str = "selection"
+    # Exclusivity repair after evidence linking: a dimension whose sources adopt several of its
+    # values (exclusivity below exclusivity_min, with at least exclusivity_min_units adopting
+    # sources) is sent to the LLM to split it, extract a sub-decision, merge values that are one
+    # option, or declare a hybrid (evaluation/exclusivity.py). Off by default: on small corpora it
+    # conflicts with min_candidate_decisions (plan 2026-10-15, results); exclusivity stays measured.
+    exclusivity_repair: bool = False
+    exclusivity_min: float = 0.8
+    exclusivity_min_units: int = 2
+    # Value recoding after evidence linking (plan 2026-10-15-feat-value-recoding): the values of a
+    # dimension whose sources adopt several of them are rewritten as alternative answers, the old values
+    # kept as facets (includes). Only dimensions with exclusivity below recoding_min_exclusivity, at least
+    # recoding_min_sources adopting sources and at least recoding_min_recurring of them on a combination
+    # another source shares; every new value must be adopted by recoding_min_sources_per_value sources.
+    value_recoding: bool = True
+    recoding_min_exclusivity: float = 0.8
+    recoding_min_sources: int = 3
+    recoding_min_recurring: float = 0.3
+    recoding_min_sources_per_value: int = 2
+    # Share of sources that must adopt exactly the facets of their new value (rejects too-broad alternatives).
+    recoding_min_fit: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -214,6 +238,7 @@ class OpenCodingSettings:
 
 OPEN_CODING_INPUTS = ("summary", "content")
 EDIT_MODES = ("rewrite", "rewrite_restore", "tools")
+CAP_STAGES = ("selection", "generation")
 
 
 @dataclass(frozen=True)
@@ -284,6 +309,9 @@ class EvaluationSettings:
     # Score the loop's drafts every N iterations (1 = every iteration). The
     # draft of the last minibatch and the final view are always scored.
     every_n_iterations: int = 1
+    # Add the deterministic "Value exclusivity" row (each source adopts one value per dimension)
+    # to every scoreboard: it counts in the overall score and is fed back like the judged rows.
+    exclusivity: bool = True
 
 
 @dataclass(frozen=True)
@@ -325,6 +353,9 @@ class MatcherSettings:
     # Embeddings mode: keep only a one-to-one assignment of "same" pairs (others become
     # "related"), so one generic value cannot match many options.
     embedding_one_to_one: bool = True
+    # Facet-aware matching: a value's facets (``includes``, from value recoding) are added to its
+    # description, so options it covers can match. Off keeps earlier metrics reproducible.
+    use_facets: bool = False
 
 
 @dataclass(frozen=True)
@@ -426,7 +457,24 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
                                       or max_relations < 1):
         raise ValueError(f"taxonomy.max_relations_per_dimension must be a positive integer or null, "
                          f"got {max_relations!r}")
+    cap_stage = raw.get("cap_stage", TaxonomySettings.cap_stage)
+    if cap_stage not in CAP_STAGES:
+        raise ValueError(f"taxonomy.cap_stage must be one of {CAP_STAGES}, got {cap_stage!r}")
+    exclusivity_min = raw.get("exclusivity_min", TaxonomySettings.exclusivity_min)
+    if isinstance(exclusivity_min, bool) or not isinstance(exclusivity_min, (int, float)) or not 0 <= exclusivity_min <= 1:
+        raise ValueError(f"taxonomy.exclusivity_min must be a number from 0 to 1, got {exclusivity_min!r}")
     return TaxonomySettings(
+        cap_stage=cap_stage,
+        exclusivity_repair=bool(raw.get("exclusivity_repair", TaxonomySettings.exclusivity_repair)),
+        exclusivity_min=float(exclusivity_min),
+        exclusivity_min_units=int(raw.get("exclusivity_min_units", TaxonomySettings.exclusivity_min_units)),
+        value_recoding=bool(raw.get("value_recoding", TaxonomySettings.value_recoding)),
+        recoding_min_exclusivity=float(raw.get("recoding_min_exclusivity", TaxonomySettings.recoding_min_exclusivity)),
+        recoding_min_sources=int(raw.get("recoding_min_sources", TaxonomySettings.recoding_min_sources)),
+        recoding_min_recurring=float(raw.get("recoding_min_recurring", TaxonomySettings.recoding_min_recurring)),
+        recoding_min_sources_per_value=int(raw.get("recoding_min_sources_per_value",
+                                                   TaxonomySettings.recoding_min_sources_per_value)),
+        recoding_min_fit=float(raw.get("recoding_min_fit", TaxonomySettings.recoding_min_fit)),
         relation_types=tuple(relation_types),
         max_relations_per_dimension=max_relations,
         edit_mode=edit_mode,
@@ -525,6 +573,7 @@ def _build_evaluation(raw: dict) -> EvaluationSettings:
         save_history=raw.get("save_history", EvaluationSettings.save_history),
         feedback_exclude=tuple(raw.get("feedback_exclude", EvaluationSettings.feedback_exclude) or ()),
         every_n_iterations=raw.get("every_n_iterations", EvaluationSettings.every_n_iterations),
+        exclusivity=bool(raw.get("exclusivity", EvaluationSettings.exclusivity)),
     )
 
 
@@ -541,6 +590,7 @@ def _build_matcher(raw: dict) -> MatcherSettings:
         mode=raw.get("mode", MatcherSettings.mode),
         same_threshold=raw.get("same_threshold", MatcherSettings.same_threshold),
         embedding_one_to_one=raw.get("embedding_one_to_one", MatcherSettings.embedding_one_to_one),
+        use_facets=bool(raw.get("use_facets", MatcherSettings.use_facets)),
     )
 
 

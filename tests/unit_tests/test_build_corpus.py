@@ -63,7 +63,7 @@ def test_merge_short_folds_tiny_passages_into_neighbours():
 
 
 def test_load_corpus_documents_keeps_ids(tmp_path):
-    main = pytest.importorskip("main")
+    from taxonomy_generator import pipeline_cli as main
     path = tmp_path / "corpus.json"
     path.write_text(json.dumps([{"id": "s01_p01", "content": "a", "title": "t"},
                                 {"id": "s01_p02", "content": "b"}]))
@@ -73,7 +73,7 @@ def test_load_corpus_documents_keeps_ids(tmp_path):
 
 
 def test_load_corpus_documents_rejects_duplicate_ids_and_falls_back_for_strings(tmp_path):
-    main = pytest.importorskip("main")
+    from taxonomy_generator import pipeline_cli as main
     dup = tmp_path / "dup.json"
     dup.write_text(json.dumps([{"id": "x", "content": "a"}, {"id": "x", "content": "b"}]))
     with pytest.raises(ValueError, match="duplicate"):

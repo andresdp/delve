@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple
 from langchain_core.runnables import RunnableConfig
 
 from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.evaluation.exclusivity import dimension_exclusivity
 from taxonomy_generator.nodes.evidence_linker import CANDIDATE_STATUSES
 from taxonomy_generator.prompts import DIMENSION_SELECTION_PROMPT
 from taxonomy_generator.schemas import SelectionOutput
@@ -91,12 +92,39 @@ def split_by_candidates(clusters: List[Dict], min_candidates: int) -> Tuple[List
     return [c for c in clusters if str(c.get("id")) not in weak_ids], dropped
 
 
-def _without_relevance_filter(final: List[Dict], candidates: List[Dict], dropped: List[Dict]) -> dict:
+def apply_cap(selected: List[Dict], cap: int | None) -> Tuple[List[Dict], List[Dict]]:
+    """Keep the first ``cap`` dimensions of a ranked selection; the others are dropped with a rationale.
+
+    The cap (``taxonomy.max_num_clusters`` with ``cap_stage: selection``) applies after mining, so the
+    mined dimensions stay decision points instead of being merged into a few broad topics.
+    """
+    if not cap or len(selected) <= cap:
+        return selected, []
+    dropped = [{"id": str(c.get("id")),
+                "rationale": f"Outside the cap of {cap} dimensions (taxonomy.max_num_clusters): ranked {i} of "
+                             f"{len(selected)} selected."} for i, c in enumerate(selected[cap:], start=cap + 1)]
+    return selected[:cap], dropped
+
+
+def rank_by_evidence(clusters: List[Dict]) -> List[Dict]:
+    """Order dimensions by supporting sources, then exclusivity (most first); stable otherwise."""
+    def key(c: Dict):
+        score = dimension_exclusivity(c)["score"]
+        return (-int((c.get("evidence") or {}).get("sources") or 0), -(score if score is not None else 0.0))
+    return sorted(clusters, key=key)
+
+
+def _without_relevance_filter(final: List[Dict], candidates: List[Dict], dropped: List[Dict],
+                              cap: int | None = None) -> dict:
     """Keep every structurally valid dimension (selection with ``taxonomy.relevance_selection: false``)."""
     selected = [c for c in candidates if isinstance(c, dict)]
+    if cap and len(selected) > cap:
+        selected, capped = apply_cap(rank_by_evidence(selected), cap)
+        dropped = dropped + capped
     explanation = (
         "Use-case relevance filter disabled (taxonomy.relevance_selection=false): kept every dimension that "
-        f"passed the support and decision-point rules ({len(selected)} of {len(final)})."
+        f"passed the support and decision-point rules ({len(selected)} of {len(final)})"
+        + (f", at most {cap} (ranked by supporting sources, then exclusivity)." if cap else ".")
     )
     logger.info(explanation)
     status = [f"Dimension selection: kept {len(selected)}/{len(final)} dimensions (no relevance filter)."]
@@ -135,7 +163,7 @@ async def select_dimensions(
     support_dropped = support_dropped + decision_dropped
 
     if configuration.relevance_selection is False:
-        return _without_relevance_filter(final, candidates, support_dropped)
+        return _without_relevance_filter(final, candidates, support_dropped, configuration.selection_cap)
 
     logger.info(
         "Selecting dimensions relevant to the use case from %d candidates (model: %s)",
@@ -143,8 +171,12 @@ async def select_dimensions(
     )
 
     chain = _setup_selection_chain(configuration)
+    cap = configuration.selection_cap
+    cap_rule = (f"- **Keep at most {cap} dimensions**: if more are relevant, select the {cap} most important for "
+                "the use case, most important first, and drop the others with the rationale \"outside the cap\"."
+                if cap else "")
     result: SelectionOutput = await chain.ainvoke(
-        {"taxonomy_json": format_taxonomy(candidates)}
+        {"taxonomy_json": format_taxonomy(candidates), "cap_rule": cap_rule}
     )
 
     by_id = {str(c.get("id")): c for c in candidates if isinstance(c, dict)}
@@ -166,6 +198,11 @@ async def select_dimensions(
         )
         dropped = [d for d in dropped if d["id"] not in missing_drop_rationales]
         selected = [by_id[i] for i in result.selected_ids if i in by_id]
+
+    selected, capped = apply_cap(selected, cap)
+    if capped:
+        capped_ids = {d["id"] for d in capped}
+        dropped = [d for d in dropped if d["id"] not in capped_ids] + capped
 
     logger.info(
         "Dimension selection complete — kept %d of %d, dropped %d",

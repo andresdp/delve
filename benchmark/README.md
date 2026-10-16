@@ -290,3 +290,19 @@ Both are scored on their selected view.
   review: the passage → system map (B7) and the silver trade-off list (B9), both in `c3-git-at-scale/`. The C3
   configs mirror C1, with four recorded exceptions: output folder, `batch_size: 8`, `min_dimension_sources: 1`
   for C3-raw, and a use case without systems or dimensions. Nothing in the C1/C2 frame changes.
+- **2026-10-15 — matching LLM back to `openai/gpt-5.4-mini` in every config; facet-aware matching added; value
+  recoding on by default** (user decisions, after the 2026-10-02 scores and the replays below were seen).
+  - **Matching LLM:** every config sets `matching_llm: openai/gpt-5.4-mini` again, the frame's judge, so a
+    `--match-gt` run reproduces the frame's scores without `--matching-llm`. A replay of the C1 run with recoding
+    off reproduced the 2026-10-02 C1 numbers with it (paper view, option F1 0.50, exact recall 0.47). The
+    evaluation LLM (the critic) stays `openai/gpt-5.6-luna`, as decided on 2026-10-03.
+  - **`matcher.use_facets`** (default `false`): a value's facets (`includes`, from value recoding) are appended
+    to its description before embedding and judging. Off by default, so existing scores are unchanged. Any
+    score obtained with it on must say so, since it changes the matched wording.
+  - **Pipeline:** `taxonomy.value_recoding` (default `true`) rewrites the values of low-exclusivity dimensions
+    as alternatives, keeping the old values as facets; `taxonomy.cap_stage` (default `selection`) applies the
+    dimension cap at selection; the scoreboard gains a computed "Value exclusivity" row, which counts in its
+    overall score. Runs from 2026-10-15 on are not directly comparable with earlier runs on these points.
+    Evidence and replays: `docs/plans/2026-10-15-feat-value-exclusivity-plan.md` and
+    `docs/plans/2026-10-15-feat-value-recoding-plan.md` (C1 option F1 0.50 off, 0.47 and 0.54 on; C2 0.25 off,
+    0.29 and 0.30 on; paper view, judge `gpt-5.4-mini`).
