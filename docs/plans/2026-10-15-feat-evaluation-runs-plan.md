@@ -146,12 +146,13 @@ Run order: the main runs first, because they are the results everyone needs. The
 | M1–M3 | C1 | full | 42, 43, 44 | `c1_ml_workflow_config.yaml` |
 | M4–M6 | C2 | full | 42, 43, 44 | `c2_rl_monitoring_config.yaml` |
 | M7–M9 | C3 | full | 42, 43, 44 | `c3_git_at_scale_config.yaml` |
-| B1–B6 | C1, C2 | L1 × 3, L5 × 3 each | — | `benchmark/baselines.py` |
+| B1–B12 | C1, C2 | L1 × 3, L5 × 3 each (one row per call) | 42, 43, 44 | `benchmark/baselines.py` |
 | A1–A2 | C1, C2 | (b) no feedback | 42 | `*_nofeedback_config.yaml` |
 | A3–A4 | C1, C2 | (c) rewrite | 42 | copies with `edit_mode: rewrite` (`*_rewrite_config.yaml`) |
 | A5–A8 | C1, C2 | (b) and (c) | 43 | only if time allows (a second paired seed) |
 
-- **Runner:** `benchmark/run_matrix.sh` (bash). For each row, in order:
+- **Runner:** `benchmark/run_matrix.py` (Python rather than bash, for the config copies and the CSV;
+  `--list` shows the rows, `--dry-run` prints the commands; smoke rows S1–S3). For each row, in order:
   1. write a seed-specific copy of the config (`random_seed: N`; `name` with the variant and seed) into the run's
      output folder;
   2. run `python main.py --corpus <corpus> --config <copy> --output <dir>`;
@@ -183,7 +184,7 @@ From the 2026-10-02 and 2026-10-15 runs:
 |---|---|---|---|
 | Smoke (C3 sample, switch run, one L5) | 3 | < 1 h | < 2M |
 | Main M1–M9 | 9 | ~6.6 h | ~40.5M |
-| Baselines B1–B6 | 12 calls | < 0.5 h | ~1.1M (L1: ~85k input × 6) |
+| Baselines B1–B12 | 12 calls | < 0.5 h | ~1.1M (L1: ~85k input × 6) |
 | Ablations A1–A4 | 4 | ~3.6 h | ~24M |
 | Optional A5–A8 | 4 | ~3.6 h | ~24M |
 | Matching | per matched run | ~minutes each | small (mini model) |
@@ -198,7 +199,7 @@ differently from tools mode; the actual numbers are recorded.
 | 10-15 / 16 | Step 3 (merge, by the user); then on a branch from `main`: step 1 (switch and test), step 2 (baselines and tests) |
 | 10-16 | Step 4 (smoke) |
 | 10-16 → 17 | M1–M9 (overnight possible) |
-| 10-17 → 18 | B1–B6, A1–A4 |
+| 10-17 → 18 | B1–B12, A1–A4 |
 | 10-19 | Abstract (does not need final numbers) |
 | 10-19 → 20 | Analysis, tables, optional A5–A8 |
 | 10-21 → 23 | Writing |
