@@ -317,9 +317,10 @@ def _finish_reply(editor: TaxonomyEditor, args: dict, turn: TurnState) -> str:
         turn.structure_checked = True
         listing = "; ".join(f"[{c['id']}] {c.get('name', '')} ({len(c['values'])} values)" for c in editor.clusters)
         return ("not finished: structural check. This update created dimensions. Current dimensions: "
-                f"{listing}. If two or more of them answer parts of one design question (sibling decisions a "
-                "designer would face as one choice), combine them with merge_dimensions; then call finish, or call "
-                "finish again if every dimension is a distinct design decision")
+                f"{listing}. If two or more of them ask the same design question (their values are rival answers, so a "
+                "system would pick one value across them), combine them with merge_dimensions; dimensions whose "
+                "values one system uses together are separate decisions. Then call finish, or call finish again if "
+                "every dimension is a distinct design decision")
     ok, message = editor.apply("finish", args)
     if not ok:
         raise ToolException(message)

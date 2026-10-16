@@ -595,3 +595,48 @@ def test_result_applies_the_cap_after_a_merge():
     clusters = ed.result()
     assert all(len(c["relations"]) <= 1 for c in clusters)
     assert any("at most 1" in note for note in ed.cleanup)
+
+
+# ---------------------------------------------------------------- co-adoption warning (values as alternatives)
+
+
+def _passage_taxonomy():
+    return [{"id": "1", "name": "Client performance", "description": "How the client is made fast.", "relations": [],
+             "values": [{"id": "1.1", "dimension_id": "1", "label": "Partial clone", "description": "",
+                         "supporting_doc_ids": ["s05_p01"], "status": "accepted"},
+                        {"id": "1.2", "dimension_id": "1", "label": "Full clone", "description": "",
+                         "supporting_doc_ids": ["s04_p02"], "status": "rejected"}]}]
+
+
+def _passage_editor():
+    return TaxonomyEditor(_passage_taxonomy(), batch_doc_ids=("s05_p03", "s04_p05", "s02_p01"))
+
+
+def test_adding_a_second_adopted_value_from_the_same_source_warns():
+    ed = _passage_editor()
+    ok, msg = ed.apply("add_value", {"dimension_id": "1", "label": "Background maintenance",
+                                     "description": "", "doc_ids": ["s05_p03"], "status": "accepted"})
+    assert ok and "Same source, same dimension: s05 also adopts 1.1 'Partial clone'" in msg
+    assert "complementary, not alternatives" in msg
+
+
+def test_no_warning_for_another_source_or_a_rejected_rival():
+    ed = _passage_editor()
+    ok, msg = ed.apply("add_value", {"dimension_id": "1", "label": "Sparse checkout", "description": "",
+                                     "doc_ids": ["s02_p01"], "status": "accepted"})
+    assert ok and "Same source" not in msg
+    # s04 rejects Full clone and accepts this one: a choice between alternatives, not a co-adoption
+    ok, msg = ed.apply("add_value", {"dimension_id": "1", "label": "Virtual filesystem", "description": "",
+                                     "doc_ids": ["s04_p05"], "status": "accepted"})
+    assert ok and "Same source" not in msg
+    ok, msg = ed.apply("add_value", {"dimension_id": "1", "label": "Shallow clone", "description": "",
+                                     "doc_ids": ["s05_p03"], "status": "rejected"})
+    assert ok and "Same source" not in msg
+
+
+def test_add_evidence_warns_when_it_creates_a_co_adoption():
+    ed = _passage_editor()
+    ed.apply("add_value", {"dimension_id": "1", "label": "Sparse checkout", "description": "",
+                           "doc_ids": ["s02_p01"], "status": "accepted"})
+    ok, msg = ed.apply("add_evidence", {"value_id": "1.3", "doc_ids": ["s05_p03"]})
+    assert ok and "value 1.3 now cites 2 documents" in msg and "s05 also adopts 1.1" in msg

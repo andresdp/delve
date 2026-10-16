@@ -34,12 +34,15 @@ from taxonomy_generator.relations import (
     is_directed,
     relation_problem,
 )
+from taxonomy_generator.nodes.evidence_linker import source_of
 from taxonomy_generator.schemas import DecisionStatus
 from taxonomy_generator.utils import ensure_unique_ids, value_key
 
 STATUSES = get_args(DecisionStatus)
 # Statuses that count as candidate decisions during coding ("mixed" only appears after consolidation).
 CODING_CANDIDATE_STATUSES = ("accepted", "rejected")
+# Statuses by which a source adopts a value (rejected and outcome are not a choice the source made).
+ADOPTED_STATUSES = ("accepted", "mixed")
 
 
 _STOPWORDS = frozenset("a an and as at by for from in into of on or the to under via with without".split())
@@ -65,6 +68,35 @@ def similar_values(label: str, values: Iterable[dict], threshold: float = 0.34, 
                 scored.append((score, v))
     scored.sort(key=lambda sv: -sv[0])
     return [v for _, v in scored[:top]]
+
+
+def co_adoption_warning(dim: dict, value: dict, doc_ids: Iterable[str], top: int = 3) -> str:
+    """A warning when the sources of ``doc_ids`` already adopt another candidate value of ``dim``, else "".
+
+    A system takes one value of each decision, and a source usually describes one system: a source adopting two
+    values of one dimension suggests they are complementary, not alternatives. Only adopted candidates count
+    (accepted, mixed); a source that rejects one value and accepts another is choosing between alternatives.
+    Like ``similar_values``, a signal for the model, not a rule: the operation is applied either way.
+    """
+    if value.get("status") not in ADOPTED_STATUSES:
+        return ""
+    sources = {source_of(str(d)) for d in doc_ids}
+    shared = []
+    for other in dim.get("values") or []:
+        if other is value or other.get("status") not in ADOPTED_STATUSES:
+            continue
+        common = sorted(sources & {source_of(str(d)) for d in other.get("supporting_doc_ids") or []})
+        if common:
+            shared.append((other, common))
+    if not shared:
+        return ""
+    listed = "; ".join(f"{', '.join(common)} also adopt{'s' if len(common) == 1 else ''} {o['id']} "
+                       f"'{o.get('label', '')}'" for o, common in shared[:top])
+    more = f" (and {len(shared) - top} more)" if len(shared) > top else ""
+    return (f". Same source, same dimension: {listed}{more}. A system takes one value of each decision, so values "
+            "one system uses together are complementary, not alternatives: move the value to the dimension whose "
+            "question it answers, merge them if they name the same option, and keep both only if the source "
+            "describes different systems or deliberately combines them")
 
 
 class EditError(ValueError):
@@ -284,14 +316,15 @@ class TaxonomyEditor:
             message += (f". Similar existing values in this dimension: {listed}. If the new value names the same "
                         "option as one of them, merge them with merge_values (same status); for later codes of "
                         "that option use add_evidence instead of add_value")
-        return message
+        return message + co_adoption_warning(dim, value, doc_ids)
 
     def _add_evidence(self, args: dict) -> str:
-        _dim, value = self._value(_str(args, "value_id"))
+        dim, value = self._value(_str(args, "value_id"))
         doc_ids = _str_list(args, "doc_ids", min_len=1)
         self._check_docs(doc_ids)
         value["supporting_doc_ids"] = list(dict.fromkeys(list(value.get("supporting_doc_ids") or []) + doc_ids))
-        return f"value {value['id']} now cites {len(value['supporting_doc_ids'])} documents"
+        return (f"value {value['id']} now cites {len(value['supporting_doc_ids'])} documents"
+                + co_adoption_warning(dim, value, doc_ids))
 
     def _move_value(self, args: dict) -> str:
         source, value = self._value(_str(args, "value_id"))
