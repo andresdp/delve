@@ -104,6 +104,9 @@ work.
   | C3 | 48 passages, ~17.4k tokens |
 
   - Before running, confirm the generation model's context window and maximum output, and record both.
+    **Confirmed 2026-10-16 (user):** `gpt-5.6-luna` has a 1,050,000-token context window and a 128,000-token
+    maximum output. The largest L1 prompt (C1, ~88k) fits with ample room; the script's `--max-input-tokens`
+    guard stays at 200,000.
   - If a corpus does not fit with the prompt and room for output, stop and decide (e.g. summaries instead of
     passages). Don't silently truncate.
 - **Repetitions:** 3 per case and baseline (calls are cheap), reported as mean and range like Delve's seeds. The
