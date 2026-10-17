@@ -259,8 +259,11 @@ def stability(case: str, variant: str, view: str, mode: Optional[str], out: Path
     if len(runs) < 2:
         raise SystemExit(f"stability needs at least two successful runs of {case} {variant}; found {len(runs)}")
     folder = out / f"stability_{case}_{variant}"
-    pairs = [asyncio.run(match_pair(a, b, view=view, mode=mode, out=folder))
-             for a, b in itertools.combinations(runs, 2)]
+    async def all_pairs() -> List[Dict[str, Any]]:       # one event loop, so cached clients close cleanly
+        return [await match_pair(a, b, view=view, mode=mode, out=folder)
+                for a, b in itertools.combinations(runs, 2)]
+
+    pairs = asyncio.run(all_pairs())
     mean = {k: round(statistics.fmean(p[k] for p in pairs), 4)
             for k in ("option_p", "option_r", "option_f1", "decision_f1_strict", "decision_f1_lenient")}
     cols = [("Pair", "seeds"), ("Ref. values", "reference_values"), ("Other values", "other_values"),
