@@ -329,7 +329,7 @@ def _exclusivity_feedback(row: Dict, scoreboard: Dict, header: bool = True) -> s
     return "\n".join(lines)
 
 
-def format_feedback(state: State, exclude_criteria: Iterable[str] = ()) -> str:
+def format_feedback(state: State, exclude_criteria: Iterable[str] = (), include_evaluation: bool = True) -> str:
     """Format feedback from state into a string for taxonomy prompts.
 
     Merges all feedback channels when present, in order: external feedback
@@ -347,6 +347,8 @@ def format_feedback(state: State, exclude_criteria: Iterable[str] = ()) -> str:
         state: Current pipeline state.
         exclude_criteria: Evaluation criteria left out of the feedback
             (``evaluation.feedback_exclude``).
+        include_evaluation: False leaves the scoreboard out entirely
+            (``evaluation.loop_feedback: false``, the no-feedback ablation).
 
     Returns:
         Formatted feedback string.
@@ -371,7 +373,7 @@ def format_feedback(state: State, exclude_criteria: Iterable[str] = ()) -> str:
     # draft whose ids and structure no longer exist.
     scored_iteration = (latest_evaluation or {}).get("iteration")
     current = scored_iteration is None or scored_iteration == len(state.clusters or [])
-    if latest_evaluation and current and not latest_evaluation.get("unavailable"):
+    if include_evaluation and latest_evaluation and current and not latest_evaluation.get("unavailable"):
         evaluation_section = format_evaluation_summary(latest_evaluation, exclude_criteria)
         if evaluation_section:
             parts.append(evaluation_section)

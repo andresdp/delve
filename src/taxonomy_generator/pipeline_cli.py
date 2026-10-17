@@ -1585,6 +1585,8 @@ async def run(args: argparse.Namespace) -> None:
             "iterations": [],
         }
         _add_edit_record(taxonomy_data, effective_config.edit_mode, operation_log)
+        # Whether the scoreboard reached the loop (false: the no-feedback ablation).
+        taxonomy_data["loop_feedback"] = getattr(effective_config, "evaluation_loop_feedback", None) is not False
         if saturation_history:
             taxonomy_data["saturation_history"] = saturation_history
         if selected_clusters:

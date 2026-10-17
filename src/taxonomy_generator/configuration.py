@@ -374,6 +374,11 @@ class Configuration:
         metadata={"description": "Score the loop's drafts every N iterations (1 = every iteration); the last draft and the final view are always scored."},
     )
 
+    evaluation_loop_feedback: bool = field(
+        default=None,
+        metadata={"description": "Pass the scoreboard to the next update/review (false: the no-feedback ablation)."},
+    )
+
     evaluation_exclusivity: bool = field(
         default=None,
         metadata={"description": "Add the deterministic 'Value exclusivity' row to every scoreboard (counts in overall, fed back)."},
@@ -547,6 +552,7 @@ class Configuration:
             "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
             "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
             "evaluation_exclusivity": s.evaluation.exclusivity,
+            "evaluation_loop_feedback": s.evaluation.loop_feedback,
             "cap_stage": s.taxonomy.cap_stage,
             "exclusivity_repair": s.taxonomy.exclusivity_repair,
             "exclusivity_min": s.taxonomy.exclusivity_min,

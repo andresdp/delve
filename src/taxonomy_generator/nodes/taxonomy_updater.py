@@ -50,7 +50,8 @@ async def update_taxonomy(
     """
     configuration = Configuration.from_runnable_config(config)
 
-    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or ())
+    feedback = format_feedback(state, configuration.evaluation_feedback_exclude or (),
+                               include_evaluation=configuration.evaluation_loop_feedback is not False)
 
     # Open coding has already advanced past the current batch, so the batch
     # to axially incorporate is at (open_code_batch_index - 1). This matches

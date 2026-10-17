@@ -129,3 +129,28 @@ def test_completeness_is_excluded_by_default_in_the_configuration():
 
     configuration = Configuration.from_runnable_config(None)
     assert "Completeness" in configuration.evaluation_feedback_exclude
+
+
+# ---------------------------------------------------------------- loop_feedback: the no-feedback ablation
+
+
+def test_loop_feedback_off_drops_the_scoreboard_but_keeps_external_and_saturation_feedback():
+    external = UserFeedback(decision="modify", explanation="scope narrowed", feedback="focus on billing")
+    critic = UserFeedback(decision="modify", explanation="gap found", feedback="add onboarding dimension")
+    state = State(external_feedback=external, user_feedback=critic, evaluation_history=[SCOREBOARD])
+    result = format_feedback(state, include_evaluation=False)
+    assert "focus on billing" in result and "add onboarding dimension" in result
+    assert "Automated evaluation summary" not in result and "Orthogonality" not in result
+    assert format_feedback(State(evaluation_history=[SCOREBOARD]), include_evaluation=False) == "None."
+    assert format_feedback(state) == format_feedback(state, include_evaluation=True)   # default unchanged
+
+
+def test_loop_feedback_is_on_by_default_and_parsed_from_yaml():
+    from taxonomy_generator.configuration import Configuration
+    from taxonomy_generator.settings import _build_evaluation
+
+    assert Configuration.from_runnable_config(None).evaluation_loop_feedback is True
+    assert _build_evaluation({}).loop_feedback is True
+    assert _build_evaluation({"loop_feedback": False}).loop_feedback is False
+    off = Configuration.from_runnable_config({"configurable": {"evaluation_loop_feedback": False}})
+    assert off.evaluation_loop_feedback is False
