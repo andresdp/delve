@@ -1,0 +1,320 @@
+<p align="center">
+  <img src="images/delvedspace-icon.svg" alt="DelveDSpace" width="96">
+</p>
+
+# Configuring and running DelveDSpace
+
+How to prepare a corpus, configure a run, use the command line, read the outputs and the evaluation, and
+call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works and how to install it, see the
+[README](README.md).
+
+- [The `ddspace` command](#the-ddspace-command)
+- [Preparing a corpus](#preparing-a-corpus)
+- [Configuration](#configuration)
+- [Command-line reference](#command-line-reference)
+- [Outputs](#outputs)
+- [Exploring a run as a wiki](#exploring-a-run-as-a-wiki)
+- [Evaluation](#evaluation)
+- [Using DelveDSpace from Python](#using-delvedspace-from-python)
+
+## The `ddspace` command
+
+`ddspace` wraps the pipeline and the wiki export around a workspace folder. `ddspace <command> --help` lists
+every option.
+
+```
+my-space/
+  ddspace.yaml     settings: the pipeline configuration (below) plus workspace: and wiki: blocks
+  .env             API keys (gitignored)
+  sources/         your files: .md .txt .html .pdf, one file = one source (gitignored)
+  sources.csv      one row per source: id (s1, s2, ...), file, title, url, source_type, notes; edit freely
+  corpus.json      passages s01_p01, s01_p02, ... (gitignored: it contains the source text)
+  runs/<time>/     one folder per mine or update: taxonomy JSON, report, run.json
+  wiki/            the current design space as Markdown, an Open Knowledge Format v0.2 bundle, with log.md
+  site/            the same as HTML, with the interactive graph and tree
+  raw/             graph.json and tree.json, read by `ddspace query` (no passage text)
+  AGENTS.md        written by `ddspace agent setup`
+  .ddspace/        extracted texts, stored source summaries, the chat index, archives of resets (gitignored)
+```
+
+| Command | What it does |
+|---|---|
+| `ddspace init [DIR]` | Create a workspace. Asks for the use case, the models (OpenAI by default), the sources folder, the maximum number of dimensions, the minibatch size and whether to run the critic; checks the API key and offers to write `.env`. `--yes` (or no terminal) takes the defaults; every answer also has an option. `--from-config FILE` takes the use case, models, dimension cap and batch size from an existing pipeline config. The embedding model must be `openai/...` (default `text-embedding-3-small`) or `ollama/...`: embeddings are required to merge values and dimensions and to link evidence. |
+| `ddspace sources` | Extract the text of every file in `sources/` (PDFs with `pdftotext` when installed, else `pypdf`), add new files to `sources.csv` with the next id (existing ids and edits are kept), and flag files that are empty, short, blocked, unreadable or scanned (no text layer: run OCR first). `--from-json FILE` first imports a JSON corpus (a list of texts, or of objects with `content`) as one source file per document. Then builds the corpus (passages), unless `--no-corpus`. |
+| `ddspace corpus` | Rebuild the passages (about 300 words, at paragraph and heading boundaries; `ddspace sources` already does this with the defaults), e.g. with `--target-words`. |
+| `ddspace mine` | Run the pipeline into `runs/<time>/` after showing the corpus size, the models and a token/time estimate; the run becomes current. Refuses to replace an existing design space unless `--fresh`. `--html-report` also writes the pipeline's single-page HTML report (about 7 MB). The console shows one progress line; the full output goes to `runs/<time>/pipeline.log` (`--verbose` shows it instead; same for `update`). |
+| `ddspace update --feedback TEXT` (or `--feedback-file F`) | Re-mine the corpus, seeded with the current design space and your feedback. |
+| `ddspace update --test [--sources FILES]` | Add new sources (copied into `sources/`, or already dropped there) and classify only their passages, with the dimensions frozen: new sources add values. |
+| `ddspace wiki build` | Export the current run (or `--run`) into `wiki/`, `site/` and `raw/`. Asks once whether to quote passages (no for a public wiki), whether to summarize the sources (one LLM call each, stored), whether to sample design points (and describe them, one LLM call each) and the core threshold (suggested: a third of the sources); answers are saved in `ddspace.yaml` under `wiki:`. Adds a dated entry to `wiki/log.md` with what changed since the last build. `--ask` asks again; `--no-llm` uses stored texts only. |
+| `ddspace wiki check` | Check `wiki/` against OKF v0.2 (frontmatter `type`, `index.md` and `log.md` structure); broken links are warnings. |
+| `ddspace wiki open` | Open `site/index.html`. |
+| `ddspace query info\|dims\|values\|evidence\|relations\|show\|search` | Read-only questions over `raw/graph.json`, no LLM: JSON for agents, `--table` for people. Name nodes by id (`d:3`, `v:3.1`, `s:s2`), slug or name: the label exactly, ignoring case, spacing and punctuation (`event driven architecture`), or failing that a unique partial match. `evidence --quotes` adds the passage text. Exit code 2 when a name matches nothing (with close matches). `--graph DIR` queries any export. |
+| `ddspace ask "QUESTION"` | Answer one question from the wiki with the mining LLM (`models.generation_llm`): a vectorless tree index of the wiki (TreeDex) picks the relevant dimension, value, synthesis and design-point pages, then the answer is written from those pages only, citing passage ids. About two LLM calls per question (roughly 25-30k tokens on the C3 sample). `--json` for scripts; `--why` shows why the pages were picked. The index is rebuilt by every `wiki build` and removed by `reset`. Needs the optional extra: `pip install "delvedspace[chat]"`. |
+| `ddspace point VALUE...` | Interpret a design point: one value per dimension, named by id or label (`Dimension=Value` when a label is not unique). Returns the values, warnings (two values of one dimension, an outcome or a rejected value as a choice, a required dimension left out), the sources that adopt every value (empty: a novel combination), the relations among the chosen dimensions, and a description: the wiki's stored one when the wiki has this point, otherwise one LLM call with the same prompt and model as the wiki's descriptions (`--model` to change it). Nothing is stored; the design space and the wiki do not change. `--no-llm` for the checks only; JSON by default, `--table` for people; `--graph DIR` for any export. |
+| `ddspace agent setup` | Write `AGENTS.md` for coding agents; `--claude` adds `CLAUDE.md` and, if allowed, a permission for `ddspace query`; `--copilot` adds `.github/copilot-instructions.md`; `--dir` sets up a project folder that contains the workspace. Existing files keep their content. |
+| `ddspace check` | Show the configuration (settings load, use case, models, API keys masked, size) and every phase with its state: sources, corpus, design space, wiki, chat index, agent setup; each is done, stale (an earlier phase changed since), pending or failed, and the panel at the end names the commands to run next. Read-only, no LLM; `--json` for scripts and agents. |
+| `ddspace reset` | Move `runs/`, `wiki/`, `site/` and `raw/` to `.ddspace/archive/<time>/` and clear the current run. `--wiki-only`: only the wiki. `--all`: also everything built from the sources (`corpus.json`, extracted texts, stored source summaries), so `ddspace sources` starts over. Kept by these: `sources/`, `sources.csv` (your edits), `ddspace.yaml`, `.env`, agent files. `--purge`: delete everything in the workspace except `ddspace.yaml` and `.env` (and the `.gitignore` written by `init`): your source files, `sources.csv`, the corpus, runs, wiki and all of `.ddspace/`, archives included; agent files lose only what ddspace wrote, and files ddspace did not create are left alone. It asks first and cannot be undone. `--yes` for scripts. |
+
+Workspace defaults differ from `config.yaml` in two places, because the passages are already short:
+summarization is skipped and open coding reads the passage text.
+
+## Preparing a corpus
+
+- **`.txt`**: one document per line.
+- **`.json`**: a list of strings, or a list of objects `{"id": "...", "content": "..."}`. Ids are kept,
+  so evidence and labels refer to your own document ids.
+- **Passages of longer sources:** split long documents into passages of a few hundred words with ids
+  like `s03_p02` (source 3, passage 2). DelveDSpace then counts evidence per source as well as per passage,
+  and the minimum-support rule works on sources.
+
+## Configuration
+
+All settings live in one YAML file, passed with `--config` (default: `./config.yaml`). The repository's
+[`config.yaml`](config.yaml) documents every setting inline and is the reference to copy from.
+
+| Section | What it controls |
+|---|---|
+| `models` | Three LLM roles, which should be different models (a shared model runs with a warning): `generation_llm` builds the design space (open coding, summaries, generation, update, review, consolidation, merging, selection, labeling, report text); `evaluation_llm` judges it in the pipeline (scoreboard, consistency comparison, saturation critic); `matching_llm` judges value-option pairs in ground-truth matching (`--match-gt`). Plus `embedding` (consolidation, evidence linking, dimension merging, biplots, matching candidates) |
+| `pipeline` | `batch_size` (documents per minibatch), `random_seed`, `mode` (`train` / `test`), `taxonomy_input` and `taxonomy_input_view` (start from a saved run) |
+| `taxonomy` | `use_case` (**the most important setting**), `name`, `max_num_clusters` (`null` = no cap), saturation, value consolidation, evidence linking, fragmentation controls, `edit_mode` (`rewrite` / `rewrite_restore` / `tools`: how updates and reviews change the taxonomy) |
+| `feedback` | Your own feedback text or file, injected into update and review prompts |
+| `summarization` | Summarize documents first, or `skip: true` to work on the raw text |
+| `open_coding` | `input`: code from summaries or from the full text |
+| `labeling` | Fallback category name, review sample size |
+| `evaluation` | Judge on/off, judge model, pass threshold, `every_n_iterations`, `feedback_exclude`, `save_history`, sample size for the data-grounded criteria |
+| `visualization` | PCA biplots on/off, per iteration or final only |
+| `output` | Display limits, default output folder |
+
+Settings to look at first:
+
+- **`taxonomy.use_case`**: what the design space is for, e.g. *"Identify the architectural design
+  decisions practitioners face when … For each decision, identify the alternative options …"*. It
+  steers coding, selection and evaluation.
+- **`taxonomy.max_num_clusters`**: `null` = no cap. With `cap_stage: selection` (the default) the run
+  mines without a cap and keeps the top-k decision points at selection; `cap_stage: generation` gives the
+  cap to the prompts instead, which forces broad topics that bundle several decision points.
+- **One value per dimension per system:** the values of a dimension are alternatives, so each source
+  (system) should adopt one of them.
+  - `evaluation.exclusivity`: the computed *Value exclusivity* row on every scoreboard (a penalty fed
+    back to the update loop);
+  - `exclusivity_repair` (off by default), `exclusivity_min`, `exclusivity_min_units`: after evidence linking, the LLM
+    splits, extracts a sub-decision, merges values or declares a hybrid for the dimensions whose
+    sources adopt several values. The wiki shows each dimension's exclusivity and the values adopted
+    together.
+  - `value_recoding` (on by default) and the `recoding_*` settings: after evidence linking, the values
+    of a low-exclusivity dimension are rewritten as alternative answers when several sources share
+    their combination of values; the old values stay as facets (`includes`). `matcher.use_facets`
+    lets the ground-truth matcher see the facets.
+- **Saturation:**
+  - `saturation_streak_threshold`: saturated minibatches in a row needed to stop;
+  - `saturation_min_coverage`: share of a minibatch's codes that must be covered to count as
+    saturated;
+  - `saturation_min_corpus_fraction`: minimum share of the corpus to read before stopping.
+- **Fragmentation and evidence:**
+  - `merge_dimensions`: merge near-duplicate decision points;
+  - `min_dimension_sources`: minimum number of supporting sources per decision point;
+  - `min_candidate_decisions`: minimum candidate decisions per decision point;
+  - `link_evidence`, `drop_unsupported_values`: link codes to values, and drop values with no evidence.
+- **Cost:**
+  - `evaluation.every_n_iterations`: e.g. 3 for corpora with many minibatches;
+  - `evaluation.enabled: false`: skip the judge for cheap smoke tests.
+
+Command-line flags override a few settings: `--generation-llm`, `--evaluation-llm`, `--matching-llm`, `--name`, `--max-clusters`,
+`--mode`, `--taxonomy`, `--feedback`, `--feedback-file`.
+
+## Command-line reference
+
+### Running the pipeline
+
+| Flag | Purpose |
+|---|---|
+| `--corpus PATH` | Corpus file (`.txt` or `.json`) |
+| `--config PATH` | YAML configuration (default `./config.yaml`) |
+| `--output DIR` | Save all artifacts to `DIR` (created if missing); also writes the Markdown report unless `--no-auto-report` |
+| `--mode train\|test` | `train` builds or refines a design space; `test` freezes the dimensions of `--taxonomy` and labels new documents |
+| `--taxonomy PATH` | Saved taxonomy JSON to start from (required in test mode) |
+| `--feedback TEXT`, `--feedback-file PATH` | Feedback for the update and review prompts, e.g. a critique of a previous run |
+| `--generation-llm`, `--evaluation-llm`, `--matching-llm` | Override the LLM roles (`provider/model-name`) |
+| `--name`, `--max-clusters` | Override the taxonomy name and the dimension cap |
+| `--quiet` | Hide logs, show only the result panels |
+
+Refining a previous run with your feedback:
+
+```bash
+python main.py --corpus my_corpus.json --config my_project.yaml --output results/ \
+               --taxonomy results/myproject_taxonomy_<timestamp>.json \
+               --feedback "Split 'Deployment strategy' into rollout and rollback decisions."
+```
+
+Labeling new documents against a saved design space:
+
+```bash
+python main.py --mode test --taxonomy results/myproject_taxonomy_<timestamp>.json \
+               --corpus new_documents.json --config my_project.yaml --output results/
+```
+
+### Working with saved runs (no pipeline run)
+
+```bash
+# Markdown grounded-theory report (narrative, relation diagram, value catalog, dropped dimensions)
+python main.py --report results/myproject_taxonomy_<timestamp>.json
+
+# Single-page offline HTML report (run summary, relation diagram, value catalog, dropped dimensions, narrative, biplot, scoreboard)
+python main.py --html-report results/myproject_taxonomy_<timestamp>.json
+
+# PCA biplot of values on dimension axes (--axis-positions auto|embeddings|uniform)
+python main.py --visualize results/myproject_taxonomy_<timestamp>.json
+
+# Score a saved design space; --corpus enables the data-grounded criteria
+python main.py --evaluate results/myproject_taxonomy_<timestamp>.json --config my_project.yaml --corpus my_corpus.json
+
+# Score every saved iteration with the current criteria
+python main.py --evaluate results/myproject_taxonomy_<timestamp>.json --all-iterations --config my_project.yaml --corpus my_corpus.json
+
+# Compare several runs on the same corpus (recurring vs. one-off dimensions)
+python main.py --evaluate run1.json run2.json run3.json --config my_project.yaml
+
+# Score a saved design space against an expert ground truth (precision, recall, F1 and Jaccard of
+# options and decisions, placement; per ground-truth view). The matching LLM judges borderline
+# value-option pairs; --matcher-mode embeddings uses embedding distance alone (no LLM calls).
+python main.py --match-gt results/myproject_taxonomy_<timestamp>.json --gt benchmark/c2-rl-monitoring/gt --config my_project.yaml
+
+# Stage funnel: where each expert option is lost (open codes, each iteration, review,
+# consolidation, selected view); needs the run's saved open codes. Same judge and cache as --match-gt.
+python benchmark/stage_funnel.py results/myproject_taxonomy_<timestamp>.json --gt benchmark/c2-rl-monitoring/gt --config my_project.yaml
+```
+
+`--iteration N` renders or scores a specific iteration instead of the selected view.
+
+## Outputs
+
+With `--output DIR`, files are named `<name>_<kind>_<timestamp>` (the name comes from
+`taxonomy.name` or `--name`):
+
+| File | Content |
+|---|---|
+| `<name>_taxonomy_<ts>.json` | **Main result**: every iteration, the selected dimensions with values, stances, evidence and relations, the dropped dimensions with reasons, the saturation history, the evaluation scoreboard and its history, run metrics (time, tokens), the edit mode, and (tools / rewrite_restore modes) the operation log of every update and review, with the tool-calling transcript in tools mode |
+| `<name>_report_<ts>.md` | Grounded-theory report of the selected view |
+| `<name>_documents_<ts>.json` | Documents with summary, assigned dimension and value, confidence score |
+| `<name>_clusters_<ts>.json` | The selected design space as a tree with the labeled documents nested in it |
+| `<name>_open_codes_<ts>.json` | All open codes (document id, label, rationale, status) |
+| `<name>_messages_<ts>.json` | Pipeline messages |
+| `<name>_html_report_<ts>.html` | From `--html-report` |
+| `<name>_evaluation_<ts>.json` | From `--evaluate` |
+
+The documents, clusters, messages and HTML files contain the corpus text; keep that in mind before
+committing them.
+
+## Exploring a run as a wiki
+
+`benchmark/export_wiki.py` turns a saved run into a design-space wiki that you can browse.
+
+**What you get:**
+- a page for each dimension, value, source and system;
+- an overview page, plus pages for contested values, the system matrix, design points, the evaluation and dropped dimensions;
+- an interactive graph view and an expandable tree view;
+- an Approach page that explains the pipeline.
+
+The export makes no LLM calls: everything is rendered from the run data.
+
+The HTML works offline. Open `html/index.html` in a browser, or copy the whole `html/` folder to share it.
+
+A committed example can be browsed online (link omitted for review). It is published with GitHub Pages
+(`.github/workflows/sample-wiki-pages.yml`), because GitHub shows HTML files in the repository as source. Locally, open
+`examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html`. The
+sample's [README](examples/c3-git-at-scale/sample/README.md) gives the exact commands that produced it.
+
+Minimal export. Only the run is required:
+
+```bash
+python benchmark/export_wiki.py examples/campus-bike/campus-bike_taxonomy_20261002_130704.json \
+       --config examples/campus-bike/campus_bike_config.yaml
+# -> examples/campus-bike/campus-bike_taxonomy_20261002_130704_wiki/html/index.html
+```
+
+`--config` adds the use case to the index and the overview. Without `--out`, the wiki is written next to the run, in `<run>_wiki/`, which has three folders:
+- `html/`: the pages;
+- `wiki/`: an Open Knowledge Format (OKF v0.2) bundle, as `ddspace wiki build` writes it, also readable in Obsidian. The export ends with the OKF check (`OKF v0.2 check: 0 errors, 0 warnings`); `--llmwiki-layout` writes the older layout with `[[wikilinks]]`, `.llmwiki.yaml` and `SCHEMA.md` instead;
+- `raw/`: the export manifest (`run.json`), and `graph.json` and `tree.json` for queries and agents.
+
+Full export, using the git-at-scale case study (C3) as the example:
+
+```bash
+python benchmark/export_wiki.py examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350.json \
+       --corpus examples/c3-git-at-scale/c3-git-at-scale_corpus.json \
+       --sources benchmark/c3-git-at-scale/sources.csv \
+       --systems benchmark/c3-git-at-scale/passage_systems.csv \
+       --system-names benchmark/c3-git-at-scale/systems.csv \
+       --design-points examples/c3-git-at-scale/c3-git-at-scale_taxonomy_20261008_115350_design_points.json \
+       --config examples/c3-git-at-scale/c3_git_at_scale_config.yaml \
+       --evaluation
+```
+
+The C3 corpus is not distributed, because it is built from downloaded source texts. Build it first with the
+commands in [`benchmark/c3-git-at-scale/README.md`](benchmark/c3-git-at-scale/README.md). Without `--corpus`, the
+export still works, but it shows passage ids instead of quoted passages.
+
+| Option | Adds |
+|---|---|
+| `--corpus` | Quoted passages on value and source pages |
+| `--sources` | Source titles, links and types. `source_summaries.json` and `icon.svg` in the same folder are picked up automatically |
+| `--systems`, `--system-names` | System pages and the system × dimension matrix. Also enables the systems clause of the core-dimension rule |
+| `--design-points FILE` | A design-point layer from `benchmark/design_points.py`. Descriptions are read from `*_descriptions.json` next to it |
+| `--sample-design-points` | Samples design points during the export instead, with no LLM calls. `--dp-k`, `--dp-n` and `--dp-seed` control the sampling |
+| `--evaluation` | A page with the run's evaluation scores and reasons |
+| `--core-min-sources`, `--core-min-systems` | The thresholds for **core dimensions**, marked ★ and filterable (default 2 and 2) |
+| `--view selected\|final` | Which view of the run to export |
+| `--no-quotes` | Shows passage ids only, for an export you can share without the source text |
+| `--out DIR` | The output folder |
+
+Source summaries and design-point descriptions are generated once, by separate scripts that do call the LLM, and are then stored next to their inputs:
+- `python benchmark/summarize_sources.py benchmark/<case>`;
+- `python benchmark/describe_design_points.py <design points file>`, or `benchmark/design_points.py --describe`.
+
+The wiki labels both as LLM-generated. When they are missing, the pages just leave them out.
+
+By default the exported wiki quotes corpus passages. The example folders therefore gitignore `*_wiki/`. Use
+`--no-quotes` for a copy you intend to share or commit.
+
+## Evaluation
+
+Each scoreboard scores ten criteria (0–1) with an LLM judge using fixed judging steps:
+
+- **Structure:**
+  - Orthogonality, Clarity, Completeness, Use case alignment, No catch-alls;
+  - Axis vs. value;
+  - One decision point (with quality-attribute grounding as a secondary preference);
+  - Rejected-alternative handling.
+- **Data-grounded** (on a fixed sample of documents spread across sources):
+  - Dimensional coverage;
+  - Candidate-decision coverage.
+
+Each criterion comes with a reason that names the dimensions and values at fault and the change that
+would fix them. During the loop, the weakest criteria and their reasons are passed to the next update
+and to the review. Completeness is scored but not fed back by default, since the judge sees no data for
+it.
+
+Judge scores are noisy (differences of ±0.1–0.2 between iterations are common) and measure structure,
+not correctness. Use them together with the evidence counts, the dropped-dimension reasons and, when
+available, a comparison with an expert-built design space.
+
+## Using DelveDSpace from Python
+
+```python
+import asyncio
+from taxonomy_generator import graph, init_settings, docs_from_dicts
+
+init_settings("my_project.yaml")
+docs = docs_from_dicts([
+    {"id": "s01_p01", "content": "We moved from batch scoring to an online model server because ..."},
+    {"id": "s02_p01", "content": "Canary releases let us compare the new model on 5% of traffic ..."},
+])
+
+result = asyncio.run(graph.ainvoke({"documents": docs}))
+design_space = result["selected_clusters"][-1] if result["selected_clusters"] else result["clusters"][-1]
+labeled = result["documents"]
+scoreboard = result["evaluation"]
+```
+
+`strings_to_docs([...])` converts plain strings, with generated ids. The graph is also registered in
+[`langgraph.json`](langgraph.json) for LangGraph Studio.

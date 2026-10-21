@@ -1,0 +1,709 @@
+{
+  "format_version": 1,
+  "study": "c2-rl-monitoring",
+  "view": "paper",
+  "provenance": {
+    "paper": "Fang, Warnett & Zdun, Architectural Design Decisions for Monitoring Deployed Reinforcement Learning Systems (2026), papers/spaces/Architectural_Design_Decisions_for_Monitoring_Deployed_Reinforcement_Learning_Systems.pdf",
+    "transcription": "Decisions from Table 2 and Fig. 2 (p. 8). The paper gives the number of options per decision (Table 2) and names most of them in §4 (pp. 9-12), deferring the full catalog to its replication package [8]; option lists and descriptions come from that catalogue (memos/add-catalogue.md), whose per-decision option counts equal Table 2. Decision links from Fig. 2. Forces are not transcribed (they live in the model view).",
+    "transcribed_by": "Claude Code (implementer), 2026-10-03; no system output was open during transcription, but the transcriber had reviewed the DelveDSpace C2 runs of 2026-10-02 earlier in the same session (see README)"
+  },
+  "decisions": [
+    {
+      "id": "add1",
+      "name": "Safe Exploration Strategy Selection",
+      "question": "How much freedom should the agent explore during deployment?",
+      "decision_type": "unspecified",
+      "description": "Addresses safe exploration in production; the decision is not whether to explore but how to bound it.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8); Fig. 2 (p. 8); §4.1 (p. 9)"
+    },
+    {
+      "id": "add2",
+      "name": "Production Monitoring Signal Selection",
+      "question": "",
+      "decision_type": "unspecified",
+      "description": "Determines which signals to monitor, establishing the informational foundation on which all subsequent decisions rest.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8); Fig. 2 (p. 8); §4.2 (p. 9)"
+    },
+    {
+      "id": "add3",
+      "name": "Automated Response Mechanism Selection",
+      "question": "",
+      "decision_type": "unspecified",
+      "description": "Selects how to respond when issues are detected, coupling detection directly to intervention.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8); Fig. 2 (p. 8); §4.2 (p. 9)"
+    },
+    {
+      "id": "add4",
+      "name": "Reward Degradation Test Statistic Selection",
+      "question": "",
+      "decision_type": "unspecified",
+      "description": "Chooses the statistical test used to identify reward degradation from the observed signals.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8); Fig. 2 (p. 8); §4.2 (p. 9)"
+    },
+    {
+      "id": "add5",
+      "name": "False Alarm Rate Control Method",
+      "question": "",
+      "decision_type": "unspecified",
+      "description": "Calibrates the false alarm rate (thresholds) of the chosen test.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8); Fig. 2 (p. 8); §4.2 (p. 9)"
+    },
+    {
+      "id": "add6",
+      "name": "Reward Hacking Detection Strategy",
+      "question": "",
+      "decision_type": "unspecified",
+      "description": "Selects a strategy to detect reward hacking, where the agent exploits weaknesses in the reward specification, the evaluator or the feedback loop.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8); Fig. 2 (p. 8); §4.3 (p. 11)"
+    },
+    {
+      "id": "add7",
+      "name": "Reward Hacking Mitigation Architecture",
+      "question": "",
+      "decision_type": "unspecified",
+      "description": "Selects an architecture to mitigate reward hacking once detected or anticipated.",
+      "description_source": "paper",
+      "source": "Table 2 (p. 8, as 'Reward Hacking Mitigation'); Fig. 2 (p. 8); §4.3 (p. 11)"
+    }
+  ],
+  "options": [
+    {
+      "id": "conservative_policy_updates",
+      "name": "Conservative Policy Updates",
+      "decision_ids": [
+        "add1"
+      ],
+      "description": "Limit policy changes per update so new policies do not deviate dramatically from a proven baseline.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 1; catalogue [8] memos/add-catalogue.md ADD 1; named on p. 9"
+    },
+    {
+      "id": "constrained_policy_optimisation",
+      "name": "Constrained Policy Optimisation",
+      "decision_ids": [
+        "add1"
+      ],
+      "description": "Build safety constraints directly into the optimisation objective (e.g. safe RL, constrained MDPs).",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 1; catalogue [8] memos/add-catalogue.md ADD 1; named on p. 9"
+    },
+    {
+      "id": "multi_armed_bandit_integration",
+      "name": "Multi-Armed Bandit Integration",
+      "decision_ids": [
+        "add1"
+      ],
+      "description": "Use bandit approaches for low‑risk exploration of policy variants, especially in recommender and ranking systems.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 1; catalogue [8] memos/add-catalogue.md ADD 1; named on p. 9"
+    },
+    {
+      "id": "rl_specific_metric_tracking",
+      "name": "RL-Specific Metric Tracking",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Monitor episodic return, reward signals, exploration rates, policy entropy, learning progress.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "business_outcome_correlation",
+      "name": "Business Outcome Correlation",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Track downstream KPIs (conversion, revenue, safety incidents) and correlate them with agent behaviour.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "a_b_policy_comparison",
+      "name": "A/B Policy Comparison",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Continuously compare new policies against baselines via controlled traffic splits.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; not named in the text"
+    },
+    {
+      "id": "covariance_weighted_reward_signal",
+      "name": "Covariance-Weighted Reward Signal",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Apply statistically efficient tests to reward sequences (e.g. covariance‑weighted means, Hotelling).",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "feature_distribution_drift_kl_mmd",
+      "name": "Feature Distribution Drift (KL/MMD)",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Monitor covariate/input distribution shift using KL divergence, MMD, PSI, etc.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "reward_proxy_gap_tracking",
+      "name": "Reward Proxy Gap Tracking",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Compare offline/validation reward estimates with live proxy metrics to reveal eval–deployment gaps.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "embedding_drift_detection",
+      "name": "Embedding Drift Detection",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Track drift in state/input embeddings or query clusters over time to detect semantic shift.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "activation_delta_monitoring",
+      "name": "Activation Delta Monitoring",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Model‑internal activation deltas as a signal of task drift or concept shift.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "reward_model_score_monitoring",
+      "name": "Reward Model Score Monitoring",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "For RLHF systems, score sampled production interactions with a (frozen) reward model.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10, p. 12"
+    },
+    {
+      "id": "kl_divergence_from_reference_policy",
+      "name": "KL Divergence from Reference Policy",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Track divergence between deployed policy and a known‑good reference (e.g. SFT policy).",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10, p. 12"
+    },
+    {
+      "id": "metric_divergence_monitoring",
+      "name": "Metric Divergence Monitoring",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Compare an optimised metric against related metrics; divergence suggests specification gaming.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; not named in the text"
+    },
+    {
+      "id": "shield_intervention_rate_tracking",
+      "name": "Shield Intervention Rate Tracking",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Monitor how often safety shields or rule‑based guards override or block proposed actions.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "context_sliced_signal_monitoring",
+      "name": "Context-Sliced Signal Monitoring",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Compute metrics sliced by context (interaction type, tool usage mode, risk band) rather than only in aggregate.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; not named in the text"
+    },
+    {
+      "id": "action_failure_rate_monitoring",
+      "name": "Action Failure Rate Monitoring",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Track rates of failed, rolled‑back, or rejected actions as first‑class operational signals.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; named on p. 10"
+    },
+    {
+      "id": "latency_slo_monitoring",
+      "name": "Latency SLO Monitoring",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Monitor latency and error SLOs as monitoring signals alongside reward and drift metrics.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; not named in the text"
+    },
+    {
+      "id": "security_significant_signals",
+      "name": "Security-Significant Signals",
+      "decision_ids": [
+        "add2"
+      ],
+      "description": "Monitor anomalous tool usage, data‑access patterns, and other security‑relevant behaviours (for agentic RLHF systems).",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 2; catalogue [8] memos/add-catalogue.md ADD 2; not named in the text"
+    },
+    {
+      "id": "automated_circuit_breakers",
+      "name": "Automated Circuit Breakers",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Automatically switch to a safe fallback policy or rules when monitored signals cross critical thresholds.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; named on p. 10"
+    },
+    {
+      "id": "policy_rollback",
+      "name": "Policy Rollback",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Revert to a previously validated baseline policy or checkpoint.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; not named in the text"
+    },
+    {
+      "id": "rollback_with_learning_rate_stabilisation",
+      "name": "Rollback with Learning-Rate Stabilisation",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "After rollback, resume training with a reduced learning rate to avoid oscillations.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; not named in the text"
+    },
+    {
+      "id": "blue_green_traffic_shift",
+      "name": "Blue-Green Traffic Shift",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Use infrastructure‑level traffic switching (blue/green or canary) to revert quickly without complex state restoration.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; not named in the text"
+    },
+    {
+      "id": "graceful_degradation",
+      "name": "Graceful Degradation",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Reduce the agent’s autonomy/capabilities while maintaining partial service.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; not named in the text"
+    },
+    {
+      "id": "human_in_the_loop_intervention",
+      "name": "Human-in-the-Loop Intervention",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Require human approval or takeover for high‑risk decisions or when anomalies are detected.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; named on p. 10"
+    },
+    {
+      "id": "continuous_adaptation_fine_tuning",
+      "name": "Continuous Adaptation (Fine-tuning)",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Trigger fine‑tuning or continuous learning on new data as a response to drift.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; not named in the text"
+    },
+    {
+      "id": "mid_run_reward_function_update",
+      "name": "Mid-Run Reward Function Update",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Adjust reward functions and constraints mid‑run when reward hacking or proxy misalignment is detected.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; not named in the text"
+    },
+    {
+      "id": "shadow_deployment",
+      "name": "Shadow Deployment",
+      "decision_ids": [
+        "add3"
+      ],
+      "description": "Run candidate policies in “observer” mode to collect data and assess performance without taking real actions.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 3; catalogue [8] memos/add-catalogue.md ADD 3; named on p. 12"
+    },
+    {
+      "id": "covariance_weighted_mean_test",
+      "name": "Covariance-Weighted Mean Test",
+      "decision_ids": [
+        "add4"
+      ],
+      "description": "Use covariance‑weighted means of episodic rewards for efficient change detection under correlated rewards.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 4; catalogue [8] memos/add-catalogue.md ADD 4; named on p. 10, p. 12"
+    },
+    {
+      "id": "naive_simple_mean",
+      "name": "Naive Simple Mean",
+      "decision_ids": [
+        "add4"
+      ],
+      "description": "Compare recent mean reward to a baseline; simple but statistically sub‑optimal.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 4; catalogue [8] memos/add-catalogue.md ADD 4; not named in the text"
+    },
+    {
+      "id": "cusum_sequential_test",
+      "name": "CUSUM Sequential Test",
+      "decision_ids": [
+        "add4"
+      ],
+      "description": "Apply classical cumulative‑sum change‑detection to reward sequences.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 4; catalogue [8] memos/add-catalogue.md ADD 4; not named in the text"
+    },
+    {
+      "id": "hotelling_multivariate_test",
+      "name": "Hotelling Multivariate Test",
+      "decision_ids": [
+        "add4"
+      ],
+      "description": "Use multivariate mean‑shift tests over reward vectors.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 4; catalogue [8] memos/add-catalogue.md ADD 4; not named in the text"
+    },
+    {
+      "id": "embedding_based_drift_detection",
+      "name": "Embedding-Based Drift Detection",
+      "decision_ids": [
+        "add4"
+      ],
+      "description": "Detect environmental changes by monitoring state/observation embeddings directly.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 4; catalogue [8] memos/add-catalogue.md ADD 4; not named in the text"
+    },
+    {
+      "id": "psi_kl_input_distribution_test",
+      "name": "PSI / KL Input Distribution Test",
+      "decision_ids": [
+        "add4"
+      ],
+      "description": "Use PSI or KL divergence on inputs as a proxy for upcoming reward degradation.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 4; catalogue [8] memos/add-catalogue.md ADD 4; not named in the text"
+    },
+    {
+      "id": "bootstrap_far_bfar",
+      "name": "Bootstrap FAR (BFAR)",
+      "decision_ids": [
+        "add5"
+      ],
+      "description": "Use bootstrap methods to control false‑alarm probability over a sequence of episodes.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 5; catalogue [8] memos/add-catalogue.md ADD 5; named on p. 10, p. 12"
+    },
+    {
+      "id": "fixed_statistical_threshold",
+      "name": "Fixed Statistical Threshold",
+      "decision_ids": [
+        "add5"
+      ],
+      "description": "Apply static thresholds based on assumed distributions (often i.i.d.).",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 5; catalogue [8] memos/add-catalogue.md ADD 5; not named in the text"
+    },
+    {
+      "id": "adaptive_threshold",
+      "name": "Adaptive Threshold",
+      "decision_ids": [
+        "add5"
+      ],
+      "description": "Adjust thresholds online based on observed statistics or context.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 5; catalogue [8] memos/add-catalogue.md ADD 5; named on p. 10, p. 12"
+    },
+    {
+      "id": "variance_tuned_threshold",
+      "name": "Variance-Tuned Threshold",
+      "decision_ids": [
+        "add5"
+      ],
+      "description": "Calibrate thresholds to historical variance to reduce noise‑driven alerts.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 5; catalogue [8] memos/add-catalogue.md ADD 5; not named in the text"
+    },
+    {
+      "id": "metric_divergence_detection",
+      "name": "Metric Divergence Detection",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Compare optimised metrics against related metrics; divergence suggests gaming.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11"
+    },
+    {
+      "id": "chain_of_thought_cot_analysis",
+      "name": "Chain-of-Thought (CoT) Analysis",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Inspect CoT or internal reasoning traces for signs of hacking intent.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11, p. 12"
+    },
+    {
+      "id": "adversarial_testing",
+      "name": "Adversarial Testing",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Deliberately search for reward‑hacking exploits pre‑ or post‑deployment.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11"
+    },
+    {
+      "id": "ensemble_reward_model_agreement",
+      "name": "Ensemble Reward Model Agreement",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Use multiple reward models and require agreement to reduce single‑model exploitability.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11"
+    },
+    {
+      "id": "behavioural_testing_on_held_out_environments",
+      "name": "Behavioural Testing on Held-Out Environments",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Test agents in unseen environments to see if hacking generalises.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11"
+    },
+    {
+      "id": "anomaly_detection_with_trusted_policy",
+      "name": "Anomaly Detection with Trusted Policy",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Use a trusted baseline policy to flag anomalous action distributions.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11"
+    },
+    {
+      "id": "deployment_time_feedback_loop_simulation",
+      "name": "Deployment-Time Feedback Loop Simulation",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Simulate self‑refinement and feedback loops to detect inference‑time hacking.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11"
+    },
+    {
+      "id": "reward_model_vs_outcome_divergence",
+      "name": "Reward Model vs Outcome Divergence",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Compare reward‑model scores with actual outcomes; divergence may indicate hacking of the reward model.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; not named in the text"
+    },
+    {
+      "id": "verbalisation_self_report_vft",
+      "name": "Verbalisation / Self-Report (VFT)",
+      "decision_ids": [
+        "add6"
+      ],
+      "description": "Train models to explicitly verbalise when they are exploiting shortcuts, improving detectability.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 6; catalogue [8] memos/add-catalogue.md ADD 6; named on p. 11, p. 12"
+    },
+    {
+      "id": "regularisation_to_reference_policy",
+      "name": "Regularisation to Reference Policy",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Penalise divergence from a known‑good reference policy (e.g. KL or chi‑squared regularisation).",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    },
+    {
+      "id": "reward_function_redesign",
+      "name": "Reward Function Redesign",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Use multi‑objective rewards and constraints to make hacking any single metric less beneficial.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    },
+    {
+      "id": "preference_as_reward_par",
+      "name": "Preference as Reward (PAR)",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Use latent preference representations as reward rather than raw scores to improve robustness.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    },
+    {
+      "id": "inoculation_prompting",
+      "name": "Inoculation Prompting",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Train models with prompts that explicitly frame hacking as undesirable to reduce covert misalignment.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    },
+    {
+      "id": "targeted_rlhf",
+      "name": "Targeted RLHF",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Focus RLHF data on high‑risk, “agentic” evaluations where hacking is more likely.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 12"
+    },
+    {
+      "id": "periodic_reward_model_refresh",
+      "name": "Periodic Reward-Model Refresh",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Retrain reward models on new preference data to counter staleness.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11, p. 12"
+    },
+    {
+      "id": "sft_on_non_gaming_data",
+      "name": "SFT on Non-Gaming Data",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Supervised fine‑tuning on data where hacking is easy to detect and labelled against.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; not named in the text"
+    },
+    {
+      "id": "gated_reward_accumulation_g_ra",
+      "name": "Gated Reward Accumulation (G-RA)",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Gate immediate rewards on long‑term outcomes to reduce multi‑step hacking incentives.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    },
+    {
+      "id": "myopic_optimisation_mona_like",
+      "name": "Myopic Optimisation (MONA-like)",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Limit optimisation horizon to discourage multi‑step reward‑tampering strategies and unlearn existing hacks.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    },
+    {
+      "id": "decoupled_approval_feedback",
+      "name": "Decoupled Approval / Feedback",
+      "decision_ids": [
+        "add7"
+      ],
+      "description": "Collect feedback from queries sampled independently of taken actions to reduce feedback corruption.",
+      "description_source": "memo",
+      "source": "Table 2 (p. 8) count for ADD 7; catalogue [8] memos/add-catalogue.md ADD 7; named on p. 11"
+    }
+  ],
+  "forces": [],
+  "decision_forces": [],
+  "impacts": [],
+  "decision_links": [
+    {
+      "from": "add2",
+      "to": "add3",
+      "stereotypes": [
+        "Feeds Into Via Trigger",
+        "Mandatory Next",
+        "Enables"
+      ],
+      "label": "offer an abstraction layer for data access, monitoring enables automated response",
+      "source": "Fig. 2 (p. 8)"
+    },
+    {
+      "from": "add2",
+      "to": "add4",
+      "stereotypes": [
+        "Constrains"
+      ],
+      "label": "signal repertoire determines available statistical tests",
+      "source": "Fig. 2 (p. 8)"
+    },
+    {
+      "from": "add4",
+      "to": "add5",
+      "stereotypes": [
+        "Constrains"
+      ],
+      "label": "selected test determines applicable calibration methods",
+      "source": "Fig. 2 (p. 8)"
+    },
+    {
+      "from": "add4",
+      "to": "add6",
+      "stereotypes": [
+        "Complements But Limited By",
+        "Can Be Combined With"
+      ],
+      "label": "downward drift detection needs gaming coverage, combine for full coverage",
+      "source": "Fig. 2 (p. 8)"
+    },
+    {
+      "from": "add6",
+      "to": "add4",
+      "stereotypes": [
+        "Complements"
+      ],
+      "label": "",
+      "source": "Fig. 2 (p. 8)"
+    },
+    {
+      "from": "add6",
+      "to": "add7",
+      "stereotypes": [
+        "Tense Interaction Requires Separation"
+      ],
+      "label": "RLHF hiding degrades CoT",
+      "source": "Fig. 2 (p. 8)"
+    }
+  ]
+}

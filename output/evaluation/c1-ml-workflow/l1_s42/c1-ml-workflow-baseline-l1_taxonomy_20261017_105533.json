@@ -1,0 +1,2996 @@
+{
+  "taxonomy_name": "c1-ml-workflow-baseline-l1",
+  "mode": "baseline-l1",
+  "baseline": {
+    "kind": "long_context",
+    "seed": 42,
+    "model": "openai/gpt-5.6-luna",
+    "prompt_version": "1",
+    "prompt_sha256": "3644bde07b09f89308c4a7f71e65b51857cb9f92eff76342c292b12f7ac8407a",
+    "prompt_tokens_counted": 87643,
+    "unknown_passage_ids_dropped": 0
+  },
+  "run_metrics": {
+    "elapsed_seconds": 64.7,
+    "total_tokens": 98484,
+    "prompt_tokens": 88639,
+    "completion_tokens": 9845
+  },
+  "iterations": [
+    {
+      "explanation": "The taxonomy is organized as an end-to-end ML system design space. Data ingestion, raw persistence, processing mode, data quality, and feature computation cover the path from operational sources to model inputs. Data lineage and data segregation capture reproducibility and the experimental boundary between training and evaluation. Model training and evaluation describe how candidates are learned and judged, while packaging, serving, deployment runtime, and promotion describe how models become production capabilities. Monitoring and retraining cover the operational feedback loop, and system modularity plus MLOps automation capture cross-cutting architecture choices that shape team autonomy, release velocity, scalability, reliability, and maintenance cost. Dimensions were kept separate when the passages described distinct choices: for example, processing mode is distinct from serving pattern, packaging is distinct from runtime placement, and monitoring is distinct from retraining even though monitoring can trigger retraining. Feature stores appear within Feature Computation Strategy and also as a modularity boundary because the sources describe both their functional role in training and serving and their architectural role in decoupling ML from microservice-owned data. The taxonomy includes outcome values where the passages describe material effects rather than adopted choices, such as staleness, storage cost, network latency, and silent model degradation. Rejected values represent approaches the sources explicitly criticize or identify as unsafe, including unvalidated data, leaky test sets, manual production rewrites, overly coupled service graphs, silent degradation, and manual model handoff.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Data Ingestion Pattern",
+          "description": "How the system acquires data from operational sources and moves it into the machine-learning workflow. Values answer whether data is pulled, pushed, streamed, or captured as changes.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Data Ingestion Pattern affects Raw Data Persistence Strategy",
+              "type": "affects",
+              "rationale": "The ingestion mechanism determines whether the system can preserve an immutable copy, replay events, or retain only current records."
+            },
+            {
+              "target_id": "3",
+              "reading": "Data Ingestion Pattern affects Feature Computation Strategy",
+              "type": "affects",
+              "rationale": "Batch, streaming, and event-driven ingestion determine whether features can be computed offline, nearline, or online."
+            },
+            {
+              "target_id": "4",
+              "reading": "Data Ingestion Pattern constrains Data Processing Mode",
+              "type": "constrains",
+              "rationale": "Streaming inputs favor streaming or near-real-time processing, while periodic extraction supports batch processing."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Scheduled batch extraction",
+              "description": "Data is collected and processed on a recurring schedule, such as daily or several times per day. It is simple and suitable when freshness requirements are relaxed, but it can produce stale results.",
+              "supporting_doc_ids": [
+                "s01_p08",
+                "s02_p03",
+                "s12_p05",
+                "s15_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Event-triggered ingestion",
+              "description": "A message or notification triggers ingestion when source data becomes available. This decouples producers from consumers and supports reactive pipelines.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s02_p06",
+                "s12_p05",
+                "s22_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Streaming event ingestion",
+              "description": "Events are continuously pushed through a message or event-streaming system for high-throughput, low-latency processing. It improves freshness but increases operational and retention complexity.",
+              "supporting_doc_ids": [
+                "s02_p04",
+                "s05_p03",
+                "s05_p06",
+                "s12_p06",
+                "s15_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Query-based source extraction",
+              "description": "The ML workflow queries and extracts data from source systems or database dumps. It is convenient for retrospective joins and large-scale training, but can create coupling to source schemas and APIs.",
+              "supporting_doc_ids": [
+                "s05_p02",
+                "s05_p03",
+                "s15_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Change-data capture",
+              "description": "Database changes are converted into a stream for downstream ML processing. This avoids modifying every producer to emit events, but remains vulnerable to source-schema changes.",
+              "supporting_doc_ids": [
+                "s05_p03",
+                "s05_p06",
+                "s15_p03"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Raw Data Persistence Strategy",
+          "description": "How original input data and events are retained for lineage, replay, backfilling, and future training. Values answer whether the system preserves immutable raw records, event history, or only processed data.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Raw Data Persistence Strategy affects Feature Engineering Strategy",
+              "type": "affects",
+              "rationale": "Replayable and point-in-time data enables historical feature reconstruction and backfilling; retaining only transformed data limits those capabilities."
+            },
+            {
+              "target_id": "6",
+              "reading": "Raw Data Persistence Strategy affects Data Lineage and Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Immutable raw data, batch identifiers, timestamps, and event logs make training inputs traceable and reproducible."
+            },
+            {
+              "target_id": "14",
+              "reading": "Raw Data Persistence Strategy affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Retained historical data supports retraining, recovery, and responding to newly discovered labels or attack patterns."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Immutable raw data store",
+              "description": "Persist incoming data without transformation and retain the original dataset as an immutable record. This supports traceability, reprocessing, and protection against accidental alteration.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s19_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Persistent event log",
+              "description": "Retain domain events indefinitely so state can be reconstructed by replaying the log. This enables point-in-time feature generation and event sourcing, at the cost of storage and operational complexity.",
+              "supporting_doc_ids": [
+                "s05_p04",
+                "s05_p05",
+                "s05_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Processed feature persistence",
+              "description": "Persist engineered features in a feature data store for later training and serving. This reduces repeated computation but does not by itself preserve all original source information.",
+              "supporting_doc_ids": [
+                "s02_p05",
+                "s02_p06",
+                "s06_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Short-retention event storage",
+              "description": "Retain streaming events for only a limited period. This reduces storage cost but creates cold-start and backfill problems when new stateful features are introduced.",
+              "supporting_doc_ids": [
+                "s05_p03"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Data Processing Mode",
+          "description": "When and how data transformations, aggregations, and feature calculations execute. Values answer whether processing is batch, nearline, real-time, streaming, or hybrid.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Data Processing Mode requires Feature Computation Strategy to be decided first",
+              "type": "requires",
+              "rationale": "The processing mode determines whether feature definitions must support batch computation, low-latency lookup, streaming updates, or multiple paths."
+            },
+            {
+              "target_id": "11",
+              "reading": "Data Processing Mode affects Model Serving Pattern",
+              "type": "affects",
+              "rationale": "Batch processing naturally supports precomputed or asynchronous predictions, while real-time processing supports synchronous serving."
+            },
+            {
+              "target_id": "14",
+              "reading": "Data Processing Mode affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Streaming or nearline processing enables incremental or frequent retraining, whereas batch processing generally supports scheduled retraining."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Batch processing",
+              "description": "Process accumulated data in scheduled or ad hoc jobs. It supports large datasets and complex computation, but results can become stale.",
+              "supporting_doc_ids": [
+                "s02_p02",
+                "s12_p02",
+                "s12_p03",
+                "s15_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Near-real-time processing",
+              "description": "Process events asynchronously with an acceptable delay of seconds to minutes. It balances freshness and computational flexibility.",
+              "supporting_doc_ids": [
+                "s12_p02",
+                "s12_p04",
+                "s15_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Real-time processing",
+              "description": "Process data during a request or event with minimal delay. It improves responsiveness and freshness but constrains algorithmic complexity and infrastructure design.",
+              "supporting_doc_ids": [
+                "s02_p02",
+                "s02_p04",
+                "s10_p03",
+                "s12_p03",
+                "s15_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Hybrid batch and online processing",
+              "description": "Precompute expensive or stable portions offline and compute context-sensitive portions online or nearline. This combines freshness with manageable latency and cost.",
+              "supporting_doc_ids": [
+                "s02_p02",
+                "s12_p04",
+                "s12_p07"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Data Quality and Privacy Control",
+          "description": "How the pipeline validates, sanitizes, protects, and governs incoming data before it reaches feature engineering or training.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Data Quality and Privacy Control constrains Model Training Strategy",
+              "type": "constrains",
+              "rationale": "Schema violations, missing values, biased labels, and privacy restrictions limit which training data and transformations can be used."
+            },
+            {
+              "target_id": "14",
+              "reading": "Data Quality and Privacy Control affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Data skew or quality violations can stop retraining, while accepted distribution changes can trigger it."
+            },
+            {
+              "target_id": "6",
+              "reading": "Data Quality and Privacy Control affects Data Lineage and Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Validation metadata, provenance, access controls, and dataset snapshots are needed to explain and reproduce training inputs."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Automated schema validation",
+              "description": "Check incoming schemas, types, expected features, and domains automatically, stopping the pipeline when violations are detected.",
+              "supporting_doc_ids": [
+                "s06_p08",
+                "s20_p06",
+                "s22_p07",
+                "s24_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Statistical drift validation",
+              "description": "Compare current data distributions with training or baseline distributions and use thresholds to detect meaningful changes.",
+              "supporting_doc_ids": [
+                "s06_p08",
+                "s06_p11",
+                "s24_p06",
+                "s24_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Programmatic data cleaning",
+              "description": "Use reusable code to handle missing values, outliers, invalid records, transformations, and restructuring rather than ad hoc manual edits.",
+              "supporting_doc_ids": [
+                "s02_p04",
+                "s19_p04",
+                "s20_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Privacy-preserving data handling",
+              "description": "Anonymize, restrict, or retain sensitive data under access and regulatory controls. This may favor on-premise, edge, or hybrid deployment.",
+              "supporting_doc_ids": [
+                "s19_p02",
+                "s21_p14",
+                "s22_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Unvalidated production data",
+              "description": "Allow data to flow into training or serving without systematic schema, distribution, or quality checks. This creates silent failures, degraded predictions, and unsafe retraining.",
+              "supporting_doc_ids": [
+                "s06_p05",
+                "s23_p03",
+                "s23_p04"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Feature Computation Strategy",
+          "description": "How features are defined, transformed, stored, shared, and made available consistently for training and prediction.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Feature Computation Strategy requires Data Segregation Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Feature transformations and selection must be applied consistently to training, validation, test, and serving data."
+            },
+            {
+              "target_id": "11",
+              "reading": "Feature Computation Strategy affects Model Serving Pattern",
+              "type": "affects",
+              "rationale": "Precomputed features support batch or low-latency serving, while request-time features support online prediction but add latency and infrastructure cost."
+            },
+            {
+              "target_id": "6",
+              "reading": "Feature Computation Strategy affects Data Lineage and Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Versioned feature definitions and shared transformations are needed to reproduce model inputs and prevent training-serving skew."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Ad hoc notebook feature engineering",
+              "description": "Develop features interactively in notebooks. This supports exploration and rapid prototyping but creates risks of duplication, weak testing, and irreproducible state.",
+              "supporting_doc_ids": [
+                "s02_p04",
+                "s26_p01",
+                "s26_p02",
+                "s28_p02",
+                "s29_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Reusable feature pipeline",
+              "description": "Implement feature extraction, transformation, and selection as immutable, composable, tested, and reusable pipeline components.",
+              "supporting_doc_ids": [
+                "s02_p04",
+                "s02_p05",
+                "s19_p04",
+                "s20_p06",
+                "s22_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Centralized feature store",
+              "description": "Use a shared repository and API for feature definitions, historical training data, batch serving, and low-latency online serving. It reduces duplicated data engineering and training-serving skew, but requires specialized infrastructure.",
+              "supporting_doc_ids": [
+                "s05_p04",
+                "s05_p05",
+                "s05_p06",
+                "s06_p09",
+                "s21_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Request-time feature computation",
+              "description": "Compute features when a prediction request arrives by querying and aggregating source data. It supports fresh values but can introduce serial network latency and reliability risks.",
+              "supporting_doc_ids": [
+                "s09_p06",
+                "s10_p04",
+                "s16_p04",
+                "s16_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Precomputed feature lookup",
+              "description": "Compute features ahead of prediction and retrieve them from an in-memory or low-latency store. It improves serving speed but can become stale.",
+              "supporting_doc_ids": [
+                "s02_p06",
+                "s02_p13",
+                "s10_p04",
+                "s11_p05",
+                "s12_p07"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Data Lineage and Reproducibility Strategy",
+          "description": "How the system records the identity, provenance, versions, parameters, environments, and outputs needed to reproduce experiments and audit production models.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Data Lineage and Reproducibility Strategy constrains Model Training Strategy",
+              "type": "constrains",
+              "rationale": "Reproducible training requires versioned datasets, features, code, parameters, dependencies, and execution metadata."
+            },
+            {
+              "target_id": "10",
+              "reading": "Data Lineage and Reproducibility Strategy constrains Model Packaging Strategy",
+              "type": "constrains",
+              "rationale": "A deployable artifact must include or reference compatible runtime dependencies and the exact model inputs and configuration used to create it."
+            },
+            {
+              "target_id": "14",
+              "reading": "Data Lineage and Reproducibility Strategy affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Recorded runs, artifacts, and previous models enable comparison, rollback, debugging, and controlled retraining."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Dataset and feature versioning",
+              "description": "Version raw and prepared datasets, feature definitions, and data transformations so training inputs can be recovered and compared.",
+              "supporting_doc_ids": [
+                "s06_p10",
+                "s20_p07",
+                "s22_p05",
+                "s22_p13",
+                "s25_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Experiment metadata tracking",
+              "description": "Record pipeline and component versions, parameters, timings, artifacts, metrics, executors, and predecessor models for every run.",
+              "supporting_doc_ids": [
+                "s02_p09",
+                "s06_p10",
+                "s20_p08",
+                "s22_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Reproducible runtime environments",
+              "description": "Capture software dependencies and use matching development, training, and serving environments, commonly through containers or managed environments.",
+              "supporting_doc_ids": [
+                "s06_p07",
+                "s22_p13",
+                "s25_p02",
+                "s25_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Untracked experimental state",
+              "description": "Rely on notebooks, local dependencies, cached cells, or undocumented scripts without systematic versioning. This makes results difficult to reproduce, review, or deploy.",
+              "supporting_doc_ids": [
+                "s26_p02",
+                "s28_p01",
+                "s28_p03",
+                "s29_p04",
+                "s29_p06"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Data Segregation Strategy",
+          "description": "How data is separated into training, validation, and test subsets so model selection estimates performance on unseen data.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Data Segregation Strategy affects Model Evaluation Strategy",
+              "type": "affects",
+              "rationale": "The split method and held-out data determine the validity, bias, and comparability of evaluation results."
+            },
+            {
+              "target_id": "6",
+              "reading": "Data Segregation Strategy affects Data Lineage and Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Ratios, seeds, ordering, and split definitions must be recorded to reproduce model comparisons."
+            },
+            {
+              "target_id": "14",
+              "reading": "Data Segregation Strategy affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Retraining must preserve appropriate separation and avoid leakage when new data or labels are incorporated."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Sequential split",
+              "description": "Use an ordered prefix for training and a subsequent segment for testing. This avoids overlap and can reflect temporal deployment conditions.",
+              "supporting_doc_ids": [
+                "s02_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Random seeded split",
+              "description": "Select training records randomly using a reproducible seed and use the complement for evaluation.",
+              "supporting_doc_ids": [
+                "s02_p07",
+                "s18_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Shuffled split",
+              "description": "Split records sequentially or randomly and shuffle records within the resulting datasets to reduce ordering effects.",
+              "supporting_doc_ids": [
+                "s02_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Custom controlled split",
+              "description": "Inject a domain-specific strategy when explicit control over entities, time periods, or separation boundaries is required.",
+              "supporting_doc_ids": [
+                "s02_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Leaky or reused test set",
+              "description": "Use test data repeatedly for model selection or allow overlap between training and evaluation data. This produces optimistic estimates and poor production generalization.",
+              "supporting_doc_ids": [
+                "s19_p02",
+                "s22_p08"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Model Evaluation Strategy",
+          "description": "How candidate models are measured, compared, validated, and approved for production, including predictive, business, fairness, and system criteria.",
+          "relations": [
+            {
+              "target_id": "9",
+              "reading": "Model Evaluation Strategy affects Model Promotion Strategy",
+              "type": "affects",
+              "rationale": "Evaluation thresholds and comparison results determine whether a model is promoted, canaried, retained, or rejected."
+            },
+            {
+              "target_id": "14",
+              "reading": "Model Evaluation Strategy affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Performance degradation, metric thresholds, and business-impact measures provide triggers for retraining."
+            },
+            {
+              "target_id": "11",
+              "reading": "Model Evaluation Strategy constrains Model Serving Pattern",
+              "type": "constrains",
+              "rationale": "A model must meet serving latency, throughput, compatibility, and quality requirements for its intended serving mode."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Holdout-set evaluation",
+              "description": "Measure predictions against a disjoint test set and known ground truth to estimate generalization quality.",
+              "supporting_doc_ids": [
+                "s02_p09",
+                "s06_p04",
+                "s19_p06",
+                "s22_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Cross-validation evaluation",
+              "description": "Train and evaluate across multiple folds to compare algorithms, features, and hyperparameters more robustly.",
+              "supporting_doc_ids": [
+                "s10_p06",
+                "s19_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.3",
+              "dimension_id": "8",
+              "label": "Business-impact evaluation",
+              "description": "Assess application-specific outcomes such as revenue, engagement, safety, fairness, or operational value in addition to predictive metrics.",
+              "supporting_doc_ids": [
+                "s03_p02",
+                "s09_p04",
+                "s23_p06",
+                "s23_p09",
+                "s22_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.4",
+              "dimension_id": "8",
+              "label": "Production-like online evaluation",
+              "description": "Evaluate candidate behavior using shadow traffic, canary traffic, or A/B experiments before full promotion.",
+              "supporting_doc_ids": [
+                "s06_p09",
+                "s09_p02",
+                "s09_p11",
+                "s20_p09",
+                "s25_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.5",
+              "dimension_id": "8",
+              "label": "Baseline comparison",
+              "description": "Compare sophisticated models with simple heuristics or baseline models before accepting additional complexity and cost.",
+              "supporting_doc_ids": [
+                "s09_p04",
+                "s22_p08"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Model Training Strategy",
+          "description": "How models are learned, including batch versus incremental learning, algorithm exploration, parallelism, hyperparameter optimization, and training fault tolerance.",
+          "relations": [
+            {
+              "target_id": "10",
+              "reading": "Model Training Strategy requires Model Packaging Strategy to be decided first",
+              "type": "requires",
+              "rationale": "The chosen training framework, model type, and dependencies determine how the resulting artifact can be exported and executed in production."
+            },
+            {
+              "target_id": "14",
+              "reading": "Model Training Strategy affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Batch, incremental, and automated training approaches determine retraining frequency, resource needs, and reaction speed."
+            },
+            {
+              "target_id": "7",
+              "reading": "Model Training Strategy requires Data Segregation Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Training and evaluation algorithms need defined datasets and labels to produce valid candidate comparisons."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Offline batch training",
+              "description": "Train on a collected historical dataset at scheduled or event-triggered intervals. It supports complex models and large datasets but reacts slowly to changing distributions.",
+              "supporting_doc_ids": [
+                "s02_p08",
+                "s12_p05",
+                "s19_p06",
+                "s19_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "9.2",
+              "dimension_id": "9",
+              "label": "Incremental online training",
+              "description": "Update model parameters continuously or in mini-batches as new examples arrive. It reduces memory requirements and reacts quickly, but increases sensitivity to bad data and consistency failures.",
+              "supporting_doc_ids": [
+                "s11_p01",
+                "s11_p03",
+                "s11_p08",
+                "s19_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "9.3",
+              "dimension_id": "9",
+              "label": "Parallel candidate training",
+              "description": "Train multiple algorithms, parameter combinations, models, partitions, or replicas concurrently to improve search speed and throughput.",
+              "supporting_doc_ids": [
+                "s02_p08",
+                "s04_p04",
+                "s04_p15",
+                "s19_p05",
+                "s20_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "9.4",
+              "dimension_id": "9",
+              "label": "Automated hyperparameter and architecture search",
+              "description": "Use AutoML, hyperparameter optimization, or neural architecture search to explore preprocessing, models, parameters, and architectures automatically. It reduces manual effort but can consume substantial compute and may underperform expert-designed solutions.",
+              "supporting_doc_ids": [
+                "s04_p15",
+                "s17_p01",
+                "s17_p03",
+                "s17_p04",
+                "s18_p02",
+                "s18_p05"
+              ],
+              "status": "outcome"
+            },
+            {
+              "id": "9.5",
+              "dimension_id": "9",
+              "label": "Fault-tolerant checkpointed training",
+              "description": "Use checkpoints, partition-level retry, and failover so transient training failures do not require restarting the entire job.",
+              "supporting_doc_ids": [
+                "s02_p08",
+                "s22_p09"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "name": "Model Packaging Strategy",
+          "description": "How a trained model, its preprocessing logic, parameters, interpreter, and dependencies are represented and transferred to serving environments.",
+          "relations": [
+            {
+              "target_id": "11",
+              "reading": "Model Packaging Strategy constrains Model Serving Pattern",
+              "type": "constrains",
+              "rationale": "Serving options depend on whether the target environment can execute the chosen model representation and dependencies."
+            },
+            {
+              "target_id": "12",
+              "reading": "Model Packaging Strategy affects Deployment Runtime Strategy",
+              "type": "affects",
+              "rationale": "Packaging choices determine portability, image construction, resource requirements, and runtime compatibility."
+            },
+            {
+              "target_id": "6",
+              "reading": "Model Packaging Strategy affects Data Lineage and Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "The packaged artifact and its dependencies must be versioned and linked to the training run."
+            }
+          ],
+          "values": [
+            {
+              "id": "10.1",
+              "dimension_id": "10",
+              "label": "Language-specific model artifact",
+              "description": "Persist a model in its native framework or language representation, such as a pickle, TensorFlow, PyTorch, HDF, or Java artifact. It is convenient but couples serving to the original runtime.",
+              "supporting_doc_ids": [
+                "s09_p09",
+                "s09_p10",
+                "s19_p11"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.2",
+              "dimension_id": "10",
+              "label": "Language-agnostic exchange format",
+              "description": "Export the model to PMML, PFA, ONNX, or a similar portable representation so different training and serving languages can interoperate. Coverage and runtime support may be limited.",
+              "supporting_doc_ids": [
+                "s09_p10",
+                "s10_p05",
+                "s10_p06",
+                "s19_p10"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.3",
+              "dimension_id": "10",
+              "label": "Amalgamated standalone artifact",
+              "description": "Bundle the model and execution code into a portable standalone program or package. This can be compact and suitable for constrained environments, but model and runtime management remain coupled.",
+              "supporting_doc_ids": [
+                "s19_p10"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.4",
+              "dimension_id": "10",
+              "label": "Containerized model artifact",
+              "description": "Package model code, dependencies, and runtime into a container image. This improves portability and reproducibility across development and production environments.",
+              "supporting_doc_ids": [
+                "s02_p11",
+                "s04_p02",
+                "s06_p07",
+                "s19_p17",
+                "s25_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.5",
+              "dimension_id": "10",
+              "label": "Manual production rewrite",
+              "description": "Rewrite research code in another production language or manually reconstruct transformations and model behavior. This can address runtime constraints but is slow, error-prone, and may reduce performance or accuracy.",
+              "supporting_doc_ids": [
+                "s02_p10",
+                "s04_p01",
+                "s04_p02",
+                "s10_p07"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "11",
+          "name": "Model Serving Pattern",
+          "description": "How predictions are exposed and computed for consumers after training, including batch, synchronous, asynchronous, embedded, and service-based alternatives.",
+          "relations": [
+            {
+              "target_id": "12",
+              "reading": "Model Serving Pattern constrains Deployment Runtime Strategy",
+              "type": "constrains",
+              "rationale": "Synchronous, asynchronous, embedded, and batch serving impose different runtime, scaling, and resource requirements."
+            },
+            {
+              "target_id": "13",
+              "reading": "Model Serving Pattern affects Model Promotion Strategy",
+              "type": "affects",
+              "rationale": "Service-based and multi-version serving enable traffic splitting, shadowing, canaries, and rollback."
+            },
+            {
+              "target_id": "3",
+              "reading": "Model Serving Pattern requires Data Processing Mode to be decided first",
+              "type": "requires",
+              "rationale": "Serving mode must match whether features and predictions are produced in batch, nearline, or real time."
+            }
+          ],
+          "values": [
+            {
+              "id": "11.1",
+              "dimension_id": "11",
+              "label": "Batch prediction",
+              "description": "Run predictions over a collection of records and persist results for later consumption. It maximizes throughput and supports complex computation but does not provide immediate responses.",
+              "supporting_doc_ids": [
+                "s01_p08",
+                "s02_p13",
+                "s06_p04",
+                "s19_p07",
+                "s19_p15"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.2",
+              "dimension_id": "11",
+              "label": "Synchronous model service",
+              "description": "Expose a model through REST, RPC, or another request-response API for online predictions. It supports immediate decisions but must satisfy latency, availability, and throughput requirements.",
+              "supporting_doc_ids": [
+                "s01_p08",
+                "s02_p11",
+                "s06_p04",
+                "s10_p04",
+                "s19_p14"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.3",
+              "dimension_id": "11",
+              "label": "Asynchronous model service",
+              "description": "Submit prediction requests to a queue or event processor and receive results later through notifications, polling, or a result queue. It supports heavy computation and decoupling but introduces delay.",
+              "supporting_doc_ids": [
+                "s02_p13",
+                "s10_p04",
+                "s12_p04",
+                "s19_p15"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.4",
+              "dimension_id": "11",
+              "label": "Model-as-dependency",
+              "description": "Package the model inside the consuming application and invoke it directly as a library or dependency. This minimizes network latency but couples application releases to model releases.",
+              "supporting_doc_ids": [
+                "s19_p14",
+                "s19_p15"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.5",
+              "dimension_id": "11",
+              "label": "Edge or device serving",
+              "description": "Deploy the model to a mobile, IoT, or edge device for local inference. This can reduce data movement and latency but constrains compute, storage, and update mechanisms.",
+              "supporting_doc_ids": [
+                "s06_p04",
+                "s07_p01",
+                "s07_p02",
+                "s19_p16",
+                "s25_p05",
+                "s25_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.6",
+              "dimension_id": "11",
+              "label": "Federated hybrid serving",
+              "description": "Use a shared server model together with user- or device-specific models trained locally, sending model updates rather than personal data to the server. This improves privacy but complicates distributed training and availability.",
+              "supporting_doc_ids": [
+                "s19_p16"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "12",
+          "name": "Deployment Runtime Strategy",
+          "description": "Where and how model-serving computation runs, including infrastructure ownership, orchestration, elasticity, and placement.",
+          "relations": [
+            {
+              "target_id": "13",
+              "reading": "Deployment Runtime Strategy affects Model Promotion Strategy",
+              "type": "affects",
+              "rationale": "Runtime capabilities determine whether multiple versions, traffic splitting, rollback, and zero-downtime updates are practical."
+            },
+            {
+              "target_id": "14",
+              "reading": "Deployment Runtime Strategy affects Model Retraining Strategy",
+              "type": "affects",
+              "rationale": "Available compute, elasticity, and operational automation determine the feasible frequency and cost of retraining."
+            },
+            {
+              "target_id": "15",
+              "reading": "Deployment Runtime Strategy affects System Modularity Strategy",
+              "type": "affects",
+              "rationale": "Containers, serverless functions, and microservices encourage independently deployable components, while embedded or monolithic runtimes increase coupling."
+            }
+          ],
+          "values": [
+            {
+              "id": "12.1",
+              "dimension_id": "12",
+              "label": "Container cluster deployment",
+              "description": "Run model services in containers orchestrated by Kubernetes or a comparable cluster. It supports portability, horizontal scaling, isolation, and controlled rollout, but requires platform operations.",
+              "supporting_doc_ids": [
+                "s02_p11",
+                "s04_p05",
+                "s04_p11",
+                "s19_p17",
+                "s25_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "12.2",
+              "dimension_id": "12",
+              "label": "Serverless function deployment",
+              "description": "Deploy model logic as event-driven functions with provider-managed provisioning, scaling, logging, and monitoring. It reduces operational work and supports elasticity, but has limits around state, execution duration, and artifact size.",
+              "supporting_doc_ids": [
+                "s04_p06",
+                "s04_p07",
+                "s07_p01",
+                "s19_p17"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "12.3",
+              "dimension_id": "12",
+              "label": "Managed cloud ML platform",
+              "description": "Use an integrated provider platform for pipelines, environments, registries, deployment, monitoring, and governance. It accelerates delivery but increases provider dependence and may raise compliance concerns.",
+              "supporting_doc_ids": [
+                "s20_p11",
+                "s21_p16",
+                "s25_p01",
+                "s25_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "12.4",
+              "dimension_id": "12",
+              "label": "On-premise deployment",
+              "description": "Run data, training, and serving on infrastructure controlled by the organization. It can address sensitive-data and governance requirements but requires substantial infrastructure and specialized staff.",
+              "supporting_doc_ids": [
+                "s04_p05",
+                "s13_p09",
+                "s21_p14",
+                "s21_p15"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "12.5",
+              "dimension_id": "12",
+              "label": "Hybrid cloud deployment",
+              "description": "Split ML components between private or on-premise systems and public cloud services. It balances privacy and elasticity but adds operational and integration complexity.",
+              "supporting_doc_ids": [
+                "s07_p01",
+                "s07_p02",
+                "s13_p09",
+                "s21_p14",
+                "s21_p15"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "12.6",
+              "dimension_id": "12",
+              "label": "Vertical and horizontal scaling",
+              "description": "Scale training primarily by adding resources to a worker and scale stateless inference by adding instances and load balancing. This matches differing workload characteristics but requires separate capacity strategies.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s02_p11",
+                "s04_p02",
+                "s11_p04",
+                "s11_p06"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "13",
+          "name": "Model Promotion Strategy",
+          "description": "How new model versions are introduced, compared with existing versions, exposed to traffic, and rolled back when necessary.",
+          "relations": [
+            {
+              "target_id": "14",
+              "reading": "Model Promotion Strategy affects Model Monitoring Strategy",
+              "type": "affects",
+              "rationale": "Canaries, A/B tests, shadow traffic, and rollback require monitoring of model and application outcomes."
+            },
+            {
+              "target_id": "8",
+              "reading": "Model Promotion Strategy requires Model Evaluation Strategy to be decided first",
+              "type": "requires",
+              "rationale": "A model should be promoted only after offline quality, infrastructure compatibility, and relevant business criteria are evaluated."
+            },
+            {
+              "target_id": "6",
+              "reading": "Model Promotion Strategy requires Data Lineage and Reproducibility Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Promotion and rollback require identifiable, versioned model artifacts and their training metadata."
+            }
+          ],
+          "values": [
+            {
+              "id": "13.1",
+              "dimension_id": "13",
+              "label": "Direct replacement",
+              "description": "Replace the currently serving model with the validated candidate. This is simple but exposes all traffic to the new model immediately.",
+              "supporting_doc_ids": [
+                "s09_p11",
+                "s25_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "13.2",
+              "dimension_id": "13",
+              "label": "Canary rollout",
+              "description": "Send a small fraction of production traffic to the new model and increase exposure after monitoring its behavior.",
+              "supporting_doc_ids": [
+                "s02_p10",
+                "s06_p09",
+                "s09_p11",
+                "s20_p09",
+                "s25_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "13.3",
+              "dimension_id": "13",
+              "label": "A/B traffic experiment",
+              "description": "Route different user or traffic segments to competing models and compare their predictive and application outcomes.",
+              "supporting_doc_ids": [
+                "s03_p02",
+                "s06_p06",
+                "s09_p11",
+                "s20_p09",
+                "s25_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "13.4",
+              "dimension_id": "13",
+              "label": "Shadow deployment",
+              "description": "Run production inputs through a candidate model without returning its results to users, then compare its outputs with the live model.",
+              "supporting_doc_ids": [
+                "s20_p08",
+                "s20_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "13.5",
+              "dimension_id": "13",
+              "label": "Rollback to previous model",
+              "description": "Route predictions back to a previously deployed model when latency, accuracy, drift, or other production criteria deteriorate.",
+              "supporting_doc_ids": [
+                "s02_p14",
+                "s09_p11",
+                "s20_p10",
+                "s22_p15"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "13.6",
+              "dimension_id": "13",
+              "label": "Zero-downtime version coexistence",
+              "description": "Keep old and new models available simultaneously so requests continue to be served during transition.",
+              "supporting_doc_ids": [
+                "s02_p10",
+                "s02_p11",
+                "s04_p03"
+              ],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "14",
+          "name": "Model Monitoring and Retraining Strategy",
+          "description": "How the operating system observes model, data, service, and business behavior and decides when to alert, retrain, investigate, or recover.",
+          "relations": [
+            {
+              "target_id": "9",
+              "reading": "Model Monitoring and Retraining Strategy affects Model Training Strategy",
+              "type": "affects",
+              "rationale": "Monitoring signals and retraining triggers determine whether training is periodic, event-driven, incremental, or manually initiated."
+            },
+            {
+              "target_id": "13",
+              "reading": "Model Monitoring and Retraining Strategy affects Model Promotion Strategy",
+              "type": "affects",
+              "rationale": "Monitoring determines whether a candidate remains deployed, is promoted, or is rolled back."
+            },
+            {
+              "target_id": "4",
+              "reading": "Model Monitoring and Retraining Strategy affects Data Quality and Privacy Control",
+              "type": "affects",
+              "rationale": "Production monitoring can reveal schema violations, data drift, anomalies, and upstream data-quality problems."
+            }
+          ],
+          "values": [
+            {
+              "id": "14.1",
+              "dimension_id": "14",
+              "label": "Manual post-deployment review",
+              "description": "People inspect model behavior and initiate investigation or retraining manually. It may suffice for rarely changing models but provides slow detection and weak operational continuity.",
+              "supporting_doc_ids": [
+                "s06_p05",
+                "s06_p06",
+                "s21_p07",
+                "s23_p11"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "14.2",
+              "dimension_id": "14",
+              "label": "Operational health monitoring",
+              "description": "Track latency, throughput, uptime, resource use, logging, and infrastructure failures for the serving system.",
+              "supporting_doc_ids": [
+                "s02_p14",
+                "s04_p03",
+                "s09_p04",
+                "s23_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "14.3",
+              "dimension_id": "14",
+              "label": "Data and prediction drift monitoring",
+              "description": "Track input distributions, feature statistics, prediction distributions, observed outcomes, and model-quality metrics to detect degradation or staleness.",
+              "supporting_doc_ids": [
+                "s02_p14",
+                "s06_p08",
+                "s22_p10",
+                "s22_p11",
+                "s23_p04",
+                "s24_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "14.4",
+              "dimension_id": "14",
+              "label": "Schedule-triggered retraining",
+              "description": "Retrain on a fixed calendar schedule such as hourly, daily, weekly, or monthly. It is predictable but may retrain unnecessarily or miss sudden changes.",
+              "supporting_doc_ids": [
+                "s02_p08",
+                "s06_p11",
+                "s20_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "14.5",
+              "dimension_id": "14",
+              "label": "Data- or performance-triggered retraining",
+              "description": "Start retraining when new labeled data arrives, data distributions change, or performance falls below a threshold. It responds to change but requires reliable monitoring and validation.",
+              "supporting_doc_ids": [
+                "s06_p08",
+                "s06_p11",
+                "s20_p06",
+                "s25_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "14.6",
+              "dimension_id": "14",
+              "label": "Human review escalation",
+              "description": "Send low-confidence, anomalous, or high-risk predictions to domain experts for review and use corrected labels to improve later training.",
+              "supporting_doc_ids": [
+                "s09_p03",
+                "s09_p04",
+                "s09_p09",
+                "s24_p01",
+                "s24_p08",
+                "s24_p11"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "14.7",
+              "dimension_id": "14",
+              "label": "Silent model degradation",
+              "description": "Allow models to continue serving without monitoring data, predictions, outcomes, or business impact. This permits unnoticed decay, bias, and harmful decisions.",
+              "supporting_doc_ids": [
+                "s06_p05",
+                "s23_p02",
+                "s23_p03",
+                "s23_p05",
+                "s23_p11"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "15",
+          "name": "System Modularity Strategy",
+          "description": "How ML data, training, serving, and application responsibilities are decomposed into components and connected across team and system boundaries.",
+          "relations": [
+            {
+              "target_id": "12",
+              "reading": "System Modularity Strategy affects Deployment Runtime Strategy",
+              "type": "affects",
+              "rationale": "Independent services are commonly deployed as containers, functions, or separately managed runtimes, while monoliths favor a shared runtime."
+            },
+            {
+              "target_id": "11",
+              "reading": "System Modularity Strategy affects Model Serving Pattern",
+              "type": "affects",
+              "rationale": "Siloed model services support independent APIs and releases, whereas embedded models favor dependency-based serving."
+            },
+            {
+              "target_id": "5",
+              "reading": "System Modularity Strategy constrains Feature Computation Strategy",
+              "type": "constrains",
+              "rationale": "Strict service boundaries can make feature retrieval expensive and can motivate a centralized feature store or materialized views."
+            }
+          ],
+          "values": [
+            {
+              "id": "15.1",
+              "dimension_id": "15",
+              "label": "Monolithic application",
+              "description": "Keep ML functionality and surrounding product logic in one application. This reduces network coordination and can simplify shared data access, but increases cognitive and release coupling as the system grows.",
+              "supporting_doc_ids": [
+                "s03_p01",
+                "s05_p01",
+                "s16_p06",
+                "s16_p07"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "15.2",
+              "dimension_id": "15",
+              "label": "Independent ML microservices",
+              "description": "Isolate ML capabilities behind independently deployable services and APIs. This supports team autonomy, scaling, and language flexibility, but can create network latency and feature-fetching complexity.",
+              "supporting_doc_ids": [
+                "s01_p02",
+                "s01_p07",
+                "s03_p01",
+                "s07_p01",
+                "s09_p02",
+                "s19_p14"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "15.3",
+              "dimension_id": "15",
+              "label": "Modular pipeline components",
+              "description": "Decompose ingestion, preparation, training, evaluation, deployment, and monitoring into reusable, composable, testable components without requiring every component to be a network service.",
+              "supporting_doc_ids": [
+                "s02_p15",
+                "s04_p07",
+                "s06_p07",
+                "s20_p06",
+                "s22_p14"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "15.4",
+              "dimension_id": "15",
+              "label": "Centralized feature-store boundary",
+              "description": "Keep product services as sources of domain events while maintaining ML-specific materialized views in a shared feature store. This avoids repeated cascaded service calls and preserves ML ownership of feature logic.",
+              "supporting_doc_ids": [
+                "s05_p04",
+                "s05_p05",
+                "s05_p06",
+                "s06_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "15.5",
+              "dimension_id": "15",
+              "label": "Overly coupled service graph",
+              "description": "Require prediction requests to make many dependent calls across microservices for contextual features. Serial network latency, unavailable features, and schema coupling can make real-time prediction impractical.",
+              "supporting_doc_ids": [
+                "s05_p01",
+                "s05_p02",
+                "s16_p04",
+                "s16_p05"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "16",
+          "name": "MLOps Automation Strategy",
+          "description": "How much of data preparation, experimentation, testing, training, deployment, and operation is automated and integrated into a repeatable lifecycle.",
+          "relations": [
+            {
+              "target_id": "6",
+              "reading": "MLOps Automation Strategy affects Data Lineage and Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Automated pipelines can consistently record artifacts, metadata, versions, and environments across runs."
+            },
+            {
+              "target_id": "13",
+              "reading": "MLOps Automation Strategy affects Model Promotion Strategy",
+              "type": "affects",
+              "rationale": "Continuous delivery enables automated packaging, validation, canarying, traffic changes, and rollback."
+            },
+            {
+              "target_id": "14",
+              "reading": "MLOps Automation Strategy affects Model Monitoring and Retraining Strategy",
+              "type": "affects",
+              "rationale": "Continuous training and event-triggered workflows connect monitoring signals to retraining and redeployment."
+            }
+          ],
+          "values": [
+            {
+              "id": "16.1",
+              "dimension_id": "16",
+              "label": "Manual notebook workflow",
+              "description": "Execute data analysis, preparation, training, validation, and handoff interactively. It is appropriate for early exploration or infrequently changing models but has slow iteration and handoff risks.",
+              "supporting_doc_ids": [
+                "s01_p06",
+                "s06_p05",
+                "s21_p07",
+                "s26_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "16.2",
+              "dimension_id": "16",
+              "label": "Automated ML pipeline",
+              "description": "Orchestrate reusable data, training, evaluation, and deployment steps with triggers and validation to enable continuous training and experimental-operational symmetry.",
+              "supporting_doc_ids": [
+                "s04_p07",
+                "s06_p07",
+                "s06_p08",
+                "s20_p05",
+                "s22_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "16.3",
+              "dimension_id": "16",
+              "label": "CI/CD pipeline automation",
+              "description": "Build, test, package, and deploy pipeline components and model services automatically from version-controlled changes, with approvals or environment gates as needed.",
+              "supporting_doc_ids": [
+                "s04_p09",
+                "s06_p12",
+                "s06_p13",
+                "s06_p14",
+                "s20_p10",
+                "s25_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "16.4",
+              "dimension_id": "16",
+              "label": "Continuous training",
+              "description": "Automatically retrain and serve models when schedules, data availability, drift, or performance events trigger the training pipeline.",
+              "supporting_doc_ids": [
+                "s06_p03",
+                "s06_p07",
+                "s06_p11",
+                "s20_p05",
+                "s22_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "16.5",
+              "dimension_id": "16",
+              "label": "Manual model handoff",
+              "description": "Hand a trained model artifact from data scientists to engineers for separate production deployment. This creates training-serving skew, slow releases, and weak ownership boundaries.",
+              "supporting_doc_ids": [
+                "s06_p05",
+                "s06_p06",
+                "s21_p07"
+              ],
+              "status": "rejected"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Data Ingestion Pattern",
+      "description": "How the system acquires data from operational sources and moves it into the machine-learning workflow. Values answer whether data is pulled, pushed, streamed, or captured as changes.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Data Ingestion Pattern affects Raw Data Persistence Strategy",
+          "type": "affects",
+          "rationale": "The ingestion mechanism determines whether the system can preserve an immutable copy, replay events, or retain only current records."
+        },
+        {
+          "target_id": "3",
+          "reading": "Data Ingestion Pattern affects Feature Computation Strategy",
+          "type": "affects",
+          "rationale": "Batch, streaming, and event-driven ingestion determine whether features can be computed offline, nearline, or online."
+        },
+        {
+          "target_id": "4",
+          "reading": "Data Ingestion Pattern constrains Data Processing Mode",
+          "type": "constrains",
+          "rationale": "Streaming inputs favor streaming or near-real-time processing, while periodic extraction supports batch processing."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Scheduled batch extraction",
+          "description": "Data is collected and processed on a recurring schedule, such as daily or several times per day. It is simple and suitable when freshness requirements are relaxed, but it can produce stale results.",
+          "supporting_doc_ids": [
+            "s01_p08",
+            "s02_p03",
+            "s12_p05",
+            "s15_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Event-triggered ingestion",
+          "description": "A message or notification triggers ingestion when source data becomes available. This decouples producers from consumers and supports reactive pipelines.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s02_p06",
+            "s12_p05",
+            "s22_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Streaming event ingestion",
+          "description": "Events are continuously pushed through a message or event-streaming system for high-throughput, low-latency processing. It improves freshness but increases operational and retention complexity.",
+          "supporting_doc_ids": [
+            "s02_p04",
+            "s05_p03",
+            "s05_p06",
+            "s12_p06",
+            "s15_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Query-based source extraction",
+          "description": "The ML workflow queries and extracts data from source systems or database dumps. It is convenient for retrospective joins and large-scale training, but can create coupling to source schemas and APIs.",
+          "supporting_doc_ids": [
+            "s05_p02",
+            "s05_p03",
+            "s15_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.5",
+          "dimension_id": "1",
+          "label": "Change-data capture",
+          "description": "Database changes are converted into a stream for downstream ML processing. This avoids modifying every producer to emit events, but remains vulnerable to source-schema changes.",
+          "supporting_doc_ids": [
+            "s05_p03",
+            "s05_p06",
+            "s15_p03"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Raw Data Persistence Strategy",
+      "description": "How original input data and events are retained for lineage, replay, backfilling, and future training. Values answer whether the system preserves immutable raw records, event history, or only processed data.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Raw Data Persistence Strategy affects Feature Engineering Strategy",
+          "type": "affects",
+          "rationale": "Replayable and point-in-time data enables historical feature reconstruction and backfilling; retaining only transformed data limits those capabilities."
+        },
+        {
+          "target_id": "6",
+          "reading": "Raw Data Persistence Strategy affects Data Lineage and Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Immutable raw data, batch identifiers, timestamps, and event logs make training inputs traceable and reproducible."
+        },
+        {
+          "target_id": "14",
+          "reading": "Raw Data Persistence Strategy affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Retained historical data supports retraining, recovery, and responding to newly discovered labels or attack patterns."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Immutable raw data store",
+          "description": "Persist incoming data without transformation and retain the original dataset as an immutable record. This supports traceability, reprocessing, and protection against accidental alteration.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s19_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Persistent event log",
+          "description": "Retain domain events indefinitely so state can be reconstructed by replaying the log. This enables point-in-time feature generation and event sourcing, at the cost of storage and operational complexity.",
+          "supporting_doc_ids": [
+            "s05_p04",
+            "s05_p05",
+            "s05_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Processed feature persistence",
+          "description": "Persist engineered features in a feature data store for later training and serving. This reduces repeated computation but does not by itself preserve all original source information.",
+          "supporting_doc_ids": [
+            "s02_p05",
+            "s02_p06",
+            "s06_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Short-retention event storage",
+          "description": "Retain streaming events for only a limited period. This reduces storage cost but creates cold-start and backfill problems when new stateful features are introduced.",
+          "supporting_doc_ids": [
+            "s05_p03"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Data Processing Mode",
+      "description": "When and how data transformations, aggregations, and feature calculations execute. Values answer whether processing is batch, nearline, real-time, streaming, or hybrid.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Data Processing Mode requires Feature Computation Strategy to be decided first",
+          "type": "requires",
+          "rationale": "The processing mode determines whether feature definitions must support batch computation, low-latency lookup, streaming updates, or multiple paths."
+        },
+        {
+          "target_id": "11",
+          "reading": "Data Processing Mode affects Model Serving Pattern",
+          "type": "affects",
+          "rationale": "Batch processing naturally supports precomputed or asynchronous predictions, while real-time processing supports synchronous serving."
+        },
+        {
+          "target_id": "14",
+          "reading": "Data Processing Mode affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Streaming or nearline processing enables incremental or frequent retraining, whereas batch processing generally supports scheduled retraining."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Batch processing",
+          "description": "Process accumulated data in scheduled or ad hoc jobs. It supports large datasets and complex computation, but results can become stale.",
+          "supporting_doc_ids": [
+            "s02_p02",
+            "s12_p02",
+            "s12_p03",
+            "s15_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Near-real-time processing",
+          "description": "Process events asynchronously with an acceptable delay of seconds to minutes. It balances freshness and computational flexibility.",
+          "supporting_doc_ids": [
+            "s12_p02",
+            "s12_p04",
+            "s15_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Real-time processing",
+          "description": "Process data during a request or event with minimal delay. It improves responsiveness and freshness but constrains algorithmic complexity and infrastructure design.",
+          "supporting_doc_ids": [
+            "s02_p02",
+            "s02_p04",
+            "s10_p03",
+            "s12_p03",
+            "s15_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Hybrid batch and online processing",
+          "description": "Precompute expensive or stable portions offline and compute context-sensitive portions online or nearline. This combines freshness with manageable latency and cost.",
+          "supporting_doc_ids": [
+            "s02_p02",
+            "s12_p04",
+            "s12_p07"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Data Quality and Privacy Control",
+      "description": "How the pipeline validates, sanitizes, protects, and governs incoming data before it reaches feature engineering or training.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Data Quality and Privacy Control constrains Model Training Strategy",
+          "type": "constrains",
+          "rationale": "Schema violations, missing values, biased labels, and privacy restrictions limit which training data and transformations can be used."
+        },
+        {
+          "target_id": "14",
+          "reading": "Data Quality and Privacy Control affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Data skew or quality violations can stop retraining, while accepted distribution changes can trigger it."
+        },
+        {
+          "target_id": "6",
+          "reading": "Data Quality and Privacy Control affects Data Lineage and Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Validation metadata, provenance, access controls, and dataset snapshots are needed to explain and reproduce training inputs."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Automated schema validation",
+          "description": "Check incoming schemas, types, expected features, and domains automatically, stopping the pipeline when violations are detected.",
+          "supporting_doc_ids": [
+            "s06_p08",
+            "s20_p06",
+            "s22_p07",
+            "s24_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Statistical drift validation",
+          "description": "Compare current data distributions with training or baseline distributions and use thresholds to detect meaningful changes.",
+          "supporting_doc_ids": [
+            "s06_p08",
+            "s06_p11",
+            "s24_p06",
+            "s24_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Programmatic data cleaning",
+          "description": "Use reusable code to handle missing values, outliers, invalid records, transformations, and restructuring rather than ad hoc manual edits.",
+          "supporting_doc_ids": [
+            "s02_p04",
+            "s19_p04",
+            "s20_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Privacy-preserving data handling",
+          "description": "Anonymize, restrict, or retain sensitive data under access and regulatory controls. This may favor on-premise, edge, or hybrid deployment.",
+          "supporting_doc_ids": [
+            "s19_p02",
+            "s21_p14",
+            "s22_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Unvalidated production data",
+          "description": "Allow data to flow into training or serving without systematic schema, distribution, or quality checks. This creates silent failures, degraded predictions, and unsafe retraining.",
+          "supporting_doc_ids": [
+            "s06_p05",
+            "s23_p03",
+            "s23_p04"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Feature Computation Strategy",
+      "description": "How features are defined, transformed, stored, shared, and made available consistently for training and prediction.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Feature Computation Strategy requires Data Segregation Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Feature transformations and selection must be applied consistently to training, validation, test, and serving data."
+        },
+        {
+          "target_id": "11",
+          "reading": "Feature Computation Strategy affects Model Serving Pattern",
+          "type": "affects",
+          "rationale": "Precomputed features support batch or low-latency serving, while request-time features support online prediction but add latency and infrastructure cost."
+        },
+        {
+          "target_id": "6",
+          "reading": "Feature Computation Strategy affects Data Lineage and Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Versioned feature definitions and shared transformations are needed to reproduce model inputs and prevent training-serving skew."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Ad hoc notebook feature engineering",
+          "description": "Develop features interactively in notebooks. This supports exploration and rapid prototyping but creates risks of duplication, weak testing, and irreproducible state.",
+          "supporting_doc_ids": [
+            "s02_p04",
+            "s26_p01",
+            "s26_p02",
+            "s28_p02",
+            "s29_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Reusable feature pipeline",
+          "description": "Implement feature extraction, transformation, and selection as immutable, composable, tested, and reusable pipeline components.",
+          "supporting_doc_ids": [
+            "s02_p04",
+            "s02_p05",
+            "s19_p04",
+            "s20_p06",
+            "s22_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Centralized feature store",
+          "description": "Use a shared repository and API for feature definitions, historical training data, batch serving, and low-latency online serving. It reduces duplicated data engineering and training-serving skew, but requires specialized infrastructure.",
+          "supporting_doc_ids": [
+            "s05_p04",
+            "s05_p05",
+            "s05_p06",
+            "s06_p09",
+            "s21_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Request-time feature computation",
+          "description": "Compute features when a prediction request arrives by querying and aggregating source data. It supports fresh values but can introduce serial network latency and reliability risks.",
+          "supporting_doc_ids": [
+            "s09_p06",
+            "s10_p04",
+            "s16_p04",
+            "s16_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.5",
+          "dimension_id": "5",
+          "label": "Precomputed feature lookup",
+          "description": "Compute features ahead of prediction and retrieve them from an in-memory or low-latency store. It improves serving speed but can become stale.",
+          "supporting_doc_ids": [
+            "s02_p06",
+            "s02_p13",
+            "s10_p04",
+            "s11_p05",
+            "s12_p07"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Data Lineage and Reproducibility Strategy",
+      "description": "How the system records the identity, provenance, versions, parameters, environments, and outputs needed to reproduce experiments and audit production models.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Data Lineage and Reproducibility Strategy constrains Model Training Strategy",
+          "type": "constrains",
+          "rationale": "Reproducible training requires versioned datasets, features, code, parameters, dependencies, and execution metadata."
+        },
+        {
+          "target_id": "10",
+          "reading": "Data Lineage and Reproducibility Strategy constrains Model Packaging Strategy",
+          "type": "constrains",
+          "rationale": "A deployable artifact must include or reference compatible runtime dependencies and the exact model inputs and configuration used to create it."
+        },
+        {
+          "target_id": "14",
+          "reading": "Data Lineage and Reproducibility Strategy affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Recorded runs, artifacts, and previous models enable comparison, rollback, debugging, and controlled retraining."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Dataset and feature versioning",
+          "description": "Version raw and prepared datasets, feature definitions, and data transformations so training inputs can be recovered and compared.",
+          "supporting_doc_ids": [
+            "s06_p10",
+            "s20_p07",
+            "s22_p05",
+            "s22_p13",
+            "s25_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Experiment metadata tracking",
+          "description": "Record pipeline and component versions, parameters, timings, artifacts, metrics, executors, and predecessor models for every run.",
+          "supporting_doc_ids": [
+            "s02_p09",
+            "s06_p10",
+            "s20_p08",
+            "s22_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Reproducible runtime environments",
+          "description": "Capture software dependencies and use matching development, training, and serving environments, commonly through containers or managed environments.",
+          "supporting_doc_ids": [
+            "s06_p07",
+            "s22_p13",
+            "s25_p02",
+            "s25_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.4",
+          "dimension_id": "6",
+          "label": "Untracked experimental state",
+          "description": "Rely on notebooks, local dependencies, cached cells, or undocumented scripts without systematic versioning. This makes results difficult to reproduce, review, or deploy.",
+          "supporting_doc_ids": [
+            "s26_p02",
+            "s28_p01",
+            "s28_p03",
+            "s29_p04",
+            "s29_p06"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Data Segregation Strategy",
+      "description": "How data is separated into training, validation, and test subsets so model selection estimates performance on unseen data.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Data Segregation Strategy affects Model Evaluation Strategy",
+          "type": "affects",
+          "rationale": "The split method and held-out data determine the validity, bias, and comparability of evaluation results."
+        },
+        {
+          "target_id": "6",
+          "reading": "Data Segregation Strategy affects Data Lineage and Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Ratios, seeds, ordering, and split definitions must be recorded to reproduce model comparisons."
+        },
+        {
+          "target_id": "14",
+          "reading": "Data Segregation Strategy affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Retraining must preserve appropriate separation and avoid leakage when new data or labels are incorporated."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Sequential split",
+          "description": "Use an ordered prefix for training and a subsequent segment for testing. This avoids overlap and can reflect temporal deployment conditions.",
+          "supporting_doc_ids": [
+            "s02_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Random seeded split",
+          "description": "Select training records randomly using a reproducible seed and use the complement for evaluation.",
+          "supporting_doc_ids": [
+            "s02_p07",
+            "s18_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Shuffled split",
+          "description": "Split records sequentially or randomly and shuffle records within the resulting datasets to reduce ordering effects.",
+          "supporting_doc_ids": [
+            "s02_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Custom controlled split",
+          "description": "Inject a domain-specific strategy when explicit control over entities, time periods, or separation boundaries is required.",
+          "supporting_doc_ids": [
+            "s02_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.5",
+          "dimension_id": "7",
+          "label": "Leaky or reused test set",
+          "description": "Use test data repeatedly for model selection or allow overlap between training and evaluation data. This produces optimistic estimates and poor production generalization.",
+          "supporting_doc_ids": [
+            "s19_p02",
+            "s22_p08"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Model Evaluation Strategy",
+      "description": "How candidate models are measured, compared, validated, and approved for production, including predictive, business, fairness, and system criteria.",
+      "relations": [
+        {
+          "target_id": "9",
+          "reading": "Model Evaluation Strategy affects Model Promotion Strategy",
+          "type": "affects",
+          "rationale": "Evaluation thresholds and comparison results determine whether a model is promoted, canaried, retained, or rejected."
+        },
+        {
+          "target_id": "14",
+          "reading": "Model Evaluation Strategy affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Performance degradation, metric thresholds, and business-impact measures provide triggers for retraining."
+        },
+        {
+          "target_id": "11",
+          "reading": "Model Evaluation Strategy constrains Model Serving Pattern",
+          "type": "constrains",
+          "rationale": "A model must meet serving latency, throughput, compatibility, and quality requirements for its intended serving mode."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Holdout-set evaluation",
+          "description": "Measure predictions against a disjoint test set and known ground truth to estimate generalization quality.",
+          "supporting_doc_ids": [
+            "s02_p09",
+            "s06_p04",
+            "s19_p06",
+            "s22_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Cross-validation evaluation",
+          "description": "Train and evaluate across multiple folds to compare algorithms, features, and hyperparameters more robustly.",
+          "supporting_doc_ids": [
+            "s10_p06",
+            "s19_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.3",
+          "dimension_id": "8",
+          "label": "Business-impact evaluation",
+          "description": "Assess application-specific outcomes such as revenue, engagement, safety, fairness, or operational value in addition to predictive metrics.",
+          "supporting_doc_ids": [
+            "s03_p02",
+            "s09_p04",
+            "s23_p06",
+            "s23_p09",
+            "s22_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.4",
+          "dimension_id": "8",
+          "label": "Production-like online evaluation",
+          "description": "Evaluate candidate behavior using shadow traffic, canary traffic, or A/B experiments before full promotion.",
+          "supporting_doc_ids": [
+            "s06_p09",
+            "s09_p02",
+            "s09_p11",
+            "s20_p09",
+            "s25_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.5",
+          "dimension_id": "8",
+          "label": "Baseline comparison",
+          "description": "Compare sophisticated models with simple heuristics or baseline models before accepting additional complexity and cost.",
+          "supporting_doc_ids": [
+            "s09_p04",
+            "s22_p08"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Model Training Strategy",
+      "description": "How models are learned, including batch versus incremental learning, algorithm exploration, parallelism, hyperparameter optimization, and training fault tolerance.",
+      "relations": [
+        {
+          "target_id": "10",
+          "reading": "Model Training Strategy requires Model Packaging Strategy to be decided first",
+          "type": "requires",
+          "rationale": "The chosen training framework, model type, and dependencies determine how the resulting artifact can be exported and executed in production."
+        },
+        {
+          "target_id": "14",
+          "reading": "Model Training Strategy affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Batch, incremental, and automated training approaches determine retraining frequency, resource needs, and reaction speed."
+        },
+        {
+          "target_id": "7",
+          "reading": "Model Training Strategy requires Data Segregation Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Training and evaluation algorithms need defined datasets and labels to produce valid candidate comparisons."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Offline batch training",
+          "description": "Train on a collected historical dataset at scheduled or event-triggered intervals. It supports complex models and large datasets but reacts slowly to changing distributions.",
+          "supporting_doc_ids": [
+            "s02_p08",
+            "s12_p05",
+            "s19_p06",
+            "s19_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "9.2",
+          "dimension_id": "9",
+          "label": "Incremental online training",
+          "description": "Update model parameters continuously or in mini-batches as new examples arrive. It reduces memory requirements and reacts quickly, but increases sensitivity to bad data and consistency failures.",
+          "supporting_doc_ids": [
+            "s11_p01",
+            "s11_p03",
+            "s11_p08",
+            "s19_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "9.3",
+          "dimension_id": "9",
+          "label": "Parallel candidate training",
+          "description": "Train multiple algorithms, parameter combinations, models, partitions, or replicas concurrently to improve search speed and throughput.",
+          "supporting_doc_ids": [
+            "s02_p08",
+            "s04_p04",
+            "s04_p15",
+            "s19_p05",
+            "s20_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "9.4",
+          "dimension_id": "9",
+          "label": "Automated hyperparameter and architecture search",
+          "description": "Use AutoML, hyperparameter optimization, or neural architecture search to explore preprocessing, models, parameters, and architectures automatically. It reduces manual effort but can consume substantial compute and may underperform expert-designed solutions.",
+          "supporting_doc_ids": [
+            "s04_p15",
+            "s17_p01",
+            "s17_p03",
+            "s17_p04",
+            "s18_p02",
+            "s18_p05"
+          ],
+          "status": "outcome"
+        },
+        {
+          "id": "9.5",
+          "dimension_id": "9",
+          "label": "Fault-tolerant checkpointed training",
+          "description": "Use checkpoints, partition-level retry, and failover so transient training failures do not require restarting the entire job.",
+          "supporting_doc_ids": [
+            "s02_p08",
+            "s22_p09"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "Model Packaging Strategy",
+      "description": "How a trained model, its preprocessing logic, parameters, interpreter, and dependencies are represented and transferred to serving environments.",
+      "relations": [
+        {
+          "target_id": "11",
+          "reading": "Model Packaging Strategy constrains Model Serving Pattern",
+          "type": "constrains",
+          "rationale": "Serving options depend on whether the target environment can execute the chosen model representation and dependencies."
+        },
+        {
+          "target_id": "12",
+          "reading": "Model Packaging Strategy affects Deployment Runtime Strategy",
+          "type": "affects",
+          "rationale": "Packaging choices determine portability, image construction, resource requirements, and runtime compatibility."
+        },
+        {
+          "target_id": "6",
+          "reading": "Model Packaging Strategy affects Data Lineage and Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "The packaged artifact and its dependencies must be versioned and linked to the training run."
+        }
+      ],
+      "values": [
+        {
+          "id": "10.1",
+          "dimension_id": "10",
+          "label": "Language-specific model artifact",
+          "description": "Persist a model in its native framework or language representation, such as a pickle, TensorFlow, PyTorch, HDF, or Java artifact. It is convenient but couples serving to the original runtime.",
+          "supporting_doc_ids": [
+            "s09_p09",
+            "s09_p10",
+            "s19_p11"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.2",
+          "dimension_id": "10",
+          "label": "Language-agnostic exchange format",
+          "description": "Export the model to PMML, PFA, ONNX, or a similar portable representation so different training and serving languages can interoperate. Coverage and runtime support may be limited.",
+          "supporting_doc_ids": [
+            "s09_p10",
+            "s10_p05",
+            "s10_p06",
+            "s19_p10"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.3",
+          "dimension_id": "10",
+          "label": "Amalgamated standalone artifact",
+          "description": "Bundle the model and execution code into a portable standalone program or package. This can be compact and suitable for constrained environments, but model and runtime management remain coupled.",
+          "supporting_doc_ids": [
+            "s19_p10"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.4",
+          "dimension_id": "10",
+          "label": "Containerized model artifact",
+          "description": "Package model code, dependencies, and runtime into a container image. This improves portability and reproducibility across development and production environments.",
+          "supporting_doc_ids": [
+            "s02_p11",
+            "s04_p02",
+            "s06_p07",
+            "s19_p17",
+            "s25_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.5",
+          "dimension_id": "10",
+          "label": "Manual production rewrite",
+          "description": "Rewrite research code in another production language or manually reconstruct transformations and model behavior. This can address runtime constraints but is slow, error-prone, and may reduce performance or accuracy.",
+          "supporting_doc_ids": [
+            "s02_p10",
+            "s04_p01",
+            "s04_p02",
+            "s10_p07"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "Model Serving Pattern",
+      "description": "How predictions are exposed and computed for consumers after training, including batch, synchronous, asynchronous, embedded, and service-based alternatives.",
+      "relations": [
+        {
+          "target_id": "12",
+          "reading": "Model Serving Pattern constrains Deployment Runtime Strategy",
+          "type": "constrains",
+          "rationale": "Synchronous, asynchronous, embedded, and batch serving impose different runtime, scaling, and resource requirements."
+        },
+        {
+          "target_id": "13",
+          "reading": "Model Serving Pattern affects Model Promotion Strategy",
+          "type": "affects",
+          "rationale": "Service-based and multi-version serving enable traffic splitting, shadowing, canaries, and rollback."
+        },
+        {
+          "target_id": "3",
+          "reading": "Model Serving Pattern requires Data Processing Mode to be decided first",
+          "type": "requires",
+          "rationale": "Serving mode must match whether features and predictions are produced in batch, nearline, or real time."
+        }
+      ],
+      "values": [
+        {
+          "id": "11.1",
+          "dimension_id": "11",
+          "label": "Batch prediction",
+          "description": "Run predictions over a collection of records and persist results for later consumption. It maximizes throughput and supports complex computation but does not provide immediate responses.",
+          "supporting_doc_ids": [
+            "s01_p08",
+            "s02_p13",
+            "s06_p04",
+            "s19_p07",
+            "s19_p15"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.2",
+          "dimension_id": "11",
+          "label": "Synchronous model service",
+          "description": "Expose a model through REST, RPC, or another request-response API for online predictions. It supports immediate decisions but must satisfy latency, availability, and throughput requirements.",
+          "supporting_doc_ids": [
+            "s01_p08",
+            "s02_p11",
+            "s06_p04",
+            "s10_p04",
+            "s19_p14"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.3",
+          "dimension_id": "11",
+          "label": "Asynchronous model service",
+          "description": "Submit prediction requests to a queue or event processor and receive results later through notifications, polling, or a result queue. It supports heavy computation and decoupling but introduces delay.",
+          "supporting_doc_ids": [
+            "s02_p13",
+            "s10_p04",
+            "s12_p04",
+            "s19_p15"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.4",
+          "dimension_id": "11",
+          "label": "Model-as-dependency",
+          "description": "Package the model inside the consuming application and invoke it directly as a library or dependency. This minimizes network latency but couples application releases to model releases.",
+          "supporting_doc_ids": [
+            "s19_p14",
+            "s19_p15"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.5",
+          "dimension_id": "11",
+          "label": "Edge or device serving",
+          "description": "Deploy the model to a mobile, IoT, or edge device for local inference. This can reduce data movement and latency but constrains compute, storage, and update mechanisms.",
+          "supporting_doc_ids": [
+            "s06_p04",
+            "s07_p01",
+            "s07_p02",
+            "s19_p16",
+            "s25_p05",
+            "s25_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.6",
+          "dimension_id": "11",
+          "label": "Federated hybrid serving",
+          "description": "Use a shared server model together with user- or device-specific models trained locally, sending model updates rather than personal data to the server. This improves privacy but complicates distributed training and availability.",
+          "supporting_doc_ids": [
+            "s19_p16"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "name": "Deployment Runtime Strategy",
+      "description": "Where and how model-serving computation runs, including infrastructure ownership, orchestration, elasticity, and placement.",
+      "relations": [
+        {
+          "target_id": "13",
+          "reading": "Deployment Runtime Strategy affects Model Promotion Strategy",
+          "type": "affects",
+          "rationale": "Runtime capabilities determine whether multiple versions, traffic splitting, rollback, and zero-downtime updates are practical."
+        },
+        {
+          "target_id": "14",
+          "reading": "Deployment Runtime Strategy affects Model Retraining Strategy",
+          "type": "affects",
+          "rationale": "Available compute, elasticity, and operational automation determine the feasible frequency and cost of retraining."
+        },
+        {
+          "target_id": "15",
+          "reading": "Deployment Runtime Strategy affects System Modularity Strategy",
+          "type": "affects",
+          "rationale": "Containers, serverless functions, and microservices encourage independently deployable components, while embedded or monolithic runtimes increase coupling."
+        }
+      ],
+      "values": [
+        {
+          "id": "12.1",
+          "dimension_id": "12",
+          "label": "Container cluster deployment",
+          "description": "Run model services in containers orchestrated by Kubernetes or a comparable cluster. It supports portability, horizontal scaling, isolation, and controlled rollout, but requires platform operations.",
+          "supporting_doc_ids": [
+            "s02_p11",
+            "s04_p05",
+            "s04_p11",
+            "s19_p17",
+            "s25_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "12.2",
+          "dimension_id": "12",
+          "label": "Serverless function deployment",
+          "description": "Deploy model logic as event-driven functions with provider-managed provisioning, scaling, logging, and monitoring. It reduces operational work and supports elasticity, but has limits around state, execution duration, and artifact size.",
+          "supporting_doc_ids": [
+            "s04_p06",
+            "s04_p07",
+            "s07_p01",
+            "s19_p17"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "12.3",
+          "dimension_id": "12",
+          "label": "Managed cloud ML platform",
+          "description": "Use an integrated provider platform for pipelines, environments, registries, deployment, monitoring, and governance. It accelerates delivery but increases provider dependence and may raise compliance concerns.",
+          "supporting_doc_ids": [
+            "s20_p11",
+            "s21_p16",
+            "s25_p01",
+            "s25_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "12.4",
+          "dimension_id": "12",
+          "label": "On-premise deployment",
+          "description": "Run data, training, and serving on infrastructure controlled by the organization. It can address sensitive-data and governance requirements but requires substantial infrastructure and specialized staff.",
+          "supporting_doc_ids": [
+            "s04_p05",
+            "s13_p09",
+            "s21_p14",
+            "s21_p15"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "12.5",
+          "dimension_id": "12",
+          "label": "Hybrid cloud deployment",
+          "description": "Split ML components between private or on-premise systems and public cloud services. It balances privacy and elasticity but adds operational and integration complexity.",
+          "supporting_doc_ids": [
+            "s07_p01",
+            "s07_p02",
+            "s13_p09",
+            "s21_p14",
+            "s21_p15"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "12.6",
+          "dimension_id": "12",
+          "label": "Vertical and horizontal scaling",
+          "description": "Scale training primarily by adding resources to a worker and scale stateless inference by adding instances and load balancing. This matches differing workload characteristics but requires separate capacity strategies.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s02_p11",
+            "s04_p02",
+            "s11_p04",
+            "s11_p06"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "name": "Model Promotion Strategy",
+      "description": "How new model versions are introduced, compared with existing versions, exposed to traffic, and rolled back when necessary.",
+      "relations": [
+        {
+          "target_id": "14",
+          "reading": "Model Promotion Strategy affects Model Monitoring Strategy",
+          "type": "affects",
+          "rationale": "Canaries, A/B tests, shadow traffic, and rollback require monitoring of model and application outcomes."
+        },
+        {
+          "target_id": "8",
+          "reading": "Model Promotion Strategy requires Model Evaluation Strategy to be decided first",
+          "type": "requires",
+          "rationale": "A model should be promoted only after offline quality, infrastructure compatibility, and relevant business criteria are evaluated."
+        },
+        {
+          "target_id": "6",
+          "reading": "Model Promotion Strategy requires Data Lineage and Reproducibility Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Promotion and rollback require identifiable, versioned model artifacts and their training metadata."
+        }
+      ],
+      "values": [
+        {
+          "id": "13.1",
+          "dimension_id": "13",
+          "label": "Direct replacement",
+          "description": "Replace the currently serving model with the validated candidate. This is simple but exposes all traffic to the new model immediately.",
+          "supporting_doc_ids": [
+            "s09_p11",
+            "s25_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "13.2",
+          "dimension_id": "13",
+          "label": "Canary rollout",
+          "description": "Send a small fraction of production traffic to the new model and increase exposure after monitoring its behavior.",
+          "supporting_doc_ids": [
+            "s02_p10",
+            "s06_p09",
+            "s09_p11",
+            "s20_p09",
+            "s25_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "13.3",
+          "dimension_id": "13",
+          "label": "A/B traffic experiment",
+          "description": "Route different user or traffic segments to competing models and compare their predictive and application outcomes.",
+          "supporting_doc_ids": [
+            "s03_p02",
+            "s06_p06",
+            "s09_p11",
+            "s20_p09",
+            "s25_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "13.4",
+          "dimension_id": "13",
+          "label": "Shadow deployment",
+          "description": "Run production inputs through a candidate model without returning its results to users, then compare its outputs with the live model.",
+          "supporting_doc_ids": [
+            "s20_p08",
+            "s20_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "13.5",
+          "dimension_id": "13",
+          "label": "Rollback to previous model",
+          "description": "Route predictions back to a previously deployed model when latency, accuracy, drift, or other production criteria deteriorate.",
+          "supporting_doc_ids": [
+            "s02_p14",
+            "s09_p11",
+            "s20_p10",
+            "s22_p15"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "13.6",
+          "dimension_id": "13",
+          "label": "Zero-downtime version coexistence",
+          "description": "Keep old and new models available simultaneously so requests continue to be served during transition.",
+          "supporting_doc_ids": [
+            "s02_p10",
+            "s02_p11",
+            "s04_p03"
+          ],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "name": "Model Monitoring and Retraining Strategy",
+      "description": "How the operating system observes model, data, service, and business behavior and decides when to alert, retrain, investigate, or recover.",
+      "relations": [
+        {
+          "target_id": "9",
+          "reading": "Model Monitoring and Retraining Strategy affects Model Training Strategy",
+          "type": "affects",
+          "rationale": "Monitoring signals and retraining triggers determine whether training is periodic, event-driven, incremental, or manually initiated."
+        },
+        {
+          "target_id": "13",
+          "reading": "Model Monitoring and Retraining Strategy affects Model Promotion Strategy",
+          "type": "affects",
+          "rationale": "Monitoring determines whether a candidate remains deployed, is promoted, or is rolled back."
+        },
+        {
+          "target_id": "4",
+          "reading": "Model Monitoring and Retraining Strategy affects Data Quality and Privacy Control",
+          "type": "affects",
+          "rationale": "Production monitoring can reveal schema violations, data drift, anomalies, and upstream data-quality problems."
+        }
+      ],
+      "values": [
+        {
+          "id": "14.1",
+          "dimension_id": "14",
+          "label": "Manual post-deployment review",
+          "description": "People inspect model behavior and initiate investigation or retraining manually. It may suffice for rarely changing models but provides slow detection and weak operational continuity.",
+          "supporting_doc_ids": [
+            "s06_p05",
+            "s06_p06",
+            "s21_p07",
+            "s23_p11"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "14.2",
+          "dimension_id": "14",
+          "label": "Operational health monitoring",
+          "description": "Track latency, throughput, uptime, resource use, logging, and infrastructure failures for the serving system.",
+          "supporting_doc_ids": [
+            "s02_p14",
+            "s04_p03",
+            "s09_p04",
+            "s23_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "14.3",
+          "dimension_id": "14",
+          "label": "Data and prediction drift monitoring",
+          "description": "Track input distributions, feature statistics, prediction distributions, observed outcomes, and model-quality metrics to detect degradation or staleness.",
+          "supporting_doc_ids": [
+            "s02_p14",
+            "s06_p08",
+            "s22_p10",
+            "s22_p11",
+            "s23_p04",
+            "s24_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "14.4",
+          "dimension_id": "14",
+          "label": "Schedule-triggered retraining",
+          "description": "Retrain on a fixed calendar schedule such as hourly, daily, weekly, or monthly. It is predictable but may retrain unnecessarily or miss sudden changes.",
+          "supporting_doc_ids": [
+            "s02_p08",
+            "s06_p11",
+            "s20_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "14.5",
+          "dimension_id": "14",
+          "label": "Data- or performance-triggered retraining",
+          "description": "Start retraining when new labeled data arrives, data distributions change, or performance falls below a threshold. It responds to change but requires reliable monitoring and validation.",
+          "supporting_doc_ids": [
+            "s06_p08",
+            "s06_p11",
+            "s20_p06",
+            "s25_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "14.6",
+          "dimension_id": "14",
+          "label": "Human review escalation",
+          "description": "Send low-confidence, anomalous, or high-risk predictions to domain experts for review and use corrected labels to improve later training.",
+          "supporting_doc_ids": [
+            "s09_p03",
+            "s09_p04",
+            "s09_p09",
+            "s24_p01",
+            "s24_p08",
+            "s24_p11"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "14.7",
+          "dimension_id": "14",
+          "label": "Silent model degradation",
+          "description": "Allow models to continue serving without monitoring data, predictions, outcomes, or business impact. This permits unnoticed decay, bias, and harmful decisions.",
+          "supporting_doc_ids": [
+            "s06_p05",
+            "s23_p02",
+            "s23_p03",
+            "s23_p05",
+            "s23_p11"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "name": "System Modularity Strategy",
+      "description": "How ML data, training, serving, and application responsibilities are decomposed into components and connected across team and system boundaries.",
+      "relations": [
+        {
+          "target_id": "12",
+          "reading": "System Modularity Strategy affects Deployment Runtime Strategy",
+          "type": "affects",
+          "rationale": "Independent services are commonly deployed as containers, functions, or separately managed runtimes, while monoliths favor a shared runtime."
+        },
+        {
+          "target_id": "11",
+          "reading": "System Modularity Strategy affects Model Serving Pattern",
+          "type": "affects",
+          "rationale": "Siloed model services support independent APIs and releases, whereas embedded models favor dependency-based serving."
+        },
+        {
+          "target_id": "5",
+          "reading": "System Modularity Strategy constrains Feature Computation Strategy",
+          "type": "constrains",
+          "rationale": "Strict service boundaries can make feature retrieval expensive and can motivate a centralized feature store or materialized views."
+        }
+      ],
+      "values": [
+        {
+          "id": "15.1",
+          "dimension_id": "15",
+          "label": "Monolithic application",
+          "description": "Keep ML functionality and surrounding product logic in one application. This reduces network coordination and can simplify shared data access, but increases cognitive and release coupling as the system grows.",
+          "supporting_doc_ids": [
+            "s03_p01",
+            "s05_p01",
+            "s16_p06",
+            "s16_p07"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "15.2",
+          "dimension_id": "15",
+          "label": "Independent ML microservices",
+          "description": "Isolate ML capabilities behind independently deployable services and APIs. This supports team autonomy, scaling, and language flexibility, but can create network latency and feature-fetching complexity.",
+          "supporting_doc_ids": [
+            "s01_p02",
+            "s01_p07",
+            "s03_p01",
+            "s07_p01",
+            "s09_p02",
+            "s19_p14"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "15.3",
+          "dimension_id": "15",
+          "label": "Modular pipeline components",
+          "description": "Decompose ingestion, preparation, training, evaluation, deployment, and monitoring into reusable, composable, testable components without requiring every component to be a network service.",
+          "supporting_doc_ids": [
+            "s02_p15",
+            "s04_p07",
+            "s06_p07",
+            "s20_p06",
+            "s22_p14"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "15.4",
+          "dimension_id": "15",
+          "label": "Centralized feature-store boundary",
+          "description": "Keep product services as sources of domain events while maintaining ML-specific materialized views in a shared feature store. This avoids repeated cascaded service calls and preserves ML ownership of feature logic.",
+          "supporting_doc_ids": [
+            "s05_p04",
+            "s05_p05",
+            "s05_p06",
+            "s06_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "15.5",
+          "dimension_id": "15",
+          "label": "Overly coupled service graph",
+          "description": "Require prediction requests to make many dependent calls across microservices for contextual features. Serial network latency, unavailable features, and schema coupling can make real-time prediction impractical.",
+          "supporting_doc_ids": [
+            "s05_p01",
+            "s05_p02",
+            "s16_p04",
+            "s16_p05"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "name": "MLOps Automation Strategy",
+      "description": "How much of data preparation, experimentation, testing, training, deployment, and operation is automated and integrated into a repeatable lifecycle.",
+      "relations": [
+        {
+          "target_id": "6",
+          "reading": "MLOps Automation Strategy affects Data Lineage and Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Automated pipelines can consistently record artifacts, metadata, versions, and environments across runs."
+        },
+        {
+          "target_id": "13",
+          "reading": "MLOps Automation Strategy affects Model Promotion Strategy",
+          "type": "affects",
+          "rationale": "Continuous delivery enables automated packaging, validation, canarying, traffic changes, and rollback."
+        },
+        {
+          "target_id": "14",
+          "reading": "MLOps Automation Strategy affects Model Monitoring and Retraining Strategy",
+          "type": "affects",
+          "rationale": "Continuous training and event-triggered workflows connect monitoring signals to retraining and redeployment."
+        }
+      ],
+      "values": [
+        {
+          "id": "16.1",
+          "dimension_id": "16",
+          "label": "Manual notebook workflow",
+          "description": "Execute data analysis, preparation, training, validation, and handoff interactively. It is appropriate for early exploration or infrequently changing models but has slow iteration and handoff risks.",
+          "supporting_doc_ids": [
+            "s01_p06",
+            "s06_p05",
+            "s21_p07",
+            "s26_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "16.2",
+          "dimension_id": "16",
+          "label": "Automated ML pipeline",
+          "description": "Orchestrate reusable data, training, evaluation, and deployment steps with triggers and validation to enable continuous training and experimental-operational symmetry.",
+          "supporting_doc_ids": [
+            "s04_p07",
+            "s06_p07",
+            "s06_p08",
+            "s20_p05",
+            "s22_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "16.3",
+          "dimension_id": "16",
+          "label": "CI/CD pipeline automation",
+          "description": "Build, test, package, and deploy pipeline components and model services automatically from version-controlled changes, with approvals or environment gates as needed.",
+          "supporting_doc_ids": [
+            "s04_p09",
+            "s06_p12",
+            "s06_p13",
+            "s06_p14",
+            "s20_p10",
+            "s25_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "16.4",
+          "dimension_id": "16",
+          "label": "Continuous training",
+          "description": "Automatically retrain and serve models when schedules, data availability, drift, or performance events trigger the training pipeline.",
+          "supporting_doc_ids": [
+            "s06_p03",
+            "s06_p07",
+            "s06_p11",
+            "s20_p05",
+            "s22_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "16.5",
+          "dimension_id": "16",
+          "label": "Manual model handoff",
+          "description": "Hand a trained model artifact from data scientists to engineers for separate production deployment. This creates training-serving skew, slow releases, and weak ownership boundaries.",
+          "supporting_doc_ids": [
+            "s06_p05",
+            "s06_p06",
+            "s21_p07"
+          ],
+          "status": "rejected"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2298 @@
+{
+  "taxonomy_name": "c1-ml-workflow-baseline-l5",
+  "mode": "baseline-l5",
+  "baseline": {
+    "kind": "prior_knowledge",
+    "seed": 42,
+    "model": "openai/gpt-5.6-luna",
+    "prompt_version": "1",
+    "prompt_sha256": "a45ddb0f3e491e85220b89d06b5f49cfe6807c85e5eeda08877719797ce61611",
+    "prompt_tokens_counted": 382,
+    "unknown_passage_ids_dropped": 0
+  },
+  "run_metrics": {
+    "elapsed_seconds": 44.4,
+    "total_tokens": 8444,
+    "prompt_tokens": 1378,
+    "completion_tokens": 7066
+  },
+  "iterations": [
+    {
+      "explanation": "The design space is organized along the machine learning workflow, beginning with Data Acquisition Strategy, Data Storage Architecture, Data Quality Validation, Data Processing Architecture, and Data Partitioning Strategy; continuing through Feature Representation Strategy, Model Family Selection, Training Procedure, Optimization and Tuning Strategy, Experiment Evaluation Strategy, and Experiment Reproducibility Strategy; and ending with Model Packaging Format, Model Serving Strategy, Deployment Topology, Production Monitoring Strategy, Retraining Strategy, and Release Governance. The dimensions are decision axes rather than lifecycle phases: each asks one architectural question, while its values represent commonly adopted alternatives, rejected practices, or important operational outcomes. Relations emphasize dependencies such as partitioning before training evaluation, serving requirements shaping packaging, and monitoring informing retraining. The taxonomy includes both technical choices and operational controls because production machine learning systems must manage data quality, reproducibility, latency, drift, fairness, cost, reliability, and accountability in addition to predictive accuracy. Rejected values capture recurring practitioner anti-patterns, while outcome values such as silent model degradation capture effects that practitioners must design against rather than select as intentional architectures.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Data Acquisition Strategy",
+          "description": "How raw data is obtained and incorporated into the machine learning system. Values answer whether data is collected in batches, streams, or through externally managed sources.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Data Acquisition Strategy constrains Data Storage Architecture",
+              "type": "constrains",
+              "rationale": "The arrival pattern, volume, and durability requirements of acquired data limit suitable storage architectures."
+            },
+            {
+              "target_id": "3",
+              "reading": "Data Acquisition Strategy affects Data Quality Validation",
+              "type": "affects",
+              "rationale": "Streaming, externally sourced, and user-generated data present different completeness, freshness, and trust risks."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Batch data ingestion",
+              "description": "Periodic loading of accumulated data from files, databases, or exports.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Streaming data ingestion",
+              "description": "Continuous ingestion of events or records as they are produced.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "External data integration",
+              "description": "Use of third-party, public, partner, or vendor-provided datasets and services.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Synchronous online acquisition",
+              "description": "Acquisition of features or observations during an online prediction request.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Uncontrolled data collection",
+              "description": "Ad hoc collection without stable ownership, contracts, lineage, or ingestion controls.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Data Storage Architecture",
+          "description": "How raw, curated, feature, and training data are persisted and made accessible. Values answer which storage organization supports the workflow.",
+          "relations": [
+            {
+              "target_id": "4",
+              "reading": "Data Storage Architecture affects Data Processing Architecture",
+              "type": "affects",
+              "rationale": "Storage format, locality, and access patterns influence batch and streaming processing choices."
+            },
+            {
+              "target_id": "6",
+              "reading": "Data Storage Architecture affects Feature Representation Strategy",
+              "type": "affects",
+              "rationale": "The persistence and retrieval model determines whether features can be reused consistently for training and serving."
+            },
+            {
+              "target_id": "13",
+              "reading": "Data Storage Architecture constrains Model Serving Strategy",
+              "type": "constrains",
+              "rationale": "Online serving depends on whether required data and features can be retrieved within latency and availability targets."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Data lake storage",
+              "description": "Centralized storage of raw and semi-structured data in scalable object or distributed storage.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Data warehouse storage",
+              "description": "Curated, schema-managed storage optimized for analytical queries and governed datasets.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Operational database storage",
+              "description": "Persistence in transactional or application databases close to the systems producing or consuming the data.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Feature store storage",
+              "description": "Specialized offline and online persistence for reusable machine learning features.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.5",
+              "dimension_id": "2",
+              "label": "Unmanaged local-file storage",
+              "description": "Scattered files or notebooks used as the system of record for datasets.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Data Quality Validation",
+          "description": "How the system detects invalid, incomplete, inconsistent, stale, or anomalous data before it affects training or inference.",
+          "relations": [
+            {
+              "target_id": "4",
+              "reading": "Data Quality Validation constrains Data Processing Architecture",
+              "type": "constrains",
+              "rationale": "Validation placement and strictness determine where processing gates, quarantines, and remediation paths must exist."
+            },
+            {
+              "target_id": "8",
+              "reading": "Data Quality Validation affects Training Procedure",
+              "type": "affects",
+              "rationale": "Undetected data defects can alter training distributions, labels, and measured model quality."
+            },
+            {
+              "target_id": "15",
+              "reading": "Data Quality Validation affects Production Monitoring Strategy",
+              "type": "affects",
+              "rationale": "The checks used before training provide baselines and corresponding checks for production drift and failures."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Schema and contract validation",
+              "description": "Checks for expected types, fields, ranges, units, and producer contracts.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Statistical data validation",
+              "description": "Checks distributions, missingness, cardinality, outliers, and changes relative to historical data.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Semantic and label validation",
+              "description": "Checks domain meaning, annotation consistency, label correctness, and leakage risks.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Quarantine and remediation",
+              "description": "Isolation of invalid records with correction, replay, or human review workflows.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Unvalidated ingestion",
+              "description": "Allowing data to flow into training or serving without automated quality gates.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Data Processing Architecture",
+          "description": "How raw data is cleaned, joined, transformed, and materialized for downstream use. Values answer whether processing is performed in batch, streaming, or a hybrid architecture.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Data Processing Architecture requires Data Partitioning Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Processing pipelines need a defined separation of training, validation, and test data to avoid contamination."
+            },
+            {
+              "target_id": "6",
+              "reading": "Data Processing Architecture affects Feature Representation Strategy",
+              "type": "affects",
+              "rationale": "Processing determines transformations, aggregation windows, and the representation available to models."
+            },
+            {
+              "target_id": "7",
+              "reading": "Data Processing Architecture affects Model Family Selection",
+              "type": "affects",
+              "rationale": "The available scale, latency, and transformed inputs influence feasible model families."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Batch data processing",
+              "description": "Scheduled transformation and materialization of data in discrete jobs.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Streaming data processing",
+              "description": "Continuous transformation and aggregation of records as they arrive.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Hybrid batch-stream processing",
+              "description": "A unified or coordinated design supporting historical batch computation and incremental online updates.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Notebook-centered processing",
+              "description": "Manual, interactive transformations that are not reproducible or operationally managed.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Data Partitioning Strategy",
+          "description": "How data is divided for training, validation, testing, and operational evaluation. Values answer which partitioning scheme prevents leakage while reflecting deployment conditions.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Data Partitioning Strategy constrains Training Procedure",
+              "type": "constrains",
+              "rationale": "Training and hyperparameter selection must use partitions without leaking evaluation information."
+            },
+            {
+              "target_id": "10",
+              "reading": "Data Partitioning Strategy affects Experiment Evaluation Strategy",
+              "type": "affects",
+              "rationale": "The partition scheme determines whether reported metrics estimate generalization to future, unseen, or grouped cases."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Random holdout partitioning",
+              "description": "Randomly separated training, validation, and test examples under an exchangeability assumption.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Temporal partitioning",
+              "description": "Training on earlier data and evaluating on later data to simulate future deployment.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Group-aware partitioning",
+              "description": "Keeping users, devices, entities, or related examples within a single partition.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Cross-validation partitioning",
+              "description": "Repeated folds used to estimate performance and tune models when data is limited.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Random leakage-prone partitioning",
+              "description": "Random splitting despite temporal, entity, or duplicate relationships that cause optimistic evaluation.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Feature Representation Strategy",
+          "description": "How inputs are represented for learning and inference, including transformation ownership and feature reuse.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Feature Representation Strategy constrains Model Family Selection",
+              "type": "constrains",
+              "rationale": "Sparse, dense, sequential, categorical, and multimodal representations support different model families."
+            },
+            {
+              "target_id": "12",
+              "reading": "Feature Representation Strategy affects Model Packaging Format",
+              "type": "affects",
+              "rationale": "Preprocessing and feature computation must be packaged consistently with the model or serving environment."
+            },
+            {
+              "target_id": "13",
+              "reading": "Feature Representation Strategy affects Model Serving Strategy",
+              "type": "affects",
+              "rationale": "Online feature availability and transformation cost directly affect serving latency and correctness."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Manual domain features",
+              "description": "Human-designed variables derived from domain knowledge and business rules.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Learned representations",
+              "description": "Embeddings or internal representations learned jointly or largely automatically from data.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Raw-input representation",
+              "description": "Passing minimally transformed text, images, audio, logs, or other raw modalities to the model.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Shared reusable features",
+              "description": "Features computed once and consumed consistently by multiple training and serving workloads.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.5",
+              "dimension_id": "6",
+              "label": "Training-only feature computation",
+              "description": "Computing transformations during training without an equivalent or versioned serving path.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Model Family Selection",
+          "description": "Which broad class of predictive model is used for the task, data modality, and operational constraints.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Model Family Selection affects Training Procedure",
+              "type": "affects",
+              "rationale": "Model families require different optimization algorithms, resources, regularization, and training workflows."
+            },
+            {
+              "target_id": "9",
+              "reading": "Model Family Selection affects Optimization and Tuning Strategy",
+              "type": "affects",
+              "rationale": "The model family determines the hyperparameters, search spaces, and computational cost of tuning."
+            },
+            {
+              "target_id": "13",
+              "reading": "Model Family Selection constrains Model Serving Strategy",
+              "type": "constrains",
+              "rationale": "Model size, hardware requirements, and inference complexity limit deployment and serving options."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Linear and generalized linear models",
+              "description": "Linear, logistic, Poisson, or related models with relatively simple parameterizations.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Tree-based ensemble models",
+              "description": "Decision trees, random forests, gradient-boosted trees, and related ensembles.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Deep neural networks",
+              "description": "Multi-layer neural architectures for structured, unstructured, or multimodal data.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Probabilistic and Bayesian models",
+              "description": "Models that explicitly represent uncertainty, distributions, or prior knowledge.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Nearest-neighbor and retrieval models",
+              "description": "Prediction or ranking based on similarity search over stored examples or representations.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.6",
+              "dimension_id": "7",
+              "label": "Single universal model family",
+              "description": "Using one model family regardless of task characteristics, data modality, or operational constraints.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Training Procedure",
+          "description": "How model parameters are fitted, including computational execution, initialization, regularization, and resource use.",
+          "relations": [
+            {
+              "target_id": "9",
+              "reading": "Training Procedure co-occurs with Optimization and Tuning Strategy",
+              "type": "co_occurs_with",
+              "rationale": "Training execution and hyperparameter optimization are usually designed as one experimentation and compute workflow."
+            },
+            {
+              "target_id": "10",
+              "reading": "Training Procedure affects Experiment Evaluation Strategy",
+              "type": "affects",
+              "rationale": "Training randomness, checkpointing, early stopping, and repeatability affect the reliability of evaluation."
+            },
+            {
+              "target_id": "11",
+              "reading": "Training Procedure affects Experiment Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "The procedure determines which code, data, seeds, environments, and artifacts must be captured for reproduction."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Single-machine training",
+              "description": "Training within the memory and compute capacity of one machine.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Distributed data-parallel training",
+              "description": "Replicated model workers process data partitions and synchronize parameter updates.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.3",
+              "dimension_id": "8",
+              "label": "Distributed model-parallel training",
+              "description": "Model parameters or layers are partitioned across devices or machines.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.4",
+              "dimension_id": "8",
+              "label": "Transfer learning and fine-tuning",
+              "description": "Starting from a pretrained model and adapting it to a target task or domain.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.5",
+              "dimension_id": "8",
+              "label": "Manual one-off training",
+              "description": "Training performed without repeatable jobs, versioned inputs, or automated artifact capture.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Optimization and Tuning Strategy",
+          "description": "How model objectives, hyperparameters, architectures, and operating thresholds are selected.",
+          "relations": [
+            {
+              "target_id": "10",
+              "reading": "Optimization and Tuning Strategy requires Experiment Evaluation Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Tuning needs a reliable metric, validation protocol, and objective before alternatives can be compared."
+            },
+            {
+              "target_id": "11",
+              "reading": "Optimization and Tuning Strategy affects Experiment Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Search spaces, trials, seeds, and selected configurations must be recorded to reproduce the chosen model."
+            },
+            {
+              "target_id": "13",
+              "reading": "Optimization and Tuning Strategy affects Model Serving Strategy",
+              "type": "affects",
+              "rationale": "Optimization may trade accuracy for latency, memory, throughput, or calibration requirements in production."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Manual hyperparameter tuning",
+              "description": "Practitioner-directed adjustment based on domain knowledge and observed experiments.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.2",
+              "dimension_id": "9",
+              "label": "Grid or random search",
+              "description": "Systematic evaluation of configurations from a defined hyperparameter space.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.3",
+              "dimension_id": "9",
+              "label": "Bayesian optimization",
+              "description": "Adaptive selection of trials using a surrogate model of validation performance.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.4",
+              "dimension_id": "9",
+              "label": "Multi-objective optimization",
+              "description": "Selection against multiple objectives such as quality, latency, cost, fairness, or robustness.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.5",
+              "dimension_id": "9",
+              "label": "Accuracy-only optimization",
+              "description": "Selecting models solely by an offline accuracy metric while ignoring operational or social constraints.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "name": "Experiment Evaluation Strategy",
+          "description": "How candidate models are compared and judged before release, including metrics, baselines, uncertainty, and testing conditions.",
+          "relations": [
+            {
+              "target_id": "11",
+              "reading": "Experiment Evaluation Strategy affects Experiment Reproducibility Strategy",
+              "type": "affects",
+              "rationale": "Evaluation artifacts, datasets, metrics, and randomization must be recorded to reproduce conclusions."
+            },
+            {
+              "target_id": "13",
+              "reading": "Experiment Evaluation Strategy affects Model Serving Strategy",
+              "type": "affects",
+              "rationale": "Deployment decisions depend on whether offline evaluation reflects online latency, traffic, and business outcomes."
+            },
+            {
+              "target_id": "15",
+              "reading": "Experiment Evaluation Strategy affects Production Monitoring Strategy",
+              "type": "affects",
+              "rationale": "Offline metrics and acceptance thresholds establish production monitoring targets and alert baselines."
+            }
+          ],
+          "values": [
+            {
+              "id": "10.1",
+              "dimension_id": "10",
+              "label": "Offline metric evaluation",
+              "description": "Comparison using held-out data and task-specific predictive metrics.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.2",
+              "dimension_id": "10",
+              "label": "Slice-based evaluation",
+              "description": "Evaluation across demographic, geographic, temporal, behavioral, or other important subgroups.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.3",
+              "dimension_id": "10",
+              "label": "Simulation and replay evaluation",
+              "description": "Testing against reconstructed historical sequences, environments, or user interactions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.4",
+              "dimension_id": "10",
+              "label": "Online controlled experimentation",
+              "description": "Comparison through shadow, canary, A/B, or other controlled production exposure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.5",
+              "dimension_id": "10",
+              "label": "Offline-only acceptance",
+              "description": "Releasing a model based solely on offline metrics without operational or representative online testing.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "11",
+          "name": "Experiment Reproducibility Strategy",
+          "description": "How code, data, environments, configurations, randomness, and artifacts are versioned and recoverable across experiments.",
+          "relations": [
+            {
+              "target_id": "12",
+              "reading": "Experiment Reproducibility Strategy affects Model Packaging Format",
+              "type": "affects",
+              "rationale": "A reproducible model requires packaging the exact model artifact, dependencies, preprocessing, and configuration."
+            },
+            {
+              "target_id": "16",
+              "reading": "Experiment Reproducibility Strategy affects Retraining Strategy",
+              "type": "affects",
+              "rationale": "Automated retraining requires repeatable pipelines and traceable data and model lineage."
+            }
+          ],
+          "values": [
+            {
+              "id": "11.1",
+              "dimension_id": "11",
+              "label": "Versioned experiment tracking",
+              "description": "Tracking runs, parameters, metrics, datasets, code versions, and produced artifacts.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.2",
+              "dimension_id": "11",
+              "label": "Containerized environment capture",
+              "description": "Capturing runtime dependencies and execution environments in reproducible images or environments.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.3",
+              "dimension_id": "11",
+              "label": "Data and model lineage",
+              "description": "Tracing deployed models to source data, transformations, training runs, approvals, and dependencies.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.4",
+              "dimension_id": "11",
+              "label": "Reproducible randomization",
+              "description": "Controlling or recording seeds and nondeterministic execution where repeatability matters.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.5",
+              "dimension_id": "11",
+              "label": "Untracked experimentation",
+              "description": "Relying on notebooks, local files, or memory to identify how a model was produced.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "12",
+          "name": "Model Packaging Format",
+          "description": "How a trained model and its required preprocessing, dependencies, metadata, and signatures are represented for deployment.",
+          "relations": [
+            {
+              "target_id": "13",
+              "reading": "Model Packaging Format requires Model Serving Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Packaging must target the serving runtime, supported operators, serialization constraints, and interface requirements."
+            },
+            {
+              "target_id": "14",
+              "reading": "Model Packaging Format affects Deployment Topology",
+              "type": "affects",
+              "rationale": "Artifact size, runtime dependencies, and hardware requirements influence where and how the model can be deployed."
+            }
+          ],
+          "values": [
+            {
+              "id": "12.1",
+              "dimension_id": "12",
+              "label": "Framework-native model artifact",
+              "description": "Serialization in the training framework's native format with its associated runtime.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.2",
+              "dimension_id": "12",
+              "label": "Portable interchange model",
+              "description": "Export to a framework-neutral representation supported by multiple runtimes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.3",
+              "dimension_id": "12",
+              "label": "Containerized inference artifact",
+              "description": "Model, preprocessing, runtime, and dependencies bundled into a deployable container image.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.4",
+              "dimension_id": "12",
+              "label": "Model-plus-feature bundle",
+              "description": "Packaging the model together with feature transformations, schemas, and serving signatures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.5",
+              "dimension_id": "12",
+              "label": "Training-environment deployment",
+              "description": "Deploying a model by copying an incomplete training environment without a stable inference contract.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "13",
+          "name": "Model Serving Strategy",
+          "description": "How predictions are exposed and computed for consumers. Values answer whether inference is performed synchronously, asynchronously, in batches, or at the edge.",
+          "relations": [
+            {
+              "target_id": "14",
+              "reading": "Model Serving Strategy constrains Deployment Topology",
+              "type": "constrains",
+              "rationale": "Latency, throughput, availability, and connectivity requirements determine viable deployment locations and communication patterns."
+            },
+            {
+              "target_id": "15",
+              "reading": "Model Serving Strategy affects Production Monitoring Strategy",
+              "type": "affects",
+              "rationale": "Serving mode determines observable request, latency, failure, feature, and prediction signals."
+            },
+            {
+              "target_id": "16",
+              "reading": "Model Serving Strategy affects Retraining Strategy",
+              "type": "affects",
+              "rationale": "Prediction feedback availability and serving traffic determine how retraining data and triggers are collected."
+            }
+          ],
+          "values": [
+            {
+              "id": "13.1",
+              "dimension_id": "13",
+              "label": "Online synchronous inference",
+              "description": "Returning a prediction during a request-response interaction with a latency objective.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.2",
+              "dimension_id": "13",
+              "label": "Asynchronous inference",
+              "description": "Submitting prediction work to a queue or job and receiving results later.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.3",
+              "dimension_id": "13",
+              "label": "Batch inference",
+              "description": "Generating predictions for accumulated records on a schedule or demand.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.4",
+              "dimension_id": "13",
+              "label": "Edge inference",
+              "description": "Running inference near the data source or user device to reduce latency, bandwidth, or connectivity dependence.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.5",
+              "dimension_id": "13",
+              "label": "Embedded inference",
+              "description": "Including a model directly inside an application, device, or compiled software component.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.6",
+              "dimension_id": "13",
+              "label": "Unbounded synchronous inference",
+              "description": "Making every prediction request wait for an unconstrained model computation or dependency chain.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "14",
+          "name": "Deployment Topology",
+          "description": "Where model computation and supporting components run and how they are scaled and isolated in production.",
+          "relations": [
+            {
+              "target_id": "15",
+              "reading": "Deployment Topology affects Production Monitoring Strategy",
+              "type": "affects",
+              "rationale": "Distributed, edge, and managed deployments expose different telemetry, ownership, and observability boundaries."
+            },
+            {
+              "target_id": "16",
+              "reading": "Deployment Topology affects Retraining Strategy",
+              "type": "affects",
+              "rationale": "Deployment boundaries affect access to feedback, data, compute, and the mechanism for replacing model versions."
+            }
+          ],
+          "values": [
+            {
+              "id": "14.1",
+              "dimension_id": "14",
+              "label": "Centralized cloud deployment",
+              "description": "Serving and operating models in centrally managed cloud infrastructure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "14.2",
+              "dimension_id": "14",
+              "label": "Managed machine learning platform",
+              "description": "Using a provider-managed training, registry, endpoint, or pipeline service.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "14.3",
+              "dimension_id": "14",
+              "label": "On-premises deployment",
+              "description": "Running model infrastructure within organization-controlled data centers or private infrastructure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "14.4",
+              "dimension_id": "14",
+              "label": "Edge and federated deployment",
+              "description": "Distributing inference or training across devices, sites, or data owners with limited centralization.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "14.5",
+              "dimension_id": "14",
+              "label": "Single-host production deployment",
+              "description": "Running a production model without redundancy, isolation, or managed scaling.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "15",
+          "name": "Production Monitoring Strategy",
+          "description": "How deployed machine learning systems are observed for service health, data and concept drift, model quality, fairness, security, and business impact.",
+          "relations": [
+            {
+              "target_id": "16",
+              "reading": "Production Monitoring Strategy affects Retraining Strategy",
+              "type": "affects",
+              "rationale": "Drift, degradation, failures, and feedback signals can trigger investigation, rollback, or retraining."
+            },
+            {
+              "target_id": "17",
+              "reading": "Production Monitoring Strategy affects Release Governance",
+              "type": "affects",
+              "rationale": "Monitoring evidence informs approval, rollback, incident response, and continued operation of model versions."
+            }
+          ],
+          "values": [
+            {
+              "id": "15.1",
+              "dimension_id": "15",
+              "label": "Service health monitoring",
+              "description": "Monitoring availability, latency, throughput, errors, resource use, and dependency health.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "15.2",
+              "dimension_id": "15",
+              "label": "Data and feature drift monitoring",
+              "description": "Detecting changes in input distributions, missingness, freshness, schemas, and feature relationships.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "15.3",
+              "dimension_id": "15",
+              "label": "Prediction and concept drift monitoring",
+              "description": "Monitoring prediction distributions and changes in the relationship between inputs, predictions, and outcomes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "15.4",
+              "dimension_id": "15",
+              "label": "Outcome and fairness monitoring",
+              "description": "Measuring delayed outcomes, business metrics, subgroup performance, and fairness indicators.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "15.5",
+              "dimension_id": "15",
+              "label": "Unobservable deployment",
+              "description": "Operating a model without telemetry, feedback collection, or checks for production degradation.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "15.6",
+              "dimension_id": "15",
+              "label": "Silent model degradation",
+              "description": "Outcome of distribution shift, stale data, feedback loops, or changing user behavior that reduces model usefulness.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "16",
+          "name": "Retraining Strategy",
+          "description": "How and when models are updated after initial deployment. Values answer what triggers retraining and how model replacement is coordinated.",
+          "relations": [
+            {
+              "target_id": "17",
+              "reading": "Retraining Strategy requires Release Governance to be decided first",
+              "type": "requires",
+              "rationale": "Automated or manual retraining still requires approval, validation, rollback, and accountability rules before replacement."
+            },
+            {
+              "target_id": "11",
+              "reading": "Retraining Strategy requires Experiment Reproducibility Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Repeated training needs versioned data, code, environments, and lineage to produce trustworthy updates."
+            },
+            {
+              "target_id": "15",
+              "reading": "Retraining Strategy is affected by Production Monitoring Strategy",
+              "type": "affects",
+              "rationale": "Monitoring signals determine whether retraining is scheduled, drift-triggered, performance-triggered, or unnecessary."
+            }
+          ],
+          "values": [
+            {
+              "id": "16.1",
+              "dimension_id": "16",
+              "label": "Scheduled retraining",
+              "description": "Retraining at fixed calendar or data-volume intervals.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "16.2",
+              "dimension_id": "16",
+              "label": "Drift-triggered retraining",
+              "description": "Retraining initiated when monitored input, feature, prediction, or outcome distributions change materially.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "16.3",
+              "dimension_id": "16",
+              "label": "Performance-triggered retraining",
+              "description": "Retraining initiated when measured model quality or business performance falls below a threshold.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "16.4",
+              "dimension_id": "16",
+              "label": "Continuous or online learning",
+              "description": "Updating model parameters incrementally as new labeled or weakly labeled data arrives.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "16.5",
+              "dimension_id": "16",
+              "label": "Manual retraining",
+              "description": "Retraining initiated and orchestrated by practitioners after review of evidence or a business request.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "16.6",
+              "dimension_id": "16",
+              "label": "Unreviewed automatic replacement",
+              "description": "Replacing a production model automatically without validation, approval, or rollback controls.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "17",
+          "name": "Release Governance",
+          "description": "How model versions are approved, exposed, rolled back, and held accountable during production operation.",
+          "relations": [
+            {
+              "target_id": "14",
+              "reading": "Release Governance constrains Deployment Topology",
+              "type": "constrains",
+              "rationale": "Approval, isolation, access control, and rollback requirements constrain deployment mechanisms and environments."
+            },
+            {
+              "target_id": "13",
+              "reading": "Release Governance affects Model Serving Strategy",
+              "type": "affects",
+              "rationale": "Canary, shadow, champion-challenger, and rollback practices shape how serving exposes model versions."
+            },
+            {
+              "target_id": "16",
+              "reading": "Release Governance constrains Retraining Strategy",
+              "type": "constrains",
+              "rationale": "Governance controls limit when retrained models can replace approved production versions."
+            }
+          ],
+          "values": [
+            {
+              "id": "17.1",
+              "dimension_id": "17",
+              "label": "Manual approval gates",
+              "description": "Human review and authorization before a model proceeds between environments or into production.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "17.2",
+              "dimension_id": "17",
+              "label": "Automated policy gates",
+              "description": "Automated checks for quality, security, fairness, reproducibility, and operational requirements.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "17.3",
+              "dimension_id": "17",
+              "label": "Canary and shadow release",
+              "description": "Limited or non-user-facing exposure used to validate a new model before broad rollout.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "17.4",
+              "dimension_id": "17",
+              "label": "Champion-challenger release",
+              "description": "Comparing a candidate model against the currently approved model under controlled production conditions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "17.5",
+              "dimension_id": "17",
+              "label": "Rollback-capable versioning",
+              "description": "Retaining deployable prior versions and the ability to restore them quickly.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "17.6",
+              "dimension_id": "17",
+              "label": "Uncontrolled model release",
+              "description": "Deploying model artifacts directly without approval, staged exposure, version tracking, or rollback.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Data Acquisition Strategy",
+      "description": "How raw data is obtained and incorporated into the machine learning system. Values answer whether data is collected in batches, streams, or through externally managed sources.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Data Acquisition Strategy constrains Data Storage Architecture",
+          "type": "constrains",
+          "rationale": "The arrival pattern, volume, and durability requirements of acquired data limit suitable storage architectures."
+        },
+        {
+          "target_id": "3",
+          "reading": "Data Acquisition Strategy affects Data Quality Validation",
+          "type": "affects",
+          "rationale": "Streaming, externally sourced, and user-generated data present different completeness, freshness, and trust risks."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Batch data ingestion",
+          "description": "Periodic loading of accumulated data from files, databases, or exports.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Streaming data ingestion",
+          "description": "Continuous ingestion of events or records as they are produced.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "External data integration",
+          "description": "Use of third-party, public, partner, or vendor-provided datasets and services.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Synchronous online acquisition",
+          "description": "Acquisition of features or observations during an online prediction request.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.5",
+          "dimension_id": "1",
+          "label": "Uncontrolled data collection",
+          "description": "Ad hoc collection without stable ownership, contracts, lineage, or ingestion controls.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Data Storage Architecture",
+      "description": "How raw, curated, feature, and training data are persisted and made accessible. Values answer which storage organization supports the workflow.",
+      "relations": [
+        {
+          "target_id": "4",
+          "reading": "Data Storage Architecture affects Data Processing Architecture",
+          "type": "affects",
+          "rationale": "Storage format, locality, and access patterns influence batch and streaming processing choices."
+        },
+        {
+          "target_id": "6",
+          "reading": "Data Storage Architecture affects Feature Representation Strategy",
+          "type": "affects",
+          "rationale": "The persistence and retrieval model determines whether features can be reused consistently for training and serving."
+        },
+        {
+          "target_id": "13",
+          "reading": "Data Storage Architecture constrains Model Serving Strategy",
+          "type": "constrains",
+          "rationale": "Online serving depends on whether required data and features can be retrieved within latency and availability targets."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Data lake storage",
+          "description": "Centralized storage of raw and semi-structured data in scalable object or distributed storage.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Data warehouse storage",
+          "description": "Curated, schema-managed storage optimized for analytical queries and governed datasets.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Operational database storage",
+          "description": "Persistence in transactional or application databases close to the systems producing or consuming the data.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Feature store storage",
+          "description": "Specialized offline and online persistence for reusable machine learning features.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.5",
+          "dimension_id": "2",
+          "label": "Unmanaged local-file storage",
+          "description": "Scattered files or notebooks used as the system of record for datasets.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Data Quality Validation",
+      "description": "How the system detects invalid, incomplete, inconsistent, stale, or anomalous data before it affects training or inference.",
+      "relations": [
+        {
+          "target_id": "4",
+          "reading": "Data Quality Validation constrains Data Processing Architecture",
+          "type": "constrains",
+          "rationale": "Validation placement and strictness determine where processing gates, quarantines, and remediation paths must exist."
+        },
+        {
+          "target_id": "8",
+          "reading": "Data Quality Validation affects Training Procedure",
+          "type": "affects",
+          "rationale": "Undetected data defects can alter training distributions, labels, and measured model quality."
+        },
+        {
+          "target_id": "15",
+          "reading": "Data Quality Validation affects Production Monitoring Strategy",
+          "type": "affects",
+          "rationale": "The checks used before training provide baselines and corresponding checks for production drift and failures."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Schema and contract validation",
+          "description": "Checks for expected types, fields, ranges, units, and producer contracts.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Statistical data validation",
+          "description": "Checks distributions, missingness, cardinality, outliers, and changes relative to historical data.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Semantic and label validation",
+          "description": "Checks domain meaning, annotation consistency, label correctness, and leakage risks.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Quarantine and remediation",
+          "description": "Isolation of invalid records with correction, replay, or human review workflows.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.5",
+          "dimension_id": "3",
+          "label": "Unvalidated ingestion",
+          "description": "Allowing data to flow into training or serving without automated quality gates.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Data Processing Architecture",
+      "description": "How raw data is cleaned, joined, transformed, and materialized for downstream use. Values answer whether processing is performed in batch, streaming, or a hybrid architecture.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Data Processing Architecture requires Data Partitioning Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Processing pipelines need a defined separation of training, validation, and test data to avoid contamination."
+        },
+        {
+          "target_id": "6",
+          "reading": "Data Processing Architecture affects Feature Representation Strategy",
+          "type": "affects",
+          "rationale": "Processing determines transformations, aggregation windows, and the representation available to models."
+        },
+        {
+          "target_id": "7",
+          "reading": "Data Processing Architecture affects Model Family Selection",
+          "type": "affects",
+          "rationale": "The available scale, latency, and transformed inputs influence feasible model families."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Batch data processing",
+          "description": "Scheduled transformation and materialization of data in discrete jobs.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Streaming data processing",
+          "description": "Continuous transformation and aggregation of records as they arrive.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Hybrid batch-stream processing",
+          "description": "A unified or coordinated design supporting historical batch computation and incremental online updates.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Notebook-centered processing",
+          "description": "Manual, interactive transformations that are not reproducible or operationally managed.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Data Partitioning Strategy",
+      "description": "How data is divided for training, validation, testing, and operational evaluation. Values answer which partitioning scheme prevents leakage while reflecting deployment conditions.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Data Partitioning Strategy constrains Training Procedure",
+          "type": "constrains",
+          "rationale": "Training and hyperparameter selection must use partitions without leaking evaluation information."
+        },
+        {
+          "target_id": "10",
+          "reading": "Data Partitioning Strategy affects Experiment Evaluation Strategy",
+          "type": "affects",
+          "rationale": "The partition scheme determines whether reported metrics estimate generalization to future, unseen, or grouped cases."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Random holdout partitioning",
+          "description": "Randomly separated training, validation, and test examples under an exchangeability assumption.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Temporal partitioning",
+          "description": "Training on earlier data and evaluating on later data to simulate future deployment.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Group-aware partitioning",
+          "description": "Keeping users, devices, entities, or related examples within a single partition.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Cross-validation partitioning",
+          "description": "Repeated folds used to estimate performance and tune models when data is limited.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.5",
+          "dimension_id": "5",
+          "label": "Random leakage-prone partitioning",
+          "description": "Random splitting despite temporal, entity, or duplicate relationships that cause optimistic evaluation.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Feature Representation Strategy",
+      "description": "How inputs are represented for learning and inference, including transformation ownership and feature reuse.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Feature Representation Strategy constrains Model Family Selection",
+          "type": "constrains",
+          "rationale": "Sparse, dense, sequential, categorical, and multimodal representations support different model families."
+        },
+        {
+          "target_id": "12",
+          "reading": "Feature Representation Strategy affects Model Packaging Format",
+          "type": "affects",
+          "rationale": "Preprocessing and feature computation must be packaged consistently with the model or serving environment."
+        },
+        {
+          "target_id": "13",
+          "reading": "Feature Representation Strategy affects Model Serving Strategy",
+          "type": "affects",
+          "rationale": "Online feature availability and transformation cost directly affect serving latency and correctness."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Manual domain features",
+          "description": "Human-designed variables derived from domain knowledge and business rules.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Learned representations",
+          "description": "Embeddings or internal representations learned jointly or largely automatically from data.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Raw-input representation",
+          "description": "Passing minimally transformed text, images, audio, logs, or other raw modalities to the model.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.4",
+          "dimension_id": "6",
+          "label": "Shared reusable features",
+          "description": "Features computed once and consumed consistently by multiple training and serving workloads.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.5",
+          "dimension_id": "6",
+          "label": "Training-only feature computation",
+          "description": "Computing transformations during training without an equivalent or versioned serving path.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Model Family Selection",
+      "description": "Which broad class of predictive model is used for the task, data modality, and operational constraints.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Model Family Selection affects Training Procedure",
+          "type": "affects",
+          "rationale": "Model families require different optimization algorithms, resources, regularization, and training workflows."
+        },
+        {
+          "target_id": "9",
+          "reading": "Model Family Selection affects Optimization and Tuning Strategy",
+          "type": "affects",
+          "rationale": "The model family determines the hyperparameters, search spaces, and computational cost of tuning."
+        },
+        {
+          "target_id": "13",
+          "reading": "Model Family Selection constrains Model Serving Strategy",
+          "type": "constrains",
+          "rationale": "Model size, hardware requirements, and inference complexity limit deployment and serving options."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Linear and generalized linear models",
+          "description": "Linear, logistic, Poisson, or related models with relatively simple parameterizations.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Tree-based ensemble models",
+          "description": "Decision trees, random forests, gradient-boosted trees, and related ensembles.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Deep neural networks",
+          "description": "Multi-layer neural architectures for structured, unstructured, or multimodal data.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Probabilistic and Bayesian models",
+          "description": "Models that explicitly represent uncertainty, distributions, or prior knowledge.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.5",
+          "dimension_id": "7",
+          "label": "Nearest-neighbor and retrieval models",
+          "description": "Prediction or ranking based on similarity search over stored examples or representations.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.6",
+          "dimension_id": "7",
+          "label": "Single universal model family",
+          "description": "Using one model family regardless of task characteristics, data modality, or operational constraints.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Training Procedure",
+      "description": "How model parameters are fitted, including computational execution, initialization, regularization, and resource use.",
+      "relations": [
+        {
+          "target_id": "9",
+          "reading": "Training Procedure co-occurs with Optimization and Tuning Strategy",
+          "type": "co_occurs_with",
+          "rationale": "Training execution and hyperparameter optimization are usually designed as one experimentation and compute workflow."
+        },
+        {
+          "target_id": "10",
+          "reading": "Training Procedure affects Experiment Evaluation Strategy",
+          "type": "affects",
+          "rationale": "Training randomness, checkpointing, early stopping, and repeatability affect the reliability of evaluation."
+        },
+        {
+          "target_id": "11",
+          "reading": "Training Procedure affects Experiment Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "The procedure determines which code, data, seeds, environments, and artifacts must be captured for reproduction."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Single-machine training",
+          "description": "Training within the memory and compute capacity of one machine.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Distributed data-parallel training",
+          "description": "Replicated model workers process data partitions and synchronize parameter updates.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.3",
+          "dimension_id": "8",
+          "label": "Distributed model-parallel training",
+          "description": "Model parameters or layers are partitioned across devices or machines.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.4",
+          "dimension_id": "8",
+          "label": "Transfer learning and fine-tuning",
+          "description": "Starting from a pretrained model and adapting it to a target task or domain.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.5",
+          "dimension_id": "8",
+          "label": "Manual one-off training",
+          "description": "Training performed without repeatable jobs, versioned inputs, or automated artifact capture.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Optimization and Tuning Strategy",
+      "description": "How model objectives, hyperparameters, architectures, and operating thresholds are selected.",
+      "relations": [
+        {
+          "target_id": "10",
+          "reading": "Optimization and Tuning Strategy requires Experiment Evaluation Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Tuning needs a reliable metric, validation protocol, and objective before alternatives can be compared."
+        },
+        {
+          "target_id": "11",
+          "reading": "Optimization and Tuning Strategy affects Experiment Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Search spaces, trials, seeds, and selected configurations must be recorded to reproduce the chosen model."
+        },
+        {
+          "target_id": "13",
+          "reading": "Optimization and Tuning Strategy affects Model Serving Strategy",
+          "type": "affects",
+          "rationale": "Optimization may trade accuracy for latency, memory, throughput, or calibration requirements in production."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Manual hyperparameter tuning",
+          "description": "Practitioner-directed adjustment based on domain knowledge and observed experiments.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.2",
+          "dimension_id": "9",
+          "label": "Grid or random search",
+          "description": "Systematic evaluation of configurations from a defined hyperparameter space.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.3",
+          "dimension_id": "9",
+          "label": "Bayesian optimization",
+          "description": "Adaptive selection of trials using a surrogate model of validation performance.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.4",
+          "dimension_id": "9",
+          "label": "Multi-objective optimization",
+          "description": "Selection against multiple objectives such as quality, latency, cost, fairness, or robustness.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.5",
+          "dimension_id": "9",
+          "label": "Accuracy-only optimization",
+          "description": "Selecting models solely by an offline accuracy metric while ignoring operational or social constraints.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "Experiment Evaluation Strategy",
+      "description": "How candidate models are compared and judged before release, including metrics, baselines, uncertainty, and testing conditions.",
+      "relations": [
+        {
+          "target_id": "11",
+          "reading": "Experiment Evaluation Strategy affects Experiment Reproducibility Strategy",
+          "type": "affects",
+          "rationale": "Evaluation artifacts, datasets, metrics, and randomization must be recorded to reproduce conclusions."
+        },
+        {
+          "target_id": "13",
+          "reading": "Experiment Evaluation Strategy affects Model Serving Strategy",
+          "type": "affects",
+          "rationale": "Deployment decisions depend on whether offline evaluation reflects online latency, traffic, and business outcomes."
+        },
+        {
+          "target_id": "15",
+          "reading": "Experiment Evaluation Strategy affects Production Monitoring Strategy",
+          "type": "affects",
+          "rationale": "Offline metrics and acceptance thresholds establish production monitoring targets and alert baselines."
+        }
+      ],
+      "values": [
+        {
+          "id": "10.1",
+          "dimension_id": "10",
+          "label": "Offline metric evaluation",
+          "description": "Comparison using held-out data and task-specific predictive metrics.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.2",
+          "dimension_id": "10",
+          "label": "Slice-based evaluation",
+          "description": "Evaluation across demographic, geographic, temporal, behavioral, or other important subgroups.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.3",
+          "dimension_id": "10",
+          "label": "Simulation and replay evaluation",
+          "description": "Testing against reconstructed historical sequences, environments, or user interactions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.4",
+          "dimension_id": "10",
+          "label": "Online controlled experimentation",
+          "description": "Comparison through shadow, canary, A/B, or other controlled production exposure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.5",
+          "dimension_id": "10",
+          "label": "Offline-only acceptance",
+          "description": "Releasing a model based solely on offline metrics without operational or representative online testing.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "Experiment Reproducibility Strategy",
+      "description": "How code, data, environments, configurations, randomness, and artifacts are versioned and recoverable across experiments.",
+      "relations": [
+        {
+          "target_id": "12",
+          "reading": "Experiment Reproducibility Strategy affects Model Packaging Format",
+          "type": "affects",
+          "rationale": "A reproducible model requires packaging the exact model artifact, dependencies, preprocessing, and configuration."
+        },
+        {
+          "target_id": "16",
+          "reading": "Experiment Reproducibility Strategy affects Retraining Strategy",
+          "type": "affects",
+          "rationale": "Automated retraining requires repeatable pipelines and traceable data and model lineage."
+        }
+      ],
+      "values": [
+        {
+          "id": "11.1",
+          "dimension_id": "11",
+          "label": "Versioned experiment tracking",
+          "description": "Tracking runs, parameters, metrics, datasets, code versions, and produced artifacts.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.2",
+          "dimension_id": "11",
+          "label": "Containerized environment capture",
+          "description": "Capturing runtime dependencies and execution environments in reproducible images or environments.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.3",
+          "dimension_id": "11",
+          "label": "Data and model lineage",
+          "description": "Tracing deployed models to source data, transformations, training runs, approvals, and dependencies.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.4",
+          "dimension_id": "11",
+          "label": "Reproducible randomization",
+          "description": "Controlling or recording seeds and nondeterministic execution where repeatability matters.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.5",
+          "dimension_id": "11",
+          "label": "Untracked experimentation",
+          "description": "Relying on notebooks, local files, or memory to identify how a model was produced.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "name": "Model Packaging Format",
+      "description": "How a trained model and its required preprocessing, dependencies, metadata, and signatures are represented for deployment.",
+      "relations": [
+        {
+          "target_id": "13",
+          "reading": "Model Packaging Format requires Model Serving Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Packaging must target the serving runtime, supported operators, serialization constraints, and interface requirements."
+        },
+        {
+          "target_id": "14",
+          "reading": "Model Packaging Format affects Deployment Topology",
+          "type": "affects",
+          "rationale": "Artifact size, runtime dependencies, and hardware requirements influence where and how the model can be deployed."
+        }
+      ],
+      "values": [
+        {
+          "id": "12.1",
+          "dimension_id": "12",
+          "label": "Framework-native model artifact",
+          "description": "Serialization in the training framework's native format with its associated runtime.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.2",
+          "dimension_id": "12",
+          "label": "Portable interchange model",
+          "description": "Export to a framework-neutral representation supported by multiple runtimes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.3",
+          "dimension_id": "12",
+          "label": "Containerized inference artifact",
+          "description": "Model, preprocessing, runtime, and dependencies bundled into a deployable container image.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.4",
+          "dimension_id": "12",
+          "label": "Model-plus-feature bundle",
+          "description": "Packaging the model together with feature transformations, schemas, and serving signatures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.5",
+          "dimension_id": "12",
+          "label": "Training-environment deployment",
+          "description": "Deploying a model by copying an incomplete training environment without a stable inference contract.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "name": "Model Serving Strategy",
+      "description": "How predictions are exposed and computed for consumers. Values answer whether inference is performed synchronously, asynchronously, in batches, or at the edge.",
+      "relations": [
+        {
+          "target_id": "14",
+          "reading": "Model Serving Strategy constrains Deployment Topology",
+          "type": "constrains",
+          "rationale": "Latency, throughput, availability, and connectivity requirements determine viable deployment locations and communication patterns."
+        },
+        {
+          "target_id": "15",
+          "reading": "Model Serving Strategy affects Production Monitoring Strategy",
+          "type": "affects",
+          "rationale": "Serving mode determines observable request, latency, failure, feature, and prediction signals."
+        },
+        {
+          "target_id": "16",
+          "reading": "Model Serving Strategy affects Retraining Strategy",
+          "type": "affects",
+          "rationale": "Prediction feedback availability and serving traffic determine how retraining data and triggers are collected."
+        }
+      ],
+      "values": [
+        {
+          "id": "13.1",
+          "dimension_id": "13",
+          "label": "Online synchronous inference",
+          "description": "Returning a prediction during a request-response interaction with a latency objective.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.2",
+          "dimension_id": "13",
+          "label": "Asynchronous inference",
+          "description": "Submitting prediction work to a queue or job and receiving results later.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.3",
+          "dimension_id": "13",
+          "label": "Batch inference",
+          "description": "Generating predictions for accumulated records on a schedule or demand.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.4",
+          "dimension_id": "13",
+          "label": "Edge inference",
+          "description": "Running inference near the data source or user device to reduce latency, bandwidth, or connectivity dependence.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.5",
+          "dimension_id": "13",
+          "label": "Embedded inference",
+          "description": "Including a model directly inside an application, device, or compiled software component.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.6",
+          "dimension_id": "13",
+          "label": "Unbounded synchronous inference",
+          "description": "Making every prediction request wait for an unconstrained model computation or dependency chain.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "name": "Deployment Topology",
+      "description": "Where model computation and supporting components run and how they are scaled and isolated in production.",
+      "relations": [
+        {
+          "target_id": "15",
+          "reading": "Deployment Topology affects Production Monitoring Strategy",
+          "type": "affects",
+          "rationale": "Distributed, edge, and managed deployments expose different telemetry, ownership, and observability boundaries."
+        },
+        {
+          "target_id": "16",
+          "reading": "Deployment Topology affects Retraining Strategy",
+          "type": "affects",
+          "rationale": "Deployment boundaries affect access to feedback, data, compute, and the mechanism for replacing model versions."
+        }
+      ],
+      "values": [
+        {
+          "id": "14.1",
+          "dimension_id": "14",
+          "label": "Centralized cloud deployment",
+          "description": "Serving and operating models in centrally managed cloud infrastructure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "14.2",
+          "dimension_id": "14",
+          "label": "Managed machine learning platform",
+          "description": "Using a provider-managed training, registry, endpoint, or pipeline service.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "14.3",
+          "dimension_id": "14",
+          "label": "On-premises deployment",
+          "description": "Running model infrastructure within organization-controlled data centers or private infrastructure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "14.4",
+          "dimension_id": "14",
+          "label": "Edge and federated deployment",
+          "description": "Distributing inference or training across devices, sites, or data owners with limited centralization.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "14.5",
+          "dimension_id": "14",
+          "label": "Single-host production deployment",
+          "description": "Running a production model without redundancy, isolation, or managed scaling.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "name": "Production Monitoring Strategy",
+      "description": "How deployed machine learning systems are observed for service health, data and concept drift, model quality, fairness, security, and business impact.",
+      "relations": [
+        {
+          "target_id": "16",
+          "reading": "Production Monitoring Strategy affects Retraining Strategy",
+          "type": "affects",
+          "rationale": "Drift, degradation, failures, and feedback signals can trigger investigation, rollback, or retraining."
+        },
+        {
+          "target_id": "17",
+          "reading": "Production Monitoring Strategy affects Release Governance",
+          "type": "affects",
+          "rationale": "Monitoring evidence informs approval, rollback, incident response, and continued operation of model versions."
+        }
+      ],
+      "values": [
+        {
+          "id": "15.1",
+          "dimension_id": "15",
+          "label": "Service health monitoring",
+          "description": "Monitoring availability, latency, throughput, errors, resource use, and dependency health.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "15.2",
+          "dimension_id": "15",
+          "label": "Data and feature drift monitoring",
+          "description": "Detecting changes in input distributions, missingness, freshness, schemas, and feature relationships.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "15.3",
+          "dimension_id": "15",
+          "label": "Prediction and concept drift monitoring",
+          "description": "Monitoring prediction distributions and changes in the relationship between inputs, predictions, and outcomes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "15.4",
+          "dimension_id": "15",
+          "label": "Outcome and fairness monitoring",
+          "description": "Measuring delayed outcomes, business metrics, subgroup performance, and fairness indicators.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "15.5",
+          "dimension_id": "15",
+          "label": "Unobservable deployment",
+          "description": "Operating a model without telemetry, feedback collection, or checks for production degradation.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "15.6",
+          "dimension_id": "15",
+          "label": "Silent model degradation",
+          "description": "Outcome of distribution shift, stale data, feedback loops, or changing user behavior that reduces model usefulness.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "name": "Retraining Strategy",
+      "description": "How and when models are updated after initial deployment. Values answer what triggers retraining and how model replacement is coordinated.",
+      "relations": [
+        {
+          "target_id": "17",
+          "reading": "Retraining Strategy requires Release Governance to be decided first",
+          "type": "requires",
+          "rationale": "Automated or manual retraining still requires approval, validation, rollback, and accountability rules before replacement."
+        },
+        {
+          "target_id": "11",
+          "reading": "Retraining Strategy requires Experiment Reproducibility Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Repeated training needs versioned data, code, environments, and lineage to produce trustworthy updates."
+        },
+        {
+          "target_id": "15",
+          "reading": "Retraining Strategy is affected by Production Monitoring Strategy",
+          "type": "affects",
+          "rationale": "Monitoring signals determine whether retraining is scheduled, drift-triggered, performance-triggered, or unnecessary."
+        }
+      ],
+      "values": [
+        {
+          "id": "16.1",
+          "dimension_id": "16",
+          "label": "Scheduled retraining",
+          "description": "Retraining at fixed calendar or data-volume intervals.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "16.2",
+          "dimension_id": "16",
+          "label": "Drift-triggered retraining",
+          "description": "Retraining initiated when monitored input, feature, prediction, or outcome distributions change materially.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "16.3",
+          "dimension_id": "16",
+          "label": "Performance-triggered retraining",
+          "description": "Retraining initiated when measured model quality or business performance falls below a threshold.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "16.4",
+          "dimension_id": "16",
+          "label": "Continuous or online learning",
+          "description": "Updating model parameters incrementally as new labeled or weakly labeled data arrives.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "16.5",
+          "dimension_id": "16",
+          "label": "Manual retraining",
+          "description": "Retraining initiated and orchestrated by practitioners after review of evidence or a business request.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "16.6",
+          "dimension_id": "16",
+          "label": "Unreviewed automatic replacement",
+          "description": "Replacing a production model automatically without validation, approval, or rollback controls.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "name": "Release Governance",
+      "description": "How model versions are approved, exposed, rolled back, and held accountable during production operation.",
+      "relations": [
+        {
+          "target_id": "14",
+          "reading": "Release Governance constrains Deployment Topology",
+          "type": "constrains",
+          "rationale": "Approval, isolation, access control, and rollback requirements constrain deployment mechanisms and environments."
+        },
+        {
+          "target_id": "13",
+          "reading": "Release Governance affects Model Serving Strategy",
+          "type": "affects",
+          "rationale": "Canary, shadow, champion-challenger, and rollback practices shape how serving exposes model versions."
+        },
+        {
+          "target_id": "16",
+          "reading": "Release Governance constrains Retraining Strategy",
+          "type": "constrains",
+          "rationale": "Governance controls limit when retrained models can replace approved production versions."
+        }
+      ],
+      "values": [
+        {
+          "id": "17.1",
+          "dimension_id": "17",
+          "label": "Manual approval gates",
+          "description": "Human review and authorization before a model proceeds between environments or into production.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "17.2",
+          "dimension_id": "17",
+          "label": "Automated policy gates",
+          "description": "Automated checks for quality, security, fairness, reproducibility, and operational requirements.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "17.3",
+          "dimension_id": "17",
+          "label": "Canary and shadow release",
+          "description": "Limited or non-user-facing exposure used to validate a new model before broad rollout.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "17.4",
+          "dimension_id": "17",
+          "label": "Champion-challenger release",
+          "description": "Comparing a candidate model against the currently approved model under controlled production conditions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "17.5",
+          "dimension_id": "17",
+          "label": "Rollback-capable versioning",
+          "description": "Retaining deployable prior versions and the ability to restore them quickly.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "17.6",
+          "dimension_id": "17",
+          "label": "Uncontrolled model release",
+          "description": "Deploying model artifacts directly without approval, staged exposure, version tracking, or rollback.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    }
+  ]
+}

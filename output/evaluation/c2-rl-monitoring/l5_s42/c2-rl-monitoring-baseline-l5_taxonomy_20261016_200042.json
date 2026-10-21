@@ -1,0 +1,1208 @@
+{
+  "taxonomy_name": "c2-rl-monitoring-baseline-l5",
+  "mode": "baseline-l5",
+  "baseline": {
+    "kind": "prior_knowledge",
+    "seed": 42,
+    "model": "openai/gpt-5.6-luna",
+    "prompt_version": "1",
+    "prompt_sha256": "763c8da0bb896706008165aba5fb00364f4020072dd80454ceec9a5645e2e677",
+    "prompt_tokens_counted": 362,
+    "unknown_passage_ids_dropped": 0
+  },
+  "run_metrics": {
+    "elapsed_seconds": 41.6,
+    "total_tokens": 6135,
+    "prompt_tokens": 1358,
+    "completion_tokens": 4777
+  },
+  "iterations": [
+    {
+      "explanation": "The design space is organized from collection to action: Telemetry Scope defines what is observable; Telemetry Collection Placement and Monitoring Analysis Latency define where and when it is processed; Drift and Distribution Baselines and Alerting and Escalation Policy turn observations into judgments; Production Safety Response defines what happens when a judgment indicates harm; Replay and Evaluation Data and Policy Versioning and Rollback support diagnosis, comparison, and recovery; Privacy and Access Control and Monitoring Reliability and Cost capture the principal cross-cutting constraints. The taxonomy distinguishes RL-specific signals such as trajectories, rewards, actions, policy versions, environment conditions, constraint violations, and off-policy evaluation from generic service observability. It also distinguishes passive monitoring from active safeguards, fallback routing, and rollback. Values marked rejected represent common but unsafe or operationally weak approaches, such as reward-only monitoring, unrestricted live experimentation, unversioned policy replacement, and synchronous unbounded logging. The main trade-offs are monitoring fidelity versus cost and privacy, detection speed versus processing complexity, adaptive baselines versus sensitivity to legitimate nonstationarity, and active safety intervention versus autonomy and serving simplicity.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Telemetry Scope",
+          "description": "What the production monitoring system records from the deployed RL agent, environment, and surrounding service.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Telemetry Scope constrains Data Retention and Storage because broader and higher-frequency signals require more storage capacity and cost.",
+              "type": "constrains",
+              "rationale": "Recording full trajectories, observations, actions, rewards, and model metadata produces substantially more data than recording aggregate service metrics."
+            },
+            {
+              "target_id": "3",
+              "reading": "Telemetry Scope affects Monitoring Analysis Latency because detailed trajectory data may require asynchronous processing rather than synchronous inspection.",
+              "type": "affects",
+              "rationale": "High-volume traces and feature-level signals can make real-time processing expensive, while coarse counters are easier to evaluate online."
+            },
+            {
+              "target_id": "4",
+              "reading": "Telemetry Scope affects Drift and Distribution Baselines because the monitored signals determine which changes in state, action, reward, or environment distributions can be detected.",
+              "type": "affects",
+              "rationale": "A system cannot detect drift in signals that it does not collect."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Full Episode Trajectories",
+              "description": "Capture sequences of observations or features, actions, rewards, termination causes, policy versions, and relevant environment context for complete or sampled episodes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "State-Action-Reward Summaries",
+              "description": "Record compact per-step or per-episode summaries such as action frequencies, reward statistics, constraint violations, and episode duration.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Infrastructure Metrics Only",
+              "description": "Monitor latency, errors, resource use, and availability without collecting enough RL-specific information to reconstruct behavior or learning outcomes.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Outcome and Safety Events",
+              "description": "Record task outcomes, reward anomalies, constraint violations, unsafe actions, human overrides, and other business or safety events as first-class signals.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Telemetry Collection Placement",
+          "description": "Where instrumentation and monitoring computation run relative to the agent-serving process and production environment.",
+          "relations": [
+            {
+              "target_id": "3",
+              "reading": "Telemetry Collection Placement affects Monitoring Analysis Latency because local processing can reduce network round trips while centralized processing simplifies heavier analysis.",
+              "type": "affects",
+              "rationale": "The location of collection and preprocessing determines whether monitoring lies on the serving path and how quickly signals reach analysis components."
+            },
+            {
+              "target_id": "5",
+              "reading": "Telemetry Collection Placement constrains Production Safety Response because in-process or edge components can enforce immediate responses while remote monitors depend on network availability.",
+              "type": "constrains",
+              "rationale": "Safety actions requiring low latency cannot depend solely on a distant monitoring service."
+            },
+            {
+              "target_id": "6",
+              "reading": "Telemetry Collection Placement affects Privacy and Access Control because centralized collection changes where sensitive observations, actions, and user context are exposed.",
+              "type": "affects",
+              "rationale": "Moving raw trajectories out of the serving environment expands the data-access boundary."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "In-Process Instrumentation",
+              "description": "Collect and compute essential monitoring signals inside the agent or serving process.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Sidecar or Node-Level Collection",
+              "description": "Use a colocated sidecar, agent, or node collector to capture telemetry without embedding all monitoring logic in the policy process.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Centralized Remote Monitoring",
+              "description": "Stream telemetry to a separate monitoring platform that performs collection, aggregation, analysis, and alerting.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Synchronous Remote Inspection on the Serving Path",
+              "description": "Make action selection or request completion depend on a remote monitoring query for every decision.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Monitoring Analysis Latency",
+          "description": "How quickly production telemetry is analyzed and made available for detection, diagnosis, or intervention.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Monitoring Analysis Latency affects Alerting and Escalation Policy because shorter detection windows support immediate alerts while batch analysis supports richer but slower reports.",
+              "type": "affects",
+              "rationale": "Alert urgency and escalation mechanisms must match the time between a harmful behavior and its detection."
+            },
+            {
+              "target_id": "5",
+              "reading": "Monitoring Analysis Latency constrains Production Safety Response because intervention deadlines determine the maximum acceptable detection delay.",
+              "type": "constrains",
+              "rationale": "A safety-critical action cannot rely on analysis that arrives after the relevant decision or episode."
+            },
+            {
+              "target_id": "2",
+              "reading": "Monitoring Analysis Latency affects Telemetry Collection Placement because low-latency analysis favors local or streaming processing.",
+              "type": "affects",
+              "rationale": "The required latency determines whether monitoring can tolerate centralized buffering and network transfer."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Synchronous Per-Decision Checks",
+              "description": "Evaluate selected policy, state, constraint, or safety conditions before or during each action decision.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Streaming Near-Real-Time Analysis",
+              "description": "Process telemetry continuously with short delays, typically using windows, aggregations, and online detectors.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Nearline Episode Analysis",
+              "description": "Analyze completed episodes or short batches shortly after execution to support richer trajectory-level checks.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Offline Periodic Analysis",
+              "description": "Run scheduled analyses over retained historical data for trend discovery, evaluation, and post-incident investigation.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Drift and Distribution Baselines",
+          "description": "How the system defines expected behavior and detects changes in observations, actions, rewards, transitions, or outcomes.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Drift and Distribution Baselines require Telemetry Scope to be decided first because baseline comparisons need historical and current signals.",
+              "type": "requires",
+              "rationale": "The choice of baseline cannot be implemented without deciding which distributions and outcomes are observable."
+            },
+            {
+              "target_id": "7",
+              "reading": "Drift and Distribution Baselines affect Alerting and Escalation Policy because detector sensitivity, persistence, and severity determine when changes become incidents.",
+              "type": "affects",
+              "rationale": "A drift score is operationally useful only when mapped to an alert policy."
+            },
+            {
+              "target_id": "9",
+              "reading": "Drift and Distribution Baselines affect Policy Versioning and Rollback because observed changes must be attributable to a policy version or deployment.",
+              "type": "affects",
+              "rationale": "Versioned baselines help distinguish policy-induced changes from environmental nonstationarity."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Fixed Reference Baselines",
+              "description": "Compare production behavior with a stable baseline derived from a validated historical period, reference policy, or approved dataset.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Rolling Adaptive Baselines",
+              "description": "Update expected distributions and thresholds over time to account for changing traffic, users, environments, or task conditions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Policy and Cohort Baselines",
+              "description": "Compare behavior against a specific policy version, environment segment, user cohort, or controlled reference population.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Reward-Only Monitoring",
+              "description": "Use reward changes as the primary indicator of degradation without checking state coverage, action distributions, constraints, or outcome quality.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Production Safety Response",
+          "description": "What the system does when monitoring detects unsafe, invalid, anomalous, or severely degraded agent behavior.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Production Safety Response requires Alerting and Escalation Policy to be decided first because detection severity and notification ownership determine when intervention is triggered.",
+              "type": "requires",
+              "rationale": "An intervention mechanism needs defined conditions and an operational escalation path."
+            },
+            {
+              "target_id": "9",
+              "reading": "Production Safety Response constrains Policy Versioning and Rollback because rollback, disabling, or traffic reduction must be supported by deployment controls.",
+              "type": "constrains",
+              "rationale": "A monitor cannot safely revert a policy unless serving infrastructure can select an earlier or fallback policy."
+            },
+            {
+              "target_id": "3",
+              "reading": "Production Safety Response requires Monitoring Analysis Latency to be decided first because the response must fit the time available before harm occurs.",
+              "type": "requires",
+              "rationale": "Immediate action blocking and slower human review are different responses with different latency requirements."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Observe-Only Monitoring",
+              "description": "Generate metrics, traces, and alerts without changing agent execution or traffic when an anomaly is detected.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Safety Shielding",
+              "description": "Apply hard constraints, action filters, rule-based overrides, or a safety controller before an action reaches the environment.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Fallback Policy Routing",
+              "description": "Route decisions to a conservative, validated, or non-learning fallback policy when the deployed policy violates defined conditions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Automatic Traffic Reduction or Rollback",
+              "description": "Reduce exposure, disable the agent, or revert to a prior policy version when monitoring identifies a severe incident.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Privacy and Access Control",
+          "description": "How monitoring protects sensitive observations, user context, actions, trajectories, and operational metadata while preserving debugging value.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Privacy and Access Control constrains Telemetry Scope because privacy requirements limit which raw observations, identifiers, and trajectories may be collected.",
+              "type": "constrains",
+              "rationale": "Data minimization and access restrictions can require redaction, aggregation, or selective sampling."
+            },
+            {
+              "target_id": "2",
+              "reading": "Privacy and Access Control affects Telemetry Collection Placement because collection location determines the systems and jurisdictions that receive monitoring data.",
+              "type": "affects",
+              "rationale": "Centralized telemetry may increase exposure, while local processing can reduce movement of sensitive data."
+            },
+            {
+              "target_id": "8",
+              "reading": "Privacy and Access Control constrains Replay and Evaluation Data because offline replay datasets often contain detailed historical interactions.",
+              "type": "constrains",
+              "rationale": "Replay and evaluation require governance over retention, de-identification, authorization, and reuse."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Raw Trajectory Retention",
+              "description": "Retain detailed observations, actions, rewards, and context for authorized debugging, replay, and incident analysis.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Redacted or Pseudonymized Telemetry",
+              "description": "Remove, hash, mask, or transform sensitive fields before storage or transmission while retaining monitoring-relevant structure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Aggregated and Minimized Telemetry",
+              "description": "Retain only the fields and aggregates needed for operational monitoring, with strict access and retention controls.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Unrestricted Telemetry Access",
+              "description": "Allow broad access to raw monitoring data without role, purpose, or retention controls.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Alerting and Escalation Policy",
+          "description": "How detected anomalies and degradations become alerts, incidents, notifications, or human actions.",
+          "relations": [
+            {
+              "target_id": "4",
+              "reading": "Alerting and Escalation Policy depends on Drift and Distribution Baselines because thresholds and persistence rules require an expected-behavior reference.",
+              "type": "requires",
+              "rationale": "Without a baseline or explicit limit, the system cannot determine whether a metric is abnormal."
+            },
+            {
+              "target_id": "3",
+              "reading": "Alerting and Escalation Policy affects Monitoring Analysis Latency because severity and response-time objectives determine how quickly signals must be processed.",
+              "type": "affects",
+              "rationale": "High-severity alerts require faster detection and delivery than periodic health reports."
+            },
+            {
+              "target_id": "5",
+              "reading": "Alerting and Escalation Policy affects Production Safety Response because escalation levels can trigger observation, shielding, fallback, or rollback.",
+              "type": "affects",
+              "rationale": "Operational response is selected based on the alert's severity, confidence, and ownership."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Static Threshold Alerts",
+              "description": "Trigger alerts when metrics cross manually specified limits for reward, latency, constraint violations, error rates, or action frequencies.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Adaptive Anomaly Alerts",
+              "description": "Trigger alerts from statistical, change-point, density, or learned detectors that adapt to expected production behavior.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Multi-Signal Incident Correlation",
+              "description": "Combine policy, environment, infrastructure, reward, and safety signals before opening or escalating an incident.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Unfiltered Per-Step Paging",
+              "description": "Page operators for every anomalous step or transient deviation without suppression, aggregation, or severity ranking.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Replay and Evaluation Data",
+          "description": "How production interactions are retained and reused to assess policy quality, investigate incidents, and estimate performance without unsafe live experimentation.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Replay and Evaluation Data require Telemetry Scope to be decided first because replay fidelity depends on the recorded observations, actions, rewards, and environment context.",
+              "type": "requires",
+              "rationale": "Incomplete telemetry cannot support faithful trajectory replay or meaningful offline evaluation."
+            },
+            {
+              "target_id": "9",
+              "reading": "Replay and Evaluation Data affect Policy Versioning and Rollback because historical interactions support comparison of policy versions and rollback decisions.",
+              "type": "affects",
+              "rationale": "Version-aware evaluation helps determine whether a new policy caused degradation and whether an earlier policy is preferable."
+            },
+            {
+              "target_id": "6",
+              "reading": "Replay and Evaluation Data are constrained by Privacy and Access Control because retained interactions may contain sensitive or restricted information.",
+              "type": "constrains",
+              "rationale": "The ability to replay data depends on authorization, de-identification, retention, and governance rules."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Production Trace Replay",
+              "description": "Reuse recorded production trajectories to reproduce incidents, inspect decisions, and evaluate behavior against known interactions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Offline Policy Evaluation",
+              "description": "Estimate policy value, safety, or constraint performance from logged interactions using off-policy or counterfactual evaluation methods.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.3",
+              "dimension_id": "8",
+              "label": "Shadow Policy Evaluation",
+              "description": "Run a candidate or diagnostic policy on production observations without allowing it to control the environment, then compare its proposed actions and predicted outcomes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.4",
+              "dimension_id": "8",
+              "label": "Live Trial-and-Error Evaluation",
+              "description": "Evaluate a new policy primarily by allowing unrestricted exploration in production before establishing safety and performance evidence.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Policy Versioning and Rollback",
+          "description": "How deployed policies, model artifacts, configurations, feature transformations, and environment assumptions are identified and reversed.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Policy Versioning and Rollback enable Production Safety Response because intervention requires selecting a known fallback or restoring a previous policy.",
+              "type": "affects",
+              "rationale": "Rollback and traffic shifting are only reliable when policy artifacts and dependencies are immutably identified."
+            },
+            {
+              "target_id": "4",
+              "reading": "Policy Versioning and Rollback affects Drift and Distribution Baselines because baselines can be associated with particular policy versions and deployment cohorts.",
+              "type": "affects",
+              "rationale": "Version attribution separates deployment regressions from ordinary environmental change."
+            },
+            {
+              "target_id": "8",
+              "reading": "Policy Versioning and Rollback affects Replay and Evaluation Data because evaluation results must be associated with the exact policy and configuration that generated them.",
+              "type": "affects",
+              "rationale": "Without version lineage, historical comparisons and incident reproduction are ambiguous."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Immutable Policy and Artifact Lineage",
+              "description": "Record unique versions of policy weights, code, features, configuration, environment interfaces, and monitoring rules for each decision or deployment.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.2",
+              "dimension_id": "9",
+              "label": "Cohort-Based Policy Comparison",
+              "description": "Expose policy versions to controlled traffic cohorts so behavior and outcomes can be compared under production conditions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.3",
+              "dimension_id": "9",
+              "label": "Automated Rollback and Traffic Shifting",
+              "description": "Provide deployment controls that reduce traffic, disable a version, or route requests to a validated prior or fallback policy.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.4",
+              "dimension_id": "9",
+              "label": "Unversioned Continuous Replacement",
+              "description": "Replace deployed policies without preserving exact artifacts, configurations, or associations between telemetry and policy versions.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "name": "Monitoring Reliability and Cost",
+          "description": "How the monitoring infrastructure remains available, bounded in resource use, and trustworthy despite production load and telemetry volume.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Monitoring Reliability and Cost constrains Telemetry Scope because collection volume, sampling, and retention must fit resource and budget limits.",
+              "type": "constrains",
+              "rationale": "Full-fidelity monitoring can affect serving performance and create unsustainable storage and processing costs."
+            },
+            {
+              "target_id": "2",
+              "reading": "Monitoring Reliability and Cost affects Telemetry Collection Placement because local, sidecar, and centralized designs have different failure and resource-isolation properties.",
+              "type": "affects",
+              "rationale": "Placement changes whether monitor failure can affect the agent and how monitoring resources are provisioned."
+            },
+            {
+              "target_id": "3",
+              "reading": "Monitoring Reliability and Cost affects Monitoring Analysis Latency because low-latency guarantees require additional capacity, redundancy, and operational complexity.",
+              "type": "affects",
+              "rationale": "Fast analysis is a resource and availability commitment, not only an algorithmic choice."
+            }
+          ],
+          "values": [
+            {
+              "id": "10.1",
+              "dimension_id": "10",
+              "label": "Sampled and Rate-Limited Collection",
+              "description": "Bound monitoring overhead by sampling episodes or steps, limiting event rates, and prioritizing safety or incident signals.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.2",
+              "dimension_id": "10",
+              "label": "Loss-Tolerant Asynchronous Pipelines",
+              "description": "Decouple telemetry production from analysis through buffers, queues, retries, and explicit policies for data loss or backpressure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.3",
+              "dimension_id": "10",
+              "label": "Highly Available Monitoring Control Plane",
+              "description": "Operate monitoring components with redundancy, health checks, durable ingestion, and independent failure handling for critical signals.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.4",
+              "dimension_id": "10",
+              "label": "Unbounded Synchronous Logging",
+              "description": "Send every raw event synchronously without backpressure, sampling, degradation behavior, or isolation from the serving path.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Telemetry Scope",
+      "description": "What the production monitoring system records from the deployed RL agent, environment, and surrounding service.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Telemetry Scope constrains Data Retention and Storage because broader and higher-frequency signals require more storage capacity and cost.",
+          "type": "constrains",
+          "rationale": "Recording full trajectories, observations, actions, rewards, and model metadata produces substantially more data than recording aggregate service metrics."
+        },
+        {
+          "target_id": "3",
+          "reading": "Telemetry Scope affects Monitoring Analysis Latency because detailed trajectory data may require asynchronous processing rather than synchronous inspection.",
+          "type": "affects",
+          "rationale": "High-volume traces and feature-level signals can make real-time processing expensive, while coarse counters are easier to evaluate online."
+        },
+        {
+          "target_id": "4",
+          "reading": "Telemetry Scope affects Drift and Distribution Baselines because the monitored signals determine which changes in state, action, reward, or environment distributions can be detected.",
+          "type": "affects",
+          "rationale": "A system cannot detect drift in signals that it does not collect."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Full Episode Trajectories",
+          "description": "Capture sequences of observations or features, actions, rewards, termination causes, policy versions, and relevant environment context for complete or sampled episodes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "State-Action-Reward Summaries",
+          "description": "Record compact per-step or per-episode summaries such as action frequencies, reward statistics, constraint violations, and episode duration.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Infrastructure Metrics Only",
+          "description": "Monitor latency, errors, resource use, and availability without collecting enough RL-specific information to reconstruct behavior or learning outcomes.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Outcome and Safety Events",
+          "description": "Record task outcomes, reward anomalies, constraint violations, unsafe actions, human overrides, and other business or safety events as first-class signals.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Telemetry Collection Placement",
+      "description": "Where instrumentation and monitoring computation run relative to the agent-serving process and production environment.",
+      "relations": [
+        {
+          "target_id": "3",
+          "reading": "Telemetry Collection Placement affects Monitoring Analysis Latency because local processing can reduce network round trips while centralized processing simplifies heavier analysis.",
+          "type": "affects",
+          "rationale": "The location of collection and preprocessing determines whether monitoring lies on the serving path and how quickly signals reach analysis components."
+        },
+        {
+          "target_id": "5",
+          "reading": "Telemetry Collection Placement constrains Production Safety Response because in-process or edge components can enforce immediate responses while remote monitors depend on network availability.",
+          "type": "constrains",
+          "rationale": "Safety actions requiring low latency cannot depend solely on a distant monitoring service."
+        },
+        {
+          "target_id": "6",
+          "reading": "Telemetry Collection Placement affects Privacy and Access Control because centralized collection changes where sensitive observations, actions, and user context are exposed.",
+          "type": "affects",
+          "rationale": "Moving raw trajectories out of the serving environment expands the data-access boundary."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "In-Process Instrumentation",
+          "description": "Collect and compute essential monitoring signals inside the agent or serving process.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Sidecar or Node-Level Collection",
+          "description": "Use a colocated sidecar, agent, or node collector to capture telemetry without embedding all monitoring logic in the policy process.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Centralized Remote Monitoring",
+          "description": "Stream telemetry to a separate monitoring platform that performs collection, aggregation, analysis, and alerting.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Synchronous Remote Inspection on the Serving Path",
+          "description": "Make action selection or request completion depend on a remote monitoring query for every decision.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Monitoring Analysis Latency",
+      "description": "How quickly production telemetry is analyzed and made available for detection, diagnosis, or intervention.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Monitoring Analysis Latency affects Alerting and Escalation Policy because shorter detection windows support immediate alerts while batch analysis supports richer but slower reports.",
+          "type": "affects",
+          "rationale": "Alert urgency and escalation mechanisms must match the time between a harmful behavior and its detection."
+        },
+        {
+          "target_id": "5",
+          "reading": "Monitoring Analysis Latency constrains Production Safety Response because intervention deadlines determine the maximum acceptable detection delay.",
+          "type": "constrains",
+          "rationale": "A safety-critical action cannot rely on analysis that arrives after the relevant decision or episode."
+        },
+        {
+          "target_id": "2",
+          "reading": "Monitoring Analysis Latency affects Telemetry Collection Placement because low-latency analysis favors local or streaming processing.",
+          "type": "affects",
+          "rationale": "The required latency determines whether monitoring can tolerate centralized buffering and network transfer."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Synchronous Per-Decision Checks",
+          "description": "Evaluate selected policy, state, constraint, or safety conditions before or during each action decision.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Streaming Near-Real-Time Analysis",
+          "description": "Process telemetry continuously with short delays, typically using windows, aggregations, and online detectors.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Nearline Episode Analysis",
+          "description": "Analyze completed episodes or short batches shortly after execution to support richer trajectory-level checks.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Offline Periodic Analysis",
+          "description": "Run scheduled analyses over retained historical data for trend discovery, evaluation, and post-incident investigation.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Drift and Distribution Baselines",
+      "description": "How the system defines expected behavior and detects changes in observations, actions, rewards, transitions, or outcomes.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Drift and Distribution Baselines require Telemetry Scope to be decided first because baseline comparisons need historical and current signals.",
+          "type": "requires",
+          "rationale": "The choice of baseline cannot be implemented without deciding which distributions and outcomes are observable."
+        },
+        {
+          "target_id": "7",
+          "reading": "Drift and Distribution Baselines affect Alerting and Escalation Policy because detector sensitivity, persistence, and severity determine when changes become incidents.",
+          "type": "affects",
+          "rationale": "A drift score is operationally useful only when mapped to an alert policy."
+        },
+        {
+          "target_id": "9",
+          "reading": "Drift and Distribution Baselines affect Policy Versioning and Rollback because observed changes must be attributable to a policy version or deployment.",
+          "type": "affects",
+          "rationale": "Versioned baselines help distinguish policy-induced changes from environmental nonstationarity."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Fixed Reference Baselines",
+          "description": "Compare production behavior with a stable baseline derived from a validated historical period, reference policy, or approved dataset.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Rolling Adaptive Baselines",
+          "description": "Update expected distributions and thresholds over time to account for changing traffic, users, environments, or task conditions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Policy and Cohort Baselines",
+          "description": "Compare behavior against a specific policy version, environment segment, user cohort, or controlled reference population.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Reward-Only Monitoring",
+          "description": "Use reward changes as the primary indicator of degradation without checking state coverage, action distributions, constraints, or outcome quality.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Production Safety Response",
+      "description": "What the system does when monitoring detects unsafe, invalid, anomalous, or severely degraded agent behavior.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Production Safety Response requires Alerting and Escalation Policy to be decided first because detection severity and notification ownership determine when intervention is triggered.",
+          "type": "requires",
+          "rationale": "An intervention mechanism needs defined conditions and an operational escalation path."
+        },
+        {
+          "target_id": "9",
+          "reading": "Production Safety Response constrains Policy Versioning and Rollback because rollback, disabling, or traffic reduction must be supported by deployment controls.",
+          "type": "constrains",
+          "rationale": "A monitor cannot safely revert a policy unless serving infrastructure can select an earlier or fallback policy."
+        },
+        {
+          "target_id": "3",
+          "reading": "Production Safety Response requires Monitoring Analysis Latency to be decided first because the response must fit the time available before harm occurs.",
+          "type": "requires",
+          "rationale": "Immediate action blocking and slower human review are different responses with different latency requirements."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Observe-Only Monitoring",
+          "description": "Generate metrics, traces, and alerts without changing agent execution or traffic when an anomaly is detected.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Safety Shielding",
+          "description": "Apply hard constraints, action filters, rule-based overrides, or a safety controller before an action reaches the environment.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Fallback Policy Routing",
+          "description": "Route decisions to a conservative, validated, or non-learning fallback policy when the deployed policy violates defined conditions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Automatic Traffic Reduction or Rollback",
+          "description": "Reduce exposure, disable the agent, or revert to a prior policy version when monitoring identifies a severe incident.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Privacy and Access Control",
+      "description": "How monitoring protects sensitive observations, user context, actions, trajectories, and operational metadata while preserving debugging value.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Privacy and Access Control constrains Telemetry Scope because privacy requirements limit which raw observations, identifiers, and trajectories may be collected.",
+          "type": "constrains",
+          "rationale": "Data minimization and access restrictions can require redaction, aggregation, or selective sampling."
+        },
+        {
+          "target_id": "2",
+          "reading": "Privacy and Access Control affects Telemetry Collection Placement because collection location determines the systems and jurisdictions that receive monitoring data.",
+          "type": "affects",
+          "rationale": "Centralized telemetry may increase exposure, while local processing can reduce movement of sensitive data."
+        },
+        {
+          "target_id": "8",
+          "reading": "Privacy and Access Control constrains Replay and Evaluation Data because offline replay datasets often contain detailed historical interactions.",
+          "type": "constrains",
+          "rationale": "Replay and evaluation require governance over retention, de-identification, authorization, and reuse."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Raw Trajectory Retention",
+          "description": "Retain detailed observations, actions, rewards, and context for authorized debugging, replay, and incident analysis.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Redacted or Pseudonymized Telemetry",
+          "description": "Remove, hash, mask, or transform sensitive fields before storage or transmission while retaining monitoring-relevant structure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Aggregated and Minimized Telemetry",
+          "description": "Retain only the fields and aggregates needed for operational monitoring, with strict access and retention controls.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.4",
+          "dimension_id": "6",
+          "label": "Unrestricted Telemetry Access",
+          "description": "Allow broad access to raw monitoring data without role, purpose, or retention controls.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Alerting and Escalation Policy",
+      "description": "How detected anomalies and degradations become alerts, incidents, notifications, or human actions.",
+      "relations": [
+        {
+          "target_id": "4",
+          "reading": "Alerting and Escalation Policy depends on Drift and Distribution Baselines because thresholds and persistence rules require an expected-behavior reference.",
+          "type": "requires",
+          "rationale": "Without a baseline or explicit limit, the system cannot determine whether a metric is abnormal."
+        },
+        {
+          "target_id": "3",
+          "reading": "Alerting and Escalation Policy affects Monitoring Analysis Latency because severity and response-time objectives determine how quickly signals must be processed.",
+          "type": "affects",
+          "rationale": "High-severity alerts require faster detection and delivery than periodic health reports."
+        },
+        {
+          "target_id": "5",
+          "reading": "Alerting and Escalation Policy affects Production Safety Response because escalation levels can trigger observation, shielding, fallback, or rollback.",
+          "type": "affects",
+          "rationale": "Operational response is selected based on the alert's severity, confidence, and ownership."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Static Threshold Alerts",
+          "description": "Trigger alerts when metrics cross manually specified limits for reward, latency, constraint violations, error rates, or action frequencies.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Adaptive Anomaly Alerts",
+          "description": "Trigger alerts from statistical, change-point, density, or learned detectors that adapt to expected production behavior.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Multi-Signal Incident Correlation",
+          "description": "Combine policy, environment, infrastructure, reward, and safety signals before opening or escalating an incident.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Unfiltered Per-Step Paging",
+          "description": "Page operators for every anomalous step or transient deviation without suppression, aggregation, or severity ranking.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Replay and Evaluation Data",
+      "description": "How production interactions are retained and reused to assess policy quality, investigate incidents, and estimate performance without unsafe live experimentation.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Replay and Evaluation Data require Telemetry Scope to be decided first because replay fidelity depends on the recorded observations, actions, rewards, and environment context.",
+          "type": "requires",
+          "rationale": "Incomplete telemetry cannot support faithful trajectory replay or meaningful offline evaluation."
+        },
+        {
+          "target_id": "9",
+          "reading": "Replay and Evaluation Data affect Policy Versioning and Rollback because historical interactions support comparison of policy versions and rollback decisions.",
+          "type": "affects",
+          "rationale": "Version-aware evaluation helps determine whether a new policy caused degradation and whether an earlier policy is preferable."
+        },
+        {
+          "target_id": "6",
+          "reading": "Replay and Evaluation Data are constrained by Privacy and Access Control because retained interactions may contain sensitive or restricted information.",
+          "type": "constrains",
+          "rationale": "The ability to replay data depends on authorization, de-identification, retention, and governance rules."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Production Trace Replay",
+          "description": "Reuse recorded production trajectories to reproduce incidents, inspect decisions, and evaluate behavior against known interactions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Offline Policy Evaluation",
+          "description": "Estimate policy value, safety, or constraint performance from logged interactions using off-policy or counterfactual evaluation methods.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.3",
+          "dimension_id": "8",
+          "label": "Shadow Policy Evaluation",
+          "description": "Run a candidate or diagnostic policy on production observations without allowing it to control the environment, then compare its proposed actions and predicted outcomes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.4",
+          "dimension_id": "8",
+          "label": "Live Trial-and-Error Evaluation",
+          "description": "Evaluate a new policy primarily by allowing unrestricted exploration in production before establishing safety and performance evidence.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Policy Versioning and Rollback",
+      "description": "How deployed policies, model artifacts, configurations, feature transformations, and environment assumptions are identified and reversed.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Policy Versioning and Rollback enable Production Safety Response because intervention requires selecting a known fallback or restoring a previous policy.",
+          "type": "affects",
+          "rationale": "Rollback and traffic shifting are only reliable when policy artifacts and dependencies are immutably identified."
+        },
+        {
+          "target_id": "4",
+          "reading": "Policy Versioning and Rollback affects Drift and Distribution Baselines because baselines can be associated with particular policy versions and deployment cohorts.",
+          "type": "affects",
+          "rationale": "Version attribution separates deployment regressions from ordinary environmental change."
+        },
+        {
+          "target_id": "8",
+          "reading": "Policy Versioning and Rollback affects Replay and Evaluation Data because evaluation results must be associated with the exact policy and configuration that generated them.",
+          "type": "affects",
+          "rationale": "Without version lineage, historical comparisons and incident reproduction are ambiguous."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Immutable Policy and Artifact Lineage",
+          "description": "Record unique versions of policy weights, code, features, configuration, environment interfaces, and monitoring rules for each decision or deployment.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.2",
+          "dimension_id": "9",
+          "label": "Cohort-Based Policy Comparison",
+          "description": "Expose policy versions to controlled traffic cohorts so behavior and outcomes can be compared under production conditions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.3",
+          "dimension_id": "9",
+          "label": "Automated Rollback and Traffic Shifting",
+          "description": "Provide deployment controls that reduce traffic, disable a version, or route requests to a validated prior or fallback policy.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.4",
+          "dimension_id": "9",
+          "label": "Unversioned Continuous Replacement",
+          "description": "Replace deployed policies without preserving exact artifacts, configurations, or associations between telemetry and policy versions.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "Monitoring Reliability and Cost",
+      "description": "How the monitoring infrastructure remains available, bounded in resource use, and trustworthy despite production load and telemetry volume.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Monitoring Reliability and Cost constrains Telemetry Scope because collection volume, sampling, and retention must fit resource and budget limits.",
+          "type": "constrains",
+          "rationale": "Full-fidelity monitoring can affect serving performance and create unsustainable storage and processing costs."
+        },
+        {
+          "target_id": "2",
+          "reading": "Monitoring Reliability and Cost affects Telemetry Collection Placement because local, sidecar, and centralized designs have different failure and resource-isolation properties.",
+          "type": "affects",
+          "rationale": "Placement changes whether monitor failure can affect the agent and how monitoring resources are provisioned."
+        },
+        {
+          "target_id": "3",
+          "reading": "Monitoring Reliability and Cost affects Monitoring Analysis Latency because low-latency guarantees require additional capacity, redundancy, and operational complexity.",
+          "type": "affects",
+          "rationale": "Fast analysis is a resource and availability commitment, not only an algorithmic choice."
+        }
+      ],
+      "values": [
+        {
+          "id": "10.1",
+          "dimension_id": "10",
+          "label": "Sampled and Rate-Limited Collection",
+          "description": "Bound monitoring overhead by sampling episodes or steps, limiting event rates, and prioritizing safety or incident signals.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.2",
+          "dimension_id": "10",
+          "label": "Loss-Tolerant Asynchronous Pipelines",
+          "description": "Decouple telemetry production from analysis through buffers, queues, retries, and explicit policies for data loss or backpressure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.3",
+          "dimension_id": "10",
+          "label": "Highly Available Monitoring Control Plane",
+          "description": "Operate monitoring components with redundancy, health checks, durable ingestion, and independent failure handling for critical signals.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.4",
+          "dimension_id": "10",
+          "label": "Unbounded Synchronous Logging",
+          "description": "Send every raw event synchronously without backpressure, sampling, degradation behavior, or isolation from the serving path.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    }
+  ]
+}

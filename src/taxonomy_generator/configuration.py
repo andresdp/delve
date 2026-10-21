@@ -1,0 +1,566 @@
+"""LangGraph-compatible configuration dataclass.
+
+Reads defaults from :mod:`taxonomy_generator.settings` (YAML-backed) and
+supports runtime overrides via the LangGraph ``RunnableConfig`` mechanism.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field, fields
+from typing import Annotated
+
+from langchain_core.runnables import RunnableConfig, ensure_config
+
+from taxonomy_generator.settings import Settings, load_settings
+
+# Module-level cache — populated once at first import or on explicit reload.
+_settings: Settings | None = None
+
+
+def _get_settings() -> Settings:
+    """Return the cached Settings, loading from YAML on first call."""
+    global _settings
+    if _settings is None:
+        _settings = load_settings()
+    return _settings
+
+
+def init_settings(config_path: str | None = None) -> Settings:
+    """Load (or reload) settings from the given YAML path.
+
+    Called from ``main.py`` before the pipeline starts so that the
+    correct config file is used.
+    """
+    global _settings
+    _settings = load_settings(config_path)
+    return _settings
+
+
+@dataclass(kw_only=True)
+class Configuration:
+    """The configuration for the agent.
+
+    Every field has a default derived from the YAML settings file so that
+    ``Configuration()`` always works even without a ``RunnableConfig``.
+
+    Nodes access the configuration via
+    ``Configuration.from_runnable_config(config)``.
+    """
+
+    # ── Models ──────────────────────────────────────────────────────────
+    generation_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+        default=None,  # resolved lazily from Settings
+        metadata={
+            "description": "Generation LLM (provider/model-name). Builds the design space: open "
+            "coding, summaries, taxonomy generation/update/review, consolidation, merging, selection, "
+            "labeling and the report narrative."
+        },
+    )
+
+    evaluation_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+        default=None,  # resolved lazily from Settings
+        metadata={
+            "description": "Evaluation LLM (provider/model-name). Judges the design space in the "
+            "pipeline: evaluation scoreboard, consistency adjudication and the saturation critic."
+        },
+    )
+
+    matching_llm: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+        default=None,  # resolved lazily from Settings
+        metadata={
+            "description": "Matching LLM (provider/model-name). Judges value-option pairs in "
+            "ground-truth matching (--match-gt)."
+        },
+    )
+
+    embedding: Annotated[str, {"__template_metadata__": {"kind": "embeddings"}}] = field(
+        default=None,  # resolved lazily from Settings
+        metadata={
+            "description": "Embedding model (provider/model-name). Used for value "
+            "consolidation and taxonomy PCA visualization."
+        },
+    )
+
+    # ── Pipeline ────────────────────────────────────────────────────────
+    max_runs: int = field(
+        default=None,
+        metadata={"description": "Max documents to process (0 = no limit)."},
+    )
+
+    sample_size: int = field(
+        default=None,
+        metadata={"description": "Sample N documents (0 = use all)."},
+    )
+
+    batch_size: int = field(
+        default=None,
+        metadata={"description": "Minibatch size for iterative processing."},
+    )
+
+    random_seed: int | None = field(
+        default=None,
+        metadata={"description": "Random seed for reproducibility (null = random)."},
+    )
+
+    mode: str = field(
+        default=None,
+        metadata={"description": "Run mode: 'train' (build/update taxonomy) or 'test' (frozen dimensions, label only)."},
+    )
+
+    taxonomy_input: str | None = field(
+        default=None,
+        metadata={"description": "Path to a saved taxonomy JSON used as the starting taxonomy."},
+    )
+
+    taxonomy_input_view: str | None = field(
+        default=None,
+        metadata={"description": "View of taxonomy_input that seeds the run: auto (selected in test mode, final iteration in train mode), selected, or final."},
+    )
+
+    # ── Taxonomy ────────────────────────────────────────────────────────
+    name: str = field(
+        default=None,
+        metadata={"description": "Name identifying this taxonomy."},
+    )
+
+    max_num_clusters: int | None = field(
+        default=None,
+        metadata={"description": "Maximum number of taxonomy dimensions. None = LLM determines the count from the data."},
+    )
+
+    cluster_name_length: int = field(
+        default=None,
+        metadata={"description": "Max words for cluster names."},
+    )
+
+    cluster_description_length: int = field(
+        default=None,
+        metadata={"description": "Max words for cluster descriptions."},
+    )
+
+    suggestion_length: int = field(
+        default=None,
+        metadata={"description": "Max words for taxonomy suggestions."},
+    )
+
+    explanation_length: int = field(
+        default=None,
+        metadata={"description": "Max words for taxonomy reasoning explanations."},
+    )
+
+    use_case: str = field(
+        default=None,
+        metadata={"description": "Use case description guiding taxonomy generation."},
+    )
+
+    saturation_streak_threshold: int = field(
+        default=None,
+        metadata={"description": "Consecutive saturated minibatches required to stop the update loop early."},
+    )
+
+    value_merge_distance_threshold: float = field(
+        default=None,
+        metadata={"description": "Embedding-distance cutoff (epsilon) for automatic value consolidation."},
+    )
+
+    value_merge_borderline_band: float = field(
+        default=None,
+        metadata={"description": "Distance band above epsilon routed to LLM adjudication for value merges."},
+    )
+
+    consolidate_values: bool = field(
+        default=None,
+        metadata={"description": "Consolidate semantically duplicate values within dimensions (default true)."},
+    )
+
+    merge_value_stances: bool = field(
+        default=None,
+        metadata={"description": "Merge accepted and rejected values naming the same candidate decision (default true)."},
+    )
+
+    link_evidence: bool = field(
+        default=None,
+        metadata={"description": "Link each value to its supporting documents from the open codes (default true)."},
+    )
+
+    evidence_min_similarity: float = field(
+        default=None,
+        metadata={"description": "Minimum cosine similarity for an open code to count as evidence for a value."},
+    )
+
+    drop_unsupported_values: bool = field(
+        default=None,
+        metadata={"description": "Remove values no document supports after evidence linking (default true)."},
+    )
+
+    min_candidate_decisions: int = field(
+        default=None,
+        metadata={"description": "Minimum candidate decisions (accepted/rejected values) a dimension needs (0 = no rule)."},
+    )
+
+    merge_dimensions: bool = field(
+        default=None,
+        metadata={"description": "Merge near-duplicate dimensions before value consolidation (default false)."},
+    )
+
+    dimension_merge_distance_threshold: float = field(
+        default=None,
+        metadata={"description": "Embedding-distance cutoff for automatic dimension merges."},
+    )
+
+    dimension_merge_borderline_band: float = field(
+        default=None,
+        metadata={"description": "Distance band above the cutoff where an LLM judges dimension merges."},
+    )
+
+    min_dimension_sources: int = field(
+        default=None,
+        metadata={"description": "Minimum number of evidence sources a dimension needs (0 = no rule)."},
+    )
+
+    saturation_min_coverage: float = field(
+        default=None,
+        metadata={"description": "Share of a minibatch's codes that must be covered to count as saturated (1.0 = strict)."},
+    )
+
+    saturation_min_corpus_fraction: float = field(
+        default=None,
+        metadata={"description": "Minimum share of the corpus's documents open-coded before saturation may end the update loop (0 = off)."},
+    )
+
+    edit_mode: str = field(
+        default=None,
+        metadata={"description": "How update/review change the taxonomy: rewrite, rewrite_restore or tools."},
+    )
+
+    edit_max_steps: int = field(
+        default=None,
+        metadata={"description": "Tools mode: maximum model turns per update or review."},
+    )
+
+    relevance_selection: bool = field(
+        default=None,
+        metadata={"description": "Selective coding: drop dimensions an LLM judges irrelevant to the use case."},
+    )
+
+    relation_types: tuple = field(
+        default=None,
+        metadata={"description": "Relation types between dimensions the model may create (relations.py)."},
+    )
+
+    max_relations_per_dimension: int | None = field(
+        default=None,
+        metadata={"description": "Most relations stored on one dimension (None = no cap)."},
+    )
+
+    # ── Summarization ──────────────────────────────────────────────────
+    skip_summarization: bool = field(
+        default=None,
+        metadata={"description": "Skip the summarization step entirely."},
+    )
+
+    summary_length: int = field(
+        default=None,
+        metadata={"description": "Max words for document summaries."},
+    )
+
+    summary_explanation_length: int = field(
+        default=None,
+        metadata={"description": "Max words for summary explanations."},
+    )
+
+    summary_max_concurrency: int = field(
+        default=None,
+        metadata={"description": "Max concurrent LLM requests during summarization."},
+    )
+
+    # ── Open coding ─────────────────────────────────────────────────────
+    open_coding_input: str = field(
+        default=None,
+        metadata={"description": "What open coding reads per document: 'summary' (default) or 'content'."},
+    )
+
+    # ── Labeling ────────────────────────────────────────────────────────
+    fallback_category: str = field(
+        default=None,
+        metadata={"description": "Fallback category when no taxonomy match."},
+    )
+
+    review_sample_size: int | None = field(
+        default=None,
+        metadata={"description": "Review sample size (null = uses batch_size)."},
+    )
+
+    # ── Output ──────────────────────────────────────────────────────────
+    max_displayed_documents: int = field(
+        default=None,
+        metadata={"description": "Max documents shown in rich display table."},
+    )
+
+    max_docs_per_category_tree: int = field(
+        default=None,
+        metadata={"description": "Max documents shown per category in the taxonomy tree view."},
+    )
+
+    content_preview_length: int = field(
+        default=None,
+        metadata={"description": "Characters shown in document preview."},
+    )
+
+    default_output_dir: str = field(
+        default=None,
+        metadata={"description": "Default directory for output files."},
+    )
+
+    graph_filename: str = field(
+        default=None,
+        metadata={"description": "Pipeline graph diagram filename."},
+    )
+
+    # ── Visualization ────────────────────────────────────────────────────
+    visualization_enabled: bool = field(
+        default=None,
+        metadata={"description": "Enable taxonomy PCA chart export (default false)."},
+    )
+
+    visualization_every_iteration: bool = field(
+        default=None,
+        metadata={"description": "Render a PCA chart at every stage, not only post-consolidation."},
+    )
+
+    visualization_dimensions: int = field(
+        default=None,
+        metadata={"description": "PCA projection dimensions for charts: 2 or 3."},
+    )
+
+    visualization_output_dir: str | None = field(
+        default=None,
+        metadata={"description": "Directory for chart files (defaults to the output dir)."},
+    )
+
+    # ── Evaluation ──────────────────────────────────────────────────────
+    evaluation_enabled: bool = field(
+        default=None,
+        metadata={"description": "Enable the taxonomy evaluation scoreboard (default true)."},
+    )
+
+    evaluation_threshold: float = field(
+        default=None,
+        metadata={"description": "Score threshold (0-1) for display-only pass/fail flags."},
+    )
+
+    evaluation_consistency_threshold: float = field(
+        default=None,
+        metadata={"description": "Embedding-distance cutoff for automatic dimension alignment in consistency comparison."},
+    )
+
+    evaluation_consistency_borderline_band: float = field(
+        default=None,
+        metadata={"description": "Distance band above the cutoff routed to judge adjudication for dimension alignment."},
+    )
+
+    evaluation_max_documents: int = field(
+        default=None,
+        metadata={"description": "Max documents sampled for the data-grounded coverage criterion."},
+    )
+
+    evaluation_feedback_exclude: tuple = field(
+        default=None,
+        metadata={"description": "Evaluation criteria scored and reported but not fed back to update/review."},
+    )
+
+    evaluation_every_n_iterations: int = field(
+        default=None,
+        metadata={"description": "Score the loop's drafts every N iterations (1 = every iteration); the last draft and the final view are always scored."},
+    )
+
+    evaluation_loop_feedback: bool = field(
+        default=None,
+        metadata={"description": "Pass the scoreboard to the next update/review (false: the no-feedback ablation)."},
+    )
+
+    evaluation_exclusivity: bool = field(
+        default=None,
+        metadata={"description": "Add the deterministic 'Value exclusivity' row to every scoreboard (counts in overall, fed back)."},
+    )
+
+    cap_stage: str = field(
+        default=None,
+        metadata={"description": "Where max_num_clusters applies: 'selection' (keep the top-k at selection) or 'generation' (given to the prompts)."},
+    )
+
+    value_recoding: bool = field(
+        default=None,
+        metadata={"description": "Rewrite the values of low-exclusivity dimensions as alternatives (old values kept as facets)."},
+    )
+
+    recoding_min_exclusivity: float = field(
+        default=None,
+        metadata={"description": "Exclusivity below which a dimension may be recoded."},
+    )
+
+    recoding_min_sources: int = field(
+        default=None,
+        metadata={"description": "Adopting sources a dimension needs before it may be recoded."},
+    )
+
+    recoding_min_recurring: float = field(
+        default=None,
+        metadata={"description": "Share of sources on a shared combination a dimension needs to be recoded."},
+    )
+
+    recoding_min_sources_per_value: int = field(
+        default=None,
+        metadata={"description": "Sources each new value must be adopted by."},
+    )
+
+    recoding_min_fit: float = field(
+        default=None,
+        metadata={"description": "Share of sources that must adopt exactly the facets of their new value."},
+    )
+
+    exclusivity_repair: bool = field(
+        default=None,
+        metadata={"description": "After evidence linking, repair dimensions whose sources adopt several of their values."},
+    )
+
+    exclusivity_min: float = field(
+        default=None,
+        metadata={"description": "Exclusivity (0-1) below which a dimension goes to the repair step."},
+    )
+
+    exclusivity_min_units: int = field(
+        default=None,
+        metadata={"description": "Adopting sources a dimension needs before the repair step looks at it."},
+    )
+
+    evaluation_save_history: bool = field(
+        default=None,
+        metadata={"description": "Save every scoreboard of a run (evaluation_history) and show scores across iterations."},
+    )
+
+    @property
+    def generation_cap(self) -> int | None:
+        """The dimension cap the generation, update and review steps see (``None`` when the cap applies at selection)."""
+        return self.max_num_clusters if self.cap_stage == "generation" else None
+
+    @property
+    def selection_cap(self) -> int | None:
+        """The dimension cap ``select_dimensions`` applies (``None`` when it was given to generation)."""
+        return self.max_num_clusters if self.cap_stage != "generation" else None
+
+    # ── LangGraph integration ──────────────────────────────────────────
+
+    @classmethod
+    def from_runnable_config(
+        cls, config: RunnableConfig | None = None
+    ) -> Configuration:
+        """Create a Configuration instance from a RunnableConfig object.
+
+        Priority: RunnableConfig values > YAML settings > built-in defaults.
+        """
+        config = ensure_config(config)
+        configurable = config.get("configurable") or {}
+
+        settings = _get_settings()
+        defaults = cls._defaults_from_settings(settings)
+
+        _fields = {f.name for f in fields(cls) if f.init}
+        kwargs = {}
+        for name in _fields:
+            if name in configurable and configurable[name] is not None:
+                kwargs[name] = configurable[name]
+            elif defaults.get(name) is not None:
+                kwargs[name] = defaults[name]
+
+        return cls(**kwargs)
+
+    @staticmethod
+    def _defaults_from_settings(s: Settings) -> dict:
+        """Flatten the nested Settings into a flat dict matching field names."""
+        return {
+            # Models
+            "generation_llm": s.models.generation_llm,
+            "evaluation_llm": s.models.evaluation_llm,
+            "matching_llm": s.models.matching_llm,
+            "embedding": s.models.embedding,
+            # Pipeline
+            "max_runs": s.pipeline.max_runs,
+            "sample_size": s.pipeline.sample_size,
+            "batch_size": s.pipeline.batch_size,
+            "random_seed": s.pipeline.random_seed,
+            # Pipeline — run modes / seeding
+            "mode": s.pipeline.mode,
+            "taxonomy_input": s.pipeline.taxonomy_input,
+            "taxonomy_input_view": s.pipeline.taxonomy_input_view,
+            # Taxonomy
+            "name": s.taxonomy.name,
+            "max_num_clusters": s.taxonomy.max_num_clusters,
+            "cluster_name_length": s.taxonomy.cluster_name_length,
+            "cluster_description_length": s.taxonomy.cluster_description_length,
+            "suggestion_length": s.taxonomy.suggestion_length,
+            "explanation_length": s.taxonomy.explanation_length,
+            "use_case": s.taxonomy.use_case,
+            "saturation_streak_threshold": s.taxonomy.saturation_streak_threshold,
+            "value_merge_distance_threshold": s.taxonomy.value_merge_distance_threshold,
+            "value_merge_borderline_band": s.taxonomy.value_merge_borderline_band,
+            "consolidate_values": s.taxonomy.consolidate_values,
+            "merge_value_stances": s.taxonomy.merge_value_stances,
+            "link_evidence": s.taxonomy.link_evidence,
+            "evidence_min_similarity": s.taxonomy.evidence_min_similarity,
+            "drop_unsupported_values": s.taxonomy.drop_unsupported_values,
+            "min_candidate_decisions": s.taxonomy.min_candidate_decisions,
+            "merge_dimensions": s.taxonomy.merge_dimensions,
+            "dimension_merge_distance_threshold": s.taxonomy.dimension_merge_distance_threshold,
+            "dimension_merge_borderline_band": s.taxonomy.dimension_merge_borderline_band,
+            "min_dimension_sources": s.taxonomy.min_dimension_sources,
+            "saturation_min_coverage": s.taxonomy.saturation_min_coverage,
+            "saturation_min_corpus_fraction": s.taxonomy.saturation_min_corpus_fraction,
+            "edit_mode": s.taxonomy.edit_mode,
+            "edit_max_steps": s.taxonomy.edit_max_steps,
+            "relevance_selection": s.taxonomy.relevance_selection,
+            "relation_types": s.taxonomy.relation_types,
+            "max_relations_per_dimension": s.taxonomy.max_relations_per_dimension,
+            # Summarization
+            "skip_summarization": s.summarization.skip,
+            "summary_length": s.summarization.summary_length,
+            "summary_explanation_length": s.summarization.explanation_length,
+            "summary_max_concurrency": s.summarization.max_concurrency,
+            # Open coding
+            "open_coding_input": s.open_coding.input,
+            # Labeling
+            "fallback_category": s.labeling.fallback_category,
+            "review_sample_size": s.labeling.review_sample_size,
+            # Output
+            "max_displayed_documents": s.output.max_displayed_documents,
+            "max_docs_per_category_tree": s.output.max_docs_per_category_tree,
+            "content_preview_length": s.output.content_preview_length,
+            "default_output_dir": s.output.default_output_dir,
+            "graph_filename": s.output.graph_filename,
+            # Visualization
+            "visualization_enabled": s.visualization.enabled,
+            "visualization_every_iteration": s.visualization.every_iteration,
+            "visualization_dimensions": s.visualization.dimensions,
+            "visualization_output_dir": s.visualization.output_dir,
+            # Evaluation
+            "evaluation_enabled": s.evaluation.enabled,
+            "evaluation_threshold": s.evaluation.threshold,
+            "evaluation_consistency_threshold": s.evaluation.consistency_threshold,
+            "evaluation_consistency_borderline_band": s.evaluation.consistency_borderline_band,
+            "evaluation_max_documents": s.evaluation.max_documents,
+            "evaluation_save_history": s.evaluation.save_history,
+            "evaluation_feedback_exclude": s.evaluation.feedback_exclude,
+            "evaluation_every_n_iterations": s.evaluation.every_n_iterations,
+            "evaluation_exclusivity": s.evaluation.exclusivity,
+            "evaluation_loop_feedback": s.evaluation.loop_feedback,
+            "cap_stage": s.taxonomy.cap_stage,
+            "exclusivity_repair": s.taxonomy.exclusivity_repair,
+            "exclusivity_min": s.taxonomy.exclusivity_min,
+            "exclusivity_min_units": s.taxonomy.exclusivity_min_units,
+            "value_recoding": s.taxonomy.value_recoding,
+            "recoding_min_exclusivity": s.taxonomy.recoding_min_exclusivity,
+            "recoding_min_sources": s.taxonomy.recoding_min_sources,
+            "recoding_min_recurring": s.taxonomy.recoding_min_recurring,
+            "recoding_min_sources_per_value": s.taxonomy.recoding_min_sources_per_value,
+            "recoding_min_fit": s.taxonomy.recoding_min_fit,
+        }

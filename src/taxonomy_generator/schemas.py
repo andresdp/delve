@@ -1,0 +1,323 @@
+"""Pydantic schemas for structured LLM outputs."""
+
+from __future__ import annotations
+
+from typing import List, Literal, Optional
+
+from pydantic import BaseModel, Field
+
+from taxonomy_generator.relations import READING_DESCRIPTION, TYPE_DESCRIPTION
+
+# Shared by OpenCode.status and Value.status — kept as one alias so the
+# vocabulary and its description can't drift between the two schemas.
+DecisionStatus = Literal["accepted", "rejected", "outcome"]
+_DECISION_STATUS_DESCRIPTION = (
+    "accepted: the source content adopted this decision. rejected: the source "
+    "content explicitly declined this decision. outcome: the source content merely "
+    "reported this as a trade-off or outcome, not a decision made."
+)
+
+
+class SummaryOutput(BaseModel):
+    """Structured output for document summarization."""
+
+    summary: str = Field(description="A concise summary of the text.")
+    explanation: str = Field(description="A brief explanation of the key points or themes.")
+
+
+class NarrativeSummaryOutput(BaseModel):
+    """Structured output for the grounded-theory report's narrative summary."""
+
+    summary: str = Field(
+        description=(
+            "A readable narrative summary synthesizing the taxonomy's explanation and "
+            "dimension descriptions. Must not introduce any dimension, relation, or value "
+            "name absent from the supplied input."
+        )
+    )
+
+
+class OpenCode(BaseModel):
+    """A fine-grained per-document concept or decision label (open coding)."""
+
+    doc_id: str = Field(description="Id of the document the code was extracted from.")
+    label: str = Field(
+        description=(
+            "Concise open-code label naming the concept or decision as a noun phrase "
+            "(e.g., 'Redis-backed caching layer', not 'chose Redis for caching'). Never "
+            "prefix the label with its status (e.g., no 'Rejected: ...' or 'Accepted: ...') "
+            "— status belongs only in the status field."
+        )
+    )
+    rationale: str = Field(description="Why this code applies to the document, grounded in the use case.")
+    status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
+
+
+class OpenCodesOutput(BaseModel):
+    """Structured output for the open-coding step of one document."""
+
+    codes: List[OpenCode] = Field(
+        description="Open codes extracted from the document. Empty list when none apply."
+    )
+
+
+# Shared by Relation.type and the tool-based update's add_relation tool (see relations.py).
+RelationType = Literal["requires", "affects", "constrains", "co_occurs_with", "refines"]
+
+
+class Relation(BaseModel):
+    """A typed link from this dimension (the source) to another dimension (the target)."""
+
+    target_id: str = Field(description="Id of the dimension this relation points to (the target).")
+    reading: str = Field(description=READING_DESCRIPTION)
+    type: RelationType = Field(description=TYPE_DESCRIPTION)
+    rationale: str = Field(
+        description="Why the reading holds, judged against the use case — not incidental textual co-occurrence."
+    )
+
+
+class Value(BaseModel):
+    """A consolidated decision/value within one dimension — a point on the axis."""
+
+    id: str = Field(description="Value identifier, unique within its dimension (e.g., '1.1').")
+    dimension_id: str = Field(description="Id of the dimension this value belongs to.")
+    label: str = Field(
+        description=(
+            "Concise value label naming the specific decision or position as a noun phrase "
+            "(e.g., 'S3-backed write-ahead log', not 'Log writes to S3 before commit'). Never "
+            "prefix the label with its status (e.g., no 'Rejected: ...' or 'Accepted: ...') "
+            "— status belongs only in the status field."
+        )
+    )
+    description: str = Field(description="What this value means along its dimension.")
+    supporting_doc_ids: List[str] = Field(
+        default_factory=list,
+        description="Ids of documents whose open codes support this value.",
+    )
+    status: DecisionStatus = Field(description=_DECISION_STATUS_DESCRIPTION)
+
+
+class Cluster(BaseModel):
+    """A single taxonomy category (dimension)."""
+
+    id: str = Field(description="Category number, starting from 1, incremented.")
+    name: str = Field(description="Concise category name as a noun-driven phrase (e.g., 'Request Routing Strategy', not 'Route Requests').")
+    description: str = Field(
+        description="Category description that differentiates it from others."
+    )
+    relations: List[Relation] = Field(
+        default_factory=list,
+        description="Typed relations from this dimension to other dimensions, judged against the use case.",
+    )
+    values: List[Value] = Field(
+        default_factory=list,
+        description="Draft values (decisions) along this dimension that the data supports.",
+    )
+
+
+class TaxonomyOutput(BaseModel):
+    """Structured output for taxonomy generation, update, and review."""
+
+    clusters: List[Cluster] = Field(
+        description="List of taxonomy categories."
+    )
+    explanation: str = Field(
+        description=(
+            "Your rationale for this taxonomy, in full sentences — not a clipped, "
+            "fragment-style list. Explicitly name every dimension you added, removed, "
+            "merged, split, or substantially reworded, and explain the change (e.g. "
+            "\"Added 'Payment Processing' because several documents described billing "
+            "flows no existing dimension covered; merged 'Bike Lifecycle' into 'Rental "
+            "Lifecycle' because they described the same underlying axis\"). Do not refer "
+            "to a dimension only by number or vague description — use its actual name. "
+            "Also explain how the categories capture the themes in the data and what "
+            "trade-offs you made. Must not be empty."
+        ),
+    )
+
+
+class SaturationCheckOutput(BaseModel):
+    """Per-minibatch verdict on theoretical saturation."""
+
+    is_saturated: bool = Field(
+        description="True when every open code in the minibatch is subsumed by an existing dimension."
+    )
+    uncovered_concepts: List[str] = Field(
+        default_factory=list,
+        description="Open-code concepts not captured by any existing dimension. Empty when saturated.",
+    )
+    rationale: str = Field(
+        description="Why this verdict holds, relative to the design space's goals (the use case)."
+    )
+
+
+class DroppedDimension(BaseModel):
+    """A dimension dropped by selection, kept inspectable with its rationale."""
+
+    id: str = Field(description="Id of the dropped dimension.")
+    rationale: str = Field(description="Why this dimension was deemed irrelevant to the use case.")
+
+
+class SelectionOutput(BaseModel):
+    """Structured output for selective coding (use-case relevance filtering)."""
+
+    selected_ids: List[str] = Field(
+        description="Ids of the dimensions relevant to the use case, in order of relevance."
+    )
+    dropped: List[DroppedDimension] = Field(
+        default_factory=list,
+        description="Dimensions dropped from the final taxonomy, each with a rationale. Kept inspectable, never silently deleted."
+    )
+    rationale: str = Field(
+        description="Overall reasoning for the selected subset."
+    )
+
+
+class DimensionMergeOutput(BaseModel):
+    """LLM adjudication for one candidate dimension-merge pair."""
+
+    same_decision: bool = Field(
+        description="True when both dimensions name the same design decision (their values are options for one choice)."
+    )
+    rationale: str = Field(description="Why the two dimensions are or are not the same decision, judged against the use case.")
+
+
+class SiblingGroup(BaseModel):
+    """Dimensions that are parts of one design decision (decision-focus merge pass)."""
+
+    dimension_ids: List[str] = Field(description="Ids of the dimensions to merge (at least two); the first id is kept.")
+    question: str = Field(description="The one design question all merged dimensions' values answer.")
+    name: str = Field(description="Name of the merged dimension (a noun phrase naming the decision).")
+    description: str = Field(description="Description of the merged dimension: the question its values answer.")
+    reason: str = Field(description="Why a practitioner would document these as one decision.")
+
+
+class SiblingMergeOutput(BaseModel):
+    """Proposed sibling-dimension merges for a whole taxonomy (empty when none apply)."""
+
+    groups: List[SiblingGroup] = Field(description="Groups of dimensions to merge; empty list when none.")
+
+
+class ValueFocus(BaseModel):
+    """What to do with one value of the dimension under review (decision-focus rehome pass)."""
+
+    value_id: str = Field(description="Id of a value of the dimension under review.")
+    action: Literal["keep", "move", "outcome"] = Field(
+        description="keep: it answers this dimension's question; move: it answers another dimension's question; "
+                    "outcome: it is a goal, principle or effect, not an option for any decision."
+    )
+    to_dimension_id: str = Field(description="Target dimension id when action is move; empty string otherwise.")
+    reason: str = Field(description="One sentence: why this action.")
+
+
+class DimensionFocusOutput(BaseModel):
+    """Per-value actions for one dimension; values not listed are kept."""
+
+    values: List[ValueFocus] = Field(description="Actions for the values that should move or become outcomes.")
+
+
+class ExclusivityPart(BaseModel):
+    """One part of a split dimension (exclusivity repair)."""
+
+    name: str = Field(description="Name of the part: the decision it is.")
+    description: str = Field(description="The question the part's values answer.")
+    value_ids: List[str] = Field(description="Ids of the values that go to this part.")
+
+
+class ExclusivityAction(BaseModel):
+    """One repair of a dimension whose sources adopt several of its values."""
+
+    action: Literal["move", "merge", "split", "extract", "outcome", "hybrid"] = Field(
+        description="move: values answer an existing dimension's question; merge: values are one option; "
+                    "split: the dimension bundles several decisions; extract: values answer a sub-question; "
+                    "outcome: values are goals or effects, not options; hybrid: systems deliberately combine the values."
+    )
+    value_ids: List[str] = Field(description="Values the action applies to; empty for split.")
+    to_dimension_id: str = Field(description="Target dimension id for move; empty string otherwise.")
+    parts: List[ExclusivityPart] = Field(description="The parts (split only); empty otherwise.")
+    name: str = Field(description="New dimension name (extract) or merged label (merge); empty string otherwise.")
+    description: str = Field(description="New dimension's question (extract) or merged description (merge); empty string otherwise.")
+    reason: str = Field(description="One sentence: why this action.")
+
+
+class ExclusivityRepairOutput(BaseModel):
+    """Repairs for one dimension (empty when its values are alternatives after all)."""
+
+    actions: List[ExclusivityAction] = Field(description="Repairs to apply; empty list when none applies.")
+    rationale: str = Field(description="Why sources adopt several values of this dimension.")
+
+
+class RecodedValue(BaseModel):
+    """One new value of a recoded dimension: an alternative answer that includes old values as facets."""
+
+    key: str = Field(description="Short key for this new value (A, B, C, ...), used by the assignments.")
+    label: str = Field(description="Concise label: a noun phrase naming the alternative.")
+    description: str = Field(description="One or two sentences: what this alternative is, as an answer to the dimension's question.")
+    includes: List[str] = Field(description="Ids of the current values this alternative includes (its facets).")
+
+
+class CombinationAssignment(BaseModel):
+    """The new value an observed combination belongs to."""
+
+    combination: str = Field(description="The combination's key, as given (C1, C2, ...).")
+    value_key: str = Field(description="Key of the new value it is assigned to.")
+
+
+class RecodingOutput(BaseModel):
+    """Recoding of one dimension's values as exclusive alternatives (or keep, when they already are)."""
+
+    keep: bool = Field(description="True when the current values already are alternatives, or no sensible recoding exists.")
+    values: List[RecodedValue] = Field(description="The new values; empty when keep is true.")
+    assignments: List[CombinationAssignment] = Field(description="One entry per combination; empty when keep is true.")
+    rationale: str = Field(description="One or two sentences on why sources combine these values and how the recoding resolves it.")
+
+
+class ValueMergeOutput(BaseModel):
+    """LLM adjudication for one borderline value-merge pair."""
+
+    same_decision: bool = Field(
+        description="True when both values name the same decision within the dimension."
+    )
+    rationale: str = Field(description="Why the two values are or are not the same decision, judged against the use case.")
+
+
+class LabelOutput(BaseModel):
+    """Structured output for document labeling."""
+
+    reasoning: str = Field(
+        description="Chain of reasoning for why the category was selected."
+    )
+    category_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The id of the single most relevant category, exactly as listed in the "
+            "taxonomy. Null only when the fallback category is used."
+        ),
+    )
+    category: str = Field(
+        description="The name of that category, exactly as listed in the taxonomy (or the fallback category)."
+    )
+    score: float = Field(
+        description=(
+            "Confidence score between 0.0 and 1.0 indicating how well the document "
+            "fits the chosen category. 1.0 = perfect fit, 0.5 = ambiguous or partial "
+            "match, close to 0.0 = poor fit (likely fallback)."
+        ),
+    )
+    value_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Id of the specific value (decision) within the chosen category that best "
+            "matches the document. Null when the category has no values or none fit."
+        ),
+    )
+    proposed_value_label: Optional[str] = Field(
+        default=None,
+        description=(
+            "When NO existing value of the chosen category fits the document's "
+            "specific decision: a concise label (2-6 words) naming that decision, "
+            "suitable as a new value on the category's axis. Null when an existing "
+            "value_id was chosen, when the category has no values at all, or when "
+            "the fallback category was used."
+        ),
+    )

@@ -1,0 +1,327 @@
+"""Prompt templates loaded from external Markdown files.
+
+System prompts are stored as ``.md`` files alongside this module.
+Human messages are defined inline since they are short and stable.
+"""
+
+from pathlib import Path
+
+from langchain_core.prompts import ChatPromptTemplate
+
+from taxonomy_generator.relations import DEFAULT_RELATION_TYPES, relation_guide
+
+_PROMPTS_DIR = Path(__file__).parent
+RELATION_GUIDE_MARKER = "<!-- RELATION_GUIDE -->"
+
+
+def read_prompt_file(name: str) -> str:
+    """Read a prompt file, putting the shared relation guide (relations.py) in place of its marker."""
+    guide = relation_guide(DEFAULT_RELATION_TYPES).replace("{", "{{").replace("}", "}}")
+    return (_PROMPTS_DIR / name).read_text().replace(RELATION_GUIDE_MARKER, guide)
+
+
+def _load_prompt(system_file: str, human_msg: str) -> ChatPromptTemplate:
+    """Load a system prompt from a Markdown file and pair it with a human message.
+
+    Args:
+        system_file: Filename of the ``.md`` file inside the prompts directory.
+        human_msg: The human message template string.
+
+    Returns:
+        A ``ChatPromptTemplate`` with the loaded system and human messages.
+    """
+    system_text = read_prompt_file(system_file).strip()
+    return ChatPromptTemplate.from_messages(
+        [
+            ("system", system_text),
+            ("human", human_msg),
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Summary generation
+# ---------------------------------------------------------------------------
+
+SUMMARY_GENERATION_PROMPT = _load_prompt(
+    "summary_generation.md",
+    "Summarize the following text:\n\n{content}",
+)
+
+# ---------------------------------------------------------------------------
+# Taxonomy generation
+# ---------------------------------------------------------------------------
+
+TAXONOMY_GENERATION_PROMPT = _load_prompt(
+    "taxonomy_generation.md",
+    (
+        "# Questions\n"
+        "\n"
+        "## Q1. Please generate a taxonomy of orthogonal dimensions from the input data that meets the requirements.\n"
+        "\n"
+        "Tips\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: You MUST address any previous user feedback in your clustering\n"
+        "- If user feedback was provided, explicitly explain how you've incorporated their specific concerns and suggestions\n"
+        "\n"
+        "- Each category is a **dimension** — an axis of variation along which documents differ. Think of the taxonomy as a design space where each dimension captures a fundamentally different *type* of distinction.\n"
+        "\n"
+        "- The taxonomy should be a **flat list** of **orthogonal dimensions**. Sort them based on their semantic relatedness.\n"
+        "\n"
+        "- Generate as many distinct, well-supported dimensions as the data warrants — up to **{max_num_clusters}** dimensions max. If fewer dimensions better represent the data, prefer quality over quantity.\n"
+        "\n"
+        "- **Maximize dimensional coverage**: Capture the full breadth of variation in the data. Each dimension should represent a fundamentally different *kind* of content or purpose.\n"
+        "\n"
+        "- **Check for axis vs. value confusion**: If two categories are really just different values on the same axis (e.g., \"Minor Bugs\" vs \"Critical Bugs\" are both values of \"Bug Severity\"), merge them into one dimension.\n"
+        "\n"
+        "- Be **specific** about each dimension. **Do not include vague dimensions** such as \"Other\", \"General\", \"Unclear\", \"Miscellaneous\" or \"Undefined\".\n"
+        "\n"
+        "- Every dimension must serve the stated **use case**. Exclude dimensions that are not relevant, even if present in the data.\n"
+        "\n"
+        "- You can ignore low quality or ambiguous data points.\n"
+        "\n"
+        "## Q2. Why did you choose these dimensions? Explain your reasoning **within {explanation_length} words**. For each dimension, explain what axis of variation it captures and why it is orthogonal to the others. Describe the values you drafted and any relations you identified. Include how you addressed any user feedback. Note any near-duplicate values you kept distinct because they carried different status (accepted, rejected, outcome)."
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Taxonomy update
+# ---------------------------------------------------------------------------
+
+TAXONOMY_UPDATE_PROMPT = _load_prompt(
+    "taxonomy_update.md",
+    (
+        "# Questions\n"
+        "\n"
+        "## Q1. Update the existing dimension-oriented taxonomy based on the new batch of data.\n"
+        "\n"
+        "Tips\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: You MUST address any previous user feedback.\n"
+        "\n"
+        "- **Preserve what works**: Keep existing dimensions that remain relevant. Only change what the new data clearly justifies.\n"
+        "\n"
+        "- **Do not overfit**: The updated taxonomy must represent ALL data seen so far, not just this batch.\n"
+        "\n"
+        "- You may **add** new dimensions for unseen axes of variation, **split** dimensions that conflate different axes, **merge** dimensions that are really values on the same axis, or **rename/refine** for clarity.\n"
+        "\n"
+        "- **Max {max_num_clusters} dimensions** total. If already at the limit, consider merging before adding.\n"
+        "\n"
+        "- **Check orthogonality**: If the new data reveals that two dimensions are really values on the same axis, merge them. If a dimension conflates two axes, split it.\n"
+        "\n"
+        "- If an **\"Other\"** or catch-all dimension exists, try to minimize it by re-assigning documents to specific dimensions or creating new specific ones.\n"
+        "\n"
+        "## Q2. What did you change and why? Explain your reasoning **within {explanation_length} words**. List each modification and its justification, including changes to values and relations. Note when adopted and rejected alternatives were kept as distinct values because of their differing status."
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Taxonomy review
+# ---------------------------------------------------------------------------
+
+TAXONOMY_REVIEW_PROMPT = _load_prompt(
+    "taxonomy_review.md",
+    (
+        "# Questions\n"
+        "\n"
+        "## Q1. Review the dimension-oriented taxonomy against the review criteria. Make adjustments only where a clear quality issue is identified.\n"
+        "\n"
+        "Tips\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: You MUST address any previous user feedback.\n"
+        "\n"
+        "- **Minimal intervention**: Only change what is clearly broken or ambiguous. If the taxonomy is well-structured, return it as-is.\n"
+        "\n"
+        "- **Do not overfit**: The review sample is small. Do not create dimensions just for edge cases in the sample.\n"
+        "\n"
+        "- **Check orthogonality**: Ensure each dimension captures a fundamentally different type of distinction. If two dimensions are values on the same axis, merge them. If a dimension conflates two axes, split it.\n"
+        "\n"
+        "- You may **merge** dimensions that are values on the same axis, **split** dimensions that conflate different axes, **rename** for clarity, or **refine descriptions** for labeling accuracy.\n"
+        "\n"
+        "- **Max {max_num_clusters} dimensions** total.\n"
+        "\n"
+        "- If an **\"Other\"** or catch-all dimension exists, try to eliminate it by re-assigning its documents to more specific dimensions.\n"
+        "\n"
+        "## Q2. What changes did you make (if any) and why? Explain your reasoning **within {explanation_length} words**. If you made no changes, explain why the taxonomy is already adequate as a set of orthogonal dimensions."
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Tool-based update and review (taxonomy.edit_mode: tools)
+# ---------------------------------------------------------------------------
+# Derived from the rewrite prompts at load time, so the design-space framework,
+# operations and feedback rules have one source: the output-oriented parts (the
+# "carry forward" bullets and the ### Format section) are replaced by the tool
+# instructions of ``taxonomy_tools.md``. The rewrite prompts stay byte-identical.
+
+_OUTPUT_BULLETS = (
+    "- **Carry the taxonomy forward.**",
+    "- **Existing values are shown without their document ids**",
+)
+
+
+def derive_tools_system_prompt(system_text: str, tools_text: str) -> str:
+    """Replace a rewrite prompt's output instructions with the tool instructions.
+
+    Removes the two output bullets and the ``### Format`` section (up to the next
+    ``### `` heading) and puts ``tools_text`` in its place. Raises ``ValueError``
+    naming the marker when the rewrite prompt no longer has one.
+    """
+    lines = system_text.split("\n")
+    for marker in _OUTPUT_BULLETS:
+        hits = [i for i, line in enumerate(lines) if line.startswith(marker)]
+        if len(hits) != 1:
+            raise ValueError(f"tools prompt derivation: expected one line starting with {marker!r}")
+        del lines[hits[0]]
+    starts = [i for i, line in enumerate(lines) if line.strip() == "### Format"]
+    if len(starts) != 1:
+        raise ValueError("tools prompt derivation: expected one '### Format' section")
+    start = starts[0]
+    end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("### ")), len(lines))
+    lines[start:end] = tools_text.strip().split("\n") + [""]
+    return "\n".join(lines)
+
+
+def _load_tools_prompt(system_file: str, human_msg: str) -> ChatPromptTemplate:
+    system_text = derive_tools_system_prompt(read_prompt_file(system_file).strip(),
+                                             read_prompt_file("taxonomy_tools.md"))
+    return ChatPromptTemplate.from_messages([("system", system_text), ("human", human_msg)])
+
+
+TAXONOMY_UPDATE_TOOLS_PROMPT = _load_tools_prompt(
+    "taxonomy_update.md",
+    (
+        "# Task\n"
+        "\n"
+        "Update the existing dimension-oriented taxonomy with the new batch of data by calling the tools.\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: apply the fixes the previous feedback names.\n"
+        "- **Preserve what works**: change only what the new data or the feedback clearly justifies; the taxonomy must keep representing ALL data seen so far.\n"
+        "- Place every new open code as evidence (add_evidence or add_value), and use parallel calls.\n"
+        "- When done, call finish with an explanation **within {explanation_length} words** naming each operation and its justification."
+    ),
+)
+
+TAXONOMY_REVIEW_TOOLS_PROMPT = _load_tools_prompt(
+    "taxonomy_review.md",
+    (
+        "# Task\n"
+        "\n"
+        "Review the dimension-oriented taxonomy against the review criteria and fix only clear quality issues by calling the tools.\n"
+        "\n"
+        "- **User Feedback is MANDATORY**: apply the fixes the previous feedback names.\n"
+        "- **Minimal intervention**: if the taxonomy is well-structured, call finish without other operations.\n"
+        "- When done, call finish with an explanation **within {explanation_length} words** naming each change (or why none was needed)."
+    ),
+)
+
+# ---------------------------------------------------------------------------
+# Document labeling
+# ---------------------------------------------------------------------------
+
+LABELER_PROMPT = _load_prompt(
+    "labeler.md",
+    "Classify the following document into the best-fitting category from the taxonomy above.\n\n{content}",
+)
+
+# ---------------------------------------------------------------------------
+# Open coding (grounded theory: fine-grained per-document concept extraction)
+# ---------------------------------------------------------------------------
+
+OPEN_CODING_PROMPT = _load_prompt(
+    "open_coding.md",
+    "Extract the open codes from the document above.",
+)
+
+# ---------------------------------------------------------------------------
+# Saturation check (theoretical saturation stopping condition)
+# ---------------------------------------------------------------------------
+
+SATURATION_CHECK_PROMPT = _load_prompt(
+    "saturation_check.md",
+    "Check whether the taxonomy above is saturated with respect to these open codes.",
+)
+
+# ---------------------------------------------------------------------------
+# Value merge adjudication (borderline pairs within one dimension)
+# ---------------------------------------------------------------------------
+
+VALUE_MERGE_PROMPT = _load_prompt(
+    "value_merge.md",
+    "Adjudicate whether the two candidate values above are the same decision.",
+)
+
+# ---------------------------------------------------------------------------
+# Dimension merge adjudication (candidate near-duplicate dimension pairs)
+# ---------------------------------------------------------------------------
+
+DIMENSION_MERGE_PROMPT = _load_prompt(
+    "dimension_merge.md",
+    "Adjudicate whether the two candidate dimensions above are the same design decision.",
+)
+
+# ---------------------------------------------------------------------------
+# Decision-focus passes after consolidation (merge sibling dimensions, rehome values)
+# ---------------------------------------------------------------------------
+
+DECISION_FOCUS_MERGE_PROMPT = _load_prompt(
+    "decision_focus_merge.md",
+    "Propose the groups of dimensions above that are parts of one design decision.",
+)
+
+DECISION_FOCUS_REHOME_PROMPT = _load_prompt(
+    "decision_focus_rehome.md",
+    "Check each value of the decision point under review.",
+)
+
+# ---------------------------------------------------------------------------
+# Exclusivity repair (dimensions whose sources adopt several of their values)
+# ---------------------------------------------------------------------------
+
+EXCLUSIVITY_REPAIR_PROMPT = _load_prompt(
+    "exclusivity_repair.md",
+    "Repair the dimension above so that its values are alternatives.",
+)
+
+# ---------------------------------------------------------------------------
+# Value recoding (values of a dimension redefined as exclusive alternatives)
+# ---------------------------------------------------------------------------
+
+VALUE_RECODING_PROMPT = _load_prompt(
+    "value_recoding.md",
+    "Recode the values of the dimension above as alternative answers to its question, or keep them.",
+)
+
+# ---------------------------------------------------------------------------
+# Dimension selection (selective coding as use-case relevance filtering)
+# ---------------------------------------------------------------------------
+
+DIMENSION_SELECTION_PROMPT = _load_prompt(
+    "dimension_selection.md",
+    "Select the dimensions relevant to the use case from the taxonomy above.",
+)
+
+# ---------------------------------------------------------------------------
+# Narrative summary (grounded-theory report: readable overview of the taxonomy)
+# ---------------------------------------------------------------------------
+
+NARRATIVE_SUMMARY_PROMPT = _load_prompt(
+    "narrative_summary.md",
+    "Write the narrative summary from the taxonomy explanation and dimensions above.",
+)
+
+__all__ = [
+    "SUMMARY_GENERATION_PROMPT",
+    "TAXONOMY_GENERATION_PROMPT",
+    "TAXONOMY_UPDATE_PROMPT",
+    "TAXONOMY_REVIEW_PROMPT",
+    "LABELER_PROMPT",
+    "OPEN_CODING_PROMPT",
+    "SATURATION_CHECK_PROMPT",
+    "VALUE_MERGE_PROMPT",
+    "DIMENSION_MERGE_PROMPT",
+    "DIMENSION_SELECTION_PROMPT",
+    "EXCLUSIVITY_REPAIR_PROMPT",
+    "VALUE_RECODING_PROMPT",
+    "NARRATIVE_SUMMARY_PROMPT",
+]

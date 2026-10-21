@@ -1,0 +1,1508 @@
+{
+  "taxonomy_name": "c2-rl-monitoring-baseline-l5",
+  "mode": "baseline-l5",
+  "baseline": {
+    "kind": "prior_knowledge",
+    "seed": 44,
+    "model": "openai/gpt-5.6-luna",
+    "prompt_version": "1",
+    "prompt_sha256": "763c8da0bb896706008165aba5fb00364f4020072dd80454ceec9a5645e2e677",
+    "prompt_tokens_counted": 362,
+    "unknown_passage_ids_dropped": 0
+  },
+  "run_metrics": {
+    "elapsed_seconds": 44.4,
+    "total_tokens": 8028,
+    "prompt_tokens": 1358,
+    "completion_tokens": 6670
+  },
+  "iterations": [
+    {
+      "explanation": "The design space is organized from observation to action. Telemetry Coverage Strategy, Observation Granularity, and Instrumentation Placement define what the system can see and at what fidelity. Collection and Transport Strategy and Storage and Retention Strategy define how that evidence moves and persists, while Policy and Data Lineage Strategy preserves the identity needed to interpret it over time. Drift Detection Strategy, Alert Evaluation Strategy, and Evaluation and Comparison Strategy turn telemetry into evidence about degradation, distribution shift, and policy quality. Incident Response and Intervention Strategy defines the operational response, including human-gated and automatic mitigation. Human Review and Feedback Strategy captures delayed ground truth and expert judgment, and Safety and Governance Controls bound every other decision through privacy, authorization, auditability, and fail-safe requirements. The principal trade-off is between diagnostic and safety coverage on one side and action-path latency, storage cost, privacy exposure, operational complexity, and alert fatigue on the other. Values marked rejected represent common but unsafe or inadequate simplifications, such as reward-only monitoring, synchronous monitoring dependencies, unbounded raw retention, uncontrolled full-traffic experimentation, and unreviewed automated feedback loops. No supporting document identifiers are included because the use case provides no sources.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Telemetry Coverage Strategy",
+          "description": "The decision about which classes of signals the production monitoring system collects. The main forces are diagnostic completeness, implementation cost, telemetry volume, privacy exposure, and the risk that reward metrics conceal unsafe or degraded behavior.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Telemetry Coverage Strategy affects Observation Granularity",
+              "type": "affects",
+              "rationale": "Broader signal coverage increases the number of signals for which granularity must be selected, while limited coverage can make fine-grained monitoring impractical."
+            },
+            {
+              "target_id": "3",
+              "reading": "Telemetry Coverage Strategy constrains Instrumentation Placement",
+              "type": "constrains",
+              "rationale": "Signals that exist only inside the policy, environment, or safety layer require instrumentation at those locations."
+            },
+            {
+              "target_id": "4",
+              "reading": "Telemetry Coverage Strategy affects Collection and Transport Strategy",
+              "type": "affects",
+              "rationale": "More extensive telemetry increases bandwidth, buffering, aggregation, and transport requirements."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Reward-Centric Telemetry",
+              "description": "Monitor reward, return, episode success, and closely related aggregate outcome metrics. This is inexpensive but can miss policy drift, unsafe actions, distribution shift, and reward hacking.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "State-Action-Outcome Telemetry",
+              "description": "Capture observations or state summaries, selected actions, rewards, terminal outcomes, and constraint outcomes so that behavior can be diagnosed rather than merely scored.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "System and Agent Telemetry",
+              "description": "Combine RL-specific signals with inference latency, throughput, errors, resource utilization, model version, and service health signals to detect both behavioral and operational failures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Layered Safety and Behavioral Telemetry",
+              "description": "Collect policy decisions, environment outcomes, reward and constraint signals, intervention events, uncertainty indicators, and infrastructure signals, usually with selective sampling or aggregation to control cost.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Observation Granularity",
+          "description": "The decision about the unit at which production behavior is recorded and analyzed. The choice balances forensic detail and attribution against storage cost, processing latency, privacy, and the volume of decisions made by the agent.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Observation Granularity affects Storage and Retention Strategy",
+              "type": "affects",
+              "rationale": "Per-decision and per-trajectory records require substantially more storage and retention controls than aggregate metrics."
+            },
+            {
+              "target_id": "7",
+              "reading": "Observation Granularity affects Drift Detection Strategy",
+              "type": "affects",
+              "rationale": "Distributional and behavioral drift detectors need sufficiently detailed observations, whereas aggregate monitoring supports only coarse trend detection."
+            },
+            {
+              "target_id": "9",
+              "reading": "Observation Granularity affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "Fine-grained records make it possible to identify and reproduce problematic decisions and to support targeted intervention."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Aggregate Service Metrics",
+              "description": "Record windows or population summaries such as mean return, success rate, action frequencies, latency percentiles, and violation rates. This minimizes cost but weakens root-cause analysis.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Episode-Level Records",
+              "description": "Record complete or summarized trajectories and episode outcomes, enabling analysis of failures over an agent interaction while controlling volume better than decision-level capture.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Decision-Level Records",
+              "description": "Record individual observation, action, policy metadata, reward, constraint result, and timing events. This supports replay and forensic analysis but creates high volume and possible sensitive-data exposure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Adaptive or Sampled Granularity",
+              "description": "Use aggregate metrics by default and increase sampling or retain detailed traces for anomalous, high-risk, novel, or user-selected episodes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Instrumentation Placement",
+          "description": "The decision about where monitoring instrumentation runs relative to the policy, environment, serving layer, and safety mechanisms. The forces include signal visibility, latency overhead, deployment independence, failure isolation, and consistency of correlation identifiers.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Instrumentation Placement constrains Telemetry Coverage Strategy",
+              "type": "constrains",
+              "rationale": "Placement determines whether internal policy state, environment outcomes, action overrides, and serving events are observable."
+            },
+            {
+              "target_id": "4",
+              "reading": "Instrumentation Placement affects Collection and Transport Strategy",
+              "type": "affects",
+              "rationale": "In-process instrumentation, wrappers, sidecars, and external collectors have different buffering, failure, and transport characteristics."
+            },
+            {
+              "target_id": "9",
+              "reading": "Instrumentation Placement affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "Instrumentation located in the action path can support immediate intervention, whereas external instrumentation is generally limited to detection and notification."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "In-Process Policy Instrumentation",
+              "description": "Instrument the policy or inference service directly to capture model inputs, outputs, versions, confidence or uncertainty signals, and decision timing with high fidelity.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Environment or Interface Wrappers",
+              "description": "Instrument the environment adapter, simulator, actuator interface, or request boundary to capture observations, rewards, outcomes, constraints, and action effects without deeply modifying the policy.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Sidecar or Proxy Instrumentation",
+              "description": "Place collection and policy-serving observation in a sidecar, gateway, or proxy to decouple monitoring deployment from the agent and centralize operational controls.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Out-of-Path External Collection",
+              "description": "Collect only service logs, exported metrics, or downstream business events outside the action path. This reduces agent coupling but is insufficient for internal decision and state diagnostics.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Collection and Transport Strategy",
+          "description": "The decision about how telemetry moves from the deployed agent to monitoring infrastructure. The forces are detection latency, action-path reliability, backpressure behavior, network cost, data loss tolerance, and operational complexity.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Collection and Transport Strategy constrains Storage and Retention Strategy",
+              "type": "constrains",
+              "rationale": "Streaming, buffered, and batch transport patterns determine which storage systems and ingestion semantics are practical."
+            },
+            {
+              "target_id": "8",
+              "reading": "Collection and Transport Strategy affects Alert Evaluation Strategy",
+              "type": "affects",
+              "rationale": "Transport delay, ordering, duplication, and loss affect the timeliness and correctness of alert evaluation."
+            },
+            {
+              "target_id": "9",
+              "reading": "Collection and Transport Strategy affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "A response system cannot reliably intervene or notify operators if telemetry is delayed or lost; synchronous paths can also add operational risk."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Synchronous Inline Export",
+              "description": "Send monitoring data synchronously before or during an agent decision. This offers immediate visibility but adds latency and creates a monitoring dependency in the action path.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Asynchronous Local Buffering",
+              "description": "Write events to an in-process or node-local buffer and export them asynchronously, isolating action latency from transient collector or network failures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Streaming Event Transport",
+              "description": "Publish telemetry to a durable event stream for near-real-time consumers, alerting, aggregation, and storage. This supports low detection latency but requires ordering, replay, and backpressure management.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Batch and Periodic Export",
+              "description": "Aggregate telemetry locally and upload it periodically for cost-efficient analysis where immediate detection is not required.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Hybrid Critical-Event Transport",
+              "description": "Export safety violations, outages, and severe anomalies with low latency while batching routine telemetry to reduce cost and load.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Storage and Retention Strategy",
+          "description": "The decision about which representations of telemetry are retained, where they are stored, and for how long. The forces are query latency, replay and auditability, storage cost, compliance, privacy, durability, and the need to investigate delayed failures.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Storage and Retention Strategy constrains Observation Granularity",
+              "type": "constrains",
+              "rationale": "Available storage budgets, retention requirements, and privacy rules limit how much per-decision or per-trajectory data can be retained."
+            },
+            {
+              "target_id": "6",
+              "reading": "Storage and Retention Strategy affects Policy and Data Lineage Strategy",
+              "type": "affects",
+              "rationale": "Replay and comparison require retained telemetry to remain associated with policy, environment, schema, and deployment versions."
+            },
+            {
+              "target_id": "7",
+              "reading": "Storage and Retention Strategy affects Drift Detection Strategy",
+              "type": "affects",
+              "rationale": "Drift baselines and reference distributions require historical data with sufficient retention and stable semantics."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Metrics-First Time-Series Storage",
+              "description": "Retain aggregate metrics and alerts in a time-series or observability store while discarding most raw events. This is efficient for dashboards but weak for behavioral forensics.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Raw Event and Trajectory Storage",
+              "description": "Retain decision events or trajectories in an event or analytical data store to support replay, root-cause analysis, and post-incident investigation.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Tiered Retention",
+              "description": "Keep recent and anomalous data at high fidelity, compact older data into aggregates, and retain critical incidents or audit records for longer periods.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Unbounded Raw Retention",
+              "description": "Retain all raw observations, actions, and user-linked context indefinitely. This maximizes historical detail but creates disproportionate cost, privacy, and governance risk.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Policy and Data Lineage Strategy",
+          "description": "The decision about which versions and contextual identifiers are attached to observations, actions, outcomes, and alerts. The forces are reproducibility, rollback safety, multi-agent complexity, schema evolution, auditability, and metadata overhead.",
+          "relations": [
+            {
+              "target_id": "10",
+              "reading": "Policy and Data Lineage Strategy requires Evaluation and Comparison Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Meaningful comparisons between deployed policies require an agreed definition of policy, environment, cohort, and experiment identity."
+            },
+            {
+              "target_id": "7",
+              "reading": "Policy and Data Lineage Strategy affects Drift Detection Strategy",
+              "type": "affects",
+              "rationale": "Drift must be distinguished from intentional policy, environment, feature, or schema changes."
+            },
+            {
+              "target_id": "9",
+              "reading": "Policy and Data Lineage Strategy affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "Rollback, quarantine, and root-cause decisions depend on identifying the exact policy and deployment that produced an outcome."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Policy-Version Tagging",
+              "description": "Attach model or policy version, deployment revision, and configuration identifiers to every metric or event.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "End-to-End Context Correlation",
+              "description": "Propagate identifiers linking request, episode, agent, environment version, feature or observation schema, action, downstream outcome, and intervention.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Immutable Monitoring Schemas",
+              "description": "Version event schemas and metric definitions so that historical data remains interpretable across policy and infrastructure changes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Unversioned Metric Aggregation",
+              "description": "Record metrics without stable policy, environment, or schema identity. This reduces metadata work but makes regressions and drift difficult to attribute.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Drift Detection Strategy",
+          "description": "The decision about how the monitoring system detects changes in the environment, observations, actions, rewards, constraints, or policy outcomes. The forces are false-positive tolerance, delayed or sparse rewards, availability of reference data, nonstationarity, detection speed, and explainability.",
+          "relations": [
+            {
+              "target_id": "10",
+              "reading": "Drift Detection Strategy affects Evaluation and Comparison Strategy",
+              "type": "affects",
+              "rationale": "Drift findings determine when shadow evaluation, cohort comparison, or policy reassessment should be triggered."
+            },
+            {
+              "target_id": "8",
+              "reading": "Drift Detection Strategy affects Alert Evaluation Strategy",
+              "type": "affects",
+              "rationale": "Detection methods produce signals whose thresholds, persistence, and severity must be converted into operational alerts."
+            },
+            {
+              "target_id": "9",
+              "reading": "Drift Detection Strategy affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "The type and confidence of detected drift influence whether operators investigate, reduce traffic, roll back, or apply safety controls."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Static Threshold Monitoring",
+              "description": "Use fixed thresholds for reward, success, latency, constraint violations, action frequencies, and resource health. It is simple and explainable but brittle under changing workloads.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Rolling Baseline Monitoring",
+              "description": "Compare current windows with recent policy- and cohort-specific baselines, allowing expected seasonality and workload changes to be represented.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Distributional Drift Detection",
+              "description": "Apply statistical or distance-based tests to observations, actions, rewards, features, and outcomes to identify population or behavior changes before aggregate performance visibly degrades.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Outcome and Constraint Regression Detection",
+              "description": "Monitor degradation in business outcomes, delayed returns, safety constraints, fairness measures, or intervention rates, including signals that are not available at decision time.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Reward-Only Drift Detection",
+              "description": "Treat changes in reported reward as the sole indication of production degradation. This can miss reward misspecification, reward hacking, and violations of unrepresented constraints.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Alert Evaluation Strategy",
+          "description": "The decision about how raw monitoring signals become actionable alerts. The forces are alert fatigue, detection latency, severity calibration, correlated signals, intermittent failures, explainability, and the cost of human investigation.",
+          "relations": [
+            {
+              "target_id": "9",
+              "reading": "Alert Evaluation Strategy affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "Alert severity, confidence, and persistence determine whether the system pages, requests review, changes traffic, or intervenes automatically."
+            },
+            {
+              "target_id": "7",
+              "reading": "Alert Evaluation Strategy refines Drift Detection Strategy",
+              "type": "refines",
+              "rationale": "Alert evaluation is the operational sub-decision that converts drift and regression evidence into thresholds, persistence rules, and severity."
+            },
+            {
+              "target_id": "11",
+              "reading": "Alert Evaluation Strategy affects Human Review and Feedback Strategy",
+              "type": "affects",
+              "rationale": "Alert routing and explanation determine which cases receive human investigation and which labels or remediation decisions are produced."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Single-Metric Threshold Alerts",
+              "description": "Page or notify when one metric crosses a fixed threshold. This is easy to operate but often produces noise and ignores interactions among behavioral and system signals.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Composite Risk Alerts",
+              "description": "Combine performance, drift, safety, uncertainty, infrastructure, and cohort signals into a severity or risk score before alerting.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.3",
+              "dimension_id": "8",
+              "label": "Persistence and Windowed Alerts",
+              "description": "Require a condition to persist, recur, or affect a sufficient population before notifying operators, reducing alerts from transient anomalies.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.4",
+              "dimension_id": "8",
+              "label": "Unfiltered Event Alerting",
+              "description": "Notify on every anomalous event or threshold crossing without deduplication, aggregation, or severity policy. This commonly creates alert fatigue and desensitization.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Incident Response and Intervention Strategy",
+          "description": "The decision about what the monitoring system does after detecting degraded, unsafe, or anomalous agent behavior. The forces are safety risk, reversibility, response latency, confidence in the detector, human availability, business continuity, and the cost of false intervention.",
+          "relations": [
+            {
+              "target_id": "10",
+              "reading": "Incident Response and Intervention Strategy requires Evaluation and Comparison Strategy to be decided first",
+              "type": "requires",
+              "rationale": "Rollback, traffic reduction, or quarantine needs a defined comparison or evaluation signal showing which policy or cohort is safer or better."
+            },
+            {
+              "target_id": "11",
+              "reading": "Incident Response and Intervention Strategy affects Human Review and Feedback Strategy",
+              "type": "affects",
+              "rationale": "Interventions create cases for operator investigation, labeling, and later policy or monitor improvement."
+            },
+            {
+              "target_id": "12",
+              "reading": "Incident Response and Intervention Strategy constrains Safety and Governance Controls",
+              "type": "constrains",
+              "rationale": "Automatic intervention must respect authorization, privacy, audit, and safety-control requirements."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Alert-Only Response",
+              "description": "Notify operators and retain diagnostic context without automatically changing agent behavior or traffic. This minimizes false interventions but can be too slow for safety-critical failures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.2",
+              "dimension_id": "9",
+              "label": "Human-Gated Mitigation",
+              "description": "Require an operator or on-call service to approve rollback, traffic reduction, policy disablement, or investigation before applying the mitigation.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.3",
+              "dimension_id": "9",
+              "label": "Automatic Rollback or Traffic Reduction",
+              "description": "Automatically restore a prior policy, reduce exposure, quarantine a cohort, or route traffic to a fallback when high-confidence conditions are met.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.4",
+              "dimension_id": "9",
+              "label": "Action-Level Safety Override",
+              "description": "Apply a safety shield, constraint filter, rule-based fallback, or action veto at decision time when the proposed action violates known limits.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.5",
+              "dimension_id": "9",
+              "label": "Automatic Retraining from Alerts",
+              "description": "Trigger and deploy a new policy directly from an alert without review, validation, or staged evaluation. This can amplify bad labels, detector errors, and feedback loops.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "name": "Evaluation and Comparison Strategy",
+          "description": "The decision about how deployed policies are assessed against baselines, alternatives, or counterfactual expectations. The forces are safety, online experimentation risk, delayed rewards, causal validity, evaluation cost, traffic availability, and the need to detect regressions without disrupting users.",
+          "relations": [
+            {
+              "target_id": "6",
+              "reading": "Evaluation and Comparison Strategy requires Policy and Data Lineage Strategy to be decided first",
+              "type": "requires",
+              "rationale": "A/B, shadow, replay, and rollback comparisons require stable identities for policies, environments, schemas, cohorts, and outcomes."
+            },
+            {
+              "target_id": "9",
+              "reading": "Evaluation and Comparison Strategy affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "Comparison results provide evidence for retaining, rolling back, quarantining, or escalating a deployed policy."
+            },
+            {
+              "target_id": "11",
+              "reading": "Evaluation and Comparison Strategy affects Human Review and Feedback Strategy",
+              "type": "affects",
+              "rationale": "Evaluation cases and disagreements with expected outcomes determine where human assessment or additional labeling is needed."
+            }
+          ],
+          "values": [
+            {
+              "id": "10.1",
+              "dimension_id": "10",
+              "label": "Production Aggregate Evaluation",
+              "description": "Evaluate the deployed policy using live aggregate rewards, success, constraints, and operational metrics without introducing a separate comparison treatment.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.2",
+              "dimension_id": "10",
+              "label": "Shadow or Replay Evaluation",
+              "description": "Run a candidate, prior policy, or diagnostic evaluator on copied production observations or recorded trajectories without allowing its actions to affect users or the environment.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.3",
+              "dimension_id": "10",
+              "label": "Canary or Controlled Cohort Evaluation",
+              "description": "Expose a limited, identified population or traffic fraction to a policy and compare it with a baseline under controlled guardrails.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.4",
+              "dimension_id": "10",
+              "label": "Uncontrolled Full-Traffic Experimentation",
+              "description": "Deploy a changed policy to all production traffic without a canary, shadow comparison, or rollback criteria. This maximizes exposure to undetected regressions.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "10.5",
+              "dimension_id": "10",
+              "label": "Counterfactual or Off-Policy Evaluation",
+              "description": "Estimate the performance of alternative actions or policies from logged experience using suitable off-policy estimators, uncertainty bounds, or simulators.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            }
+          ]
+        },
+        {
+          "id": "11",
+          "name": "Human Review and Feedback Strategy",
+          "description": "The decision about when monitoring cases receive human inspection and how reviewer judgments or delayed outcomes feed back into monitoring and agent improvement. The forces are labeling cost, reviewer expertise, ambiguity, delayed ground truth, safety, bias, and the risk of reinforcing erroneous feedback loops.",
+          "relations": [
+            {
+              "target_id": "12",
+              "reading": "Human Review and Feedback Strategy requires Safety and Governance Controls to be decided first",
+              "type": "requires",
+              "rationale": "Reviewers need authorized access, privacy boundaries, auditability, and rules for handling sensitive observations and actions."
+            },
+            {
+              "target_id": "7",
+              "reading": "Human Review and Feedback Strategy affects Drift Detection Strategy",
+              "type": "affects",
+              "rationale": "Human labels and confirmed incidents can improve baselines, detector calibration, and interpretation of ambiguous anomalies."
+            },
+            {
+              "target_id": "9",
+              "reading": "Human Review and Feedback Strategy affects Incident Response and Intervention Strategy",
+              "type": "affects",
+              "rationale": "Review queues, escalation policies, and operator judgments determine whether detected behavior is tolerated, mitigated, or used for rollback."
+            }
+          ],
+          "values": [
+            {
+              "id": "11.1",
+              "dimension_id": "11",
+              "label": "Automated Outcome Feedback",
+              "description": "Use directly observed outcomes, constraint checks, business events, or delayed returns as monitoring feedback without routine human labeling.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.2",
+              "dimension_id": "11",
+              "label": "Risk-Based Human Review",
+              "description": "Route high-impact, novel, uncertain, anomalous, or safety-relevant episodes to trained reviewers while leaving routine cases automated.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.3",
+              "dimension_id": "11",
+              "label": "Continuous Expert Labeling",
+              "description": "Have experts routinely label sampled behavior, outcomes, or action appropriateness to calibrate monitors and identify reward misspecification.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.4",
+              "dimension_id": "11",
+              "label": "Unreviewed Automated Feedback Loop",
+              "description": "Use alerts or inferred outcomes directly as training or policy feedback without checking label quality, detector bias, or intervention-induced selection effects.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "12",
+          "name": "Safety and Governance Controls",
+          "description": "The decision about the security, privacy, authorization, audit, and safety controls surrounding monitoring data and automated responses. The forces are regulatory exposure, sensitive observations, adversarial manipulation, least privilege, accountability, availability, and the consequences of unsafe intervention.",
+          "relations": [
+            {
+              "target_id": "3",
+              "reading": "Safety and Governance Controls constrain Instrumentation Placement",
+              "type": "constrains",
+              "rationale": "Privacy and authorization requirements can prohibit instrumentation in certain components or require redaction before telemetry leaves the execution boundary."
+            },
+            {
+              "target_id": "5",
+              "reading": "Safety and Governance Controls constrain Storage and Retention Strategy",
+              "type": "constrains",
+              "rationale": "Access, deletion, residency, encryption, and retention requirements limit where and how long monitoring data can be stored."
+            },
+            {
+              "target_id": "9",
+              "reading": "Safety and Governance Controls constrain Incident Response and Intervention Strategy",
+              "type": "constrains",
+              "rationale": "Automated rollback, action overrides, and traffic changes require authorization, fail-safe behavior, audit trails, and protection against malicious or erroneous triggers."
+            }
+          ],
+          "values": [
+            {
+              "id": "12.1",
+              "dimension_id": "12",
+              "label": "Redacted and Minimized Telemetry",
+              "description": "Collect only the data needed for monitoring and remove, hash, aggregate, or tokenize sensitive observations and identifiers before storage or transport.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.2",
+              "dimension_id": "12",
+              "label": "Encrypted and Access-Controlled Telemetry",
+              "description": "Protect telemetry in transit and at rest using authenticated transport, encryption, role-based access, and auditable access to raw traces.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.3",
+              "dimension_id": "12",
+              "label": "Auditable Intervention Controls",
+              "description": "Require authenticated, logged, and policy-governed changes to alert rules, safety overrides, rollbacks, and monitoring configurations.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.4",
+              "dimension_id": "12",
+              "label": "Unrestricted Raw Observability",
+              "description": "Expose raw observations, actions, user context, and intervention controls broadly for convenience. This increases privacy, security, and manipulation risk.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Telemetry Coverage Strategy",
+      "description": "The decision about which classes of signals the production monitoring system collects. The main forces are diagnostic completeness, implementation cost, telemetry volume, privacy exposure, and the risk that reward metrics conceal unsafe or degraded behavior.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Telemetry Coverage Strategy affects Observation Granularity",
+          "type": "affects",
+          "rationale": "Broader signal coverage increases the number of signals for which granularity must be selected, while limited coverage can make fine-grained monitoring impractical."
+        },
+        {
+          "target_id": "3",
+          "reading": "Telemetry Coverage Strategy constrains Instrumentation Placement",
+          "type": "constrains",
+          "rationale": "Signals that exist only inside the policy, environment, or safety layer require instrumentation at those locations."
+        },
+        {
+          "target_id": "4",
+          "reading": "Telemetry Coverage Strategy affects Collection and Transport Strategy",
+          "type": "affects",
+          "rationale": "More extensive telemetry increases bandwidth, buffering, aggregation, and transport requirements."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Reward-Centric Telemetry",
+          "description": "Monitor reward, return, episode success, and closely related aggregate outcome metrics. This is inexpensive but can miss policy drift, unsafe actions, distribution shift, and reward hacking.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "State-Action-Outcome Telemetry",
+          "description": "Capture observations or state summaries, selected actions, rewards, terminal outcomes, and constraint outcomes so that behavior can be diagnosed rather than merely scored.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "System and Agent Telemetry",
+          "description": "Combine RL-specific signals with inference latency, throughput, errors, resource utilization, model version, and service health signals to detect both behavioral and operational failures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Layered Safety and Behavioral Telemetry",
+          "description": "Collect policy decisions, environment outcomes, reward and constraint signals, intervention events, uncertainty indicators, and infrastructure signals, usually with selective sampling or aggregation to control cost.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Observation Granularity",
+      "description": "The decision about the unit at which production behavior is recorded and analyzed. The choice balances forensic detail and attribution against storage cost, processing latency, privacy, and the volume of decisions made by the agent.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Observation Granularity affects Storage and Retention Strategy",
+          "type": "affects",
+          "rationale": "Per-decision and per-trajectory records require substantially more storage and retention controls than aggregate metrics."
+        },
+        {
+          "target_id": "7",
+          "reading": "Observation Granularity affects Drift Detection Strategy",
+          "type": "affects",
+          "rationale": "Distributional and behavioral drift detectors need sufficiently detailed observations, whereas aggregate monitoring supports only coarse trend detection."
+        },
+        {
+          "target_id": "9",
+          "reading": "Observation Granularity affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "Fine-grained records make it possible to identify and reproduce problematic decisions and to support targeted intervention."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Aggregate Service Metrics",
+          "description": "Record windows or population summaries such as mean return, success rate, action frequencies, latency percentiles, and violation rates. This minimizes cost but weakens root-cause analysis.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Episode-Level Records",
+          "description": "Record complete or summarized trajectories and episode outcomes, enabling analysis of failures over an agent interaction while controlling volume better than decision-level capture.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Decision-Level Records",
+          "description": "Record individual observation, action, policy metadata, reward, constraint result, and timing events. This supports replay and forensic analysis but creates high volume and possible sensitive-data exposure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Adaptive or Sampled Granularity",
+          "description": "Use aggregate metrics by default and increase sampling or retain detailed traces for anomalous, high-risk, novel, or user-selected episodes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Instrumentation Placement",
+      "description": "The decision about where monitoring instrumentation runs relative to the policy, environment, serving layer, and safety mechanisms. The forces include signal visibility, latency overhead, deployment independence, failure isolation, and consistency of correlation identifiers.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Instrumentation Placement constrains Telemetry Coverage Strategy",
+          "type": "constrains",
+          "rationale": "Placement determines whether internal policy state, environment outcomes, action overrides, and serving events are observable."
+        },
+        {
+          "target_id": "4",
+          "reading": "Instrumentation Placement affects Collection and Transport Strategy",
+          "type": "affects",
+          "rationale": "In-process instrumentation, wrappers, sidecars, and external collectors have different buffering, failure, and transport characteristics."
+        },
+        {
+          "target_id": "9",
+          "reading": "Instrumentation Placement affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "Instrumentation located in the action path can support immediate intervention, whereas external instrumentation is generally limited to detection and notification."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "In-Process Policy Instrumentation",
+          "description": "Instrument the policy or inference service directly to capture model inputs, outputs, versions, confidence or uncertainty signals, and decision timing with high fidelity.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Environment or Interface Wrappers",
+          "description": "Instrument the environment adapter, simulator, actuator interface, or request boundary to capture observations, rewards, outcomes, constraints, and action effects without deeply modifying the policy.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Sidecar or Proxy Instrumentation",
+          "description": "Place collection and policy-serving observation in a sidecar, gateway, or proxy to decouple monitoring deployment from the agent and centralize operational controls.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Out-of-Path External Collection",
+          "description": "Collect only service logs, exported metrics, or downstream business events outside the action path. This reduces agent coupling but is insufficient for internal decision and state diagnostics.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Collection and Transport Strategy",
+      "description": "The decision about how telemetry moves from the deployed agent to monitoring infrastructure. The forces are detection latency, action-path reliability, backpressure behavior, network cost, data loss tolerance, and operational complexity.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Collection and Transport Strategy constrains Storage and Retention Strategy",
+          "type": "constrains",
+          "rationale": "Streaming, buffered, and batch transport patterns determine which storage systems and ingestion semantics are practical."
+        },
+        {
+          "target_id": "8",
+          "reading": "Collection and Transport Strategy affects Alert Evaluation Strategy",
+          "type": "affects",
+          "rationale": "Transport delay, ordering, duplication, and loss affect the timeliness and correctness of alert evaluation."
+        },
+        {
+          "target_id": "9",
+          "reading": "Collection and Transport Strategy affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "A response system cannot reliably intervene or notify operators if telemetry is delayed or lost; synchronous paths can also add operational risk."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Synchronous Inline Export",
+          "description": "Send monitoring data synchronously before or during an agent decision. This offers immediate visibility but adds latency and creates a monitoring dependency in the action path.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Asynchronous Local Buffering",
+          "description": "Write events to an in-process or node-local buffer and export them asynchronously, isolating action latency from transient collector or network failures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Streaming Event Transport",
+          "description": "Publish telemetry to a durable event stream for near-real-time consumers, alerting, aggregation, and storage. This supports low detection latency but requires ordering, replay, and backpressure management.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Batch and Periodic Export",
+          "description": "Aggregate telemetry locally and upload it periodically for cost-efficient analysis where immediate detection is not required.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Hybrid Critical-Event Transport",
+          "description": "Export safety violations, outages, and severe anomalies with low latency while batching routine telemetry to reduce cost and load.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Storage and Retention Strategy",
+      "description": "The decision about which representations of telemetry are retained, where they are stored, and for how long. The forces are query latency, replay and auditability, storage cost, compliance, privacy, durability, and the need to investigate delayed failures.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Storage and Retention Strategy constrains Observation Granularity",
+          "type": "constrains",
+          "rationale": "Available storage budgets, retention requirements, and privacy rules limit how much per-decision or per-trajectory data can be retained."
+        },
+        {
+          "target_id": "6",
+          "reading": "Storage and Retention Strategy affects Policy and Data Lineage Strategy",
+          "type": "affects",
+          "rationale": "Replay and comparison require retained telemetry to remain associated with policy, environment, schema, and deployment versions."
+        },
+        {
+          "target_id": "7",
+          "reading": "Storage and Retention Strategy affects Drift Detection Strategy",
+          "type": "affects",
+          "rationale": "Drift baselines and reference distributions require historical data with sufficient retention and stable semantics."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Metrics-First Time-Series Storage",
+          "description": "Retain aggregate metrics and alerts in a time-series or observability store while discarding most raw events. This is efficient for dashboards but weak for behavioral forensics.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Raw Event and Trajectory Storage",
+          "description": "Retain decision events or trajectories in an event or analytical data store to support replay, root-cause analysis, and post-incident investigation.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Tiered Retention",
+          "description": "Keep recent and anomalous data at high fidelity, compact older data into aggregates, and retain critical incidents or audit records for longer periods.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Unbounded Raw Retention",
+          "description": "Retain all raw observations, actions, and user-linked context indefinitely. This maximizes historical detail but creates disproportionate cost, privacy, and governance risk.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Policy and Data Lineage Strategy",
+      "description": "The decision about which versions and contextual identifiers are attached to observations, actions, outcomes, and alerts. The forces are reproducibility, rollback safety, multi-agent complexity, schema evolution, auditability, and metadata overhead.",
+      "relations": [
+        {
+          "target_id": "10",
+          "reading": "Policy and Data Lineage Strategy requires Evaluation and Comparison Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Meaningful comparisons between deployed policies require an agreed definition of policy, environment, cohort, and experiment identity."
+        },
+        {
+          "target_id": "7",
+          "reading": "Policy and Data Lineage Strategy affects Drift Detection Strategy",
+          "type": "affects",
+          "rationale": "Drift must be distinguished from intentional policy, environment, feature, or schema changes."
+        },
+        {
+          "target_id": "9",
+          "reading": "Policy and Data Lineage Strategy affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "Rollback, quarantine, and root-cause decisions depend on identifying the exact policy and deployment that produced an outcome."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Policy-Version Tagging",
+          "description": "Attach model or policy version, deployment revision, and configuration identifiers to every metric or event.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "End-to-End Context Correlation",
+          "description": "Propagate identifiers linking request, episode, agent, environment version, feature or observation schema, action, downstream outcome, and intervention.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Immutable Monitoring Schemas",
+          "description": "Version event schemas and metric definitions so that historical data remains interpretable across policy and infrastructure changes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.4",
+          "dimension_id": "6",
+          "label": "Unversioned Metric Aggregation",
+          "description": "Record metrics without stable policy, environment, or schema identity. This reduces metadata work but makes regressions and drift difficult to attribute.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Drift Detection Strategy",
+      "description": "The decision about how the monitoring system detects changes in the environment, observations, actions, rewards, constraints, or policy outcomes. The forces are false-positive tolerance, delayed or sparse rewards, availability of reference data, nonstationarity, detection speed, and explainability.",
+      "relations": [
+        {
+          "target_id": "10",
+          "reading": "Drift Detection Strategy affects Evaluation and Comparison Strategy",
+          "type": "affects",
+          "rationale": "Drift findings determine when shadow evaluation, cohort comparison, or policy reassessment should be triggered."
+        },
+        {
+          "target_id": "8",
+          "reading": "Drift Detection Strategy affects Alert Evaluation Strategy",
+          "type": "affects",
+          "rationale": "Detection methods produce signals whose thresholds, persistence, and severity must be converted into operational alerts."
+        },
+        {
+          "target_id": "9",
+          "reading": "Drift Detection Strategy affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "The type and confidence of detected drift influence whether operators investigate, reduce traffic, roll back, or apply safety controls."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Static Threshold Monitoring",
+          "description": "Use fixed thresholds for reward, success, latency, constraint violations, action frequencies, and resource health. It is simple and explainable but brittle under changing workloads.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Rolling Baseline Monitoring",
+          "description": "Compare current windows with recent policy- and cohort-specific baselines, allowing expected seasonality and workload changes to be represented.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Distributional Drift Detection",
+          "description": "Apply statistical or distance-based tests to observations, actions, rewards, features, and outcomes to identify population or behavior changes before aggregate performance visibly degrades.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Outcome and Constraint Regression Detection",
+          "description": "Monitor degradation in business outcomes, delayed returns, safety constraints, fairness measures, or intervention rates, including signals that are not available at decision time.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.5",
+          "dimension_id": "7",
+          "label": "Reward-Only Drift Detection",
+          "description": "Treat changes in reported reward as the sole indication of production degradation. This can miss reward misspecification, reward hacking, and violations of unrepresented constraints.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Alert Evaluation Strategy",
+      "description": "The decision about how raw monitoring signals become actionable alerts. The forces are alert fatigue, detection latency, severity calibration, correlated signals, intermittent failures, explainability, and the cost of human investigation.",
+      "relations": [
+        {
+          "target_id": "9",
+          "reading": "Alert Evaluation Strategy affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "Alert severity, confidence, and persistence determine whether the system pages, requests review, changes traffic, or intervenes automatically."
+        },
+        {
+          "target_id": "7",
+          "reading": "Alert Evaluation Strategy refines Drift Detection Strategy",
+          "type": "refines",
+          "rationale": "Alert evaluation is the operational sub-decision that converts drift and regression evidence into thresholds, persistence rules, and severity."
+        },
+        {
+          "target_id": "11",
+          "reading": "Alert Evaluation Strategy affects Human Review and Feedback Strategy",
+          "type": "affects",
+          "rationale": "Alert routing and explanation determine which cases receive human investigation and which labels or remediation decisions are produced."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Single-Metric Threshold Alerts",
+          "description": "Page or notify when one metric crosses a fixed threshold. This is easy to operate but often produces noise and ignores interactions among behavioral and system signals.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Composite Risk Alerts",
+          "description": "Combine performance, drift, safety, uncertainty, infrastructure, and cohort signals into a severity or risk score before alerting.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.3",
+          "dimension_id": "8",
+          "label": "Persistence and Windowed Alerts",
+          "description": "Require a condition to persist, recur, or affect a sufficient population before notifying operators, reducing alerts from transient anomalies.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.4",
+          "dimension_id": "8",
+          "label": "Unfiltered Event Alerting",
+          "description": "Notify on every anomalous event or threshold crossing without deduplication, aggregation, or severity policy. This commonly creates alert fatigue and desensitization.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Incident Response and Intervention Strategy",
+      "description": "The decision about what the monitoring system does after detecting degraded, unsafe, or anomalous agent behavior. The forces are safety risk, reversibility, response latency, confidence in the detector, human availability, business continuity, and the cost of false intervention.",
+      "relations": [
+        {
+          "target_id": "10",
+          "reading": "Incident Response and Intervention Strategy requires Evaluation and Comparison Strategy to be decided first",
+          "type": "requires",
+          "rationale": "Rollback, traffic reduction, or quarantine needs a defined comparison or evaluation signal showing which policy or cohort is safer or better."
+        },
+        {
+          "target_id": "11",
+          "reading": "Incident Response and Intervention Strategy affects Human Review and Feedback Strategy",
+          "type": "affects",
+          "rationale": "Interventions create cases for operator investigation, labeling, and later policy or monitor improvement."
+        },
+        {
+          "target_id": "12",
+          "reading": "Incident Response and Intervention Strategy constrains Safety and Governance Controls",
+          "type": "constrains",
+          "rationale": "Automatic intervention must respect authorization, privacy, audit, and safety-control requirements."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Alert-Only Response",
+          "description": "Notify operators and retain diagnostic context without automatically changing agent behavior or traffic. This minimizes false interventions but can be too slow for safety-critical failures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.2",
+          "dimension_id": "9",
+          "label": "Human-Gated Mitigation",
+          "description": "Require an operator or on-call service to approve rollback, traffic reduction, policy disablement, or investigation before applying the mitigation.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.3",
+          "dimension_id": "9",
+          "label": "Automatic Rollback or Traffic Reduction",
+          "description": "Automatically restore a prior policy, reduce exposure, quarantine a cohort, or route traffic to a fallback when high-confidence conditions are met.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.4",
+          "dimension_id": "9",
+          "label": "Action-Level Safety Override",
+          "description": "Apply a safety shield, constraint filter, rule-based fallback, or action veto at decision time when the proposed action violates known limits.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.5",
+          "dimension_id": "9",
+          "label": "Automatic Retraining from Alerts",
+          "description": "Trigger and deploy a new policy directly from an alert without review, validation, or staged evaluation. This can amplify bad labels, detector errors, and feedback loops.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "Evaluation and Comparison Strategy",
+      "description": "The decision about how deployed policies are assessed against baselines, alternatives, or counterfactual expectations. The forces are safety, online experimentation risk, delayed rewards, causal validity, evaluation cost, traffic availability, and the need to detect regressions without disrupting users.",
+      "relations": [
+        {
+          "target_id": "6",
+          "reading": "Evaluation and Comparison Strategy requires Policy and Data Lineage Strategy to be decided first",
+          "type": "requires",
+          "rationale": "A/B, shadow, replay, and rollback comparisons require stable identities for policies, environments, schemas, cohorts, and outcomes."
+        },
+        {
+          "target_id": "9",
+          "reading": "Evaluation and Comparison Strategy affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "Comparison results provide evidence for retaining, rolling back, quarantining, or escalating a deployed policy."
+        },
+        {
+          "target_id": "11",
+          "reading": "Evaluation and Comparison Strategy affects Human Review and Feedback Strategy",
+          "type": "affects",
+          "rationale": "Evaluation cases and disagreements with expected outcomes determine where human assessment or additional labeling is needed."
+        }
+      ],
+      "values": [
+        {
+          "id": "10.1",
+          "dimension_id": "10",
+          "label": "Production Aggregate Evaluation",
+          "description": "Evaluate the deployed policy using live aggregate rewards, success, constraints, and operational metrics without introducing a separate comparison treatment.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.2",
+          "dimension_id": "10",
+          "label": "Shadow or Replay Evaluation",
+          "description": "Run a candidate, prior policy, or diagnostic evaluator on copied production observations or recorded trajectories without allowing its actions to affect users or the environment.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.3",
+          "dimension_id": "10",
+          "label": "Canary or Controlled Cohort Evaluation",
+          "description": "Expose a limited, identified population or traffic fraction to a policy and compare it with a baseline under controlled guardrails.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.4",
+          "dimension_id": "10",
+          "label": "Uncontrolled Full-Traffic Experimentation",
+          "description": "Deploy a changed policy to all production traffic without a canary, shadow comparison, or rollback criteria. This maximizes exposure to undetected regressions.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "10.5",
+          "dimension_id": "10",
+          "label": "Counterfactual or Off-Policy Evaluation",
+          "description": "Estimate the performance of alternative actions or policies from logged experience using suitable off-policy estimators, uncertainty bounds, or simulators.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "Human Review and Feedback Strategy",
+      "description": "The decision about when monitoring cases receive human inspection and how reviewer judgments or delayed outcomes feed back into monitoring and agent improvement. The forces are labeling cost, reviewer expertise, ambiguity, delayed ground truth, safety, bias, and the risk of reinforcing erroneous feedback loops.",
+      "relations": [
+        {
+          "target_id": "12",
+          "reading": "Human Review and Feedback Strategy requires Safety and Governance Controls to be decided first",
+          "type": "requires",
+          "rationale": "Reviewers need authorized access, privacy boundaries, auditability, and rules for handling sensitive observations and actions."
+        },
+        {
+          "target_id": "7",
+          "reading": "Human Review and Feedback Strategy affects Drift Detection Strategy",
+          "type": "affects",
+          "rationale": "Human labels and confirmed incidents can improve baselines, detector calibration, and interpretation of ambiguous anomalies."
+        },
+        {
+          "target_id": "9",
+          "reading": "Human Review and Feedback Strategy affects Incident Response and Intervention Strategy",
+          "type": "affects",
+          "rationale": "Review queues, escalation policies, and operator judgments determine whether detected behavior is tolerated, mitigated, or used for rollback."
+        }
+      ],
+      "values": [
+        {
+          "id": "11.1",
+          "dimension_id": "11",
+          "label": "Automated Outcome Feedback",
+          "description": "Use directly observed outcomes, constraint checks, business events, or delayed returns as monitoring feedback without routine human labeling.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.2",
+          "dimension_id": "11",
+          "label": "Risk-Based Human Review",
+          "description": "Route high-impact, novel, uncertain, anomalous, or safety-relevant episodes to trained reviewers while leaving routine cases automated.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.3",
+          "dimension_id": "11",
+          "label": "Continuous Expert Labeling",
+          "description": "Have experts routinely label sampled behavior, outcomes, or action appropriateness to calibrate monitors and identify reward misspecification.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.4",
+          "dimension_id": "11",
+          "label": "Unreviewed Automated Feedback Loop",
+          "description": "Use alerts or inferred outcomes directly as training or policy feedback without checking label quality, detector bias, or intervention-induced selection effects.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "name": "Safety and Governance Controls",
+      "description": "The decision about the security, privacy, authorization, audit, and safety controls surrounding monitoring data and automated responses. The forces are regulatory exposure, sensitive observations, adversarial manipulation, least privilege, accountability, availability, and the consequences of unsafe intervention.",
+      "relations": [
+        {
+          "target_id": "3",
+          "reading": "Safety and Governance Controls constrain Instrumentation Placement",
+          "type": "constrains",
+          "rationale": "Privacy and authorization requirements can prohibit instrumentation in certain components or require redaction before telemetry leaves the execution boundary."
+        },
+        {
+          "target_id": "5",
+          "reading": "Safety and Governance Controls constrain Storage and Retention Strategy",
+          "type": "constrains",
+          "rationale": "Access, deletion, residency, encryption, and retention requirements limit where and how long monitoring data can be stored."
+        },
+        {
+          "target_id": "9",
+          "reading": "Safety and Governance Controls constrain Incident Response and Intervention Strategy",
+          "type": "constrains",
+          "rationale": "Automated rollback, action overrides, and traffic changes require authorization, fail-safe behavior, audit trails, and protection against malicious or erroneous triggers."
+        }
+      ],
+      "values": [
+        {
+          "id": "12.1",
+          "dimension_id": "12",
+          "label": "Redacted and Minimized Telemetry",
+          "description": "Collect only the data needed for monitoring and remove, hash, aggregate, or tokenize sensitive observations and identifiers before storage or transport.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.2",
+          "dimension_id": "12",
+          "label": "Encrypted and Access-Controlled Telemetry",
+          "description": "Protect telemetry in transit and at rest using authenticated transport, encryption, role-based access, and auditable access to raw traces.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.3",
+          "dimension_id": "12",
+          "label": "Auditable Intervention Controls",
+          "description": "Require authenticated, logged, and policy-governed changes to alert rules, safety overrides, rollbacks, and monitoring configurations.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.4",
+          "dimension_id": "12",
+          "label": "Unrestricted Raw Observability",
+          "description": "Expose raw observations, actions, user context, and intervention controls broadly for convenience. This increases privacy, security, and manipulation risk.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        }
+      ]
+    }
+  ]
+}

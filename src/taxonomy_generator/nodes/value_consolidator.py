@@ -1,0 +1,491 @@
+"""Node for consolidating draft values within each dimension.
+
+Implements the value consolidation algorithm from
+``TAXONOMY_QUALITY_PLAN.md`` §6:
+
+1. Embed each draft value's ``label + description`` using the configured
+   embedding model.
+2. L2-normalize the vectors before any distance computation.
+3. Partition each dimension's values into candidate decisions (accepted /
+   rejected / mixed) and outcomes before any distance computation. A
+   candidate decision is one alternative answer to the dimension's question;
+   one source may adopt it and another reject it, so stances do not keep
+   candidates apart (``taxonomy.merge_value_stances``; when false, values
+   only compete within their exact status). Outcomes never merge with
+   candidate decisions.
+4. Compute pairwise distances **within each partition of each dimension
+   only** — a value only competes with other values on the same axis.
+5. Threshold-merge any pair below ``epsilon``, or with the same label
+   (ignoring case and punctuation), via union-find connected components
+   (deterministic, no LLM cost).
+6. Borderline pairs (distance just above ``epsilon``, within the borderline
+   band) go to an LLM adjudication call, only ever within a partition.
+7. Canonical label per merged group: the nearest-to-centroid value. A merged
+   candidate decision keeps every member's stance as evidence (``stances``:
+   accepted / rejected document ids) and its status follows from them
+   (``mixed`` when members disagree). Ids are assigned by a running counter
+   across every partition of a dimension, so numbering does not restart.
+
+Nothing is silently deleted: merged-away values are recorded (id and
+label) on the consolidated value's ``merged_from`` field and logged for
+inspection. The grounded-theory report surfaces this on the merged
+value's catalog entry — see ``report_renderer.render_catalog``.
+"""
+
+import json
+import logging
+import re
+from typing import Dict, List, Tuple
+
+import numpy as np
+from langchain_core.runnables import RunnableConfig
+
+from taxonomy_generator.configuration import Configuration
+from taxonomy_generator.nodes.dimension_merger import merge_dimensions
+from taxonomy_generator.nodes.exclusivity_repair import repair_exclusivity
+from taxonomy_generator.nodes.value_recoding import recode_values
+from taxonomy_generator.nodes.evidence_linker import (
+    drop_unsupported_values,
+    initial_stances,
+    link_evidence,
+    status_from_stances,
+    status_group,
+)
+from taxonomy_generator.prompts import VALUE_MERGE_PROMPT
+from taxonomy_generator.schemas import ValueMergeOutput
+from taxonomy_generator.state import State
+from taxonomy_generator.utils import (
+    connected_components,
+    ensure_unique_ids,
+    l2_normalize,
+    load_chat_model,
+    load_embeddings_model,
+    pairwise_euclidean,
+)
+from taxonomy_generator.visualization import render_taxonomy_biplot, should_render
+
+logger = logging.getLogger(__name__)
+
+
+def _setup_merge_chain(configuration: Configuration):
+    """Set up the chain for borderline value-merge adjudication."""
+    model = load_chat_model(configuration.generation_llm)
+    structured_model = model.with_structured_output(ValueMergeOutput)
+    prompt = VALUE_MERGE_PROMPT.partial(use_case=configuration.use_case)
+    return (prompt | structured_model).with_config(run_name="AdjudicateValueMerge")
+
+
+def _norm_label(label) -> str:
+    """Label for exact-duplicate detection: lower case, punctuation and extra spaces removed."""
+    return re.sub(r"[^a-z0-9]+", " ", str(label or "").lower()).strip()
+
+
+def _flatten_values(clusters: List[Dict]) -> List[Dict]:
+    """Flatten all draft values across dimensions, keeping their dimension."""
+    values = []
+    for cluster in clusters or []:
+        if not isinstance(cluster, dict):
+            continue
+        for value in cluster.get("values") or []:
+            if isinstance(value, dict) and value.get("id"):
+                values.append(value)
+    return values
+
+
+def _merge_group(
+    group_values: List[Dict],
+    group_vectors: "np.ndarray",
+    dimension_id: str,
+    index_offset: int,
+) -> Tuple[Dict, List[str]]:
+    """Build one consolidated value from a merge group.
+
+    The canonical label/description is taken from the value nearest to the
+    group centroid (deterministic). Supporting doc ids are the union across
+    the group; merged-away labels are recorded in the returned provenance
+    (empty when the group has a single member — nothing was merged).
+    """
+    centroid = group_vectors.mean(axis=0)
+    # Nearest to centroid among *normalized* vectors: smallest Euclidean distance.
+    dists = np.linalg.norm(group_vectors - centroid, axis=1)
+    canonical_idx = int(np.argmin(dists))
+    canonical = group_values[canonical_idx]
+
+    supporting = []
+    merged_from = []
+    for i, value in enumerate(group_values):
+        supporting.extend(value.get("supporting_doc_ids") or [])
+        if i != canonical_idx:
+            merged_from.append({
+                "id": value.get("id", "?"),
+                "label": value.get("label", ""),
+            })
+
+    supporting_ids = list(dict.fromkeys(supporting))  # stable dedupe
+
+    # Candidate decisions keep each member's stance as evidence; the merged
+    # status follows from it (``mixed`` when members disagree). Outcomes merge
+    # only with outcomes, so they keep their status.
+    status = canonical.get("status", "accepted")
+    stances: Dict[str, List[str]] = {}
+    if status_group(status) == "candidate":
+        for value in group_values:
+            for stance, docs in initial_stances(value).items():
+                stances.setdefault(stance, []).extend(docs)
+        stances = {k: list(dict.fromkeys(v)) for k, v in stances.items()}
+        status = status_from_stances(stances, status)
+
+    consolidated = {
+        "id": f"{dimension_id}.{index_offset}",
+        "dimension_id": dimension_id,
+        "label": canonical.get("label", ""),
+        "description": canonical.get("description", ""),
+        "supporting_doc_ids": supporting_ids,
+        "merged_from": merged_from,
+        "status": status,
+    }
+    if stances:
+        consolidated["stances"] = stances
+
+    merged_labels = [m["label"] or m["id"] for m in merged_from]
+    return consolidated, merged_labels
+
+
+def _reviewed_taxonomy(state: State) -> List[Dict]:
+    """The reviewed taxonomy with unique dimension/value ids (values are looked up by id below)."""
+    reviewed = state.clusters[-1] if state.clusters else []
+    fixed, changes = ensure_unique_ids(reviewed)
+    if changes:
+        logger.warning("Fixed %d duplicate taxonomy ids before consolidation: %s", len(changes), "; ".join(changes))
+    return fixed
+
+
+async def consolidate_values(
+    state: State,
+    config: RunnableConfig,
+) -> dict:
+    """Consolidate draft values, then link each value to the documents that support it.
+
+    Evidence linking runs here (not as a separate node) so the consolidated
+    taxonomy stays a single entry in ``state.clusters`` — reports and biplots
+    number iterations by that list's length.
+    """
+    configuration = Configuration.from_runnable_config(config)
+    reviewed = _reviewed_taxonomy(state)
+
+    merge_notes: List[str] = []
+    if configuration.merge_dimensions:
+        before = len(reviewed)
+        reviewed, merge_notes = await merge_dimensions(reviewed, configuration)
+        reviewed, _ = ensure_unique_ids(reviewed)
+        if merge_notes:
+            merge_notes = [f"Merged near-duplicate dimensions ({before} -> {len(reviewed)}):"] + [
+                f"  - {n}" for n in merge_notes]
+
+    result = await _consolidate_values(state, configuration, reviewed)
+    if merge_notes:
+        note = "\n".join(merge_notes)
+        result["explanations"] = [note + "\n" + e for e in result.get("explanations", [])] or [note]
+        result["status"] = [merge_notes[0]] + list(result.get("status", []))
+
+    open_codes = getattr(state, "open_codes", None)
+    if not (configuration.link_evidence and open_codes and result.get("clusters")):
+        return result
+
+    linked, stats = await link_evidence(
+        result["clusters"][0], open_codes, configuration.embedding,
+        float(configuration.evidence_min_similarity),
+    )
+    note = (
+        f"Evidence linking: {stats['assigned']} of {stats['codes']} open codes assigned to a value "
+        f"(similarity >= {float(configuration.evidence_min_similarity):.2f}); "
+        f"{stats['documents_with_evidence']} of {stats['documents']} documents now support at least one value."
+    )
+    if stats.get("linked") and configuration.drop_unsupported_values:
+        linked, removed = drop_unsupported_values(linked)
+        if removed:
+            note += (f"\nRemoved {len(removed)} value{'s' if len(removed) != 1 else ''} with no supporting "
+                     f"document (kept as unsupported_values): " + "; ".join(removed))
+    if configuration.exclusivity_repair:
+        linked, repair_note, repair_log = await _repair_exclusivity(state, configuration, linked)
+        if repair_note:
+            note += "\n" + repair_note
+            result["operation_log"] = [repair_log]
+    if configuration.value_recoding:
+        linked, recode_note, recode_log = await _recode_values(state, configuration, linked)
+        note += "\n" + recode_note
+        result["operation_log"] = list(result.get("operation_log") or []) + [recode_log]
+    result["clusters"] = [linked]
+    logger.info(note)
+    result["explanations"] = [result["explanations"][0] + "\n" + note] if result.get("explanations") else [note]
+    result["status"] = list(result.get("status", [])) + [note]
+    return result
+
+
+def _passages(state: State) -> Dict[str, str]:
+    return {str(getattr(d, "id", "") or (d.get("id") if isinstance(d, dict) else "")):
+            getattr(d, "content", None) or (d.get("content", "") if isinstance(d, dict) else "")
+            for d in state.documents or []}
+
+
+async def _recode_values(state: State, configuration: Configuration, clusters: List[Dict]):
+    """Run value recoding; return ``(clusters, note, log)``."""
+    recoded, log = await recode_values(
+        clusters, load_chat_model(configuration.generation_llm), configuration.use_case, _passages(state),
+        min_exclusivity=float(configuration.recoding_min_exclusivity),
+        min_sources=int(configuration.recoding_min_sources),
+        min_recurring=float(configuration.recoding_min_recurring),
+        min_sources_per_value=int(configuration.recoding_min_sources_per_value),
+        min_fit=float(configuration.recoding_min_fit))
+    fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+    lines = [f"Value recoding: {len(log['selected'])} dimension(s) selected, {len(log['recoded'])} recoded, "
+             f"{len(log['kept'])} kept, {len(log['likely_cause_ii'])} likely grouping several concerns; exclusivity "
+             f"{fmt(log['before'])} -> {fmt(log['after'])}, generality {fmt(log['generality_before'])} -> "
+             f"{fmt(log['generality_after'])}, values {log['values_before']} -> {log['values_after']}, fit {fmt(log.get('fit'))}."]
+    lines += [f"  - {r['name']}: {'; '.join(r['from'])} -> {'; '.join(r['to'])}" for r in log["recoded"]]
+    return recoded, "\n".join(lines), log
+
+
+async def _repair_exclusivity(state: State, configuration: Configuration, clusters: List[Dict]):
+    """Run the exclusivity repair; return ``(clusters, note, log)`` (note empty when nothing was sent)."""
+    repaired, log = await repair_exclusivity(
+        clusters, load_chat_model(configuration.generation_llm), configuration.use_case, _passages(state),
+        min_score=float(configuration.exclusivity_min), min_units=int(configuration.exclusivity_min_units),
+        relation_types=configuration.relation_types or (), max_relations=configuration.max_relations_per_dimension)
+    if not log["dimensions"]:
+        return clusters, "", log
+    fmt = lambda x: f"{x:.2f}" if isinstance(x, (int, float)) else "n/a"  # noqa: E731
+    lines = [f"Exclusivity repair: {len(log['dimensions'])} dimension(s) whose sources adopt several values "
+             f"(exclusivity {fmt(log['before'])} -> {fmt(log['after'])}); {len(log['operations'])} repair(s) applied, "
+             f"{len(log['rejected'])} rejected, {len(log['failed_calls'])} failed call(s)."]
+    lines += [f"  - {o['message']} ({o['reason']})" for o in log["operations"]]
+    return repaired, "\n".join(lines), log
+
+
+async def _consolidate_values(state: State, configuration: Configuration, reviewed: List[Dict]) -> dict:
+    """Consolidate draft values within each dimension of the reviewed taxonomy."""
+
+    # Optional disable: pass the reviewed taxonomy through untouched (no
+    # embeddings, no LLM adjudication). Visualization then places every value
+    # at a unitary distance on its dimension axis.
+    if not configuration.consolidate_values:
+        logger.info("Value consolidation disabled — passing taxonomy through unchanged")
+        if should_render(configuration, "consolidate"):
+            await render_taxonomy_biplot(
+                configuration, reviewed, stage="consolidate",
+                iteration_index=len(state.clusters) + 1,
+            )
+        return {
+            "clusters": [reviewed],
+            "explanations": [
+                "Value consolidation disabled (taxonomy.consolidate_values=false); "
+                "values kept exactly as generated."
+            ],
+            "status": ["Value consolidation skipped (disabled)."],
+        }
+
+    all_values = _flatten_values(reviewed)
+
+    if not all_values:
+        logger.info("No draft values to consolidate — passing taxonomy through")
+        return {
+            "clusters": [reviewed],
+            "explanations": ["No values to consolidate; taxonomy passed through unchanged."],
+            "status": ["Value consolidation skipped (no draft values)."],
+        }
+
+    logger.info(
+        "Consolidating %d draft values across %d dimensions (embedding: %s, epsilon: %.3f, band: %.3f)",
+        len(all_values), len(reviewed), configuration.embedding,
+        configuration.value_merge_distance_threshold,
+        configuration.value_merge_borderline_band,
+    )
+
+    embeddings = load_embeddings_model(configuration.embedding)
+    texts = [f"{v.get('label', '')}. {v.get('description', '')}".strip() for v in all_values]
+    raw_vectors = np.asarray(await embeddings.aembed_documents(texts), dtype=float)
+    vectors = l2_normalize(raw_vectors)
+
+    epsilon = float(configuration.value_merge_distance_threshold)
+    band = float(configuration.value_merge_borderline_band)
+    borderline_upper = epsilon + band
+
+    merge_chain = _setup_merge_chain(configuration)
+    merge_descriptions: List[str] = []
+    kept_as_is_count = 0
+    # Global row of each draft value in the embedding matrix.
+    global_ids = {v["id"]: i for i, v in enumerate(all_values)}
+
+    # Process each dimension independently — values never compete across axes.
+    consolidated_clusters: List[Dict] = []
+    for cluster in reviewed:
+        if not isinstance(cluster, dict):
+            consolidated_clusters.append(cluster)
+            continue
+
+        dim_id = str(cluster.get("id", "?"))
+        dim_values = [v for v in cluster.get("values") or [] if isinstance(v, dict) and v.get("id")]
+        new_cluster = dict(cluster)
+
+        if len(dim_values) <= 1:
+            # Nothing to merge — keep values but renumber consistently.
+            renumbered = [
+                {**v, "id": f"{dim_id}.{i + 1}"} for i, v in enumerate(dim_values)
+            ]
+            new_cluster["values"] = renumbered
+            consolidated_clusters.append(new_cluster)
+            kept_as_is_count += len(dim_values)
+            continue
+
+        dim_name = cluster.get("name") or dim_id
+
+        # Step 3: partition. With merge_value_stances (default), candidate
+        # decisions (accepted/rejected/mixed) compete with each other — one
+        # source may adopt what another rejected, and that is still one
+        # candidate decision — while outcomes only compete with outcomes.
+        # Without it, values only compete within their exact status. Dict
+        # insertion order gives a deterministic partition order.
+        status_groups: Dict[str, List[Dict]] = {}
+        for v in dim_values:
+            status = v.get("status", "accepted")
+            key = status_group(status) if configuration.merge_value_stances else status
+            status_groups.setdefault(key, []).append(v)
+
+        # Run the existing pairwise-distance / threshold-merge / borderline
+        # LLM-adjudication / canonical-selection sequence independently per
+        # status partition, then concatenate before renumbering ids once
+        # across the whole dimension (below) — not restarted per partition.
+        raw_new_values: List[Dict] = []
+        for status_values in status_groups.values():
+            group_vector_rows = [global_ids[v["id"]] for v in status_values]
+            group_vectors_all = vectors[group_vector_rows]
+
+            # Step 4: pairwise distances within this status partition only.
+            dist_matrix = pairwise_euclidean(group_vectors_all)
+
+            # Step 5: threshold merge edges (deterministic union-find).
+            merge_edges: List[Tuple[int, int]] = []
+            # Step 6: collect borderline pairs for LLM adjudication.
+            borderline_pairs: List[Tuple[int, int]] = []
+            for i in range(len(status_values)):
+                for j in range(i + 1, len(status_values)):
+                    d = float(dist_matrix[i, j])
+                    same_label = _norm_label(status_values[i].get("label")) == _norm_label(status_values[j].get("label"))
+                    if d <= epsilon or same_label:
+                        merge_edges.append((i, j))
+                    elif d <= borderline_upper:
+                        borderline_pairs.append((i, j))
+
+            # LLM adjudication for borderline pairs (bounded, sequential for
+            # clarity). Only same-status pairs ever reach this point.
+            for i, j in borderline_pairs:
+                try:
+                    verdict: ValueMergeOutput = await merge_chain.ainvoke(
+                        {
+                            "dimension_json": json.dumps({
+                                "id": dim_id,
+                                "name": cluster.get("name", ""),
+                                "description": cluster.get("description", ""),
+                            }, indent=2),
+                            "value_a_json": json.dumps({
+                                "id": status_values[i]["id"],
+                                "label": status_values[i].get("label", ""),
+                                "description": status_values[i].get("description", ""),
+                                "supporting_doc_ids": status_values[i].get("supporting_doc_ids", []),
+                                "status": status_values[i].get("status", "accepted"),
+                            }, indent=2),
+                            "value_b_json": json.dumps({
+                                "id": status_values[j]["id"],
+                                "label": status_values[j].get("label", ""),
+                                "description": status_values[j].get("description", ""),
+                                "supporting_doc_ids": status_values[j].get("supporting_doc_ids", []),
+                                "status": status_values[j].get("status", "accepted"),
+                            }, indent=2),
+                        }
+                    )
+                    if verdict.same_decision:
+                        merge_edges.append((i, j))
+                        logger.info(
+                            "Borderline merge approved by LLM within %s: %s + %s (d=%.3f) — %s",
+                            dim_id, status_values[i]["id"], status_values[j]["id"],
+                            float(dist_matrix[i, j]), verdict.rationale,
+                        )
+                    else:
+                        logger.debug(
+                            "Borderline merge rejected by LLM within %s: %s vs %s (d=%.3f)",
+                            dim_id, status_values[i]["id"], status_values[j]["id"],
+                            float(dist_matrix[i, j]),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "Borderline adjudication failed for %s/%s — keeping values separate: %s",
+                        status_values[i]["id"], status_values[j]["id"], e,
+                    )
+
+            components = connected_components(len(status_values), merge_edges)
+
+            # Step 7: canonical label per group (nearest-to-centroid).
+            # ``len(raw_new_values) + 1`` is a running counter across every
+            # status partition of this dimension (it only ever grows, via
+            # the append below), so the id assigned here is already the
+            # final, dimension-wide sequential id — numbering does not
+            # restart per partition, with no separate renumbering pass
+            # needed afterward.
+            for members in components:
+                group_values = [status_values[m] for m in members]
+                group_vectors = group_vectors_all[members]
+                consolidated, merged_labels = _merge_group(
+                    group_values, group_vectors, dim_id, len(raw_new_values) + 1
+                )
+                raw_new_values.append(consolidated)
+                if merged_labels:
+                    canonical_label = consolidated["label"] or consolidated["id"]
+                    sources = ", ".join(f'"{label}"' for label in merged_labels)
+                    merge_descriptions.append(
+                        f'[{dim_name}] {sources} → "{canonical_label}"'
+                    )
+                else:
+                    kept_as_is_count += 1
+
+        new_values: List[Dict] = raw_new_values
+
+        new_cluster["values"] = new_values
+        consolidated_clusters.append(new_cluster)
+
+        if len(new_values) < len(dim_values):
+            logger.info(
+                "Dimension %s: %d draft values consolidated into %d",
+                dim_id, len(dim_values), len(new_values),
+            )
+
+    # Final biplot of the consolidated values (the "after" picture).
+    # The projection is only a view; merge decisions used full distances.
+    if should_render(configuration, "consolidate"):
+        await render_taxonomy_biplot(
+            configuration, consolidated_clusters,
+            stage="consolidate", iteration_index=len(state.clusters) + 1,
+        )
+
+    summary = (
+        f"Consolidated {len(all_values)} draft values across {len(reviewed)} dimensions "
+        f"(merge threshold {epsilon:.3f}, borderline band {band:.3f})."
+    )
+    if merge_descriptions:
+        merges_text = "\n".join(f"  - {d}" for d in merge_descriptions)
+        explanation = (
+            f"{summary} Merged {len(merge_descriptions)} near-duplicate value"
+            f"{'s' if len(merge_descriptions) != 1 else ''}:\n{merges_text}"
+        )
+        if kept_as_is_count:
+            explanation += (
+                f"\nThe remaining {kept_as_is_count} value"
+                f"{'s were' if kept_as_is_count != 1 else ' was'} distinct enough to keep as generated."
+            )
+    else:
+        explanation = f"{summary} No values were merged — all {kept_as_is_count} remained distinct."
+
+    return {
+        "clusters": [consolidated_clusters],
+        "explanations": [explanation],
+        "status": [f"Value consolidation complete: {len(all_values)} draft values processed."],
+    }

@@ -1,0 +1,2102 @@
+{
+  "taxonomy_name": "c2-rl-monitoring-baseline-l5",
+  "mode": "baseline-l5",
+  "baseline": {
+    "kind": "prior_knowledge",
+    "seed": 43,
+    "model": "openai/gpt-5.6-luna",
+    "prompt_version": "1",
+    "prompt_sha256": "763c8da0bb896706008165aba5fb00364f4020072dd80454ceec9a5645e2e677",
+    "prompt_tokens_counted": 362,
+    "unknown_passage_ids_dropped": 0
+  },
+  "run_metrics": {
+    "elapsed_seconds": 44.9,
+    "total_tokens": 8645,
+    "prompt_tokens": 1358,
+    "completion_tokens": 7287
+  },
+  "iterations": [
+    {
+      "explanation": "The design space is organized from purpose to mechanism to operational control. Monitoring Objective Scope defines what production properties matter; Telemetry Signal Selection, Telemetry Granularity, and Telemetry Collection Placement define what evidence is captured, at what resolution, and where. Evaluation Strategy and Reference and Baseline Management define how current behavior is judged, while Drift and Anomaly Detection turns that evidence into findings. Alert and Response Automation and Deployment and Rollback Control connect findings to human or automatic intervention. Monitoring Overhead Budget captures the central production constraint that observability must not destabilize the agent. Telemetry Storage and Retention, Human Oversight and Auditability, and Privacy and Access Control cover the supporting platform, governance, investigation, and data-protection concerns. The values include commonly adopted architectural options, rejected anti-patterns such as reward-only monitoring, synchronous blocking export, uncontrolled rollout, and unrestricted raw-data retention, and outcome values that express recurring forces and risks rather than choices. Relations emphasize that telemetry and baselines are prerequisites for detection, detection quality shapes response automation, and response capabilities depend on deployment controls and retained evidence.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Monitoring Objective Scope",
+          "description": "The primary question is which production properties of the deployed RL agent the monitoring system is intended to assess: task performance, safety, data quality, or service operation.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Monitoring Objective Scope affects Telemetry Signal Selection",
+              "type": "affects",
+              "rationale": "The objectives determine whether the system must collect rewards, actions, observations, safety events, latency, or infrastructure signals."
+            },
+            {
+              "target_id": "5",
+              "reading": "Monitoring Objective Scope affects Evaluation Strategy",
+              "type": "affects",
+              "rationale": "Performance monitoring, safety monitoring, and operational monitoring require different evaluation methods and reference data."
+            },
+            {
+              "target_id": "8",
+              "reading": "Monitoring Objective Scope affects Alert and Response Automation",
+              "type": "affects",
+              "rationale": "Safety violations may require immediate intervention, whereas gradual reward degradation may only require investigation."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Task-performance monitoring",
+              "description": "Monitor reward, return, success rate, completion quality, and other measures of whether the agent achieves its intended task.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "Safety and constraint monitoring",
+              "description": "Monitor policy violations, unsafe actions, constraint breaches, anomalous behavior, and near misses.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Data and environment monitoring",
+              "description": "Monitor observation validity, input drift, missing or stale signals, environment changes, and reward-pipeline integrity.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Service and infrastructure monitoring",
+              "description": "Monitor latency, throughput, availability, resource utilization, version health, and failures in the serving and telemetry infrastructure.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Reward-only monitoring",
+              "description": "Use reward as the principal production indicator without separately monitoring safety, observations, actions, or service health.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "1.6",
+              "dimension_id": "1",
+              "label": "Observable proxy performance",
+              "description": "An outcome in which production metrics measure proxy objectives imperfectly, creating the risk that the agent appears successful while violating business or safety intent.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Telemetry Signal Selection",
+          "description": "The question is which runtime signals the monitoring architecture captures from the agent, environment, serving path, and surrounding system.",
+          "relations": [
+            {
+              "target_id": "3",
+              "reading": "Telemetry Signal Selection constrains Telemetry Granularity",
+              "type": "constrains",
+              "rationale": "Signals such as full trajectories and raw observations require substantially more detailed collection than aggregate counters."
+            },
+            {
+              "target_id": "4",
+              "reading": "Telemetry Signal Selection affects Telemetry Collection Placement",
+              "type": "affects",
+              "rationale": "Signals available only inside the environment or policy process determine where instrumentation must be installed."
+            },
+            {
+              "target_id": "6",
+              "reading": "Telemetry Signal Selection affects Reference and Baseline Management",
+              "type": "affects",
+              "rationale": "The baseline must contain comparable signals if it is to support drift, regression, or anomaly comparisons."
+            },
+            {
+              "target_id": "10",
+              "reading": "Telemetry Signal Selection affects Telemetry Storage and Retention",
+              "type": "affects",
+              "rationale": "High-dimensional observations and trajectories create different storage and retention requirements from scalar operational metrics."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Reward and outcome signals",
+              "description": "Capture rewards, returns, task outcomes, success indicators, and business-level results.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Observation and feature signals",
+              "description": "Capture selected observations, feature distributions, missingness, validity, and input-quality indicators.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Action and policy signals",
+              "description": "Capture chosen actions, action probabilities or logits where available, policy version, confidence indicators, and action constraints.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Trajectory and episode signals",
+              "description": "Capture ordered state-action-reward-next-state sequences, episode boundaries, termination causes, and temporal context.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.5",
+              "dimension_id": "2",
+              "label": "Safety and intervention signals",
+              "description": "Capture constraint violations, safety classifier outputs, overrides, fallbacks, human interventions, and emergency stops.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.6",
+              "dimension_id": "2",
+              "label": "Serving and infrastructure signals",
+              "description": "Capture request latency, errors, throughput, resource usage, model-load status, and dependencies along the serving path.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "2.7",
+              "dimension_id": "2",
+              "label": "Raw unrestricted trajectory capture",
+              "description": "Capture every raw observation, action, and internal policy detail without selecting or filtering signals.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "2.8",
+              "dimension_id": "2",
+              "label": "Incomplete causal context",
+              "description": "An outcome in which telemetry lacks the context needed to explain why an action or outcome occurred, limiting diagnosis and offline evaluation.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Telemetry Granularity",
+          "description": "The question is how much temporal and event-level detail to retain for each monitored interaction.",
+          "relations": [
+            {
+              "target_id": "10",
+              "reading": "Telemetry Granularity constrains Telemetry Storage and Retention",
+              "type": "constrains",
+              "rationale": "Per-action and full-trajectory telemetry consumes more storage and increases retention, query, and privacy costs."
+            },
+            {
+              "target_id": "7",
+              "reading": "Telemetry Granularity affects Drift and Anomaly Detection",
+              "type": "affects",
+              "rationale": "Fine-grained data enables temporal, cohort, and episode-level detection, while coarse aggregation can hide localized failures."
+            },
+            {
+              "target_id": "9",
+              "reading": "Telemetry Granularity affects Monitoring Overhead Budget",
+              "type": "affects",
+              "rationale": "Detailed event capture increases CPU, network, serialization, and latency overhead."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Aggregate metric granularity",
+              "description": "Retain windowed summaries such as averages, quantiles, rates, histograms, and counts.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Episode-level granularity",
+              "description": "Retain metrics and metadata for each completed or partially completed episode or task instance.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Per-transition granularity",
+              "description": "Retain selected state, action, reward, and next-state events for individual environment transitions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Full-trajectory granularity",
+              "description": "Retain complete ordered trajectories, including temporal context and episode metadata, for selected or sampled executions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Always-on full-fidelity capture",
+              "description": "Capture every production transition and trajectory at maximum detail regardless of diagnostic need or sampling policy.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Diagnostic resolution trade-off",
+              "description": "An outcome in which aggregation reduces cost and privacy exposure but makes rare, temporal, and individual-episode failures harder to diagnose.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Telemetry Collection Placement",
+          "description": "The question is where instrumentation and collection components execute relative to the policy, environment, serving gateway, and downstream data platform.",
+          "relations": [
+            {
+              "target_id": "9",
+              "reading": "Telemetry Collection Placement affects Monitoring Overhead Budget",
+              "type": "affects",
+              "rationale": "In-process instrumentation can add policy latency, while asynchronous sidecars or gateways shift cost away from the decision path."
+            },
+            {
+              "target_id": "10",
+              "reading": "Telemetry Collection Placement constrains Telemetry Storage and Retention",
+              "type": "constrains",
+              "rationale": "Placement determines available buffering, connectivity, local persistence, and the trust boundary through which data must flow."
+            },
+            {
+              "target_id": "2",
+              "reading": "Telemetry Collection Placement affects Telemetry Signal Selection",
+              "type": "affects",
+              "rationale": "Some signals are visible only in the policy process, environment, gateway, or infrastructure layer."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "In-process agent instrumentation",
+              "description": "Collect policy inputs, outputs, and internal metadata directly within the agent or inference process.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Environment-side instrumentation",
+              "description": "Collect transitions, rewards, termination conditions, and environment events at the environment or simulator boundary.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "Serving-gateway instrumentation",
+              "description": "Collect requests, responses, versions, latency, errors, and routing information at the inference gateway or control plane.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Asynchronous sidecar collection",
+              "description": "Export telemetry through a separate process, agent, or sidecar so collection is decoupled from the decision loop.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Synchronous blocking export",
+              "description": "Send telemetry to a remote monitoring service synchronously before completing the agent decision or request.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Decision-path latency and availability risk",
+              "description": "An outcome in which monitoring becomes coupled to action latency or service availability and can interfere with the agent’s production behavior.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Evaluation Strategy",
+          "description": "The question is how production behavior is evaluated when rewards may be delayed, noisy, sparse, unsafe to test, or unavailable immediately.",
+          "relations": [
+            {
+              "target_id": "6",
+              "reading": "Evaluation Strategy requires Reference and Baseline Management to be decided first",
+              "type": "requires",
+              "rationale": "Online comparison, regression analysis, and off-policy estimates need a defined reference policy, historical cohort, or expected behavior."
+            },
+            {
+              "target_id": "8",
+              "reading": "Evaluation Strategy affects Alert and Response Automation",
+              "type": "affects",
+              "rationale": "Evaluation confidence and latency determine whether an alert can trigger automatic rollback, traffic reduction, or only human review."
+            },
+            {
+              "target_id": "11",
+              "reading": "Evaluation Strategy constrains Deployment and Rollback Control",
+              "type": "constrains",
+              "rationale": "Shadowing, canaries, and online experiments require corresponding traffic-routing and rollback mechanisms."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Direct online outcome evaluation",
+              "description": "Evaluate the deployed policy using observed rewards, task outcomes, and safety results from live interactions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Shadow-policy evaluation",
+              "description": "Run a candidate or reference policy against production observations without allowing it to control the live action, then compare decisions or estimated outcomes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Canary and limited-traffic evaluation",
+              "description": "Expose a policy to a controlled subset of traffic or environments and compare it with the incumbent before wider rollout.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Offline replay evaluation",
+              "description": "Replay logged trajectories or observations in a simulator, model, or offline evaluation pipeline before or alongside production monitoring.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Off-policy counterfactual evaluation",
+              "description": "Estimate how an alternative policy would perform using logged behavior-policy data, importance weighting, model-based estimates, or related methods.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "5.6",
+              "dimension_id": "5",
+              "label": "Uncontrolled live experimentation",
+              "description": "Evaluate policy changes by exposing all production traffic to the new policy without shadowing, canarying, or a controlled comparison.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "5.7",
+              "dimension_id": "5",
+              "label": "Evaluation bias and uncertainty",
+              "description": "An outcome in which delayed rewards, confounding, policy mismatch, partial observability, or weak off-policy estimates make apparent performance changes difficult to interpret.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Reference and Baseline Management",
+          "description": "The question is what expected behavior, comparison population, or policy version the monitoring system uses to determine whether current behavior has regressed or drifted.",
+          "relations": [
+            {
+              "target_id": "7",
+              "reading": "Reference and Baseline Management affects Drift and Anomaly Detection",
+              "type": "affects",
+              "rationale": "Detection thresholds and statistical tests are meaningful only relative to a suitable historical, policy, cohort, or specification baseline."
+            },
+            {
+              "target_id": "11",
+              "reading": "Reference and Baseline Management affects Deployment and Rollback Control",
+              "type": "affects",
+              "rationale": "Rollback and promotion decisions commonly compare a candidate with an incumbent or approved reference version."
+            },
+            {
+              "target_id": "10",
+              "reading": "Reference and Baseline Management constrains Telemetry Storage and Retention",
+              "type": "constrains",
+              "rationale": "Maintaining historical baselines and comparable cohorts requires retaining appropriate telemetry and metadata."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Historical rolling baseline",
+              "description": "Compare current behavior with recent production windows while allowing expected operating conditions to evolve.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "固定 approved-policy baseline",
+              "description": "Compare behavior with a designated incumbent or approved policy version whose behavior and safety properties are treated as the reference.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Cohort and segment baseline",
+              "description": "Compare behavior separately across users, environments, regions, scenarios, or other operational cohorts.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Specification and threshold baseline",
+              "description": "Compare signals with explicit safety limits, service-level objectives, business rules, or expected ranges rather than only with historical behavior.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "6.5",
+              "dimension_id": "6",
+              "label": "Single global baseline",
+              "description": "Use one aggregate reference for all users, environments, and operating regimes.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "6.6",
+              "dimension_id": "6",
+              "label": "Baseline contamination",
+              "description": "An outcome in which degraded, unsafe, or already-drifted behavior enters the reference population and normalizes the problem.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Drift and Anomaly Detection",
+          "description": "The question is which analytical mechanisms identify changes in inputs, policy behavior, outcomes, safety, or system operation that warrant investigation.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Drift and Anomaly Detection affects Alert and Response Automation",
+              "type": "affects",
+              "rationale": "Detection sensitivity, confidence, and anomaly type determine alert severity and whether automated action is safe."
+            },
+            {
+              "target_id": "6",
+              "reading": "Drift and Anomaly Detection requires Reference and Baseline Management to be decided first",
+              "type": "requires",
+              "rationale": "Most drift and regression tests compare current data or outcomes with a reference distribution, version, threshold, or cohort."
+            },
+            {
+              "target_id": "2",
+              "reading": "Drift and Anomaly Detection requires Telemetry Signal Selection to be decided first",
+              "type": "requires",
+              "rationale": "The detector’s scope is limited to signals that the system collects."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Rule and threshold detection",
+              "description": "Detect violations using fixed limits, service-level objectives, safety rules, or domain-specific conditions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Statistical distribution monitoring",
+              "description": "Detect changes in feature, observation, action, reward, or outcome distributions using statistical tests, control charts, or divergence measures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Temporal and sequential anomaly detection",
+              "description": "Detect unusual trajectories, transitions, episode patterns, temporal correlations, or changes in event sequences.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Performance regression detection",
+              "description": "Detect statistically or operationally significant degradation in reward, success, cost, constraint satisfaction, or other outcome measures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Unsupervised anomaly scoring",
+              "description": "Use learned or statistical representations to rank unusual observations, actions, episodes, or trajectories for investigation.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "7.6",
+              "dimension_id": "7",
+              "label": "Alerting on raw metric movement",
+              "description": "Treat any movement in a monitored metric as an incident without thresholds, uncertainty handling, segmentation, or contextual analysis.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "7.7",
+              "dimension_id": "7",
+              "label": "False-positive and false-negative trade-off",
+              "description": "An outcome in which sensitive detectors create alert fatigue while insensitive detectors miss rare safety failures or gradual policy degradation.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Alert and Response Automation",
+          "description": "The question is how detected problems are communicated and what actions the monitoring system takes automatically or delegates to operators.",
+          "relations": [
+            {
+              "target_id": "11",
+              "reading": "Alert and Response Automation affects Deployment and Rollback Control",
+              "type": "affects",
+              "rationale": "Automated responses may pause traffic, switch policies, roll back versions, or enable a fallback controller."
+            },
+            {
+              "target_id": "7",
+              "reading": "Alert and Response Automation depends on Drift and Anomaly Detection",
+              "type": "requires",
+              "rationale": "Alerts and automated responses need detection conditions, severity, confidence, and deduplication rules."
+            },
+            {
+              "target_id": "12",
+              "reading": "Alert and Response Automation affects Human Oversight and Auditability",
+              "type": "affects",
+              "rationale": "Operators need actionable context, escalation paths, and records of alerts and automated interventions."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Dashboard and exploratory monitoring",
+              "description": "Present metrics, distributions, traces, and trajectories for operators to inspect without automatically opening incidents.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Threshold-based alerting",
+              "description": "Generate alerts when safety, performance, drift, or service signals cross configured thresholds or persist for a defined duration.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.3",
+              "dimension_id": "8",
+              "label": "Incident escalation workflow",
+              "description": "Route alerts through ownership, severity, notification, acknowledgement, and incident-management procedures.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.4",
+              "dimension_id": "8",
+              "label": "Human-approved intervention",
+              "description": "Require an operator to review evidence before rollback, traffic changes, policy disablement, or other consequential intervention.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.5",
+              "dimension_id": "8",
+              "label": "Automatic safety fallback",
+              "description": "Switch to a constrained policy, rules-based controller, safe action, or degraded operating mode when safety or confidence conditions fail.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.6",
+              "dimension_id": "8",
+              "label": "Automatic rollback and traffic reduction",
+              "description": "Reduce exposure or restore a previously approved policy when monitored conditions indicate a deployment regression.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "8.7",
+              "dimension_id": "8",
+              "label": "Unreviewed automatic remediation",
+              "description": "Allow noisy or weakly validated detectors to change or disable the live policy without safeguards, approval boundaries, or rollback protection.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "8.8",
+              "dimension_id": "8",
+              "label": "Alert fatigue and intervention risk",
+              "description": "An outcome in which excessive alerts desensitize operators or automated actions cause unnecessary service degradation and policy instability.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Monitoring Overhead Budget",
+          "description": "The question is how the monitoring architecture trades observability depth against decision latency, throughput, availability, compute, network, and operating cost.",
+          "relations": [
+            {
+              "target_id": "3",
+              "reading": "Monitoring Overhead Budget constrains Telemetry Granularity",
+              "type": "constrains",
+              "rationale": "Latency and cost budgets limit whether monitoring can retain per-transition or full-trajectory data."
+            },
+            {
+              "target_id": "4",
+              "reading": "Monitoring Overhead Budget affects Telemetry Collection Placement",
+              "type": "affects",
+              "rationale": "Tighter decision-path budgets favor asynchronous, sampled, batched, or out-of-process collection."
+            },
+            {
+              "target_id": "10",
+              "reading": "Monitoring Overhead Budget affects Telemetry Storage and Retention",
+              "type": "affects",
+              "rationale": "Higher-volume telemetry increases storage, indexing, transfer, and query costs."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Synchronous minimal instrumentation",
+              "description": "Collect a small set of low-cost signals synchronously when they are required for immediate safety or service decisions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.2",
+              "dimension_id": "9",
+              "label": "Asynchronous buffered instrumentation",
+              "description": "Buffer, batch, sample, or queue telemetry so monitoring work is decoupled from the action-decision path.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.3",
+              "dimension_id": "9",
+              "label": "Adaptive instrumentation",
+              "description": "Increase collection detail during anomalies, canaries, investigations, or selected cohorts and reduce it during normal operation.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.4",
+              "dimension_id": "9",
+              "label": "Dedicated monitoring compute",
+              "description": "Run feature computation, trajectory analysis, and detection workloads on separate infrastructure rather than competing with policy serving.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "9.5",
+              "dimension_id": "9",
+              "label": "Unbounded observability overhead",
+              "description": "Allow telemetry generation and analysis to consume production resources without explicit latency, availability, or cost limits.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "9.6",
+              "dimension_id": "9",
+              "label": "Monitoring-induced performance degradation",
+              "description": "An outcome in which instrumentation increases action latency, reduces throughput, exhausts resources, or destabilizes the deployed agent.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "name": "Telemetry Storage and Retention",
+          "description": "The question is how collected monitoring data is transported, stored, queried, protected, and retained for real-time detection, diagnosis, replay, and audit.",
+          "relations": [
+            {
+              "target_id": "12",
+              "reading": "Telemetry Storage and Retention affects Human Oversight and Auditability",
+              "type": "affects",
+              "rationale": "Incident reconstruction and accountability depend on retaining sufficient immutable context and model-version metadata."
+            },
+            {
+              "target_id": "5",
+              "reading": "Telemetry Storage and Retention affects Evaluation Strategy",
+              "type": "affects",
+              "rationale": "Replay, off-policy evaluation, and cohort comparison require accessible historical trajectories and associated policy information."
+            },
+            {
+              "target_id": "13",
+              "reading": "Telemetry Storage and Retention constrains Privacy and Access Control",
+              "type": "constrains",
+              "rationale": "Retention duration, raw-data content, and storage location determine privacy exposure and access-control requirements."
+            }
+          ],
+          "values": [
+            {
+              "id": "10.1",
+              "dimension_id": "10",
+              "label": "Real-time metrics store",
+              "description": "Store aggregated time-series metrics for low-latency dashboards, thresholds, and operational queries.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.2",
+              "dimension_id": "10",
+              "label": "Centralized event and log store",
+              "description": "Store structured events, alerts, metadata, and selected logs in a searchable centralized platform.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.3",
+              "dimension_id": "10",
+              "label": "Durable trajectory data lake",
+              "description": "Store sampled or selected trajectories and episode records for replay, offline evaluation, forensic analysis, and model improvement.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.4",
+              "dimension_id": "10",
+              "label": "Tiered retention",
+              "description": "Keep recent high-resolution data in fast storage and move older, less frequently accessed summaries or trajectories to cheaper durable storage.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "10.5",
+              "dimension_id": "10",
+              "label": "Indefinite raw-data retention",
+              "description": "Retain all raw observations, actions, and trajectories without lifecycle limits, minimization, or purpose-based selection.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "10.6",
+              "dimension_id": "10",
+              "label": "Storage, query, and retention cost",
+              "description": "An outcome in which high-dimensional telemetry creates substantial infrastructure cost and can make historical analysis slow or operationally difficult.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "11",
+          "name": "Deployment and Rollback Control",
+          "description": "The question is which production-control mechanisms connect monitoring evidence to policy release, exposure, rollback, fallback, and version changes.",
+          "relations": [
+            {
+              "target_id": "5",
+              "reading": "Deployment and Rollback Control constrains Evaluation Strategy",
+              "type": "constrains",
+              "rationale": "Canary, shadow, and controlled comparison strategies require traffic routing, version isolation, and reversible deployment controls."
+            },
+            {
+              "target_id": "8",
+              "reading": "Deployment and Rollback Control affects Alert and Response Automation",
+              "type": "affects",
+              "rationale": "The available rollback and fallback mechanisms determine which automated responses are feasible."
+            },
+            {
+              "target_id": "12",
+              "reading": "Deployment and Rollback Control affects Human Oversight and Auditability",
+              "type": "affects",
+              "rationale": "Policy promotion and rollback need recorded versions, approvals, reasons, and links to observed evidence."
+            }
+          ],
+          "values": [
+            {
+              "id": "11.1",
+              "dimension_id": "11",
+              "label": "Versioned policy release",
+              "description": "Record immutable policy versions, configuration, environment compatibility, and deployment metadata for each production release.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.2",
+              "dimension_id": "11",
+              "label": "Shadow deployment",
+              "description": "Deploy a policy for observation and comparison without granting it control over live actions.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.3",
+              "dimension_id": "11",
+              "label": "Canary traffic routing",
+              "description": "Expose a new policy to a bounded traffic segment or operating regime before broader release.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.4",
+              "dimension_id": "11",
+              "label": "Automatic rollback",
+              "description": "Restore a prior approved policy when predefined safety, performance, or service conditions are breached.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.5",
+              "dimension_id": "11",
+              "label": "Safe fallback controller",
+              "description": "Use a constrained, deterministic, or previously validated controller when the learned policy is unavailable or unsafe.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "11.6",
+              "dimension_id": "11",
+              "label": "Irreversible full rollout",
+              "description": "Release a new policy to all production traffic without staged exposure, a fallback, or a tested rollback path.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "11.7",
+              "dimension_id": "11",
+              "label": "Rollback and recovery latency",
+              "description": "An outcome in which detection, approval, routing, and state recovery delays determine how much harm or degraded service occurs before intervention.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "12",
+          "name": "Human Oversight and Auditability",
+          "description": "The question is how the monitoring system supports operator interpretation, accountability, incident investigation, and traceability of policy behavior and interventions.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Human Oversight and Auditability constrains Alert and Response Automation",
+              "type": "constrains",
+              "rationale": "High-impact automated interventions need explainable evidence, ownership, approval boundaries, and an audit trail."
+            },
+            {
+              "target_id": "10",
+              "reading": "Human Oversight and Auditability requires Telemetry Storage and Retention to be decided first",
+              "type": "requires",
+              "rationale": "Operators cannot reconstruct incidents or verify decisions without retained telemetry, versions, timestamps, and intervention records."
+            },
+            {
+              "target_id": "13",
+              "reading": "Human Oversight and Auditability affects Privacy and Access Control",
+              "type": "affects",
+              "rationale": "Investigation access must balance the need for detailed evidence with restrictions on sensitive observations and user data."
+            }
+          ],
+          "values": [
+            {
+              "id": "12.1",
+              "dimension_id": "12",
+              "label": "Operator dashboards and drill-down",
+              "description": "Provide views from aggregate health to cohorts, episodes, trajectories, actions, and correlated service events.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.2",
+              "dimension_id": "12",
+              "label": "Incident evidence bundles",
+              "description": "Link alerts to relevant telemetry, policy versions, baselines, detector results, actions taken, and surrounding context.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.3",
+              "dimension_id": "12",
+              "label": "Immutable audit trail",
+              "description": "Record policy releases, configuration changes, approvals, alerts, overrides, rollbacks, and operator actions in tamper-resistant form.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.4",
+              "dimension_id": "12",
+              "label": "Explainable policy diagnostics",
+              "description": "Expose action rationales, salient inputs, constraints, confidence indicators, or comparable diagnostic information for investigation.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "12.5",
+              "dimension_id": "12",
+              "label": "Metrics-only observability",
+              "description": "Expose aggregate metrics without retaining enough context to inspect episodes, actions, versions, or causal incident evidence.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "12.6",
+              "dimension_id": "12",
+              "label": "Investigation and accountability burden",
+              "description": "An outcome in which limited context, opaque decisions, or missing change history increases mean time to diagnose and makes responsibility difficult to establish.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "13",
+          "name": "Privacy and Access Control",
+          "description": "The question is how the monitoring architecture protects sensitive observations, actions, user data, and operational controls while preserving useful monitoring access.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Privacy and Access Control constrains Telemetry Signal Selection",
+              "type": "constrains",
+              "rationale": "Sensitive or identifying signals may need minimization, masking, aggregation, or exclusion from telemetry."
+            },
+            {
+              "target_id": "3",
+              "reading": "Privacy and Access Control constrains Telemetry Granularity",
+              "type": "constrains",
+              "rationale": "Fine-grained trajectories can expose more personal, confidential, or operationally sensitive information than aggregates."
+            },
+            {
+              "target_id": "10",
+              "reading": "Privacy and Access Control affects Telemetry Storage and Retention",
+              "type": "affects",
+              "rationale": "Access policies, encryption, residency, deletion, and retention controls determine how telemetry can be stored and queried."
+            }
+          ],
+          "values": [
+            {
+              "id": "13.1",
+              "dimension_id": "13",
+              "label": "Role-based monitoring access",
+              "description": "Restrict telemetry, dashboards, intervention controls, and raw trajectories according to operator, engineering, safety, and governance roles.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.2",
+              "dimension_id": "13",
+              "label": "Telemetry minimization and masking",
+              "description": "Collect only necessary signals and redact, aggregate, tokenize, or mask sensitive values before broader storage or access.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.3",
+              "dimension_id": "13",
+              "label": "Encrypted telemetry transport and storage",
+              "description": "Protect monitoring data and control-plane interactions in transit and at rest.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.4",
+              "dimension_id": "13",
+              "label": "Purpose-bound retention and deletion",
+              "description": "Define retention periods and deletion mechanisms based on operational, evaluation, safety, and regulatory purposes.",
+              "supporting_doc_ids": [],
+              "status": "accepted"
+            },
+            {
+              "id": "13.5",
+              "dimension_id": "13",
+              "label": "Unrestricted raw telemetry access",
+              "description": "Allow broad access to raw observations, trajectories, actions, and intervention controls without role, purpose, or lifecycle restrictions.",
+              "supporting_doc_ids": [],
+              "status": "rejected"
+            },
+            {
+              "id": "13.6",
+              "dimension_id": "13",
+              "label": "Privacy, security, and observability tension",
+              "description": "An outcome in which reducing telemetry detail or access protects sensitive data but can weaken diagnosis, evaluation, and accountability.",
+              "supporting_doc_ids": [],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Monitoring Objective Scope",
+      "description": "The primary question is which production properties of the deployed RL agent the monitoring system is intended to assess: task performance, safety, data quality, or service operation.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Monitoring Objective Scope affects Telemetry Signal Selection",
+          "type": "affects",
+          "rationale": "The objectives determine whether the system must collect rewards, actions, observations, safety events, latency, or infrastructure signals."
+        },
+        {
+          "target_id": "5",
+          "reading": "Monitoring Objective Scope affects Evaluation Strategy",
+          "type": "affects",
+          "rationale": "Performance monitoring, safety monitoring, and operational monitoring require different evaluation methods and reference data."
+        },
+        {
+          "target_id": "8",
+          "reading": "Monitoring Objective Scope affects Alert and Response Automation",
+          "type": "affects",
+          "rationale": "Safety violations may require immediate intervention, whereas gradual reward degradation may only require investigation."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Task-performance monitoring",
+          "description": "Monitor reward, return, success rate, completion quality, and other measures of whether the agent achieves its intended task.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "Safety and constraint monitoring",
+          "description": "Monitor policy violations, unsafe actions, constraint breaches, anomalous behavior, and near misses.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Data and environment monitoring",
+          "description": "Monitor observation validity, input drift, missing or stale signals, environment changes, and reward-pipeline integrity.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Service and infrastructure monitoring",
+          "description": "Monitor latency, throughput, availability, resource utilization, version health, and failures in the serving and telemetry infrastructure.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "1.5",
+          "dimension_id": "1",
+          "label": "Reward-only monitoring",
+          "description": "Use reward as the principal production indicator without separately monitoring safety, observations, actions, or service health.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "1.6",
+          "dimension_id": "1",
+          "label": "Observable proxy performance",
+          "description": "An outcome in which production metrics measure proxy objectives imperfectly, creating the risk that the agent appears successful while violating business or safety intent.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Telemetry Signal Selection",
+      "description": "The question is which runtime signals the monitoring architecture captures from the agent, environment, serving path, and surrounding system.",
+      "relations": [
+        {
+          "target_id": "3",
+          "reading": "Telemetry Signal Selection constrains Telemetry Granularity",
+          "type": "constrains",
+          "rationale": "Signals such as full trajectories and raw observations require substantially more detailed collection than aggregate counters."
+        },
+        {
+          "target_id": "4",
+          "reading": "Telemetry Signal Selection affects Telemetry Collection Placement",
+          "type": "affects",
+          "rationale": "Signals available only inside the environment or policy process determine where instrumentation must be installed."
+        },
+        {
+          "target_id": "6",
+          "reading": "Telemetry Signal Selection affects Reference and Baseline Management",
+          "type": "affects",
+          "rationale": "The baseline must contain comparable signals if it is to support drift, regression, or anomaly comparisons."
+        },
+        {
+          "target_id": "10",
+          "reading": "Telemetry Signal Selection affects Telemetry Storage and Retention",
+          "type": "affects",
+          "rationale": "High-dimensional observations and trajectories create different storage and retention requirements from scalar operational metrics."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Reward and outcome signals",
+          "description": "Capture rewards, returns, task outcomes, success indicators, and business-level results.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Observation and feature signals",
+          "description": "Capture selected observations, feature distributions, missingness, validity, and input-quality indicators.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Action and policy signals",
+          "description": "Capture chosen actions, action probabilities or logits where available, policy version, confidence indicators, and action constraints.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Trajectory and episode signals",
+          "description": "Capture ordered state-action-reward-next-state sequences, episode boundaries, termination causes, and temporal context.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.5",
+          "dimension_id": "2",
+          "label": "Safety and intervention signals",
+          "description": "Capture constraint violations, safety classifier outputs, overrides, fallbacks, human interventions, and emergency stops.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.6",
+          "dimension_id": "2",
+          "label": "Serving and infrastructure signals",
+          "description": "Capture request latency, errors, throughput, resource usage, model-load status, and dependencies along the serving path.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "2.7",
+          "dimension_id": "2",
+          "label": "Raw unrestricted trajectory capture",
+          "description": "Capture every raw observation, action, and internal policy detail without selecting or filtering signals.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "2.8",
+          "dimension_id": "2",
+          "label": "Incomplete causal context",
+          "description": "An outcome in which telemetry lacks the context needed to explain why an action or outcome occurred, limiting diagnosis and offline evaluation.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Telemetry Granularity",
+      "description": "The question is how much temporal and event-level detail to retain for each monitored interaction.",
+      "relations": [
+        {
+          "target_id": "10",
+          "reading": "Telemetry Granularity constrains Telemetry Storage and Retention",
+          "type": "constrains",
+          "rationale": "Per-action and full-trajectory telemetry consumes more storage and increases retention, query, and privacy costs."
+        },
+        {
+          "target_id": "7",
+          "reading": "Telemetry Granularity affects Drift and Anomaly Detection",
+          "type": "affects",
+          "rationale": "Fine-grained data enables temporal, cohort, and episode-level detection, while coarse aggregation can hide localized failures."
+        },
+        {
+          "target_id": "9",
+          "reading": "Telemetry Granularity affects Monitoring Overhead Budget",
+          "type": "affects",
+          "rationale": "Detailed event capture increases CPU, network, serialization, and latency overhead."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Aggregate metric granularity",
+          "description": "Retain windowed summaries such as averages, quantiles, rates, histograms, and counts.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Episode-level granularity",
+          "description": "Retain metrics and metadata for each completed or partially completed episode or task instance.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Per-transition granularity",
+          "description": "Retain selected state, action, reward, and next-state events for individual environment transitions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Full-trajectory granularity",
+          "description": "Retain complete ordered trajectories, including temporal context and episode metadata, for selected or sampled executions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "3.5",
+          "dimension_id": "3",
+          "label": "Always-on full-fidelity capture",
+          "description": "Capture every production transition and trajectory at maximum detail regardless of diagnostic need or sampling policy.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "3.6",
+          "dimension_id": "3",
+          "label": "Diagnostic resolution trade-off",
+          "description": "An outcome in which aggregation reduces cost and privacy exposure but makes rare, temporal, and individual-episode failures harder to diagnose.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Telemetry Collection Placement",
+      "description": "The question is where instrumentation and collection components execute relative to the policy, environment, serving gateway, and downstream data platform.",
+      "relations": [
+        {
+          "target_id": "9",
+          "reading": "Telemetry Collection Placement affects Monitoring Overhead Budget",
+          "type": "affects",
+          "rationale": "In-process instrumentation can add policy latency, while asynchronous sidecars or gateways shift cost away from the decision path."
+        },
+        {
+          "target_id": "10",
+          "reading": "Telemetry Collection Placement constrains Telemetry Storage and Retention",
+          "type": "constrains",
+          "rationale": "Placement determines available buffering, connectivity, local persistence, and the trust boundary through which data must flow."
+        },
+        {
+          "target_id": "2",
+          "reading": "Telemetry Collection Placement affects Telemetry Signal Selection",
+          "type": "affects",
+          "rationale": "Some signals are visible only in the policy process, environment, gateway, or infrastructure layer."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "In-process agent instrumentation",
+          "description": "Collect policy inputs, outputs, and internal metadata directly within the agent or inference process.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Environment-side instrumentation",
+          "description": "Collect transitions, rewards, termination conditions, and environment events at the environment or simulator boundary.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "Serving-gateway instrumentation",
+          "description": "Collect requests, responses, versions, latency, errors, and routing information at the inference gateway or control plane.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Asynchronous sidecar collection",
+          "description": "Export telemetry through a separate process, agent, or sidecar so collection is decoupled from the decision loop.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Synchronous blocking export",
+          "description": "Send telemetry to a remote monitoring service synchronously before completing the agent decision or request.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "4.6",
+          "dimension_id": "4",
+          "label": "Decision-path latency and availability risk",
+          "description": "An outcome in which monitoring becomes coupled to action latency or service availability and can interfere with the agent’s production behavior.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Evaluation Strategy",
+      "description": "The question is how production behavior is evaluated when rewards may be delayed, noisy, sparse, unsafe to test, or unavailable immediately.",
+      "relations": [
+        {
+          "target_id": "6",
+          "reading": "Evaluation Strategy requires Reference and Baseline Management to be decided first",
+          "type": "requires",
+          "rationale": "Online comparison, regression analysis, and off-policy estimates need a defined reference policy, historical cohort, or expected behavior."
+        },
+        {
+          "target_id": "8",
+          "reading": "Evaluation Strategy affects Alert and Response Automation",
+          "type": "affects",
+          "rationale": "Evaluation confidence and latency determine whether an alert can trigger automatic rollback, traffic reduction, or only human review."
+        },
+        {
+          "target_id": "11",
+          "reading": "Evaluation Strategy constrains Deployment and Rollback Control",
+          "type": "constrains",
+          "rationale": "Shadowing, canaries, and online experiments require corresponding traffic-routing and rollback mechanisms."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Direct online outcome evaluation",
+          "description": "Evaluate the deployed policy using observed rewards, task outcomes, and safety results from live interactions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Shadow-policy evaluation",
+          "description": "Run a candidate or reference policy against production observations without allowing it to control the live action, then compare decisions or estimated outcomes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Canary and limited-traffic evaluation",
+          "description": "Expose a policy to a controlled subset of traffic or environments and compare it with the incumbent before wider rollout.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Offline replay evaluation",
+          "description": "Replay logged trajectories or observations in a simulator, model, or offline evaluation pipeline before or alongside production monitoring.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.5",
+          "dimension_id": "5",
+          "label": "Off-policy counterfactual evaluation",
+          "description": "Estimate how an alternative policy would perform using logged behavior-policy data, importance weighting, model-based estimates, or related methods.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "5.6",
+          "dimension_id": "5",
+          "label": "Uncontrolled live experimentation",
+          "description": "Evaluate policy changes by exposing all production traffic to the new policy without shadowing, canarying, or a controlled comparison.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "5.7",
+          "dimension_id": "5",
+          "label": "Evaluation bias and uncertainty",
+          "description": "An outcome in which delayed rewards, confounding, policy mismatch, partial observability, or weak off-policy estimates make apparent performance changes difficult to interpret.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Reference and Baseline Management",
+      "description": "The question is what expected behavior, comparison population, or policy version the monitoring system uses to determine whether current behavior has regressed or drifted.",
+      "relations": [
+        {
+          "target_id": "7",
+          "reading": "Reference and Baseline Management affects Drift and Anomaly Detection",
+          "type": "affects",
+          "rationale": "Detection thresholds and statistical tests are meaningful only relative to a suitable historical, policy, cohort, or specification baseline."
+        },
+        {
+          "target_id": "11",
+          "reading": "Reference and Baseline Management affects Deployment and Rollback Control",
+          "type": "affects",
+          "rationale": "Rollback and promotion decisions commonly compare a candidate with an incumbent or approved reference version."
+        },
+        {
+          "target_id": "10",
+          "reading": "Reference and Baseline Management constrains Telemetry Storage and Retention",
+          "type": "constrains",
+          "rationale": "Maintaining historical baselines and comparable cohorts requires retaining appropriate telemetry and metadata."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Historical rolling baseline",
+          "description": "Compare current behavior with recent production windows while allowing expected operating conditions to evolve.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "固定 approved-policy baseline",
+          "description": "Compare behavior with a designated incumbent or approved policy version whose behavior and safety properties are treated as the reference.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Cohort and segment baseline",
+          "description": "Compare behavior separately across users, environments, regions, scenarios, or other operational cohorts.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.4",
+          "dimension_id": "6",
+          "label": "Specification and threshold baseline",
+          "description": "Compare signals with explicit safety limits, service-level objectives, business rules, or expected ranges rather than only with historical behavior.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "6.5",
+          "dimension_id": "6",
+          "label": "Single global baseline",
+          "description": "Use one aggregate reference for all users, environments, and operating regimes.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "6.6",
+          "dimension_id": "6",
+          "label": "Baseline contamination",
+          "description": "An outcome in which degraded, unsafe, or already-drifted behavior enters the reference population and normalizes the problem.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Drift and Anomaly Detection",
+      "description": "The question is which analytical mechanisms identify changes in inputs, policy behavior, outcomes, safety, or system operation that warrant investigation.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Drift and Anomaly Detection affects Alert and Response Automation",
+          "type": "affects",
+          "rationale": "Detection sensitivity, confidence, and anomaly type determine alert severity and whether automated action is safe."
+        },
+        {
+          "target_id": "6",
+          "reading": "Drift and Anomaly Detection requires Reference and Baseline Management to be decided first",
+          "type": "requires",
+          "rationale": "Most drift and regression tests compare current data or outcomes with a reference distribution, version, threshold, or cohort."
+        },
+        {
+          "target_id": "2",
+          "reading": "Drift and Anomaly Detection requires Telemetry Signal Selection to be decided first",
+          "type": "requires",
+          "rationale": "The detector’s scope is limited to signals that the system collects."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Rule and threshold detection",
+          "description": "Detect violations using fixed limits, service-level objectives, safety rules, or domain-specific conditions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Statistical distribution monitoring",
+          "description": "Detect changes in feature, observation, action, reward, or outcome distributions using statistical tests, control charts, or divergence measures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Temporal and sequential anomaly detection",
+          "description": "Detect unusual trajectories, transitions, episode patterns, temporal correlations, or changes in event sequences.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Performance regression detection",
+          "description": "Detect statistically or operationally significant degradation in reward, success, cost, constraint satisfaction, or other outcome measures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.5",
+          "dimension_id": "7",
+          "label": "Unsupervised anomaly scoring",
+          "description": "Use learned or statistical representations to rank unusual observations, actions, episodes, or trajectories for investigation.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "7.6",
+          "dimension_id": "7",
+          "label": "Alerting on raw metric movement",
+          "description": "Treat any movement in a monitored metric as an incident without thresholds, uncertainty handling, segmentation, or contextual analysis.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "7.7",
+          "dimension_id": "7",
+          "label": "False-positive and false-negative trade-off",
+          "description": "An outcome in which sensitive detectors create alert fatigue while insensitive detectors miss rare safety failures or gradual policy degradation.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Alert and Response Automation",
+      "description": "The question is how detected problems are communicated and what actions the monitoring system takes automatically or delegates to operators.",
+      "relations": [
+        {
+          "target_id": "11",
+          "reading": "Alert and Response Automation affects Deployment and Rollback Control",
+          "type": "affects",
+          "rationale": "Automated responses may pause traffic, switch policies, roll back versions, or enable a fallback controller."
+        },
+        {
+          "target_id": "7",
+          "reading": "Alert and Response Automation depends on Drift and Anomaly Detection",
+          "type": "requires",
+          "rationale": "Alerts and automated responses need detection conditions, severity, confidence, and deduplication rules."
+        },
+        {
+          "target_id": "12",
+          "reading": "Alert and Response Automation affects Human Oversight and Auditability",
+          "type": "affects",
+          "rationale": "Operators need actionable context, escalation paths, and records of alerts and automated interventions."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Dashboard and exploratory monitoring",
+          "description": "Present metrics, distributions, traces, and trajectories for operators to inspect without automatically opening incidents.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Threshold-based alerting",
+          "description": "Generate alerts when safety, performance, drift, or service signals cross configured thresholds or persist for a defined duration.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.3",
+          "dimension_id": "8",
+          "label": "Incident escalation workflow",
+          "description": "Route alerts through ownership, severity, notification, acknowledgement, and incident-management procedures.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.4",
+          "dimension_id": "8",
+          "label": "Human-approved intervention",
+          "description": "Require an operator to review evidence before rollback, traffic changes, policy disablement, or other consequential intervention.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.5",
+          "dimension_id": "8",
+          "label": "Automatic safety fallback",
+          "description": "Switch to a constrained policy, rules-based controller, safe action, or degraded operating mode when safety or confidence conditions fail.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.6",
+          "dimension_id": "8",
+          "label": "Automatic rollback and traffic reduction",
+          "description": "Reduce exposure or restore a previously approved policy when monitored conditions indicate a deployment regression.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "8.7",
+          "dimension_id": "8",
+          "label": "Unreviewed automatic remediation",
+          "description": "Allow noisy or weakly validated detectors to change or disable the live policy without safeguards, approval boundaries, or rollback protection.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "8.8",
+          "dimension_id": "8",
+          "label": "Alert fatigue and intervention risk",
+          "description": "An outcome in which excessive alerts desensitize operators or automated actions cause unnecessary service degradation and policy instability.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Monitoring Overhead Budget",
+      "description": "The question is how the monitoring architecture trades observability depth against decision latency, throughput, availability, compute, network, and operating cost.",
+      "relations": [
+        {
+          "target_id": "3",
+          "reading": "Monitoring Overhead Budget constrains Telemetry Granularity",
+          "type": "constrains",
+          "rationale": "Latency and cost budgets limit whether monitoring can retain per-transition or full-trajectory data."
+        },
+        {
+          "target_id": "4",
+          "reading": "Monitoring Overhead Budget affects Telemetry Collection Placement",
+          "type": "affects",
+          "rationale": "Tighter decision-path budgets favor asynchronous, sampled, batched, or out-of-process collection."
+        },
+        {
+          "target_id": "10",
+          "reading": "Monitoring Overhead Budget affects Telemetry Storage and Retention",
+          "type": "affects",
+          "rationale": "Higher-volume telemetry increases storage, indexing, transfer, and query costs."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Synchronous minimal instrumentation",
+          "description": "Collect a small set of low-cost signals synchronously when they are required for immediate safety or service decisions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.2",
+          "dimension_id": "9",
+          "label": "Asynchronous buffered instrumentation",
+          "description": "Buffer, batch, sample, or queue telemetry so monitoring work is decoupled from the action-decision path.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.3",
+          "dimension_id": "9",
+          "label": "Adaptive instrumentation",
+          "description": "Increase collection detail during anomalies, canaries, investigations, or selected cohorts and reduce it during normal operation.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.4",
+          "dimension_id": "9",
+          "label": "Dedicated monitoring compute",
+          "description": "Run feature computation, trajectory analysis, and detection workloads on separate infrastructure rather than competing with policy serving.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "9.5",
+          "dimension_id": "9",
+          "label": "Unbounded observability overhead",
+          "description": "Allow telemetry generation and analysis to consume production resources without explicit latency, availability, or cost limits.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "9.6",
+          "dimension_id": "9",
+          "label": "Monitoring-induced performance degradation",
+          "description": "An outcome in which instrumentation increases action latency, reduces throughput, exhausts resources, or destabilizes the deployed agent.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "Telemetry Storage and Retention",
+      "description": "The question is how collected monitoring data is transported, stored, queried, protected, and retained for real-time detection, diagnosis, replay, and audit.",
+      "relations": [
+        {
+          "target_id": "12",
+          "reading": "Telemetry Storage and Retention affects Human Oversight and Auditability",
+          "type": "affects",
+          "rationale": "Incident reconstruction and accountability depend on retaining sufficient immutable context and model-version metadata."
+        },
+        {
+          "target_id": "5",
+          "reading": "Telemetry Storage and Retention affects Evaluation Strategy",
+          "type": "affects",
+          "rationale": "Replay, off-policy evaluation, and cohort comparison require accessible historical trajectories and associated policy information."
+        },
+        {
+          "target_id": "13",
+          "reading": "Telemetry Storage and Retention constrains Privacy and Access Control",
+          "type": "constrains",
+          "rationale": "Retention duration, raw-data content, and storage location determine privacy exposure and access-control requirements."
+        }
+      ],
+      "values": [
+        {
+          "id": "10.1",
+          "dimension_id": "10",
+          "label": "Real-time metrics store",
+          "description": "Store aggregated time-series metrics for low-latency dashboards, thresholds, and operational queries.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.2",
+          "dimension_id": "10",
+          "label": "Centralized event and log store",
+          "description": "Store structured events, alerts, metadata, and selected logs in a searchable centralized platform.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.3",
+          "dimension_id": "10",
+          "label": "Durable trajectory data lake",
+          "description": "Store sampled or selected trajectories and episode records for replay, offline evaluation, forensic analysis, and model improvement.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.4",
+          "dimension_id": "10",
+          "label": "Tiered retention",
+          "description": "Keep recent high-resolution data in fast storage and move older, less frequently accessed summaries or trajectories to cheaper durable storage.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "10.5",
+          "dimension_id": "10",
+          "label": "Indefinite raw-data retention",
+          "description": "Retain all raw observations, actions, and trajectories without lifecycle limits, minimization, or purpose-based selection.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "10.6",
+          "dimension_id": "10",
+          "label": "Storage, query, and retention cost",
+          "description": "An outcome in which high-dimensional telemetry creates substantial infrastructure cost and can make historical analysis slow or operationally difficult.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "Deployment and Rollback Control",
+      "description": "The question is which production-control mechanisms connect monitoring evidence to policy release, exposure, rollback, fallback, and version changes.",
+      "relations": [
+        {
+          "target_id": "5",
+          "reading": "Deployment and Rollback Control constrains Evaluation Strategy",
+          "type": "constrains",
+          "rationale": "Canary, shadow, and controlled comparison strategies require traffic routing, version isolation, and reversible deployment controls."
+        },
+        {
+          "target_id": "8",
+          "reading": "Deployment and Rollback Control affects Alert and Response Automation",
+          "type": "affects",
+          "rationale": "The available rollback and fallback mechanisms determine which automated responses are feasible."
+        },
+        {
+          "target_id": "12",
+          "reading": "Deployment and Rollback Control affects Human Oversight and Auditability",
+          "type": "affects",
+          "rationale": "Policy promotion and rollback need recorded versions, approvals, reasons, and links to observed evidence."
+        }
+      ],
+      "values": [
+        {
+          "id": "11.1",
+          "dimension_id": "11",
+          "label": "Versioned policy release",
+          "description": "Record immutable policy versions, configuration, environment compatibility, and deployment metadata for each production release.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.2",
+          "dimension_id": "11",
+          "label": "Shadow deployment",
+          "description": "Deploy a policy for observation and comparison without granting it control over live actions.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.3",
+          "dimension_id": "11",
+          "label": "Canary traffic routing",
+          "description": "Expose a new policy to a bounded traffic segment or operating regime before broader release.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.4",
+          "dimension_id": "11",
+          "label": "Automatic rollback",
+          "description": "Restore a prior approved policy when predefined safety, performance, or service conditions are breached.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.5",
+          "dimension_id": "11",
+          "label": "Safe fallback controller",
+          "description": "Use a constrained, deterministic, or previously validated controller when the learned policy is unavailable or unsafe.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "11.6",
+          "dimension_id": "11",
+          "label": "Irreversible full rollout",
+          "description": "Release a new policy to all production traffic without staged exposure, a fallback, or a tested rollback path.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "11.7",
+          "dimension_id": "11",
+          "label": "Rollback and recovery latency",
+          "description": "An outcome in which detection, approval, routing, and state recovery delays determine how much harm or degraded service occurs before intervention.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "name": "Human Oversight and Auditability",
+      "description": "The question is how the monitoring system supports operator interpretation, accountability, incident investigation, and traceability of policy behavior and interventions.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Human Oversight and Auditability constrains Alert and Response Automation",
+          "type": "constrains",
+          "rationale": "High-impact automated interventions need explainable evidence, ownership, approval boundaries, and an audit trail."
+        },
+        {
+          "target_id": "10",
+          "reading": "Human Oversight and Auditability requires Telemetry Storage and Retention to be decided first",
+          "type": "requires",
+          "rationale": "Operators cannot reconstruct incidents or verify decisions without retained telemetry, versions, timestamps, and intervention records."
+        },
+        {
+          "target_id": "13",
+          "reading": "Human Oversight and Auditability affects Privacy and Access Control",
+          "type": "affects",
+          "rationale": "Investigation access must balance the need for detailed evidence with restrictions on sensitive observations and user data."
+        }
+      ],
+      "values": [
+        {
+          "id": "12.1",
+          "dimension_id": "12",
+          "label": "Operator dashboards and drill-down",
+          "description": "Provide views from aggregate health to cohorts, episodes, trajectories, actions, and correlated service events.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.2",
+          "dimension_id": "12",
+          "label": "Incident evidence bundles",
+          "description": "Link alerts to relevant telemetry, policy versions, baselines, detector results, actions taken, and surrounding context.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.3",
+          "dimension_id": "12",
+          "label": "Immutable audit trail",
+          "description": "Record policy releases, configuration changes, approvals, alerts, overrides, rollbacks, and operator actions in tamper-resistant form.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.4",
+          "dimension_id": "12",
+          "label": "Explainable policy diagnostics",
+          "description": "Expose action rationales, salient inputs, constraints, confidence indicators, or comparable diagnostic information for investigation.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "12.5",
+          "dimension_id": "12",
+          "label": "Metrics-only observability",
+          "description": "Expose aggregate metrics without retaining enough context to inspect episodes, actions, versions, or causal incident evidence.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "12.6",
+          "dimension_id": "12",
+          "label": "Investigation and accountability burden",
+          "description": "An outcome in which limited context, opaque decisions, or missing change history increases mean time to diagnose and makes responsibility difficult to establish.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "name": "Privacy and Access Control",
+      "description": "The question is how the monitoring architecture protects sensitive observations, actions, user data, and operational controls while preserving useful monitoring access.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Privacy and Access Control constrains Telemetry Signal Selection",
+          "type": "constrains",
+          "rationale": "Sensitive or identifying signals may need minimization, masking, aggregation, or exclusion from telemetry."
+        },
+        {
+          "target_id": "3",
+          "reading": "Privacy and Access Control constrains Telemetry Granularity",
+          "type": "constrains",
+          "rationale": "Fine-grained trajectories can expose more personal, confidential, or operationally sensitive information than aggregates."
+        },
+        {
+          "target_id": "10",
+          "reading": "Privacy and Access Control affects Telemetry Storage and Retention",
+          "type": "affects",
+          "rationale": "Access policies, encryption, residency, deletion, and retention controls determine how telemetry can be stored and queried."
+        }
+      ],
+      "values": [
+        {
+          "id": "13.1",
+          "dimension_id": "13",
+          "label": "Role-based monitoring access",
+          "description": "Restrict telemetry, dashboards, intervention controls, and raw trajectories according to operator, engineering, safety, and governance roles.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.2",
+          "dimension_id": "13",
+          "label": "Telemetry minimization and masking",
+          "description": "Collect only necessary signals and redact, aggregate, tokenize, or mask sensitive values before broader storage or access.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.3",
+          "dimension_id": "13",
+          "label": "Encrypted telemetry transport and storage",
+          "description": "Protect monitoring data and control-plane interactions in transit and at rest.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.4",
+          "dimension_id": "13",
+          "label": "Purpose-bound retention and deletion",
+          "description": "Define retention periods and deletion mechanisms based on operational, evaluation, safety, and regulatory purposes.",
+          "supporting_doc_ids": [],
+          "status": "accepted"
+        },
+        {
+          "id": "13.5",
+          "dimension_id": "13",
+          "label": "Unrestricted raw telemetry access",
+          "description": "Allow broad access to raw observations, trajectories, actions, and intervention controls without role, purpose, or lifecycle restrictions.",
+          "supporting_doc_ids": [],
+          "status": "rejected"
+        },
+        {
+          "id": "13.6",
+          "dimension_id": "13",
+          "label": "Privacy, security, and observability tension",
+          "description": "An outcome in which reducing telemetry detail or access protects sensitive data but can weaken diagnosis, evaluation, and accountability.",
+          "supporting_doc_ids": [],
+          "status": "outcome"
+        }
+      ]
+    }
+  ]
+}

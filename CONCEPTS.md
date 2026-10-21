@@ -1,0 +1,204 @@
+# Concepts
+
+Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then accretes as ce-compound and ce-compound-refresh process learnings; direct edits are fine. Glossary only, not a spec or catch-all.
+
+## Relationships
+
+The Design-Space Model defines what a design space is; a Mining Procedure (today the agentic Grounded-Theory Emulation) is one way to produce an instance of it, and an expert-authored design space is another. A Taxonomy accumulates Iterations as it grows. Each Iteration holds a set of Dimensions; each Dimension owns its own Values and links to other Dimensions through Relations. Selected Dimensions is a filtered view drawn from one Iteration's Dimensions, kept alongside — never replacing — the full history. A Grounded Theory Report renders one chosen view (a specific Iteration, Selected Dimensions, or the latest Iteration) and includes at most one Narrative Summary. A Seeded Taxonomy is a saved Taxonomy's final (or only) Iteration loaded as the starting point of a new run: Train Mode refines it further, while Test Mode freezes its Dimensions and only allows Values to grow. A Scoreboard attaches to a Taxonomy view when evaluated, and a Consistency Comparison aligns Dimensions across saved Taxonomies from the same corpus. Ground-Truth Matching scores one Taxonomy view against each Ground Truth View of an expert study, under an Evaluation Frame fixed before any score is seen. Three LLM Roles divide the model work: the generation role builds the Taxonomy, the evaluation role produces Scoreboards and adjudicates Consistency Comparisons, and the matching role judges Ground-Truth Matching. An Edit Mode decides how each update and review changes the Taxonomy; tools and rewrite_restore runs keep an Operation Log, and a Stage Funnel traces where expert options are lost across the Iterations.
+
+## Taxonomy
+
+The evolving structure a corpus is organized into: a set of Dimensions, each with its Values and Relations to other Dimensions. Built up across multiple Iterations rather than produced in one pass.
+
+## Design-Space Model
+
+**What it is:** the definition of a design space and its elements, independent of how a given design space is
+produced:
+- Dimensions (decision points) and their Values (candidate decisions with a Decision Status, or outcomes);
+- Relations between Dimensions;
+- evidence links to passages;
+- the design points one can sample from it.
+
+**Who produces instances:** a Mining Procedure, an expert who authors a design space directly, or a simple
+procedure such as one long prompt. Their outputs are comparable as instances of one model. The expert models used
+for Ground-Truth Matching are instances too.
+
+**What works on any instance:** the wiki, the queries and the matcher read the model, not the procedure that
+produced it. Today the model lives in the run's taxonomy JSON; a planned data layer would make it a first-class
+model with its own operations and storage.
+
+## Mining Procedure
+
+A way of producing a Design-Space Model instance from textual sources. Delve's current procedure is an agentic
+Grounded-Theory Emulation:
+- open coding of passages;
+- revision of the Taxonomy through validated operations;
+- Critic feedback and a coverage-based stopping rule;
+- integration: consolidation, Evidence Linking, selection.
+
+Other procedures, algorithmic or human, can replace it without changing the model or the tools built on it.
+
+## Grounded-Theory Emulation
+
+**The setting it emulates:** a team of grounded-theory researchers.
+- Several coders open-code the sources independently.
+- They compare and reconcile their codes until they reach a consensus.
+- The categories are then integrated through axial and selective coding, with memos and peer debriefing.
+- Sampling continues until theoretical saturation.
+
+**How Delve's agents map onto it:**
+
+| Team practice | Delve |
+|---|---|
+| Coders | the Coder (Open Coding) |
+| Constant comparison and integration | the Taxonomist |
+| Peer debriefing and the stopping judgement | the Critic (Scoreboard, coverage check) |
+| Consolidation and scoping | the Integrator |
+
+**The current procedure simplifies this setting:**
+- A **single Coder** with no independent second coding, so there is no inter-coder agreement and no consensus step.
+  Reconciliation happens in one integrating analyst, the Taxonomist, whose edits are rule-checked.
+- **No theoretical sampling:** the corpus is fixed.
+- **Conceptual coverage instead of theoretical saturation.**
+
+Several Coder agents with a consensus step are possible future work.
+
+## Iteration
+
+One snapshot of the Taxonomy's Dimensions captured at a specific point in its generation history (after an update, a review, or a consolidation pass). Later processing (a Grounded Theory Report, classification) always renders one specific Iteration or view — never an ambiguous blend of several.
+
+## Dimension
+
+An axis of variation the Taxonomy captures — documents differ along a Dimension's axis, and a well-formed Dimension is orthogonal to every other Dimension (it captures a distinct *type* of distinction, not a value dressed up as an axis).
+
+In a design space, a Dimension is a *decision point*: a topic phrased as one question that requires a choice, whose Values are the candidate decisions (the alternative answers to that question). A Dimension whose Values answer different questions is a broad topic that bundles several decision points: it is split when each part keeps at least two candidate decisions, otherwise its Values move to the decision points whose questions they answer. A Dimension with a single candidate decision is merged into the decision point its Value answers, never filled with invented alternatives.
+
+## Value
+
+A specific point or decision along one Dimension's axis, distinct from the Dimension itself. A Value is supported by the documents whose Open Coding results led to it.
+
+## Evidence Linking
+
+The step, run right after value consolidation, that records which documents support each Value. Every Open Coding result is assigned to its most similar Value of the same Decision Status (by embedding similarity, above `taxonomy.evidence_min_similarity`). The Value's `supporting_doc_ids` become those codes' documents, plus any valid ids the LLM cited. Each Value also gets an `evidence_code_count`, and each Dimension an `evidence` summary (codes, documents, sources). The update and review prompts show the Taxonomy without these document ids (evidence is rebuilt here, and re-emitting the ids made full rewrites long enough that values were dropped); a Value the model keeps under the same label gets its earlier documents back. Evidence describes support from the data. It is independent of labeling, which assigns each document to a single Dimension.
+
+## Dimension Merging
+
+An optional step (`taxonomy.merge_dimensions`) at the start of value consolidation. It combines Dimensions that name the same design decision under different wording. Pairs that are close in embedding space go to an LLM judge, which merges only when the options of both answer one choice: detecting and mitigating a problem stay separate. The merged Dimension keeps every member's Values (value consolidation then removes duplicates), records the merged ones in `merged_from`, and its Relations are redirected.
+
+## Minimum Support
+
+A rule applied at dimension selection (`taxonomy.min_dimension_sources`): a Dimension whose evidence comes from fewer sources than the minimum is dropped from the selected taxonomy, with a recorded rationale. This is grounded theory's requirement that a category recur across incidents.
+
+## Decision Status
+
+How the evidence stands toward a Value. Open Coding classifies each code from its document's own framing: `accepted` (the document adopted the decision), `rejected` (it explicitly considered and declined it), or `outcome` (it reports an effect, such as a result, cost or side effect, not a decision; a description of *how* something is done is a decision, not an outcome). Named `outcome` rather than reusing a Relation's `affects` type (formerly `consequence`), which links two Dimensions and means something different.
+
+A Value is either a *candidate decision* (an alternative answer to its Dimension's question) or an outcome. A candidate decision's status comes from its evidence: its `stances` record which documents accept it and which reject it. Its status is `accepted` or `rejected` when the sources agree, and `mixed` when some sources adopt it and others reject it (e.g. one system uses consensus replication, another moved away from it). Consolidation therefore merges accepted and rejected Values that name the same decision (`taxonomy.merge_value_stances`), but never merges an outcome with a candidate decision.
+
+## Relation
+
+A typed link from one Dimension (the source) to another (the target), describing how the two interact rather than incidental co-occurrence. Every Relation reads left to right as one sentence: `requires` (the source requires the target to be decided first), `affects` (choices on the source affect the outcomes of the target), `constrains` (choices on the source limit the options available on the target), `co_occurs_with` (the two are usually decided together; no direction), and the optional `refines` (the source is a sub-decision of the target).
+*Avoid:* precondition, consequence, co_occurring (older names of requires, affects and co_occurs_with)
+
+Relations are inferred by the model and, unlike Values, are not checked against passages. A Relation the model adds is accepted only when its sentence, written with the two Dimension names, matches its type and direction. Two Dimensions never relate both ways with the same directed type, `requires` never forms a cycle, a co-occurrence is recorded once per pair, and each Dimension keeps only a few Relations. When a Dimension is split, its Relations stay with one part; when Dimensions are merged or renamed, their Relations follow, the structural rules above are applied again, and each sentence is rewritten with the current names.
+
+## Open Coding
+
+The per-document, fine-grained concept-extraction step that runs before a batch of documents is folded into the Taxonomy's Dimensions. Each document's Open Coding output is what a later Value's supporting evidence traces back to.
+
+## Saturation
+
+The condition under which the Taxonomy stops growing from new document batches: reached when a configured streak of batches in a row add no concept not already covered by an existing Dimension. Each batch is tested as new data: its open codes are compared with the Taxonomy as it was before that batch was incorporated, never with the Taxonomy just updated from it (which covers them by construction), and the batch a Taxonomy was generated from is not counted. Optionally (`taxonomy.saturation_min_corpus_fraction`), Saturation may end the cycle only once a minimum share of the corpus has been open-coded; Saturation reached earlier is recorded, but must still hold at that point. Reaching Saturation (or exhausting all batches) ends the open-coding/update cycle and moves the Taxonomy into review.
+
+## Selected Dimensions
+
+The use-case-relevant subset of an Iteration's Dimensions, chosen by a dedicated selection step and dropped-with-rationale rather than silently deleted. The full Dimension history is preserved alongside Selected Dimensions, never replaced by it — code that reads "the current view" must be explicit about which of the two it means. A reader of a Grounded Theory Report sees the drop rationale directly, in its Discarded Dimensions section. The dimension cap (`taxonomy.max_num_clusters`) applies here by default (`taxonomy.cap_stage: selection`): the run mines without a cap and selection keeps the top Dimensions, recording the others as outside the cap; with `cap_stage: generation` the cap is given to the generation, update and review prompts instead, which forces broad topics.
+
+## Core Dimension
+
+A Dimension with broad enough support that it is not likely a single source's idiosyncrasy. A Dimension is core when its Evidence Linking reaches a minimum number of distinct sources, or, when passages are mapped to the systems they describe, when its candidate Values (accepted, mixed, or rejected; not outcomes) are supported by passages from a minimum number of distinct systems. Both minimums are export settings, and the wiki states the rule in use wherever it marks or filters Core Dimensions. Being core is a reading aid computed when the wiki is built. It is not a Decision Status. It is computed only when the wiki is built, after the pipeline has run, so it cannot change which Dimensions were selected.
+
+## Grounded Theory Report
+
+A self-contained markdown document rendering one Taxonomy view (a specific Iteration, Selected Dimensions, or the latest Iteration) for a reader who never ran the pipeline: a Narrative Summary, a relationship diagram of Dimensions and their Relations, a catalog of each Dimension's Values, and — whenever the pipeline recorded at least one dimension the selection step excluded — a Discarded Dimensions section naming each and why. Everything except the Narrative Summary is rendered verbatim from the Taxonomy data — never reworded by a model. A Unified HTML Report renders this same content alongside other Sibling Artifacts in one page.
+
+## Sibling Artifact
+
+A file written independently during or after a run — a Grounded Theory Report, a biplot chart, a Scoreboard, or a documents dump — that belongs to one specific Taxonomy run but carries no shared run identifier linking it to the others. Sibling Artifacts are discovered by matching heuristics (embedded timestamps, cross-referencing fields, numeric identifiers) rather than by ID lookup, and a missing or ambiguous match degrades gracefully rather than failing whatever is composing them.
+
+## Unified HTML Report
+
+A single self-contained HTML page composing one Taxonomy run's Sibling Artifacts — a run summary, the Grounded Theory Report's content, the biplot, and the Scoreboard — each section rendered independently and each showing its own "not available" state when its Sibling Artifact is missing, rather than failing the whole page.
+
+## Train Mode
+
+The run mode in which the Taxonomy — seeded from a saved Taxonomy or built from scratch — is refined through the open-coding → update → saturation loop. The existing default mode; a run with no Taxonomy input behaves exactly as before.
+
+## Test Mode
+
+The run mode in which a Seeded Taxonomy's Dimensions are frozen: no dimension is added, renamed, merged, split, or dropped. New documents are classified into existing Dimensions; a document that fits no Dimension goes to the predefined fallback category ("Other"), and a document whose decision matches no existing Value may append a new Value to its Dimension, recording the triggering documents as supporting evidence.
+
+## Seeded Taxonomy
+
+A saved Taxonomy loaded as the starting Taxonomy of a new run. In Train Mode it is the final (or only) Iteration, the basis for further refinement; in Test Mode it is the Selected Dimensions (the reported design space, with Relations to dropped Dimensions removed), the frozen classification framework. `pipeline.taxonomy_input_view` overrides the choice.
+
+## Delta Summary
+
+The test-mode output that reports what changed relative to the Seeded Taxonomy: the new Values appended per Dimension, and the list of documents that landed in the fallback bucket.
+
+## Scoreboard
+
+The evaluation result for one Taxonomy view: a per-criterion score plus the judge's rationale for each quality criterion (orthogonality, clarity, completeness, use-case alignment, no catch-alls, axis-vs-value, one decision point with quality-attribute grounding as a secondary preference, rejected-alternative handling, dimensional and candidate-decision coverage). Each criterion is judged with fixed steps, and its rationale names the Dimensions and Values at fault and the change that fixes them. During the update loop, the weakest criteria and their rationales are passed to the next update and review pass as feedback, except configured excluded criteria (by default Completeness, which is judged against the use case alone and would push for topics the data does not support). Feedback never justifies adding a Dimension or Value that no open code supports. Loop drafts are scored at a configurable interval (the last minibatch's draft and the final view always), and feedback only uses a Scoreboard of the current draft. Every Scoreboard of a run is saved unless history saving is turned off, labeled with the view it scored (loop draft or final view). Structural criteria always judge the view alone; data-grounded criteria (coverage) run only when documents are available and are marked "not evaluated" otherwise. Judge metrics are LLM-as-judge metrics built on deepeval, served by the evaluation LLM Role. One row is computed rather than judged: Value Exclusivity, which counts in the overall score and reaches the next update in its own feedback section.
+
+## Consistency Comparison
+
+The evaluation of two or more saved Taxonomies from runs on the same corpus: Dimensions are aligned across the Taxonomies (embedding-based matching with judge adjudication of borderline pairs), then reported as recurring or one-off, together with an overall agreement signal. Post-hoc only — it reads saved JSONs and never orchestrates the runs it compares.
+
+## Observe-Only Evaluation
+
+The in-graph evaluation contract: the Scoreboard is produced during a run but never routes the graph, alters termination, or modifies the Taxonomy. An evaluation failure degrades to a clearly marked unavailable state rather than failing the run.
+
+## Narrative Summary
+
+The one prose section of a Grounded Theory Report that a model is allowed to polish for readability. It may only reword or synthesize text that already exists elsewhere in the rendered view (an Iteration's stored rationale, the in-scope Dimensions' descriptions) — it must never introduce a Dimension, Relation, or Value absent from that view. It must also state the use case the report serves, plainly and up front, whenever the rendered view doesn't already make that clear on its own.
+
+## Ground Truth View
+
+One structured rendering of an expert design space used to score generated Taxonomies: the *paper view* transcribes what a study's paper reports; the *model view* is extracted from the study's full model in its replication package, when one exists. Decisions map to Dimensions and options to Values; a crosswalk records which elements appear in both views. Ground-Truth Matching scores a run against each view. An element present in both views keeps one identity and one text in both, so view metrics differ only in which elements count.
+
+## Ground-Truth Matching
+
+The post-hoc scoring of one Taxonomy view against an expert study's Ground Truth Views: each candidate Value is paired with each expert option, embedding distance only proposes and bounds candidate pairs, and an LLM judge (the matching LLM Role) labels the plausible pairs on a graded scale (same, broader, narrower, related, different). Dimensions are then aligned with expert decisions from those Value matches, and precision, recall and overlap are reported per view, at option level, decision level, and for placement (whether a matched Value sits under the Dimension aligned with its option's decision).
+
+Every pair keeps how it was labeled — by the judge, or automatically by distance — so a pair never judged is distinguishable from one judged wrong. The judge sees the two items blind and in a seeded order; its choice measurably moves the scores, so it is recorded with every result and validated against human alignment before scores are reported.
+*Avoid:* matcher (for the process), GT scoring
+
+## Evaluation Frame
+
+The written, dated record of everything a reported ground-truth score rests on — use cases, metric definitions, matcher settings and how their thresholds were chosen, the judge — fixed before the first score is seen. Any later change is logged with its date and reason, so changes made after seeing scores stay visible.
+
+## LLM Role
+
+One of three distinct jobs a language model does in the project: the generation role builds the design space, the evaluation role judges it during a run (Scoreboard, Consistency Comparison, saturation critic), and the matching role judges Ground-Truth Matching. Each role is configured separately and should use a different model, so that judging stays independent of what it judges; a model shared between roles is allowed but flagged with a warning and recorded.
+*Avoid:* main model, fast LLM, judge model (as a configuration name)
+
+## Edit Mode
+
+How the Taxonomist changes the Taxonomy in each update and review (`taxonomy.edit_mode`). In **rewrite** mode the model re-emits the whole Taxonomy, which past a few hundred Values tends to compress it and silently drop Values. In **tools** mode the model never re-emits it: it calls coding operations (add, move, merge, split, rename, relate, remove) that code validates against the Taxonomy and the batch before applying, and a Value with supporting documents is never removed during the loop. **rewrite_restore** is a control between the two: a rewrite whose dropped evidence-backed Values are put back afterwards, which separates the effect of keeping Values from the effect of editing through operations.
+
+## Operation Log
+
+The memo trail of a tools-mode (or rewrite_restore) run: one entry per update and review listing the operations applied with their reasons, the calls rejected with their errors, the batch documents no Value cites, the explanation, why the loop stopped, and the transcript of the model's turns and the tool replies. Saved in the taxonomy JSON as `operation_log`.
+
+## Stage Funnel
+
+A diagnosis of where along the pipeline each expert option of a Ground Truth View is lost: present in the open codes, in each Iteration, after review and consolidation, and in Selected Dimensions. An option's loss stage is the first stage judged absent after its last presence; an option with no candidate close enough at a stage, or whose judge call failed, is unjudged there, not lost.
+
+## Value Exclusivity
+
+The share of adopting units that adopt exactly one candidate Value of a Dimension: a Dimension's Values are alternatives, so a system should take one of them. A unit is a source (the source of each passage); when passages are mapped to the systems they describe, it is a system. A unit adopts a Value when one of its passages accepts it; rejections never count. A declared hybrid (a set of Values a system deliberately combines) counts as one choice. Dimensions adopted by fewer than two units, or with fewer than two candidate decisions, are left out of the Taxonomy's score (exclusive by chance or by construction). It is the operational form of a *testable* decision point (one can tell which alternative a system took). Several adopted Values of one Dimension mean either that the Values are not alternatives (fixed by Value Recoding) or that the Dimension bundles several decisions (flagged). It appears as a row of the Scoreboard and on the wiki's dimension pages. Report it next to how fragmented the Taxonomy is (Dimensions, candidate decisions per Dimension, share of Values adopted by more than one unit): splitting Dimensions or bundling one source's Values each raise exclusivity without improving the Taxonomy.
+
+## Value Recoding
+
+A step after Evidence Linking that rewrites the candidate Values of a low-exclusivity Dimension as alternative answers to its question. A **combination** is the set of a Dimension's Values one source adopts; the LLM proposes alternatives and assigns every combination to exactly one of them. The former Values become the **facets** of the alternatives that include them (`includes`), with their evidence. It applies only when enough sources share their combination; a recoding is kept only if every alternative is adopted by at least two sources, alternatives differ in their facets (nested levels are fine), and at least half of the sources adopt exactly the facets of their alternative. Dimensions whose sources combine Values in many different ways are not recoded but flagged as likely bundling several decisions. Logged in the Operation Log.
+

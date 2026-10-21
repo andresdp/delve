@@ -1,0 +1,2716 @@
+{
+  "taxonomy_name": "c2-rl-monitoring-baseline-l1",
+  "mode": "baseline-l1",
+  "baseline": {
+    "kind": "long_context",
+    "seed": 42,
+    "model": "openai/gpt-5.6-luna",
+    "prompt_version": "1",
+    "prompt_sha256": "a17b4f73801d907eb43a1a232f064ea55640b0c96d28be216d674c3139ad4604",
+    "prompt_tokens_counted": 81412,
+    "unknown_passage_ids_dropped": 0
+  },
+  "run_metrics": {
+    "elapsed_seconds": 52.0,
+    "total_tokens": 90756,
+    "prompt_tokens": 82408,
+    "completion_tokens": 8348
+  },
+  "iterations": [
+    {
+      "explanation": "The taxonomy is organized around the operational control loop for a deployed RL agent: capture telemetry, choose monitoring signals and granularity, detect degradation, calibrate triggers, evaluate candidate policies, control exposure, update policies, and recover through fallbacks or rollback. I separated Production Monitoring Signal Scope from Monitoring Granularity because the former concerns what is measured, while the latter concerns where the measurement is sliced. I separated Production Evaluation Mode from Deployment Exposure Strategy because shadow, offline, canary, A/B, and full-production evaluation describe evidence-gathering methods, whereas exposure describes how much authority and traffic a policy receives. Telemetry and Trace Retention is a distinct infrastructure decision because fine-grained detection, diagnosis, lineage, and rollback depend on retaining synchronized state, action, reward, outcome, and version data. Alert and Trigger Calibration is separate from Degradation Detection Method: a detector produces evidence, while calibration determines persistence, false-alarm control, escalation, and automation thresholds. Policy Update Strategy captures the choice between frozen, scheduled, trigger-based, hybrid, and continuous adaptation, including the documented risks of update lag, instability, and forgetting. Policy Version and Fallback Management captures recovery architecture, while Runtime Safety Enforcement captures action-time controls that operate before or independently of rollback. Human Oversight Strategy remains separate because expert review can supply signals, approve actions, adjudicate alerts, and provide corrective data, but introduces cost and scalability constraints. Rejected values represent approaches the passages explicitly characterize as inadequate, such as aggregate-only monitoring, direct unstaged promotion, manual-only recovery, uncontrolled online learning, and treating training-time safety compliance as deployment safety. Outcome values capture recurring effects rather than choices, including metric divergence, false alarms, offline-live mismatch, observability gaps, blast-radius reduction, recovery latency, human-review toil, and safety generalization failure.",
+      "clusters": [
+        {
+          "id": "1",
+          "name": "Production Monitoring Signal Scope",
+          "description": "Which observable signals the monitoring infrastructure uses to judge whether a deployed RL agent remains healthy, effective, and safe.",
+          "relations": [
+            {
+              "target_id": "2",
+              "reading": "Production Monitoring Signal Scope affects Monitoring Granularity",
+              "type": "affects",
+              "rationale": "The selected signals determine which slices, episodes, actions, or deployment versions must be retained and analyzed."
+            },
+            {
+              "target_id": "3",
+              "reading": "Production Monitoring Signal Scope affects Degradation Detection Method",
+              "type": "affects",
+              "rationale": "Reward-only, drift, safety, business, and internal-policy signals support different detection methods."
+            },
+            {
+              "target_id": "4",
+              "reading": "Production Monitoring Signal Scope affects Automated Response Policy",
+              "type": "affects",
+              "rationale": "Rollback and fallback triggers can only act on signals that are instrumented and evaluated."
+            }
+          ],
+          "values": [
+            {
+              "id": "1.1",
+              "dimension_id": "1",
+              "label": "Reward and return monitoring",
+              "description": "Track episodic rewards, moving-average returns, reward proxies, and reward deterioration over time.",
+              "supporting_doc_ids": [
+                "s02_p01",
+                "s02_p02",
+                "s02_p03",
+                "s03_p01",
+                "s17_p01",
+                "s19_p02",
+                "s20_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.2",
+              "dimension_id": "1",
+              "label": "State and input drift monitoring",
+              "description": "Monitor changes in observations, features, state distributions, embeddings, or environment conditions relative to a reference distribution.",
+              "supporting_doc_ids": [
+                "s02_p01",
+                "s03_p03",
+                "s04_p07",
+                "s04_p08",
+                "s04_p11",
+                "s08_p03",
+                "s08_p06",
+                "s15_p03",
+                "s17_p01",
+                "s19_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.3",
+              "dimension_id": "1",
+              "label": "Policy and action-behavior monitoring",
+              "description": "Monitor action distributions, policy entropy, action sequences, policy divergence, and unusual or implausible behaviors.",
+              "supporting_doc_ids": [
+                "s01_p07",
+                "s02_p01",
+                "s11_p20",
+                "s12_p04",
+                "s18_p01",
+                "s18_p03",
+                "s19_p02",
+                "s20_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.4",
+              "dimension_id": "1",
+              "label": "Safety and constraint monitoring",
+              "description": "Track safety-rule violations, unsafe actions, shield interventions, anomaly signals, and behavior outside the known safety envelope.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s01_p08",
+                "s04_p11",
+                "s04_p14",
+                "s04_p15",
+                "s15_p03",
+                "s16_p06",
+                "s16_p08",
+                "s19_p01",
+                "s21_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.5",
+              "dimension_id": "1",
+              "label": "Operational service monitoring",
+              "description": "Track inference latency, error rates, feature availability, resource consumption, throughput, and infrastructure health.",
+              "supporting_doc_ids": [
+                "s04_p03",
+                "s04_p11",
+                "s04_p12",
+                "s07_p01",
+                "s09_p01",
+                "s20_p02",
+                "s21_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.6",
+              "dimension_id": "1",
+              "label": "Business-outcome monitoring",
+              "description": "Correlate agent behavior with business or domain outcomes such as conversions, engagement, cost, revenue, customer dissatisfaction, or clinical outcomes.",
+              "supporting_doc_ids": [
+                "s01_p07",
+                "s01_p09",
+                "s04_p03",
+                "s04_p11",
+                "s07_p01",
+                "s17_p01",
+                "s20_p05",
+                "s23_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "1.7",
+              "dimension_id": "1",
+              "label": "Single aggregate metric monitoring",
+              "description": "Use only a mean reward, global reward, loss, entropy, or global KL signal as the principal production indicator.",
+              "supporting_doc_ids": [
+                "s02_p02",
+                "s03_p01",
+                "s17_p01",
+                "s18_p01",
+                "s18_p02",
+                "s18_p04"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "1.8",
+              "dimension_id": "1",
+              "label": "Metric divergence and proxy-gap outcome",
+              "description": "An observed outcome in which reward or another optimized proxy improves while live outcomes, safety, or related metrics deteriorate.",
+              "supporting_doc_ids": [
+                "s04_p08",
+                "s06_p13",
+                "s11_p12",
+                "s12_p03",
+                "s18_p01",
+                "s29_p09"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "name": "Monitoring Granularity",
+          "description": "At what unit the infrastructure analyzes telemetry and detects failures: global system, episode, traffic slice, interaction mode, or individual trajectory.",
+          "relations": [
+            {
+              "target_id": "3",
+              "reading": "Monitoring Granularity constrains Degradation Detection Method",
+              "type": "constrains",
+              "rationale": "Sequential episode tests, per-segment analysis, and tool-conditioned tail diagnostics require different statistical procedures."
+            },
+            {
+              "target_id": "4",
+              "reading": "Monitoring Granularity affects Automated Response Policy",
+              "type": "affects",
+              "rationale": "A response may target a policy version, traffic slice, interaction mode, or the whole deployment depending on where degradation is localized."
+            },
+            {
+              "target_id": "5",
+              "reading": "Monitoring Granularity requires Telemetry and Trace Retention to be decided first",
+              "type": "requires",
+              "rationale": "Fine-grained monitoring cannot be implemented without retaining the corresponding episode, trajectory, slice, and context identifiers."
+            }
+          ],
+          "values": [
+            {
+              "id": "2.1",
+              "dimension_id": "2",
+              "label": "Global aggregate monitoring",
+              "description": "Monitor deployment-wide averages and aggregate health metrics.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s01_p07",
+                "s04_p14",
+                "s20_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.2",
+              "dimension_id": "2",
+              "label": "Episode-level monitoring",
+              "description": "Treat complete episodes or recent episode windows as the unit of analysis for reward and degradation detection.",
+              "supporting_doc_ids": [
+                "s02_p01",
+                "s02_p03",
+                "s03_p01",
+                "s03_p02",
+                "s17_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.3",
+              "dimension_id": "2",
+              "label": "Traffic- and population-slice monitoring",
+              "description": "Monitor separate users, segments, environments, services, policies, or traffic cohorts rather than only aggregate behavior.",
+              "supporting_doc_ids": [
+                "s04_p14",
+                "s08_p05",
+                "s11_p22",
+                "s20_p05",
+                "s21_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.4",
+              "dimension_id": "2",
+              "label": "Interaction-mode and tool-context monitoring",
+              "description": "Separate diagnostics by context such as pre-tool versus post-tool interactions or other modes that have different support and risk profiles.",
+              "supporting_doc_ids": [
+                "s18_p01",
+                "s18_p02",
+                "s18_p03",
+                "s18_p04",
+                "s18_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.5",
+              "dimension_id": "2",
+              "label": "Trajectory and action-level monitoring",
+              "description": "Retain and inspect individual state-action-outcome trajectories, action sequences, and safety-triggering decisions for investigation.",
+              "supporting_doc_ids": [
+                "s04_p07",
+                "s04_p14",
+                "s04_p15",
+                "s04_p16",
+                "s11_p20",
+                "s19_p02",
+                "s20_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "2.6",
+              "dimension_id": "2",
+              "label": "Aggregate-only observability",
+              "description": "Rely on system-wide averages that can hide rare, localized, or tail failures.",
+              "supporting_doc_ids": [
+                "s04_p22",
+                "s18_p01",
+                "s18_p02",
+                "s18_p03",
+                "s18_p04"
+              ],
+              "status": "rejected"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Degradation Detection Method",
+          "description": "Which analytical technique decides whether observed production behavior represents statistically meaningful degradation, drift, anomaly, or reward exploitation.",
+          "relations": [
+            {
+              "target_id": "6",
+              "reading": "Degradation Detection Method affects Alert and Trigger Calibration",
+              "type": "affects",
+              "rationale": "Each detector has different variance, false-alarm, sensitivity, and persistence characteristics that influence thresholds and alert duration."
+            },
+            {
+              "target_id": "4",
+              "reading": "Degradation Detection Method affects Automated Response Policy",
+              "type": "affects",
+              "rationale": "Detection confidence and failure type determine whether to alert, gate, fall back, retrain, or roll back."
+            },
+            {
+              "target_id": "7",
+              "reading": "Degradation Detection Method affects Policy Update Strategy",
+              "type": "affects",
+              "rationale": "Evidence of drift, reward deterioration, or a localized anomaly can trigger different maintenance actions."
+            }
+          ],
+          "values": [
+            {
+              "id": "3.1",
+              "dimension_id": "3",
+              "label": "Reference-distribution sequential testing",
+              "description": "Compare recent episodic signals with a valid reference dataset using sequential tests, including weighted statistics and false-alarm control.",
+              "supporting_doc_ids": [
+                "s02_p02",
+                "s02_p03",
+                "s02_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.2",
+              "dimension_id": "3",
+              "label": "Moving-window threshold detection",
+              "description": "Compare recent reward or performance windows with a fixed fraction or threshold of a historical best or baseline.",
+              "supporting_doc_ids": [
+                "s03_p01",
+                "s03_p02",
+                "s17_p01",
+                "s07_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.3",
+              "dimension_id": "3",
+              "label": "Distribution-shift detection",
+              "description": "Use statistical distances, embedding drift, KL divergence, PSI, MMD, or related distributional comparisons to detect changes in inputs or behavior.",
+              "supporting_doc_ids": [
+                "s04_p08",
+                "s04_p11",
+                "s08_p03",
+                "s08_p06",
+                "s12_p04",
+                "s15_p03",
+                "s19_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.4",
+              "dimension_id": "3",
+              "label": "Policy-anomaly detection",
+              "description": "Compare action distributions or trajectories against a trusted policy using anomaly classifiers or distances such as JSD and Hellinger distance.",
+              "supporting_doc_ids": [
+                "s11_p20",
+                "s12_p04",
+                "s14_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.5",
+              "dimension_id": "3",
+              "label": "Tail and support diagnostics",
+              "description": "Monitor percentiles, empirical-distribution shape changes, importance-weight tails, effective sample size, and low-support contexts to detect delayed instability.",
+              "supporting_doc_ids": [
+                "s18_p01",
+                "s18_p02",
+                "s18_p03",
+                "s18_p04",
+                "s18_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.6",
+              "dimension_id": "3",
+              "label": "Behavioral and human review detection",
+              "description": "Use held-out scenarios, expert review, red teaming, trajectory inspection, or direct observation to identify behavior that metrics miss.",
+              "supporting_doc_ids": [
+                "s06_p12",
+                "s06_p13",
+                "s06_p15",
+                "s11_p20",
+                "s15_p03",
+                "s22_p06",
+                "s24_p02",
+                "s29_p11"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "3.7",
+              "dimension_id": "3",
+              "label": "Naive simple-mean detection",
+              "description": "Use an unweighted mean of recent rewards as the degradation test without accounting for episodic dependence, covariance, or sequential false alarms.",
+              "supporting_doc_ids": [
+                "s02_p02",
+                "s02_p04"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "3.8",
+              "dimension_id": "3",
+              "label": "False alarms and missed tail failures",
+              "description": "An operational outcome in which thresholds either react to transient noise or fail to detect rare, localized, or rapidly emerging failures.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s07_p02",
+                "s18_p01",
+                "s18_p04"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "name": "Production Evaluation Mode",
+          "description": "How candidate or deployed policies are evaluated against production behavior and outcomes before they are allowed to control live decisions.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Production Evaluation Mode constrains Deployment Exposure Strategy",
+              "type": "constrains",
+              "rationale": "Shadow, canary, A/B, and direct deployment expose policies to progressively different levels of live impact."
+            },
+            {
+              "target_id": "6",
+              "reading": "Production Evaluation Mode affects Alert and Trigger Calibration",
+              "type": "affects",
+              "rationale": "Evaluation mode determines the available comparison population, baseline, traffic volume, and confidence of trigger measurements."
+            },
+            {
+              "target_id": "5",
+              "reading": "Production Evaluation Mode requires Telemetry and Trace Retention to be decided first",
+              "type": "requires",
+              "rationale": "Shadow comparisons, counterfactual analysis, and post-incident diagnosis require synchronized inputs, decisions, outcomes, versions, and traces."
+            }
+          ],
+          "values": [
+            {
+              "id": "4.1",
+              "dimension_id": "4",
+              "label": "Shadow policy evaluation",
+              "description": "Run the candidate policy as an observer that logs decisions and predicted outcomes without affecting live behavior.",
+              "supporting_doc_ids": [
+                "s04_p01",
+                "s04_p07",
+                "s04_p08",
+                "s04_p10",
+                "s04_p11",
+                "s04_p15",
+                "s04_p18",
+                "s04_p19",
+                "s04_p25"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.2",
+              "dimension_id": "4",
+              "label": "Canary evaluation",
+              "description": "Expose a small, controlled fraction of traffic or services to the candidate and compare it with a stable control.",
+              "supporting_doc_ids": [
+                "s04_p01",
+                "s04_p07",
+                "s04_p10",
+                "s04_p15",
+                "s04_p16",
+                "s04_p18",
+                "s04_p19",
+                "s07_p02",
+                "s09_p03",
+                "s20_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.3",
+              "dimension_id": "4",
+              "label": "A/B policy comparison",
+              "description": "Compare the candidate and baseline policies on live traffic using business, safety, reward, and operational metrics.",
+              "supporting_doc_ids": [
+                "s01_p07",
+                "s01_p09",
+                "s04_p07",
+                "s17_p01",
+                "s19_p02",
+                "s20_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.4",
+              "dimension_id": "4",
+              "label": "Offline replay and counterfactual evaluation",
+              "description": "Evaluate candidate decisions against logged trajectories, replay simulations, importance sampling, fitted Q-evaluation, or learned simulators before live control.",
+              "supporting_doc_ids": [
+                "s04_p01",
+                "s04_p03",
+                "s04_p07",
+                "s04_p08",
+                "s04_p10",
+                "s04_p18",
+                "s04_p20",
+                "s04_p25"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "4.5",
+              "dimension_id": "4",
+              "label": "Direct full-traffic promotion",
+              "description": "Promote a new policy directly to all production traffic without shadowing, canarying, or staged comparison.",
+              "supporting_doc_ids": [
+                "s04_p07",
+                "s04_p15",
+                "s07_p01",
+                "s07_p04",
+                "s09_p03",
+                "s19_p01"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "4.6",
+              "dimension_id": "4",
+              "label": "Offline-live evaluation mismatch",
+              "description": "An outcome in which offline metrics or shadow predictions look favorable while live reward, safety, or business outcomes deteriorate.",
+              "supporting_doc_ids": [
+                "s04_p03",
+                "s04_p08",
+                "s04_p11",
+                "s04_p21",
+                "s04_p22",
+                "s07_p01",
+                "s20_p05"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "name": "Telemetry and Trace Retention",
+          "description": "Which production context, decisions, outcomes, versions, and diagnostic artifacts the infrastructure captures for monitoring, comparison, and incident analysis.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Telemetry and Trace Retention enables Production Monitoring Signal Scope",
+              "type": "requires",
+              "rationale": "Reward, drift, safety, business, and service monitoring depend on the corresponding state, action, outcome, and infrastructure records."
+            },
+            {
+              "target_id": "2",
+              "reading": "Telemetry and Trace Retention enables Monitoring Granularity",
+              "type": "requires",
+              "rationale": "Per-episode, per-slice, per-tool, and per-action analysis requires identifiers and trace context at those granularities."
+            },
+            {
+              "target_id": "7",
+              "reading": "Telemetry and Trace Retention affects Policy Update Strategy",
+              "type": "affects",
+              "rationale": "Versioned logs and incident snapshots provide the evidence needed for retraining, reward changes, rollback, and postmortems."
+            }
+          ],
+          "values": [
+            {
+              "id": "5.1",
+              "dimension_id": "5",
+              "label": "Decision and trajectory logging",
+              "description": "Log timestamps, state or feature snapshots, actions, outcomes, rewards or reward proxies, next states, and metadata for each decision or trajectory.",
+              "supporting_doc_ids": [
+                "s04_p07",
+                "s04_p15",
+                "s04_p16",
+                "s19_p02",
+                "s20_p05",
+                "s20_p06",
+                "s21_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.2",
+              "dimension_id": "5",
+              "label": "Versioned lineage and dataset snapshots",
+              "description": "Associate telemetry with policy versions, deployment versions, behavior policies, datasets, traces, and training artifacts, retaining reproducible snapshots.",
+              "supporting_doc_ids": [
+                "s04_p03",
+                "s04_p15",
+                "s04_p16",
+                "s04_p23",
+                "s04_p24",
+                "s07_p03",
+                "s20_p04",
+                "s20_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.3",
+              "dimension_id": "5",
+              "label": "Diagnostic artifact retention",
+              "description": "Retain shadow logs, replayable trajectories, model outputs, alerts, rollback events, and evaluation snapshots for debugging and postmortems.",
+              "supporting_doc_ids": [
+                "s04_p14",
+                "s04_p15",
+                "s04_p16",
+                "s04_p22",
+                "s07_p03",
+                "s18_p05",
+                "s20_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "5.4",
+              "dimension_id": "5",
+              "label": "Incomplete or aggregate-only logging",
+              "description": "An observability posture in which missing feature, action, reward, trace, or segment data prevents diagnosis and masks failures.",
+              "supporting_doc_ids": [
+                "s04_p03",
+                "s04_p11",
+                "s04_p14",
+                "s04_p21",
+                "s04_p22",
+                "s20_p06"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "5.5",
+              "dimension_id": "5",
+              "label": "Diagnosis and auditability capability",
+              "description": "An outcome in which retained telemetry supports root-cause analysis, compliance review, incident timelines, and reproducible policy comparisons.",
+              "supporting_doc_ids": [
+                "s04_p08",
+                "s04_p15",
+                "s04_p16",
+                "s04_p22",
+                "s07_p03",
+                "s23_p10",
+                "s24_p02"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "6",
+          "name": "Alert and Trigger Calibration",
+          "description": "How the infrastructure converts monitoring evidence into alerts or automated triggers, including thresholds, persistence, statistical significance, and escalation severity.",
+          "relations": [
+            {
+              "target_id": "4",
+              "reading": "Alert and Trigger Calibration affects Production Evaluation Mode",
+              "type": "affects",
+              "rationale": "Trigger thresholds determine whether a candidate remains in shadow or canary mode, is promoted, or is withdrawn."
+            },
+            {
+              "target_id": "7",
+              "reading": "Alert and Trigger Calibration affects Policy Update Strategy",
+              "type": "affects",
+              "rationale": "Alerts can initiate rollback, retraining, reward review, or a freeze on further updates."
+            },
+            {
+              "target_id": "9",
+              "reading": "Alert and Trigger Calibration affects Human Oversight Strategy",
+              "type": "affects",
+              "rationale": "Severity and confidence determine whether an event is paged, ticketed, reviewed by experts, or handled automatically."
+            }
+          ],
+          "values": [
+            {
+              "id": "6.1",
+              "dimension_id": "6",
+              "label": "Fixed performance thresholds",
+              "description": "Trigger alerts or recovery when reward, safety, latency, error, business, or drift metrics cross predefined limits.",
+              "supporting_doc_ids": [
+                "s03_p01",
+                "s03_p02",
+                "s04_p14",
+                "s07_p01",
+                "s07_p02",
+                "s08_p08",
+                "s17_p01",
+                "s24_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.2",
+              "dimension_id": "6",
+              "label": "Sequential false-alarm-controlled thresholds",
+              "description": "Tune thresholds for repeated, overlapping, non-independent tests so the false-alarm probability is controlled over a specified horizon.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s02_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.3",
+              "dimension_id": "6",
+              "label": "Persistence and hysteresis conditions",
+              "description": "Require a breach to persist for a duration, frequency, or cooldown period before acting, reducing reactions to transient noise and rollback flapping.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s07_p02",
+                "s04_p14"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.4",
+              "dimension_id": "6",
+              "label": "Adaptive baseline and trend alerts",
+              "description": "Compare against historical variance, moving baselines, distributional trends, or metric divergence rather than relying only on static values.",
+              "supporting_doc_ids": [
+                "s03_p01",
+                "s04_p14",
+                "s06_p13",
+                "s08_p06",
+                "s08_p19",
+                "s18_p03",
+                "s18_p04"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "6.5",
+              "dimension_id": "6",
+              "label": "Uncalibrated static alerting",
+              "description": "Use static or overly sensitive thresholds without accounting for variance, sequential dependence, transient noise, or changing distributions.",
+              "supporting_doc_ids": [
+                "s02_p03",
+                "s04_p21",
+                "s04_p22",
+                "s07_p02",
+                "s18_p01"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "6.6",
+              "dimension_id": "6",
+              "label": "Alert noise and rollback flapping",
+              "description": "An operational outcome in which noisy or poorly tuned triggers repeatedly alert, roll back, or oscillate between policy versions.",
+              "supporting_doc_ids": [
+                "s04_p14",
+                "s04_p21",
+                "s07_p02"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "7",
+          "name": "Policy Update Strategy",
+          "description": "What operational action is taken when monitoring identifies drift, degradation, instability, or an unsafe policy after deployment.",
+          "relations": [
+            {
+              "target_id": "8",
+              "reading": "Policy Update Strategy constrains Deployment Exposure Strategy",
+              "type": "constrains",
+              "rationale": "A system that updates continuously needs safer exposure controls, while frozen or batch-updated policies can use staged validation between releases."
+            },
+            {
+              "target_id": "10",
+              "reading": "Policy Update Strategy requires Policy Version and Fallback Management to be decided first",
+              "type": "requires",
+              "rationale": "Updating, restoring, or comparing policies requires identifiable artifacts, known-good versions, checkpoints, and fallback behavior."
+            },
+            {
+              "target_id": "9",
+              "reading": "Policy Update Strategy affects Human Oversight Strategy",
+              "type": "affects",
+              "rationale": "Continuous or high-risk updates increase the need for expert review, approval gates, and incident runbooks."
+            }
+          ],
+          "values": [
+            {
+              "id": "7.1",
+              "dimension_id": "7",
+              "label": "Frozen production policy",
+              "description": "Keep the deployed policy fixed and update it only after offline evaluation, testing, and a controlled release process.",
+              "supporting_doc_ids": [
+                "s19_p01",
+                "s04_p06",
+                "s17_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.2",
+              "dimension_id": "7",
+              "label": "Scheduled batch retraining",
+              "description": "Collect production data and retrain or refresh the policy on a periodic cadence, such as weekly or monthly.",
+              "supporting_doc_ids": [
+                "s04_p06",
+                "s04_p07",
+                "s08_p08",
+                "s09_p02",
+                "s17_p01",
+                "s19_p01",
+                "s23_p09"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.3",
+              "dimension_id": "7",
+              "label": "Trigger-based retraining",
+              "description": "Start retraining or fine-tuning when drift, reward deterioration, feedback degradation, or another monitored condition crosses a trigger.",
+              "supporting_doc_ids": [
+                "s08_p06",
+                "s08_p08",
+                "s08_p09",
+                "s08_p19",
+                "s09_p02",
+                "s24_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.4",
+              "dimension_id": "7",
+              "label": "Continuous online adaptation",
+              "description": "Update policy parameters or adapters from live data and feedback in an ongoing or near-real-time loop.",
+              "supporting_doc_ids": [
+                "s01_p09",
+                "s08_p11",
+                "s08_p12",
+                "s08_p13",
+                "s09_p02",
+                "s22_p03",
+                "s23_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.5",
+              "dimension_id": "7",
+              "label": "Hybrid offline-online update cycle",
+              "description": "Use offline data and evaluation for policy changes while retaining selected online feedback, shadowing, or controlled adaptation.",
+              "supporting_doc_ids": [
+                "s01_p09",
+                "s04_p08",
+                "s08_p19",
+                "s17_p01",
+                "s19_p01",
+                "s23_p14"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "7.6",
+              "dimension_id": "7",
+              "label": "Uncontrolled continuous learning",
+              "description": "Allow the agent to update directly from live interaction without staged validation, strong safety mechanisms, or rollback protection.",
+              "supporting_doc_ids": [
+                "s01_p02",
+                "s08_p12",
+                "s08_p13",
+                "s09_p02",
+                "s19_p01"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "7.7",
+              "dimension_id": "7",
+              "label": "Adaptation lag and catastrophic forgetting",
+              "description": "Outcomes of update choices including slow response to drift, instability from rapid updates, loss of prior capabilities, or regressions from recent-data overfitting.",
+              "supporting_doc_ids": [
+                "s04_p06",
+                "s04_p21",
+                "s08_p08",
+                "s08_p10",
+                "s08_p13",
+                "s09_p02"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "8",
+          "name": "Deployment Exposure Strategy",
+          "description": "How much live decision authority and traffic a policy receives while it is being evaluated, promoted, or monitored.",
+          "relations": [
+            {
+              "target_id": "4",
+              "reading": "Deployment Exposure Strategy affects Production Evaluation Mode",
+              "type": "affects",
+              "rationale": "Shadow, canary, A/B, blue-green, and full rollout are exposure choices that define how evaluation is performed."
+            },
+            {
+              "target_id": "10",
+              "reading": "Deployment Exposure Strategy requires Policy Version and Fallback Management to be decided first",
+              "type": "requires",
+              "rationale": "Staged exposure is safe only when traffic can be routed to an identified stable version and returned to it quickly."
+            },
+            {
+              "target_id": "1",
+              "reading": "Deployment Exposure Strategy affects Production Monitoring Signal Scope",
+              "type": "affects",
+              "rationale": "Exposure level changes the available traffic volume, blast radius, and confidence of observed safety and business signals."
+            }
+          ],
+          "values": [
+            {
+              "id": "8.1",
+              "dimension_id": "8",
+              "label": "Observer-only shadow exposure",
+              "description": "Give the candidate production inputs and record its decisions without allowing it to affect users or the environment.",
+              "supporting_doc_ids": [
+                "s04_p07",
+                "s04_p08",
+                "s04_p10",
+                "s04_p18",
+                "s04_p19",
+                "s04_p25"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.2",
+              "dimension_id": "8",
+              "label": "Gradual canary exposure",
+              "description": "Allow the candidate to control a limited traffic fraction or low-risk cohort, with explicit promotion and rollback criteria.",
+              "supporting_doc_ids": [
+                "s04_p01",
+                "s04_p07",
+                "s04_p15",
+                "s04_p16",
+                "s04_p18",
+                "s04_p19",
+                "s07_p02",
+                "s09_p03",
+                "s20_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.3",
+              "dimension_id": "8",
+              "label": "A/B or blue-green exposure",
+              "description": "Operate candidate and stable versions as separately addressable variants and compare or shift traffic between them.",
+              "supporting_doc_ids": [
+                "s01_p07",
+                "s01_p09",
+                "s04_p01",
+                "s04_p07",
+                "s07_p02",
+                "s09_p03",
+                "s17_p01",
+                "s20_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.4",
+              "dimension_id": "8",
+              "label": "Full-production exposure",
+              "description": "Allow the policy to control all relevant production traffic after validation and staged promotion.",
+              "supporting_doc_ids": [
+                "s04_p07",
+                "s07_p02",
+                "s07_p04",
+                "s20_p05"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "8.5",
+              "dimension_id": "8",
+              "label": "Unstaged promotion",
+              "description": "Expose a new policy broadly without shadow, canary, A/B, or blue-green safeguards.",
+              "supporting_doc_ids": [
+                "s04_p25",
+                "s07_p01",
+                "s07_p04",
+                "s09_p03",
+                "s19_p01"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "8.6",
+              "dimension_id": "8",
+              "label": "Blast-radius reduction",
+              "description": "An outcome of shadowing and staged exposure in which faulty policies affect fewer users, actions, or systems before detection and rollback.",
+              "supporting_doc_ids": [
+                "s04_p10",
+                "s04_p18",
+                "s07_p01",
+                "s07_p02",
+                "s09_p03"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "9",
+          "name": "Human Oversight Strategy",
+          "description": "How domain experts, operators, reviewers, and incident responders participate in monitoring, validating, escalating, and correcting deployed RL behavior.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Human Oversight Strategy affects Production Monitoring Signal Scope",
+              "type": "affects",
+              "rationale": "Human review adds qualitative behavior, fairness, alignment, and domain-correctness signals that automated telemetry may miss."
+            },
+            {
+              "target_id": "6",
+              "reading": "Human Oversight Strategy affects Alert and Trigger Calibration",
+              "type": "affects",
+              "rationale": "Review workflows determine which alerts are escalated, sampled, adjudicated, or used to tune thresholds."
+            },
+            {
+              "target_id": "7",
+              "reading": "Human Oversight Strategy affects Policy Update Strategy",
+              "type": "affects",
+              "rationale": "Experts can approve retraining data, intervene in high-risk actions, and decide whether a policy update is safe."
+            }
+          ],
+          "values": [
+            {
+              "id": "9.1",
+              "dimension_id": "9",
+              "label": "Periodic expert review",
+              "description": "Have domain experts inspect sampled interactions, trajectories, outputs, or safety-relevant behavior at defined intervals.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s02_p01",
+                "s06_p12",
+                "s08_p04",
+                "s08_p15",
+                "s09_p02",
+                "s15_p03",
+                "s22_p06",
+                "s24_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "9.2",
+              "dimension_id": "9",
+              "label": "Real-time human intervention",
+              "description": "Allow an operator or domain expert to override, approve, reject, or take over high-risk decisions during operation.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s04_p05",
+                "s04_p16",
+                "s15_p03",
+                "s16_p08",
+                "s19_p01",
+                "s22_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "9.3",
+              "dimension_id": "9",
+              "label": "Human-validated feedback loop",
+              "description": "Use expert corrections, preferences, incident judgments, or reviewed examples as monitoring evidence and input to future policy updates.",
+              "supporting_doc_ids": [
+                "s08_p10",
+                "s08_p15",
+                "s09_p02",
+                "s22_p03",
+                "s22_p06",
+                "s23_p02",
+                "s29_p10"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "9.4",
+              "dimension_id": "9",
+              "label": "Automated monitoring without human review",
+              "description": "Rely exclusively on automated metrics, anomaly detectors, or classifiers for production oversight.",
+              "supporting_doc_ids": [
+                "s06_p12",
+                "s06_p15",
+                "s11_p20",
+                "s15_p03",
+                "s22_p06",
+                "s27_p01"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "9.5",
+              "dimension_id": "9",
+              "label": "Review and response toil",
+              "description": "An outcome in which human labeling, review, escalation, and incident response consume substantial resources and may not scale with traffic or model capability.",
+              "supporting_doc_ids": [
+                "s06_p18",
+                "s06_p23",
+                "s11_p21",
+                "s22_p07",
+                "s23_p08",
+                "s27_p01"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "10",
+          "name": "Policy Version and Fallback Management",
+          "description": "How the infrastructure identifies known-good policies, stores checkpoints, selects fallback behavior, and restores a stable version after a production problem.",
+          "relations": [
+            {
+              "target_id": "4",
+              "reading": "Policy Version and Fallback Management affects Production Evaluation Mode",
+              "type": "affects",
+              "rationale": "Comparison, canary, and rollback require stable policy identities and a known control version."
+            },
+            {
+              "target_id": "6",
+              "reading": "Policy Version and Fallback Management requires Alert and Trigger Calibration to be decided first",
+              "type": "requires",
+              "rationale": "Automated restoration needs defined conditions that identify when the current policy is unacceptable."
+            },
+            {
+              "target_id": "7",
+              "reading": "Policy Version and Fallback Management enables Policy Update Strategy",
+              "type": "requires",
+              "rationale": "Scheduled, triggered, or continuous updates need versioned artifacts and a recoverable prior state."
+            }
+          ],
+          "values": [
+            {
+              "id": "10.1",
+              "dimension_id": "10",
+              "label": "Automated checkpoint rollback",
+              "description": "Save known-good policy checkpoints and automatically restore the latest stable checkpoint after a degradation trigger.",
+              "supporting_doc_ids": [
+                "s01_p02",
+                "s03_p01",
+                "s03_p02",
+                "s04_p07",
+                "s04_p16",
+                "s07_p01",
+                "s07_p02",
+                "s07_p03",
+                "s09_p03",
+                "s19_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.2",
+              "dimension_id": "10",
+              "label": "Safe-policy or behavior-policy fallback",
+              "description": "Switch to a conservative rule-based, behavior, baseline, or otherwise validated safe policy when the learned policy is unsafe or unavailable.",
+              "supporting_doc_ids": [
+                "s01_p03",
+                "s01_p04",
+                "s01_p09",
+                "s03_p01",
+                "s04_p16",
+                "s04_p22",
+                "s16_p08",
+                "s19_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.3",
+              "dimension_id": "10",
+              "label": "Traffic-shift rollback",
+              "description": "Restore stability by shifting traffic through a load balancer, service mesh, gateway, blue-green deployment, or canary controller.",
+              "supporting_doc_ids": [
+                "s07_p02",
+                "s07_p04",
+                "s09_p03"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.4",
+              "dimension_id": "10",
+              "label": "Registry-pointer or configuration rollback",
+              "description": "Repoint the serving system or feature flag to a previous production artifact and reload the serving instances.",
+              "supporting_doc_ids": [
+                "s07_p02",
+                "s07_p03",
+                "s04_p23",
+                "s04_p24"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "10.5",
+              "dimension_id": "10",
+              "label": "Manual-only recovery",
+              "description": "Depend on an operator to discover the incident and restore a previous policy without automated rollback or kill-switch support.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s04_p15",
+                "s04_p16",
+                "s07_p01",
+                "s07_p03",
+                "s19_p02"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "10.6",
+              "dimension_id": "10",
+              "label": "Recovery latency and blast-radius containment",
+              "description": "Outcomes of fallback and rollback design including shorter incident duration, reduced damage, or, if absent, prolonged exposure to a faulty policy.",
+              "supporting_doc_ids": [
+                "s01_p02",
+                "s01_p04",
+                "s07_p01",
+                "s07_p02",
+                "s07_p04",
+                "s09_p03",
+                "s19_p02"
+              ],
+              "status": "outcome"
+            }
+          ]
+        },
+        {
+          "id": "11",
+          "name": "Runtime Safety Enforcement",
+          "description": "Which controls constrain or replace an agent action at decision time when monitoring alone cannot guarantee safe behavior under distribution shift or reward misspecification.",
+          "relations": [
+            {
+              "target_id": "1",
+              "reading": "Runtime Safety Enforcement affects Production Monitoring Signal Scope",
+              "type": "affects",
+              "rationale": "Action filters, shields, and circuit breakers create intervention and violation signals that must be monitored."
+            },
+            {
+              "target_id": "10",
+              "reading": "Runtime Safety Enforcement affects Policy Version and Fallback Management",
+              "type": "affects",
+              "rationale": "A runtime guard may invoke a safe fallback or kill switch instead of permitting the learned action."
+            },
+            {
+              "target_id": "8",
+              "reading": "Runtime Safety Enforcement constrains Deployment Exposure Strategy",
+              "type": "constrains",
+              "rationale": "Policies with weaker runtime controls require more conservative exposure and staged deployment."
+            }
+          ],
+          "values": [
+            {
+              "id": "11.1",
+              "dimension_id": "11",
+              "label": "Action constraints and filters",
+              "description": "Enforce allowed-action sets, action bounds, safety rules, or policy constraints at deployment time.",
+              "supporting_doc_ids": [
+                "s01_p03",
+                "s04_p10",
+                "s04_p25",
+                "s16_p08",
+                "s19_p01",
+                "s19_p02"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.2",
+              "dimension_id": "11",
+              "label": "Adaptive runtime shielding",
+              "description": "Place a shield between policy and environment that blocks or replaces actions using current risk, uncertainty, or hidden-parameter estimates.",
+              "supporting_doc_ids": [
+                "s15_p03",
+                "s16_p05",
+                "s16_p06",
+                "s16_p08"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.3",
+              "dimension_id": "11",
+              "label": "Automated circuit breaking",
+              "description": "Stop or redirect policy execution when poor performance, unsafe behavior, or severe anomalies are detected.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s01_p09",
+                "s04_p07",
+                "s04_p14",
+                "s04_p15",
+                "s07_p01",
+                "s19_p01"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.4",
+              "dimension_id": "11",
+              "label": "Human approval for high-risk actions",
+              "description": "Require a human to review or authorize decisions whose risk exceeds an operational or domain threshold.",
+              "supporting_doc_ids": [
+                "s01_p04",
+                "s04_p05",
+                "s15_p03",
+                "s19_p01",
+                "s21_p02",
+                "s22_p06"
+              ],
+              "status": "accepted"
+            },
+            {
+              "id": "11.5",
+              "dimension_id": "11",
+              "label": "Static training-only safety constraint",
+              "description": "Treat compliance with a reward penalty, CMDP budget, or simulator constraint during training as sufficient runtime protection.",
+              "supporting_doc_ids": [
+                "s16_p01",
+                "s16_p02",
+                "s16_p03",
+                "s16_p04",
+                "s16_p05",
+                "s16_p06",
+                "s16_p07",
+                "s16_p08"
+              ],
+              "status": "rejected"
+            },
+            {
+              "id": "11.6",
+              "dimension_id": "11",
+              "label": "Safety generalization failure",
+              "description": "An outcome in which a constraint, shield, or cost model passes training but permits unsafe actions after distribution shift, hidden-state changes, or weak data coverage.",
+              "supporting_doc_ids": [
+                "s15_p02",
+                "s16_p01",
+                "s16_p04",
+                "s16_p05",
+                "s16_p06",
+                "s16_p07",
+                "s16_p08"
+              ],
+              "status": "outcome"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "selected_clusters": [
+    {
+      "id": "1",
+      "name": "Production Monitoring Signal Scope",
+      "description": "Which observable signals the monitoring infrastructure uses to judge whether a deployed RL agent remains healthy, effective, and safe.",
+      "relations": [
+        {
+          "target_id": "2",
+          "reading": "Production Monitoring Signal Scope affects Monitoring Granularity",
+          "type": "affects",
+          "rationale": "The selected signals determine which slices, episodes, actions, or deployment versions must be retained and analyzed."
+        },
+        {
+          "target_id": "3",
+          "reading": "Production Monitoring Signal Scope affects Degradation Detection Method",
+          "type": "affects",
+          "rationale": "Reward-only, drift, safety, business, and internal-policy signals support different detection methods."
+        },
+        {
+          "target_id": "4",
+          "reading": "Production Monitoring Signal Scope affects Automated Response Policy",
+          "type": "affects",
+          "rationale": "Rollback and fallback triggers can only act on signals that are instrumented and evaluated."
+        }
+      ],
+      "values": [
+        {
+          "id": "1.1",
+          "dimension_id": "1",
+          "label": "Reward and return monitoring",
+          "description": "Track episodic rewards, moving-average returns, reward proxies, and reward deterioration over time.",
+          "supporting_doc_ids": [
+            "s02_p01",
+            "s02_p02",
+            "s02_p03",
+            "s03_p01",
+            "s17_p01",
+            "s19_p02",
+            "s20_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.2",
+          "dimension_id": "1",
+          "label": "State and input drift monitoring",
+          "description": "Monitor changes in observations, features, state distributions, embeddings, or environment conditions relative to a reference distribution.",
+          "supporting_doc_ids": [
+            "s02_p01",
+            "s03_p03",
+            "s04_p07",
+            "s04_p08",
+            "s04_p11",
+            "s08_p03",
+            "s08_p06",
+            "s15_p03",
+            "s17_p01",
+            "s19_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.3",
+          "dimension_id": "1",
+          "label": "Policy and action-behavior monitoring",
+          "description": "Monitor action distributions, policy entropy, action sequences, policy divergence, and unusual or implausible behaviors.",
+          "supporting_doc_ids": [
+            "s01_p07",
+            "s02_p01",
+            "s11_p20",
+            "s12_p04",
+            "s18_p01",
+            "s18_p03",
+            "s19_p02",
+            "s20_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.4",
+          "dimension_id": "1",
+          "label": "Safety and constraint monitoring",
+          "description": "Track safety-rule violations, unsafe actions, shield interventions, anomaly signals, and behavior outside the known safety envelope.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s01_p08",
+            "s04_p11",
+            "s04_p14",
+            "s04_p15",
+            "s15_p03",
+            "s16_p06",
+            "s16_p08",
+            "s19_p01",
+            "s21_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.5",
+          "dimension_id": "1",
+          "label": "Operational service monitoring",
+          "description": "Track inference latency, error rates, feature availability, resource consumption, throughput, and infrastructure health.",
+          "supporting_doc_ids": [
+            "s04_p03",
+            "s04_p11",
+            "s04_p12",
+            "s07_p01",
+            "s09_p01",
+            "s20_p02",
+            "s21_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.6",
+          "dimension_id": "1",
+          "label": "Business-outcome monitoring",
+          "description": "Correlate agent behavior with business or domain outcomes such as conversions, engagement, cost, revenue, customer dissatisfaction, or clinical outcomes.",
+          "supporting_doc_ids": [
+            "s01_p07",
+            "s01_p09",
+            "s04_p03",
+            "s04_p11",
+            "s07_p01",
+            "s17_p01",
+            "s20_p05",
+            "s23_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "1.7",
+          "dimension_id": "1",
+          "label": "Single aggregate metric monitoring",
+          "description": "Use only a mean reward, global reward, loss, entropy, or global KL signal as the principal production indicator.",
+          "supporting_doc_ids": [
+            "s02_p02",
+            "s03_p01",
+            "s17_p01",
+            "s18_p01",
+            "s18_p02",
+            "s18_p04"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "1.8",
+          "dimension_id": "1",
+          "label": "Metric divergence and proxy-gap outcome",
+          "description": "An observed outcome in which reward or another optimized proxy improves while live outcomes, safety, or related metrics deteriorate.",
+          "supporting_doc_ids": [
+            "s04_p08",
+            "s06_p13",
+            "s11_p12",
+            "s12_p03",
+            "s18_p01",
+            "s29_p09"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Monitoring Granularity",
+      "description": "At what unit the infrastructure analyzes telemetry and detects failures: global system, episode, traffic slice, interaction mode, or individual trajectory.",
+      "relations": [
+        {
+          "target_id": "3",
+          "reading": "Monitoring Granularity constrains Degradation Detection Method",
+          "type": "constrains",
+          "rationale": "Sequential episode tests, per-segment analysis, and tool-conditioned tail diagnostics require different statistical procedures."
+        },
+        {
+          "target_id": "4",
+          "reading": "Monitoring Granularity affects Automated Response Policy",
+          "type": "affects",
+          "rationale": "A response may target a policy version, traffic slice, interaction mode, or the whole deployment depending on where degradation is localized."
+        },
+        {
+          "target_id": "5",
+          "reading": "Monitoring Granularity requires Telemetry and Trace Retention to be decided first",
+          "type": "requires",
+          "rationale": "Fine-grained monitoring cannot be implemented without retaining the corresponding episode, trajectory, slice, and context identifiers."
+        }
+      ],
+      "values": [
+        {
+          "id": "2.1",
+          "dimension_id": "2",
+          "label": "Global aggregate monitoring",
+          "description": "Monitor deployment-wide averages and aggregate health metrics.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s01_p07",
+            "s04_p14",
+            "s20_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.2",
+          "dimension_id": "2",
+          "label": "Episode-level monitoring",
+          "description": "Treat complete episodes or recent episode windows as the unit of analysis for reward and degradation detection.",
+          "supporting_doc_ids": [
+            "s02_p01",
+            "s02_p03",
+            "s03_p01",
+            "s03_p02",
+            "s17_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.3",
+          "dimension_id": "2",
+          "label": "Traffic- and population-slice monitoring",
+          "description": "Monitor separate users, segments, environments, services, policies, or traffic cohorts rather than only aggregate behavior.",
+          "supporting_doc_ids": [
+            "s04_p14",
+            "s08_p05",
+            "s11_p22",
+            "s20_p05",
+            "s21_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.4",
+          "dimension_id": "2",
+          "label": "Interaction-mode and tool-context monitoring",
+          "description": "Separate diagnostics by context such as pre-tool versus post-tool interactions or other modes that have different support and risk profiles.",
+          "supporting_doc_ids": [
+            "s18_p01",
+            "s18_p02",
+            "s18_p03",
+            "s18_p04",
+            "s18_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.5",
+          "dimension_id": "2",
+          "label": "Trajectory and action-level monitoring",
+          "description": "Retain and inspect individual state-action-outcome trajectories, action sequences, and safety-triggering decisions for investigation.",
+          "supporting_doc_ids": [
+            "s04_p07",
+            "s04_p14",
+            "s04_p15",
+            "s04_p16",
+            "s11_p20",
+            "s19_p02",
+            "s20_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "2.6",
+          "dimension_id": "2",
+          "label": "Aggregate-only observability",
+          "description": "Rely on system-wide averages that can hide rare, localized, or tail failures.",
+          "supporting_doc_ids": [
+            "s04_p22",
+            "s18_p01",
+            "s18_p02",
+            "s18_p03",
+            "s18_p04"
+          ],
+          "status": "rejected"
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Degradation Detection Method",
+      "description": "Which analytical technique decides whether observed production behavior represents statistically meaningful degradation, drift, anomaly, or reward exploitation.",
+      "relations": [
+        {
+          "target_id": "6",
+          "reading": "Degradation Detection Method affects Alert and Trigger Calibration",
+          "type": "affects",
+          "rationale": "Each detector has different variance, false-alarm, sensitivity, and persistence characteristics that influence thresholds and alert duration."
+        },
+        {
+          "target_id": "4",
+          "reading": "Degradation Detection Method affects Automated Response Policy",
+          "type": "affects",
+          "rationale": "Detection confidence and failure type determine whether to alert, gate, fall back, retrain, or roll back."
+        },
+        {
+          "target_id": "7",
+          "reading": "Degradation Detection Method affects Policy Update Strategy",
+          "type": "affects",
+          "rationale": "Evidence of drift, reward deterioration, or a localized anomaly can trigger different maintenance actions."
+        }
+      ],
+      "values": [
+        {
+          "id": "3.1",
+          "dimension_id": "3",
+          "label": "Reference-distribution sequential testing",
+          "description": "Compare recent episodic signals with a valid reference dataset using sequential tests, including weighted statistics and false-alarm control.",
+          "supporting_doc_ids": [
+            "s02_p02",
+            "s02_p03",
+            "s02_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.2",
+          "dimension_id": "3",
+          "label": "Moving-window threshold detection",
+          "description": "Compare recent reward or performance windows with a fixed fraction or threshold of a historical best or baseline.",
+          "supporting_doc_ids": [
+            "s03_p01",
+            "s03_p02",
+            "s17_p01",
+            "s07_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.3",
+          "dimension_id": "3",
+          "label": "Distribution-shift detection",
+          "description": "Use statistical distances, embedding drift, KL divergence, PSI, MMD, or related distributional comparisons to detect changes in inputs or behavior.",
+          "supporting_doc_ids": [
+            "s04_p08",
+            "s04_p11",
+            "s08_p03",
+            "s08_p06",
+            "s12_p04",
+            "s15_p03",
+            "s19_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.4",
+          "dimension_id": "3",
+          "label": "Policy-anomaly detection",
+          "description": "Compare action distributions or trajectories against a trusted policy using anomaly classifiers or distances such as JSD and Hellinger distance.",
+          "supporting_doc_ids": [
+            "s11_p20",
+            "s12_p04",
+            "s14_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.5",
+          "dimension_id": "3",
+          "label": "Tail and support diagnostics",
+          "description": "Monitor percentiles, empirical-distribution shape changes, importance-weight tails, effective sample size, and low-support contexts to detect delayed instability.",
+          "supporting_doc_ids": [
+            "s18_p01",
+            "s18_p02",
+            "s18_p03",
+            "s18_p04",
+            "s18_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.6",
+          "dimension_id": "3",
+          "label": "Behavioral and human review detection",
+          "description": "Use held-out scenarios, expert review, red teaming, trajectory inspection, or direct observation to identify behavior that metrics miss.",
+          "supporting_doc_ids": [
+            "s06_p12",
+            "s06_p13",
+            "s06_p15",
+            "s11_p20",
+            "s15_p03",
+            "s22_p06",
+            "s24_p02",
+            "s29_p11"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "3.7",
+          "dimension_id": "3",
+          "label": "Naive simple-mean detection",
+          "description": "Use an unweighted mean of recent rewards as the degradation test without accounting for episodic dependence, covariance, or sequential false alarms.",
+          "supporting_doc_ids": [
+            "s02_p02",
+            "s02_p04"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "3.8",
+          "dimension_id": "3",
+          "label": "False alarms and missed tail failures",
+          "description": "An operational outcome in which thresholds either react to transient noise or fail to detect rare, localized, or rapidly emerging failures.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s07_p02",
+            "s18_p01",
+            "s18_p04"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Production Evaluation Mode",
+      "description": "How candidate or deployed policies are evaluated against production behavior and outcomes before they are allowed to control live decisions.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Production Evaluation Mode constrains Deployment Exposure Strategy",
+          "type": "constrains",
+          "rationale": "Shadow, canary, A/B, and direct deployment expose policies to progressively different levels of live impact."
+        },
+        {
+          "target_id": "6",
+          "reading": "Production Evaluation Mode affects Alert and Trigger Calibration",
+          "type": "affects",
+          "rationale": "Evaluation mode determines the available comparison population, baseline, traffic volume, and confidence of trigger measurements."
+        },
+        {
+          "target_id": "5",
+          "reading": "Production Evaluation Mode requires Telemetry and Trace Retention to be decided first",
+          "type": "requires",
+          "rationale": "Shadow comparisons, counterfactual analysis, and post-incident diagnosis require synchronized inputs, decisions, outcomes, versions, and traces."
+        }
+      ],
+      "values": [
+        {
+          "id": "4.1",
+          "dimension_id": "4",
+          "label": "Shadow policy evaluation",
+          "description": "Run the candidate policy as an observer that logs decisions and predicted outcomes without affecting live behavior.",
+          "supporting_doc_ids": [
+            "s04_p01",
+            "s04_p07",
+            "s04_p08",
+            "s04_p10",
+            "s04_p11",
+            "s04_p15",
+            "s04_p18",
+            "s04_p19",
+            "s04_p25"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.2",
+          "dimension_id": "4",
+          "label": "Canary evaluation",
+          "description": "Expose a small, controlled fraction of traffic or services to the candidate and compare it with a stable control.",
+          "supporting_doc_ids": [
+            "s04_p01",
+            "s04_p07",
+            "s04_p10",
+            "s04_p15",
+            "s04_p16",
+            "s04_p18",
+            "s04_p19",
+            "s07_p02",
+            "s09_p03",
+            "s20_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.3",
+          "dimension_id": "4",
+          "label": "A/B policy comparison",
+          "description": "Compare the candidate and baseline policies on live traffic using business, safety, reward, and operational metrics.",
+          "supporting_doc_ids": [
+            "s01_p07",
+            "s01_p09",
+            "s04_p07",
+            "s17_p01",
+            "s19_p02",
+            "s20_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.4",
+          "dimension_id": "4",
+          "label": "Offline replay and counterfactual evaluation",
+          "description": "Evaluate candidate decisions against logged trajectories, replay simulations, importance sampling, fitted Q-evaluation, or learned simulators before live control.",
+          "supporting_doc_ids": [
+            "s04_p01",
+            "s04_p03",
+            "s04_p07",
+            "s04_p08",
+            "s04_p10",
+            "s04_p18",
+            "s04_p20",
+            "s04_p25"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "4.5",
+          "dimension_id": "4",
+          "label": "Direct full-traffic promotion",
+          "description": "Promote a new policy directly to all production traffic without shadowing, canarying, or staged comparison.",
+          "supporting_doc_ids": [
+            "s04_p07",
+            "s04_p15",
+            "s07_p01",
+            "s07_p04",
+            "s09_p03",
+            "s19_p01"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "4.6",
+          "dimension_id": "4",
+          "label": "Offline-live evaluation mismatch",
+          "description": "An outcome in which offline metrics or shadow predictions look favorable while live reward, safety, or business outcomes deteriorate.",
+          "supporting_doc_ids": [
+            "s04_p03",
+            "s04_p08",
+            "s04_p11",
+            "s04_p21",
+            "s04_p22",
+            "s07_p01",
+            "s20_p05"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Telemetry and Trace Retention",
+      "description": "Which production context, decisions, outcomes, versions, and diagnostic artifacts the infrastructure captures for monitoring, comparison, and incident analysis.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Telemetry and Trace Retention enables Production Monitoring Signal Scope",
+          "type": "requires",
+          "rationale": "Reward, drift, safety, business, and service monitoring depend on the corresponding state, action, outcome, and infrastructure records."
+        },
+        {
+          "target_id": "2",
+          "reading": "Telemetry and Trace Retention enables Monitoring Granularity",
+          "type": "requires",
+          "rationale": "Per-episode, per-slice, per-tool, and per-action analysis requires identifiers and trace context at those granularities."
+        },
+        {
+          "target_id": "7",
+          "reading": "Telemetry and Trace Retention affects Policy Update Strategy",
+          "type": "affects",
+          "rationale": "Versioned logs and incident snapshots provide the evidence needed for retraining, reward changes, rollback, and postmortems."
+        }
+      ],
+      "values": [
+        {
+          "id": "5.1",
+          "dimension_id": "5",
+          "label": "Decision and trajectory logging",
+          "description": "Log timestamps, state or feature snapshots, actions, outcomes, rewards or reward proxies, next states, and metadata for each decision or trajectory.",
+          "supporting_doc_ids": [
+            "s04_p07",
+            "s04_p15",
+            "s04_p16",
+            "s19_p02",
+            "s20_p05",
+            "s20_p06",
+            "s21_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.2",
+          "dimension_id": "5",
+          "label": "Versioned lineage and dataset snapshots",
+          "description": "Associate telemetry with policy versions, deployment versions, behavior policies, datasets, traces, and training artifacts, retaining reproducible snapshots.",
+          "supporting_doc_ids": [
+            "s04_p03",
+            "s04_p15",
+            "s04_p16",
+            "s04_p23",
+            "s04_p24",
+            "s07_p03",
+            "s20_p04",
+            "s20_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.3",
+          "dimension_id": "5",
+          "label": "Diagnostic artifact retention",
+          "description": "Retain shadow logs, replayable trajectories, model outputs, alerts, rollback events, and evaluation snapshots for debugging and postmortems.",
+          "supporting_doc_ids": [
+            "s04_p14",
+            "s04_p15",
+            "s04_p16",
+            "s04_p22",
+            "s07_p03",
+            "s18_p05",
+            "s20_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "5.4",
+          "dimension_id": "5",
+          "label": "Incomplete or aggregate-only logging",
+          "description": "An observability posture in which missing feature, action, reward, trace, or segment data prevents diagnosis and masks failures.",
+          "supporting_doc_ids": [
+            "s04_p03",
+            "s04_p11",
+            "s04_p14",
+            "s04_p21",
+            "s04_p22",
+            "s20_p06"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "5.5",
+          "dimension_id": "5",
+          "label": "Diagnosis and auditability capability",
+          "description": "An outcome in which retained telemetry supports root-cause analysis, compliance review, incident timelines, and reproducible policy comparisons.",
+          "supporting_doc_ids": [
+            "s04_p08",
+            "s04_p15",
+            "s04_p16",
+            "s04_p22",
+            "s07_p03",
+            "s23_p10",
+            "s24_p02"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "Alert and Trigger Calibration",
+      "description": "How the infrastructure converts monitoring evidence into alerts or automated triggers, including thresholds, persistence, statistical significance, and escalation severity.",
+      "relations": [
+        {
+          "target_id": "4",
+          "reading": "Alert and Trigger Calibration affects Production Evaluation Mode",
+          "type": "affects",
+          "rationale": "Trigger thresholds determine whether a candidate remains in shadow or canary mode, is promoted, or is withdrawn."
+        },
+        {
+          "target_id": "7",
+          "reading": "Alert and Trigger Calibration affects Policy Update Strategy",
+          "type": "affects",
+          "rationale": "Alerts can initiate rollback, retraining, reward review, or a freeze on further updates."
+        },
+        {
+          "target_id": "9",
+          "reading": "Alert and Trigger Calibration affects Human Oversight Strategy",
+          "type": "affects",
+          "rationale": "Severity and confidence determine whether an event is paged, ticketed, reviewed by experts, or handled automatically."
+        }
+      ],
+      "values": [
+        {
+          "id": "6.1",
+          "dimension_id": "6",
+          "label": "Fixed performance thresholds",
+          "description": "Trigger alerts or recovery when reward, safety, latency, error, business, or drift metrics cross predefined limits.",
+          "supporting_doc_ids": [
+            "s03_p01",
+            "s03_p02",
+            "s04_p14",
+            "s07_p01",
+            "s07_p02",
+            "s08_p08",
+            "s17_p01",
+            "s24_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.2",
+          "dimension_id": "6",
+          "label": "Sequential false-alarm-controlled thresholds",
+          "description": "Tune thresholds for repeated, overlapping, non-independent tests so the false-alarm probability is controlled over a specified horizon.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s02_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.3",
+          "dimension_id": "6",
+          "label": "Persistence and hysteresis conditions",
+          "description": "Require a breach to persist for a duration, frequency, or cooldown period before acting, reducing reactions to transient noise and rollback flapping.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s07_p02",
+            "s04_p14"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.4",
+          "dimension_id": "6",
+          "label": "Adaptive baseline and trend alerts",
+          "description": "Compare against historical variance, moving baselines, distributional trends, or metric divergence rather than relying only on static values.",
+          "supporting_doc_ids": [
+            "s03_p01",
+            "s04_p14",
+            "s06_p13",
+            "s08_p06",
+            "s08_p19",
+            "s18_p03",
+            "s18_p04"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "6.5",
+          "dimension_id": "6",
+          "label": "Uncalibrated static alerting",
+          "description": "Use static or overly sensitive thresholds without accounting for variance, sequential dependence, transient noise, or changing distributions.",
+          "supporting_doc_ids": [
+            "s02_p03",
+            "s04_p21",
+            "s04_p22",
+            "s07_p02",
+            "s18_p01"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "6.6",
+          "dimension_id": "6",
+          "label": "Alert noise and rollback flapping",
+          "description": "An operational outcome in which noisy or poorly tuned triggers repeatedly alert, roll back, or oscillate between policy versions.",
+          "supporting_doc_ids": [
+            "s04_p14",
+            "s04_p21",
+            "s07_p02"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Policy Update Strategy",
+      "description": "What operational action is taken when monitoring identifies drift, degradation, instability, or an unsafe policy after deployment.",
+      "relations": [
+        {
+          "target_id": "8",
+          "reading": "Policy Update Strategy constrains Deployment Exposure Strategy",
+          "type": "constrains",
+          "rationale": "A system that updates continuously needs safer exposure controls, while frozen or batch-updated policies can use staged validation between releases."
+        },
+        {
+          "target_id": "10",
+          "reading": "Policy Update Strategy requires Policy Version and Fallback Management to be decided first",
+          "type": "requires",
+          "rationale": "Updating, restoring, or comparing policies requires identifiable artifacts, known-good versions, checkpoints, and fallback behavior."
+        },
+        {
+          "target_id": "9",
+          "reading": "Policy Update Strategy affects Human Oversight Strategy",
+          "type": "affects",
+          "rationale": "Continuous or high-risk updates increase the need for expert review, approval gates, and incident runbooks."
+        }
+      ],
+      "values": [
+        {
+          "id": "7.1",
+          "dimension_id": "7",
+          "label": "Frozen production policy",
+          "description": "Keep the deployed policy fixed and update it only after offline evaluation, testing, and a controlled release process.",
+          "supporting_doc_ids": [
+            "s19_p01",
+            "s04_p06",
+            "s17_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.2",
+          "dimension_id": "7",
+          "label": "Scheduled batch retraining",
+          "description": "Collect production data and retrain or refresh the policy on a periodic cadence, such as weekly or monthly.",
+          "supporting_doc_ids": [
+            "s04_p06",
+            "s04_p07",
+            "s08_p08",
+            "s09_p02",
+            "s17_p01",
+            "s19_p01",
+            "s23_p09"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.3",
+          "dimension_id": "7",
+          "label": "Trigger-based retraining",
+          "description": "Start retraining or fine-tuning when drift, reward deterioration, feedback degradation, or another monitored condition crosses a trigger.",
+          "supporting_doc_ids": [
+            "s08_p06",
+            "s08_p08",
+            "s08_p09",
+            "s08_p19",
+            "s09_p02",
+            "s24_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.4",
+          "dimension_id": "7",
+          "label": "Continuous online adaptation",
+          "description": "Update policy parameters or adapters from live data and feedback in an ongoing or near-real-time loop.",
+          "supporting_doc_ids": [
+            "s01_p09",
+            "s08_p11",
+            "s08_p12",
+            "s08_p13",
+            "s09_p02",
+            "s22_p03",
+            "s23_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.5",
+          "dimension_id": "7",
+          "label": "Hybrid offline-online update cycle",
+          "description": "Use offline data and evaluation for policy changes while retaining selected online feedback, shadowing, or controlled adaptation.",
+          "supporting_doc_ids": [
+            "s01_p09",
+            "s04_p08",
+            "s08_p19",
+            "s17_p01",
+            "s19_p01",
+            "s23_p14"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "7.6",
+          "dimension_id": "7",
+          "label": "Uncontrolled continuous learning",
+          "description": "Allow the agent to update directly from live interaction without staged validation, strong safety mechanisms, or rollback protection.",
+          "supporting_doc_ids": [
+            "s01_p02",
+            "s08_p12",
+            "s08_p13",
+            "s09_p02",
+            "s19_p01"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "7.7",
+          "dimension_id": "7",
+          "label": "Adaptation lag and catastrophic forgetting",
+          "description": "Outcomes of update choices including slow response to drift, instability from rapid updates, loss of prior capabilities, or regressions from recent-data overfitting.",
+          "supporting_doc_ids": [
+            "s04_p06",
+            "s04_p21",
+            "s08_p08",
+            "s08_p10",
+            "s08_p13",
+            "s09_p02"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "Deployment Exposure Strategy",
+      "description": "How much live decision authority and traffic a policy receives while it is being evaluated, promoted, or monitored.",
+      "relations": [
+        {
+          "target_id": "4",
+          "reading": "Deployment Exposure Strategy affects Production Evaluation Mode",
+          "type": "affects",
+          "rationale": "Shadow, canary, A/B, blue-green, and full rollout are exposure choices that define how evaluation is performed."
+        },
+        {
+          "target_id": "10",
+          "reading": "Deployment Exposure Strategy requires Policy Version and Fallback Management to be decided first",
+          "type": "requires",
+          "rationale": "Staged exposure is safe only when traffic can be routed to an identified stable version and returned to it quickly."
+        },
+        {
+          "target_id": "1",
+          "reading": "Deployment Exposure Strategy affects Production Monitoring Signal Scope",
+          "type": "affects",
+          "rationale": "Exposure level changes the available traffic volume, blast radius, and confidence of observed safety and business signals."
+        }
+      ],
+      "values": [
+        {
+          "id": "8.1",
+          "dimension_id": "8",
+          "label": "Observer-only shadow exposure",
+          "description": "Give the candidate production inputs and record its decisions without allowing it to affect users or the environment.",
+          "supporting_doc_ids": [
+            "s04_p07",
+            "s04_p08",
+            "s04_p10",
+            "s04_p18",
+            "s04_p19",
+            "s04_p25"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.2",
+          "dimension_id": "8",
+          "label": "Gradual canary exposure",
+          "description": "Allow the candidate to control a limited traffic fraction or low-risk cohort, with explicit promotion and rollback criteria.",
+          "supporting_doc_ids": [
+            "s04_p01",
+            "s04_p07",
+            "s04_p15",
+            "s04_p16",
+            "s04_p18",
+            "s04_p19",
+            "s07_p02",
+            "s09_p03",
+            "s20_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.3",
+          "dimension_id": "8",
+          "label": "A/B or blue-green exposure",
+          "description": "Operate candidate and stable versions as separately addressable variants and compare or shift traffic between them.",
+          "supporting_doc_ids": [
+            "s01_p07",
+            "s01_p09",
+            "s04_p01",
+            "s04_p07",
+            "s07_p02",
+            "s09_p03",
+            "s17_p01",
+            "s20_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.4",
+          "dimension_id": "8",
+          "label": "Full-production exposure",
+          "description": "Allow the policy to control all relevant production traffic after validation and staged promotion.",
+          "supporting_doc_ids": [
+            "s04_p07",
+            "s07_p02",
+            "s07_p04",
+            "s20_p05"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "8.5",
+          "dimension_id": "8",
+          "label": "Unstaged promotion",
+          "description": "Expose a new policy broadly without shadow, canary, A/B, or blue-green safeguards.",
+          "supporting_doc_ids": [
+            "s04_p25",
+            "s07_p01",
+            "s07_p04",
+            "s09_p03",
+            "s19_p01"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "8.6",
+          "dimension_id": "8",
+          "label": "Blast-radius reduction",
+          "description": "An outcome of shadowing and staged exposure in which faulty policies affect fewer users, actions, or systems before detection and rollback.",
+          "supporting_doc_ids": [
+            "s04_p10",
+            "s04_p18",
+            "s07_p01",
+            "s07_p02",
+            "s09_p03"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "Human Oversight Strategy",
+      "description": "How domain experts, operators, reviewers, and incident responders participate in monitoring, validating, escalating, and correcting deployed RL behavior.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Human Oversight Strategy affects Production Monitoring Signal Scope",
+          "type": "affects",
+          "rationale": "Human review adds qualitative behavior, fairness, alignment, and domain-correctness signals that automated telemetry may miss."
+        },
+        {
+          "target_id": "6",
+          "reading": "Human Oversight Strategy affects Alert and Trigger Calibration",
+          "type": "affects",
+          "rationale": "Review workflows determine which alerts are escalated, sampled, adjudicated, or used to tune thresholds."
+        },
+        {
+          "target_id": "7",
+          "reading": "Human Oversight Strategy affects Policy Update Strategy",
+          "type": "affects",
+          "rationale": "Experts can approve retraining data, intervene in high-risk actions, and decide whether a policy update is safe."
+        }
+      ],
+      "values": [
+        {
+          "id": "9.1",
+          "dimension_id": "9",
+          "label": "Periodic expert review",
+          "description": "Have domain experts inspect sampled interactions, trajectories, outputs, or safety-relevant behavior at defined intervals.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s02_p01",
+            "s06_p12",
+            "s08_p04",
+            "s08_p15",
+            "s09_p02",
+            "s15_p03",
+            "s22_p06",
+            "s24_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "9.2",
+          "dimension_id": "9",
+          "label": "Real-time human intervention",
+          "description": "Allow an operator or domain expert to override, approve, reject, or take over high-risk decisions during operation.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s04_p05",
+            "s04_p16",
+            "s15_p03",
+            "s16_p08",
+            "s19_p01",
+            "s22_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "9.3",
+          "dimension_id": "9",
+          "label": "Human-validated feedback loop",
+          "description": "Use expert corrections, preferences, incident judgments, or reviewed examples as monitoring evidence and input to future policy updates.",
+          "supporting_doc_ids": [
+            "s08_p10",
+            "s08_p15",
+            "s09_p02",
+            "s22_p03",
+            "s22_p06",
+            "s23_p02",
+            "s29_p10"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "9.4",
+          "dimension_id": "9",
+          "label": "Automated monitoring without human review",
+          "description": "Rely exclusively on automated metrics, anomaly detectors, or classifiers for production oversight.",
+          "supporting_doc_ids": [
+            "s06_p12",
+            "s06_p15",
+            "s11_p20",
+            "s15_p03",
+            "s22_p06",
+            "s27_p01"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "9.5",
+          "dimension_id": "9",
+          "label": "Review and response toil",
+          "description": "An outcome in which human labeling, review, escalation, and incident response consume substantial resources and may not scale with traffic or model capability.",
+          "supporting_doc_ids": [
+            "s06_p18",
+            "s06_p23",
+            "s11_p21",
+            "s22_p07",
+            "s23_p08",
+            "s27_p01"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "Policy Version and Fallback Management",
+      "description": "How the infrastructure identifies known-good policies, stores checkpoints, selects fallback behavior, and restores a stable version after a production problem.",
+      "relations": [
+        {
+          "target_id": "4",
+          "reading": "Policy Version and Fallback Management affects Production Evaluation Mode",
+          "type": "affects",
+          "rationale": "Comparison, canary, and rollback require stable policy identities and a known control version."
+        },
+        {
+          "target_id": "6",
+          "reading": "Policy Version and Fallback Management requires Alert and Trigger Calibration to be decided first",
+          "type": "requires",
+          "rationale": "Automated restoration needs defined conditions that identify when the current policy is unacceptable."
+        },
+        {
+          "target_id": "7",
+          "reading": "Policy Version and Fallback Management enables Policy Update Strategy",
+          "type": "requires",
+          "rationale": "Scheduled, triggered, or continuous updates need versioned artifacts and a recoverable prior state."
+        }
+      ],
+      "values": [
+        {
+          "id": "10.1",
+          "dimension_id": "10",
+          "label": "Automated checkpoint rollback",
+          "description": "Save known-good policy checkpoints and automatically restore the latest stable checkpoint after a degradation trigger.",
+          "supporting_doc_ids": [
+            "s01_p02",
+            "s03_p01",
+            "s03_p02",
+            "s04_p07",
+            "s04_p16",
+            "s07_p01",
+            "s07_p02",
+            "s07_p03",
+            "s09_p03",
+            "s19_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.2",
+          "dimension_id": "10",
+          "label": "Safe-policy or behavior-policy fallback",
+          "description": "Switch to a conservative rule-based, behavior, baseline, or otherwise validated safe policy when the learned policy is unsafe or unavailable.",
+          "supporting_doc_ids": [
+            "s01_p03",
+            "s01_p04",
+            "s01_p09",
+            "s03_p01",
+            "s04_p16",
+            "s04_p22",
+            "s16_p08",
+            "s19_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.3",
+          "dimension_id": "10",
+          "label": "Traffic-shift rollback",
+          "description": "Restore stability by shifting traffic through a load balancer, service mesh, gateway, blue-green deployment, or canary controller.",
+          "supporting_doc_ids": [
+            "s07_p02",
+            "s07_p04",
+            "s09_p03"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.4",
+          "dimension_id": "10",
+          "label": "Registry-pointer or configuration rollback",
+          "description": "Repoint the serving system or feature flag to a previous production artifact and reload the serving instances.",
+          "supporting_doc_ids": [
+            "s07_p02",
+            "s07_p03",
+            "s04_p23",
+            "s04_p24"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "10.5",
+          "dimension_id": "10",
+          "label": "Manual-only recovery",
+          "description": "Depend on an operator to discover the incident and restore a previous policy without automated rollback or kill-switch support.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s04_p15",
+            "s04_p16",
+            "s07_p01",
+            "s07_p03",
+            "s19_p02"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "10.6",
+          "dimension_id": "10",
+          "label": "Recovery latency and blast-radius containment",
+          "description": "Outcomes of fallback and rollback design including shorter incident duration, reduced damage, or, if absent, prolonged exposure to a faulty policy.",
+          "supporting_doc_ids": [
+            "s01_p02",
+            "s01_p04",
+            "s07_p01",
+            "s07_p02",
+            "s07_p04",
+            "s09_p03",
+            "s19_p02"
+          ],
+          "status": "outcome"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "Runtime Safety Enforcement",
+      "description": "Which controls constrain or replace an agent action at decision time when monitoring alone cannot guarantee safe behavior under distribution shift or reward misspecification.",
+      "relations": [
+        {
+          "target_id": "1",
+          "reading": "Runtime Safety Enforcement affects Production Monitoring Signal Scope",
+          "type": "affects",
+          "rationale": "Action filters, shields, and circuit breakers create intervention and violation signals that must be monitored."
+        },
+        {
+          "target_id": "10",
+          "reading": "Runtime Safety Enforcement affects Policy Version and Fallback Management",
+          "type": "affects",
+          "rationale": "A runtime guard may invoke a safe fallback or kill switch instead of permitting the learned action."
+        },
+        {
+          "target_id": "8",
+          "reading": "Runtime Safety Enforcement constrains Deployment Exposure Strategy",
+          "type": "constrains",
+          "rationale": "Policies with weaker runtime controls require more conservative exposure and staged deployment."
+        }
+      ],
+      "values": [
+        {
+          "id": "11.1",
+          "dimension_id": "11",
+          "label": "Action constraints and filters",
+          "description": "Enforce allowed-action sets, action bounds, safety rules, or policy constraints at deployment time.",
+          "supporting_doc_ids": [
+            "s01_p03",
+            "s04_p10",
+            "s04_p25",
+            "s16_p08",
+            "s19_p01",
+            "s19_p02"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.2",
+          "dimension_id": "11",
+          "label": "Adaptive runtime shielding",
+          "description": "Place a shield between policy and environment that blocks or replaces actions using current risk, uncertainty, or hidden-parameter estimates.",
+          "supporting_doc_ids": [
+            "s15_p03",
+            "s16_p05",
+            "s16_p06",
+            "s16_p08"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.3",
+          "dimension_id": "11",
+          "label": "Automated circuit breaking",
+          "description": "Stop or redirect policy execution when poor performance, unsafe behavior, or severe anomalies are detected.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s01_p09",
+            "s04_p07",
+            "s04_p14",
+            "s04_p15",
+            "s07_p01",
+            "s19_p01"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.4",
+          "dimension_id": "11",
+          "label": "Human approval for high-risk actions",
+          "description": "Require a human to review or authorize decisions whose risk exceeds an operational or domain threshold.",
+          "supporting_doc_ids": [
+            "s01_p04",
+            "s04_p05",
+            "s15_p03",
+            "s19_p01",
+            "s21_p02",
+            "s22_p06"
+          ],
+          "status": "accepted"
+        },
+        {
+          "id": "11.5",
+          "dimension_id": "11",
+          "label": "Static training-only safety constraint",
+          "description": "Treat compliance with a reward penalty, CMDP budget, or simulator constraint during training as sufficient runtime protection.",
+          "supporting_doc_ids": [
+            "s16_p01",
+            "s16_p02",
+            "s16_p03",
+            "s16_p04",
+            "s16_p05",
+            "s16_p06",
+            "s16_p07",
+            "s16_p08"
+          ],
+          "status": "rejected"
+        },
+        {
+          "id": "11.6",
+          "dimension_id": "11",
+          "label": "Safety generalization failure",
+          "description": "An outcome in which a constraint, shield, or cost model passes training but permits unsafe actions after distribution shift, hidden-state changes, or weak data coverage.",
+          "supporting_doc_ids": [
+            "s15_p02",
+            "s16_p01",
+            "s16_p04",
+            "s16_p05",
+            "s16_p06",
+            "s16_p07",
+            "s16_p08"
+          ],
+          "status": "outcome"
+        }
+      ]
+    }
+  ]
+}
