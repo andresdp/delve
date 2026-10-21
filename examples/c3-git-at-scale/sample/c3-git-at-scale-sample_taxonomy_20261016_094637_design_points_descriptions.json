@@ -1,0 +1,104 @@
+{
+  "model": "openai/gpt-5.6-luna",
+  "generated": "2026-10-16",
+  "prompt_version": "1",
+  "design_points": "c3-git-at-scale-sample_taxonomy_20261016_094637_design_points.json",
+  "descriptions": {
+    "12=12.1|13=13.1|21=21.2": {
+      "point_id": "P001",
+      "description": "The system would incrementally run repository repacking and object cleanup in the background, while allowing any healthy server to materialize repository state without authoritative per-repository placement records. Each repository would nevertheless maintain a fixed floor of three replicas, supporting consistency, redundancy, and continued push acceptance after one failure; enforcing that replica count may require coordination despite stateless placement."
+    },
+    "12=12.1|6=6.9|9=9.21": {
+      "point_id": "P009",
+      "description": "The system would use GVFS to obtain large-repository data on demand, but without the cache-server infrastructure needed for scalable access. In the background, it would incrementally repack and clean repository objects and fetch additional data while preserving local and visible remote-tracking branch references; the lack of caching may limit overall scalability."
+    },
+    "12=12.1|9=9.4": {
+      "point_id": "P016",
+      "description": "A specialized Git client provides repository-scale performance features, while incremental repacking and object cleanup run in the background to maintain compact storage. These choices fit together because maintenance need not block interactive client operations, although the specific coordination mechanisms are unspecified."
+    },
+    "12=12.2|21=21.2|22=22.1": {
+      "point_id": "P024",
+      "description": "The system maintains at least three replicas of each repository, with the Spokes architecture coordinating geographically separated copies and supporting continued push acceptance after one failure. Single-pack full repacking is rejected, so this combination does not adopt that full-rewrite compaction method; the replication mechanism’s mixed status indicates qualification or unresolved fit."
+    },
+    "12=12.3|13=13.1|22=22.4": {
+      "point_id": "P007",
+      "description": "Any healthy server can materialize repository state, using packfile-level replication and reference-transaction application to synchronize Git data without replicating the Git implementation. Maintenance then removes accumulated loose objects on the hosting replicas, reducing storage and lookup overhead; stateless placement means this does not depend on authoritative per-repository placement records."
+    },
+    "12=12.3|13=13.4|21=21.2": {
+      "point_id": "P010",
+      "description": "Repositories are maintained with a fixed floor of three replicas, while rendezvous hashing maps each repository ID to expected healthy hosting servers and adjusts placement as membership changes. Maintenance periodically removes accumulated loose objects from repository storage, reducing disk and lookup overhead across replicas."
+    },
+    "12=12.3|30=30.11": {
+      "point_id": "P020",
+      "description": "An orchestrator distributes pushed packfiles and reference transactions across repository instances, coordinating replicated writes. Maintenance on those instances removes accumulated loose-object storage, reducing disk and lookup overhead without changing the write-coordination approach."
+    },
+    "12=12.3|9=6.4": {
+      "point_id": "P008",
+      "description": "The system uses loose-object cleanup to remove accumulated loose objects and keep repository storage efficient. Clients use GVFS demand-driven transfer, receiving commits and trees initially and retrieving missing objects on demand, potentially through nearby cache servers; these approaches are complementary, though on-demand retrieval may require ongoing cleanup of newly accumulated loose objects."
+    },
+    "13=13.1|27=27.2": {
+      "point_id": "P014",
+      "description": "Any healthy server can materialize the requested repository state on demand, without relying on authoritative per-repository placement records. Replica equivalence can then be checked using incrementally maintained XOR checksums, updating the checksum by removing old pair hashes and adding new ones as references change."
+    },
+    "13=13.2|22=22.5|27=27.1": {
+      "point_id": "P005",
+      "description": "An external routing table would track which machines hold each repository copy, route requests to suitable replicas, and help validate their locations. Git itself would distribute or apply repository state across those replicas, with checksums used after updates to compare their logical states; these choices are compatible, though the Git-level mechanism is marked mixed."
+    },
+    "13=13.2|22=27.3": {
+      "point_id": "P006",
+      "description": "An external routing table records which machines hold each repository copy, enabling requests to locate and validate suitable replicas. On each update, replicas assess synchronization by recomputing a checksum across all references, providing a consistency check that complements the routing information but may be computationally intensive."
+    },
+    "13=13.3|30=30.5|6=6.7": {
+      "point_id": "P013",
+      "description": "As stated, the combination is not a fully accepted design: per-server authoritative repository placement tracking is rejected, while writes use per-write voting without a primary and clients use partial clone acquisition. The accepted write and acquisition choices could coexist, but the rejected routing approach would need replacement before the system could provide a consistent solution."
+    },
+    "13=13.5|30=30.4": {
+      "point_id": "P023",
+      "description": "Routing may initially target a failed or unsuitable replica; recovery selects another server and materializes the repository state there. That instance, like any repository instance, can accept writes without an elected primary, relying on storage-level atomic updates rather than consensus; stale routing and concurrent acceptance may require the underlying storage to preserve the intended write semantics."
+    },
+    "13=9.21|22=22.4|27=27.1": {
+      "point_id": "P004",
+      "description": "Background fetches would populate repository objects while preserving local and visible remote-tracking branch references. Packfile-level application replication would distribute those object and reference-transaction updates across replicas, with checksums comparing their logical state; however, reference-transaction replication must respect the requirement not to alter visible branch references during the fetch."
+    },
+    "21=21.1|22=22.5": {
+      "point_id": "P021",
+      "description": "The system would use Git-level mechanisms to distribute or modify repository state between a primary repository and one additional replica. This provides protection against a single-node failure, but the single-extra-copy topology cannot support majority-based coordination for concurrent writes, creating a limitation for replicated write operations."
+    },
+    "21=21.1|27=27.2": {
+      "point_id": "P015",
+      "description": "The system would maintain one primary repository and one additional replica, using an incrementally maintained XOR checksum to compare their logical states as changes replace old entries with new ones. Although compatible for equivalence checking, this topology remains insufficient for majority-based coordination of concurrent writes and is therefore marked rejected."
+    },
+    "21=21.2|22=22.5|30=30.4": {
+      "point_id": "P012",
+      "description": "Each repository maintains at least three replicas, with Git itself distributed or modified to propagate repository state among them. Any repository instance can accept a write, relying on storage-level atomic updates rather than a consensus-elected primary; this may leave coordination details between Git-level distribution and storage-level atomicity unresolved."
+    },
+    "21=21.2|27=27.2": {
+      "point_id": "P011",
+      "description": "Each repository maintains a fixed floor of three replicas, supporting redundancy and continued push acceptance after one failure. Each replica incrementally maintains a logical-state XOR checksum by removing the old pair hash and adding the new one, enabling replica contents to be compared for equivalence."
+    },
+    "22=22.5|30=30.1": {
+      "point_id": "P022",
+      "description": "The system would distribute or modify Git itself to replicate repository state across replicas, while coordinating writes among three replicas. Majority-held exclusive locks, strict-majority acceptance, and replica-wide serialization would order and commit changes, preventing conflicting divergent writes; the Git-level mechanism’s mixed status suggests its implementation or suitability may remain unsettled."
+    },
+    "22=22.5|6=6.8|9=13.7": {
+      "point_id": "P017",
+      "description": "The system would modify or distribute Git to replicate repository state, routing client reads to the geographically closest replica that satisfies freshness requirements. Because the GVFS protocol is not incorporated into standard Git, large-repository acquisition would require non-standard integration, creating a compatibility tension with standard Git clients."
+    },
+    "27=27.1|30=30.6|9=9.17": {
+      "point_id": "P019",
+      "description": "The system would coordinate replicated repository writes through majority agreement, rolling back writes that fail to achieve it, and use checksums to verify that surviving replicas have equivalent logical state after updates. On the client, Git index data would be streamed through a single file, making performance primarily dependent on sequential file I/O; these choices address different system layers and are not inherently in tension."
+    },
+    "27=27.1|9=9.4": {
+      "point_id": "P002",
+      "description": "A specialized Git client provides repository-scale performance enhancements, while checksum-based comparison verifies that replica contents represent equivalent logical state after updates. These choices are complementary: the client handles efficient repository interaction, and checksums support consistency validation across replicas."
+    },
+    "27=27.3|6=6.7": {
+      "point_id": "P018",
+      "description": "Clients use partial clone to obtain only needed Git data, reducing transfer time and local storage for very large repositories. Replica consistency checks nevertheless recompute checksums from all references on every update; this is compatible, but may impose substantial verification overhead despite the efficient acquisition method."
+    },
+    "30=30.11|6=6.8|9=9.19": {
+      "point_id": "P003",
+      "description": "An orchestrator fans out pushed packfiles and reference transactions, coordinating repository instances before accepting the write. Clients keep fetched remote references in a hidden namespace for maintenance, while large-repository acquisition does not use GVFS integrated into standard Git; these choices can coexist but leave demand-driven acquisition outside the standard client."
+    }
+  }
+}

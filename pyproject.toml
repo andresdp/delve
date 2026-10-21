@@ -1,0 +1,81 @@
+[project]
+name = "delvedspace"
+version = "0.1.0.dev0"
+description = "DelveDSpace: mine a design space from practitioner sources and publish it as a wiki for people and coding agents."
+authors = [
+    { name = "Anonymous" },
+]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.2.6",
+    "langchain-openai>=0.1.22",
+    "langchain-anthropic>=0.1.23",
+    "langchain>=0.2.14",
+    "langchain-fireworks>=0.1.7",
+    "langchain-groq>=0.1.9",
+    "python-dotenv>=1.0.1",
+    "langchain-community>=0.2.17",
+    "langchain-ollama>=0.1.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pca>=2.0.0",
+    "plotly>=5.24.0",
+    "deepeval>=3.0.0",
+    "typer>=0.12.0",
+    "pypdf>=4.0.0",
+    "trafilatura>=1.6.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+    "jinja2>=3.1.0",
+    "markdown-it-py>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.11.1", "ruff>=0.6.1", "pytest>=8.0.0"]
+# ddspace ask: vectorless tree index (TreeDex pulls in PyMuPDF, AGPL-licensed, hence optional). Pinned: the index
+# relies on TreeDex's page-range rules (see src/delvedspace/chat.py).
+chat = ["treedex==0.1.5"]
+
+[project.scripts]
+ddspace = "delvedspace.cli:app"
+delvedspace = "delvedspace.cli:app"
+
+[build-system]
+requires = ["setuptools>=73.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+taxonomy_generator = ["assets/*.js", "wiki/templates/*", "prompts/*.md"]
+delvedspace = ["templates/*"]
+
+[tool.ruff]
+lint.select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "D",    # pydocstyle
+    "D401", # First line should be in imperative mood
+    "T201",
+    "UP",
+]
+lint.ignore = [
+    "UP006",
+    "UP007",
+    # We actually do want to import from typing_extensions
+    "UP035",
+    # Relax the convention by _not_ requiring documentation for every function parameter.
+    "D417",
+    "E501",
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "UP"]
+[tool.ruff.lint.pydocstyle]
+convention = "google"

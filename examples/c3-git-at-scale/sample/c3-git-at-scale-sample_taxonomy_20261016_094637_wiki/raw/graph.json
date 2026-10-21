@@ -1,0 +1,4389 @@
+{
+ "schema_version": 1,
+ "run": "20261016_094637",
+ "name": "c3-git-at-scale-sample",
+ "view": "selected",
+ "use_case": "Identify the architectural design decisions involved in making Git repositories work at scale, for very many repositories, very large repositories and very many users, on the hosting servers and on the clients, as documented in an engineering article and official engineering background material by the teams that built such systems. For each decision, identify the alternative options the teams adopted or considered and rejected, the forces (quality attributes, constraints and practical concerns) that drive the choice between them, and how decisions relate to one another. Each dimension must name one architectural design decision; its values are the alternative options for that decision.",
+ "core_rule": "≥ 2 sources or ≥ 2 systems",
+ "nodes": [
+  {
+   "id": "d:21",
+   "kind": "dimension",
+   "label": "Replica Topology",
+   "href": "concepts/replica-topology",
+   "description": "How many repository replicas are maintained, and what replica-count structure is used?",
+   "core": true,
+   "values": 3,
+   "evidence": {
+    "codes": 6,
+    "documents": 11,
+    "sources": 3
+   },
+   "exclusivity": 1.0
+  },
+  {
+   "id": "v:21.1",
+   "kind": "value",
+   "label": "Single-extra-copy replication",
+   "status": "rejected",
+   "href": "entities/single-extra-copy-replication",
+   "dimension": "Replica Topology",
+   "dimension_id": "d:21",
+   "core": true,
+   "description": "Keeps only one additional copy, sufficient for a single-node failure but insufficient for majority-based coordination of concurrent writes.",
+   "passages": [
+    {
+     "doc": "s01_p08",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s03_p05",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:21.2",
+   "kind": "value",
+   "label": "Three-replica repository replication",
+   "status": "accepted",
+   "href": "entities/three-replica-repository-replication",
+   "dimension": "Replica Topology",
+   "dimension_id": "d:21",
+   "core": true,
+   "description": "Each repository maintains a fixed floor of three replicas for consistency, redundancy, and continued push acceptance after one failure.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p08",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p09",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p12",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p06",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p09",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:21.3",
+   "kind": "value",
+   "label": "Idle-replica resource overhead",
+   "status": "outcome",
+   "href": "entities/idle-replica-resource-overhead",
+   "dimension": "Replica Topology",
+   "dimension_id": "d:21",
+   "core": true,
+   "description": "A fixed replica floor consumes substantial resources on numerous small or inactive repositories.",
+   "passages": [
+    {
+     "doc": "s01_p08",
+     "stance": "supports"
+    },
+    {
+     "doc": "s03_p06",
+     "stance": "supports"
+    },
+    {
+     "doc": "s03_p09",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "d:12",
+   "kind": "dimension",
+   "label": "Compaction Maintenance Technique",
+   "href": "concepts/compaction-maintenance-technique",
+   "description": "Which repacking and object-cleanup techniques maintain compact repository storage?",
+   "core": true,
+   "values": 6,
+   "evidence": {
+    "codes": 8,
+    "documents": 8,
+    "sources": 3
+   },
+   "exclusivity": 0.5
+  },
+  {
+   "id": "v:12.1",
+   "kind": "value",
+   "label": "Background incremental maintenance",
+   "status": "accepted",
+   "href": "entities/background-incremental-maintenance",
+   "dimension": "Compaction Maintenance Technique",
+   "dimension_id": "d:12",
+   "core": true,
+   "description": "Repository maintenance runs incrementally in the background rather than blocking interactive operations.",
+   "passages": [
+    {
+     "doc": "s01_p13",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p09",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p12",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p13",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:12.2",
+   "kind": "value",
+   "label": "Single-pack full repacking",
+   "status": "rejected",
+   "href": "entities/single-pack-full-repacking",
+   "dimension": "Compaction Maintenance Technique",
+   "dimension_id": "d:12",
+   "core": true,
+   "description": "Maintenance consolidates all accumulated packfiles into one packfile through a full rewrite.",
+   "passages": [
+    {
+     "doc": "s05_p12",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:12.3",
+   "kind": "value",
+   "label": "Loose-object cleanup",
+   "status": "accepted",
+   "href": "entities/loose-object-cleanup",
+   "dimension": "Compaction Maintenance Technique",
+   "dimension_id": "d:12",
+   "core": true,
+   "description": "Maintenance removes accumulated loose-object storage to reduce disk and lookup overhead.",
+   "passages": [
+    {
+     "doc": "s05_p12",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:12.4",
+   "kind": "value",
+   "label": "Pack-count and storage reduction",
+   "status": "outcome",
+   "href": "entities/pack-count-and-storage-reduction",
+   "dimension": "Compaction Maintenance Technique",
+   "dimension_id": "d:12",
+   "core": true,
+   "description": "Incremental repacking reduces pack-file count, storage footprint, and pack-management pressure.",
+   "passages": [
+    {
+     "doc": "s05_p13",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:12.5",
+   "kind": "value",
+   "label": "Pack-index scan growth",
+   "status": "outcome",
+   "href": "entities/pack-index-scan-growth",
+   "dimension": "Compaction Maintenance Technique",
+   "dimension_id": "d:12",
+   "core": true,
+   "description": "Accumulating separate pack indexes makes object lookup progressively slower.",
+   "passages": [
+    {
+     "doc": "s05_p12",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:12.6",
+   "kind": "value",
+   "label": "Loose-object storage overhead",
+   "status": "outcome",
+   "href": "entities/loose-object-storage-overhead",
+   "dimension": "Compaction Maintenance Technique",
+   "dimension_id": "d:12",
+   "core": true,
+   "description": "Accumulated loose objects consume extra disk space and impose performance costs.",
+   "passages": [
+    {
+     "doc": "s05_p12",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "d:22",
+   "kind": "dimension",
+   "label": "Replica Synchronization Mechanism",
+   "href": "concepts/replica-synchronization-mechanism",
+   "description": "Which mechanism distributes or applies repository state across replicas?",
+   "core": true,
+   "values": 5,
+   "evidence": {
+    "codes": 24,
+    "documents": 14,
+    "sources": 3
+   },
+   "exclusivity": 0.5
+  },
+  {
+   "id": "v:22.1",
+   "kind": "value",
+   "label": "Spokes repository replication",
+   "status": "mixed",
+   "href": "entities/spokes-repository-replication",
+   "dimension": "Replica Synchronization Mechanism",
+   "dimension_id": "d:22",
+   "core": true,
+   "description": "Repository replicas are coordinated through the Spokes architecture to support geographically separated copies.",
+   "passages": [
+    {
+     "doc": "s01_p06",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p08",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p09",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p01",
+     "stance": "both"
+    },
+    {
+     "doc": "s02_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p06",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p05",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p09",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:22.2",
+   "kind": "value",
+   "label": "DRBD block-level replication",
+   "status": "rejected",
+   "href": "entities/drbd-block-level-replication",
+   "dimension": "Replica Synchronization Mechanism",
+   "dimension_id": "d:22",
+   "core": true,
+   "description": "Repository filesystems are replicated at the block level through DRBD, requiring latency-close replicas.",
+   "passages": [
+    {
+     "doc": "s01_p05",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s02_p01",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s02_p02",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:22.3",
+   "kind": "value",
+   "label": "Git-and-rsync replication",
+   "status": "accepted",
+   "href": "entities/git-and-rsync-replication",
+   "dimension": "Replica Synchronization Mechanism",
+   "dimension_id": "d:22",
+   "core": true,
+   "description": "Repository content is replicated using complementary Git and rsync mechanisms.",
+   "passages": [
+    {
+     "doc": "s03_p01",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:22.4",
+   "kind": "value",
+   "label": "Packfile-level application replication",
+   "status": "accepted",
+   "href": "entities/packfile-level-application-replication",
+   "dimension": "Replica Synchronization Mechanism",
+   "dimension_id": "d:22",
+   "core": true,
+   "description": "Git data is replicated at the packfile and reference-transaction layer without distributing the Git implementation itself.",
+   "passages": [
+    {
+     "doc": "s01_p06",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:22.5",
+   "kind": "value",
+   "label": "Git-level distribution",
+   "status": "mixed",
+   "href": "entities/git-level-distribution",
+   "dimension": "Replica Synchronization Mechanism",
+   "dimension_id": "d:22",
+   "core": true,
+   "description": "The architecture distributes or modifies Git itself to provide repository replication.",
+   "passages": [
+    {
+     "doc": "s01_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p06",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s01_p14",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "d:6",
+   "kind": "dimension",
+   "label": "Large-Repository Object Acquisition",
+   "href": "concepts/large-repository-object-acquisition",
+   "description": "How clients obtain Git data for very large repositories, contrasting complete transfer with demand-driven, server-assisted acquisition.",
+   "core": true,
+   "values": 9,
+   "evidence": {
+    "codes": 23,
+    "documents": 10,
+    "sources": 3
+   },
+   "exclusivity": 0.333
+  },
+  {
+   "id": "v:6.1",
+   "kind": "value",
+   "label": "Complete object transfer",
+   "status": "outcome",
+   "href": "entities/complete-object-transfer",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Transfers and verifies the full repository object graph during a conventional clone, creating substantial network, server, client, and latency costs.",
+   "passages": [
+    {
+     "doc": "s05_p08",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:6.2",
+   "kind": "value",
+   "label": "Packfile transfer availability limitation",
+   "status": "outcome",
+   "href": "entities/packfile-transfer-availability-limitation",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Packfile-based transfer and filesystem dependence reduce availability when large storage or servers fail.",
+   "passages": [
+    {
+     "doc": "s01_p02",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:6.3",
+   "kind": "value",
+   "label": "Repository-size threshold for GVFS deployment",
+   "status": "outcome",
+   "href": "entities/repository-size-threshold-for-gvfs-deployment",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Repository size and user population determine whether GVFS and cache-server infrastructure are warranted.",
+   "passages": [
+    {
+     "doc": "s05_p03",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:6.4",
+   "kind": "value",
+   "label": "GVFS demand-driven transfer",
+   "status": "accepted",
+   "href": "entities/gvfs-demand-driven-transfer",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Initially transfers commits and trees, retrieves missing objects on demand, and can use nearby cache servers to reduce central-server load.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p04",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p08",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:6.5",
+   "kind": "value",
+   "label": "GVFS-style object-download cache servers",
+   "status": "accepted",
+   "href": "entities/gvfs-style-object-download-cache-servers",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Separate fetch-object endpoints deliver packfiles while branch-update authority remains on central repository services.",
+   "passages": [
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:6.6",
+   "kind": "value",
+   "label": "Packfile-based Git networking",
+   "status": "mixed",
+   "href": "entities/packfile-based-git-networking",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Push and fetch operations transfer Git packfiles over the network.",
+   "passages": [
+    {
+     "doc": "s01_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p05",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:6.7",
+   "kind": "value",
+   "label": "Partial clone transfer",
+   "status": "accepted",
+   "href": "entities/partial-clone-transfer",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "Clients use partial clone to reduce large-repository transfer time and local storage when the hosting service supports it.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p08",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:6.8",
+   "kind": "value",
+   "label": "Standard-Git GVFS protocol support",
+   "status": "mixed",
+   "href": "entities/standard-git-gvfs-protocol-support",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "The GVFS protocol is not incorporated into the standard Git client.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "both"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p08",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:6.9",
+   "kind": "value",
+   "label": "GVFS without cache infrastructure",
+   "status": "mixed",
+   "href": "entities/gvfs-without-cache-infrastructure",
+   "dimension": "Large-Repository Object Acquisition",
+   "dimension_id": "d:6",
+   "core": true,
+   "description": "GVFS deployment proceeds without the cache-server infrastructure required for scalable large-repository access.",
+   "passages": [
+    {
+     "doc": "s01_p05",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "both"
+    },
+    {
+     "doc": "s05_p08",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "d:30",
+   "kind": "dimension",
+   "label": "Replica Write Coordination",
+   "href": "concepts/replica-write-coordination",
+   "description": "How are replicated repository writes ordered, committed, and accepted?",
+   "core": true,
+   "values": 20,
+   "evidence": {
+    "codes": 38,
+    "documents": 16,
+    "sources": 3
+   },
+   "exclusivity": 0.0
+  },
+  {
+   "id": "v:30.1",
+   "kind": "value",
+   "label": "Strict-majority coordinated writes",
+   "status": "accepted",
+   "href": "entities/strict-majority-coordinated-writes",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Uses three replicas, majority-held exclusive locks, strict-majority acceptance, and replica-wide serialization to prevent conflicting divergent writes.",
+   "passages": [
+    {
+     "doc": "s01_p09",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p12",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p14",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p05",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p06",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p08",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p09",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.2",
+   "kind": "value",
+   "label": "Three-phase commit coordination",
+   "status": "accepted",
+   "href": "entities/three-phase-commit-coordination",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Replicas synchronize reference updates through coordinator-directed prepare, commit, and rollback phases.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p08",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p04",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.3",
+   "kind": "value",
+   "label": "Transactional Git reference updates",
+   "status": "accepted",
+   "href": "entities/transactional-git-reference-updates",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Git reference mutations use atomic, validated transactions that produce deterministic results and roll back completely on failure.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p04",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.4",
+   "kind": "value",
+   "label": "Consensus-free write acceptance",
+   "status": "accepted",
+   "href": "entities/consensus-free-write-acceptance",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Any repository instance may accept writes, using storage-level atomic updates instead of elected consensus primaries.",
+   "passages": [
+    {
+     "doc": "s01_p11",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s01_p12",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p09",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.5",
+   "kind": "value",
+   "label": "Per-write voting without a primary",
+   "status": "accepted",
+   "href": "entities/per-write-voting-without-a-primary",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Each write directly determines its winning order and outcome rather than following a primary's global ordering.",
+   "passages": [
+    {
+     "doc": "s03_p06",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.6",
+   "kind": "value",
+   "label": "Rollback of non-majority writes",
+   "status": "accepted",
+   "href": "entities/rollback-of-non-majority-writes",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Writes failing majority agreement are reverted where applied to preserve surviving replica agreement.",
+   "passages": [
+    {
+     "doc": "s03_p06",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.7",
+   "kind": "value",
+   "label": "Consistency-and-partition-tolerance priority",
+   "status": "accepted",
+   "href": "entities/consistency-and-partition-tolerance-priority",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Replica write coordination prioritizes consistency and partition tolerance over write availability.",
+   "passages": [
+    {
+     "doc": "s03_p02",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.8",
+   "kind": "value",
+   "label": "Replica-based distributed locking",
+   "status": "accepted",
+   "href": "entities/replica-based-distributed-locking",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Replicas provide distributed locks that order coordinated database updates.",
+   "passages": [
+    {
+     "doc": "s02_p03",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.9",
+   "kind": "value",
+   "label": "Overlapped replica-coordination work",
+   "status": "accepted",
+   "href": "entities/overlapped-replica-coordination-work",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "The coordinator performs database, checksum, and lock work concurrently while replica communication is in flight.",
+   "passages": [
+    {
+     "doc": "s02_p03",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.10",
+   "kind": "value",
+   "label": "Durability-gated write acceptance",
+   "status": "accepted",
+   "href": "entities/durability-gated-write-acceptance",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Writes are accepted only after the required number of replicas have synchronously committed them.",
+   "passages": [
+    {
+     "doc": "s03_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p06",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.11",
+   "kind": "value",
+   "label": "Orchestrated push fan-out",
+   "status": "accepted",
+   "href": "entities/orchestrated-push-fan-out",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "An orchestrator distributes pushed packfiles and reference transactions to repository instances.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.12",
+   "kind": "value",
+   "label": "Unsynchronized packfile distribution",
+   "status": "accepted",
+   "href": "entities/unsynchronized-packfile-distribution",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Pushed packfiles fan out without consensus because they are unreachable until references commit.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.13",
+   "kind": "value",
+   "label": "Single-local-repository synchronization",
+   "status": "accepted",
+   "href": "entities/single-local-repository-synchronization",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Reference transactions synchronize with one local repository rather than a replica quorum.",
+   "passages": [
+    {
+     "doc": "s01_p10",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.14",
+   "kind": "value",
+   "label": "Read-preserving replicated-write optimization",
+   "status": "accepted",
+   "href": "entities/read-preserving-replicated-write-optimization",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Replication write acceleration is designed without degrading the much more frequent repository reads.",
+   "passages": [
+    {
+     "doc": "s02_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p04",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:30.15",
+   "kind": "value",
+   "label": "Replica-distance reference-update limit",
+   "status": "outcome",
+   "href": "entities/replica-distance-reference-update-limit",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Geographic replica latency bounds sustainable per-repository reference-update throughput.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "supports"
+    },
+    {
+     "doc": "s02_p01",
+     "stance": "supports"
+    },
+    {
+     "doc": "s02_p02",
+     "stance": "supports"
+    },
+    {
+     "doc": "s02_p03",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:30.16",
+   "kind": "value",
+   "label": "Reference-update amplification",
+   "status": "outcome",
+   "href": "entities/reference-update-amplification",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Pull-request bookkeeping can multiply one user push into many additional replicated reference updates.",
+   "passages": [
+    {
+     "doc": "s02_p02",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:30.17",
+   "kind": "value",
+   "label": "Slowest-replica consensus latency",
+   "status": "outcome",
+   "href": "entities/slowest-replica-consensus-latency",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Coordinated replication latency is bounded by the slowest participating replica.",
+   "passages": [
+    {
+     "doc": "s01_p08",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:30.18",
+   "kind": "value",
+   "label": "Replica-count push-throughput degradation",
+   "status": "outcome",
+   "href": "entities/replica-count-push-throughput-degradation",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Adding replicas reduces push throughput because consensus waits on more participants and their tail latency.",
+   "passages": [
+    {
+     "doc": "s01_p08",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:30.19",
+   "kind": "value",
+   "label": "Replica round-trip coordination latency",
+   "status": "outcome",
+   "href": "entities/replica-round-trip-coordination-latency",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Multiple distant-replica round trips consume the write-coordination latency budget.",
+   "passages": [
+    {
+     "doc": "s02_p03",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:30.20",
+   "kind": "value",
+   "label": "Write unavailability during replication shortfall",
+   "status": "outcome",
+   "href": "entities/write-unavailability-during-replication-shortfall",
+   "dimension": "Replica Write Coordination",
+   "dimension_id": "d:30",
+   "core": true,
+   "description": "Writes become temporarily unavailable when the required replica count cannot be synchronously achieved.",
+   "passages": [
+    {
+     "doc": "s03_p02",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "d:13",
+   "kind": "dimension",
+   "label": "Repository Placement and Read Routing",
+   "href": "concepts/repository-placement-and-read-routing",
+   "description": "How are repositories placed and requests routed to suitable hosting replicas?",
+   "core": true,
+   "values": 9,
+   "evidence": {
+    "codes": 10,
+    "documents": 8,
+    "sources": 3
+   },
+   "exclusivity": 0.0
+  },
+  {
+   "id": "v:13.1",
+   "kind": "value",
+   "label": "Stateless repository placement",
+   "status": "accepted",
+   "href": "entities/stateless-repository-placement",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "Any healthy server can materialize repository state without authoritative per-repository placement records.",
+   "passages": [
+    {
+     "doc": "s01_p11",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:13.2",
+   "kind": "value",
+   "label": "Explicit repository-location tracking",
+   "status": "accepted",
+   "href": "entities/explicit-repository-location-tracking",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "An external routing table records the machines holding each repository copy and supports locating and validating those copies.",
+   "passages": [
+    {
+     "doc": "s01_p09",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:13.3",
+   "kind": "value",
+   "label": "Per-server repository location tracking",
+   "status": "rejected",
+   "href": "entities/per-server-repository-location-tracking",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "The system tracks repository placement on every server as authoritative routing state.",
+   "passages": [
+    {
+     "doc": "s01_p11",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:13.4",
+   "kind": "value",
+   "label": "Rendezvous-hashed repository routing",
+   "status": "accepted",
+   "href": "entities/rendezvous-hashed-repository-routing",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "Repository IDs are mapped to expected healthy servers using rendezvous hashing, with placement adjusted as membership changes.",
+   "passages": [
+    {
+     "doc": "s01_p11",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p04",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:13.5",
+   "kind": "value",
+   "label": "Stale-routing recovery",
+   "status": "accepted",
+   "href": "entities/stale-routing-recovery",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "Routing may be stale after failures, and the system restores service by materializing repository state on a newly selected server.",
+   "passages": [
+    {
+     "doc": "s01_p11",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p04",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:13.6",
+   "kind": "value",
+   "label": "External routing-database placement",
+   "status": "rejected",
+   "href": "entities/external-routing-database-placement",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "Depend on an external routing database to locate repositories across hosting servers.",
+   "passages": [
+    {
+     "doc": "s01_p04",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:13.7",
+   "kind": "value",
+   "label": "Closest sufficiently fresh replica routing",
+   "status": "accepted",
+   "href": "entities/closest-sufficiently-fresh-replica-routing",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "Reads route to the geographically closest replica that meets freshness requirements.",
+   "passages": [
+    {
+     "doc": "s02_p06",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:13.8",
+   "kind": "value",
+   "label": "Single-replica read routing",
+   "status": "accepted",
+   "href": "entities/single-replica-read-routing",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "After synchronized publication, each fetch or clone is routed to one repository replica rather than coordinated reads across replicas.",
+   "passages": [
+    {
+     "doc": "s01_p07",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s03_p04",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:13.9",
+   "kind": "value",
+   "label": "Single on-disk repository behind HTTP",
+   "status": "rejected",
+   "href": "entities/single-on-disk-repository-behind-http",
+   "dimension": "Repository Placement and Read Routing",
+   "dimension_id": "d:13",
+   "core": true,
+   "description": "An HTTP frontend serves one conventional on-disk repository from a single host.",
+   "passages": [
+    {
+     "doc": "s01_p02",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "d:9",
+   "kind": "dimension",
+   "label": "Client Repository Performance Strategy",
+   "href": "concepts/client-repository-performance-strategy",
+   "description": "How client-side Git performance is improved, contrasting integrated configuration and tooling with native Git scalability changes.",
+   "core": true,
+   "values": 33,
+   "evidence": {
+    "codes": 76,
+    "documents": 18,
+    "sources": 3
+   },
+   "exclusivity": 0.0
+  },
+  {
+   "id": "v:9.1",
+   "kind": "value",
+   "label": "Integrated client optimization configuration",
+   "status": "accepted",
+   "href": "entities/integrated-client-optimization-configuration",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "A managed client setup combines configuration, metadata acceleration, filesystem monitoring, fetching, and background maintenance for large repositories.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.2",
+   "kind": "value",
+   "label": "Native Git scalability improvements",
+   "status": "accepted",
+   "href": "entities/native-git-scalability-improvements",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Large-repository performance is improved in Git itself through features such as commit graphs and sparse-checkout enhancements.",
+   "passages": [
+    {
+     "doc": "s01_p10",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p14",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.3",
+   "kind": "value",
+   "label": "Repository performance tracing",
+   "status": "accepted",
+   "href": "entities/repository-performance-tracing",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Client and repository performance bottlenecks are identified through custom tracing and analysis of user feedback.",
+   "passages": [
+    {
+     "doc": "s01_p16",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.4",
+   "kind": "value",
+   "label": "Custom Git client extensions",
+   "status": "accepted",
+   "href": "entities/custom-git-client-extensions",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Require a specialized Git client version to deliver repository-scale client performance features.",
+   "passages": [
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.5",
+   "kind": "value",
+   "label": "Background client maintenance",
+   "status": "accepted",
+   "href": "entities/background-client-maintenance",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Run repository maintenance asynchronously and incrementally so interactive Git commands avoid expensive foreground work.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p09",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p13",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.6",
+   "kind": "value",
+   "label": "Git-integrated filesystem watching",
+   "status": "accepted",
+   "href": "entities/git-integrated-filesystem-watching",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Git uses a watcher that understands repository semantics such as ignore rules to avoid unnecessary scans.",
+   "passages": [
+    {
+     "doc": "s05_p07",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.7",
+   "kind": "value",
+   "label": "Parallel checkout processing",
+   "status": "accepted",
+   "href": "entities/parallel-checkout-processing",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Checkout work is processed in parallel to address checkout becoming a bottleneck after virtualization removal.",
+   "passages": [
+    {
+     "doc": "s05_p04",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p06",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.8",
+   "kind": "value",
+   "label": "Core Git capability consolidation",
+   "status": "accepted",
+   "href": "entities/core-git-capability-consolidation",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Capabilities formerly supplied by Scalar or management layers are incorporated into core Git, reducing specialized client-layer dependence.",
+   "passages": [
+    {
+     "doc": "s01_p16",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p14",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.9",
+   "kind": "value",
+   "label": "Virtualized filesystem client",
+   "status": "mixed",
+   "href": "entities/virtualized-filesystem-client",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "A virtualized filesystem defers populated-size costs to improve large-repository client performance.",
+   "passages": [
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:9.10",
+   "kind": "value",
+   "label": "Foreground garbage collection",
+   "status": "rejected",
+   "href": "entities/foreground-garbage-collection",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "The client periodically performs garbage collection in the foreground during ordinary user work.",
+   "passages": [
+    {
+     "doc": "s05_p09",
+     "stance": "rejects"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:9.11",
+   "kind": "value",
+   "label": "Scalar interim performance layer",
+   "status": "accepted",
+   "href": "entities/scalar-interim-performance-layer",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Scalar supplies needed client performance temporarily while equivalent capabilities move into core Git.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p04",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p14",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.12",
+   "kind": "value",
+   "label": "Persistent Scalar dependency",
+   "status": "mixed",
+   "href": "entities/persistent-scalar-dependency",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Scalar remains a required long-term layer above Git for repository-scale client performance.",
+   "passages": [
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p14",
+     "stance": "rejects"
+    }
+   ]
+  },
+  {
+   "id": "v:9.13",
+   "kind": "value",
+   "label": "Working-directory inspection by core commands",
+   "status": "accepted",
+   "href": "entities/working-directory-inspection-by-core-commands",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Core Git commands inspect on-disk working-directory state as part of repository operations.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p07",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.14",
+   "kind": "value",
+   "label": "Complete tracked-path index",
+   "status": "accepted",
+   "href": "entities/complete-tracked-path-index",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "The client index records every tracked path to support core command state inspection.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.15",
+   "kind": "value",
+   "label": "Updated large-index file format",
+   "status": "accepted",
+   "href": "entities/updated-large-index-file-format",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "An updated index representation reduces I/O and storage for millions of tracked entries.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.16",
+   "kind": "value",
+   "label": "Untracked cache",
+   "status": "accepted",
+   "href": "entities/untracked-cache",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Git caches untracked-directory information to reduce large-repository inspection work.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.17",
+   "kind": "value",
+   "label": "Single-file index stream I/O",
+   "status": "accepted",
+   "href": "entities/single-file-index-stream-i-o",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Index data is streamed through one file with cost dominated by sequential file I/O.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.18",
+   "kind": "value",
+   "label": "Hourly background repository fetch",
+   "status": "accepted",
+   "href": "entities/hourly-background-repository-fetch",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Background fetches keep local objects current without placing download work in foreground commands.",
+   "passages": [
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p11",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.19",
+   "kind": "value",
+   "label": "Hidden remote-reference namespace",
+   "status": "accepted",
+   "href": "entities/hidden-remote-reference-namespace",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Fetched remote refs are kept under a hidden namespace for maintenance without changing visible refs.",
+   "passages": [
+    {
+     "doc": "s05_p11",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.20",
+   "kind": "value",
+   "label": "Background split commit-graph maintenance",
+   "status": "accepted",
+   "href": "entities/background-split-commit-graph-maintenance",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Reachable commits are maintained asynchronously in incremental split commit-graph layers.",
+   "passages": [
+    {
+     "doc": "s04_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p11",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.21",
+   "kind": "value",
+   "label": "Preserved visible branch references during background fetch",
+   "status": "accepted",
+   "href": "entities/preserved-visible-branch-references-during-background-fetch",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Background fetching updates objects while leaving local and visible remote-tracking branches unchanged.",
+   "passages": [
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p11",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.22",
+   "kind": "value",
+   "label": "Reachability-based commit-graph coverage",
+   "status": "accepted",
+   "href": "entities/reachability-based-commit-graph-coverage",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Background graph generation includes every commit reachable through visible and hidden references.",
+   "passages": [
+    {
+     "doc": "s05_p01",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p11",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.23",
+   "kind": "value",
+   "label": "Consolidated client maintenance command",
+   "status": "accepted",
+   "href": "entities/consolidated-client-maintenance-command",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "A single foreground command runs the repository maintenance steps together.",
+   "passages": [
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.24",
+   "kind": "value",
+   "label": "Automatic repository registration",
+   "status": "accepted",
+   "href": "entities/automatic-repository-registration",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Newly cloned repositories are automatically registered for recommended configuration and ongoing maintenance.",
+   "passages": [
+    {
+     "doc": "s05_p02",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p03",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s05_p10",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:9.25",
+   "kind": "value",
+   "label": "Foreground maintenance command blocking",
+   "status": "outcome",
+   "href": "entities/foreground-maintenance-command-blocking",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Synchronous garbage collection delays ordinary interactive Git commands.",
+   "passages": [
+    {
+     "doc": "s01_p03",
+     "stance": "supports"
+    },
+    {
+     "doc": "s05_p07",
+     "stance": "supports"
+    },
+    {
+     "doc": "s05_p09",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.26",
+   "kind": "value",
+   "label": "System-wide rewrite resource exhaustion",
+   "status": "outcome",
+   "href": "entities/system-wide-rewrite-resource-exhaustion",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Large synchronous repository rewrites can consume CPU and memory and stall the entire client system.",
+   "passages": [
+    {
+     "doc": "s05_p09",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.27",
+   "kind": "value",
+   "label": "Performance decay from deferred cleanup",
+   "status": "outcome",
+   "href": "entities/performance-decay-from-deferred-cleanup",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Disabling automatic cleanup without effective background maintenance causes object accumulation and gradual performance deterioration.",
+   "passages": [
+    {
+     "doc": "s05_p09",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.28",
+   "kind": "value",
+   "label": "Checkout slowdown after virtualization removal",
+   "status": "outcome",
+   "href": "entities/checkout-slowdown-after-virtualization-removal",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Sparse-checkout introduces slower checkout than virtualization because populated-size costs are no longer deferred.",
+   "passages": [
+    {
+     "doc": "s05_p07",
+     "stance": "supports"
+    },
+    {
+     "doc": "s05_p15",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.29",
+   "kind": "value",
+   "label": "Multi-million-entry index",
+   "status": "outcome",
+   "href": "entities/multi-million-entry-index",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "The client supports an index containing more than three million tracked entries.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.30",
+   "kind": "value",
+   "label": "Index compression from 400 MB to 250 MB",
+   "status": "outcome",
+   "href": "entities/index-compression-from-400-mb-to-250-mb",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "The updated index format reduces the stored index size and corresponding command I/O.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.31",
+   "kind": "value",
+   "label": "Foreground-fetch overhead",
+   "status": "outcome",
+   "href": "entities/foreground-fetch-overhead",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Generating commit-graph data during foreground fetch adds user-visible fetch work.",
+   "passages": [
+    {
+     "doc": "s05_p11",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.32",
+   "kind": "value",
+   "label": "Low average index-entry processing time",
+   "status": "outcome",
+   "href": "entities/low-average-index-entry-processing-time",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Large-index commands retain low per-entry processing cost because streaming I/O dominates.",
+   "passages": [
+    {
+     "doc": "s05_p05",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "v:9.33",
+   "kind": "value",
+   "label": "Compatibility-driven default-off performance features",
+   "status": "outcome",
+   "href": "entities/compatibility-driven-default-off-performance-features",
+   "dimension": "Client Repository Performance Strategy",
+   "dimension_id": "d:9",
+   "core": true,
+   "description": "Advanced performance features remain disabled by default to preserve broad compatibility.",
+   "passages": [
+    {
+     "doc": "s04_p01",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "d:27",
+   "kind": "dimension",
+   "label": "Replica State Comparison",
+   "href": "concepts/replica-state-comparison",
+   "description": "Which checksum or state-comparison technique verifies equivalence between replica contents?",
+   "core": true,
+   "values": 4,
+   "evidence": {
+    "codes": 9,
+    "documents": 2,
+    "sources": 2
+   },
+   "exclusivity": 0.0
+  },
+  {
+   "id": "v:27.1",
+   "kind": "value",
+   "label": "Checksum-based replica state comparison",
+   "status": "accepted",
+   "href": "entities/checksum-based-replica-state-comparison",
+   "dimension": "Replica State Comparison",
+   "dimension_id": "d:27",
+   "core": true,
+   "description": "A checksum summarizes logical replica state for equality checking after updates.",
+   "passages": [
+    {
+     "doc": "s02_p05",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:27.2",
+   "kind": "value",
+   "label": "Incremental XOR checksum maintenance",
+   "status": "accepted",
+   "href": "entities/incremental-xor-checksum-maintenance",
+   "dimension": "Replica State Comparison",
+   "dimension_id": "d:27",
+   "core": true,
+   "description": "Reference changes update the logical-state checksum incrementally by removing the old pair hash and adding the new one.",
+   "passages": [
+    {
+     "doc": "s02_p05",
+     "stance": "accepts"
+    }
+   ]
+  },
+  {
+   "id": "v:27.3",
+   "kind": "value",
+   "label": "Full checksum recomputation",
+   "status": "mixed",
+   "href": "entities/full-checksum-recomputation",
+   "dimension": "Replica State Comparison",
+   "dimension_id": "d:27",
+   "core": true,
+   "description": "Replica consistency checks recompute the checksum from all references for every update.",
+   "passages": [
+    {
+     "doc": "s01_p09",
+     "stance": "accepts"
+    },
+    {
+     "doc": "s02_p05",
+     "stance": "both"
+    }
+   ]
+  },
+  {
+   "id": "v:27.4",
+   "kind": "value",
+   "label": "Checksum equality as logical-content equivalence",
+   "status": "outcome",
+   "href": "entities/checksum-equality-as-logical-content-equivalence",
+   "dimension": "Replica State Comparison",
+   "dimension_id": "d:27",
+   "core": true,
+   "description": "Equal replica checksums indicate equivalent logical repository contents.",
+   "passages": [
+    {
+     "doc": "s02_p05",
+     "stance": "supports"
+    }
+   ]
+  },
+  {
+   "id": "s:s1",
+   "kind": "source",
+   "label": "Git at any scale",
+   "href": "sources/s1",
+   "url": "https://cursor.com/blog/git-at-any-scale",
+   "description": "This technical article from Cursor describes the architecture of its Origin Git-hosting platform and Continuity storage system. It examines the scalability, availability, consistency, replication, routing, and compaction challenges of hosting Git repositories, comparing filesystem, object-level, and Spokes-style replication with a WAL-backed design using S3-compatible storage and local NVMe repositories.",
+   "description_note": "Generated summary of the source."
+  },
+  {
+   "id": "s:s2",
+   "kind": "source",
+   "label": "Stretching Spokes",
+   "href": "sources/s2",
+   "url": "https://github.blog/engineering/infrastructure/stretching-spokes/",
+   "description": "This is a technical architecture article about GitHub’s Spokes system for replicating Git repositories across geographically distant datacenters, including GitHub Enterprise. It discusses reducing replication latency and round trips, transactional Git reference updates, checksum-based consistency verification, prioritization of user updates, and routing reads to nearby synchronized replicas.",
+   "description_note": "Generated summary of the source."
+  },
+  {
+   "id": "s:s3",
+   "kind": "source",
+   "label": "Building resilience in Spokes",
+   "href": "sources/s3",
+   "url": "https://github.blog/engineering/infrastructure/building-resilience-in-spokes/",
+   "description": "This is a technical architecture document about GitHub’s Spokes replication system, formerly called DGit, which stores repositories, wikis, and gists. It discusses availability and durability trade-offs, replica placement, majority-based write commits and conflict handling, failure detection and routing, automated repair, and procedures for safely rebooting or retiring servers.",
+   "description_note": "Generated summary of the source."
+  },
+  {
+   "id": "s:s4",
+   "kind": "source",
+   "label": "Scalar philosophy",
+   "href": "sources/s4",
+   "url": "https://github.com/microsoft/git/blob/vfs-2.37.3/contrib/scalar/docs/philosophy.md",
+   "description": "This document describes Scalar, Microsoft’s Git performance configuration tool, and its relationship to custom Git builds and upstream Git features. It discusses decisions around repository maintenance, partial clone and GVFS protocol use, sparse checkout, file-system monitoring, data-structure updates, compression, and repository layout to improve performance for large repositories.",
+   "description_note": "Generated summary of the source."
+  },
+  {
+   "id": "s:s5",
+   "kind": "source",
+   "label": "Introducing Scalar",
+   "href": "sources/s5",
+   "url": "https://devblogs.microsoft.com/devops/introducing-scalar/",
+   "description": "This technical announcement from Microsoft introduces Scalar, a .NET tool for improving Git performance in very large repositories. It discusses design decisions around limiting working-tree files with sparse checkout, reducing object transfer through GVFS/partial clone, and detecting changes with filesystem monitoring. It also describes incremental background maintenance for fetching, commit graphs, loose objects, and pack files.",
+   "description_note": "Generated summary of the source."
+  },
+  {
+   "id": "y:CUR-CONT",
+   "kind": "system",
+   "label": "Cursor Continuity and Origin",
+   "href": "synthesis/systems/cur-cont",
+   "description": "Write-ahead log in S3 as the source of truth, repositories on disk as a warm cache."
+  },
+  {
+   "id": "y:GH-FS",
+   "kind": "system",
+   "label": "GitHub filesystem distribution",
+   "href": "synthesis/systems/gh-fs",
+   "description": "GitHub before Spokes: NFS, GFS and DRBD filesystem distribution, then single-copy RPC fileservers."
+  },
+  {
+   "id": "y:GH-SPOKES",
+   "kind": "system",
+   "label": "GitHub Spokes",
+   "href": "synthesis/systems/gh-spokes",
+   "description": "Plain Git repositories replicated across servers with three-phase commit on reference updates."
+  },
+  {
+   "id": "y:GOOG-DHT",
+   "kind": "system",
+   "label": "Google JGit on a DHT",
+   "href": "synthesis/systems/goog-dht",
+   "description": "JGit with repository objects stored in a distributed hash table."
+  },
+  {
+   "id": "y:MS-GVFS",
+   "kind": "system",
+   "label": "Microsoft VFS for Git (GVFS)",
+   "href": "synthesis/systems/ms-gvfs",
+   "description": "Virtualized filesystem on the client and the GVFS protocol with cache servers."
+  },
+  {
+   "id": "y:MS-SCALAR",
+   "kind": "system",
+   "label": "Microsoft Scalar",
+   "href": "synthesis/systems/ms-scalar",
+   "description": "Client-side configuration of upstream Git features: partial clone, sparse-checkout, background maintenance."
+  },
+  {
+   "id": "p:P001",
+   "kind": "design",
+   "label": "P001",
+   "group": "attested",
+   "k": 3,
+   "tag": "CUR-CONT",
+   "href": "designs/p001",
+   "description": "The system would incrementally run repository repacking and object cleanup in the background, while allowing any healthy server to materialize repository state without authoritative per-repository placement records. Each repository would nevertheless maintain a fixed floor of three replicas, supporting consistency, redundancy, and continued push acceptance after one failure; enforcing that replica count may require coordination despite stateless placement.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P002",
+   "kind": "design",
+   "label": "P002",
+   "group": "novel",
+   "k": 2,
+   "tag": "",
+   "href": "designs/p002",
+   "description": "A specialized Git client provides repository-scale performance enhancements, while checksum-based comparison verifies that replica contents represent equivalent logical state after updates. These choices are complementary: the client handles efficient repository interaction, and checksums support consistency validation across replicas.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P003",
+   "kind": "design",
+   "label": "P003",
+   "group": "novel",
+   "k": 3,
+   "tag": "",
+   "href": "designs/p003",
+   "description": "An orchestrator fans out pushed packfiles and reference transactions, coordinating repository instances before accepting the write. Clients keep fetched remote references in a hidden namespace for maintenance, while large-repository acquisition does not use GVFS integrated into standard Git; these choices can coexist but leave demand-driven acquisition outside the standard client.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P004",
+   "kind": "design",
+   "label": "P004",
+   "group": "control",
+   "k": 3,
+   "tag": "misplaced_value",
+   "href": "designs/p004",
+   "description": "Background fetches would populate repository objects while preserving local and visible remote-tracking branch references. Packfile-level application replication would distribute those object and reference-transaction updates across replicas, with checksums comparing their logical state; however, reference-transaction replication must respect the requirement not to alter visible branch references during the fetch.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P005",
+   "kind": "design",
+   "label": "P005",
+   "group": "attested",
+   "k": 3,
+   "tag": "GH-SPOKES",
+   "href": "designs/p005",
+   "description": "An external routing table would track which machines hold each repository copy, route requests to suitable replicas, and help validate their locations. Git itself would distribute or apply repository state across those replicas, with checksums used after updates to compare their logical states; these choices are compatible, though the Git-level mechanism is marked mixed.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P006",
+   "kind": "design",
+   "label": "P006",
+   "group": "control",
+   "k": 2,
+   "tag": "misplaced_value",
+   "href": "designs/p006",
+   "description": "An external routing table records which machines hold each repository copy, enabling requests to locate and validate suitable replicas. On each update, replicas assess synchronization by recomputing a checksum across all references, providing a consistency check that complements the routing information but may be computationally intensive.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P007",
+   "kind": "design",
+   "label": "P007",
+   "group": "novel",
+   "k": 3,
+   "tag": "",
+   "href": "designs/p007",
+   "description": "Any healthy server can materialize repository state, using packfile-level replication and reference-transaction application to synchronize Git data without replicating the Git implementation. Maintenance then removes accumulated loose objects on the hosting replicas, reducing storage and lookup overhead; stateless placement means this does not depend on authoritative per-repository placement records.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P008",
+   "kind": "design",
+   "label": "P008",
+   "group": "control",
+   "k": 2,
+   "tag": "misplaced_value",
+   "href": "designs/p008",
+   "description": "The system uses loose-object cleanup to remove accumulated loose objects and keep repository storage efficient. Clients use GVFS demand-driven transfer, receiving commits and trees initially and retrieving missing objects on demand, potentially through nearby cache servers; these approaches are complementary, though on-demand retrieval may require ongoing cleanup of newly accumulated loose objects.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P009",
+   "kind": "design",
+   "label": "P009",
+   "group": "attested",
+   "k": 3,
+   "tag": "MS-SCALAR",
+   "href": "designs/p009",
+   "description": "The system would use GVFS to obtain large-repository data on demand, but without the cache-server infrastructure needed for scalable access. In the background, it would incrementally repack and clean repository objects and fetch additional data while preserving local and visible remote-tracking branch references; the lack of caching may limit overall scalability.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P010",
+   "kind": "design",
+   "label": "P010",
+   "group": "novel",
+   "k": 3,
+   "tag": "",
+   "href": "designs/p010",
+   "description": "Repositories are maintained with a fixed floor of three replicas, while rendezvous hashing maps each repository ID to expected healthy hosting servers and adjusts placement as membership changes. Maintenance periodically removes accumulated loose objects from repository storage, reducing disk and lookup overhead across replicas.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P011",
+   "kind": "design",
+   "label": "P011",
+   "group": "attested",
+   "k": 2,
+   "tag": "GH-SPOKES",
+   "href": "designs/p011",
+   "description": "Each repository maintains a fixed floor of three replicas, supporting redundancy and continued push acceptance after one failure. Each replica incrementally maintains a logical-state XOR checksum by removing the old pair hash and adding the new one, enabling replica contents to be compared for equivalence.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P012",
+   "kind": "design",
+   "label": "P012",
+   "group": "attested",
+   "k": 3,
+   "tag": "CUR-CONT",
+   "href": "designs/p012",
+   "description": "Each repository maintains at least three replicas, with Git itself distributed or modified to propagate repository state among them. Any repository instance can accept a write, relying on storage-level atomic updates rather than a consensus-elected primary; this may leave coordination details between Git-level distribution and storage-level atomicity unresolved.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P013",
+   "kind": "design",
+   "label": "P013",
+   "group": "control",
+   "k": 3,
+   "tag": "rejected_value",
+   "href": "designs/p013",
+   "description": "As stated, the combination is not a fully accepted design: per-server authoritative repository placement tracking is rejected, while writes use per-write voting without a primary and clients use partial clone acquisition. The accepted write and acquisition choices could coexist, but the rejected routing approach would need replacement before the system could provide a consistent solution.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P014",
+   "kind": "design",
+   "label": "P014",
+   "group": "novel",
+   "k": 2,
+   "tag": "",
+   "href": "designs/p014",
+   "description": "Any healthy server can materialize the requested repository state on demand, without relying on authoritative per-repository placement records. Replica equivalence can then be checked using incrementally maintained XOR checksums, updating the checksum by removing old pair hashes and adding new ones as references change.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P015",
+   "kind": "design",
+   "label": "P015",
+   "group": "control",
+   "k": 2,
+   "tag": "rejected_value",
+   "href": "designs/p015",
+   "description": "The system would maintain one primary repository and one additional replica, using an incrementally maintained XOR checksum to compare their logical states as changes replace old entries with new ones. Although compatible for equivalence checking, this topology remains insufficient for majority-based coordination of concurrent writes and is therefore marked rejected.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P016",
+   "kind": "design",
+   "label": "P016",
+   "group": "attested",
+   "k": 2,
+   "tag": "MS-SCALAR",
+   "href": "designs/p016",
+   "description": "A specialized Git client provides repository-scale performance features, while incremental repacking and object cleanup run in the background to maintain compact storage. These choices fit together because maintenance need not block interactive client operations, although the specific coordination mechanisms are unspecified.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P017",
+   "kind": "design",
+   "label": "P017",
+   "group": "control",
+   "k": 3,
+   "tag": "misplaced_value",
+   "href": "designs/p017",
+   "description": "The system would modify or distribute Git to replicate repository state, routing client reads to the geographically closest replica that satisfies freshness requirements. Because the GVFS protocol is not incorporated into standard Git, large-repository acquisition would require non-standard integration, creating a compatibility tension with standard Git clients.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P018",
+   "kind": "design",
+   "label": "P018",
+   "group": "novel",
+   "k": 2,
+   "tag": "",
+   "href": "designs/p018",
+   "description": "Clients use partial clone to obtain only needed Git data, reducing transfer time and local storage for very large repositories. Replica consistency checks nevertheless recompute checksums from all references on every update; this is compatible, but may impose substantial verification overhead despite the efficient acquisition method.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P019",
+   "kind": "design",
+   "label": "P019",
+   "group": "novel",
+   "k": 3,
+   "tag": "",
+   "href": "designs/p019",
+   "description": "The system would coordinate replicated repository writes through majority agreement, rolling back writes that fail to achieve it, and use checksums to verify that surviving replicas have equivalent logical state after updates. On the client, Git index data would be streamed through a single file, making performance primarily dependent on sequential file I/O; these choices address different system layers and are not inherently in tension.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P020",
+   "kind": "design",
+   "label": "P020",
+   "group": "novel",
+   "k": 2,
+   "tag": "",
+   "href": "designs/p020",
+   "description": "An orchestrator distributes pushed packfiles and reference transactions across repository instances, coordinating replicated writes. Maintenance on those instances removes accumulated loose-object storage, reducing disk and lookup overhead without changing the write-coordination approach.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P021",
+   "kind": "design",
+   "label": "P021",
+   "group": "control",
+   "k": 2,
+   "tag": "rejected_value",
+   "href": "designs/p021",
+   "description": "The system would use Git-level mechanisms to distribute or modify repository state between a primary repository and one additional replica. This provides protection against a single-node failure, but the single-extra-copy topology cannot support majority-based coordination for concurrent writes, creating a limitation for replicated write operations.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P022",
+   "kind": "design",
+   "label": "P022",
+   "group": "attested",
+   "k": 2,
+   "tag": "CUR-CONT",
+   "href": "designs/p022",
+   "description": "The system would distribute or modify Git itself to replicate repository state across replicas, while coordinating writes among three replicas. Majority-held exclusive locks, strict-majority acceptance, and replica-wide serialization would order and commit changes, preventing conflicting divergent writes; the Git-level mechanism’s mixed status suggests its implementation or suitability may remain unsettled.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P023",
+   "kind": "design",
+   "label": "P023",
+   "group": "attested",
+   "k": 2,
+   "tag": "CUR-CONT",
+   "href": "designs/p023",
+   "description": "Routing may initially target a failed or unsuitable replica; recovery selects another server and materializes the repository state there. That instance, like any repository instance, can accept writes without an elected primary, relying on storage-level atomic updates rather than consensus; stale routing and concurrent acceptance may require the underlying storage to preserve the intended write semantics.",
+   "description_note": "Generated description of the combination."
+  },
+  {
+   "id": "p:P024",
+   "kind": "design",
+   "label": "P024",
+   "group": "control",
+   "k": 3,
+   "tag": "rejected_value",
+   "href": "designs/p024",
+   "description": "The system maintains at least three replicas of each repository, with the Spokes architecture coordinating geographically separated copies and supporting continued push acceptance after one failure. Single-pack full repacking is rejected, so this combination does not adopt that full-rewrite compaction method; the replication mechanism’s mixed status indicates qualification or unresolved fit.",
+   "description_note": "Generated description of the combination."
+  }
+ ],
+ "edges": [
+  {
+   "source": "d:21",
+   "target": "v:21.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:21",
+   "target": "v:21.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:21",
+   "target": "v:21.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:12",
+   "target": "v:12.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:12",
+   "target": "v:12.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:12",
+   "target": "v:12.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:12",
+   "target": "v:12.4",
+   "type": "has_value"
+  },
+  {
+   "source": "d:12",
+   "target": "v:12.5",
+   "type": "has_value"
+  },
+  {
+   "source": "d:12",
+   "target": "v:12.6",
+   "type": "has_value"
+  },
+  {
+   "source": "d:22",
+   "target": "v:22.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:22",
+   "target": "v:22.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:22",
+   "target": "v:22.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:22",
+   "target": "v:22.4",
+   "type": "has_value"
+  },
+  {
+   "source": "d:22",
+   "target": "v:22.5",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.4",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.5",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.6",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.7",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.8",
+   "type": "has_value"
+  },
+  {
+   "source": "d:6",
+   "target": "v:6.9",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.4",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.5",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.6",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.7",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.8",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.9",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.10",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.11",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.12",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.13",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.14",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.15",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.16",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.17",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.18",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.19",
+   "type": "has_value"
+  },
+  {
+   "source": "d:30",
+   "target": "v:30.20",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.4",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.5",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.6",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.7",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.8",
+   "type": "has_value"
+  },
+  {
+   "source": "d:13",
+   "target": "v:13.9",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.4",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.5",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.6",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.7",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.8",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.9",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.10",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.11",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.12",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.13",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.14",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.15",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.16",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.17",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.18",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.19",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.20",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.21",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.22",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.23",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.24",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.25",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.26",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.27",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.28",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.29",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.30",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.31",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.32",
+   "type": "has_value"
+  },
+  {
+   "source": "d:9",
+   "target": "v:9.33",
+   "type": "has_value"
+  },
+  {
+   "source": "d:27",
+   "target": "v:27.1",
+   "type": "has_value"
+  },
+  {
+   "source": "d:27",
+   "target": "v:27.2",
+   "type": "has_value"
+  },
+  {
+   "source": "d:27",
+   "target": "v:27.3",
+   "type": "has_value"
+  },
+  {
+   "source": "d:27",
+   "target": "v:27.4",
+   "type": "has_value"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:12.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.3",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.5",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.6",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:13.9",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:21.1",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:21.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:21.3",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:22.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:22.2",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:22.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:22.5",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:27.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.11",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.12",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.13",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.15",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.17",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.18",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:30.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:6.2",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:6.6",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:6.9",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:9.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:9.25",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:9.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s1",
+   "target": "v:9.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:13.7",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:13.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:21.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:22.1",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:22.2",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:27.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:27.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:27.3",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:27.4",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.14",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.15",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.16",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.19",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s2",
+   "target": "v:30.9",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:13.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:13.5",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:13.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:21.1",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:21.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:21.3",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:22.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:22.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.10",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.20",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.5",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.6",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s3",
+   "target": "v:30.7",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:12.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:6.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:6.7",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:6.8",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.11",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.18",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.20",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.33",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.5",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s4",
+   "target": "v:9.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:12.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:12.2",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:12.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:12.4",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:12.5",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:12.6",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.1",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.3",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.5",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.6",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.7",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:6.9",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.1",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.10",
+   "type": "evidence",
+   "stance": "rejects"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.11",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.12",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.13",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.14",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.15",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.16",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.17",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.18",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.19",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.2",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.20",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.21",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.22",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.23",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.24",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.25",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.26",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.27",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.28",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.29",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.3",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.30",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.31",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.32",
+   "type": "evidence",
+   "stance": "supports"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.4",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.5",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.6",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.7",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.8",
+   "type": "evidence",
+   "stance": "accepts"
+  },
+  {
+   "source": "s:s5",
+   "target": "v:9.9",
+   "type": "evidence",
+   "stance": "both"
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:12.1",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:13.1",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:13.4",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:13.5",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:21.2",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:22.5",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:30.1",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:30.4",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:30.13",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:9.2",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:9.3",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:CUR-CONT",
+   "target": "v:9.8",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:13.2",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:13.4",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:13.5",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:13.7",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:13.8",
+   "type": "system",
+   "weight": 3
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:21.2",
+   "type": "system",
+   "weight": 8
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:22.1",
+   "type": "system",
+   "weight": 11
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:22.3",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:22.4",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:27.1",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:27.2",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:27.3",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.1",
+   "type": "system",
+   "weight": 6
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.2",
+   "type": "system",
+   "weight": 4
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.3",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.4",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.5",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.6",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.7",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.8",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.9",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.10",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.11",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.12",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:GH-SPOKES",
+   "target": "v:30.14",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:GOOG-DHT",
+   "target": "v:6.6",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-GVFS",
+   "target": "v:6.4",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-GVFS",
+   "target": "v:6.7",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-GVFS",
+   "target": "v:6.8",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-GVFS",
+   "target": "v:6.9",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:12.1",
+   "type": "system",
+   "weight": 7
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:12.3",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:6.4",
+   "type": "system",
+   "weight": 6
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:6.5",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:6.6",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:6.7",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:6.8",
+   "type": "system",
+   "weight": 4
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:6.9",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.1",
+   "type": "system",
+   "weight": 4
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.2",
+   "type": "system",
+   "weight": 5
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.3",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.4",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.5",
+   "type": "system",
+   "weight": 7
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.6",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.7",
+   "type": "system",
+   "weight": 3
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.8",
+   "type": "system",
+   "weight": 3
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.9",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.11",
+   "type": "system",
+   "weight": 6
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.12",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.13",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.14",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.15",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.16",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.17",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.18",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.19",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.20",
+   "type": "system",
+   "weight": 4
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.21",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.22",
+   "type": "system",
+   "weight": 2
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.23",
+   "type": "system",
+   "weight": 1
+  },
+  {
+   "source": "y:MS-SCALAR",
+   "target": "v:9.24",
+   "type": "system",
+   "weight": 3
+  },
+  {
+   "source": "p:P001",
+   "target": "v:12.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P001",
+   "target": "v:13.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P001",
+   "target": "v:21.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P002",
+   "target": "v:27.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P002",
+   "target": "v:9.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P003",
+   "target": "v:30.11",
+   "type": "design"
+  },
+  {
+   "source": "p:P003",
+   "target": "v:6.8",
+   "type": "design"
+  },
+  {
+   "source": "p:P003",
+   "target": "v:9.19",
+   "type": "design"
+  },
+  {
+   "source": "p:P004",
+   "target": "v:9.21",
+   "type": "design"
+  },
+  {
+   "source": "p:P004",
+   "target": "v:22.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P004",
+   "target": "v:27.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P005",
+   "target": "v:13.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P005",
+   "target": "v:22.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P005",
+   "target": "v:27.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P006",
+   "target": "v:13.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P006",
+   "target": "v:27.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P007",
+   "target": "v:12.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P007",
+   "target": "v:13.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P007",
+   "target": "v:22.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P008",
+   "target": "v:12.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P008",
+   "target": "v:6.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P009",
+   "target": "v:12.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P009",
+   "target": "v:6.9",
+   "type": "design"
+  },
+  {
+   "source": "p:P009",
+   "target": "v:9.21",
+   "type": "design"
+  },
+  {
+   "source": "p:P010",
+   "target": "v:12.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P010",
+   "target": "v:13.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P010",
+   "target": "v:21.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P011",
+   "target": "v:21.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P011",
+   "target": "v:27.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P012",
+   "target": "v:21.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P012",
+   "target": "v:22.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P012",
+   "target": "v:30.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P013",
+   "target": "v:13.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P013",
+   "target": "v:30.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P013",
+   "target": "v:6.7",
+   "type": "design"
+  },
+  {
+   "source": "p:P014",
+   "target": "v:13.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P014",
+   "target": "v:27.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P015",
+   "target": "v:21.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P015",
+   "target": "v:27.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P016",
+   "target": "v:12.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P016",
+   "target": "v:9.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P017",
+   "target": "v:22.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P017",
+   "target": "v:6.8",
+   "type": "design"
+  },
+  {
+   "source": "p:P017",
+   "target": "v:13.7",
+   "type": "design"
+  },
+  {
+   "source": "p:P018",
+   "target": "v:27.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P018",
+   "target": "v:6.7",
+   "type": "design"
+  },
+  {
+   "source": "p:P019",
+   "target": "v:27.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P019",
+   "target": "v:30.6",
+   "type": "design"
+  },
+  {
+   "source": "p:P019",
+   "target": "v:9.17",
+   "type": "design"
+  },
+  {
+   "source": "p:P020",
+   "target": "v:12.3",
+   "type": "design"
+  },
+  {
+   "source": "p:P020",
+   "target": "v:30.11",
+   "type": "design"
+  },
+  {
+   "source": "p:P021",
+   "target": "v:21.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P021",
+   "target": "v:22.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P022",
+   "target": "v:22.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P022",
+   "target": "v:30.1",
+   "type": "design"
+  },
+  {
+   "source": "p:P023",
+   "target": "v:13.5",
+   "type": "design"
+  },
+  {
+   "source": "p:P023",
+   "target": "v:30.4",
+   "type": "design"
+  },
+  {
+   "source": "p:P024",
+   "target": "v:12.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P024",
+   "target": "v:21.2",
+   "type": "design"
+  },
+  {
+   "source": "p:P024",
+   "target": "v:22.1",
+   "type": "design"
+  }
+ ]
+}
