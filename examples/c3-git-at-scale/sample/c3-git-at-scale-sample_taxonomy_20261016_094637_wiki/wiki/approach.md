@@ -8,9 +8,9 @@ generated:
   at: '2026-10-16T09:46:37-03:00'
 ---
 
-# Approach: how DelveDSpace mines a design space
+# Approach: how ddspace mines a design space
 
-![The DelveDSpace pipeline](assets/delve-pipeline.svg)
+![The ddspace pipeline](assets/ddspace-pipeline.svg)
 
 ## What a design space is
 
@@ -18,7 +18,7 @@ A **design space** organizes the design decisions of a domain. Each **dimension*
 
 ## Grounded theory in brief
 
-DelveDSpace follows **grounded theory**, a qualitative method that builds a theory from data instead of testing a theory fixed in advance:
+ddspace follows **grounded theory**, a qualitative method that builds a theory from data instead of testing a theory fixed in advance:
 
 - **Open coding:** read the data closely and name the concepts it contains (*codes*).
 - **Axial coding:** relate codes to each other and group them into categories with properties, by **constant comparison** of each new incident with what has been found so far. Here, categories are dimensions and properties are values.

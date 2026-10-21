@@ -1,6 +1,6 @@
 # C3 sample: Git at scale, 8 dimensions
 
-A small, published snapshot of DelveDSpace's output for case C3. The case is how teams made Git repositories
+A small, published snapshot of ddspace's output for case C3. The case is how teams made Git repositories
 work at scale: very many repositories, very large repositories and very many users. The snapshot exists to
 show what the approach produces end to end:
 - the design space;

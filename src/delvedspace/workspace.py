@@ -1,4 +1,4 @@
-"""A DelveDSpace workspace: the folder layout, ``ddspace.yaml`` and its few machine-written values."""
+"""A ddspace workspace: the folder layout, ``ddspace.yaml`` and its few machine-written values."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ PROVIDER_KEYS = {
 }
 
 GITIGNORE = """\
-# DelveDSpace workspace. Source text is third-party content: keep it out of version control.
+# ddspace workspace. Source text is third-party content: keep it out of version control.
 sources/
 corpus.json
 .env
@@ -174,7 +174,7 @@ class Workspace:
 
     @property
     def corpus_path(self) -> Path:
-        """The passages Delve mines."""
+        """The passages ddspace mines."""
         return self.root / "corpus.json"
 
     @property

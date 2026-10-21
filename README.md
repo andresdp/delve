@@ -1,12 +1,10 @@
 <p align="center">
-  <img src="images/delvedspace-logo.svg" alt="DelveDSpace logo" width="560">
+  <img src="images/ddspace-logo.svg" alt="ddspace logo" width="560">
 </p>
 
-# DelveDSpace: mining design spaces from text with LLMs
+# ddspace: Automated Generation of Architecture Design Spaces as Wikis
 
-*Anonymized copy of the tool, for review.*
-
-DelveDSpace reads a collection of documents (practitioner articles, architecture decision records, design
+ddspace reads a collection of documents (practitioner articles, architecture decision records, design
 notes, blog posts) and builds a **design space** from them:
 - the **decision points** the documents discuss;
 - the **candidate decisions** for each one;
@@ -135,7 +133,7 @@ Configuration, commands and output files: [USAGE.md](USAGE.md). Vocabulary: [CON
 
 ## Background
 
-DelveDSpace started from an open-source implementation of TnT-LLM ("Text Mining at Scale with Large Language
+ddspace started from an open-source implementation of TnT-LLM ("Text Mining at Scale with Large Language
 Models", Wan et al., [arXiv:2403.12173](https://arxiv.org/abs/2403.12173)). It builds grounded-theory design
 spaces instead of flat label taxonomies.
 

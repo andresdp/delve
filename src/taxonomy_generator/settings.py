@@ -1,6 +1,6 @@
 """Load and validate pipeline settings from a YAML configuration file.
 
-This module provides the central settings mechanism for Delve. It reads
+This module provides the central settings mechanism for ddspace. It reads
 ``config.yaml`` (or a user-specified path), validates the values, and
 exposes them as frozen dataclasses organised by concern.
 

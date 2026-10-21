@@ -786,8 +786,8 @@ class _Builder:
 
     def index_page(self, has_points: bool) -> None:
         values = sum(len(d.get("values") or []) for d in self.dims)
-        lines = ["![DelveDSpace](assets/delvedspace-logo.svg)", "", f"# {self.inp.taxonomy_name}", "",
-                  "This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design "
+        lines = ["![ddspace](assets/ddspace-logo.svg)", "", f"# {self.inp.taxonomy_name}", "",
+                  "This wiki presents a **design space** mined by ddspace from a corpus of documents. A design "
                   "space organizes the architectural design decisions the documents discuss: each **dimension** is "
                   "one decision a designer faces, and its **values** are the alternatives the documents describe. "
                   "Every page is generated from the run's data, without rewording, and links to the evidence behind it. "
@@ -879,8 +879,8 @@ class _Builder:
     def approach_page(self) -> None:
         """A fixed reference page: grounded theory, the agents, the workflow (same text for every run)."""
         m = self.inp.models
-        lines = ["# Approach: how DelveDSpace mines a design space", "",
-                 "![The DelveDSpace pipeline](assets/delve-pipeline.svg)", "",
+        lines = ["# Approach: how ddspace mines a design space", "",
+                 "![The ddspace pipeline](assets/ddspace-pipeline.svg)", "",
                  "## What a design space is", "",
                  "A **design space** organizes the design decisions of a domain. Each **dimension** is one decision "
                  "point, phrased as a question a designer must answer (*where does the source of truth for a "
@@ -892,7 +892,7 @@ class _Builder:
                  f"{link('relations', 'Relations between dimensions')}). Every value keeps its **evidence**: "
                  "the passages that support it.", "",
                  "## Grounded theory in brief", "",
-                 "DelveDSpace follows **grounded theory**, a qualitative method that builds a theory from data instead "
+                 "ddspace follows **grounded theory**, a qualitative method that builds a theory from data instead "
                  "of testing a theory fixed in advance:", "",
                  "- **Open coding:** read the data closely and name the concepts it contains (*codes*).",
                  "- **Axial coding:** relate codes to each other and group them into categories with properties, by "

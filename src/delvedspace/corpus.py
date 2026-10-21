@@ -1,4 +1,4 @@
-"""Split source texts into passages of roughly equal size (the corpus Delve mines).
+"""Split source texts into passages of roughly equal size (the corpus ddspace mines).
 
 Moved from ``benchmark/build_corpus.py``, which imports it back. Passages break at
 paragraph and heading boundaries, never inside a fenced code block. Passage ids have the

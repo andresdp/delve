@@ -29,7 +29,7 @@ model with its own operations and storage.
 
 ## Mining Procedure
 
-A way of producing a Design-Space Model instance from textual sources. Delve's current procedure is an agentic
+A way of producing a Design-Space Model instance from textual sources. ddspace's current procedure is an agentic
 Grounded-Theory Emulation:
 - open coding of passages;
 - revision of the Taxonomy through validated operations;
@@ -46,9 +46,9 @@ Other procedures, algorithmic or human, can replace it without changing the mode
 - The categories are then integrated through axial and selective coding, with memos and peer debriefing.
 - Sampling continues until theoretical saturation.
 
-**How Delve's agents map onto it:**
+**How ddspace's agents map onto it:**
 
-| Team practice | Delve |
+| Team practice | ddspace |
 |---|---|
 | Coders | the Coder (Open Coding) |
 | Constant comparison and integration | the Taxonomist |

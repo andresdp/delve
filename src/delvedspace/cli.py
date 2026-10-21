@@ -25,7 +25,7 @@ from taxonomy_generator.wiki import query as q
 
 app = typer.Typer(
     name="ddspace",
-    help="DelveDSpace: mine a design space from your sources and publish it as a wiki.",
+    help="ddspace: mine a design space from your sources and publish it as a wiki.",
     no_args_is_help=True,
     add_completion=False,
     rich_markup_mode="rich",
@@ -70,7 +70,7 @@ def version_callback(value: bool) -> None:
 @app.callback()
 def main(version: bool = typer.Option(False, "--version", callback=version_callback, is_eager=True,
                                       help="Show the version and exit.")) -> None:
-    """DelveDSpace: mine a design space from your sources and publish it as a wiki."""
+    """ddspace: mine a design space from your sources and publish it as a wiki."""
 
 
 # ---------------------------------------------------------------- init

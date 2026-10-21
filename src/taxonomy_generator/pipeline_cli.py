@@ -1,4 +1,4 @@
-"""Delve Taxonomy Generator — pipeline command line (``python main.py`` or ``python -m taxonomy_generator.pipeline_cli``).
+"""ddspace Taxonomy Generator — pipeline command line (``python main.py`` or ``python -m taxonomy_generator.pipeline_cli``).
 
 Usage:
     # From a corpus file (one document per line for .txt, or JSON array for .json):
@@ -214,7 +214,7 @@ def load_corpus_documents(path: str) -> list:
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Delve Taxonomy Generator — Generate taxonomies from unstructured text data."
+        description="ddspace Taxonomy Generator — Generate taxonomies from unstructured text data."
     )
 
     # Input mode
@@ -1394,7 +1394,7 @@ async def run(args: argparse.Namespace) -> None:
                           evaluation_llm=effective_config.evaluation_llm,
                           matching_llm=effective_config.matching_llm),
             ("generation_llm", "evaluation_llm"))),
-        title="[bold bright_blue]🚀 Delve[/bold bright_blue]",
+        title="[bold bright_blue]🚀 ddspace[/bold bright_blue]",
         border_style="bright_blue",
     ))
     logger.info("Starting taxonomy generation pipeline (mode=%s)", mode)
@@ -1793,7 +1793,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         asyncio.run(_run_html_report(args))
         return
 
-    logger.info("Delve Taxonomy Generator starting")
+    logger.info("ddspace Taxonomy Generator starting")
     asyncio.run(run(args))
 
 

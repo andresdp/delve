@@ -124,7 +124,7 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
                                   "then `ddspace agent setup` again for real examples.\n")
     return f"""# Design space: {name}
 
-`{prefix or './'}` is a DelveDSpace workspace: a design space mined from practitioner sources{run}. Use it to answer
+`{prefix or './'}` is a ddspace workspace: a design space mined from practitioner sources{run}. Use it to answer
 design questions with evidence from those sources.
 {built}
 ## What is in it

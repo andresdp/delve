@@ -1,10 +1,10 @@
 """Open Knowledge Format (OKF v0.2) view of a design-space wiki, and a conformance check.
 
-The wiki model renders pages with ``[[wikilinks]]`` and Delve's own frontmatter (the HTML site and the
+The wiki model renders pages with ``[[wikilinks]]`` and ddspace's own frontmatter (the HTML site and the
 benchmark exports use that form). ``write`` converts the pages into an OKF bundle:
 
 - every concept page has a descriptive ``type`` (Design Decision, Design Alternative, Outcome, Source, ...)
-  and a ``description``; Delve's ``status`` of a value becomes ``stance`` (OKF reserves ``status`` for the
+  and a ``description``; ddspace's ``status`` of a value becomes ``stance`` (OKF reserves ``status`` for the
   lifecycle: draft, stable, deprecated);
 - links are standard Markdown links with bundle-relative paths (``/concepts/x.md``), in the body and in
   frontmatter values;

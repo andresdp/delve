@@ -1,6 +1,6 @@
 """Match a design space against an expert ground truth (C1, C2).
 
-Validates both levels of a DelveDSpace design space (or a baseline's, through
+Validates both levels of a ddspace design space (or a baseline's, through
 another adapter) against the experts' design space (``benchmark/<study>/gt/``):
 
 1. **Values vs. options** (primary). Every candidate value (outcomes excluded
@@ -196,13 +196,13 @@ class Item:
 
 
 def system_dimensions(clusters: Sequence[dict]) -> list[dict[str, str]]:
-    """Adapter for DelveDSpace taxonomies: the dimensions (id, name, description)."""
+    """Adapter for ddspace taxonomies: the dimensions (id, name, description)."""
     return [{"id": str(c.get("id")), "name": c.get("name", ""), "description": c.get("description", "")}
             for c in clusters if isinstance(c, dict)]
 
 
 def system_values(clusters: Sequence[dict], include_outcomes: bool = False, use_facets: bool = False) -> list[Item]:
-    """Adapter for DelveDSpace taxonomies: candidate values (and outcomes on request).
+    """Adapter for ddspace taxonomies: candidate values (and outcomes on request).
 
     With ``use_facets``, a recoded value's facets (``includes``) are appended to its description, so a
     ground-truth option it covers can match it (``matcher.use_facets``).

@@ -16,11 +16,11 @@ generated:
   at: '2026-10-16T09:46:37-03:00'
 ---
 
-![DelveDSpace](assets/delvedspace-logo.svg)
+![ddspace](assets/ddspace-logo.svg)
 
 # c3-git-at-scale-sample
 
-This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design space organizes the architectural design decisions the documents discuss: each **dimension** is one decision a designer faces, and its **values** are the alternatives the documents describe. Every page is generated from the run's data, without rewording, and links to the evidence behind it. New to design spaces or to how they are mined? Start with [Approach](/approach.md).
+This wiki presents a **design space** mined by ddspace from a corpus of documents. A design space organizes the architectural design decisions the documents discuss: each **dimension** is one decision a designer faces, and its **values** are the alternatives the documents describe. Every page is generated from the run's data, without rewording, and links to the evidence behind it. New to design spaces or to how they are mined? Start with [Approach](/approach.md).
 
 Run 20261016_094637 (selected view): 8 dimensions, 89 values, 5 sources.
 

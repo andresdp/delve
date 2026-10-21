@@ -200,10 +200,10 @@ def _with_evaluation(tax):
 
 
 def test_overview_has_use_case_narrative_run_summary_and_list_cells(tmp_path):
-    export = build(_inputs(narrative="Delve found **two** decisions.", taxonomy=_with_evaluation(_taxonomy())))
+    export = build(_inputs(narrative="ddspace found **two** decisions.", taxonomy=_with_evaluation(_taxonomy())))
     overview = next(p for p in export.pages if p.path == "synthesis/overview")
     assert "## Use case" in overview.body and "Mine Git hosting decisions." in overview.body
-    assert "Delve found **two** decisions." in overview.body
+    assert "ddspace found **two** decisions." in overview.body
     assert "| Values | 6: 3 accepted, 1 mixed, 1 rejected, 1 outcome |" in overview.body
     assert "Evaluation score | 0.55" in overview.body
     write(export, tmp_path, "toy")
@@ -270,12 +270,12 @@ def test_logo_and_case_icon(tmp_path):
     icon.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
     write(build(_inputs(case_icon=True)), tmp_path / "with", "toy", icon)
     assets = tmp_path / "with" / "html" / "assets"
-    assert {"delvedspace-logo.svg", "delvedspace-icon.svg", "case-icon.svg"} <= {p.name for p in assets.iterdir()}
+    assert {"ddspace-logo.svg", "ddspace-icon.svg", "case-icon.svg"} <= {p.name for p in assets.iterdir()}
     assert (tmp_path / "with" / "wiki" / "assets" / "case-icon.svg").exists()
     index = (tmp_path / "with" / "html" / "index.html").read_text(encoding="utf-8")
-    assert 'src="assets/delvedspace-logo.svg"' in index and 'src="assets/case-icon.svg"' in index
+    assert 'src="assets/ddspace-logo.svg"' in index and 'src="assets/case-icon.svg"' in index
     value = (tmp_path / "with" / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
-    assert 'href="../assets/delvedspace-icon.svg"' in value
+    assert 'href="../assets/ddspace-icon.svg"' in value
     write(build(_inputs()), tmp_path / "without", "toy")
     assert not (tmp_path / "without" / "html" / "assets" / "case-icon.svg").exists()
     assert "case-icon" not in (tmp_path / "without" / "html" / "index.html").read_text(encoding="utf-8")
@@ -287,7 +287,7 @@ def test_exported_images_carry_small_display_sizes(tmp_path):
     write(build(_inputs(case_icon=True)), tmp_path / "out", "toy", icon)
     for folder in ("html", "wiki"):
         assets = tmp_path / "out" / folder / "assets"
-        logo = (assets / "delvedspace-logo.svg").read_text(encoding="utf-8")
+        logo = (assets / "ddspace-logo.svg").read_text(encoding="utf-8")
         case = (assets / "case-icon.svg").read_text(encoding="utf-8")
         root = re.search(r"<svg\b[^>]*>", logo).group(0)
         assert 'width="220" height="64"' in root and 'width="880"' not in root
@@ -404,7 +404,7 @@ def test_every_page_and_the_graph_have_the_theme_toggle(tmp_path):
     for f in files:
         text = f.read_text(encoding="utf-8")
         assert text.count('id="theme-toggle"') == 1, f
-        assert text.index('localStorage.getItem("delve-wiki-theme")') < text.index("<body"), f  # applied before drawing
+        assert text.index('localStorage.getItem("ddspace-wiki-theme")') < text.index("<body"), f  # applied before drawing
     css = (tmp_path / "html" / "assets" / "style.css").read_text(encoding="utf-8")
     assert ':root[data-theme="dark"]' in css and ':root:not([data-theme="light"])' in css
 
@@ -459,7 +459,7 @@ def test_approach_page(tmp_path):
     assert "## This run's settings" not in plain.body
     write(export, tmp_path, "toy")
     html = (tmp_path / "html" / "approach.html").read_text(encoding="utf-8")
-    assert 'src="assets/delve-pipeline.svg"' in html and (tmp_path / "html" / "assets" / "delve-pipeline.svg").exists()
+    assert 'src="assets/ddspace-pipeline.svg"' in html and (tmp_path / "html" / "assets" / "ddspace-pipeline.svg").exists()
     value = (tmp_path / "html" / "entities" / "disk-quorum.html").read_text(encoding="utf-8")
     assert value.count('href="../approach.html"') == 2  # sidebar footer and page footer
     assert 'class="sidebar-footer">About this wiki · <a href="../approach.html">' in value

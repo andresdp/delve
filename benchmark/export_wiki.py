@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Export one Delve run as a browsable design-space wiki (docs/DESIGN_SPACE_EXPLORATION.md §13).
+r"""Export one ddspace run as a browsable design-space wiki (docs/DESIGN_SPACE_EXPLORATION.md §13).
 
 Writes, into ``--out`` (default ``<run folder>/<run>_wiki/``):
 

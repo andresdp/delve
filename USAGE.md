@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="images/delvedspace-icon.svg" alt="DelveDSpace" width="96">
+  <img src="images/ddspace-icon.svg" alt="ddspace" width="96">
 </p>
 
-# Configuring and running DelveDSpace
+# Configuring and running ddspace
 
 How to prepare a corpus, configure a run, use the command line, read the outputs and the evaluation, and
-call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works and how to install it, see the
+call ddspace from Python. For what ddspace is, how the pipeline works and how to install it, see the
 [README](README.md).
 
 - [The `ddspace` command](#the-ddspace-command)
@@ -15,7 +15,7 @@ call DelveDSpace from Python. For what DelveDSpace is, how the pipeline works an
 - [Outputs](#outputs)
 - [Exploring a run as a wiki](#exploring-a-run-as-a-wiki)
 - [Evaluation](#evaluation)
-- [Using DelveDSpace from Python](#using-delvedspace-from-python)
+- [Using ddspace from Python](#using-ddspace-from-python)
 
 ## The `ddspace` command
 
@@ -64,7 +64,7 @@ summarization is skipped and open coding reads the passage text.
 - **`.json`**: a list of strings, or a list of objects `{"id": "...", "content": "..."}`. Ids are kept,
   so evidence and labels refer to your own document ids.
 - **Passages of longer sources:** split long documents into passages of a few hundred words with ids
-  like `s03_p02` (source 3, passage 2). DelveDSpace then counts evidence per source as well as per passage,
+  like `s03_p02` (source 3, passage 2). ddspace then counts evidence per source as well as per passage,
   and the minimum-support rule works on sources.
 
 ## Configuration
@@ -298,7 +298,7 @@ Judge scores are noisy (differences of ±0.1–0.2 between iterations are common
 not correctness. Use them together with the evidence counts, the dropped-dimension reasons and, when
 available, a comparison with an expert-built design space.
 
-## Using DelveDSpace from Python
+## Using ddspace from Python
 
 ```python
 import asyncio

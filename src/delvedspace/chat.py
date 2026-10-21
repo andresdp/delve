@@ -2,7 +2,7 @@
 
 The index is built deterministically (no LLM) from the OKF wiki on disk and ``raw/graph.json``: one page per wiki
 page, arranged in a tree that TreeDex shows to the LLM (titles and one-line summaries, without page text) to pick the
-relevant nodes. The answer is then written by DelveDSpace's own prompt from the retrieved pages only.
+relevant nodes. The answer is then written by ddspace's own prompt from the retrieved pages only.
 
 TreeDex contract (0.1.5): ``TreeDex.load`` recomputes page ranges from ``physical_index`` (a node ends just before its
 next sibling, the last child with its parent) and re-embeds node text from those ranges. Pages are therefore ordered
