@@ -234,3 +234,48 @@ differently from tools mode; the actual numbers are recorded.
 2. **Run record:** the taxonomy JSON already records enough.
 3. **Branch:** this plan stays on `feat/ddspace-tool`. After the merge into `main`, the work continues from
    `main`.
+
+## Status (2026-10-18): runs complete
+
+Code: steps 1, 2 and the runner merged to `main` (PR #13, `bf964ea`); the analysis scripts below are on
+`feat/evaluation-analysis`. Outputs, logs and reports live under `output/evaluation/` (gitignored); the run log is
+`output/evaluation/runs.csv`.
+
+### What ran
+
+| Rows | Status | Notes |
+|---|---|---|
+| S1–S3 (smoke) | Done | All checks passed (scoreboard exclusivity row, recoding entry, `loop_feedback` recorded, matching with `gpt-5.4-mini`) |
+| M1–M9 | Done | M5 failed twice when the provider account ran out of credit (`insufficient_quota`); re-run after a top-up |
+| B1–B12 | Done | B10 is the same call as S3 and was skipped as already done |
+| A1–A4 | Done | A4 (C2, rewrite) ended with an empty model: the final review rewrite returned 0 dimensions, so its matching failed (`failed-match`); its last non-empty draft was scored separately |
+| A5–A8 | Not run | Second ablation seed; dropped for time |
+
+### Cost
+
+About twice the budgeted tokens per mining run: C1 ~16M, C2 ~11M, C3 ~1.5M (wall clock lower than budgeted: ~39,
+~34 and ~22 min). Generation, critic and baselines used ~90M tokens in all; matching and the analyses below add
+roughly another 25–35M on the matcher and second-judge models.
+
+### Analyses (scripts on `feat/evaluation-analysis`, no change to the pipeline)
+
+| Script | What it does | LLM calls |
+|---|---|---|
+| `benchmark/evaluation_report.py` | `summary`: per-run and per-case tables over seeds; `stability`: seeds matched to each other | `stability` only (matcher) |
+| `benchmark/paper_stats.py` | Mean ± sd over seeds; paired bootstrap CI of recall differences over expert options; McNemar on seed 42; minimum detectable difference | None |
+| `benchmark/graded_score.py` | Option P/R/F1 with `related` as half a hit (rule fixed before computing; weight 0 reproduces the strict score) | None |
+| `benchmark/size_matched.py` | Delve cut to the long-context baseline's size (top values by sources, or top dimensions), re-matched | Matcher (mostly cached) |
+| `benchmark/relevance_replay.py` | Selection replayed with `relevance_selection: true` on saved runs, re-matched | One generation call per run |
+| `benchmark/evidence_check.py` | Whether cited passages support their values (Delve vs long context) | Judge, one per (value, passage) |
+| `benchmark/unmatched_validity.py` | Whether unmatched values are in scope, genuine, covered by an expert option, supported | Judge, one per value |
+| `benchmark/judge_agreement.py` | Re-judges both checks above with a second model; agreement (κ) and conclusions per judge | Second judge |
+| `benchmark/spot_check.py` | Blind sheets for a human check of the judges, and agreement scoring | None |
+
+### Deviations from this plan
+
+- **Human validation of the matcher was not done** (no rater time before the deadline). The two judge-based checks
+  were re-judged by a second model instead (`gpt-5.5`); that measures stability across judges, not correctness.
+- **No-open-coding ablation (a):** out of scope, as decided on 2026-10-15.
+- **Runner:** Python (`benchmark/run_matrix.py`), not bash; baseline rows numbered B1–B12.
+- **Not changed after the runs:** the pipeline stayed as merged. A guard against an empty whole-model rewrite (keep
+  the previous version) would fix A4's failure mode; it is noted, not applied.
