@@ -23,12 +23,15 @@ The `ddspace` command line is the entry point:
 
 ## Browse a design space without installing anything
 
-[`examples/c3-git-at-scale/sample/`](examples/c3-git-at-scale/sample/) holds a design space mined from five
-public sources on hosting Git at scale, capped at 8 decision points, with 24 sampled design points placed on
-the systems the sources describe. To browse it, download the folder and open
-`c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html` in a browser. It has a page per decision
-point, alternative, design point and source, and graph and tree views. The Markdown wiki (`wiki/`) and the raw
-data (`raw/`) are next to it.
+The C3 sample is a design space mined from five public sources on hosting Git at scale. It is capped at 8
+decision points, with 24 sampled design points placed on the systems the sources describe. Its wiki has a page per
+decision point, alternative, design point and source, and graph and tree views.
+
+- **[Browse the wiki online](https://anonymous.4open.science/api/repo/ddspace-E704/file/examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html).** The online viewer blocks scripts, so the graph and tree views work
+  only from a download ("Download repository"): open
+  `examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html`.
+- The Markdown wiki (`wiki/`) and the raw data (`raw/`) are in the same folder. How the sample was produced:
+  [examples/c3-git-at-scale/sample/README.md](examples/c3-git-at-scale/sample/README.md).
 
 The source texts themselves are not included (copyright). The wiki quotes short passages as evidence.
 
