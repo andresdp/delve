@@ -46,9 +46,11 @@ For a corpus and a short description of what you want to find (the **use case**)
   view.
 - **Reports:** a grounded-theory Markdown report and a single-page HTML report.
 - **A design-space wiki:** an offline HTML wiki with a page for each dimension, value and source, plus graph
-  and tree views. An example is in
-  [`examples/c3-git-at-scale/sample/`](examples/c3-git-at-scale/sample/): open
-  `c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html`.
+  and tree views.
+  - An example, the C3 sample, can be **[browsed online](https://anonymous.4open.science/api/repo/delvedspace-33CC/file/examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html)**. The online viewer blocks scripts, so the
+    graph and tree views work only from a download ("Download repository"): open
+    `examples/c3-git-at-scale/sample/c3-git-at-scale-sample_taxonomy_20261016_094637_wiki/html/index.html`.
+  - How the sample was produced: [examples/c3-git-at-scale/sample/README.md](examples/c3-git-at-scale/sample/README.md).
 - **Run history:** every iteration, the edit log, the Critic's feedback, the saturation history and the open
   codes. A run can be audited, compared with other runs, or used as the starting point of a new one.
 
