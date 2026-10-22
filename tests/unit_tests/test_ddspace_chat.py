@@ -160,4 +160,4 @@ def test_without_treedex_the_build_skips_the_index_and_ask_explains(ws, monkeypa
     assert result.exit_code == 0 and "TreeDex is not installed" in result.output
     assert not (ws.state_dir / chat.INDEX_FILE).exists()
     asked = _invoke("ask", "Anything?")
-    assert asked.exit_code == 1 and "delvedspace[chat]" in asked.output
+    assert asked.exit_code == 1 and "ddspace[chat]" in asked.output

@@ -194,7 +194,7 @@ def phases(ws: Workspace) -> List[Item]:
 
     meta = read_json(ws.state_dir / chat.NODES_FILE, {})
     if not chat.treedex_available():
-        out.append(Item("Chat index (ask)", UNAVAILABLE, 'TreeDex is not installed: pip install "delvedspace[chat]"'))
+        out.append(Item("Chat index (ask)", UNAVAILABLE, 'TreeDex is not installed: pip install "ddspace[chat]"'))
     elif not meta:
         out.append(Item("Chat index (ask)", PENDING, "not built", "ddspace wiki build" if wiki_run else ""))
     elif meta.get("run") != label:

@@ -22,7 +22,7 @@ from delvedspace.workspace import Workspace, WorkspaceError, read_json, write_js
 
 INDEX_FILE = "chat_index.json"      # TreeDex index (tree and page texts), in .ddspace/
 NODES_FILE = "chat_nodes.json"      # node id -> wiki page, and how the index was built
-INSTALL_HINT = 'The chat needs TreeDex: pip install "delvedspace[chat]" (or: pip install treedex==0.1.5).'
+INSTALL_HINT = 'The chat needs TreeDex: pip install "ddspace[chat]" (or: pip install treedex==0.1.5).'
 PASSAGE = re.compile(r"\bs\d{2,}_p\d{2,}\b")
 FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.S)
 LINK = re.compile(r"\[([^\]]+)\]\(/[^)]*\)")
