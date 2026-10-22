@@ -30,7 +30,7 @@ The results are written to `output/evaluation/report/`, which also holds the sto
 
 | Paper table or claim | Source |
 |---|---|
-| Fidelity (Delve against the expert models; strict and graded) | `report/summary.md` (M1–M6, both views); `report/graded_score/graded_score.md` |
+| Fidelity (DelveDSpace against the expert models; strict and graded) | `report/summary.md` (M1–M6, both views); `report/graded_score/graded_score.md` |
 | Baselines (L1 long context, L5 prior knowledge) | `report/summary.md` (B1–B12; B10 is the run labelled S3) |
 | Paired comparison against L1 (bootstrap CIs, McNemar, Cliff's δ) | `report/paper_stats/paper_stats.md` |
 | Ablations (A1–A4) | `report/summary.md` (A1–A4); A4's last non-empty draft: `c2-rl-monitoring/rewrite_s42/last_draft/` |
@@ -68,7 +68,7 @@ These scripts call the matcher's judge, or a second judge model. They need `OPEN
 
 ```bash
 python benchmark/evaluation_report.py stability --case c1-ml-workflow   # seeds matched to each other
-python benchmark/size_matched.py                                        # Delve cut to the baseline's size, rematched
+python benchmark/size_matched.py                                        # DelveDSpace cut to the baseline's size, rematched
 python benchmark/relevance_replay.py                                    # dimension selection with the relevance filter
 python benchmark/evidence_check.py                                      # cited passages vs. values
 python benchmark/unmatched_validity.py                                  # unmatched C1 values
