@@ -33,7 +33,7 @@ class Run:
     """What one run was; stored as ``runs/<id>/run.json``."""
 
     id: str
-    kind: str                                  # mine | update-feedback | update-test
+    kind: str                                  # mine | update-feedback | update-test | import-run | import-model
     started_at: str
     status: str = "running"                    # running | ok | failed
     finished_at: Optional[str] = None
@@ -88,6 +88,20 @@ def current_run_dir(ws: Workspace) -> Optional[Path]:
     if not run_dir.is_dir():
         raise WorkspaceError(f"The current run {value} is missing. Set workspace.current_run in ddspace.yaml "
                              "to an existing folder under runs/, or run `ddspace mine --fresh`.")
+    return run_dir
+
+
+def adopt(ws: Workspace, taxonomy: Dict, file_name: str, kind: str, source_ids: List[str],
+          corpus: Optional[Path] = None) -> Path:
+    """Store ``taxonomy`` as a finished run of ``kind`` (with an optional corpus snapshot) and make it current."""
+    run_dir = new_run_dir(ws)
+    write_json(run_dir / file_name, taxonomy)
+    if corpus is not None:
+        write_json(run_dir / RUN_CORPUS, read_corpus(corpus))
+    stamp = datetime.now().isoformat(timespec="seconds")
+    save(run_dir, Run(id=run_dir.name, kind=kind, started_at=stamp, finished_at=stamp, status="ok",
+                      source_ids=source_ids, taxonomy=file_name))
+    ws.set("workspace.current_run", relative(ws, run_dir))
     return run_dir
 
 

@@ -14,7 +14,7 @@ from typing import List, NoReturn, Optional
 import typer
 from rich.markup import escape
 
-from delvedspace import __version__, agent, chat, query_cli, runs, ui
+from delvedspace import __version__, agent, chat, importer, query_cli, runs, ui
 from delvedspace import sources as src
 from delvedspace import wiki_build as wb
 from delvedspace import workspace as wsmod
@@ -498,6 +498,45 @@ def update(
     run = runs.Run(id=run_dir.name, kind="update-test", started_at=started, seed_run=seed_dir.name,
                    source_ids=sorted(covered | set(new_ids)), new_source_ids=new_ids, passages=len(added))
     _execute(ws, run, run_dir, new_corpus, ["--taxonomy", runs.relative(ws, seed), "--mode", "test"], html_report, verbose)
+
+
+# ---------------------------------------------------------------- import
+
+
+@app.command("import")
+def import_cmd(
+    path: Path = typer.Argument(..., help="A run's taxonomy JSON, or a decision model (gt_model.json)."),
+    kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy) or decision-model (expert decisions and options)."),
+    corpus: Optional[Path] = typer.Option(None, "--corpus", help="kind run: the corpus JSON, for quotes and design points."),
+    sources: Optional[Path] = typer.Option(None, "--sources", help="kind run: sources.csv (id, title, url)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Replace the current run without asking."),
+) -> None:
+    """Make a design space built elsewhere the current run: a mined [bold]run[/bold] or an expert [bold]decision-model[/bold]."""
+    ws = current_workspace()
+    if kind not in importer.KINDS:
+        fail(f"--kind must be one of: {', '.join(importer.KINDS)}.")
+    if kind == "decision-model" and (corpus or sources):
+        fail("--corpus and --sources go with --kind run; a decision model has no passages.")
+    try:
+        current = runs.current_run_dir(ws)
+    except WorkspaceError:
+        current = None
+    ui.header("import", f"Import {ui.short_path(path.resolve())} as a design space")
+    if current is not None and not yes:
+        if not interactive(yes):
+            fail(f"A design space exists (run {current.name}). Use --yes to replace it as the current run.")
+        if not ui.ask_yes(f"Replace the current run {current.name}? (it stays under runs/)", default=False):
+            raise typer.Exit()
+    try:
+        run_dir = importer.import_space(ws, path, kind, corpus=corpus, sources=sources)
+    except WorkspaceError as exc:
+        fail(str(exc))
+    dims = wb.selected_dims(wsmod.read_json(runs.find_taxonomy(run_dir)))
+    ui.summary("Imported", [
+        ("Run", f"{run_dir.name} ({importer.RUN_KINDS[kind]})"),
+        ("Design space", f"{len(dims)} dimensions, {sum(len(d.get('values') or []) for d in dims)} values"),
+        ("Evidence", "quotes from the corpus" if corpus else "none (a decision model)" if kind != "run" else "passage ids, no quotes"),
+    ], next_steps=[("ddspace wiki build", "publish it"), ("ddspace agent setup", "let a coding agent use it")])
 
 
 # ---------------------------------------------------------------- agent setup
