@@ -238,3 +238,142 @@ def test_planned_sessions_skip_those_with_a_design(tmp_path):
     (tmp_path / "designs").mkdir()
     (tmp_path / "designs" / "fraud-N-r1.json").write_text("{}")
     assert len(sessions.pending(planned, tmp_path)) == 11
+
+
+# ---------------------------------------------------------------- U6: scoring
+
+score = _load("score")
+
+
+def _gt():
+    """Three decisions: storage (lake, warehouse), serving (service, embedded), labelling (manual, weak)."""
+    return {"decisions": [{"id": "storage", "name": "Data storage"}, {"id": "serving", "name": "Model serving"},
+                          {"id": "labels", "name": "Labelling"}],
+            "options": [{"id": "lake", "name": "Data lake", "decision_ids": ["storage"]},
+                        {"id": "warehouse", "name": "Data warehouse", "decision_ids": ["storage"]},
+                        {"id": "service", "name": "Model as a service", "decision_ids": ["serving"]},
+                        {"id": "embedded", "name": "Embedded model", "decision_ids": ["serving"]},
+                        {"id": "manual", "name": "Manual labelling", "decision_ids": ["labels"]},
+                        {"id": "weak", "name": "Weak supervision", "decision_ids": ["labels"]}],
+            "forces": [{"id": "low_latency", "name": "Low latency"}, {"id": "reduce_cost", "name": "Reduce cost"},
+                       {"id": "other", "name": "Other"}],
+            "impacts": [{"option_id": "service", "force_id": "low_latency", "impact": "--"},
+                        {"option_id": "embedded", "force_id": "low_latency", "impact": "++"},
+                        {"option_id": "lake", "force_id": "reduce_cost", "impact": "+"},
+                        {"option_id": "warehouse", "force_id": "reduce_cost", "impact": "-"},
+                        {"option_id": "manual", "force_id": "other", "impact": "+"}]}
+
+
+BRIEF = {"id": "fraud", "forces": ["low_latency", "reduce_cost"]}
+
+
+def _design(*decisions):
+    out = []
+    for name, alts, chosen in decisions:
+        out.append({"decision": name, "rationale": "r", "chosen": {"label": chosen, "value_id": None},
+                    "alternatives": [{"label": a, "value_id": None, "citations": []} for a in alts]})
+    return {"decisions": out, "uncovered": []}
+
+
+def _hits(design_doc, mapping):
+    """Hits per item id from a label -> expert option ids mapping."""
+    return {item.id: set(mapping.get(item.name, ())) for item in score.design_items(design_doc)}
+
+
+def test_briefs_must_name_known_forces_with_impacts():
+    score.check_briefs([BRIEF], _gt())
+    with pytest.raises(ValueError, match="unknown"):
+        score.check_briefs([{"id": "x", "forces": ["no_such_force"]}], _gt())
+    gt = _gt()
+    gt["impacts"] = []
+    with pytest.raises(ValueError, match="no impact"):
+        score.check_briefs([BRIEF], gt)
+
+
+def test_decision_coverage_counts_expert_decisions_with_a_match():
+    d = _design(("Serving", ["Online service", "On-device model"], "On-device model"),
+                ("Storage", ["Lake", "Warehouse"], "Lake"))
+    m = score.metrics(d, _hits(d, {"Online service": ["service"], "On-device model": ["embedded"], "Lake": ["lake"]}),
+                      _gt(), BRIEF, "N")
+    assert m["decision_coverage"] == pytest.approx(2 / 3) and m["expert_decisions_matched"] == 2
+    assert m["alternatives_per_decision"] == 2 and m["alternatives_matched"] == pytest.approx(3 / 4)
+
+
+def test_requirements_fit_is_one_for_the_best_and_zero_for_the_worst():
+    d = _design(("Serving", ["Online service", "On-device model"], "On-device model"),
+                ("Storage", ["Lake", "Warehouse"], "Warehouse"))
+    hits = _hits(d, {"Online service": ["service"], "On-device model": ["embedded"], "Lake": ["lake"],
+                     "Warehouse": ["warehouse"]})
+    m = score.metrics(d, hits, _gt(), BRIEF, "N")
+    assert m["fit_by_decision"] == {"serving": 1.0, "storage": 0.0}
+    assert m["requirements_fit"] == 0.5 and m["choices_matched"] == 2 and m["choices_unmatched"] == 0
+
+
+def test_fit_excludes_ties_and_records_unmatched_choices():
+    d = _design(("Labels", ["Manual", "Weak"], "Manual"), ("Serving", ["Online service", "GPU box"], "GPU box"))
+    m = score.metrics(d, _hits(d, {"Manual": ["manual"], "Weak": ["weak"], "Online service": ["service"]}),
+                      _gt(), BRIEF, "N")
+    assert m["fit_by_decision"] == {} and m["requirements_fit"] is None     # labels tie on the brief's forces
+    assert m["choices_unmatched"] == 1 and m["fit_excluded_ties"] == 1
+
+
+def test_fit_with_a_zero_best_and_negative_others_lies_between():
+    gt = _gt()
+    gt["impacts"] = [{"option_id": "service", "force_id": "low_latency", "impact": "-"},
+                     {"option_id": "embedded", "force_id": "low_latency", "impact": "o"},
+                     {"option_id": "embedded", "force_id": "reduce_cost", "impact": "--"},
+                     {"option_id": "service", "force_id": "reduce_cost", "impact": "+"}]
+    d = _design(("Serving", ["Online service", "On-device model"], "Online service"))
+    m = score.metrics(d, _hits(d, {"Online service": ["service"], "On-device model": ["embedded"]}), gt, BRIEF, "N")
+    assert 0.0 < m["fit_by_decision"]["serving"] <= 1.0
+
+
+def test_grounding_and_consistency_need_a_space():
+    d = _design(("Serving", ["Online service", "On-device model"], "On-device model"))
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N")
+    assert m["grounded_choices"] is None and m["consistency_warnings"] is None and m["points_explored"] is None
+
+
+def test_citations_to_ids_outside_the_graph_are_ungrounded():
+    graph = {"nodes": [{"id": "d:1", "kind": "dimension"}, {"id": "v:1.1", "kind": "value", "dimension_id": "d:1",
+                        "passages": [{"doc": "s01_p02", "stance": "accepted"}]}], "edges": []}
+    d = _design(("Serving", ["Online service", "On-device model"], "Online service"))
+    d["decisions"][0]["alternatives"][0]["citations"] = ["s01_p02", "s09_p99"]
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "M", graph=graph)
+    assert m["grounded_choices"] == 1.0 and m["valid_citations"] == 0.5
+
+
+def test_cost_comes_from_the_dated_rate_table():
+    summary = {"model": "m1", "tokens": {"input": 2_000_000, "cached_input": 1_000_000, "output": 100_000,
+                                         "reasoning": 0}, "points": [], "network_commands": 0}
+    rates = {"date": "2026-10-25", "models": {"m1": {"input": 1.0, "cached_input": 0.1, "output": 10.0}}}
+    d = _design(("Serving", ["A", "B"], "A"))
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N", summary=summary, rates=rates)
+    assert m["cost_usd"] == pytest.approx(1.0 + 0.1 + 1.0)
+    assert score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N", summary=summary, rates={"models": {}})["cost_usd"] is None
+
+
+def test_summary_without_point_events_is_rejected():
+    with pytest.raises(ValueError, match="point events"):
+        score.check_summary({"tokens": {}, "complete": True})
+
+
+def test_matching_reuses_the_matcher_and_its_cache(tmp_path):
+    import numpy as np
+    from taxonomy_generator.evaluation import gt_match
+
+    d = _design(("Serving", ["Online service", "On-device model"], "On-device model"))
+    table = {"Online service": [1, 0, 0], "On-device model": [0, 1, 0], "Model as a service": [1, 0.01, 0],
+             "Embedded model": [0.01, 1, 0], "Data lake": [0, 0, 1], "Data warehouse": [0, 0.1, 1],
+             "Manual labelling": [0.5, 0, 0.5], "Weak supervision": [0.5, 0.5, 0]}
+
+    def embed(texts):
+        return np.asarray([next(v for k, v in table.items() if k in t) for t in texts], dtype=float)
+
+    config = gt_match.MatcherConfig(matching_llm=None, generation_llm=None, embedding="x", lower_threshold=0.0,
+                                    upper_threshold=0.6, max_candidates=5, include_outcomes=False,
+                                    min_alignment_share=0.25, seed=0, cache_path=str(tmp_path / "cache.json"),
+                                    mode="embeddings")
+    hits = score.match(d, _gt(), config, embed=embed)
+    by_name = {i.name: hits[i.id] for i in score.design_items(d)}
+    assert by_name["Online service"] == {"service"} and by_name["On-device model"] == {"embedded"}
