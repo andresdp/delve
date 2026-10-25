@@ -3,6 +3,7 @@
 import csv
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def _load(name):
     spec = importlib.util.spec_from_file_location(f"cain_{name}", ROOT / "study" / "cain2027" / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module          # dataclasses look their module up while the class is built
     spec.loader.exec_module(module)
     return module
 
@@ -118,3 +120,121 @@ def test_build_refuses_inputs_that_changed(inputs, tmp_path):
     (inputs / "config.yaml").write_text(CONFIG.replace("20", "8"))
     with pytest.raises(ValueError, match="config.yaml"):
         build.build(inputs, tmp_path / "workspaces")
+
+
+# ---------------------------------------------------------------- U5: sessions
+
+design = _load("design")
+sessions = _load("run_sessions")
+
+FIXTURE_DESIGN = {
+    "decisions": [{"decision": "Model serving", "rationale": "Low latency matters most.",
+                   "alternatives": [{"label": "Model as a service", "value_id": "v:3.1", "citations": ["s03_p02"]},
+                                    {"label": "Embedded model", "value_id": "v:3.2", "citations": []}],
+                   "chosen": {"label": "Model as a service", "value_id": "v:3.1"}}],
+    "uncovered": ["Data labelling"],
+}
+
+
+def _cmd(text, out="", code=0):
+    return {"type": "item.completed", "item": {"type": "command_execution", "command": f"/bin/zsh -lc '{text}'",
+                                               "aggregated_output": out, "exit_code": code, "status": "completed"}}
+
+
+def _events(*items, complete=True):
+    events = [{"type": "thread.started", "thread_id": "t1"}, {"type": "turn.started"}, *items]
+    if complete:
+        events.append({"type": "turn.completed", "usage": {"input_tokens": 1000, "cached_input_tokens": 400,
+                                                           "output_tokens": 50, "reasoning_output_tokens": 10}})
+    return events
+
+
+SETTINGS = dict(model="gpt-5.6-luna", matching_model="openai/gpt-5.4-mini")
+
+
+def test_fixture_design_validates_against_the_schema():
+    assert design.validate(FIXTURE_DESIGN) == []
+    broken = json.loads(json.dumps(FIXTURE_DESIGN))
+    del broken["decisions"][0]["chosen"]
+    assert design.validate(broken)
+
+
+def test_command_pins_model_schema_workspace_and_network_per_condition(tmp_path):
+    s = sessions.Session("fraud", "M", 1)
+    argv = sessions.command(s, tmp_path / "ws", tmp_path / "last.json", **SETTINGS)
+    assert argv[:2] == ["codex", "exec"] and "--json" in argv
+    assert argv[argv.index("-m") + 1] == "gpt-5.6-luna"
+    assert argv[argv.index("--output-schema") + 1] == str(design.SCHEMA)
+    assert argv[argv.index("-C") + 1] == str(tmp_path / "ws")
+    assert 'web_search="disabled"' in argv and "sandbox_workspace_write.network_access=true" in argv
+    n = sessions.command(sessions.Session("fraud", "N", 1), tmp_path / "ws", tmp_path / "last.json", **SETTINGS)
+    assert "sandbox_workspace_write.network_access=true" not in n
+
+
+def test_preflight_refuses_web_search_a_shared_model_and_a_foreign_workspace(tmp_path, inputs):
+    s = sessions.Session("fraud", "M", 1)
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / build.MANIFEST_COPY).write_text((inputs / "manifest.json").read_text())
+    argv = sessions.command(s, ws, tmp_path / "last.json", **SETTINGS)
+    assert sessions.preflight(s, argv, ws, inputs / "manifest.json", **SETTINGS) == []
+    web = [a for a in argv if a != 'web_search="disabled"']
+    assert any("web search" in p for p in sessions.preflight(s, web, ws, inputs / "manifest.json", **SETTINGS))
+    same = dict(SETTINGS, matching_model="openai/gpt-5.6-luna")
+    assert any("matching" in p for p in sessions.preflight(s, argv, ws, inputs / "manifest.json", **same))
+    (ws / build.MANIFEST_COPY).write_text("{}")
+    assert any("manifest" in p for p in sessions.preflight(s, argv, ws, inputs / "manifest.json", **SETTINGS))
+
+
+def test_summary_counts_ddspace_calls_points_and_tokens():
+    point_out = json.dumps({"values": [{"id": "v:3.1"}, {"id": "v:4.2"}], "warnings": ["two values of one decision"],
+                            "attested_by": [{"id": "s:s1"}]})
+    events = _events(_cmd("ddspace query dims"), _cmd('ddspace query values "Model serving"'),
+                     _cmd('/opt/env/bin/ddspace point "Model as a service" "Batch scoring" --no-llm', point_out))
+    summary = sessions.summarize(events, home="/Users/someone", secrets=[])
+    assert summary["ddspace_calls"] == {"query dims": 1, "query values": 1, "point": 1}
+    assert summary["points"] == [{"values": ["Model as a service", "Batch scoring"], "ok": True, "warnings": 1,
+                                  "attested": 1, "llm": False}]
+    assert summary["tokens"] == {"input": 1000, "cached_input": 400, "output": 50, "reasoning": 10}
+    assert summary["complete"] is True and summary["network_commands"] == 0 and summary["web_search"] == 0
+
+
+def test_summary_keeps_no_paths_usernames_or_keys():
+    key = "sk-proj-abcdefghijklmnopqrstuvwxyz"
+    events = _events(_cmd(f"ls /Users/someone/space && echo {key}", "someone wheel"),
+                     _cmd('ddspace point "/Users/someone/x" "sk-proj-zzzzzzzzzzzzzzzzzzzz"'))
+    text = json.dumps(sessions.summarize(events, home="/Users/someone", secrets=[key]))
+    assert "/Users/someone" not in text and "someone" not in text and "sk-proj" not in text
+
+
+def test_summary_flags_network_commands_and_web_search():
+    events = _events(_cmd("curl https://example.org"), _cmd("pip install requests"),
+                     {"type": "item.completed", "item": {"type": "web_search", "query": "mlops"}})
+    summary = sessions.summarize(events, home="/Users/someone", secrets=[])
+    assert summary["network_commands"] == 2 and summary["web_search"] == 1
+
+
+def test_incomplete_log_is_reported():
+    summary = sessions.summarize(_events(_cmd("ls"), complete=False), home="/x", secrets=[])
+    assert summary["complete"] is False
+
+
+def test_postflight_fails_without_a_design_or_a_complete_log(tmp_path):
+    last = tmp_path / "last.json"
+    ok = sessions.summarize(_events(), home="/x", secrets=[])
+    assert "no design" in sessions.postflight(ok, last)[0]
+    last.write_text(json.dumps(FIXTURE_DESIGN))
+    assert sessions.postflight(ok, last) == []
+    incomplete = sessions.summarize(_events(complete=False), home="/x", secrets=[])
+    assert any("complete" in p for p in sessions.postflight(incomplete, last))
+    web = sessions.summarize(_events({"type": "item.completed", "item": {"type": "web_search"}}), home="/x", secrets=[])
+    assert any("web search" in p for p in sessions.postflight(web, last))
+
+
+def test_planned_sessions_skip_those_with_a_design(tmp_path):
+    briefs = [{"id": "fraud"}, {"id": "vision"}]
+    planned = sessions.plan(briefs, ["N", "M", "E"], 2)
+    assert len(planned) == 12 and planned[0].id == "fraud-N-r1"
+    (tmp_path / "designs").mkdir()
+    (tmp_path / "designs" / "fraud-N-r1.json").write_text("{}")
+    assert len(sessions.pending(planned, tmp_path)) == 11
