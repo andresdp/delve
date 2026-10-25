@@ -28,3 +28,19 @@ python study/cain2027/build_workspaces.py build --out <folder>
 
 The build refuses inputs whose hashes differ from the manifest, and copies the manifest into each workspace as
 `study-manifest.json`. Run sessions from a folder outside this repository, so agents cannot read it.
+
+## Running and scoring
+
+```bash
+STUDY_OPENAI_API_KEY=... python study/cain2027/run_sessions.py --workspaces <folder> --scratch <folder> \
+    --model <codex model> [--briefs fraud] [--conditions N,M,E] [--reps 2]
+python study/cain2027/score.py --workspaces <folder> [--export-labels]
+```
+
+- `briefs.yaml`: the design briefs; `forces` are expert force ids (never shown to the agent).
+- `prompt.md` and `design.schema.json`: the same prompt and output schema in every condition.
+- `results/summaries/`, `results/designs/`: one sanitized summary and one design per session; raw logs are not
+  kept. `results/scores.json`: per-session metrics and per-condition means and ranges.
+- Scoring uses the project's ground-truth matcher with its frozen settings: judge `openai/gpt-5.4-mini`, the
+  default distance thresholds and candidate cap, and a verdict cache in `results/judge_cache.json`. The session
+  model must differ from the judge. Costs use `rates.yaml` (list prices on a stated date).
