@@ -39,7 +39,7 @@ MANIFEST_COPY = "study-manifest.json"
 MODEL_FILE = "gt_model.json"
 # What the wiki and the query layer read from a run taxonomy; the rest is pipeline history (2.8 MB on C1).
 KEEP = ("taxonomy_name", "run_metrics", "selected_clusters", "dropped_dimensions", "evaluation")
-_ABSOLUTE = re.compile(r"(^|[\s:'\"])(/Users/|/home/|[A-Za-z]:\\)")
+_ABSOLUTE = re.compile(r"(^|[\s'\"=])(/\w|[A-Za-z]:\\)")   # an absolute path value (not a URL)
 
 
 def _sha256(path: Path) -> str:

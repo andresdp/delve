@@ -87,7 +87,7 @@ def test_manifest_hashes_every_input(inputs):
 
 def test_config_with_an_absolute_path_is_refused(tmp_path, source_run):
     run, sources, model = source_run
-    (run / "config.yaml").write_text(CONFIG + "output:\n  default_output_dir: /Users/someone/out\n")
+    (run / "config.yaml").write_text(CONFIG + "output:\n  default_output_dir: /srv/someone/out\n")
     with pytest.raises(ValueError, match="absolute path"):
         build.prepare(run, model, sources, tmp_path / "inputs")
 
@@ -191,7 +191,7 @@ def test_summary_counts_ddspace_calls_points_and_tokens():
                             "attested_by": [{"id": "s:s1"}]})
     events = _events(_cmd("ddspace query dims"), _cmd('ddspace query values "Model serving"'),
                      _cmd('/opt/env/bin/ddspace point "Model as a service" "Batch scoring" --no-llm', point_out))
-    summary = sessions.summarize(events, home="/Users/someone", secrets=[])
+    summary = sessions.summarize(events, home="/srv/someone", secrets=[])
     assert summary["ddspace_calls"] == {"query dims": 1, "query values": 1, "point": 1}
     assert summary["points"] == [{"values": ["Model as a service", "Batch scoring"], "ok": True, "warnings": 1,
                                   "attested": 1, "llm": False}]
@@ -201,16 +201,16 @@ def test_summary_counts_ddspace_calls_points_and_tokens():
 
 def test_summary_keeps_no_paths_usernames_or_keys():
     key = "sk-proj-abcdefghijklmnopqrstuvwxyz"
-    events = _events(_cmd(f"ls /Users/someone/space && echo {key}", "someone wheel"),
-                     _cmd('ddspace point "/Users/someone/x" "sk-proj-zzzzzzzzzzzzzzzzzzzz"'))
-    text = json.dumps(sessions.summarize(events, home="/Users/someone", secrets=[key]))
-    assert "/Users/someone" not in text and "someone" not in text and "sk-proj" not in text
+    events = _events(_cmd(f"ls /srv/someone/space && echo {key}", "someone wheel"),
+                     _cmd('ddspace point "/srv/someone/x" "sk-proj-zzzzzzzzzzzzzzzzzzzz"'))
+    text = json.dumps(sessions.summarize(events, home="/srv/someone", secrets=[key]))
+    assert "/srv/someone" not in text and "someone" not in text and "sk-proj" not in text
 
 
 def test_summary_flags_network_commands_and_web_search():
     events = _events(_cmd("curl https://example.org"), _cmd("pip install requests"),
                      {"type": "item.completed", "item": {"type": "web_search", "query": "mlops"}})
-    summary = sessions.summarize(events, home="/Users/someone", secrets=[])
+    summary = sessions.summarize(events, home="/srv/someone", secrets=[])
     assert summary["network_commands"] == 2 and summary["web_search"] == 1
 
 
