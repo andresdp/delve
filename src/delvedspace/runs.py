@@ -26,6 +26,7 @@ LOG_FILE = "pipeline.log"   # the pipeline's full output, when not shown with --
 TOKENS_PER_PASSAGE = 30_000
 SECONDS_PER_PASSAGE = 28
 _ARTIFACT_MARKERS = ("_design_points", "_match", "_metrics", "_vectors")
+IMPORT_RUN, IMPORT_MODEL = "import-run", "import-model"   # run kinds of `ddspace import`
 
 
 @dataclass
@@ -73,9 +74,15 @@ def load(run_dir: Path) -> Optional[Run]:
     return Run(**data) if data is not None else None
 
 
+def is_taxonomy_name(name: str) -> bool:
+    """Whether a file name is a run's taxonomy JSON (not a design-point, match, metrics or vectors file)."""
+    path = Path(name)
+    return path.match("*_taxonomy_*.json") and not any(m in path.stem for m in _ARTIFACT_MARKERS)
+
+
 def find_taxonomy(run_dir: Path) -> Optional[Path]:
     """Return the taxonomy JSON a pipeline run wrote into ``run_dir`` (the newest, if several)."""
-    found = [p for p in run_dir.glob("*_taxonomy_*.json") if not any(m in p.stem for m in _ARTIFACT_MARKERS)]
+    found = [p for p in run_dir.glob("*_taxonomy_*.json") if is_taxonomy_name(p.name)]
     return max(found, key=lambda p: p.name) if found else None
 
 

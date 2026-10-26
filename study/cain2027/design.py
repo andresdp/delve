@@ -7,10 +7,11 @@ needs no ``jsonschema`` dependency.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
 
@@ -18,6 +19,8 @@ HERE = Path(__file__).resolve().parent
 SCHEMA = HERE / "design.schema.json"
 PROMPT = HERE / "prompt.md"
 BRIEFS = HERE / "briefs.yaml"
+SPACE_CONDITIONS = ("M", "E")              # the conditions with a design space (N has none)
+MANIFEST_COPY = "study-manifest.json"      # the input manifest, as copied into each workspace
 _TYPES = {"object": dict, "array": list, "string": str, "null": type(None), "number": (int, float), "integer": int,
           "boolean": bool}
 _KEY = re.compile(r"sk-[A-Za-z0-9_\-]{12,}")
@@ -28,7 +31,12 @@ def schema() -> Dict[str, Any]:
     return json.loads(SCHEMA.read_text(encoding="utf-8"))
 
 
-def validate(instance: Any, spec: Dict[str, Any] = None, path: str = "$") -> List[str]:
+def sha256(path: Path) -> str:
+    """Hex SHA-256 of a file."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def validate(instance: Any, spec: Optional[Dict[str, Any]] = None, path: str = "$") -> List[str]:
     """Return the problems of ``instance`` against the schema (empty when it conforms)."""
     spec = schema() if spec is None else spec
     types = spec.get("type")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the study sessions: one ``codex exec`` per brief, condition and repetition, each in a fresh copy.
+r"""Run the study sessions: one ``codex exec`` per brief, condition and repetition, each in a fresh copy.
 
 For each session the runner copies the condition's workspace (empty for N) into a scratch folder with the
 brief as ``BRIEF.md``, gives Codex a private home holding only its login (no user skills, memories or
@@ -21,7 +21,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -42,9 +41,9 @@ import design  # noqa: E402
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "results"
 MANIFEST = HERE / "inputs" / "manifest.json"
-MANIFEST_COPY = "study-manifest.json"
+MANIFEST_COPY = design.MANIFEST_COPY
 MATCHING_MODEL = "openai/gpt-5.4-mini"     # the matcher's judge (KTD10); the session model must differ
-SPACE_CONDITIONS = ("M", "E")
+SPACE_CONDITIONS = design.SPACE_CONDITIONS
 WEB_SEARCH_OFF = 'web_search="disabled"'
 NETWORK_ON = "sandbox_workspace_write.network_access=true"
 # Tool surfaces the study does not want (the agent works with the shell and the workspace only).
@@ -57,12 +56,15 @@ _SHELL = re.compile(r"^\S*(?:sh|bash|zsh)\s+-l?c\s+(.*)$", re.S)
 
 @dataclass(frozen=True)
 class Session:
+    """One agent session: a brief, a condition (N, M or E) and a repetition number."""
+
     brief: str
     condition: str
     rep: int
 
     @property
     def id(self) -> str:
+        """Return the session id, e.g. ``fraud-M-r1``."""
         return f"{self.brief}-{self.condition}-r{self.rep}"
 
 
@@ -72,16 +74,12 @@ def plan(briefs: List[Dict[str, Any]], conditions: Iterable[str], reps: int) -> 
 
 
 def pending(sessions: List[Session], results: Path = RESULTS) -> List[Session]:
-    """The sessions that have no design yet."""
+    """Return the sessions that have no design yet."""
     return [s for s in sessions if not (results / "designs" / f"{s.id}.json").is_file()]
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def command(session: Session, workdir: Path, last: Path, *, model: str, matching_model: str = MATCHING_MODEL) -> List[str]:
-    """The ``codex exec`` argv for one session."""
+def command(session: Session, workdir: Path, last: Path, *, model: str) -> List[str]:
+    """Return the ``codex exec`` argv for one session."""
     argv = ["codex", "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
             "-s", "workspace-write", "-m", model, "--output-schema", str(design.SCHEMA), "-o", str(last),
             "-C", str(workdir), "-c", WEB_SEARCH_OFF]
@@ -112,7 +110,7 @@ def preflight(session: Session, argv: List[str], workdir: Path, manifest: Path =
 
 
 def _inner(command_line: str) -> str:
-    """The script a shell wrapper (``/bin/zsh -lc '...'``) runs."""
+    """Return the script a shell wrapper (``/bin/zsh -lc '...'``) runs."""
     m = _SHELL.match(command_line.strip())
     if not m:
         return command_line
@@ -124,7 +122,7 @@ def _inner(command_line: str) -> str:
 
 
 def _ddspace_calls(script: str) -> List[List[str]]:
-    """The argument lists of every ddspace invocation in a shell script."""
+    """Return the argument lists of every ddspace invocation in a shell script."""
     calls = []
     for piece in re.split(r"&&|\|\||;|\n|\|", script):
         try:
@@ -157,7 +155,7 @@ def _point_event(args: List[str], output: str, ok: bool, clean) -> Dict[str, Any
 
 
 def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]) -> Dict[str, Any]:
-    """An allow-listed summary of a session's event log (no free text, paths, user names or keys)."""
+    """Return an allow-listed summary of a session's event log (no free text, paths, user names or keys)."""
     secrets = list(secrets)
 
     def clean(text: str) -> str:
@@ -216,7 +214,7 @@ def postflight(summary: Dict[str, Any], last: Path) -> List[str]:
 
 
 def _codex_home(root: Path) -> Path:
-    """A private CODEX_HOME with only the login of the user's Codex."""
+    """Create a private CODEX_HOME holding only the login of the user's Codex."""
     home = root / "codex-home"
     home.mkdir(parents=True, exist_ok=True)
     auth = Path(os.environ.get("CODEX_HOME", Path.home() / ".codex")) / "auth.json"
@@ -244,8 +242,7 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
         key: Optional[str] = None) -> Dict[str, Any]:
     """Run one session; write its design and summary; return the summary."""
     root = scratch / session.id
-    if root.exists():
-        shutil.rmtree(root)
+    shutil.rmtree(root, ignore_errors=True)
     workdir = root / "ws"
     if session.condition in SPACE_CONDITIONS:
         shutil.copytree(workspaces / session.condition, workdir)
@@ -256,7 +253,7 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
     argv = command(session, workdir, last, model=model)
     record = {"session": session.id, "brief": session.brief, "condition": session.condition, "rep": session.rep,
               "model": model, "matching_model": MATCHING_MODEL,
-              "prompt_sha256": _sha256(design.PROMPT), "schema_sha256": _sha256(design.SCHEMA),
+              "prompt_sha256": design.sha256(design.PROMPT), "schema_sha256": design.sha256(design.SCHEMA),
               "started_at": datetime.now().isoformat(timespec="seconds")}
     problems = preflight(session, argv, workdir, model=model)
     summary: Dict[str, Any] = {}
@@ -289,6 +286,7 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
 
 
 def main() -> None:
+    """Run the pending sessions given on the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--workspaces", type=Path, required=True, help="folder with N, M and E (build_workspaces.py)")
     parser.add_argument("--scratch", type=Path, required=True, help="where session copies go (outside the repository)")
@@ -306,13 +304,13 @@ def main() -> None:
     briefs = [b for b in briefs if not wanted or b["id"] in wanted]
     key = os.environ.get("STUDY_OPENAI_API_KEY")
     if not key and set(args.conditions.split(",")) & set(SPACE_CONDITIONS):
-        print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail (use --no-llm)")
+        print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail (use --no-llm)")  # noqa: T201
     ddspace_bin = Path(sys.executable).with_name("ddspace")
     for s in pending(plan(briefs, args.conditions.split(","), args.reps)):
         brief = next(b for b in briefs if b["id"] == s.brief)
         rec = run(s, brief, args.workspaces.resolve(), args.scratch.resolve(), model=args.model,
                   keep_raw=args.keep_raw, ddspace_bin=ddspace_bin if ddspace_bin.is_file() else None, key=key)
-        print(f"{s.id}: {rec['status']} {'; '.join(rec['problems'])}")
+        print(f"{s.id}: {rec['status']} {'; '.join(rec['problems'])}")  # noqa: T201
 
 
 if __name__ == "__main__":

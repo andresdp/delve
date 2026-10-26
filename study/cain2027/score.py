@@ -30,6 +30,8 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import design  # noqa: E402
 
@@ -37,7 +39,7 @@ HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "results"
 INPUTS = HERE / "inputs"
 RATES = HERE / "rates.yaml"
-SPACE_CONDITIONS = ("M", "E")
+SPACE_CONDITIONS = design.SPACE_CONDITIONS
 IMPACT = {"++": 2, "+": 1, "o": 0, "+/-": 0, "-": -1, "--": -2}
 SUMMARY_FIELDS = ("complete", "tokens", "points")
 
@@ -66,38 +68,56 @@ def check_summary(summary: Mapping[str, Any]) -> None:
         raise ValueError(f"session summary lacks {', '.join(missing)} (point events are required)")
 
 
+def _item_id(i: int, j: int) -> str:
+    """Matcher item id of alternative ``j`` of decision ``i``."""
+    return f"d{i}a{j}"
+
+
+def _chosen_index(dec: Mapping[str, Any]) -> Optional[int]:
+    """Index of the chosen alternative among the considered ones (None when the choice is not among them)."""
+    labels = [a["label"] for a in dec["alternatives"]]
+    return labels.index(dec["chosen"]["label"]) if dec["chosen"]["label"] in labels else None
+
+
 def design_items(doc: Mapping[str, Any]) -> list:
     """One matcher item per considered alternative (plus the chosen one when it is not among them)."""
     from taxonomy_generator.evaluation.gt_match import Item
     items = []
     for i, dec in enumerate(doc["decisions"]):
         labels = [a["label"] for a in dec["alternatives"]]
-        if dec["chosen"]["label"] not in labels:
+        if _chosen_index(dec) is None:
             labels.append(dec["chosen"]["label"])
         for j, label in enumerate(labels):
-            items.append(Item(id=f"d{i}a{j}", name=label, description="", parent_ids=[f"d{i}"],
+            items.append(Item(id=_item_id(i, j), name=label, description="", parent_ids=[f"d{i}"],
                               parent_name=dec["decision"]))
     return items
 
 
 def _chosen_item(doc: Mapping[str, Any], i: int) -> str:
     dec = doc["decisions"][i]
-    labels = [a["label"] for a in dec["alternatives"]]
-    return f"d{i}a{labels.index(dec['chosen']['label']) if dec['chosen']['label'] in labels else len(labels)}"
+    j = _chosen_index(dec)
+    return _item_id(i, len(dec["alternatives"]) if j is None else j)
 
 
 def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optional[Callable] = None,
-          judge_model: Any = None) -> Dict[str, Set[str]]:
-    """Return the expert options each design item matches (same, broader or narrower)."""
+          judge_model: Any = None, cache: Any = None, options: Optional[list] = None) -> Dict[str, Set[str]]:
+    """Return the expert options each design item matches (same, broader or narrower).
+
+    Pass ``embed``, ``judge_model``, ``cache`` and ``options`` to reuse them across sessions; a cache created
+    here is saved here, a passed one is saved by the caller.
+    """
     from taxonomy_generator.evaluation import gt_match
     from taxonomy_generator.evaluation.judge import openai_judge_model
-    items, options = design_items(doc), _gt_items(gt)
+    items = design_items(doc)
+    options = options if options is not None else _gt_items(gt)
     embed = embed or gt_match.embedder_from_config(config)
     if judge_model is None and config.mode == "judge":
         judge_model = openai_judge_model(gt_match.check_matching_llm(config.matching_llm))
-    cache = gt_match.JudgeCache(config.cache_path)
+    own_cache = cache is None
+    cache = gt_match.JudgeCache(config.cache_path) if own_cache else cache
     pairs = asyncio.run(gt_match.label_pairs(items, options, embed, judge_model, config, cache=cache))
-    cache.save()
+    if own_cache:
+        cache.save()
     hits: Dict[str, Set[str]] = {i.id: set() for i in items}
     for p in pairs:
         if p["label"] in gt_match.HIT_LABELS:
@@ -177,20 +197,15 @@ def _cost(summary, rates) -> Optional[float]:
             + t.get("output", 0) * rate["output"]) / 1e6
 
 
-def d_alts(doc: Mapping[str, Any]) -> List[Mapping[str, Any]]:
-    """Every considered alternative of a design."""
-    return [a for d in doc["decisions"] for a in d["alternatives"]]
-
-
 def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[str, Any], brief: Mapping[str, Any],
             condition: str, *, graph: Optional[Mapping[str, Any]] = None, summary: Optional[Mapping[str, Any]] = None,
             rates: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
-    """The study metrics of one session (see the module docstring)."""
+    """Return the study metrics of one session (see the module docstring)."""
     decisions = {d["id"] for d in gt.get("decisions") or []}
     decision_of = {o["id"]: o.get("decision_ids") or [] for o in gt.get("options") or []}
     matched = {d for opts in hits.values() for o in opts for d in decision_of.get(o, [])}
     alts = [len(d["alternatives"]) for d in doc["decisions"]]
-    considered = [k for i, d in enumerate(doc["decisions"]) for k in (f"d{i}a{j}" for j in range(len(d["alternatives"])))]
+    considered = [_item_id(i, j) for i, d in enumerate(doc["decisions"]) for j in range(len(d["alternatives"]))]
     out: Dict[str, Any] = {
         "decisions": len(doc["decisions"]),
         "decision_coverage": len(matched & decisions) / len(decisions) if decisions else None,
@@ -204,11 +219,10 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
     if space:
         valid = _graph_ids(graph)
         chosen_cites = []
-        for i, d in enumerate(doc["decisions"]):
-            labels = [a["label"] for a in d["alternatives"]]
-            alt = d["alternatives"][labels.index(d["chosen"]["label"])] if d["chosen"]["label"] in labels else None
-            chosen_cites.append(alt["citations"] if alt else [])
-        cites = [c for a in d_alts(doc) for c in a["citations"]]
+        for d in doc["decisions"]:
+            j = _chosen_index(d)
+            chosen_cites.append(d["alternatives"][j]["citations"] if j is not None else [])
+        cites = [c for d in doc["decisions"] for a in d["alternatives"] for c in a["citations"]]
         out["grounded_choices"] = (sum(bool(c) for c in chosen_cites) / len(chosen_cites)) if chosen_cites else None
         out["valid_citations"] = (sum(c in valid for c in cites) / len(cites)) if cites else None
         out.update(_consistency(doc, graph))
@@ -245,8 +259,10 @@ def aggregate(rows: List[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
 
 
 def main() -> None:
-    import yaml
+    """Score every session with a design and write ``results/scores.json``."""
+    from taxonomy_generator.evaluation import gt_match
     from taxonomy_generator.evaluation.gt_match import MatcherConfig
+    from taxonomy_generator.evaluation.judge import openai_judge_model
     from taxonomy_generator.settings import load_settings
 
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -264,13 +280,19 @@ def main() -> None:
     if args.workspaces:
         for cond in SPACE_CONDITIONS:
             graphs[cond] = json.loads((args.workspaces / cond / "raw" / "graph.json").read_text(encoding="utf-8"))
+    options = _gt_items(gt)
+    names = {o.id: o.name for o in options}
+    embed = gt_match.embedder_from_config(config)
+    judge = openai_judge_model(gt_match.check_matching_llm(config.matching_llm)) if config.mode == "judge" else None
+    cache = gt_match.JudgeCache(config.cache_path)
     rows = []
     for path in sorted((RESULTS / "designs").glob("*.json")):
         sid = path.stem
         summary = json.loads((RESULTS / "summaries" / f"{sid}.json").read_text(encoding="utf-8"))
         check_summary(summary)
         doc = json.loads(path.read_text(encoding="utf-8"))
-        hits = match(doc, gt, config)
+        hits = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options)
+        cache.save()                        # after each session, so an interrupted run keeps its verdicts
         row = {"session": sid, "brief": summary["brief"], "condition": summary["condition"], "rep": summary["rep"],
                "model": summary["model"], "matching_model": config.matching_llm,
                **metrics(doc, hits, gt, briefs[summary["brief"]], summary["condition"],
@@ -279,7 +301,6 @@ def main() -> None:
         if args.export_labels:
             labels = RESULTS / "labels"
             labels.mkdir(parents=True, exist_ok=True)
-            names = {o.id: o.name for o in _gt_items(gt)}
             with (labels / f"{sid}.csv").open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
                 w.writerow(["decision", "alternative", "matched_expert_options", "correct (y/n)"])
@@ -287,7 +308,7 @@ def main() -> None:
                     w.writerow([item.parent_name, item.name, "; ".join(names[o] for o in sorted(hits[item.id])), ""])
     (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates.get("date"), "sessions": rows,
                                                      "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(aggregate(rows), indent=2))
+    print(json.dumps(aggregate(rows), indent=2))  # noqa: T201
 
 
 if __name__ == "__main__":

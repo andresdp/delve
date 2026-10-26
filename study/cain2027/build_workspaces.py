@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the three study workspaces (N, M, E) from the tracked inputs in ``study/cain2027/inputs/``.
+r"""Build the three study workspaces (N, M, E) from the tracked inputs in ``study/cain2027/inputs/``.
 
 - ``N``: an empty folder; the session runner adds the brief.
 - ``M``: the C1 seed-42 mined design space, imported as a run (no corpus, so no quotes ship).
@@ -23,7 +23,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import shutil
@@ -32,18 +31,17 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import design  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 INPUTS = HERE / "inputs"
 MANIFEST = "manifest.json"
-MANIFEST_COPY = "study-manifest.json"
+MANIFEST_COPY = design.MANIFEST_COPY
 MODEL_FILE = "gt_model.json"
 # What the wiki and the query layer read from a run taxonomy; the rest is pipeline history (2.8 MB on C1).
 KEEP = ("taxonomy_name", "run_metrics", "selected_clusters", "dropped_dimensions", "evaluation")
 _ABSOLUTE = re.compile(r"(^|[\s'\"=])(/\w|[A-Za-z]:\\)")   # an absolute path value (not a URL)
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _taxonomy(folder: Path) -> Path:
@@ -74,7 +72,7 @@ def prepare(run: Path, model: Path, sources: Path, out: Path = INPUTS) -> Path:
     shutil.copyfile(model, out / MODEL_FILE)
     files = sorted(p for p in out.iterdir() if p.is_file() and p.name != MANIFEST)
     manifest = {"source_run": run.name, "taxonomy": taxonomy_path.name,
-                "files": {p.name: _sha256(p) for p in files}}
+                "files": {p.name: design.sha256(p) for p in files}}
     (out / MANIFEST).write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return out
 
@@ -83,7 +81,7 @@ def verify(inputs: Path = INPUTS) -> List[str]:
     """Return the inputs whose content no longer matches the manifest (missing files included)."""
     manifest = json.loads((inputs / MANIFEST).read_text(encoding="utf-8"))
     return [name for name, digest in manifest["files"].items()
-            if not (inputs / name).is_file() or _sha256(inputs / name) != digest]
+            if not (inputs / name).is_file() or design.sha256(inputs / name) != digest]
 
 
 def _ddspace(cwd: Path, *args: str) -> None:
@@ -120,8 +118,7 @@ def build(inputs: Path = INPUTS, out: Path = HERE / "workspaces") -> Dict[str, P
         raise ValueError(f"inputs changed since the manifest was written: {', '.join(changed)}")
     inputs, out = inputs.resolve(), out.resolve()
     for name in ("N", "M", "E"):
-        if (out / name).exists():
-            shutil.rmtree(out / name)
+        shutil.rmtree(out / name, ignore_errors=True)
     out.mkdir(parents=True, exist_ok=True)
     (out / "N").mkdir()
     manifest = json.loads((inputs / MANIFEST).read_text(encoding="utf-8"))
@@ -132,6 +129,7 @@ def build(inputs: Path = INPUTS, out: Path = HERE / "workspaces") -> Dict[str, P
 
 
 def main() -> None:
+    """Prepare the inputs or build the workspaces, as the command line says."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("prepare", help="write the tracked inputs from an evaluation run")
@@ -144,10 +142,10 @@ def main() -> None:
     b.add_argument("--out", type=Path, default=HERE / "workspaces")
     args = parser.parse_args()
     if args.command == "prepare":
-        print(prepare(args.run, args.model, args.sources, args.out))
+        print(prepare(args.run, args.model, args.sources, args.out))  # noqa: T201
     else:
         for name, path in build(args.inputs, args.out).items():
-            print(f"{name}: {path}")
+            print(f"{name}: {path}")  # noqa: T201
 
 
 if __name__ == "__main__":

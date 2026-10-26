@@ -532,10 +532,16 @@ def import_cmd(
     except WorkspaceError as exc:
         fail(str(exc))
     dims = wb.selected_dims(wsmod.read_json(runs.find_taxonomy(run_dir)))
+    if kind == "decision-model":
+        evidence = "none (a decision model)"
+    elif corpus:
+        evidence = "quotes from the corpus"
+    else:
+        evidence = "passage ids, no quotes"
     ui.summary("Imported", [
         ("Run", f"{run_dir.name} ({importer.RUN_KINDS[kind]})"),
         ("Design space", f"{len(dims)} dimensions, {sum(len(d.get('values') or []) for d in dims)} values"),
-        ("Evidence", "quotes from the corpus" if corpus else "none (a decision model)" if kind != "run" else "passage ids, no quotes"),
+        ("Evidence", evidence),
     ], next_steps=[("ddspace wiki build", "publish it"), ("ddspace agent setup", "let a coding agent use it")])
 
 

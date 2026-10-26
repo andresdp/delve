@@ -19,7 +19,7 @@ from delvedspace.workspace import Workspace, WorkspaceError, read_json
 from taxonomy_generator.relations import clean_relations
 
 KINDS = ("run", "decision-model")
-RUN_KINDS = {"run": "import-run", "decision-model": "import-model"}  # run.json marker per input kind
+RUN_KINDS = {"run": runs.IMPORT_RUN, "decision-model": runs.IMPORT_MODEL}  # run.json marker per input kind
 LINK_TYPE = "affects"   # expert links ("consider B once A is decided") advise; they do not require
 # Wiki settings for a model without passages: nothing to quote, no systems to sample points from, and every
 # dimension is core (no evidence counts to rank them by).
@@ -37,8 +37,7 @@ def _read(path: Path) -> Any:
 
 def _taxonomy_file(path: Path, name: str, run_id: str) -> str:
     """Keep a run's file name when ``runs.find_taxonomy`` would find it, else name it like a pipeline run."""
-    probe = Path(path.name)
-    if probe.match("*_taxonomy_*.json") and not any(m in probe.stem for m in runs._ARTIFACT_MARKERS):
+    if runs.is_taxonomy_name(path.name):
         return path.name
     return f"{name}_taxonomy_{run_id}.json"
 

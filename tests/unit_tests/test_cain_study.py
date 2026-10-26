@@ -161,13 +161,13 @@ def test_fixture_design_validates_against_the_schema():
 
 def test_command_pins_model_schema_workspace_and_network_per_condition(tmp_path):
     s = sessions.Session("fraud", "M", 1)
-    argv = sessions.command(s, tmp_path / "ws", tmp_path / "last.json", **SETTINGS)
+    argv = sessions.command(s, tmp_path / "ws", tmp_path / "last.json", model=SETTINGS["model"])
     assert argv[:2] == ["codex", "exec"] and "--json" in argv
     assert argv[argv.index("-m") + 1] == "gpt-5.6-luna"
     assert argv[argv.index("--output-schema") + 1] == str(design.SCHEMA)
     assert argv[argv.index("-C") + 1] == str(tmp_path / "ws")
     assert 'web_search="disabled"' in argv and "sandbox_workspace_write.network_access=true" in argv
-    n = sessions.command(sessions.Session("fraud", "N", 1), tmp_path / "ws", tmp_path / "last.json", **SETTINGS)
+    n = sessions.command(sessions.Session("fraud", "N", 1), tmp_path / "ws", tmp_path / "last.json", model=SETTINGS["model"])
     assert "sandbox_workspace_write.network_access=true" not in n
 
 
@@ -176,7 +176,7 @@ def test_preflight_refuses_web_search_a_shared_model_and_a_foreign_workspace(tmp
     ws = tmp_path / "ws"
     ws.mkdir()
     (ws / build.MANIFEST_COPY).write_text((inputs / "manifest.json").read_text())
-    argv = sessions.command(s, ws, tmp_path / "last.json", **SETTINGS)
+    argv = sessions.command(s, ws, tmp_path / "last.json", model=SETTINGS["model"])
     assert sessions.preflight(s, argv, ws, inputs / "manifest.json", **SETTINGS) == []
     web = [a for a in argv if a != 'web_search="disabled"']
     assert any("web search" in p for p in sessions.preflight(s, web, ws, inputs / "manifest.json", **SETTINGS))
@@ -360,6 +360,7 @@ def test_summary_without_point_events_is_rejected():
 
 def test_matching_reuses_the_matcher_and_its_cache(tmp_path):
     import numpy as np
+
     from taxonomy_generator.evaluation import gt_match
 
     d = _design(("Serving", ["Online service", "On-device model"], "On-device model"))

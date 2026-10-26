@@ -95,7 +95,7 @@ def _expert_model(ws: Workspace) -> bool:
     except WorkspaceError:
         return False
     run = runs.load(run_dir) if run_dir is not None else None
-    return run is not None and run.kind == "import-model"
+    return run is not None and run.kind == runs.IMPORT_MODEL
 
 
 def _sketching(dim: str, value: str, where: str, expert: bool) -> str:
