@@ -365,6 +365,16 @@ def aggregate(rows: List[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
     return out
 
 
+def _study_path(path: Optional[str]) -> Optional[str]:
+    """``path`` relative to the study folder when it lies inside it (as recorded in the results)."""
+    if not path:
+        return path
+    try:
+        return str(Path(path).resolve().relative_to(HERE))
+    except ValueError:
+        return Path(path).name
+
+
 def main() -> None:
     """Score every session with a design and write ``results/scores.json``."""
     from taxonomy_generator.evaluation import gt_match
@@ -398,7 +408,8 @@ def main() -> None:
     finally:
         loop.close()
     rates_date = str(rates["date"]) if rates.get("date") else None      # YAML may read the date as a date
-    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates_date, "matcher": config.as_record(),
+    matcher = {**config.as_record(), "cache_path": _study_path(config.cache_path)}   # no home folder in results
+    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates_date, "matcher": matcher,
                                                      "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
                                                      "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(aggregate(rows), indent=2))  # noqa: T201

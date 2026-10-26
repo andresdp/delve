@@ -633,3 +633,9 @@ def test_one_broad_alternative_no_longer_covers_many_decisions():
     assert m["expert_decisions_matched"] == 1 and m["expert_decisions_matched_lenient"] == 3
     assert m["expert_decisions_matched_same"] == 0 and m["decision_coverage_same"] == 0
     assert m["relevant_decisions_matched"] == 1 and m["relevant_decisions_matched_lenient"] == 2
+
+
+def test_results_record_the_cache_path_without_the_home_folder():
+    assert score._study_path(str(score.HERE / "results" / "judge_cache.json")) == "results/judge_cache.json"
+    assert score._study_path("/srv/someone/cache.json") == "cache.json"
+    assert score._study_path(None) is None
