@@ -198,9 +198,14 @@ export OPENAI_API_KEY=sk-...your scoring key...
 python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces --export-labels
 ```
 
-This writes `study/cain2027/results/labels/<session>.csv`. For each row (an option the agent considered and the
-expert options the judge matched it to), write `y` or `n` in the last column: is the match right? Then record
-the share of `y` and the date as a line in the CAIN entry of `benchmark/README.md`.
+This writes `study/cain2027/results/labels/<session>.csv`. Each row is an option the agent considered, with its
+`best_match` (the expert option the score uses, with the judge's label) and its `other_matches` (used only by the
+lenient variant). Write `y` or `n` in the last column: does the best match name the same design option? Leave it
+empty when there is no best match. Then record the share of `y` (the matcher's precision) and the date as a line
+in the CAIN entry of `benchmark/README.md`.
+
+Running `score.py --export-labels` again overwrites these files: once you start filling them in, score without
+`--export-labels`.
 
 **Decide** whether to go ahead with the full run. If the ADRs or the matches look wrong, stop and fix the setup
 first.
@@ -248,7 +253,9 @@ python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces
 `study/cain2027/results/scores.json`. This file holds one row per session, and a mean, minimum and maximum per
 condition, of:
 
-- decision coverage (all expert decisions) and relevant-decision coverage (those of the brief's reference);
+- decision coverage (all expert decisions) and relevant-decision coverage (those of the brief's reference). Each
+  of the agent's options counts through its best match only; the `_same` and `_lenient` variants count more
+  loosely, and the gap shows how much a lenient matcher would inflate coverage;
 - requirements fit;
 - driver recall;
 - grounding and consistency (M and E only);

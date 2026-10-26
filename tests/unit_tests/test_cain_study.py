@@ -605,3 +605,31 @@ def test_incomplete_sheets_are_refused(tmp_path):
     sheet.write_text("packet,coverage,tradeoffs,fit,correctness,notes\nP1,4,3,,2,\n")
     with pytest.raises(SystemExit, match="no valid fit"):
         rating.read_sheet(sheet)
+
+
+# ---------------------------------------------------------------- strict matching readings
+
+
+def _pair(item, gt_id, label, distance):
+    return {"system_id": item, "gt_id": gt_id, "label": label, "distance": distance}
+
+
+def test_hit_levels_keep_one_best_match_per_alternative():
+    pairs = [_pair("d0a0", "lake", "broader", 0.2), _pair("d0a0", "warehouse", "same", 0.3),
+             _pair("d0a1", "service", "narrower", 0.4), _pair("d0a1", "embedded", "broader", 0.25)]
+    levels = score.hit_levels(["d0a0", "d0a1", "d0a2"], pairs)
+    assert levels["best"] == {"d0a0": {"warehouse"}, "d0a1": {"embedded"}, "d0a2": set()}   # "same" wins
+    assert levels["same"] == {"d0a0": {"warehouse"}, "d0a1": set(), "d0a2": set()}
+    assert levels["lenient"]["d0a0"] == {"lake", "warehouse"}
+
+
+def test_one_broad_alternative_no_longer_covers_many_decisions():
+    d = _design(("Platform", ["Everything platform", "Nothing"], "Everything platform"))
+    item = score.design_items(d)[0].id
+    pairs = [_pair(item, "lake", "broader", 0.3), _pair(item, "service", "broader", 0.35),
+             _pair(item, "manual", "broader", 0.4)]
+    levels = score.hit_levels([i.id for i in score.design_items(d)], pairs)
+    m = score.metrics(d, levels["best"], _gt(), BRIEF, "N", same_hits=levels["same"], lenient_hits=levels["lenient"])
+    assert m["expert_decisions_matched"] == 1 and m["expert_decisions_matched_lenient"] == 3
+    assert m["expert_decisions_matched_same"] == 0 and m["decision_coverage_same"] == 0
+    assert m["relevant_decisions_matched"] == 1 and m["relevant_decisions_matched_lenient"] == 2

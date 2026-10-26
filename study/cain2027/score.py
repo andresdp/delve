@@ -5,12 +5,15 @@ Every alternative a design considers is matched to the expert model's attached o
 ground-truth matcher (``taxonomy_generator.evaluation.gt_match``: embeddings propose pairs, the pinned judge
 decides, verdicts cached). From those matches and the session summary, per session:
 
-- decision coverage: expert decisions with at least one matched alternative, over all expert decisions;
+- decision coverage: expert decisions with at least one matched alternative, over all expert decisions. Each
+  alternative counts through its best match only (``hit_levels``), so one broad alternative cannot claim many
+  decisions; ``_same`` (only matches labelled "same") and ``_lenient`` (every same, broader or narrower match)
+  variants are reported next to it;
 - relevant-decision coverage: the same over the brief's relevant decisions (``relevant_decisions``: those whose
   options differ in summed impact on the brief's forces; see ``reference.py``);
 - alternatives per decision, and the share of alternatives that match an expert option;
 - driver recall: the share of the brief's (hidden) forces that the ADRs' stated decision drivers name;
-- requirements fit: per touched expert decision, (chosen - worst) / (best - worst) of the summed expert impacts on
+- requirements fit (on the best-match hits): per touched expert decision, (chosen - worst) / (best - worst) of the summed expert impacts on
   the brief's forces (missing impact = 0; ties excluded; a choice that matches no option of that decision is
   "unmatched"), averaged over the qualifying decisions;
 - grounding (M, E): share of choices with a citation, and share of citations that exist in the condition's graph;
@@ -31,7 +34,7 @@ import json
 import sys
 from pathlib import Path
 from statistics import mean
-from typing import Any, Callable, Dict, List, Mapping, Optional, Set
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set
 
 import yaml
 
@@ -104,8 +107,11 @@ def _chosen_item(doc: Mapping[str, Any], i: int) -> str:
 
 def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optional[Callable] = None,
           judge_model: Any = None, cache: Any = None, options: Optional[list] = None,
-          label_sources: Optional[Dict[str, int]] = None, run: Callable = asyncio.run) -> Dict[str, Set[str]]:
-    """Return the expert options each design item matches (same, broader or narrower).
+          label_sources: Optional[Dict[str, int]] = None, run: Callable = asyncio.run,
+          pairs_out: Optional[list] = None) -> Dict[str, Set[str]]:
+    """Return the expert options each design item matches (same, broader or narrower): the lenient hits.
+
+    ``pairs_out`` collects the hit pairs (with their label and distance), for ``hit_levels``.
 
     Pass ``embed``, ``judge_model``, ``cache`` and ``options`` to reuse them across sessions; a cache created
     here is saved here, a passed one is saved by the caller. ``run`` runs the matching coroutine; pass one event
@@ -130,7 +136,32 @@ def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optio
     for p in pairs:
         if p["label"] in gt_match.HIT_LABELS:
             hits[p["system_id"]].add(p["gt_id"])
+            if pairs_out is not None:
+                pairs_out.append(p)
     return hits
+
+
+def best_pair(pairs: Iterable[Mapping[str, Any]]) -> Optional[Mapping[str, Any]]:
+    """The best of one item's hit pairs: a "same" match first, then the smallest embedding distance."""
+    return min(pairs, key=lambda p: (p["label"] != "same", p["distance"], p["gt_id"]), default=None)
+
+
+def hit_levels(item_ids: Iterable[str], pairs: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Set[str]]]:
+    """Three readings of the hit pairs, per design item.
+
+    - ``best`` (the primary one): only the item's best match (``best_pair``), so one broad alternative cannot
+      claim many expert options and decisions;
+    - ``same``: only the matches the judge labelled "same" (not much stricter in practice: the judge calls
+      loosely related options "same");
+    - ``lenient``: every same, broader or narrower match.
+    """
+    by_item: Dict[str, List[Mapping[str, Any]]] = {i: [] for i in item_ids}
+    for p in pairs:
+        by_item.setdefault(p["system_id"], []).append(p)
+    best = {i: ({best_pair(ps)["gt_id"]} if ps else set()) for i, ps in by_item.items()}
+    same = {i: {p["gt_id"] for p in ps if p["label"] == "same"} for i, ps in by_item.items()}
+    lenient = {i: {p["gt_id"] for p in ps} for i, ps in by_item.items()}
+    return {"best": best, "same": same, "lenient": lenient}
 
 
 def match_drivers(doc: Mapping[str, Any], gt: Mapping[str, Any], brief: Mapping[str, Any], config, *,
@@ -256,20 +287,31 @@ def _cost(summary, rates) -> Optional[float]:
 
 def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[str, Any], brief: Mapping[str, Any],
             condition: str, *, graph: Optional[Mapping[str, Any]] = None, summary: Optional[Mapping[str, Any]] = None,
-            rates: Optional[Mapping[str, Any]] = None, driver_hits: Optional[Set[str]] = None) -> Dict[str, Any]:
-    """Return the study metrics of one session (see the module docstring)."""
+            rates: Optional[Mapping[str, Any]] = None, driver_hits: Optional[Set[str]] = None,
+            same_hits: Optional[Mapping[str, Set[str]]] = None,
+            lenient_hits: Optional[Mapping[str, Set[str]]] = None) -> Dict[str, Any]:
+    """Return the study metrics of one session (see the module docstring).
+
+    ``hits`` are the primary (best-match) hits; ``same_hits`` and ``lenient_hits``, when given, add the
+    coverage of the strictest and the most lenient reading (``hit_levels``).
+    """
     decisions = {d["id"] for d in gt.get("decisions") or []}
     decision_of = {o["id"]: o.get("decision_ids") or [] for o in gt.get("options") or []}
-    matched = {d for opts in hits.values() for o in opts for d in decision_of.get(o, [])}
-    relevant = relevant_decisions(gt, brief["forces"])
+    relevant = set(relevant_decisions(gt, brief["forces"]))
+
+    def coverage(level: Mapping[str, Set[str]], suffix: str = "") -> Dict[str, Any]:
+        matched = {d for opts in level.values() for o in opts for d in decision_of.get(o, [])}
+        return {f"decision_coverage{suffix}": len(matched & decisions) / len(decisions) if decisions else None,
+                f"expert_decisions_matched{suffix}": len(matched & decisions),
+                f"relevant_decision_coverage{suffix}": len(matched & relevant) / len(relevant) if relevant else None,
+                f"relevant_decisions_matched{suffix}": len(matched & relevant)}
     alts = [len(d["alternatives"]) for d in doc["decisions"]]
     considered = [_item_id(i, j) for i, d in enumerate(doc["decisions"]) for j in range(len(d["alternatives"]))]
     out: Dict[str, Any] = {
         "decisions": len(doc["decisions"]),
-        "decision_coverage": len(matched & decisions) / len(decisions) if decisions else None,
-        "expert_decisions_matched": len(matched & decisions),
-        "relevant_decision_coverage": len(matched & set(relevant)) / len(relevant) if relevant else None,
-        "relevant_decisions_matched": len(matched & set(relevant)),
+        **coverage(hits),
+        **(coverage(same_hits, "_same") if same_hits is not None else {}),
+        **(coverage(lenient_hits, "_lenient") if lenient_hits is not None else {}),
         "alternatives_per_decision": mean(alts) if alts else 0,
         "alternatives_matched": (sum(bool(hits.get(k)) for k in considered) / len(considered)) if considered else None,
         "uncovered_listed": len(doc.get("uncovered") or []),
@@ -303,7 +345,9 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
     return out
 
 
-NUMERIC = ("decision_coverage", "expert_decisions_matched", "relevant_decision_coverage", "alternatives_per_decision", "alternatives_matched",
+NUMERIC = ("decision_coverage", "expert_decisions_matched", "relevant_decision_coverage",
+           "decision_coverage_same", "relevant_decision_coverage_same",
+           "decision_coverage_lenient", "relevant_decision_coverage_lenient", "alternatives_per_decision", "alternatives_matched",
            "requirements_fit", "driver_recall", "choices_matched", "choices_unmatched", "grounded_choices", "valid_citations",
            "consistency_warnings", "unknown_value_ids", "points_explored", "cost_usd", "seconds")
 
@@ -370,8 +414,11 @@ def _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, jud
         check_summary(summary)
         doc = json.loads(path.read_text(encoding="utf-8"))
         sources: Dict[str, int] = {}
-        hits = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options,
-                     label_sources=sources, run=run)
+        pairs: List[Mapping[str, Any]] = []
+        lenient = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options,
+                        label_sources=sources, run=run, pairs_out=pairs)
+        levels = hit_levels(lenient, pairs)
+        hits = levels["best"]
         drivers = match_drivers(doc, gt, briefs[summary["brief"]], config, embed=embed, judge_model=judge,
                                 cache=cache, run=run)
         cache.save()                        # after each session, so an interrupted run keeps its verdicts
@@ -379,16 +426,22 @@ def _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, jud
                "model": summary["model"], "matching_model": config.matching_llm, "label_sources": sources,
                **metrics(doc, hits, gt, briefs[summary["brief"]], summary["condition"],
                          graph=graphs.get(summary["condition"]), summary=summary, rates=rates,
-                         driver_hits=drivers)}
+                         driver_hits=drivers, same_hits=levels["same"], lenient_hits=lenient)}
         rows.append(row)
         if args.export_labels:
             labels = RESULTS / "labels"
             labels.mkdir(parents=True, exist_ok=True)
             with (labels / f"{sid}.csv").open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
-                w.writerow(["decision", "alternative", "matched_expert_options", "correct (y/n)"])
+                w.writerow(["decision", "alternative", "best_match", "other_matches", "best match correct (y/n)"])
                 for item in design_items(doc):
-                    w.writerow([item.parent_name, item.name, "; ".join(names[o] for o in sorted(hits[item.id])), ""])
+                    mine = [p for p in pairs if p["system_id"] == item.id]
+                    best = best_pair(mine)
+                    others = sorted((p for p in mine if p is not best),
+                                    key=lambda p: (p["label"] != "same", p["distance"]))
+                    w.writerow([item.parent_name, item.name,
+                                f"{names[best['gt_id']]} [{best['label']}]" if best else "",
+                                "; ".join(f"{names[p['gt_id']]} [{p['label']}]" for p in others), ""])
     return rows
 
 

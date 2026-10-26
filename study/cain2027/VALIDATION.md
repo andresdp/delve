@@ -20,9 +20,9 @@ ratings:
 
 | Metric | Definition | Source |
 |---|---|---|
-| Decision coverage | Expert decisions with at least one matched alternative, over all 28 | Matcher |
-| Relevant-decision coverage | Relevant decisions of the brief with at least one matched alternative, over all relevant decisions | Matcher and reference |
-| Requirements fit | Per touched expert decision, (chosen - worst) / (best - worst) of the summed impacts on the brief's forces; ties excluded; a choice matching no option of that decision is counted as unmatched; mean over qualifying decisions | Matcher and impacts |
+| Decision coverage | Expert decisions with at least one matched alternative, over all 28. Each alternative counts through its best match only (a "same" label first, then the smallest embedding distance), so one broad alternative cannot claim many decisions. Reported with two variants: `_same` (only matches labelled "same") and `_lenient` (every same, broader or narrower match) | Matcher |
+| Relevant-decision coverage | Relevant decisions of the brief with at least one matched alternative, over all relevant decisions (same three readings) | Matcher and reference |
+| Requirements fit | On the best matches: per touched expert decision, (chosen - worst) / (best - worst) of the summed impacts on the brief's forces; ties excluded; a choice matching no option of that decision is counted as unmatched; mean over qualifying decisions | Matcher and impacts |
 | Driver recall | Share of the brief's forces that the ADRs' stated drivers name | Matcher (drivers against force names) |
 
 Caveats to report:
@@ -30,9 +30,12 @@ Caveats to report:
 - The expert model reflects one study's judgment, and its impact ratings were not made for these briefs.
 - Condition E sees the expert decisions and options (not the impacts), so it is favoured on coverage and fit: it
   is "full expert-model access", not a competitor.
-- Matching agent wording to expert options uses an LLM judge (`openai/gpt-5.4-mini`, frozen thresholds). Before
-  the full run, its labels on the pilot designs are checked by hand (`score.py --export-labels`) and the
-  agreement is recorded in the evaluation frame (`benchmark/README.md`).
+- Matching agent wording to expert options uses an LLM judge (`openai/gpt-5.4-mini`, frozen thresholds). The
+  pilot showed it lenient: it labels loosely related options "same" (for example, an online feature-serving
+  pipeline and a CI/CD pipeline), so a broad alternative matched up to 14 expert options. Hence the best-match
+  reading as the primary one, with the lenient one reported to show the gap. The best matches are checked by hand
+  (`score.py --export-labels`), and the share judged correct is reported as the matcher's precision and recorded
+  in the evaluation frame (`benchmark/README.md`).
 
 ## Layer 2: checks without a reference
 
