@@ -104,11 +104,12 @@ def _chosen_item(doc: Mapping[str, Any], i: int) -> str:
 
 def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optional[Callable] = None,
           judge_model: Any = None, cache: Any = None, options: Optional[list] = None,
-          label_sources: Optional[Dict[str, int]] = None) -> Dict[str, Set[str]]:
+          label_sources: Optional[Dict[str, int]] = None, run: Callable = asyncio.run) -> Dict[str, Set[str]]:
     """Return the expert options each design item matches (same, broader or narrower).
 
     Pass ``embed``, ``judge_model``, ``cache`` and ``options`` to reuse them across sessions; a cache created
-    here is saved here, a passed one is saved by the caller.
+    here is saved here, a passed one is saved by the caller. ``run`` runs the matching coroutine; pass one event
+    loop's ``run_until_complete`` across sessions, so the judge's clients close on the loop that opened them.
     """
     from taxonomy_generator.evaluation import gt_match
     from taxonomy_generator.evaluation.judge import openai_judge_model
@@ -119,7 +120,7 @@ def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optio
         judge_model = openai_judge_model(gt_match.check_matching_llm(config.matching_llm))
     own_cache = cache is None
     cache = gt_match.JudgeCache(config.cache_path) if own_cache else cache
-    pairs = asyncio.run(gt_match.label_pairs(items, options, embed, judge_model, config, cache=cache))
+    pairs = run(gt_match.label_pairs(items, options, embed, judge_model, config, cache=cache))
     if own_cache:
         cache.save()
     hits: Dict[str, Set[str]] = {i.id: set() for i in items}
@@ -133,7 +134,8 @@ def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optio
 
 
 def match_drivers(doc: Mapping[str, Any], gt: Mapping[str, Any], brief: Mapping[str, Any], config, *,
-                  embed: Optional[Callable] = None, judge_model: Any = None, cache: Any = None) -> Set[str]:
+                  embed: Optional[Callable] = None, judge_model: Any = None, cache: Any = None,
+                  run: Callable = asyncio.run) -> Set[str]:
     """Return the brief's forces that some stated decision driver names (same, broader or narrower match)."""
     from taxonomy_generator.evaluation import gt_match
     from taxonomy_generator.evaluation.gt_match import Item
@@ -150,7 +152,7 @@ def match_drivers(doc: Mapping[str, Any], gt: Mapping[str, Any], brief: Mapping[
         judge_model = openai_judge_model(gt_match.check_matching_llm(config.matching_llm))
     own_cache = cache is None
     cache = gt_match.JudgeCache(config.cache_path) if own_cache else cache
-    pairs = asyncio.run(gt_match.label_pairs(drivers, forces, embed, judge_model, config, cache=cache))
+    pairs = run(gt_match.label_pairs(drivers, forces, embed, judge_model, config, cache=cache))
     if own_cache:
         cache.save()
     return {p["gt_id"] for p in pairs if p["label"] in gt_match.HIT_LABELS}
@@ -342,10 +344,25 @@ def main() -> None:
         for cond in SPACE_CONDITIONS:
             graphs[cond] = json.loads((args.workspaces / cond / "raw" / "graph.json").read_text(encoding="utf-8"))
     options = _gt_items(gt)
-    names = {o.id: o.name for o in options}
     embed = gt_match.embedder_from_config(config)
     judge = openai_judge_model(gt_match.check_matching_llm(config.matching_llm)) if config.mode == "judge" else None
     cache = gt_match.JudgeCache(config.cache_path)
+    loop = asyncio.new_event_loop()          # one loop for every session (see ``match``)
+    try:
+        rows = _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, judge, cache,
+                               loop.run_until_complete)
+    finally:
+        loop.close()
+    rates_date = str(rates["date"]) if rates.get("date") else None      # YAML may read the date as a date
+    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates_date, "matcher": config.as_record(),
+                                                     "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
+                                                     "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(aggregate(rows), indent=2))  # noqa: T201
+
+
+def _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, judge, cache, run) -> List[Dict[str, Any]]:
+    """Score every session with a design; export its matches when asked."""
+    names = {o.id: o.name for o in options}
     rows = []
     for path in sorted((RESULTS / "designs").glob("*.json")):
         sid = path.stem
@@ -354,9 +371,9 @@ def main() -> None:
         doc = json.loads(path.read_text(encoding="utf-8"))
         sources: Dict[str, int] = {}
         hits = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options,
-                     label_sources=sources)
+                     label_sources=sources, run=run)
         drivers = match_drivers(doc, gt, briefs[summary["brief"]], config, embed=embed, judge_model=judge,
-                                cache=cache)
+                                cache=cache, run=run)
         cache.save()                        # after each session, so an interrupted run keeps its verdicts
         row = {"session": sid, "brief": summary["brief"], "condition": summary["condition"], "rep": summary["rep"],
                "model": summary["model"], "matching_model": config.matching_llm, "label_sources": sources,
@@ -372,10 +389,7 @@ def main() -> None:
                 w.writerow(["decision", "alternative", "matched_expert_options", "correct (y/n)"])
                 for item in design_items(doc):
                     w.writerow([item.parent_name, item.name, "; ".join(names[o] for o in sorted(hits[item.id])), ""])
-    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates.get("date"), "matcher": config.as_record(),
-                                                     "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
-                                                     "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(aggregate(rows), indent=2))  # noqa: T201
+    return rows
 
 
 if __name__ == "__main__":
