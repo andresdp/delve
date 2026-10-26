@@ -42,8 +42,6 @@ import design  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "results"
-KIT = RESULTS / "rating"
-KEY = RESULTS / "rating-key" / "key.json"
 ITEMS = ("coverage", "tradeoffs", "fit", "correctness")
 SCALE = (1, 2, 3, 4)
 RUBRIC = """# Rating rubric
@@ -208,24 +206,29 @@ def main() -> None:
     g = sub.add_parser("agreement", help="kappa per item; per-condition means with --unblind")
     g.add_argument("--raters", default="A,B")
     g.add_argument("--unblind", action="store_true", help="read the key (only after both sheets are complete)")
+    for sp in (p, g):
+        sp.add_argument("--variant", choices=sorted(design.VARIANTS), default="v1",
+                        help="the prompt variant whose results to rate (v1: results/, v2: results-v2/)")
     args = parser.parse_args()
+    results = design.VARIANTS[args.variant][1]
+    kit, key_path = results / "rating", results / "rating-key" / "key.json"
     raters = [r.strip() for r in args.raters.split(",") if r.strip()]
     if args.command == "packets":
-        key = build_kit(args.rep, raters, args.seed, args.workspaces)
-        print(f"{len(key)} packets in {KIT}; key in {KEY.parent} (keep it from the raters)")  # noqa: T201
+        key = build_kit(args.rep, raters, args.seed, args.workspaces, results=results)
+        print(f"{len(key)} packets in {kit}; key in {key_path.parent} (keep it from the raters)")  # noqa: T201
         return
     if len(raters) != 2:
         raise SystemExit("agreement needs exactly two raters")
-    a, b = (read_sheet(KIT / f"sheet-{r}.csv") for r in raters)
+    a, b = (read_sheet(kit / f"sheet-{r}.csv") for r in raters)
     out: Dict[str, Any] = {"raters": raters, **agreement(a, b)}
     if args.unblind:
-        key = json.loads(KEY.read_text(encoding="utf-8"))["packets"]
-        resolved = KIT / "sheet-resolved.csv"
+        key = json.loads(key_path.read_text(encoding="utf-8"))["packets"]
+        resolved = kit / "sheet-resolved.csv"
         out["raw_by_condition"] = by_condition({c: {i: (a[c][i] + b[c][i]) / 2 for i in ITEMS} for c in a}, key)
         if resolved.is_file():
             out["resolved_by_condition"] = by_condition(read_sheet(resolved), key)
         out["sessions"] = key
-    (KIT / "agreement.json").write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+    (kit / "agreement.json").write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(out, indent=2))  # noqa: T201
 
 

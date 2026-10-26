@@ -639,3 +639,36 @@ def test_results_record_the_cache_path_without_the_home_folder():
     assert score._study_path(str(score.HERE / "results" / "judge_cache.json")) == "results/judge_cache.json"
     assert score._study_path("/srv/someone/cache.json") == "cache.json"
     assert score._study_path(None) is None
+
+
+# ---------------------------------------------------------------- prompt variants and the fit basis
+
+
+def test_variants_have_their_own_prompt_and_results_folder():
+    (p1, r1), (p2, r2) = design.VARIANTS["v1"], design.VARIANTS["v2"]
+    assert p1 == design.PROMPT and r1.name == "results" and r2.name == "results-v2"
+    assert p2.is_file() and "Weigh the trade-offs" in p2.read_text() and "Weigh the trade-offs" not in p1.read_text()
+
+
+def test_a_session_sends_and_records_its_variant_prompt(tmp_path, monkeypatch):
+    sent = {}
+
+    def fake_run(argv, **kwargs):
+        sent["input"] = kwargs.get("input")
+        Path(argv[argv.index("-o") + 1]).write_text(json.dumps(FIXTURE_DESIGN))
+        return _Proc(_jsonl(*_events()))
+    monkeypatch.setattr(sessions.subprocess, "run", fake_run)
+    prompt = design.VARIANTS["v2"][0]
+    rec = sessions.run(sessions.Session("fraud", "N", 1), {"system": "S", "text": "T"}, tmp_path / "ws",
+                       tmp_path / "scratch", model="m-test", results=tmp_path / "results-v2", prompt=prompt)
+    assert rec["status"] == "ok" and rec["prompt"] == "prompt-v2.md"
+    assert rec["prompt_sha256"] == design.sha256(prompt) and sent["input"] == prompt.read_text()
+    assert (tmp_path / "results-v2" / "designs" / "fraud-N-r1.json").is_file()
+
+
+def test_fit_reports_how_many_decisions_it_rests_on():
+    d = _design(("Serving", ["Online service", "On-device model"], "On-device model"),
+                ("Storage", ["Lake", "Warehouse"], "Warehouse"))
+    hits = _hits(d, {"Online service": ["service"], "On-device model": ["embedded"], "Lake": ["lake"],
+                     "Warehouse": ["warehouse"]})
+    assert score.metrics(d, hits, _gt(), BRIEF, "N")["fit_decisions"] == 2

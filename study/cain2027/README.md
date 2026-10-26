@@ -47,6 +47,8 @@ python study/cain2027/rating.py agreement [--unblind]
 - `prompt.md` and `design.schema.json`: the same prompt and output schema in every condition. The agent returns
   one concise Architecture Decision Record (ADR) per decision, in the MADR shape: context, drivers, options with
   pros and cons, chosen option and rationale, consequences, and citations.
+- `prompt-v2.md`: an exploratory variant with an explicit trade-off step, added after the first results
+  (`--variant v2` in the runner, scorer and rating kit); its sessions go to `results-v2/`.
 - `results/summaries/`, `results/designs/`: one sanitized summary and one design (JSON) per session; raw logs
   are not kept. `results/adrs/<session>/`: the same design rendered as Markdown ADRs, with an index, for
   reading and comparing sessions of one brief. `results/scores.json`: per-session metrics (including driver

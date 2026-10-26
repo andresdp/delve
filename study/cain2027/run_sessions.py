@@ -287,14 +287,15 @@ def _events(stdout: str) -> List[Dict[str, Any]]:
 
 
 def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path, *, model: str,
-        results: Path = RESULTS, keep_raw: bool = False, ddspace_bin: Optional[Path] = None,
+        results: Path = RESULTS, prompt: Path = design.PROMPT, keep_raw: bool = False,
+        ddspace_bin: Optional[Path] = None,
         key: Optional[str] = None, timeout: int = TIMEOUT) -> Dict[str, Any]:
     """Run one session; write its design and summary; return the summary."""
     root = scratch / session.id
     shutil.rmtree(root, ignore_errors=True)
     try:
-        return _run(session, brief, workspaces, root, model=model, results=results, keep_raw=keep_raw,
-                    ddspace_bin=ddspace_bin, key=key, timeout=timeout)
+        return _run(session, brief, workspaces, root, model=model, results=results, prompt=prompt,
+                    keep_raw=keep_raw, ddspace_bin=ddspace_bin, key=key, timeout=timeout)
     finally:
         shutil.rmtree(root / "codex-home", ignore_errors=True)     # the copied login never outlives the session
         if not keep_raw:
@@ -302,7 +303,7 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
 
 
 def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, *, model: str, results: Path,
-         keep_raw: bool, ddspace_bin: Optional[Path], key: Optional[str], timeout: int) -> Dict[str, Any]:
+         prompt: Path, keep_raw: bool, ddspace_bin: Optional[Path], key: Optional[str], timeout: int) -> Dict[str, Any]:
     workdir = root / "ws"
     if session.condition in SPACE_CONDITIONS:
         shutil.copytree(workspaces / session.condition, workdir)
@@ -314,7 +315,8 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
     argv[0] = shutil.which("codex") or "codex"           # resolved here: the session PATH may not have it
     record = {"session": session.id, "brief": session.brief, "condition": session.condition, "rep": session.rep,
               "model": model, "matching_model": MATCHING_MODEL,
-              "prompt_sha256": design.sha256(design.PROMPT), "schema_sha256": design.sha256(design.SCHEMA),
+              "prompt": prompt.name, "prompt_sha256": design.sha256(prompt),
+              "schema_sha256": design.sha256(design.SCHEMA),
               "started_at": datetime.now().isoformat(timespec="seconds")}
     problems = preflight(session, argv, workdir, model=model)
     summary: Dict[str, Any] = {}
@@ -323,7 +325,7 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
         start = time.monotonic()
         timed_out = False
         try:
-            proc = subprocess.run(NATIVE + argv, input=design.PROMPT.read_text(encoding="utf-8"), capture_output=True,
+            proc = subprocess.run(NATIVE + argv, input=prompt.read_text(encoding="utf-8"), capture_output=True,
                                   text=True, env=env, timeout=timeout)
             stdout, stderr, record["exit_code"] = proc.stdout, proc.stderr, proc.returncode
         except subprocess.TimeoutExpired as exc:
@@ -375,7 +377,10 @@ def main() -> None:
     parser.add_argument("--reps", type=int, default=2)
     parser.add_argument("--keep-raw", action="store_true", help="keep raw logs and session copies (debugging)")
     parser.add_argument("--timeout", type=int, default=TIMEOUT, help="seconds per session before it fails")
+    parser.add_argument("--variant", choices=sorted(design.VARIANTS), default="v1",
+                        help="prompt variant: v1 (prompt.md -> results/) or v2 (prompt-v2.md -> results-v2/)")
     args = parser.parse_args()
+    prompt, results = design.VARIANTS[args.variant]
     repo = HERE.parents[1]
     if inside(args.scratch, repo) or inside(args.workspaces, repo):
         sys.exit("Run sessions outside the repository (--scratch and --workspaces), so agents cannot read it.")
@@ -390,11 +395,12 @@ def main() -> None:
     if not key and set(conditions) & set(SPACE_CONDITIONS):
         print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail (use --no-llm)")  # noqa: T201
     ddspace_bin = Path(sys.executable).with_name("ddspace")
-    for s in pending(plan(briefs, conditions, args.reps)):
+    for s in pending(plan(briefs, conditions, args.reps), results):
         brief = next(b for b in briefs if b["id"] == s.brief)
         try:
             rec = run(s, brief, args.workspaces.resolve(), args.scratch.resolve(), model=args.model,
-                      keep_raw=args.keep_raw, ddspace_bin=ddspace_bin if ddspace_bin.is_file() else None, key=key,
+                      results=results, prompt=prompt, keep_raw=args.keep_raw,
+                      ddspace_bin=ddspace_bin if ddspace_bin.is_file() else None, key=key,
                       timeout=args.timeout)
         except Exception as exc:                          # one broken session must not stop the batch
             print(f"{s.id}: error {type(exc).__name__}: {exc}")  # noqa: T201

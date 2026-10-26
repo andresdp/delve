@@ -22,7 +22,7 @@ ratings:
 |---|---|---|
 | Decision coverage | Expert decisions with at least one matched alternative, over all 28. Each alternative counts through its best match only (a "same" label first, then the smallest embedding distance), so one broad alternative cannot claim many decisions. Reported with two variants: `_same` (only matches labelled "same") and `_lenient` (every same, broader or narrower match) | Matcher |
 | Relevant-decision coverage | Relevant decisions of the brief with at least one matched alternative, over all relevant decisions (same three readings) | Matcher and reference |
-| Requirements fit | On the best matches: per touched expert decision, (chosen - worst) / (best - worst) of the summed impacts on the brief's forces; ties excluded; a choice matching no option of that decision is counted as unmatched; mean over qualifying decisions | Matcher and impacts |
+| Requirements fit | On the best matches: per touched expert decision, (chosen - worst) / (best - worst) of the summed impacts on the brief's forces; ties excluded; a choice matching no option of that decision is counted as unmatched; mean over qualifying decisions, always reported with their number (`fit_decisions`) | Matcher and impacts |
 | Driver recall | Share of the brief's forces that the ADRs' stated drivers name | Matcher (drivers against force names) |
 
 Caveats to report:
@@ -74,10 +74,26 @@ limit of the blinding.
 For one brief, the three ADR sets (`results/adrs/<session>/`) are compared side by side: which decisions and
 options each condition reached, and where the design space changed the choice.
 
+## Repetitions and the trade-off variant (v2)
+
+Added after the first 24 sessions (2026-10-26), and reported as such:
+
+- **Five repetitions** per brief and condition instead of two (60 sessions per prompt variant), for ranges that
+  can be read. The first 24 sessions are kept; the runs only add repetitions 3 to 5.
+- **Fit basis.** In v1, fit rested on few decisions (about two per session in N and M), because many choices
+  matched no expert option of the decision they touched. Fit is reported with `fit_decisions`, and the
+  human rating's fit item is the main evidence on fit.
+- **Prompt v2** (`prompt-v2.md`): v1 plus an explicit trade-off step (rank the brief's requirements, state pros
+  and cons per driver, name the deciding driver). It is the same for all three conditions, runs with the same
+  model, workspaces and briefs, and writes to `results-v2/`. It was declared after seeing v1's low fit, so it is
+  an exploratory variant: v1 stays the primary result, and v2 is reported next to it, never instead of it.
+
 ## What the paper reports
 
-- Per condition, means and ranges of the layer 1 and layer 2 metrics, also per brief (only four briefs).
+- Per condition, means and ranges of the layer 1 and layer 2 metrics, also per brief (only four briefs); fit
+  with its number of decisions; v1 as the primary result, v2 as the exploratory variant.
 - The layer 3 ratings with their agreement.
 - One qualitative example.
 - Threats: one domain, four author-written briefs, author-chosen forces, the expert model as the only reference, a
-  single agent and model from one provider (also the judge's), and two repetitions.
+  single agent and model from one provider (also the judge's), five repetitions, and a variant (v2) chosen after
+  seeing v1's results.

@@ -256,7 +256,7 @@ condition, of:
 - decision coverage (all expert decisions) and relevant-decision coverage (those of the brief's reference). Each
   of the agent's options counts through its best match only; the `_same` and `_lenient` variants count more
   loosely, and the gap shows how much a lenient matcher would inflate coverage;
-- requirements fit;
+- requirements fit, with `fit_decisions`: the number of decisions it is computed on (report them together);
 - driver recall;
 - grounding and consistency (M and E only);
 - design points explored, and cost.
@@ -360,3 +360,48 @@ grep -ril "$(whoami)" study/cain2027/results
 The command should print nothing.
 
 When the study is done, revoke the study key in the OpenAI dashboard.
+
+## 11. More repetitions and the trade-off variant (v2)
+
+Two additions to the first 24 sessions, decided after reading their results (see `VALIDATION.md`). Run them
+in the same terminal setup as before (step 0, and the study key from step 4).
+
+### More repetitions of the original prompt (v1)
+
+```bash
+python study/cain2027/run_sessions.py --workspaces ~/cain-sandbox/workspaces --scratch ~/cain-sandbox/scratch --model gpt-6-luna --reps 5
+```
+
+The 24 sessions you already have are skipped; this runs repetitions 3 to 5 (36 new sessions). Results go to
+`study/cain2027/results/`, as before.
+
+### The trade-off variant (v2)
+
+```bash
+python study/cain2027/run_sessions.py --workspaces ~/cain-sandbox/workspaces --scratch ~/cain-sandbox/scratch --model gpt-6-luna --reps 5 --variant v2
+```
+
+This runs the same 60 sessions (4 briefs, 3 conditions, 5 repetitions) with `prompt-v2.md`, and writes them to
+`study/cain2027/results-v2/`. Nothing else changes: same model, workspaces and briefs. Each summary records
+which prompt it ran (`prompt`).
+
+Do not edit `prompt.md` or `prompt-v2.md` between or during these runs.
+
+### Score both
+
+```bash
+export OPENAI_API_KEY=sk-...your scoring key...
+python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces
+python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces --variant v2
+```
+
+Each writes its own `scores.json` (`results/` and `results-v2/`). The v2 scorer starts from a copy of v1's
+judge cache, so a pair judged in v1 gets the same verdict in v2.
+
+The label check (step 5) and the blind rating (step 8) apply to v1. Add `--variant v2` to `score.py
+--export-labels` or to `rating.py` to do the same for v2.
+
+### Commit
+
+As in step 10, with `study/cain2027/results-v2` added to the `git add` list.
+

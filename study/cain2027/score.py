@@ -15,7 +15,7 @@ decides, verdicts cached). From those matches and the session summary, per sessi
 - driver recall: the share of the brief's (hidden) forces that the ADRs' stated decision drivers name;
 - requirements fit (on the best-match hits): per touched expert decision, (chosen - worst) / (best - worst) of the summed expert impacts on
   the brief's forces (missing impact = 0; ties excluded; a choice that matches no option of that decision is
-  "unmatched"), averaged over the qualifying decisions;
+  "unmatched"), averaged over the qualifying decisions (``fit_decisions``: how many; report it with the fit);
 - grounding (M, E): share of choices with a citation, and share of citations that exist in the condition's graph;
 - consistency (M, E): warnings of ``ddspace point`` on the chosen value ids, plus ids that do not exist;
 - design points explored (M, E) and cost (tokens priced from a dated rate table).
@@ -31,6 +31,7 @@ import argparse
 import asyncio
 import csv
 import json
+import shutil
 import sys
 from pathlib import Path
 from statistics import mean
@@ -251,6 +252,7 @@ def _fit(doc, hits, gt, brief) -> Dict[str, Any]:
                 continue
             fit[d] = (mean(sums[o] for o in mine) - worst) / (best - worst)
     return {"fit_by_decision": fit, "requirements_fit": mean(fit.values()) if fit else None,
+            "fit_decisions": len(fit),
             "choices_matched": matched, "choices_unmatched": unmatched, "fit_excluded_ties": ties}
 
 
@@ -347,9 +349,11 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
 
 NUMERIC = ("decision_coverage", "expert_decisions_matched", "relevant_decision_coverage",
            "decision_coverage_same", "relevant_decision_coverage_same",
-           "decision_coverage_lenient", "relevant_decision_coverage_lenient", "alternatives_per_decision", "alternatives_matched",
-           "requirements_fit", "driver_recall", "choices_matched", "choices_unmatched", "grounded_choices", "valid_citations",
-           "consistency_warnings", "unknown_value_ids", "points_explored", "cost_usd", "seconds")
+           "decision_coverage_lenient", "relevant_decision_coverage_lenient",
+           "alternatives_per_decision", "alternatives_matched",
+           "requirements_fit", "fit_decisions", "driver_recall", "choices_matched", "choices_unmatched",
+           "grounded_choices", "valid_citations", "consistency_warnings", "unknown_value_ids", "points_explored",
+           "cost_usd", "seconds")
 
 
 def aggregate(rows: List[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -385,13 +389,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--workspaces", type=Path, help="folder with M and E, for grounding and consistency")
     parser.add_argument("--export-labels", action="store_true", help="write each session's matches for hand-checking")
+    parser.add_argument("--variant", choices=sorted(design.VARIANTS), default="v1",
+                        help="the prompt variant whose results to score (v1: results/, v2: results-v2/)")
     args = parser.parse_args()
+    results = design.VARIANTS[args.variant][1]
     gt = json.loads((INPUTS / "gt_model.json").read_text(encoding="utf-8"))
     briefs = {b["id"]: b for b in design.load_briefs()}
     check_briefs(list(briefs.values()), gt)
     settings = load_settings(str(INPUTS / "config.yaml"))
     config = MatcherConfig.from_settings(settings)
-    config = MatcherConfig(**{**config.__dict__, "cache_path": str(RESULTS / "judge_cache.json")})
+    cache_path = results / "judge_cache.json"
+    if not cache_path.is_file() and (RESULTS / "judge_cache.json").is_file():
+        shutil.copyfile(RESULTS / "judge_cache.json", cache_path)    # same pair, same verdict across variants
+    config = MatcherConfig(**{**config.__dict__, "cache_path": str(cache_path)})
     rates = yaml.safe_load(RATES.read_text(encoding="utf-8")) if RATES.is_file() else {}
     graphs = {}
     if args.workspaces:
@@ -403,25 +413,27 @@ def main() -> None:
     cache = gt_match.JudgeCache(config.cache_path)
     loop = asyncio.new_event_loop()          # one loop for every session (see ``match``)
     try:
-        rows = _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, judge, cache,
+        rows = _score_sessions(results, args, gt, briefs, config, rates, graphs, options, embed, judge, cache,
                                loop.run_until_complete)
     finally:
         loop.close()
     rates_date = str(rates["date"]) if rates.get("date") else None      # YAML may read the date as a date
     matcher = {**config.as_record(), "cache_path": _study_path(config.cache_path)}   # no home folder in results
-    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates_date, "matcher": matcher,
+    (results / "scores.json").write_text(json.dumps({"rates_date": rates_date, "variant": args.variant,
+                                                     "matcher": matcher,
                                                      "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
                                                      "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(aggregate(rows), indent=2))  # noqa: T201
 
 
-def _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, judge, cache, run) -> List[Dict[str, Any]]:
+def _score_sessions(results, args, gt, briefs, config, rates, graphs, options, embed, judge, cache,
+                    run) -> List[Dict[str, Any]]:
     """Score every session with a design; export its matches when asked."""
     names = {o.id: o.name for o in options}
     rows = []
-    for path in sorted((RESULTS / "designs").glob("*.json")):
+    for path in sorted((results / "designs").glob("*.json")):
         sid = path.stem
-        summary = json.loads((RESULTS / "summaries" / f"{sid}.json").read_text(encoding="utf-8"))
+        summary = json.loads((results / "summaries" / f"{sid}.json").read_text(encoding="utf-8"))
         check_summary(summary)
         doc = json.loads(path.read_text(encoding="utf-8"))
         sources: Dict[str, int] = {}
@@ -440,7 +452,7 @@ def _score_sessions(args, gt, briefs, config, rates, graphs, options, embed, jud
                          driver_hits=drivers, same_hits=levels["same"], lenient_hits=lenient)}
         rows.append(row)
         if args.export_labels:
-            labels = RESULTS / "labels"
+            labels = results / "labels"
             labels.mkdir(parents=True, exist_ok=True)
             with (labels / f"{sid}.csv").open("w", newline="", encoding="utf-8") as f:
                 w = csv.writer(f)
