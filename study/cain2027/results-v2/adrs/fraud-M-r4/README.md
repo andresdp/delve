@@ -1,12 +1,12 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [prediction serving interface](0001-prediction-serving-interface.md)
-* [serving capacity and scaling](0002-serving-capacity-and-scaling.md)
-* [serving deployment placement](0003-serving-deployment-placement.md)
-* [model and feature audit traceability](0004-model-and-feature-audit-traceability.md)
-* [production monitoring](0005-production-monitoring.md)
+* [Prediction serving interface](0001-prediction-serving-interface.md)
+* [Serving capacity and scaling](0002-serving-capacity-and-scaling.md)
+* [Serving deployment placement](0003-serving-deployment-placement.md)
+* [Model and feature audit traceability](0004-model-and-feature-audit-traceability.md)
+* [Production monitoring](0005-production-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Exact latency budget, percentile target, and timeout or fallback behavior.
 * Peak transaction volume, availability target, and regional failover requirements.

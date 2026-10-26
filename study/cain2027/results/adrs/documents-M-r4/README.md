@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [prediction serving mode](0001-prediction-serving-mode.md)
-* [scaling for seasonal volume](0002-scaling-for-seasonal-volume.md)
-* [production quality and drift monitoring](0003-production-quality-and-drift-monitoring.md)
-* [prediction delivery interface](0004-prediction-delivery-interface.md)
+* [Prediction serving mode](0001-prediction-serving-mode.md)
+* [Scaling for seasonal volume](0002-scaling-for-seasonal-volume.md)
+* [Production quality and drift monitoring](0003-production-quality-and-drift-monitoring.md)
+* [Prediction delivery interface](0004-prediction-delivery-interface.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Data ingestion mechanism and source integration; the design-space relation says workflow coordination requires this decision first.
 * Result schema, storage retention, and access control for the consuming teams.

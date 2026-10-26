@@ -1,11 +1,11 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transactions receive fraud scores](0001-how-should-transactions-receive-fraud-scores.md)
-* [how should scoring stay available during peaks](0002-how-should-scoring-stay-available-during-peaks.md)
-* [how should model versions be served](0003-how-should-model-versions-be-served.md)
-* [how should score inputs and model identity be auditable](0004-how-should-score-inputs-and-model-identity-be-auditable.md)
+* [Synchronous scoring API](0001-synchronous-scoring-api.md)
+* [Replicated stateless scoring instances](0002-replicated-stateless-scoring-instances.md)
+* [Versioned model artifacts loaded by scoring service](0003-versioned-model-artifacts-loaded-by-scoring-service.md)
+* [Persist per-score audit record](0004-persist-per-score-audit-record.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Target latency percentile and numeric service-level objective.
 * Peak throughput, traffic shape, and scaling limits.

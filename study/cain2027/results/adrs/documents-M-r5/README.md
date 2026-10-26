@@ -1,14 +1,14 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should compute scale with demand](0001-how-should-compute-scale-with-demand.md)
-* [how should incoming documents enter processing](0002-how-should-incoming-documents-enter-processing.md)
-* [when should predictions be computed](0003-when-should-predictions-be-computed.md)
-* [how should runtime components communicate](0004-how-should-runtime-components-communicate.md)
-* [how should results be exposed to consuming teams](0005-how-should-results-be-exposed-to-consuming-teams.md)
-* [how should production quality be monitored](0006-how-should-production-quality-be-monitored.md)
-* [how should ml workflow steps be coordinated](0007-how-should-ml-workflow-steps-be-coordinated.md)
+* [Elastic resource scaling](0001-elastic-resource-scaling.md)
+* [Streaming feature ingestion](0002-streaming-feature-ingestion.md)
+* [Scheduled batch prediction deployment](0003-scheduled-batch-prediction-deployment.md)
+* [Asynchronous message-driven serving](0004-asynchronous-message-driven-serving.md)
+* [REST prediction microservice](0005-rest-prediction-microservice.md)
+* [Combined quality and input-drift monitoring](0006-combined-quality-and-input-drift-monitoring.md)
+* [Orchestrated ML pipeline](0007-orchestrated-ml-pipeline.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * LLM provider, model choice, and inference cost controls.
 * Claim taxonomy, confidence thresholds, and fallback handling.

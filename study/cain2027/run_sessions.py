@@ -78,6 +78,17 @@ def plan(briefs: List[Dict[str, Any]], conditions: Iterable[str], reps: int) -> 
     return [Session(b["id"], c, r) for b in briefs for r in range(1, reps + 1) for c in conditions]
 
 
+def prompt_mismatch(results: Path, prompt: Path) -> List[str]:
+    """Sessions in ``results`` that ran with a different prompt (their summaries record its SHA-256)."""
+    digest = design.sha256(prompt)
+    out = []
+    for path in sorted((results / "summaries").glob("*.json")):
+        recorded = json.loads(path.read_text(encoding="utf-8")).get("prompt_sha256")
+        if recorded and recorded != digest:
+            out.append(path.stem)
+    return out
+
+
 def pending(sessions: List[Session], results: Path = RESULTS) -> List[Session]:
     """Return the sessions that have no design yet."""
     return [s for s in sessions if not (results / "designs" / f"{s.id}.json").is_file()]
@@ -381,6 +392,11 @@ def main() -> None:
                         help="prompt variant: v1 (prompt.md -> results/) or v2 (prompt-v2.md -> results-v2/)")
     args = parser.parse_args()
     prompt, results = design.VARIANTS[args.variant]
+    mixed = prompt_mismatch(results, prompt)
+    if mixed:
+        sys.exit(f"{results.name}/ holds {len(mixed)} sessions run with another version of {prompt.name} "
+                 f"(such as {mixed[0]}). Move that folder aside first (git mv study/cain2027/{results.name} "
+                 f"study/cain2027/{results.name}-<label>), so the two prompts do not mix.")
     repo = HERE.parents[1]
     if inside(args.scratch, repo) or inside(args.workspaces, repo):
         sys.exit("Run sessions outside the repository (--scratch and --workspaces), so agents cannot read it.")

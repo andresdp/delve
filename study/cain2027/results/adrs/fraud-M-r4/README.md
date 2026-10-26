@@ -1,10 +1,10 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transaction scores be served](0001-how-should-transaction-scores-be-served.md)
-* [how should serving scale and communicate](0002-how-should-serving-scale-and-communicate.md)
-* [how should model versions and scoring inputs be traceable](0003-how-should-model-versions-and-scoring-inputs-be-traceable.md)
+* [Queue-fronted online serving cluster](0001-queue-fronted-online-serving-cluster.md)
+* [Stateless horizontally scaled serving](0002-stateless-horizontally-scaled-serving.md)
+* [Comprehensive ML lifecycle traceability](0003-comprehensive-ml-lifecycle-traceability.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * The design space does not establish how to capture and retain per-transaction feature values or feature snapshots for audit.
 * The brief does not specify scoring failure behavior, such as whether to decline, allow, or route transactions for review when scoring is unavailable.

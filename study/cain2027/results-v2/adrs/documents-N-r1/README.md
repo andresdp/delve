@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [prioritize the system requirements](0001-prioritize-the-system-requirements.md)
-* [how should classification work be dispatched](0002-how-should-classification-work-be-dispatched.md)
-* [how should results be shared with teams](0003-how-should-results-be-shared-with-teams.md)
-* [how should classification quality drift be surfaced](0004-how-should-classification-quality-drift-be-surfaced.md)
+* [Prioritize the system requirements](0001-prioritize-the-system-requirements.md)
+* [Queue-based workers](0002-queue-based-workers.md)
+* [Shared result store with read access](0003-shared-result-store-with-read-access.md)
+* [Monitor labeled outcomes over time](0004-monitor-labeled-outcomes-over-time.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Classification latency target and whether results must be synchronous
 * Inference cost or budget limits

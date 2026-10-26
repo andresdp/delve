@@ -1,12 +1,12 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transaction scores be served](0001-how-should-transaction-scores-be-served.md)
-* [how should online features be provided](0002-how-should-online-features-be-provided.md)
-* [how should data be versioned for reproducibility](0003-how-should-data-be-versioned-for-reproducibility.md)
-* [how should deployed model versions be managed](0004-how-should-deployed-model-versions-be-managed.md)
-* [how should production scoring be tracked](0005-how-should-production-scoring-be-tracked.md)
+* [Microservice based model serving](0001-microservice-based-model-serving.md)
+* [Feature store](0002-feature-store.md)
+* [Data version repository](0003-data-version-repository.md)
+* [Rollback to previous model version](0004-rollback-to-previous-model-version.md)
+* [Model in-production tracking](0005-model-in-production-tracking.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Peak-load capacity targets, scaling policy, and overload behavior.
 * Score latency budget allocation, timeout behavior, and authorization fallback.

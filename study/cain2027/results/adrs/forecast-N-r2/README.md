@@ -1,10 +1,10 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should forecasting run](0001-how-should-forecasting-run.md)
-* [how should past forecasts be reproduced](0002-how-should-past-forecasts-be-reproduced.md)
-* [how should model ideas reach production](0003-how-should-model-ideas-reach-production.md)
+* [Scheduled batch pipeline](0001-scheduled-batch-pipeline.md)
+* [Versioned data and model artifacts](0002-versioned-data-and-model-artifacts.md)
+* [Separate candidate evaluation and promotion](0003-separate-candidate-evaluation-and-promotion.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast horizon and required output format.
 * Source systems, input schema, and late or corrected data policy.

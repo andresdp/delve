@@ -7,7 +7,8 @@ most important first. Each ADR takes its drivers from this list.
 
 Each ADR has, in the required JSON format:
 
-- `decision`: the decision, as a short title or question;
+- `decision`: the ADR's title, in the MADR style: a short statement that names the problem and the solution you
+  chose (for example, "Use plain JUnit 5 for advanced test assertions"), not a question;
 - `context`: why this decision arises for this system (one or two sentences);
 - `drivers`: the requirements of the brief that weigh on it (at most three, a few words each);
 - `alternatives`: the options you considered (at least two, at most four), each with at most two `pros` and

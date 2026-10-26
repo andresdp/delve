@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [how to ingest incoming documents](0001-how-to-ingest-incoming-documents.md)
-* [how to process documents](0002-how-to-process-documents.md)
-* [how to serve classification results](0003-how-to-serve-classification-results.md)
-* [how to monitor classification quality](0004-how-to-monitor-classification-quality.md)
+* [Data ingestion in batches](0001-data-ingestion-in-batches.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Data batch based model serving](0003-data-batch-based-model-serving.md)
+* [Model performance monitoring](0004-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Autoscaling and capacity planning for seasonal volume.
 * Access control and result contracts for consuming teams.

@@ -1,15 +1,15 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should weekly demand data be processed](0001-how-should-weekly-demand-data-be-processed.md)
-* [how should model building and training run](0002-how-should-model-building-and-training-run.md)
-* [how should training be scheduled](0003-how-should-training-be-scheduled.md)
-* [how should training data be versioned](0004-how-should-training-data-be-versioned.md)
-* [how should the forecast pipeline be triggered](0005-how-should-the-forecast-pipeline-be-triggered.md)
-* [what should ci cd build and deploy](0006-what-should-ci-cd-build-and-deploy.md)
-* [how should a production model be replaced safely](0007-how-should-a-production-model-be-replaced-safely.md)
-* [how should production model performance be monitored](0008-how-should-production-model-performance-be-monitored.md)
+* [Batch-based data processing](0001-batch-based-data-processing.md)
+* [Model building pipeline](0002-model-building-pipeline.md)
+* [Batch-based learning](0003-batch-based-learning.md)
+* [Data version repository](0004-data-version-repository.md)
+* [On-schedule trigger](0005-on-schedule-trigger.md)
+* [Build, test, and deploy models to be served and other system components](0006-build-test-and-deploy-models-to-be-served-and-other-system-c.md)
+* [Rollback to previous model version](0007-rollback-to-previous-model-version.md)
+* [Model performance monitoring](0008-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast error metrics, acceptance thresholds, and promotion gates.
 * Forecast storage, delivery, and consumer interface.

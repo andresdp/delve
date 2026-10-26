@@ -701,3 +701,38 @@ def test_id_citations_count_on_the_choice_without_passage_support():
     m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "E", graph=SUPPORT_GRAPH)
     assert m["citations_on_choice"] == pytest.approx(2 / 3) and m["supporting_citations"] is None
     assert score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N")["citations_on_choice"] is None
+
+
+# ---------------------------------------------------------------- MADR titles and prompt versions
+
+
+def test_a_question_becomes_a_title_naming_the_chosen_solution():
+    d = _design(("How should predictions be served?", ["Batch", "Online service"], "Online service"))
+    assert design.adr_title(d["decisions"][0]) == ("Online service", "How should predictions be served?")
+    files = design.render_adrs(d, "Fraud")
+    assert list(files) == ["0001-online-service.md"]
+    assert files["0001-online-service.md"].startswith("# Online service\n\n*How should predictions be served?*\n")
+    index = design.render_index(d, "Fraud", files)
+    assert "[Online service](0001-online-service.md)" in index and "design space" not in index
+
+
+def test_a_madr_title_is_kept_as_it_is():
+    d = _design(("Serve scores from a stateless service", ["Batch", "Online service"], "Online service"))
+    assert design.adr_title(d["decisions"][0]) == ("Serve scores from a stateless service", None)
+
+
+def test_prompts_ask_for_madr_titles_not_questions():
+    for prompt in (design.VARIANTS["v1"][0], design.VARIANTS["v2"][0]):
+        text = prompt.read_text()
+        assert "MADR style" in text and "not a question" in text and "title or question" not in text
+
+
+def test_sessions_of_another_prompt_version_are_reported(tmp_path):
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("new prompt")
+    (tmp_path / "results" / "summaries").mkdir(parents=True)
+    (tmp_path / "results" / "summaries" / "fraud-N-r1.json").write_text(json.dumps({"prompt_sha256": "old"}))
+    (tmp_path / "results" / "summaries" / "fraud-M-r1.json").write_text(
+        json.dumps({"prompt_sha256": design.sha256(prompt)}))
+    assert sessions.prompt_mismatch(tmp_path / "results", prompt) == ["fraud-N-r1"]
+    assert sessions.prompt_mismatch(tmp_path / "nothing", prompt) == []

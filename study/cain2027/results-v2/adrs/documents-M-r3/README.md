@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should classifications be computed and delivered](0001-how-should-classifications-be-computed-and-delivered.md)
-* [how should compute capacity handle seasonal variation](0002-how-should-compute-capacity-handle-seasonal-variation.md)
-* [how should consuming teams access classifications](0003-how-should-consuming-teams-access-classifications.md)
-* [how should production quality drift be detected](0004-how-should-production-quality-drift-be-detected.md)
+* [Scheduled batch prediction deployment](0001-scheduled-batch-prediction-deployment.md)
+* [Elastic resource scaling](0002-elastic-resource-scaling.md)
+* [REST prediction microservice](0003-rest-prediction-microservice.md)
+* [Combined input-drift and prediction-quality monitoring](0004-combined-input-drift-and-prediction-quality-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How labels are produced and how often they become available.
 * Whether and when detected drift should trigger retraining or human review.

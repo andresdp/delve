@@ -1,12 +1,12 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should defect inference run](0001-where-should-defect-inference-run.md)
-* [how should weekly model updates reach devices](0002-how-should-weekly-model-updates-reach-devices.md)
-* [how should model updates be activated](0003-how-should-model-updates-be-activated.md)
-* [where should model training run](0004-where-should-model-training-run.md)
-* [how should model packages be versioned](0005-how-should-model-packages-be-versioned.md)
+* [On-device inference](0001-on-device-inference.md)
+* [Device-initiated download](0002-device-initiated-download.md)
+* [Stage, validate, and retain prior model](0003-stage-validate-and-retain-prior-model.md)
+* [Central training pipeline](0004-central-training-pipeline.md)
+* [Versioned, immutable model packages](0005-versioned-immutable-model-packages.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Camera hardware, operating system, and supported inference runtime.
 * Model architecture, accuracy targets, and acceptance criteria.

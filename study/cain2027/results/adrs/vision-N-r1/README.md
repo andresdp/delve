@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should defect inference run](0001-where-should-defect-inference-run.md)
-* [how should weekly models reach devices](0002-how-should-weekly-models-reach-devices.md)
-* [how should training run](0003-how-should-training-run.md)
-* [how should model updates be protected](0004-how-should-model-updates-be-protected.md)
+* [On-device inference](0001-on-device-inference.md)
+* [Staged update service](0002-staged-update-service.md)
+* [Central batch training](0003-central-batch-training.md)
+* [Versioned rollout with rollback](0004-versioned-rollout-with-rollback.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Camera and device hardware, inference runtime, and compute limits.
 * Image volume, retention, privacy constraints, and the process for moving newly labelled images to training.

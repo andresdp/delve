@@ -1,13 +1,13 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how to version data](0001-how-to-version-data.md)
-* [should forecasting and training use batch or real time proce](0002-should-forecasting-and-training-use-batch-or-real-time-proce.md)
-* [when and how to train the model](0003-when-and-how-to-train-the-model.md)
-* [how to automate integration and delivery](0004-how-to-automate-integration-and-delivery.md)
-* [what should automated testing cover](0005-what-should-automated-testing-cover.md)
-* [how to monitor the model in production](0006-how-to-monitor-the-model-in-production.md)
+* [Data version repository](0001-data-version-repository.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Batch-based learning](0003-batch-based-learning.md)
+* [CI/CD pipeline](0004-ci-cd-pipeline.md)
+* [Integration testing pipeline components](0005-integration-testing-pipeline-components.md)
+* [Model performance monitoring](0006-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast quality metrics and acceptance thresholds.
 * How model versions are promoted or rolled back safely.

@@ -1,11 +1,11 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should weekly forecasts be produced](0001-how-should-weekly-forecasts-be-produced.md)
-* [how should data and pipeline steps be organized](0002-how-should-data-and-pipeline-steps-be-organized.md)
-* [how should past forecasts be reproduced](0003-how-should-past-forecasts-be-reproduced.md)
-* [how should new model ideas reach production](0004-how-should-new-model-ideas-reach-production.md)
+* [Scheduled batch pipeline](0001-scheduled-batch-pipeline.md)
+* [Modular pipeline in one codebase](0002-modular-pipeline-in-one-codebase.md)
+* [Versioned inputs, code, and run metadata](0003-versioned-inputs-code-and-run-metadata.md)
+* [Isolated experiments with explicit promotion](0004-isolated-experiments-with-explicit-promotion.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Demand data sources, schemas, and availability guarantees
 * Forecast horizon and required accuracy measures

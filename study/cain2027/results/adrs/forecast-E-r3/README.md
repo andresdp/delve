@@ -1,18 +1,18 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should demand data be processed](0001-how-should-demand-data-be-processed.md)
-* [how should forecast results be served](0002-how-should-forecast-results-be-served.md)
-* [how should historical inputs be reproduced](0003-how-should-historical-inputs-be-reproduced.md)
-* [how should the weekly workflow run](0004-how-should-the-weekly-workflow-run.md)
-* [how should training fit the workflow](0005-how-should-training-fit-the-workflow.md)
-* [what should the model building pipeline do](0006-what-should-the-model-building-pipeline-do.md)
-* [how should changes reach production](0007-how-should-changes-reach-production.md)
-* [what should be tested before accepting a model](0008-what-should-be-tested-before-accepting-a-model.md)
-* [how should production model versions be managed](0009-how-should-production-model-versions-be-managed.md)
-* [how should production forecasts be monitored](0010-how-should-production-forecasts-be-monitored.md)
-* [how should monitoring results change models](0011-how-should-monitoring-results-change-models.md)
+* [Batch-based data processing](0001-batch-based-data-processing.md)
+* [Precompute serving](0002-precompute-serving.md)
+* [Data version repository](0003-data-version-repository.md)
+* [Scheduled data and model building pipelines](0004-scheduled-data-and-model-building-pipelines.md)
+* [Batch-based learning](0005-batch-based-learning.md)
+* [Train, validate, and select model candidates](0006-train-validate-and-select-model-candidates.md)
+* [Build, test, and deploy ML pipelines and components](0007-build-test-and-deploy-ml-pipelines-and-components.md)
+* [Test feature logic, pipeline components, and trained model quality](0008-test-feature-logic-pipeline-components-and-trained-model-qua.md)
+* [Rollback to previous model version](0009-rollback-to-previous-model-version.md)
+* [Monitor model performance and log data and predictions](0010-monitor-model-performance-and-log-data-and-predictions.md)
+* [Manual model adjustment](0011-manual-model-adjustment.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast consumers and output interface
 * Storage and retention of forecast artifacts

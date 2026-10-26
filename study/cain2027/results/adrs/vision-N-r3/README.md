@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should defect inference run](0001-where-should-defect-inference-run.md)
-* [how should devices receive model updates](0002-how-should-devices-receive-model-updates.md)
-* [how should models be validated before release](0003-how-should-models-be-validated-before-release.md)
-* [how should model installation handle failures](0004-how-should-model-installation-handle-failures.md)
+* [On-device inference](0001-on-device-inference.md)
+* [Direct device download from a central model store](0002-direct-device-download-from-a-central-model-store.md)
+* [Automated evaluation against a fixed validation set](0003-automated-evaluation-against-a-fixed-validation-set.md)
+* [Stage, verify, then activate with rollback](0004-stage-verify-then-activate-with-rollback.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How labelled images are collected, stored, and transferred from production lines.
 * Required inference latency, throughput, and device hardware constraints.

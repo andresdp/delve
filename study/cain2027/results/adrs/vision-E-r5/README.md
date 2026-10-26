@@ -1,13 +1,13 @@
 # Architecture decisions: On-device visual inspection
 
-* [how should the model serve predictions](0001-how-should-the-model-serve-predictions.md)
-* [when and how should the model be trained](0002-when-and-how-should-the-model-be-trained.md)
-* [how should training data be versioned](0003-how-should-training-data-be-versioned.md)
-* [how should model integration and delivery be automated](0004-how-should-model-integration-and-delivery-be-automated.md)
-* [how should deployed model versions be handled](0005-how-should-deployed-model-versions-be-handled.md)
-* [how should model performance be monitored](0006-how-should-model-performance-be-monitored.md)
+* [Local service/API based model serving](0001-local-service-api-based-model-serving.md)
+* [Batch-based learning](0002-batch-based-learning.md)
+* [Data version repository](0003-data-version-repository.md)
+* [CI/CD pipeline](0004-ci-cd-pipeline.md)
+* [Rollback to previous model version](0005-rollback-to-previous-model-version.md)
+* [Model performance monitoring](0006-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to distribute model packages to intermittently connected devices and manage deferred updates.
 * How to collect labels and images from devices when network access is unavailable.

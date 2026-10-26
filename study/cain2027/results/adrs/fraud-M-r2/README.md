@@ -1,13 +1,13 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transactions request fraud scores](0001-how-should-transactions-request-fraud-scores.md)
-* [where should online prediction run](0002-where-should-online-prediction-run.md)
-* [when should transaction predictions be computed](0003-when-should-transaction-predictions-be-computed.md)
-* [how should features be stored for training and inference](0004-how-should-features-be-stored-for-training-and-inference.md)
-* [how should model and feature changes be monitored](0005-how-should-model-and-feature-changes-be-monitored.md)
-* [how should serving capacity respond to transaction peaks](0006-how-should-serving-capacity-respond-to-transaction-peaks.md)
+* [REST prediction microservice](0001-rest-prediction-microservice.md)
+* [Model-as-a-service deployment](0002-model-as-a-service-deployment.md)
+* [Online computation serving](0003-online-computation-serving.md)
+* [Online/offline feature-store architecture](0004-online-offline-feature-store-architecture.md)
+* [Comprehensive ML lifecycle traceability](0005-comprehensive-ml-lifecycle-traceability.md)
+* [Elastic resource scaling](0006-elastic-resource-scaling.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Fraud-model family and decision threshold selection
 * Authorization behavior when scoring or feature retrieval fails

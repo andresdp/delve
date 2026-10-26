@@ -1,10 +1,10 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should forecasts be reproducible for past weeks](0001-how-should-forecasts-be-reproducible-for-past-weeks.md)
-* [how should model changes reach production](0002-how-should-model-changes-reach-production.md)
-* [how should weekly forecasting be orchestrated](0003-how-should-weekly-forecasting-be-orchestrated.md)
+* [Versioned inputs and model artifacts](0001-versioned-inputs-and-model-artifacts.md)
+* [Validate candidates, then promote explicitly](0002-validate-candidates-then-promote-explicitly.md)
+* [Scheduled batch pipeline](0003-scheduled-batch-pipeline.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Historical retention period and storage budget
 * Input data sources, quality checks, and backfill policy

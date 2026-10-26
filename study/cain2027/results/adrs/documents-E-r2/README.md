@@ -1,13 +1,13 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should documents enter the system](0001-how-should-documents-enter-the-system.md)
-* [should documents be processed in batches or in real time](0002-should-documents-be-processed-in-batches-or-in-real-time.md)
-* [how should processing scale across documents](0003-how-should-processing-scale-across-documents.md)
-* [how should predictions be served](0004-how-should-predictions-be-served.md)
-* [how should shared results be stored](0005-how-should-shared-results-be-stored.md)
-* [how should production quality be monitored](0006-how-should-production-quality-be-monitored.md)
+* [Data ingestion in batches](0001-data-ingestion-in-batches.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Data partitioning in data pipeline](0003-data-partitioning-in-data-pipeline.md)
+* [Data batch based model serving](0004-data-batch-based-model-serving.md)
+* [Shared data store](0005-shared-data-store.md)
+* [Model performance monitoring](0006-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to define classification quality metrics and drift thresholds.
 * How to manage document privacy, retention, and access controls.

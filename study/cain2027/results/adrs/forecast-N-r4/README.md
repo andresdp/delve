@@ -1,11 +1,11 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should the weekly pipeline run](0001-how-should-the-weekly-pipeline-run.md)
-* [how should past week forecasts be reproducible](0002-how-should-past-week-forecasts-be-reproducible.md)
-* [how should new model ideas reach production](0003-how-should-new-model-ideas-reach-production.md)
-* [how should forecasts be published for consumers](0004-how-should-forecasts-be-published-for-consumers.md)
+* [Scheduled staged pipeline](0001-scheduled-staged-pipeline.md)
+* [Versioned run snapshots](0002-versioned-run-snapshots.md)
+* [Isolated candidate evaluation with promotion](0003-isolated-candidate-evaluation-with-promotion.md)
+* [Versioned forecast table](0004-versioned-forecast-table.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Source systems, data quality rules, and late or corrected data handling.
 * Forecast horizon, required accuracy, evaluation metrics, and baseline.

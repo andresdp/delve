@@ -1,11 +1,11 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transaction scores be served](0001-how-should-transaction-scores-be-served.md)
-* [how should the service handle peaks and failures](0002-how-should-the-service-handle-peaks-and-failures.md)
-* [how should each score be made auditable](0003-how-should-each-score-be-made-auditable.md)
-* [how should model versions be released](0004-how-should-model-versions-be-released.md)
+* [Synchronous in-process model scoring](0001-synchronous-in-process-model-scoring.md)
+* [Replicated stateless instances with autoscaling](0002-replicated-stateless-instances-with-autoscaling.md)
+* [Persist score, model version, and feature snapshot](0003-persist-score-model-version-and-feature-snapshot.md)
+* [Deploy immutable, versioned model artifacts](0004-deploy-immutable-versioned-model-artifacts.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Feature generation and source-of-truth design
 * Feature freshness and missing-data behavior

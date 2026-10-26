@@ -1,10 +1,10 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [score transactions inline before authorization](0001-score-transactions-inline-before-authorization.md)
-* [scale the scoring service horizontally](0002-scale-the-scoring-service-horizontally.md)
-* [record model and feature provenance with each score](0003-record-model-and-feature-provenance-with-each-score.md)
+* [Score transactions inline before authorization](0001-score-transactions-inline-before-authorization.md)
+* [Scale the scoring service horizontally](0002-scale-the-scoring-service-horizontally.md)
+* [Record model and feature provenance with each score](0003-record-model-and-feature-provenance-with-each-score.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Model family, training process, and update cadence
 * Feature definitions, sources, and freshness requirements

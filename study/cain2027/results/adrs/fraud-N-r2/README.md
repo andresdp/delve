@@ -1,11 +1,11 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should scoring fit into authorization](0001-how-should-scoring-fit-into-authorization.md)
-* [how should the scoring service handle peaks](0002-how-should-the-scoring-service-handle-peaks.md)
-* [how should model versions be selected and recorded](0003-how-should-model-versions-be-selected-and-recorded.md)
-* [what should be retained for audit explanation](0004-what-should-be-retained-for-audit-explanation.md)
+* [Synchronous scoring API](0001-synchronous-scoring-api.md)
+* [Stateless replicated service](0002-stateless-replicated-service.md)
+* [Pin a version per scoring deployment](0003-pin-a-version-per-scoring-deployment.md)
+* [Persist score, version, and feature snapshot](0004-persist-score-version-and-feature-snapshot.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Feature definitions, sources, and computation strategy
 * Required audit retention period and access controls

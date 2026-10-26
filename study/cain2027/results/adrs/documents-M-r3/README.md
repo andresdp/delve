@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should predictions be served](0001-how-should-predictions-be-served.md)
-* [how should runtime capacity handle seasonal volume](0002-how-should-runtime-capacity-handle-seasonal-volume.md)
-* [how should classification quality be monitored](0003-how-should-classification-quality-be-monitored.md)
-* [how should input drift be detected](0004-how-should-input-drift-be-detected.md)
+* [Scheduled batch prediction deployment](0001-scheduled-batch-prediction-deployment.md)
+* [Elastic resource scaling](0002-elastic-resource-scaling.md)
+* [Real-time prediction-quality monitoring](0003-real-time-prediction-quality-monitoring.md)
+* [Input and feature-drift monitoring](0004-input-and-feature-drift-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * LLM model selection, hosting, token limits, and inference cost.
 * Document ingestion format, source integration, and queueing or retry policy.

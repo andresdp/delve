@@ -1,14 +1,14 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should the classifier integrate with the application](0001-how-should-the-classifier-integrate-with-the-application.md)
-* [how should predictions be served](0002-how-should-predictions-be-served.md)
-* [how should incoming documents be ingested and processed](0003-how-should-incoming-documents-be-ingested-and-processed.md)
-* [how should data processing be parallelized](0004-how-should-data-processing-be-parallelized.md)
-* [where should documents and results be stored](0005-where-should-documents-and-results-be-stored.md)
-* [how should consumers learn that results are ready](0006-how-should-consumers-learn-that-results-are-ready.md)
-* [how should classification quality be monitored](0007-how-should-classification-quality-be-monitored.md)
+* [Model in batch prediction system](0001-model-in-batch-prediction-system.md)
+* [Hybrid online/offline model serving](0002-hybrid-online-offline-model-serving.md)
+* [Data ingestion in batches](0003-data-ingestion-in-batches.md)
+* [Data partitioning in data pipeline](0004-data-partitioning-in-data-pipeline.md)
+* [Shared data store](0005-shared-data-store.md)
+* [Push notification](0006-push-notification.md)
+* [Model performance monitoring](0007-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Document privacy, security, and regulatory controls.
 * Storage technology, retention, and deletion rules.

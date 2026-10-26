@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should weekly model releases be deployed](0002-how-should-weekly-model-releases-be-deployed.md)
-* [how should training and model artifacts be versioned](0003-how-should-training-and-model-artifacts-be-versioned.md)
-* [what should trigger model retraining](0004-what-should-trigger-model-retraining.md)
+* [On-device edge inference](0001-on-device-edge-inference.md)
+* [Progressive release automation with rollback](0002-progressive-release-automation-with-rollback.md)
+* [Comprehensive ML lifecycle traceability](0003-comprehensive-ml-lifecycle-traceability.md)
+* [Schedule-based retraining trigger](0004-schedule-based-retraining-trigger.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How cameras receive model updates while offline, including synchronization and retry behavior.
 * How inference behaves during a partially applied update or failed model load.

@@ -1,13 +1,13 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [model integration](0001-model-integration.md)
-* [prediction serving](0002-prediction-serving.md)
-* [feature persistence and access](0003-feature-persistence-and-access.md)
-* [model version rollout](0004-model-version-rollout.md)
-* [production tracking](0005-production-tracking.md)
-* [prediction service validation](0006-prediction-service-validation.md)
+* [Model integration](0001-model-integration.md)
+* [Prediction serving](0002-prediction-serving.md)
+* [Feature persistence and access](0003-feature-persistence-and-access.md)
+* [Model version rollout](0004-model-version-rollout.md)
+* [Production tracking](0005-production-tracking.md)
+* [Prediction service validation](0006-prediction-service-validation.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Exact latency objective and peak transaction rate.
 * Feature definitions, freshness, storage layout, and retention policy.

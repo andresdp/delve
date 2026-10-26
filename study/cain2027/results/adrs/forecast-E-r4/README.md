@@ -1,15 +1,15 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should weekly inputs be processed](0001-how-should-weekly-inputs-be-processed.md)
-* [how should historical data be versioned](0002-how-should-historical-data-be-versioned.md)
-* [what should trigger the forecasting pipeline](0003-what-should-trigger-the-forecasting-pipeline.md)
-* [how should models be built and validated](0004-how-should-models-be-built-and-validated.md)
-* [how should changes reach production](0005-how-should-changes-reach-production.md)
-* [what should automated delivery build and deploy](0006-what-should-automated-delivery-build-and-deploy.md)
-* [what should be tested before a model is used](0007-what-should-be-tested-before-a-model-is-used.md)
-* [how should production model performance be monitored](0008-how-should-production-model-performance-be-monitored.md)
+* [Batch-based data processing](0001-batch-based-data-processing.md)
+* [Data version repository](0002-data-version-repository.md)
+* [On-schedule trigger](0003-on-schedule-trigger.md)
+* [Model building pipeline](0004-model-building-pipeline.md)
+* [CI/CD pipeline](0005-ci-cd-pipeline.md)
+* [Build, test, and deploy machine learning pipelines and components needed during pipeline runs](0006-build-test-and-deploy-machine-learning-pipelines-and-compone.md)
+* [Testing trained model quality](0007-testing-trained-model-quality.md)
+* [Model performance monitoring](0008-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to define forecast quality metrics and acceptance thresholds.
 * How to capture and retain each run's code, configuration, and model artifacts for full past-week reproduction.

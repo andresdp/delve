@@ -1,14 +1,14 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transaction scoring be integrated](0001-how-should-transaction-scoring-be-integrated.md)
-* [how should online predictions be served](0002-how-should-online-predictions-be-served.md)
-* [should transaction features be processed in batch or in real](0003-should-transaction-features-be-processed-in-batch-or-in-real.md)
-* [how should features be persisted and accessed](0004-how-should-features-be-persisted-and-accessed.md)
-* [how should data used for model building be versioned](0005-how-should-data-used-for-model-building-be-versioned.md)
-* [how should production model versions be deployed](0006-how-should-production-model-versions-be-deployed.md)
-* [what production model information should be monitored and tr](0007-what-production-model-information-should-be-monitored-and-tr.md)
+* [Model as a service](0001-model-as-a-service.md)
+* [Microservice based model serving](0002-microservice-based-model-serving.md)
+* [Real-time, stream-based data processing](0003-real-time-stream-based-data-processing.md)
+* [Feature store](0004-feature-store.md)
+* [Data version repository](0005-data-version-repository.md)
+* [N versions in production](0006-n-versions-in-production.md)
+* [Model in-production tracking](0007-model-in-production-tracking.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to meet the tens-of-milliseconds latency target with a concrete latency budget and timeout policy.
 * How to achieve availability targets, including redundancy, failover, and behavior when scoring is unavailable.

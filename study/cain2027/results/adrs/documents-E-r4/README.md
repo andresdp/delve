@@ -1,12 +1,12 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should documents be ingested](0001-how-should-documents-be-ingested.md)
-* [should documents be processed in batches or in real time](0002-should-documents-be-processed-in-batches-or-in-real-time.md)
-* [how should model predictions be served](0003-how-should-model-predictions-be-served.md)
-* [how should data processing scale across the workload](0004-how-should-data-processing-scale-across-the-workload.md)
-* [how should production classification quality be monitored](0005-how-should-production-classification-quality-be-monitored.md)
+* [Data ingestion in batches](0001-data-ingestion-in-batches.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Data batch based model serving](0003-data-batch-based-model-serving.md)
+* [Data partitioning in data pipeline](0004-data-partitioning-in-data-pipeline.md)
+* [Model performance monitoring](0005-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to establish ground-truth labels and measure classification quality when labels arrive late or are unavailable.
 * How to govern claim data, including retention, privacy, access controls, and audit requirements.

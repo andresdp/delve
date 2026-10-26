@@ -1,13 +1,13 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should labeled images be produced](0002-how-should-labeled-images-be-produced.md)
-* [how should weekly model candidates be trained and tuned](0003-how-should-weekly-model-candidates-be-trained-and-tuned.md)
-* [how should model releases reach devices](0004-how-should-model-releases-reach-devices.md)
-* [how should models and training runs be tracked](0005-how-should-models-and-training-runs-be-tracked.md)
-* [how should deployed models be monitored and adapted](0006-how-should-deployed-models-be-monitored-and-adapted.md)
+* [On-device edge inference](0001-on-device-edge-inference.md)
+* [Human-in-the-loop data labeling](0002-human-in-the-loop-data-labeling.md)
+* [Automated hyperparameter optimization](0003-automated-hyperparameter-optimization.md)
+* [Commit-triggered staged release automation](0004-commit-triggered-staged-release-automation.md)
+* [End-to-end reproducible lifecycle governance](0005-end-to-end-reproducible-lifecycle-governance.md)
+* [Periodic model health checks](0006-periodic-model-health-checks.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Model evaluation metrics and acceptance thresholds for defect detection.
 * Device update protocol, security, and behavior when a device remains offline for an extended period.

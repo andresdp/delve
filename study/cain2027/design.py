@@ -11,7 +11,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import yaml
 
@@ -28,6 +28,7 @@ MANIFEST_COPY = "study-manifest.json"      # the input manifest, as copied into 
 _TYPES = {"object": dict, "array": list, "string": str, "null": type(None), "number": (int, float), "integer": int,
           "boolean": bool}
 _KEY = re.compile(r"sk-[A-Za-z0-9_\-]{12,}")
+_QUESTION = re.compile(r"^(how|what|where|when|which|who|why|should|whether|do|does|is|are|can)\b", re.I)
 
 
 def schema() -> Dict[str, Any]:
@@ -98,13 +99,27 @@ def _ids(value_id: Optional[str], citations: Iterable[str] = ()) -> str:
     return " (" + ", ".join(f"`{i}`" for i in ids) + ")" if ids else ""
 
 
+def adr_title(dec: Dict[str, Any]) -> Tuple[str, Optional[str]]:
+    """Return an ADR's title and, when the agent worded the decision as a question, that question.
+
+    MADR titles name the problem and the solution. A decision worded as a question ("How should predictions be
+    served?") gets the chosen option as its title, with the question shown below it.
+    """
+    text = dec["decision"].strip()
+    if text.endswith("?") or _QUESTION.match(text):
+        return dec["chosen"]["label"], text
+    return text, None
+
+
 def render_adrs(doc: Dict[str, Any], system: str) -> Dict[str, str]:
     """Render a design as MADR-style Markdown ADRs, one file per decision (``0001-<slug>.md``)."""
     files = {}
     for n, dec in enumerate(doc["decisions"], 1):
         chosen = dec["chosen"]
-        lines = [f"# {dec['decision']}", "", f"* System: {system}", "", "## Context and Problem Statement", "",
-                 dec["context"], "", "## Decision Drivers", ""]
+        title, question = adr_title(dec)
+        lines = [f"# {title}", ""] + ([f"*{question}*", ""] if question else [])
+        lines += [f"* System: {system}", "", "## Context and Problem Statement", "",
+                  dec["context"], "", "## Decision Drivers", ""]
         lines += [f"* {d}" for d in dec["drivers"]] or ["* (none stated)"]
         lines += ["", "## Considered Options", ""]
         lines += [f"* {a['label']}{_ids(a['value_id'])}" for a in dec["alternatives"]]
@@ -119,13 +134,14 @@ def render_adrs(doc: Dict[str, Any], system: str) -> Dict[str, str]:
             if a["citations"]:
                 lines.append("* Sources: " + ", ".join(f"`{c}`" for c in a["citations"]))
             lines.append("")
-        files[f"{n:04d}-{_slug(dec['decision'])}.md"] = "\n".join(lines).rstrip() + "\n"
+        files[f"{n:04d}-{_slug(title)}.md"] = "\n".join(lines).rstrip() + "\n"
     return files
 
 
 def render_index(doc: Dict[str, Any], system: str, files: Iterable[str]) -> str:
     """Return the index of a session's ADRs, with the decisions the agent could not ground."""
-    lines = [f"# Architecture decisions: {system}", ""] + [f"* [{f[5:-3].replace('-', ' ')}]({f})" for f in files]
+    lines = [f"# Architecture decisions: {system}", ""]
+    lines += [f"* [{adr_title(dec)[0]}]({f})" for dec, f in zip(doc["decisions"], files)]
     if doc.get("uncovered"):
-        lines += ["", "## Not grounded in the design space", ""] + [f"* {u}" for u in doc["uncovered"]]
+        lines += ["", "## Decisions left open", ""] + [f"* {u}" for u in doc["uncovered"]]
     return "\n".join(lines) + "\n"

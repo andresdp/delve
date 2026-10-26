@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should retraining be triggered and run](0002-how-should-retraining-be-triggered-and-run.md)
-* [how should model updates be released](0003-how-should-model-updates-be-released.md)
-* [how much model lifecycle metadata should be governed](0004-how-much-model-lifecycle-metadata-should-be-governed.md)
+* [On-device edge inference](0001-on-device-edge-inference.md)
+* [Automated retraining pipeline with a weekly schedule](0002-automated-retraining-pipeline-with-a-weekly-schedule.md)
+* [Progressive release automation with rollback](0003-progressive-release-automation-with-rollback.md)
+* [Artifact version control](0004-artifact-version-control.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Device enrollment, update transport, and offline synchronization policy.
 * Camera hardware constraints and model compatibility requirements.

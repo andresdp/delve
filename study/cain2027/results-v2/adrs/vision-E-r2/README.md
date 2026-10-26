@@ -1,14 +1,14 @@
 # Architecture decisions: On-device visual inspection
 
-* [how should inference run on production cameras](0001-how-should-inference-run-on-production-cameras.md)
-* [how should predictions be served](0002-how-should-predictions-be-served.md)
-* [how should weekly retraining run](0003-how-should-weekly-retraining-run.md)
-* [how should training data be versioned](0004-how-should-training-data-be-versioned.md)
-* [how should model delivery be automated](0005-how-should-model-delivery-be-automated.md)
-* [how should production model versions be managed](0006-how-should-production-model-versions-be-managed.md)
-* [what should be monitored in production](0007-what-should-be-monitored-in-production.md)
+* [Model as module in modular monolith](0001-model-as-module-in-modular-monolith.md)
+* [Local service/API based model serving](0002-local-service-api-based-model-serving.md)
+* [On-schedule trigger with batch-based learning](0003-on-schedule-trigger-with-batch-based-learning.md)
+* [Data version repository](0004-data-version-repository.md)
+* [CI/CD pipeline](0005-ci-cd-pipeline.md)
+* [Rollback to previous model version](0006-rollback-to-previous-model-version.md)
+* [Model performance monitoring](0007-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Offline device update protocol, including package transfer, retries, and fleet rollout strategy.
 * Camera hardware sizing, inference latency targets, and resource limits.

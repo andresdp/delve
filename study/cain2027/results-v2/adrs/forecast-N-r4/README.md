@@ -1,10 +1,10 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should forecasts be generated](0001-how-should-forecasts-be-generated.md)
-* [how should past forecasts be reproduced](0002-how-should-past-forecasts-be-reproduced.md)
-* [how should model ideas reach production](0003-how-should-model-ideas-reach-production.md)
+* [Separate training and forecast pipelines](0001-separate-training-and-forecast-pipelines.md)
+* [Version data, code, configuration, and model artifacts per run](0002-version-data-code-configuration-and-model-artifacts-per-run.md)
+* [Promote models through validation and staged release](0003-promote-models-through-validation-and-staged-release.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast accuracy targets and evaluation metrics
 * Data sources, freshness, and quality requirements

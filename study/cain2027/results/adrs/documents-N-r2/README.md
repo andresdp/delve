@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should documents enter classification](0001-how-should-documents-enter-classification.md)
-* [how should classifier capacity scale](0002-how-should-classifier-capacity-scale.md)
-* [how should teams consume classifications](0003-how-should-teams-consume-classifications.md)
-* [how should classification quality drift be monitored](0004-how-should-classification-quality-drift-be-monitored.md)
+* [Durable queue with asynchronous workers](0001-durable-queue-with-asynchronous-workers.md)
+* [Autoscaled inference workers](0002-autoscaled-inference-workers.md)
+* [Shared results store with query API](0003-shared-results-store-with-query-api.md)
+* [Track labeled evaluation metrics over time](0004-track-labeled-evaluation-metrics-over-time.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Document formats, sizes, and privacy or retention constraints
 * Required classification latency and availability targets

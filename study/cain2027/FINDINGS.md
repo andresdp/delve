@@ -18,6 +18,9 @@ Results of the study as run on 2026-10-26, with what they support and what they 
 - **Scoring:** the agent's options were matched to the expert options by the ground-truth matcher (judge
   `openai/gpt-5.4-mini`, frozen settings), each option through its best match only.
 - **Cost:** $0.29 (v1) and $0.26 (v2) for the sessions; about 1 minute per session in M and E, 25 s in N.
+- **Prompt version:** these sessions asked for each ADR's `decision` "as a short title or question", so most
+  are questions. The prompts now ask for MADR titles (problem and chosen solution); rerunning with them is
+  described in `RUNNING.md` step 12. The rendered ADRs in `results*/adrs/` already show solution titles.
 
 ## Results (v1)
 

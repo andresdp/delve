@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should documents reach the classifier](0001-how-should-documents-reach-the-classifier.md)
-* [how should llm classification be served](0002-how-should-llm-classification-be-served.md)
-* [how should classification results reach consuming teams](0003-how-should-classification-results-reach-consuming-teams.md)
-* [how should classification quality drift be detected](0004-how-should-classification-quality-drift-be-detected.md)
+* [Queued asynchronous pipeline](0001-queued-asynchronous-pipeline.md)
+* [Managed LLM endpoint](0002-managed-llm-endpoint.md)
+* [Publish results to a shared event stream](0003-publish-results-to-a-shared-event-stream.md)
+* [Monitor labeled outcomes against a quality baseline](0004-monitor-labeled-outcomes-against-a-quality-baseline.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Classification taxonomy, confidence thresholds, and handling of ambiguous or unsupported documents.
 * Latency and freshness targets for classification and consumer delivery.

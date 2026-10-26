@@ -1,10 +1,10 @@
 # Architecture decisions: Large-scale document classification
 
-* [prediction serving mode](0001-prediction-serving-mode.md)
-* [runtime capacity scaling](0002-runtime-capacity-scaling.md)
-* [production quality and drift monitoring](0003-production-quality-and-drift-monitoring.md)
+* [Prediction serving mode](0001-prediction-serving-mode.md)
+* [Runtime capacity scaling](0002-runtime-capacity-scaling.md)
+* [Production quality and drift monitoring](0003-production-quality-and-drift-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Prediction freshness or response-time target and batch scoring cadence.
 * How results are exposed to several consuming teams, including interface and access controls.

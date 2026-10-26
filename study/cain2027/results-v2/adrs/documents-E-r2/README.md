@@ -1,13 +1,13 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should documents enter the system](0001-how-should-documents-enter-the-system.md)
-* [should classification processing be batched or real time](0002-should-classification-processing-be-batched-or-real-time.md)
-* [how should predictions be served](0003-how-should-predictions-be-served.md)
-* [how should classification data and results be shared](0004-how-should-classification-data-and-results-be-shared.md)
-* [how should production classification be monitored](0005-how-should-production-classification-be-monitored.md)
-* [how should the model be adjusted when monitoring finds drift](0006-how-should-the-model-be-adjusted-when-monitoring-finds-drift.md)
+* [Data ingestion in batches](0001-data-ingestion-in-batches.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Data batch based model serving](0003-data-batch-based-model-serving.md)
+* [Shared data store](0004-shared-data-store.md)
+* [Model performance monitoring](0005-model-performance-monitoring.md)
+* [Manual model adjustment](0006-manual-model-adjustment.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Target classification latency and acceptable result staleness
 * How to measure quality drift and obtain labels or ground truth

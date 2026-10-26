@@ -1,10 +1,10 @@
 # Architecture decisions: On-device visual inspection
 
-* [keep inference on the production devices](0001-keep-inference-on-the-production-devices.md)
-* [train centrally and distribute versioned model artifacts](0002-train-centrally-and-distribute-versioned-model-artifacts.md)
-* [update devices using staged rollback capable releases](0003-update-devices-using-staged-rollback-capable-releases.md)
+* [Keep inference on the production devices](0001-keep-inference-on-the-production-devices.md)
+* [Train centrally and distribute versioned model artifacts](0002-train-centrally-and-distribute-versioned-model-artifacts.md)
+* [Update devices using staged, rollback-capable releases](0003-update-devices-using-staged-rollback-capable-releases.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Required inference latency and throughput per production line.
 * Minimum defect-detection accuracy and acceptable false-positive or false-negative rates.

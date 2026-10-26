@@ -1,13 +1,13 @@
 # Architecture decisions: Large-scale document classification
 
-* [process documents in batches or in real time](0001-process-documents-in-batches-or-in-real-time.md)
-* [how should prediction results be served](0002-how-should-prediction-results-be-served.md)
-* [how should teams access stored results](0003-how-should-teams-access-stored-results.md)
-* [how should production quality be monitored](0004-how-should-production-quality-be-monitored.md)
-* [how should data be versioned](0005-how-should-data-be-versioned.md)
-* [how should models be adjusted after monitoring finds drift](0006-how-should-models-be-adjusted-after-monitoring-finds-drift.md)
+* [Batch-based data processing](0001-batch-based-data-processing.md)
+* [Data batch based model serving](0002-data-batch-based-model-serving.md)
+* [Shared data store](0003-shared-data-store.md)
+* [Model performance monitoring](0004-model-performance-monitoring.md)
+* [Data version repository](0005-data-version-repository.md)
+* [Manual model adjustment](0006-manual-model-adjustment.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Per-document latency target and batch completion objective
 * Quality metric, drift threshold, and alert routing

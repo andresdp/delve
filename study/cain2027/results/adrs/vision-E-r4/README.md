@@ -1,15 +1,15 @@
 # Architecture decisions: On-device visual inspection
 
-* [how should inference run on each camera](0001-how-should-inference-run-on-each-camera.md)
-* [how should the application serve predictions](0002-how-should-the-application-serve-predictions.md)
-* [how should training be triggered and performed](0003-how-should-training-be-triggered-and-performed.md)
-* [how should model delivery be automated](0004-how-should-model-delivery-be-automated.md)
-* [how should rollout failures be handled](0005-how-should-rollout-failures-be-handled.md)
-* [how should training data be versioned](0006-how-should-training-data-be-versioned.md)
-* [what should be tested before model rollout](0007-what-should-be-tested-before-model-rollout.md)
-* [how should production behavior be tracked](0008-how-should-production-behavior-be-tracked.md)
+* [Model as module in modular monolith](0001-model-as-module-in-modular-monolith.md)
+* [Local service/API based model serving](0002-local-service-api-based-model-serving.md)
+* [On-schedule trigger with batch-based learning](0003-on-schedule-trigger-with-batch-based-learning.md)
+* [CI/CD pipeline](0004-ci-cd-pipeline.md)
+* [Rollback to previous model version](0005-rollback-to-previous-model-version.md)
+* [Data version repository](0006-data-version-repository.md)
+* [Testing trained model quality](0007-testing-trained-model-quality.md)
+* [Monitoring or logging data and predictions](0008-monitoring-or-logging-data-and-predictions.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Device communication and artifact synchronization during intermittent connectivity.
 * Model artifact security, integrity, and device authentication.

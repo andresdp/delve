@@ -1,12 +1,12 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should documents be ingested](0001-how-should-documents-be-ingested.md)
-* [should data be processed in batches or in real time](0002-should-data-be-processed-in-batches-or-in-real-time.md)
-* [how should data processing be parallelized](0003-how-should-data-processing-be-parallelized.md)
-* [how should model quality be monitored in production](0004-how-should-model-quality-be-monitored-in-production.md)
-* [how should predictions be served to consuming teams](0005-how-should-predictions-be-served-to-consuming-teams.md)
+* [Data ingestion in batches](0001-data-ingestion-in-batches.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Data partitioning in data pipeline](0003-data-partitioning-in-data-pipeline.md)
+* [Model performance monitoring](0004-model-performance-monitoring.md)
+* [Data batch based model serving](0005-data-batch-based-model-serving.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Business latency target and batch cadence
 * Document and prediction storage, retention, and access controls

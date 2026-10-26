@@ -1,14 +1,14 @@
 # Architecture decisions: Retail demand forecasting
 
-* [prioritize requirements](0001-prioritize-requirements.md)
-* [how to version training data](0002-how-to-version-training-data.md)
-* [when and how to train](0003-when-and-how-to-train.md)
-* [how to trigger the ml pipeline](0004-how-to-trigger-the-ml-pipeline.md)
-* [how to automate integration and delivery](0005-how-to-automate-integration-and-delivery.md)
-* [how to test pipeline changes](0006-how-to-test-pipeline-changes.md)
-* [how to deploy and recover model versions](0007-how-to-deploy-and-recover-model-versions.md)
+* [Prioritize requirements](0001-prioritize-requirements.md)
+* [Data version repository](0002-data-version-repository.md)
+* [Batch-based learning](0003-batch-based-learning.md)
+* [On-schedule trigger](0004-on-schedule-trigger.md)
+* [CI/CD pipeline](0005-ci-cd-pipeline.md)
+* [Testing trained model quality](0006-testing-trained-model-quality.md)
+* [Rollback to previous model version](0007-rollback-to-previous-model-version.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast serving interface and consumers
 * Storage format and retention for historical forecasts

@@ -1,15 +1,15 @@
 # Architecture decisions: On-device visual inspection
 
-* [how to train the model](0001-how-to-train-the-model.md)
-* [how to structure model building](0002-how-to-structure-model-building.md)
-* [how to version training data](0003-how-to-version-training-data.md)
-* [how to serve predictions on devices](0004-how-to-serve-predictions-on-devices.md)
-* [how to deploy model updates and recover from regressions](0005-how-to-deploy-model-updates-and-recover-from-regressions.md)
-* [how to automate integration and delivery](0006-how-to-automate-integration-and-delivery.md)
-* [what to validate before releasing a model](0007-what-to-validate-before-releasing-a-model.md)
-* [how to monitor models in production](0008-how-to-monitor-models-in-production.md)
+* [Batch-based learning](0001-batch-based-learning.md)
+* [Model building pipeline](0002-model-building-pipeline.md)
+* [Data version repository](0003-data-version-repository.md)
+* [Local service/API based model serving](0004-local-service-api-based-model-serving.md)
+* [Rollback to previous model version](0005-rollback-to-previous-model-version.md)
+* [Build and Deployment scripts](0006-build-and-deployment-scripts.md)
+* [Testing trained model quality](0007-testing-trained-model-quality.md)
+* [Monitoring or logging data and predictions](0008-monitoring-or-logging-data-and-predictions.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to package, authenticate, and securely deliver model updates to devices.
 * How devices stage updates, verify them, and resume safely after interrupted connectivity.

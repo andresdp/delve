@@ -1,14 +1,14 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should weekly training and validation run](0002-how-should-weekly-training-and-validation-run.md)
-* [how should retraining be triggered](0003-how-should-retraining-be-triggered.md)
-* [how should candidate models be evaluated](0004-how-should-candidate-models-be-evaluated.md)
-* [how should model releases be controlled](0005-how-should-model-releases-be-controlled.md)
-* [how much lifecycle state should be versioned](0006-how-much-lifecycle-state-should-be-versioned.md)
-* [what should production monitoring cover](0007-what-should-production-monitoring-cover.md)
+* [On-device edge inference](0001-on-device-edge-inference.md)
+* [Orchestrated ML pipeline](0002-orchestrated-ml-pipeline.md)
+* [Schedule-based retraining trigger](0003-schedule-based-retraining-trigger.md)
+* [Offline evaluation pipeline](0004-offline-evaluation-pipeline.md)
+* [Progressive release automation with rollback](0005-progressive-release-automation-with-rollback.md)
+* [End-to-end reproducible lifecycle governance](0006-end-to-end-reproducible-lifecycle-governance.md)
+* [Input and feature-drift monitoring](0007-input-and-feature-drift-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Device-to-device update transport and integrity when cameras are offline.
 * Model format, hardware compatibility, and device rollback mechanics.

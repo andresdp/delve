@@ -1,10 +1,10 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [score synchronously before authorization](0001-score-synchronously-before-authorization.md)
-* [scale scoring with stateless replicas](0002-scale-scoring-with-stateless-replicas.md)
-* [record score time model and feature inputs](0003-record-score-time-model-and-feature-inputs.md)
+* [Score synchronously before authorization](0001-score-synchronously-before-authorization.md)
+* [Scale scoring with stateless replicas](0002-scale-scoring-with-stateless-replicas.md)
+* [Record score-time model and feature inputs](0003-record-score-time-model-and-feature-inputs.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Model family and training approach
 * Feature definitions and sources

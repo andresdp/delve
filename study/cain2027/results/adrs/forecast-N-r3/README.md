@@ -1,10 +1,10 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should forecasts run](0001-how-should-forecasts-run.md)
-* [how should past forecasts be reproducible](0002-how-should-past-forecasts-be-reproducible.md)
-* [how should model changes reach production](0003-how-should-model-changes-reach-production.md)
+* [Scheduled batch pipeline](0001-scheduled-batch-pipeline.md)
+* [Versioned run inputs and artifacts](0002-versioned-run-inputs-and-artifacts.md)
+* [Isolated candidate runs with promotion gate](0003-isolated-candidate-runs-with-promotion-gate.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast evaluation metrics and acceptance thresholds
 * Data sources, quality checks, and historical data availability

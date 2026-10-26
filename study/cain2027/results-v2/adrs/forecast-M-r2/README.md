@@ -1,12 +1,12 @@
 # Architecture decisions: Retail demand forecasting
 
-* [workflow execution orchestrated pipeline or manual scripts](0001-workflow-execution-orchestrated-pipeline-or-manual-scripts.md)
-* [how should model and pipeline changes be released](0002-how-should-model-and-pipeline-changes-be-released.md)
-* [how should past week forecasts be reproducible](0003-how-should-past-week-forecasts-be-reproducible.md)
-* [how should candidate models be checked before promotion](0004-how-should-candidate-models-be-checked-before-promotion.md)
-* [when should forecasts be computed](0005-when-should-forecasts-be-computed.md)
+* [Orchestrated ML pipeline](0001-orchestrated-ml-pipeline.md)
+* [Progressive release automation with rollback](0002-progressive-release-automation-with-rollback.md)
+* [End-to-end reproducible lifecycle governance](0003-end-to-end-reproducible-lifecycle-governance.md)
+* [Threshold-based quality regression testing](0004-threshold-based-quality-regression-testing.md)
+* [Scheduled batch prediction deployment](0005-scheduled-batch-prediction-deployment.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Data ingestion source and mechanism; the brief does not identify upstream systems or delivery patterns.
 * Forecasting model family, training and tuning strategy, and the business metric used to select candidates.

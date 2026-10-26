@@ -1,10 +1,10 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should classification work scale with volume](0001-how-should-classification-work-scale-with-volume.md)
-* [how should results be shared with consuming teams](0002-how-should-results-be-shared-with-consuming-teams.md)
-* [how should classification quality drift be detected](0003-how-should-classification-quality-drift-be-detected.md)
+* [Queue with elastic workers](0001-queue-with-elastic-workers.md)
+* [Persist results and publish events](0002-persist-results-and-publish-events.md)
+* [Track labeled quality samples over time](0003-track-labeled-quality-samples-over-time.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Document formats, ingestion sources, and preprocessing rules.
 * Model provider, model selection, and update strategy.

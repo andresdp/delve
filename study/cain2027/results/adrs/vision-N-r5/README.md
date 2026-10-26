@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should defect inference run](0001-where-should-defect-inference-run.md)
-* [how should weekly models reach devices](0002-how-should-weekly-models-reach-devices.md)
-* [how should training consume newly labeled images](0003-how-should-training-consume-newly-labeled-images.md)
-* [how should model releases be checked and reversed](0004-how-should-model-releases-be-checked-and-reversed.md)
+* [Run inference on each device](0001-run-inference-on-each-device.md)
+* [Devices pull versioned releases when connected](0002-devices-pull-versioned-releases-when-connected.md)
+* [Scheduled batch training from a shared image and label store](0003-scheduled-batch-training-from-a-shared-image-and-label-store.md)
+* [Stage rollout with a prior-version fallback](0004-stage-rollout-with-a-prior-version-fallback.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Target device hardware, operating system, and inference runtime
 * Required detection accuracy, latency, and inspection throughput

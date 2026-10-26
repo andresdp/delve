@@ -1,11 +1,11 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transactions be scored](0001-how-should-transactions-be-scored.md)
-* [how should the scoring service handle peaks](0002-how-should-the-scoring-service-handle-peaks.md)
-* [where should model inference run](0003-where-should-model-inference-run.md)
-* [how should score provenance be captured](0004-how-should-score-provenance-be-captured.md)
+* [Synchronous request-response scoring](0001-synchronous-request-response-scoring.md)
+* [Stateless service with horizontal scaling](0002-stateless-service-with-horizontal-scaling.md)
+* [In-process model runtime](0003-in-process-model-runtime.md)
+* [Persist a per-score provenance record](0004-persist-a-per-score-provenance-record.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Feature definitions, sources, and freshness requirements.
 * Model training, validation, approval, and deployment process.

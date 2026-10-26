@@ -1,14 +1,14 @@
 # Architecture decisions: Large-scale document classification
 
-* [main requirements](0001-main-requirements.md)
-* [how to serve classification results](0002-how-to-serve-classification-results.md)
-* [how to ingest incoming documents](0003-how-to-ingest-incoming-documents.md)
-* [batch or real time processing](0004-batch-or-real-time-processing.md)
-* [how to parallelize document processing](0005-how-to-parallelize-document-processing.md)
-* [how to monitor classification quality](0006-how-to-monitor-classification-quality.md)
-* [how to adjust models after monitoring](0007-how-to-adjust-models-after-monitoring.md)
+* [Main requirements](0001-main-requirements.md)
+* [Data batch based model serving](0002-data-batch-based-model-serving.md)
+* [Data ingestion in batches](0003-data-ingestion-in-batches.md)
+* [Batch or real-time processing](0004-batch-or-real-time-processing.md)
+* [Data partitioning in data pipeline](0005-data-partitioning-in-data-pipeline.md)
+* [Model performance monitoring](0006-model-performance-monitoring.md)
+* [Manual model adjustment](0007-manual-model-adjustment.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Per-document latency and service availability targets
 * LLM provider, model selection, rate limits, and cost controls

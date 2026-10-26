@@ -1,14 +1,14 @@
 # Architecture decisions: On-device visual inspection
 
-* [how is the model integrated](0001-how-is-the-model-integrated.md)
-* [how are predictions served](0002-how-are-predictions-served.md)
-* [when and how is the model trained](0003-when-and-how-is-the-model-trained.md)
-* [what triggers the training pipeline](0004-what-triggers-the-training-pipeline.md)
-* [how is model delivery automated](0005-how-is-model-delivery-automated.md)
-* [how are production model versions managed](0006-how-are-production-model-versions-managed.md)
-* [what is monitored in production](0007-what-is-monitored-in-production.md)
+* [Model in monolith](0001-model-in-monolith.md)
+* [Local service/API based model serving](0002-local-service-api-based-model-serving.md)
+* [Batch-based learning](0003-batch-based-learning.md)
+* [On-schedule trigger](0004-on-schedule-trigger.md)
+* [CI/CD pipeline](0005-ci-cd-pipeline.md)
+* [Rollback to previous model version](0006-rollback-to-previous-model-version.md)
+* [Monitoring or logging data and predictions](0007-monitoring-or-logging-data-and-predictions.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Device update transport, fleet targeting, and offline package synchronization.
 * Camera hardware sizing, model runtime, and inference latency targets.

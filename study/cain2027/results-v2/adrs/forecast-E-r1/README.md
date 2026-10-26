@@ -1,13 +1,13 @@
 # Architecture decisions: Retail demand forecasting
 
-* [version data used for each forecast](0001-version-data-used-for-each-forecast.md)
-* [process weekly data in batches or streams](0002-process-weekly-data-in-batches-or-streams.md)
-* [how should model building and training run](0003-how-should-model-building-and-training-run.md)
-* [how should forecasts be delivered](0004-how-should-forecasts-be-delivered.md)
-* [how should changes reach production safely](0005-how-should-changes-reach-production-safely.md)
-* [what should the pipeline test](0006-what-should-the-pipeline-test.md)
+* [Version data used for each forecast](0001-version-data-used-for-each-forecast.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Model building pipeline with batch-based learning](0003-model-building-pipeline-with-batch-based-learning.md)
+* [Precompute serving](0004-precompute-serving.md)
+* [CI/CD pipeline with rollback to previous model version](0005-ci-cd-pipeline-with-rollback-to-previous-model-version.md)
+* [Integration testing pipeline components](0006-integration-testing-pipeline-components.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Prioritized brief requirements: reproducibility of any past week; weekly run reliability; fast production iteration; small-team maintainability.
 * How long to retain historical data, models, and forecast artifacts, and how to reproduce a past run end to end.

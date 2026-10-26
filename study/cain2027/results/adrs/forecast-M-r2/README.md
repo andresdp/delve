@@ -1,12 +1,12 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should weekly runs be coordinated](0001-how-should-weekly-runs-be-coordinated.md)
-* [how should past forecasts be reproducible](0002-how-should-past-forecasts-be-reproducible.md)
-* [how should model changes be released](0003-how-should-model-changes-be-released.md)
-* [how should candidate forecasts be evaluated](0004-how-should-candidate-forecasts-be-evaluated.md)
-* [how should source data be preserved](0005-how-should-source-data-be-preserved.md)
+* [Orchestrated ML pipeline](0001-orchestrated-ml-pipeline.md)
+* [Pipeline and experiment version control](0002-pipeline-and-experiment-version-control.md)
+* [Commit-triggered staged release automation](0003-commit-triggered-staged-release-automation.md)
+* [Threshold-based quality regression testing](0004-threshold-based-quality-regression-testing.md)
+* [Traceable and preserved data](0005-traceable-and-preserved-data.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecasting model family and seasonal or calendar feature strategy.
 * Historical data storage and retrieval design, including retention duration.

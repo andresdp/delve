@@ -1,11 +1,11 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should classification predictions be served](0001-how-should-classification-predictions-be-served.md)
-* [how should incoming documents be processed](0002-how-should-incoming-documents-be-processed.md)
-* [how should processing scale across the document workload](0003-how-should-processing-scale-across-the-document-workload.md)
-* [how should classification quality be monitored](0004-how-should-classification-quality-be-monitored.md)
+* [Hybrid online/offline model serving](0001-hybrid-online-offline-model-serving.md)
+* [Batch-based data processing](0002-batch-based-data-processing.md)
+* [Data partitioning in data pipeline](0003-data-partitioning-in-data-pipeline.md)
+* [Model performance monitoring](0004-model-performance-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to obtain timely ground truth or other feedback for measuring classification quality.
 * Latency and freshness targets for results consumed by teams.

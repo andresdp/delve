@@ -417,3 +417,23 @@ The label check (step 5) and the blind rating (step 8) apply to v1. Add `--varia
 
 As in step 10, with `study/cain2027/results-v2` added to the `git add` list.
 
+
+## 12. Rerunning with the MADR-title prompts
+
+After the first results, both prompts were changed to ask for MADR titles (a statement that names the problem
+and the chosen solution) instead of a title or question. The recorded results in `results/` and `results-v2/`
+were run with the earlier wording. Their Markdown ADRs already show solution titles: when the agent wrote a
+question, the ADR's title is the chosen option and the question is shown below it.
+
+The runner refuses to add sessions to a folder made with another version of the prompt. To rerun with the new
+prompts, first move the recorded results aside, keeping their judge cache for the new scoring:
+
+```bash
+git mv study/cain2027/results study/cain2027/results-question-titles
+git mv study/cain2027/results-v2 study/cain2027/results-v2-question-titles
+mkdir -p study/cain2027/results
+cp study/cain2027/results-question-titles/judge_cache.json study/cain2027/results/
+```
+
+Then run and score as in step 11 (both variants, `--reps 5`). The decision titles are part of what the matcher
+compares, so the new scores can differ from the recorded ones; report which prompt version the paper uses.

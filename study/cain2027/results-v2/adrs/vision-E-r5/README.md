@@ -1,15 +1,15 @@
 # Architecture decisions: On-device visual inspection
 
-* [how should predictions be served on production devices](0001-how-should-predictions-be-served-on-production-devices.md)
-* [how should the model integrate with the camera application](0002-how-should-the-model-integrate-with-the-camera-application.md)
-* [how should weekly retraining be triggered](0003-how-should-weekly-retraining-be-triggered.md)
-* [how should the model be trained](0004-how-should-the-model-be-trained.md)
-* [how should training data be versioned](0005-how-should-training-data-be-versioned.md)
-* [how should models be delivered to devices](0006-how-should-models-be-delivered-to-devices.md)
-* [what should be tested before model release](0007-what-should-be-tested-before-model-release.md)
-* [how should model versions be deployed and recovered](0008-how-should-model-versions-be-deployed-and-recovered.md)
+* [Local service/API based model serving](0001-local-service-api-based-model-serving.md)
+* [Model in monolith](0002-model-in-monolith.md)
+* [On-schedule trigger](0003-on-schedule-trigger.md)
+* [Batch-based learning](0004-batch-based-learning.md)
+* [Data version repository](0005-data-version-repository.md)
+* [CI/CD pipeline](0006-ci-cd-pipeline.md)
+* [Testing trained model quality](0007-testing-trained-model-quality.md)
+* [Rollback to previous model version](0008-rollback-to-previous-model-version.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Device update transport, synchronization, and recovery when devices reconnect.
 * Model and dataset artifact storage and distribution topology.

@@ -1,10 +1,10 @@
 # Architecture decisions: Retail demand forecasting
 
-* [run forecasts as a scheduled weekly batch](0001-run-forecasts-as-a-scheduled-weekly-batch.md)
-* [preserve versioned inputs and artifacts for reproducibility](0002-preserve-versioned-inputs-and-artifacts-for-reproducibility.md)
-* [validate model changes before the weekly production run](0003-validate-model-changes-before-the-weekly-production-run.md)
+* [Run forecasts as a scheduled weekly batch](0001-run-forecasts-as-a-scheduled-weekly-batch.md)
+* [Preserve versioned inputs and artifacts for reproducibility](0002-preserve-versioned-inputs-and-artifacts-for-reproducibility.md)
+* [Validate model changes before the weekly production run](0003-validate-model-changes-before-the-weekly-production-run.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Forecast accuracy targets and evaluation metrics
 * Data sources, quality checks, and historical data retention period

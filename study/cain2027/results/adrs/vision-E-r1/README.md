@@ -1,15 +1,15 @@
 # Architecture decisions: On-device visual inspection
 
-* [how should the model integrate with the inspection applicati](0001-how-should-the-model-integrate-with-the-inspection-applicati.md)
-* [how should predictions be served](0002-how-should-predictions-be-served.md)
-* [when and how should the model be trained](0003-when-and-how-should-the-model-be-trained.md)
-* [how should integration and delivery be automated](0004-how-should-integration-and-delivery-be-automated.md)
-* [how should model versions be deployed and recovered](0005-how-should-model-versions-be-deployed-and-recovered.md)
-* [how should the deployed model be monitored](0006-how-should-the-deployed-model-be-monitored.md)
-* [what should automated delivery build test and deploy](0007-what-should-automated-delivery-build-test-and-deploy.md)
-* [what should be tested before model delivery](0008-what-should-be-tested-before-model-delivery.md)
+* [Model as module in modular monolith](0001-model-as-module-in-modular-monolith.md)
+* [Local service/API based model serving](0002-local-service-api-based-model-serving.md)
+* [Batch-based learning](0003-batch-based-learning.md)
+* [CI/CD pipeline](0004-ci-cd-pipeline.md)
+* [Rollback to previous model version](0005-rollback-to-previous-model-version.md)
+* [Model performance monitoring](0006-model-performance-monitoring.md)
+* [Build, test, and deploy models to be served and other system components](0007-build-test-and-deploy-models-to-be-served-and-other-system-c.md)
+* [Testing trained model quality](0008-testing-trained-model-quality.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to transfer and stage updates on intermittently connected devices.
 * How to store and synchronize newly labelled images.

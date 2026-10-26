@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should models be retrained](0002-how-should-models-be-retrained.md)
-* [how should model updates reach devices](0003-how-should-model-updates-reach-devices.md)
-* [how should model releases be promoted](0004-how-should-model-releases-be-promoted.md)
+* [Run inference on each device](0001-run-inference-on-each-device.md)
+* [Managed cloud training](0002-managed-cloud-training.md)
+* [Downloadable signed model packages](0003-downloadable-signed-model-packages.md)
+* [Validate, stage, and retain a rollback version](0004-validate-stage-and-retain-a-rollback-version.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Inference latency and accuracy targets
 * Device hardware, operating system, and fleet size

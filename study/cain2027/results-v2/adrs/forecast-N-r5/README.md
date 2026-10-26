@@ -1,10 +1,10 @@
 # Architecture decisions: Retail demand forecasting
 
-* [how should historical forecasts be reproducible](0001-how-should-historical-forecasts-be-reproducible.md)
-* [how should new model ideas reach production](0002-how-should-new-model-ideas-reach-production.md)
-* [how should weekly forecasts be generated](0003-how-should-weekly-forecasts-be-generated.md)
+* [Version inputs, code, and model artifacts](0001-version-inputs-code-and-model-artifacts.md)
+* [Promote tested candidates into the scheduled pipeline](0002-promote-tested-candidates-into-the-scheduled-pipeline.md)
+* [Scheduled batch forecasting](0003-scheduled-batch-forecasting.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Input data sources, schemas, and quality checks
 * Forecast accuracy measures and acceptance thresholds

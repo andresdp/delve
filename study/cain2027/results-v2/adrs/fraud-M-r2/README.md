@@ -1,12 +1,12 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [how should transaction scores be served](0001-how-should-transaction-scores-be-served.md)
-* [what interface should the payment application use](0002-what-interface-should-the-payment-application-use.md)
-* [how should inference features be stored and retrieved](0003-how-should-inference-features-be-stored-and-retrieved.md)
-* [how should model versions and score lineage be recorded](0004-how-should-model-versions-and-score-lineage-be-recorded.md)
-* [what should production monitoring cover](0005-what-should-production-monitoring-cover.md)
+* [Queue-fronted online serving cluster](0001-queue-fronted-online-serving-cluster.md)
+* [REST prediction microservice](0002-rest-prediction-microservice.md)
+* [Online/offline feature-store architecture](0003-online-offline-feature-store-architecture.md)
+* [Data-to-model lineage management](0004-data-to-model-lineage-management.md)
+* [Service-health and data-quality monitoring](0005-service-health-and-data-quality-monitoring.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Fraud-score explanation format and per-transaction audit record schema.
 * Availability target, fail-open or fail-closed behavior, and authorization timeout policy.

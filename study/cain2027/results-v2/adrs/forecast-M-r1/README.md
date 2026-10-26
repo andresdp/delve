@@ -1,12 +1,12 @@
 # Architecture decisions: Retail demand forecasting
 
-* [main requirements in priority order](0001-main-requirements-in-priority-order.md)
-* [how should workflow steps run](0002-how-should-workflow-steps-run.md)
-* [how should historical forecasts be reproducible](0003-how-should-historical-forecasts-be-reproducible.md)
-* [how should model releases protect the weekly run](0004-how-should-model-releases-protect-the-weekly-run.md)
-* [how should candidate models be evaluated before promotion](0005-how-should-candidate-models-be-evaluated-before-promotion.md)
+* [Main requirements, in priority order](0001-main-requirements-in-priority-order.md)
+* [Orchestrated ML pipeline](0002-orchestrated-ml-pipeline.md)
+* [End-to-end reproducible lifecycle governance](0003-end-to-end-reproducible-lifecycle-governance.md)
+* [Progressive release automation with rollback](0004-progressive-release-automation-with-rollback.md)
+* [Offline evaluation pipeline](0005-offline-evaluation-pipeline.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How to set forecast accuracy targets and business-specific evaluation metrics.
 * How long to retain historical input data and run artifacts.

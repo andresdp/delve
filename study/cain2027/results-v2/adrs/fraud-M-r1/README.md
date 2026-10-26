@@ -1,11 +1,11 @@
 # Architecture decisions: Card-fraud scoring service
 
-* [prediction mode](0001-prediction-mode.md)
-* [scoring interface](0002-scoring-interface.md)
-* [serving capacity under peaks](0003-serving-capacity-under-peaks.md)
-* [model and feature audit trail](0004-model-and-feature-audit-trail.md)
+* [Prediction mode](0001-prediction-mode.md)
+* [Scoring interface](0002-scoring-interface.md)
+* [Serving capacity under peaks](0003-serving-capacity-under-peaks.md)
+* [Model and feature audit trail](0004-model-and-feature-audit-trail.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * Model family and fraud decision threshold; the brief does not specify accuracy targets, error costs, or authorization policy.
 * Feature retrieval and storage design, including online/offline feature consistency.

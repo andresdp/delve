@@ -1,11 +1,11 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should retraining be triggered](0002-how-should-retraining-be-triggered.md)
-* [how should candidate models be evaluated](0003-how-should-candidate-models-be-evaluated.md)
-* [how should updated models be released](0004-how-should-updated-models-be-released.md)
+* [On-device edge inference](0001-on-device-edge-inference.md)
+* [Schedule-based retraining trigger](0002-schedule-based-retraining-trigger.md)
+* [Offline evaluation pipeline](0003-offline-evaluation-pipeline.md)
+* [Progressive release automation with rollback](0004-progressive-release-automation-with-rollback.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How devices exchange model packages when network access is unavailable.
 * Image and label storage, retention, and transfer to the training environment.

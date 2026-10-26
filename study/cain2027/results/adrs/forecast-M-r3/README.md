@@ -1,13 +1,13 @@
 # Architecture decisions: Retail demand forecasting
 
-* [data ingestion mechanism](0001-data-ingestion-mechanism.md)
-* [ml workflow execution coordination](0002-ml-workflow-execution-coordination.md)
-* [model evaluation and regression strategy](0003-model-evaluation-and-regression-strategy.md)
-* [ml release automation](0004-ml-release-automation.md)
-* [prediction serving mode](0005-prediction-serving-mode.md)
-* [ml artifact and lifecycle versioning](0006-ml-artifact-and-lifecycle-versioning.md)
+* [Data ingestion mechanism](0001-data-ingestion-mechanism.md)
+* [ML workflow execution coordination](0002-ml-workflow-execution-coordination.md)
+* [Model evaluation and regression strategy](0003-model-evaluation-and-regression-strategy.md)
+* [ML release automation](0004-ml-release-automation.md)
+* [Prediction serving mode](0005-prediction-serving-mode.md)
+* [ML artifact and lifecycle versioning](0006-ml-artifact-and-lifecycle-versioning.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * How store and product history is retained and corrected for past-week reruns.
 * Forecast data schema, publication destination, and consumer contract.

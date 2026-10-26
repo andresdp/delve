@@ -1,10 +1,10 @@
 # Architecture decisions: Large-scale document classification
 
-* [how should incoming documents be scored](0001-how-should-incoming-documents-be-scored.md)
-* [how should runtime capacity respond to seasonal demand](0002-how-should-runtime-capacity-respond-to-seasonal-demand.md)
-* [how should classification quality drift be detected](0003-how-should-classification-quality-drift-be-detected.md)
+* [Queue-fronted online serving cluster](0001-queue-fronted-online-serving-cluster.md)
+* [Elastic resource scaling](0002-elastic-resource-scaling.md)
+* [Input and feature-drift monitoring + real-time prediction-quality monitoring](0003-input-and-feature-drift-monitoring-real-time-prediction-qual.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * The LLM model, provider, and inference-cost strategy.
 * Document ingestion, retries, deduplication, and ordering guarantees.

@@ -1,12 +1,12 @@
 # Architecture decisions: On-device visual inspection
 
-* [where should inference run](0001-where-should-inference-run.md)
-* [how should retraining start](0002-how-should-retraining-start.md)
-* [how should candidates be checked before release](0003-how-should-candidates-be-checked-before-release.md)
-* [how should model updates reach devices](0004-how-should-model-updates-reach-devices.md)
-* [how should retraining and evaluation steps be coordinated](0005-how-should-retraining-and-evaluation-steps-be-coordinated.md)
+* [On-device edge inference](0001-on-device-edge-inference.md)
+* [Schedule-based retraining trigger](0002-schedule-based-retraining-trigger.md)
+* [Offline evaluation pipeline](0003-offline-evaluation-pipeline.md)
+* [Progressive release automation with rollback](0004-progressive-release-automation-with-rollback.md)
+* [Orchestrated ML pipeline](0005-orchestrated-ml-pipeline.md)
 
-## Not grounded in the design space
+## Decisions left open
 
 * The brief does not specify the inference latency target or camera hardware constraints.
 * The training compute location and infrastructure for weekly retraining are unspecified.
