@@ -230,6 +230,24 @@ def postflight(summary: Dict[str, Any], last: Path) -> List[str]:
     return problems
 
 
+def native_prefix() -> List[str]:
+    """``/usr/bin/arch -arm64`` when this Python runs translated by Rosetta, else nothing.
+
+    A translated (x86_64) Python starts Node as x86_64 too, and Codex then looks for its x64 build.
+    """
+    if sys.platform != "darwin":
+        return []
+    try:
+        translated = subprocess.run(["/usr/sbin/sysctl", "-n", "sysctl.proc_translated"], capture_output=True,
+                                    text=True).stdout.strip()
+    except OSError:
+        return []
+    return ["/usr/bin/arch", "-arm64"] if translated == "1" else []
+
+
+NATIVE = native_prefix()
+
+
 def _codex_home(root: Path) -> Path:
     """Create a private CODEX_HOME holding only the login of the user's Codex."""
     home = root / "codex-home"
@@ -305,7 +323,7 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
         start = time.monotonic()
         timed_out = False
         try:
-            proc = subprocess.run(argv, input=design.PROMPT.read_text(encoding="utf-8"), capture_output=True,
+            proc = subprocess.run(NATIVE + argv, input=design.PROMPT.read_text(encoding="utf-8"), capture_output=True,
                                   text=True, env=env, timeout=timeout)
             stdout, stderr, record["exit_code"] = proc.stdout, proc.stderr, proc.returncode
         except subprocess.TimeoutExpired as exc:

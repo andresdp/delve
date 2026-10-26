@@ -6,6 +6,8 @@ ground-truth matcher (``taxonomy_generator.evaluation.gt_match``: embeddings pro
 decides, verdicts cached). From those matches and the session summary, per session:
 
 - decision coverage: expert decisions with at least one matched alternative, over all expert decisions;
+- relevant-decision coverage: the same over the brief's relevant decisions (``relevant_decisions``: those whose
+  options differ in summed impact on the brief's forces; see ``reference.py``);
 - alternatives per decision, and the share of alternatives that match an expert option;
 - driver recall: the share of the brief's (hidden) forces that the ADRs' stated decision drivers name;
 - requirements fit: per touched expert decision, (chosen - worst) / (best - worst) of the summed expert impacts on
@@ -162,12 +164,34 @@ def _option_sums(gt: Mapping[str, Any], forces: List[str]) -> Dict[str, int]:
     return sums
 
 
+def _options_of(gt: Mapping[str, Any]) -> Dict[str, List[str]]:
+    """The attached options of each expert decision."""
+    options_of: Dict[str, List[str]] = {}
+    for o in gt.get("options") or []:
+        if not o.get("unattached"):
+            for d in o.get("decision_ids") or []:
+                options_of.setdefault(d, []).append(o["id"])
+    return options_of
+
+
+def relevant_decisions(gt: Mapping[str, Any], forces: List[str]) -> Dict[str, Dict[str, Any]]:
+    """The brief's reference (layer 1): expert decisions whose options differ in summed impact on ``forces``.
+
+    Per relevant decision: the summed impact of each option, and the preferred options (the best sum).
+    """
+    sums = _option_sums(gt, forces)
+    out = {}
+    for d, options in _options_of(gt).items():
+        scores = {o: sums[o] for o in options}
+        best = max(scores.values())
+        if best != min(scores.values()):
+            out[d] = {"sums": scores, "preferred": sorted(o for o, v in scores.items() if v == best)}
+    return out
+
+
 def _fit(doc, hits, gt, brief) -> Dict[str, Any]:
     decision_of = {o["id"]: o.get("decision_ids") or [] for o in gt.get("options") or [] if not o.get("unattached")}
-    options_of: Dict[str, List[str]] = {}
-    for oid, decs in decision_of.items():
-        for d in decs:
-            options_of.setdefault(d, []).append(oid)
+    options_of = _options_of(gt)
     sums = _option_sums(gt, brief["forces"])
     fit, unmatched, ties, matched = {}, 0, 0, 0
     seen: Set[str] = set()       # each expert decision is classified once, by the first design decision touching it
@@ -235,12 +259,15 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
     decisions = {d["id"] for d in gt.get("decisions") or []}
     decision_of = {o["id"]: o.get("decision_ids") or [] for o in gt.get("options") or []}
     matched = {d for opts in hits.values() for o in opts for d in decision_of.get(o, [])}
+    relevant = relevant_decisions(gt, brief["forces"])
     alts = [len(d["alternatives"]) for d in doc["decisions"]]
     considered = [_item_id(i, j) for i, d in enumerate(doc["decisions"]) for j in range(len(d["alternatives"]))]
     out: Dict[str, Any] = {
         "decisions": len(doc["decisions"]),
         "decision_coverage": len(matched & decisions) / len(decisions) if decisions else None,
         "expert_decisions_matched": len(matched & decisions),
+        "relevant_decision_coverage": len(matched & set(relevant)) / len(relevant) if relevant else None,
+        "relevant_decisions_matched": len(matched & set(relevant)),
         "alternatives_per_decision": mean(alts) if alts else 0,
         "alternatives_matched": (sum(bool(hits.get(k)) for k in considered) / len(considered)) if considered else None,
         "uncovered_listed": len(doc.get("uncovered") or []),
@@ -274,7 +301,7 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
     return out
 
 
-NUMERIC = ("decision_coverage", "expert_decisions_matched", "alternatives_per_decision", "alternatives_matched",
+NUMERIC = ("decision_coverage", "expert_decisions_matched", "relevant_decision_coverage", "alternatives_per_decision", "alternatives_matched",
            "requirements_fit", "driver_recall", "choices_matched", "choices_unmatched", "grounded_choices", "valid_citations",
            "consistency_warnings", "unknown_value_ids", "points_explored", "cost_usd", "seconds")
 

@@ -518,3 +518,90 @@ def test_drivers_are_matched_to_force_names(tmp_path):
                                     upper_threshold=0.6, max_candidates=5, include_outcomes=False,
                                     min_alignment_share=0.25, seed=0, cache_path=None, mode="embeddings")
     assert score.match_drivers(d, _gt(), BRIEF, config, embed=embed) == {"low_latency", "reduce_cost"}
+
+
+def test_native_prefix_only_applies_on_macos(monkeypatch):
+    monkeypatch.setattr(sessions.sys, "platform", "linux")
+    assert sessions.native_prefix() == []
+
+
+# ---------------------------------------------------------------- layer 1: the expert reference
+
+reference = _load("reference")
+
+
+def test_relevant_decisions_are_those_whose_options_differ_on_the_brief_forces():
+    ref = score.relevant_decisions(_gt(), BRIEF["forces"])
+    assert set(ref) == {"serving", "storage"}                       # labels only moves "other"
+    assert ref["serving"]["preferred"] == ["embedded"] and ref["storage"]["sums"] == {"lake": 1, "warehouse": -1}
+
+
+def test_relevant_decision_coverage_counts_only_relevant_decisions():
+    d = _design(("Labels", ["Manual", "Weak"], "Manual"), ("Storage", ["Lake", "Warehouse"], "Lake"))
+    m = score.metrics(d, _hits(d, {"Manual": ["manual"], "Lake": ["lake"]}), _gt(), BRIEF, "N")
+    assert m["decision_coverage"] == pytest.approx(2 / 3)
+    assert m["relevant_decision_coverage"] == 0.5 and m["relevant_decisions_matched"] == 1
+
+
+def test_reference_ranks_options_and_marks_the_preferred():
+    ref = reference.reference(_gt(), {**BRIEF, "system": "Fraud"})
+    serving = next(d for d in ref["relevant_decisions"] if d["id"] == "serving")
+    assert [o["id"] for o in serving["options"]] == ["embedded", "service"]
+    assert serving["options"][0]["preferred"] and serving["options"][0]["impacts"] == ["Low latency ++"]
+    text = reference.render(ref, draft=True)
+    assert "DRAFT" in text and "| **Embedded model** | +2 |" in text and "Relevant decisions: 2 of 3" in text
+
+
+# ---------------------------------------------------------------- layer 3: the blind rating kit
+
+rating = _load("rating")
+
+
+def test_quadratic_kappa_matches_sklearn():
+    sklearn_metrics = pytest.importorskip("sklearn.metrics")
+    a, b = [1, 2, 3, 4, 4, 2, 3, 1], [1, 3, 3, 4, 3, 2, 4, 2]
+    assert rating.qwk(a, b) == pytest.approx(sklearn_metrics.cohen_kappa_score(a, b, weights="quadratic"))
+    assert rating.qwk(a, a) == 1.0 and rating.qwk([3, 3], [3, 3]) is None
+
+
+def test_packet_hides_ids_citations_and_the_system_line():
+    doc = json.loads(json.dumps(FIXTURE_DESIGN))
+    doc["decisions"][0]["alternatives"][0].update(value_id="v:9.6", citations=["s04_p02"])
+    doc["decisions"][0]["chosen"]["value_id"] = "v:9.6"
+    doc["decisions"][0]["rationale"] = "As `v:9.6` and s04_p02 say, d:1 matters; v:9.60 is not an id here."
+    text = rating.packet(doc, {"system": "Fraud", "text": "Score cards."}, "P123", ["v:9.6", "s04_p02", "d:1"])
+    assert "v:9.6`" not in text and "s04_p02" not in text and " d:1 " not in text and "v:9.60" in text
+    assert "Sources:" not in text and "System: Fraud" not in text and "Score cards." in text
+
+
+def test_kit_writes_packets_sheets_and_a_separate_key(tmp_path):
+    briefs = [{"id": "fraud", "system": "Fraud", "text": "T"}]
+    (tmp_path / "designs").mkdir()
+    for cond in "NME":
+        (tmp_path / "designs" / f"fraud-{cond}-r1.json").write_text(json.dumps(FIXTURE_DESIGN))
+    key = rating.build_kit(1, ["A", "B"], 7, None, results=tmp_path, briefs=briefs)
+    assert sorted(key.values()) == ["fraud-E-r1", "fraud-M-r1", "fraud-N-r1"]
+    kit = tmp_path / "rating"
+    assert sorted(p.stem for p in (kit / "packets").glob("*.md")) == sorted(key)
+    assert not any("fraud-" in p.read_text() for p in kit.rglob("*.*"))         # the key lives elsewhere
+    with (kit / "sheet-A.csv").open() as f:
+        assert sorted(r["packet"] for r in csv.DictReader(f)) == sorted(key)
+    with pytest.raises(SystemExit, match="already exists"):
+        rating.build_kit(1, ["A", "B"], 7, None, results=tmp_path, briefs=briefs)
+
+
+def test_agreement_lists_disagreements_of_two_points_and_unblinds_per_condition():
+    a = {"P1": dict(coverage=4, tradeoffs=3, fit=3, correctness=4), "P2": dict(coverage=2, tradeoffs=2, fit=1, correctness=3)}
+    b = {"P1": dict(coverage=4, tradeoffs=3, fit=1, correctness=4), "P2": dict(coverage=2, tradeoffs=3, fit=1, correctness=3)}
+    out = rating.agreement(a, b)
+    assert out["to_resolve"] == [{"packet": "P1", "item": "fit", "scores": [3, 1]}]
+    assert out["kappa"]["coverage"] == 1.0
+    means = rating.by_condition(a, {"P1": "fraud-N-r1", "P2": "fraud-M-r1"})
+    assert means["N"]["coverage"] == 4 and means["M"]["fit"] == 1
+
+
+def test_incomplete_sheets_are_refused(tmp_path):
+    sheet = tmp_path / "sheet-A.csv"
+    sheet.write_text("packet,coverage,tradeoffs,fit,correctness,notes\nP1,4,3,,2,\n")
+    with pytest.raises(SystemExit, match="no valid fit"):
+        rating.read_sheet(sheet)
