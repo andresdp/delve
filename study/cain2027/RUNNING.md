@@ -46,9 +46,19 @@ Every command below is run from this folder (`~/Documents/GitHub/delve`), with `
 ### The sandbox folder
 
 The agent must not see this repository: it holds the expert model and the scoring code. So the study works in
-a separate folder outside the repository, called the **sandbox** here. This guide uses `~/cain-sandbox`; any
-folder outside the repository works, as long as you use the same one throughout. You do not need to create it:
-step 2 does.
+a separate folder outside the repository, called the **sandbox** here:
+`~/Documents/GitHub/ddspace-sandboxes/cain2027`, next to the repository. Use the same folder throughout. You do
+not need to create the `cain2027` folder: step 2 does.
+
+`~/Documents` is synced by iCloud. The sandbox must not be: each session briefly holds a copy of your Codex
+login, and iCloud sync can duplicate or damage files that change often. So the real folder is named
+`ddspace-sandboxes.nosync` (iCloud skips folders whose names end in `.nosync`), and `ddspace-sandboxes` is a link
+to it. To set this up on a new machine:
+
+```bash
+mkdir -p ~/Documents/GitHub/ddspace-sandboxes.nosync
+ln -s ddspace-sandboxes.nosync ~/Documents/GitHub/ddspace-sandboxes
+```
 
 ## 1. Finalize the briefs
 
@@ -73,7 +83,7 @@ the date you looked it up.
 ## 2. Build the three workspaces
 
 ```bash
-python study/cain2027/build_workspaces.py build --out ~/cain-sandbox/workspaces
+python study/cain2027/build_workspaces.py build --out ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces
 ```
 
 **What it does.** It creates three folders in the sandbox, one per condition:
@@ -87,10 +97,10 @@ There is no separate step for the C1 wiki: this command builds it, from the file
 **Check it.** Run the wiki check in both design-space workspaces:
 
 ```bash
-cd ~/cain-sandbox/workspaces/M
+cd ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces/M
 ddspace wiki check
 ddspace query dims --table
-cd ~/cain-sandbox/workspaces/E
+cd ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces/E
 ddspace wiki check
 cd ~/Documents/GitHub/delve
 ```
@@ -123,7 +133,7 @@ results exist.
 
 ## 4. Prepare the session settings
 
-Choose **one Codex model** for all sessions, such as `gpt-5.4-luna`, and keep it for the whole study. It cannot
+Choose **one Codex model** for all sessions, such as `gpt-6-luna`, and keep it for the whole study. It cannot
 be `gpt-5.4-mini`, the model the scorer uses as a judge: the runner refuses it, so the judge never grades
 its own output.
 
@@ -162,7 +172,7 @@ prompt and the output format (in `results/summaries/`).
 Run three sessions first (the `fraud` brief under N, M and E) to check that everything works:
 
 ```bash
-python study/cain2027/run_sessions.py --workspaces ~/cain-sandbox/workspaces --scratch ~/cain-sandbox/scratch --model gpt-5.4-luna --briefs fraud --reps 1 --keep-raw
+python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model gpt-6-luna --briefs fraud --reps 1 --keep-raw
 ```
 
 The options are:
@@ -195,7 +205,7 @@ pilot:
 
 ```bash
 export OPENAI_API_KEY=sk-...your scoring key...
-python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces --export-labels
+python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --export-labels
 ```
 
 This writes `study/cain2027/results/labels/<session>.csv`. Each row is an option the agent considered, with its
@@ -228,7 +238,7 @@ rm -rf study/cain2027/results
 Then run all sessions. This is the pilot command without `--briefs`, `--reps` and `--keep-raw`:
 
 ```bash
-python study/cain2027/run_sessions.py --workspaces ~/cain-sandbox/workspaces --scratch ~/cain-sandbox/scratch --model gpt-5.4-luna
+python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model gpt-6-luna
 ```
 
 - **Stopping and resuming:** you can stop with Ctrl+C and run the same command later. Sessions that already
@@ -246,7 +256,7 @@ leaving it out silently.
 
 ```bash
 export OPENAI_API_KEY=sk-...your scoring key...
-python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces
+python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces
 ```
 
 **What it does.** It compares every session's ADRs with the expert model and writes
@@ -261,7 +271,9 @@ condition, of:
 - grounding and consistency (M and E only);
 - design points explored, and cost.
 
-The judge's verdicts are cached in `results/judge_cache.json`, so a second run gives the same numbers without
+While it runs, it prints one line per session, such as
+`[12/60] fraud-M-r2: 1450 matches (210 judged), relevant coverage 0.28, 35 s`. Sessions scored before go fast:
+the judge's verdicts are cached in `results/judge_cache.json`, so a second run gives the same numbers without
 new calls.
 
 ## 8. Blind rating
@@ -272,7 +284,7 @@ brief and condition: 12 sets of ADRs.
 ### Build the rating kit
 
 ```bash
-python study/cain2027/rating.py packets --workspaces ~/cain-sandbox/workspaces --seed 2027
+python study/cain2027/rating.py packets --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --seed 2027
 ```
 
 The `--seed` makes the kit reproducible: the same seed gives the same codes and order. It creates:
@@ -369,7 +381,7 @@ in the same terminal setup as before (step 0, and the study key from step 4).
 ### More repetitions of the original prompt (v1)
 
 ```bash
-python study/cain2027/run_sessions.py --workspaces ~/cain-sandbox/workspaces --scratch ~/cain-sandbox/scratch --model gpt-6-luna --reps 5
+python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model gpt-6-luna --reps 5
 ```
 
 The 24 sessions you already have are skipped; this runs repetitions 3 to 5 (36 new sessions). Results go to
@@ -378,7 +390,7 @@ The 24 sessions you already have are skipped; this runs repetitions 3 to 5 (36 n
 ### The trade-off variant (v2)
 
 ```bash
-python study/cain2027/run_sessions.py --workspaces ~/cain-sandbox/workspaces --scratch ~/cain-sandbox/scratch --model gpt-6-luna --reps 5 --variant v2
+python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model gpt-6-luna --reps 5 --variant v2
 ```
 
 This runs the same 60 sessions (4 briefs, 3 conditions, 5 repetitions) with `prompt-v2.md`, and writes them to
@@ -391,8 +403,8 @@ Do not edit `prompt.md` or `prompt-v2.md` between or during these runs.
 
 ```bash
 export OPENAI_API_KEY=sk-...your scoring key...
-python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces
-python study/cain2027/score.py --workspaces ~/cain-sandbox/workspaces --variant v2
+python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces
+python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --variant v2
 ```
 
 Each writes its own `scores.json` (`results/` and `results-v2/`). The v2 scorer starts from a copy of v1's

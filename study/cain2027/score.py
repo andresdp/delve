@@ -33,6 +33,7 @@ import csv
 import json
 import shutil
 import sys
+import time
 from pathlib import Path
 from statistics import mean
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Set
@@ -423,7 +424,13 @@ def main() -> None:
                                                      "matcher": matcher,
                                                      "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
                                                      "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
+    _progress(f"wrote {results.name}/scores.json")
     print(json.dumps(aggregate(rows), indent=2))  # noqa: T201
+
+
+def _progress(message: str) -> None:
+    """One progress line on stderr (stdout carries the per-condition summary)."""
+    print(message, file=sys.stderr, flush=True)  # noqa: T201
 
 
 def _score_sessions(results, args, gt, briefs, config, rates, graphs, options, embed, judge, cache,
@@ -431,8 +438,11 @@ def _score_sessions(results, args, gt, briefs, config, rates, graphs, options, e
     """Score every session with a design; export its matches when asked."""
     names = {o.id: o.name for o in options}
     rows = []
-    for path in sorted((results / "designs").glob("*.json")):
+    paths = sorted((results / "designs").glob("*.json"))
+    _progress(f"scoring {len(paths)} sessions in {results.name}/ (verdicts already in the judge cache are reused)")
+    for n, path in enumerate(paths, 1):
         sid = path.stem
+        start = time.monotonic()
         summary = json.loads((results / "summaries" / f"{sid}.json").read_text(encoding="utf-8"))
         check_summary(summary)
         doc = json.loads(path.read_text(encoding="utf-8"))
@@ -451,6 +461,9 @@ def _score_sessions(results, args, gt, briefs, config, rates, graphs, options, e
                          graph=graphs.get(summary["condition"]), summary=summary, rates=rates,
                          driver_hits=drivers, same_hits=levels["same"], lenient_hits=lenient)}
         rows.append(row)
+        cov = row["relevant_decision_coverage"]
+        _progress(f"[{n}/{len(paths)}] {sid}: {len(pairs)} matches ({sources.get('judge', 0)} judged), "
+                  f"relevant coverage {'-' if cov is None else f'{cov:.2f}'}, {time.monotonic() - start:.0f} s")
         if args.export_labels:
             labels = results / "labels"
             labels.mkdir(parents=True, exist_ok=True)
