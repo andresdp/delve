@@ -112,6 +112,7 @@ def test_guide_teaches_sketching_a_design_with_points(ws):
     text = (ws.root / "AGENTS.md").read_text()
     section = re.search(r"## Sketching a design\n(.*?)\n## ", text, re.S).group(1)
     assert "ddspace point" in section and "--no-llm" in section and "at least two alternatives" in section
+    assert "This step is required" in section and "rival combination" in section
     assert "value id" in section and "cite passage ids" in text
 
 

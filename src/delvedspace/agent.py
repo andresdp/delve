@@ -118,11 +118,18 @@ When asked to design a system (a brief with requirements):
 
 1. Find the dimensions relevant to the brief (`ddspace query dims{where}`, `ddspace query search`).
 2. For each, compare at least two alternatives: {compare}. Note outcomes and rejected values.
-3. Try two or three candidate combinations with `ddspace point "{value}" "<another value>"{where}` on the
-   dimensions that matter most. Use its warnings and `attested_by` in your rationale; a novel combination is not
-   wrong, only unattested. If descriptions fail (no network or key), use `ddspace point ... --no-llm`.
+3. Check your design as a design point. This step is required: do not write the ADRs before it.
+   - Run `ddspace point "{value}" "<another value>" ...{where}` with the values you intend to choose, one per
+     dimension you decide.
+   - Run it again for at least one rival combination that swaps the values of the dimensions that matter most
+     for the brief.
+   - Compare the two: use the warnings (conflicting or rejected values) and `attested_by` (the sources that
+     adopt the combination) in your rationale, and revise a choice the warnings argue against. A novel
+     combination is not wrong, only unattested.
+   - If descriptions fail (no network or key), run `ddspace point ... --no-llm`; the warnings and
+     `attested_by` still come back.
 4. Choose one value per decision whose alternatives exclude each other; where exclusivity is low, say which values
-   you combine.
+   you combine. Your final choices are the point you checked in step 3 (check it again if you revised it).
 5. Record one concise Architecture Decision Record (ADR) per decision: its context, the brief's drivers, the
    alternatives you considered with short pros and cons, the chosen one with its value id (`v:3.1`), the
    rationale and the consequences, and {cite}. The chosen alternative is one of the alternatives you list, with its value id and
