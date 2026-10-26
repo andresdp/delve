@@ -169,11 +169,19 @@ def test_claude_and_copilot_pointers_and_the_allow_rule(ws):
     assert "AGENTS.md" in (ws.root / ".github" / "copilot-instructions.md").read_text()
     data = json.loads(settings.read_text())
     assert data["permissions"]["allow"] == ["Bash(ls:*)", "Bash(ddspace query:*)",
-                                            "Bash(/opt/envs/toy/bin/ddspace query:*)"] and data["model"] == "x"
+                                            "Bash(/opt/envs/toy/bin/ddspace query:*)", "Bash(ddspace point:*)",
+                                            "Bash(/opt/envs/toy/bin/ddspace point:*)"] and data["model"] == "x"
     _invoke("agent", "setup", "--claude", "--yes")
-    assert json.loads(settings.read_text())["permissions"]["allow"].count("Bash(ddspace query:*)") == 1
-    assert agent.disallow_query(settings) == "cleaned"                 # both rules go, the user's stays
+    allow = json.loads(settings.read_text())["permissions"]["allow"]
+    assert allow.count("Bash(ddspace query:*)") == 1 and allow.count("Bash(ddspace point:*)") == 1
+    assert agent.disallow_query(settings) == "cleaned"                 # query and point rules go, the user's stays
     assert json.loads(settings.read_text())["permissions"]["allow"] == ["Bash(ls:*)"]
+
+
+def test_point_can_be_left_to_prompt(ws):
+    assert _invoke("agent", "setup", "--claude", "--no-allow-point", "--yes").exit_code == 0
+    allow = json.loads((ws.root / ".claude" / "settings.json").read_text())["permissions"]["allow"]
+    assert "Bash(ddspace query:*)" in allow and not [r for r in allow if "point" in r]
 
 
 def test_guide_says_how_to_reach_ddspace_when_the_shell_lacks_it(ws):

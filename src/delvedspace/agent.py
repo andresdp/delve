@@ -21,7 +21,8 @@ from taxonomy_generator.wiki import query as q
 
 START, END = "<!-- ddspace:start -->", "<!-- ddspace:end -->"
 QUERY_PERMISSION = "Bash(ddspace query:*)"
-_ANY_QUERY_PERMISSION = re.compile(r"^Bash\((?:\S*[/\\])?ddspace query:\*\)$")  # bare or by full path
+POINT_PERMISSION = "Bash(ddspace point:*)"
+_ANY_QUERY_PERMISSION = re.compile(r"^Bash\((?:\S*[/\\])?ddspace (?:query|point):\*\)$")  # bare or by full path
 
 
 def install_info() -> Dict[str, Optional[str]]:
@@ -41,6 +42,12 @@ def query_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> Lis
     """Claude Code allow rules for ``ddspace query``: bare, and by full path when it is known."""
     path = (install or {}).get("path")
     return [QUERY_PERMISSION] + ([f"Bash({path} query:*)"] if path else [])
+
+
+def point_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Claude Code allow rules for ``ddspace point`` (one LLM call per combination unless ``--no-llm``)."""
+    path = (install or {}).get("path")
+    return [POINT_PERMISSION] + ([f"Bash({path} point:*)"] if path else [])
 
 
 def upsert_block(path: Path, block: str) -> str:
@@ -266,7 +273,7 @@ def remove_block(path: Path) -> str:
 
 
 def disallow_query(settings_path: Path) -> str:
-    """Remove the ``ddspace query`` allow rules; delete the settings file when it held nothing else."""
+    """Remove the ``ddspace query`` and ``ddspace point`` allow rules; delete the settings file when it held nothing else."""
     if not settings_path.is_file():
         return ""
     data = json.loads(settings_path.read_text(encoding="utf-8"))

@@ -556,6 +556,9 @@ def agent_setup(
     copilot: bool = typer.Option(False, "--copilot", help="Also write .github/copilot-instructions.md."),
     allow: Optional[bool] = typer.Option(None, "--allow-query/--no-allow-query",
                                          help="With --claude: let Claude Code run `ddspace query` without asking each time."),
+    allow_point: Optional[bool] = typer.Option(None, "--allow-point/--no-allow-point",
+                                               help="With --claude: let Claude Code run `ddspace point` without asking "
+                                                    "(one LLM call per combination unless --no-llm)."),
     directory: Optional[Path] = typer.Option(None, "--dir", help="Where the agent works: the workspace (default) "
                                              "or a project folder that contains it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
@@ -575,6 +578,14 @@ def agent_setup(
                 "Let Claude Code run ddspace query (read-only) without a permission prompt each time?", default=True)
         if allow:
             rules = agent.query_permissions(install)
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
+                        f"({', '.join(rules)})")
+        if allow_point is None:              # without an answer, follow the query answer (scripts) or ask
+            allow_point = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace point without a prompt? It makes one LLM call per combination "
+                "(with the workspace's API key) unless --no-llm is passed.", default=True)
+        if allow_point:
+            rules = agent.point_permissions(install)
             done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
                         f"({', '.join(rules)})")
     if copilot:
