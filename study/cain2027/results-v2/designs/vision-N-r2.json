@@ -1,0 +1,217 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras inspect production lines that often have no network access. The brief gives no latency target, but inspection must remain possible during disconnection.",
+      "drivers": [
+        "Offline operation",
+        "Tight infrastructure budget",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Run inference on each device",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Offline operation: works without network",
+            "Tight infrastructure budget: avoids inference servers"
+          ],
+          "cons": [
+            "Small team: device runtime support to maintain"
+          ]
+        },
+        {
+          "label": "Central inference service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Small team: centralized runtime management"
+          ],
+          "cons": [
+            "Offline operation: unavailable during disconnection",
+            "Tight infrastructure budget: server and network costs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Run inference on each device",
+        "value_id": null
+      },
+      "rationale": "Offline operation decides the choice; local inference avoids dependence on connectivity. This gives up centralized runtime management and requires device-compatible models.",
+      "consequences": [
+        "Models must fit device compute and storage limits.",
+        "Devices need a supported local inference runtime."
+      ]
+    },
+    {
+      "decision": "How should models be retrained?",
+      "context": "The model is retrained weekly from newly labelled images, but the brief does not specify where training runs or how data is collected.",
+      "drivers": [
+        "Weekly retraining",
+        "Tight infrastructure budget",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Managed cloud training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Small team: less training infrastructure to operate",
+            "Weekly retraining: provision compute when needed"
+          ],
+          "cons": [
+            "Tight infrastructure budget: recurring service and storage costs"
+          ]
+        },
+        {
+          "label": "Self-managed training infrastructure",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Tight infrastructure budget: reuses owned compute"
+          ],
+          "cons": [
+            "Small team: infrastructure upkeep",
+            "Weekly retraining: capacity management burden"
+          ]
+        },
+        {
+          "label": "Train on production devices",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Tight infrastructure budget: no separate training fleet"
+          ],
+          "cons": [
+            "Weekly retraining: competes with inspection workload",
+            "Small team: device training support"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Managed cloud training",
+        "value_id": null
+      },
+      "rationale": "Weekly retraining and the small team favor managed compute that can be used on a schedule. This accepts recurring service costs, whose level is not specified in the brief.",
+      "consequences": [
+        "Training depends on access to the chosen service.",
+        "Image transfer, retention, and training costs need limits."
+      ]
+    },
+    {
+      "decision": "How should model updates reach devices?",
+      "context": "Retrained models must be pushed to production devices that may lack network access. The brief does not specify how often devices reconnect.",
+      "drivers": [
+        "Offline operation",
+        "Weekly retraining",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Direct online push",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly retraining: fast delivery when connected",
+            "Small team: straightforward distribution path"
+          ],
+          "cons": [
+            "Offline operation: cannot reach disconnected devices"
+          ]
+        },
+        {
+          "label": "Downloadable signed model packages",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Offline operation: packages can be transferred after reconnection",
+            "Weekly retraining: supports versioned releases"
+          ],
+          "cons": [
+            "Small team: package and device update handling"
+          ]
+        },
+        {
+          "label": "Removable-media deployment",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Offline operation: works without network access"
+          ],
+          "cons": [
+            "Small team: manual distribution effort",
+            "Weekly retraining: slower fleet-wide delivery"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Downloadable signed model packages",
+        "value_id": null
+      },
+      "rationale": "Offline operation decides the choice: versioned packages can be installed when devices reconnect or via local transfer. This gives up the simplicity of a direct online push and adds package handling.",
+      "consequences": [
+        "Devices need a process to verify and install packages.",
+        "A release needs a stable model version identifier."
+      ]
+    },
+    {
+      "decision": "How should model releases be promoted?",
+      "context": "Weekly retraining creates frequent candidate models, while production inspection depends on the deployed model. The brief does not describe validation or rollback practices.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Offline operation"
+      ],
+      "alternatives": [
+        {
+          "label": "Automatically replace the deployed model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly retraining: minimal promotion delay",
+            "Small team: fewer manual release steps"
+          ],
+          "cons": [
+            "Offline operation: failures may remain until reconnection",
+            "Weekly retraining: unvalidated regressions can reach devices"
+          ]
+        },
+        {
+          "label": "Validate, stage, and retain a rollback version",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Offline operation: device can keep a working local version",
+            "Weekly retraining: separates candidates from releases"
+          ],
+          "cons": [
+            "Small team: validation and rollout process to maintain",
+            "Tight infrastructure budget: retain extra model copies"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Validate, stage, and retain a rollback version",
+        "value_id": null
+      },
+      "rationale": "Offline operation decides the choice: a device needs a usable local model even if an update fails. This gives up some weekly release speed and requires a validation and rollback process.",
+      "consequences": [
+        "Devices need storage for the current and previous model.",
+        "Promotion criteria and rollback triggers must be defined."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Inference latency and accuracy targets",
+    "Device hardware, operating system, and fleet size",
+    "Image capture, labelling, storage, retention, and transfer process",
+    "Training data access controls and privacy requirements",
+    "Model evaluation criteria and required validation data",
+    "Device connectivity patterns and update scheduling",
+    "Model package integrity, device authentication, and key management",
+    "Monitoring, defect-result retention, and operational alerting",
+    "Budget limits and acceptable cloud service dependencies"
+  ]
+}

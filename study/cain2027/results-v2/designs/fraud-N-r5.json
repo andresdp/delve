@@ -1,0 +1,235 @@
+{
+  "decisions": [
+    {
+      "decision": "Serve scores through a dedicated online inference service",
+      "context": "Every card transaction needs a fraud score before authorization, with results in tens of milliseconds. The service must sustain peaks.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability",
+        "Auditor traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Dedicated online inference service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Tens-of-milliseconds latency: keep models loaded in memory",
+            "Peak availability: scale serving capacity independently"
+          ],
+          "cons": [
+            "Peak availability: adds a service dependency"
+          ]
+        },
+        {
+          "label": "Run inference inside the authorization service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Tens-of-milliseconds latency: avoids a network hop",
+            "Peak availability: fewer service dependencies"
+          ],
+          "cons": [
+            "Peak availability: scoring competes with authorization workloads",
+            "Auditor traceability: model changes couple to service releases"
+          ]
+        },
+        {
+          "label": "Call a hosted third-party scoring API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: provider manages serving capacity"
+          ],
+          "cons": [
+            "Tens-of-milliseconds latency: network and provider latency",
+            "Auditor traceability: less control over scoring records"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Dedicated online inference service",
+        "value_id": null
+      },
+      "rationale": "Tens-of-milliseconds latency decides the choice: a dedicated service can keep models loaded and scale for scoring demand. It costs an additional service dependency.",
+      "consequences": [
+        "Maintain a low-latency network path from authorization to scoring.",
+        "Scale serving capacity independently and monitor its availability.",
+        "Keep authorization behavior defined for scoring timeouts."
+      ]
+    },
+    {
+      "decision": "Scale serving capacity for transaction peaks",
+      "context": "Scoring must keep working during peaks, while each result must still arrive within tens of milliseconds. The brief does not specify peak size or request limits.",
+      "drivers": [
+        "Peak availability",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Autoscale stateless inference replicas",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: add replicas as demand rises",
+            "Tens-of-milliseconds latency: distribute requests across replicas"
+          ],
+          "cons": [
+            "Tens-of-milliseconds latency: scale-up delay can expose capacity gaps"
+          ]
+        },
+        {
+          "label": "Maintain fixed excess capacity",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: capacity is ready at peak onset",
+            "Tens-of-milliseconds latency: avoids scale-up delay"
+          ],
+          "cons": [
+            "Peak availability: excess capacity remains idle off-peak"
+          ]
+        },
+        {
+          "label": "Queue requests when capacity is full",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: absorbs short bursts"
+          ],
+          "cons": [
+            "Tens-of-milliseconds latency: queueing can exceed the scoring budget"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscale stateless inference replicas",
+        "value_id": null
+      },
+      "rationale": "Peak availability decides the choice: stateless replicas can add scoring capacity as demand rises. This gives up immediate protection from scale-up delay, which must be managed with capacity headroom.",
+      "consequences": [
+        "Keep inference replicas stateless so they can scale horizontally.",
+        "Maintain headroom to cover demand while replicas start.",
+        "Set capacity limits and a policy for requests that exceed them."
+      ]
+    },
+    {
+      "decision": "Record the model version and features for each score",
+      "context": "Auditors must later be able to determine which model version and which features produced every score. That requires a durable association between each score and its scoring inputs.",
+      "drivers": [
+        "Auditor traceability",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score, model version, and feature snapshot asynchronously",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Auditor traceability: retains inputs and model identity per score",
+            "Tens-of-milliseconds latency: keeps durable writes off the response path"
+          ],
+          "cons": [
+            "Auditor traceability: asynchronous failure can leave gaps"
+          ]
+        },
+        {
+          "label": "Persist score, model version, and feature snapshot synchronously",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Auditor traceability: confirms record persistence before replying"
+          ],
+          "cons": [
+            "Tens-of-milliseconds latency: storage writes add response time",
+            "Peak availability: storage outages can block scoring"
+          ]
+        },
+        {
+          "label": "Persist score and model version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Tens-of-milliseconds latency: smaller records to write"
+          ],
+          "cons": [
+            "Auditor traceability: cannot reconstruct which features produced the score"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score, model version, and feature snapshot asynchronously",
+        "value_id": null
+      },
+      "rationale": "Auditor traceability decides the choice: retaining both the model version and feature snapshot supports later inspection. Asynchronous writes protect latency, at the cost of needing to detect and handle missing records.",
+      "consequences": [
+        "Include a stable score identifier with each audit record.",
+        "Monitor delivery failures and record completeness.",
+        "Define retention and access controls for stored feature snapshots."
+      ]
+    },
+    {
+      "decision": "Deploy versioned models with rollback",
+      "context": "Auditors need the model version used for each score, so model identity must be explicit across deployments. The brief does not specify a release strategy.",
+      "drivers": [
+        "Auditor traceability",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model artifacts with staged rollout and rollback",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Auditor traceability: immutable versions identify scoring behavior",
+            "Peak availability: rollback restores a known serving version"
+          ],
+          "cons": [
+            "Peak availability: staged rollout adds operational steps"
+          ]
+        },
+        {
+          "label": "Replace the active model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: simple deployment flow"
+          ],
+          "cons": [
+            "Auditor traceability: model identity can be ambiguous",
+            "Peak availability: rollback may require rebuilding the prior state"
+          ]
+        },
+        {
+          "label": "Run a fixed model until a service release",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: model and service change together"
+          ],
+          "cons": [
+            "Auditor traceability: version history needs release-level tracking",
+            "Peak availability: model updates depend on service rollout"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model artifacts with staged rollout and rollback",
+        "value_id": null
+      },
+      "rationale": "Auditor traceability decides the choice: immutable model versions make each score’s model identity clear. Staged rollout adds release work, and the scoring path must handle version transitions safely.",
+      "consequences": [
+        "Attach an immutable model version to every score record.",
+        "Retain prior artifacts for rollback and audit needs.",
+        "Coordinate staged rollout with serving capacity."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature sourcing and freshness requirements.",
+    "Model training, validation, and promotion criteria.",
+    "Audit record retention period, storage system, and access policy.",
+    "Timeout, fallback, and authorization behavior when scoring is unavailable.",
+    "Peak volume, service-level target, and capacity limits."
+  ]
+}

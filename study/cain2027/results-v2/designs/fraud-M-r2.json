@@ -1,0 +1,259 @@
+{
+  "decisions": [
+    {
+      "decision": "How should transaction scores be served?",
+      "context": "Each authorization request needs a fresh fraud score within tens of milliseconds, including at peak load.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Availability: peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07"
+          ],
+          "pros": [
+            "Latency: online predictors score current requests",
+            "Availability: queue distributes peak load"
+          ],
+          "cons": [
+            "Availability: queue adds a dependency",
+            "Cost: distributed cluster needs capacity"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s02_p13"
+          ],
+          "pros": [
+            "Cost: scores can be computed in batches",
+            "Availability: precomputed results can be served"
+          ],
+          "cons": [
+            "Latency: misses new transaction context",
+            "Latency: stale scores may delay decisions"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-fronted online serving cluster",
+        "value_id": "v:31.1"
+      },
+      "rationale": "Transaction-path latency decides the choice: online scoring can use the current request, while queueing and replication support peaks. This gives up the efficiency of batch scoring and adds serving infrastructure.",
+      "consequences": [
+        "Keep serving capacity available for peak traffic.",
+        "Queueing and feature retrieval consume part of the latency budget."
+      ]
+    },
+    {
+      "decision": "What interface should the payment application use?",
+      "context": "The authorization path needs a direct request-response contract with the scoring capability. The design space supports both REST and gRPC interfaces.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Availability: authorization path"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s02_p11"
+          ],
+          "pros": [
+            "Availability: independent service boundary",
+            "Latency: direct request-response scoring"
+          ],
+          "cons": [
+            "Latency: network hop adds overhead",
+            "Availability: caller depends on service health"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [],
+          "pros": [
+            "Latency: direct service calls",
+            "Availability: independent deployment"
+          ],
+          "cons": [
+            "Latency: network hop adds overhead",
+            "Availability: caller depends on service health"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "Latency requires synchronous scoring and both service interfaces can provide it; REST is selected as the API-backed microservice option represented by broader practitioner evidence. The extra network hop remains part of the latency budget.",
+      "consequences": [
+        "The payment application must handle scoring-service timeouts.",
+        "The service contract must remain compatible with callers."
+      ]
+    },
+    {
+      "decision": "How should inference features be stored and retrieved?",
+      "context": "The scorer needs low-latency features while auditors need the model and feature inputs associated with each score to be recoverable later.",
+      "drivers": [
+        "Latency: fast feature access",
+        "Auditability: recoverable inputs"
+      ],
+      "alternatives": [
+        {
+          "label": "Online/offline feature-store architecture",
+          "value_id": "v:43.4",
+          "citations": [
+            "s06_p09",
+            "s21_p09"
+          ],
+          "pros": [
+            "Latency: online store serves inference features",
+            "Auditability: durable store supports reuse"
+          ],
+          "cons": [
+            "Cost: requires complementary storage",
+            "Availability: online store is a runtime dependency"
+          ]
+        },
+        {
+          "label": "Central analytical ML data platform",
+          "value_id": "v:43.1",
+          "citations": [],
+          "pros": [
+            "Auditability: shared prepared data",
+            "Cost: consolidates analytical storage"
+          ],
+          "cons": [
+            "Latency: analytical access may not suit scoring",
+            "Availability: inference depends on shared platform"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online/offline feature-store architecture",
+        "value_id": "v:43.4"
+      },
+      "rationale": "Low-latency feature access decides the choice, while the durable store supports later traceability and training reuse. This costs more operationally and makes the online store a serving dependency.",
+      "consequences": [
+        "Maintain consistent feature definitions across stores.",
+        "Retain the feature data needed to reconstruct scored requests."
+      ]
+    },
+    {
+      "decision": "How should model versions and score lineage be recorded?",
+      "context": "Auditors need to identify which model version and features produced every score. The design space includes linking dataset versions and profiles to training context, model metadata, and deployment status.",
+      "drivers": [
+        "Auditability: model version",
+        "Auditability: feature provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Data-to-model lineage management",
+          "value_id": "v:20.4",
+          "citations": [
+            "s10_p08",
+            "s20_p03",
+            "s20_p05",
+            "s20_p08"
+          ],
+          "pros": [
+            "Auditability: links datasets to model metadata",
+            "Reproducibility: records training context"
+          ],
+          "cons": [
+            "Cost: requires metadata capture",
+            "Availability: incomplete lineage weakens audit trail"
+          ]
+        },
+        {
+          "label": "Model artifact and dependency versioning",
+          "value_id": "v:20.2",
+          "citations": [],
+          "pros": [
+            "Auditability: identifies deployed model artifact",
+            "Reproducibility: tracks model dependencies"
+          ],
+          "cons": [
+            "Auditability: feature lineage may be absent",
+            "Cost: requires version management"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data-to-model lineage management",
+        "value_id": "v:20.4"
+      },
+      "rationale": "Auditability decides the choice: linking dataset and training context to model metadata better supports tracing both the deployed version and its feature provenance. This requires additional metadata capture and retention.",
+      "consequences": [
+        "Record model, dataset, feature, and deployment identifiers for each scoring release.",
+        "Retain lineage metadata for the audit period."
+      ]
+    },
+    {
+      "decision": "What should production monitoring cover?",
+      "context": "Peak availability depends on detecting service and data problems; changing fraud patterns can also reduce model quality. The design space treats monitoring practices as combinable.",
+      "drivers": [
+        "Availability: service health",
+        "Auditability: score traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s04_p02",
+            "s06_p02",
+            "s06_p13",
+            "s21_p10"
+          ],
+          "pros": [
+            "Availability: tracks latency and uptime",
+            "Auditability: observes data quality and shifts"
+          ],
+          "cons": [
+            "Cost: monitoring adds operational work",
+            "Availability: alerts require response procedures"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Cost: minimal monitoring overhead"
+          ],
+          "cons": [
+            "Availability: failures may go unnoticed",
+            "Auditability: little evidence about production behavior"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Service-health and data-quality monitoring",
+        "value_id": "v:6.23"
+      },
+      "rationale": "Peak availability decides the choice: observing latency, uptime, and data quality makes service and input problems visible. This adds monitoring and response work; the design space does not specify fraud-specific quality thresholds.",
+      "consequences": [
+        "Define alerts and ownership for service and data anomalies.",
+        "Preserve operational logs needed to investigate scoring behavior."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Fraud-score explanation format and per-transaction audit record schema.",
+    "Availability target, fail-open or fail-closed behavior, and authorization timeout policy.",
+    "Feature retention period, access controls, and audit retention requirements.",
+    "Model choice, fraud-specific evaluation criteria, and promotion thresholds."
+  ]
+}

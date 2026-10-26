@@ -1,0 +1,239 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction serving mode",
+      "context": "Millions of documents arrive daily, and volume varies sharply by season. The brief sets no request-latency or freshness target.",
+      "drivers": [
+        "Seasonal volume",
+        "Serving cost",
+        "Multiple consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s02_p13",
+            "s12_p02",
+            "s15_p04",
+            "s15_p05",
+            "s19_p14",
+            "s19_p16",
+            "s25_p06"
+          ],
+          "pros": [
+            "Seasonal volume: score large queues in scheduled runs",
+            "Serving cost: write results for consumers to retrieve"
+          ],
+          "cons": [
+            "Freshness: results wait for the next run",
+            "Multiple consumers: requires shared result storage"
+          ]
+        },
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s02_p13",
+            "s04_p10",
+            "s05_p02",
+            "s11_p07",
+            "s12_p02",
+            "s12_p03",
+            "s12_p04",
+            "s12_p07",
+            "s15_p04",
+            "s15_p05",
+            "s19_p08",
+            "s19_p13",
+            "s24_p01",
+            "s24_p05"
+          ],
+          "pros": [
+            "Freshness: scores current requests",
+            "Multiple consumers: supports request-based integration"
+          ],
+          "cons": [
+            "Seasonal volume: must handle peak request load",
+            "Serving cost: keeps prediction capacity available for requests"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Seasonal volume and serving cost decide the choice: scheduled scoring handles large, variable workloads without requiring an online response path. This gives up immediate predictions; the design point is novel and unattested, and sources including “Architecting a Machine Learning Pipeline” and “Three Levels of ML Software” describe batch deployment patterns.",
+      "consequences": [
+        "Consumers retrieve completed results from shared storage.",
+        "Classification freshness depends on the scoring schedule.",
+        "Plan capacity for seasonal peaks."
+      ]
+    },
+    {
+      "decision": "Runtime capacity scaling",
+      "context": "Classification volume changes substantially across the year, so fixed capacity risks either peak overload or idle resources. The brief does not specify infrastructure or budget limits.",
+      "drivers": [
+        "Seasonal volume",
+        "Serving cost",
+        "Throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s04_p06",
+            "s13_p09",
+            "s13_p10",
+            "s15_p04",
+            "s21_p15"
+          ],
+          "pros": [
+            "Seasonal volume: capacity follows workload demand",
+            "Serving cost: reduces unused capacity"
+          ],
+          "cons": [
+            "Throughput: scaling may lag sudden bursts",
+            "Serving cost: added scaling controls and capacity planning"
+          ]
+        },
+        {
+          "label": "Replicated mutable model instances",
+          "value_id": "v:26.4",
+          "citations": [],
+          "pros": [
+            "Throughput: replicas can serve work concurrently",
+            "Seasonal volume: capacity can be increased by adding instances"
+          ],
+          "cons": [
+            "Serving cost: replicas consume capacity while running",
+            "Operations: mixed evidence and mutable replicas add coordination"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Seasonal volume decides the choice: elastic capacity can track demand, with cost control as a secondary benefit. This gives up the predictability of a fixed replica pool; “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” support demand-scaled resources.",
+      "consequences": [
+        "Capacity limits and scaling behavior need operational tuning.",
+        "Peak workloads may still queue while capacity grows.",
+        "The checked design point is novel and unattested."
+      ]
+    },
+    {
+      "decision": "Production quality and drift monitoring",
+      "context": "Operators need to see when classification quality drifts. The design space treats monitoring practices as combinable, and the brief does not say when labels become available.",
+      "drivers": [
+        "Drift visibility",
+        "Quality visibility",
+        "Operator response"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p05",
+            "s04_p12",
+            "s06_p02",
+            "s06_p08",
+            "s20_p03",
+            "s21_p10",
+            "s22_p11",
+            "s23_p03",
+            "s23_p04",
+            "s23_p05",
+            "s24_p01",
+            "s24_p07",
+            "s24_p08",
+            "s24_p11",
+            "s25_p01"
+          ],
+          "pros": [
+            "Drift visibility: detects changes in inputs and feature distributions",
+            "Operator response: can surface shifts before labels arrive"
+          ],
+          "cons": [
+            "Quality visibility: drift does not prove classification errors",
+            "Operator response: thresholds and follow-up need configuration"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s01_p06",
+            "s04_p02",
+            "s04_p12",
+            "s06_p06",
+            "s06_p13",
+            "s08_p02",
+            "s13_p10",
+            "s18_p01",
+            "s20_p02",
+            "s20_p03",
+            "s22_p11",
+            "s23_p03",
+            "s23_p04",
+            "s23_p05",
+            "s23_p08",
+            "s23_p11",
+            "s24_p01",
+            "s24_p05",
+            "s24_p07",
+            "s24_p08",
+            "s24_p11"
+          ],
+          "pros": [
+            "Quality visibility: measures model behavior and prediction quality",
+            "Operator response: gives direct evidence of degradation"
+          ],
+          "cons": [
+            "Drift visibility: does not by itself explain input changes",
+            "Quality visibility: depends on ground-truth labels being available"
+          ]
+        },
+        {
+          "label": "Periodic model health checks",
+          "value_id": "v:6.18",
+          "citations": [],
+          "pros": [
+            "Operator response: supports recurring review",
+            "Quality visibility: can assess model health over time"
+          ],
+          "cons": [
+            "Drift visibility: changes may go unnoticed between checks",
+            "Quality visibility: slower signal than continuous measurement"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Drift visibility decides the initial choice because the brief explicitly requires operators to see quality drift, and input shifts can be monitored without assuming immediate labels. This gives up direct confirmation of prediction quality; “MLOps: Continuous delivery and automation pipelines in machine learning” and “Machine Learning Monitoring: What It Is, and What We Are Missing” describe drift monitoring. Pair it with quality monitoring once label availability is established.",
+      "consequences": [
+        "Monitor input and feature distributions over time.",
+        "Define alert thresholds and operator follow-up.",
+        "Add label-based quality measurement when labels are available."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Prediction freshness or response-time target and batch scoring cadence.",
+    "How results are exposed to several consuming teams, including interface and access controls.",
+    "LLM provider, model selection, prompt and model versioning, and fallback behavior.",
+    "Document retention, privacy, security, and audit requirements.",
+    "Label availability and delay, drift thresholds, and retraining or remediation policy.",
+    "Seasonal peak rates, cost ceiling, and deployment infrastructure."
+  ]
+}

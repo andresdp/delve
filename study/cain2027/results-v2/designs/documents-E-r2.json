@@ -1,0 +1,292 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents enter the system?",
+      "context": "Millions of documents arrive daily, with volume varying strongly over the year. The design space offers batch and streaming ingestion approaches (d:7).",
+      "drivers": [
+        "Seasonal peak scale",
+        "Daily throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Seasonal peak scale: collect and process in batches"
+          ],
+          "cons": [
+            "Latency: results wait for a batch run"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Latency: accept documents continuously"
+          ],
+          "cons": [
+            "Seasonal peak scale: continuous capacity may be harder to right-size"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Seasonal peak scale decides the choice: batches allow work to be grouped around fluctuating volume. This gives up immediate ingestion and classification.",
+      "consequences": [
+        "Results depend on batch cadence.",
+        "Capacity must handle peak batch volume."
+      ]
+    },
+    {
+      "decision": "Should classification processing be batched or real time?",
+      "context": "The system classifies millions of documents daily, but the brief sets no response-time target. The design space frames batch and real-time processing as alternatives (d:15).",
+      "drivers": [
+        "Seasonal peak scale",
+        "Daily throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Seasonal peak scale: process accumulated work in scheduled runs"
+          ],
+          "cons": [
+            "Latency: classification waits for processing"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Latency: process documents continuously"
+          ],
+          "cons": [
+            "Seasonal peak scale: requires capacity for variable continuous load"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "Seasonal peak scale decides the choice because no latency target requires real-time processing. This gives up prompt per-document results.",
+      "consequences": [
+        "Processing cadence sets result freshness.",
+        "Batch capacity must cover peak periods."
+      ]
+    },
+    {
+      "decision": "How should predictions be served?",
+      "context": "Several teams consume classification results, and the brief specifies neither synchronous access nor a latency target. The design space includes scheduled batch output and real-time service options (d:5).",
+      "drivers": [
+        "Team consumption",
+        "Seasonal peak scale"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Seasonal peak scale: write scheduled prediction batches to storage"
+          ],
+          "cons": [
+            "Team consumption: results are available only after runs"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Team consumption: teams can request real-time predictions"
+          ],
+          "cons": [
+            "Seasonal peak scale: service capacity must absorb demand peaks"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Seasonal peak scale decides the choice given the lack of an immediate-response requirement. This gives up real-time access in favor of scheduled stored results.",
+      "consequences": [
+        "Consumers need access to the results store.",
+        "Freshness follows the serving schedule."
+      ]
+    },
+    {
+      "decision": "How should classification data and results be shared?",
+      "context": "Multiple teams need classification results, and operators need evidence to assess quality drift. A shared store is one option in the design space (d:2).",
+      "drivers": [
+        "Team consumption",
+        "Drift visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared data store",
+          "value_id": "v:2.1",
+          "citations": [
+            "d:2",
+            "v:2.1"
+          ],
+          "pros": [
+            "Team consumption: common access point for results"
+          ],
+          "cons": [
+            "Team consumption: access boundaries need coordination"
+          ]
+        },
+        {
+          "label": "Data service",
+          "value_id": "v:2.2",
+          "citations": [
+            "d:2",
+            "v:2.2"
+          ],
+          "pros": [
+            "Team consumption: access can be mediated through services"
+          ],
+          "cons": [
+            "Seasonal peak scale: shared service capacity must handle demand"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared data store",
+        "value_id": "v:2.1"
+      },
+      "rationale": "Team consumption decides the choice: a common store gives several teams access to batch results. This gives up service-mediated access controls and requires teams to coordinate access.",
+      "consequences": [
+        "Teams depend on shared storage availability.",
+        "Access permissions need definition."
+      ]
+    },
+    {
+      "decision": "How should production classification be monitored?",
+      "context": "Operators need to see when classification quality drifts. The design space distinguishes monitoring system data and predictions from monitoring model performance (d:22).",
+      "drivers": [
+        "Drift visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Drift visibility: retain inputs and predictions for inspection"
+          ],
+          "cons": [
+            "Drift visibility: logs alone do not establish model quality"
+          ]
+        },
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Drift visibility: observe model performance parameters"
+          ],
+          "cons": [
+            "Drift visibility: requires suitable quality measures"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Drift visibility decides the choice because the requirement is explicitly about classification quality. This gives up the broader operational trace that logging inputs and predictions can provide.",
+      "consequences": [
+        "Quality measures must be selected.",
+        "Monitoring requires a way to assess model performance."
+      ]
+    },
+    {
+      "decision": "How should the model be adjusted when monitoring finds drift?",
+      "context": "Drift visibility implies a response when quality degrades. The design space offers manual or automated model adjustment (d:24).",
+      "drivers": [
+        "Drift visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual model adjustment",
+          "value_id": "v:24.1",
+          "citations": [
+            "d:24",
+            "v:24.1"
+          ],
+          "pros": [
+            "Drift visibility: people review evidence before changing models"
+          ],
+          "cons": [
+            "Drift visibility: response may be delayed"
+          ]
+        },
+        {
+          "label": "Automated model adjustment",
+          "value_id": "v:24.2",
+          "citations": [
+            "d:24",
+            "v:24.2"
+          ],
+          "pros": [
+            "Drift visibility: automated action can follow detected changes"
+          ],
+          "cons": [
+            "Drift visibility: adjustment may occur without human review"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Manual model adjustment",
+        "value_id": "v:24.1"
+      },
+      "rationale": "Drift visibility decides the choice: human review provides a controlled response when quality changes. This gives up the faster response automated adjustment may offer.",
+      "consequences": [
+        "Operators need a review and redeployment process.",
+        "Drift alerts require timely human attention."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Target classification latency and acceptable result staleness",
+    "How to measure quality drift and obtain labels or ground truth",
+    "LLM provider, model selection, prompt/version management, and reproducibility",
+    "Retry, deduplication, and failure handling for large batch runs",
+    "Data privacy, retention, and access controls across teams",
+    "Capacity, cost, and scaling strategy for seasonal peaks"
+  ]
+}

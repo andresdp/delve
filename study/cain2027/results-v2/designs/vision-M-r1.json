@@ -1,0 +1,387 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras operate along production lines, often without network access, so predictions must be available locally. The design space describes both on-device inference and offline containerized services.",
+      "drivers": [
+        "Offline operation",
+        "Local inference"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Offline operation: inference runs on the device"
+          ],
+          "cons": [
+            "Tight budget: device rollout and support"
+          ]
+        },
+        {
+          "label": "Containerized offline prediction service",
+          "value_id": "v:30.1",
+          "citations": [
+            "s02_p11",
+            "s22_p13"
+          ],
+          "pros": [
+            "Offline operation: supports local batch prediction"
+          ],
+          "cons": [
+            "Local inference: service requires device-side runtime"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "Offline operation decides the choice: the model runs on the cameras even without network access, at the cost of managing model deployment across devices. This aligns with “Composing Deep-Learning Microservices for the Hybrid Internet of Things” and “Three Levels of ML Software.”",
+      "consequences": [
+        "Package and distribute compatible model artifacts to cameras.",
+        "Device updates and recovery need to work when connectivity returns."
+      ]
+    },
+    {
+      "decision": "How should weekly training and validation run?",
+      "context": "The model is retrained weekly, which makes repeatable sequencing of training, evaluation, and release valuable to a small team. The design space contrasts manual script execution with an orchestrated pipeline.",
+      "drivers": [
+        "Weekly cadence",
+        "Small team",
+        "Repeatability"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s06_p07",
+            "s22_p08"
+          ],
+          "pros": [
+            "Weekly cadence: repeatable connected stages"
+          ],
+          "cons": [
+            "Small team: pipeline upkeep"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s02_p08"
+          ],
+          "pros": [
+            "Small team: few orchestration components"
+          ],
+          "cons": [
+            "Weekly cadence: repeated manual execution"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "The weekly cadence decides the choice: a repeatable pipeline reduces recurring manual work, though it adds workflow upkeep. “MLOps: Continuous delivery and automation pipelines in machine learning” and “MLOps Principles” support pipeline-based execution.",
+      "consequences": [
+        "Define and maintain training, evaluation, and release stages.",
+        "Keep pipeline dependencies manageable for the small team."
+      ]
+    },
+    {
+      "decision": "How should retraining be triggered?",
+      "context": "Newly labelled images arrive for weekly retraining. The design space treats schedule-based retraining and data or performance triggers as practices that may be combined, rather than mutually exclusive alternatives.",
+      "drivers": [
+        "Weekly cadence",
+        "Label availability",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p11"
+          ],
+          "pros": [
+            "Weekly cadence: predictable recurring runs"
+          ],
+          "cons": [
+            "Label availability: may run without useful new labels"
+          ]
+        },
+        {
+          "label": "Threshold-based retraining",
+          "value_id": "v:6.3",
+          "citations": [
+            "s06_p08",
+            "s09_p03"
+          ],
+          "pros": [
+            "Label availability: can react to quality changes"
+          ],
+          "cons": [
+            "Small team: thresholds need tuning and oversight"
+          ]
+        },
+        {
+          "label": "Manual retraining trigger",
+          "value_id": "v:6.14",
+          "citations": [],
+          "pros": [
+            "Small team: direct human control"
+          ],
+          "cons": [
+            "Weekly cadence: recurring operator effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "The stated weekly cadence decides the choice: schedule retraining to match it and gate training on the availability of newly labelled images. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “MLOps: Continuous delivery and automation pipelines in machine learning” describe recurring triggers; this gives up reacting immediately to drift between runs.",
+      "consequences": [
+        "Skip or defer scheduled runs when new labels are unavailable.",
+        "Changes in image quality may remain undetected until the next run."
+      ]
+    },
+    {
+      "decision": "How should candidate models be evaluated?",
+      "context": "Weekly retraining creates frequent candidate models that need a consistent promotion check. The design space includes offline evaluation against held-out data and metric-driven candidate comparison.",
+      "drivers": [
+        "Safe weekly updates",
+        "Reproducibility",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s06_p08"
+          ],
+          "pros": [
+            "Safe weekly updates: checks candidates before deployment"
+          ],
+          "cons": [
+            "Small team: requires held-out data and evaluation upkeep"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [],
+          "pros": [
+            "Small team: focused comparison on chosen metrics"
+          ],
+          "cons": [
+            "Safe weekly updates: metric choice can miss other regressions"
+          ]
+        },
+        {
+          "label": "Threshold-based quality regression testing",
+          "value_id": "v:13.2",
+          "citations": [
+            "s06_p08",
+            "s22_p09"
+          ],
+          "pros": [
+            "Safe weekly updates: blocks quality drops"
+          ],
+          "cons": [
+            "Reproducibility: thresholds need stable definitions"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Safe weekly updates decide the choice: evaluate candidates against held-out labelled data before promotion, accepting the work of maintaining that evaluation set. “MLOps: Continuous delivery and automation pipelines in machine learning” and “MLOps Principles” describe offline candidate validation and quality checks.",
+      "consequences": [
+        "Preserve a held-out labelled set for comparison.",
+        "Set promotion criteria before automating device rollout."
+      ]
+    },
+    {
+      "decision": "How should model releases be controlled?",
+      "context": "A retrained model must reach devices that may be offline, so a failed release should not leave the production line without a usable model. The design space offers progressive release with rollback and unified release automation.",
+      "drivers": [
+        "Offline operation",
+        "Safe weekly updates",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p10",
+            "s25_p06"
+          ],
+          "pros": [
+            "Safe weekly updates: incremental rollout and rollback"
+          ],
+          "cons": [
+            "Small team: rollout tracking adds operational work"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s19_p05",
+            "s20_p05"
+          ],
+          "pros": [
+            "Small team: one automated build and release process"
+          ],
+          "cons": [
+            "Safe weekly updates: rollback behavior is not explicit"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Safe weekly updates decide the choice: incremental rollout with rollback limits the impact of a bad model, at the cost of tracking release state across devices. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” support this approach.",
+      "consequences": [
+        "Retain the previous known-good model on each device.",
+        "Track which devices have received each model version."
+      ]
+    },
+    {
+      "decision": "How much lifecycle state should be versioned?",
+      "context": "Weekly training should be reproducible so the team can identify which labelled data and training configuration produced a deployed model. The design space ranges from artifact-only tracking to lifecycle-wide traceability.",
+      "drivers": [
+        "Reproducibility",
+        "Safe weekly updates",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "End-to-end reproducible lifecycle governance",
+          "value_id": "v:20.6",
+          "citations": [
+            "s21_p03",
+            "s21_p09",
+            "s25_p02"
+          ],
+          "pros": [
+            "Reproducibility: links data, runs, artifacts, and deployment"
+          ],
+          "cons": [
+            "Small team: broader metadata upkeep"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Small team: versions deployable artifacts"
+          ],
+          "cons": [
+            "Reproducibility: omits training and dataset context"
+          ]
+        },
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [],
+          "pros": [
+            "Reproducibility: records pipeline and experiment changes"
+          ],
+          "cons": [
+            "Safe weekly updates: deployment health is not included"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "End-to-end reproducible lifecycle governance",
+        "value_id": "v:20.6"
+      },
+      "rationale": "Reproducibility decides the choice: link datasets, training runs, artifacts, and deployment status so weekly results can be traced, accepting added metadata work. “MLOps: What It Is, Why it Matters, and How To Implement It (from a Data Scientist Perspective)” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” support lifecycle traceability.",
+      "consequences": [
+        "Record dataset versions and training configuration for each candidate.",
+        "Keep traceability tooling and metadata proportional to the team’s capacity."
+      ]
+    },
+    {
+      "decision": "What should production monitoring cover?",
+      "context": "Devices may lack network access, while production images and predictions can change between weekly training runs. Monitoring and retraining triggers are represented as combinable practices in this low-exclusivity dimension.",
+      "drivers": [
+        "Offline operation",
+        "Safe weekly updates",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s06_p08",
+            "s23_p03"
+          ],
+          "pros": [
+            "Offline operation: drift summaries can be collected locally"
+          ],
+          "cons": [
+            "Small team: baselines and alerts need maintenance"
+          ]
+        },
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s04_p02",
+            "s22_p11"
+          ],
+          "pros": [
+            "Safe weekly updates: surfaces runtime and input problems"
+          ],
+          "cons": [
+            "Offline operation: centralized visibility is delayed"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Small team: minimal monitoring overhead"
+          ],
+          "cons": [
+            "Safe weekly updates: failures may stay unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Safe weekly updates decide the choice: observe input shifts between training runs, accepting the work of maintaining baselines. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Machine Learning Monitoring: What It Is, and What We Are Missing” support data and feature monitoring; collect summaries locally and synchronize when devices reconnect.",
+      "consequences": [
+        "Buffer monitoring data locally during network outages.",
+        "Define a lightweight path to review drift and image quality changes."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device-to-device update transport and integrity when cameras are offline.",
+    "Model format, hardware compatibility, and device rollback mechanics.",
+    "Image retention, privacy, and newly labelled data transfer from production lines.",
+    "Latency, memory, and throughput targets for inference on camera hardware.",
+    "The specific defect-quality metric and acceptance thresholds for promotion."
+  ]
+}

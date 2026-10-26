@@ -1,0 +1,367 @@
+{
+  "decisions": [
+    {
+      "decision": "How to integrate the model?",
+      "context": "The service must score transactions synchronously before authorization. Its integration pattern affects serving latency and scaling (d:1, d:5).",
+      "drivers": [
+        "tens of milliseconds",
+        "peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Independent scaling",
+            "Clear model boundary"
+          ],
+          "cons": [
+            "Network hop",
+            "Service operations"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "No service hop",
+            "Simple deployment"
+          ],
+          "cons": [
+            "Coupled release",
+            "Shared scaling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "A dedicated service gives the scoring path an independent deployment and scaling boundary; the brief’s latency requirement makes service performance testing essential (d:1, d:5, d:26).",
+      "consequences": [
+        "Operate a highly available scoring service.",
+        "Measure end-to-end latency under peak load."
+      ]
+    },
+    {
+      "decision": "How to serve scores?",
+      "context": "Scores must return online before authorization, including during transaction peaks. The design space distinguishes real-time distributed service and local service patterns (d:5).",
+      "drivers": [
+        "online scoring",
+        "peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time interface",
+            "Independent scaling"
+          ],
+          "cons": [
+            "Network overhead",
+            "Service dependency"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Local call path",
+            "Lower network overhead"
+          ],
+          "cons": [
+            "Tighter coupling",
+            "Shared capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "A distributed real-time scoring service supports independent capacity management for peaks; its latency must be validated against the brief’s tens-of-milliseconds budget (d:5, d:26).",
+      "consequences": [
+        "Provide redundant service capacity.",
+        "Include network and feature lookup time in latency budgets."
+      ]
+    },
+    {
+      "decision": "How to persist and provide access to features?",
+      "context": "Each score depends on features, and auditors need to know which features produced it. The design space offers a feature store or general data stores (d:4).",
+      "drivers": [
+        "feature traceability",
+        "online latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Feature-specific access",
+            "Centralized feature handling"
+          ],
+          "cons": [
+            "Added infrastructure",
+            "Operational dependency"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Fewer specialized systems",
+            "Existing storage"
+          ],
+          "cons": [
+            "Scattered access patterns",
+            "Harder consistency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "A feature store is the better fit for controlled feature access; log the feature values or immutable feature references used for each score to meet audit needs (d:4, d:22).",
+      "consequences": [
+        "Keep online feature reads within the scoring latency budget.",
+        "Retain feature values or reproducible references with each score."
+      ]
+    },
+    {
+      "decision": "How to deploy model versions?",
+      "context": "The scoring record must identify its model version, and releases must preserve service continuity. The design space includes simultaneous versions and a single production model (d:10).",
+      "drivers": [
+        "model version audit",
+        "continuous scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Supports staged rollout",
+            "Keeps versions addressable"
+          ],
+          "cons": [
+            "More runtime complexity",
+            "Requires version routing"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple routing",
+            "Less runtime overhead"
+          ],
+          "cons": [
+            "No concurrent comparison",
+            "Switching risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "N versions in production",
+        "value_id": "v:10.1"
+      },
+      "rationale": "Running multiple versions allows a new model to be staged while the current scorer remains available; log the exact version used for every transaction (d:10, d:22).",
+      "consequences": [
+        "Attach immutable version identifiers to scores.",
+        "Manage routing and capacity per active version."
+      ]
+    },
+    {
+      "decision": "How to version training data?",
+      "context": "Auditors need reproducible lineage from a deployed model to its training inputs. The design space presents a data version repository and no data versioning as options (d:11).",
+      "drivers": [
+        "audit lineage",
+        "reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Explicit data versions",
+            "Supports reproducibility"
+          ],
+          "cons": [
+            "Repository operations",
+            "Storage overhead"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Less infrastructure",
+            "Fewer workflows"
+          ],
+          "cons": [
+            "Weak lineage",
+            "Harder reproduction"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Explicitly versioned training data helps link each deployed model to its inputs, complementing the per-score model and feature record required by the brief (d:11, d:22).",
+      "consequences": [
+        "Record training data version in model metadata.",
+        "Retain datasets or references for the required audit period."
+      ]
+    },
+    {
+      "decision": "How to monitor and track production scoring?",
+      "context": "The system must remain available during peaks and provide auditors with model and feature provenance for each score. The design space treats monitoring and tracking as alternatives in one dimension (d:22).",
+      "drivers": [
+        "peak availability",
+        "audit trail"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks usage and inputs",
+            "Supports interpretability records"
+          ],
+          "cons": [
+            "Telemetry volume",
+            "Retention cost"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "No monitoring overhead",
+            "Less instrumentation"
+          ],
+          "cons": [
+            "Limited incident insight",
+            "Missing score lineage"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "Production tracking aligns directly with the required model and feature audit trail and can capture the usage and inputs behind each score (d:22).",
+      "consequences": [
+        "Log model version, transaction reference, and feature evidence per score.",
+        "Set retention and access controls for audit records."
+      ]
+    },
+    {
+      "decision": "What to test in the scoring pipeline?",
+      "context": "A latency miss can delay authorization, so the online prediction path needs explicit performance validation. The design space includes service performance testing and no testing (d:26).",
+      "drivers": [
+        "latency bound",
+        "peak load"
+      ],
+      "alternatives": [
+        {
+          "label": "Prediction service performance testing",
+          "value_id": "v:26.13",
+          "citations": [
+            "d:26",
+            "v:26.13"
+          ],
+          "pros": [
+            "Checks latency",
+            "Exercises service capacity"
+          ],
+          "cons": [
+            "Needs representative load",
+            "Adds release work"
+          ]
+        },
+        {
+          "label": "No testing",
+          "value_id": "v:26.14",
+          "citations": [
+            "d:26",
+            "v:26.14"
+          ],
+          "pros": [
+            "No test setup",
+            "Fast releases"
+          ],
+          "cons": [
+            "Latency regressions unseen",
+            "Capacity unknown"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Prediction service performance testing",
+        "value_id": "v:26.13"
+      },
+      "rationale": "Performance tests directly check the scoring path against the tens-of-milliseconds requirement and peak conditions (d:26).",
+      "consequences": [
+        "Test end-to-end requests at expected peak load.",
+        "Gate releases on latency targets."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to provide a highly available deployment across zones or regions.",
+    "How to define the latency percentile and timeout/fallback behavior for authorization.",
+    "How to protect cardholder data and control access to retained feature and score records.",
+    "How to retain audit evidence and model artifacts for the required period."
+  ]
+}

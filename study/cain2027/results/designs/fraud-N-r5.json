@@ -1,0 +1,190 @@
+{
+  "decisions": [
+    {
+      "decision": "How should transactions be scored?",
+      "context": "Each transaction needs a fraud score before authorization, with a response in tens of milliseconds.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-ms latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request-response scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score available before authorization",
+            "Direct latency measurement"
+          ],
+          "cons": [
+            "Authorization depends on service health"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples service availability",
+            "Buffers bursts"
+          ],
+          "cons": [
+            "Score may arrive too late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous request-response scoring",
+        "value_id": null
+      },
+      "rationale": "A synchronous response makes the score available in time for authorization and fits the stated latency requirement.",
+      "consequences": [
+        "Authorization path depends on scoring response.",
+        "Latency must be managed across feature retrieval and inference."
+      ]
+    },
+    {
+      "decision": "How should the scoring service handle peaks?",
+      "context": "The service must keep working during peaks while returning scores within tens of milliseconds.",
+      "drivers": [
+        "Peak availability",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless service with horizontal scaling",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scales across instances",
+            "Instances can be replaced"
+          ],
+          "cons": [
+            "Requires shared dependencies",
+            "Scaling takes resources"
+          ]
+        },
+        {
+          "label": "Fixed-capacity service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simple deployment"
+          ],
+          "cons": [
+            "Peak saturation risk",
+            "Idle capacity off-peak"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless service with horizontal scaling",
+        "value_id": null
+      },
+      "rationale": "Horizontal scaling can add scoring capacity during peaks; keeping instances stateless supports replacement and scaling.",
+      "consequences": [
+        "Shared dependencies must also handle peak load.",
+        "Capacity and scaling behavior need operational monitoring."
+      ]
+    },
+    {
+      "decision": "Where should model inference run?",
+      "context": "Inference is on the authorization path, so model execution contributes directly to the response time.",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Pre-authorization scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "In-process model runtime",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Avoids network hop",
+            "Simple request path"
+          ],
+          "cons": [
+            "Model runtime shares service resources",
+            "Model rollout tied to service"
+          ]
+        },
+        {
+          "label": "Separate model-serving service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Independent model deployment",
+            "Isolated inference resources"
+          ],
+          "cons": [
+            "Adds network hop",
+            "Extra dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "In-process model runtime",
+        "value_id": null
+      },
+      "rationale": "Running inference in the scoring service avoids an extra network call on a latency-sensitive path.",
+      "consequences": [
+        "Model and service releases must be coordinated.",
+        "Inference resource use can affect request handling."
+      ]
+    },
+    {
+      "decision": "How should score provenance be captured?",
+      "context": "Auditors must later be able to identify the model version and features that produced each score.",
+      "drivers": [
+        "Auditor traceability",
+        "Model version",
+        "Scoring features"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist a per-score provenance record",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct score-to-input trace",
+            "Supports later review"
+          ],
+          "cons": [
+            "Storage and write overhead",
+            "Feature data needs protection"
+          ]
+        },
+        {
+          "label": "Retain aggregate service logs",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Lower storage burden",
+            "Operationally familiar"
+          ],
+          "cons": [
+            "Weak per-score linkage",
+            "May omit feature values"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist a per-score provenance record",
+        "value_id": null
+      },
+      "rationale": "A record linked to each score can capture the model version and features needed for later audit.",
+      "consequences": [
+        "Scoring writes add work to the request path.",
+        "Records require retention and access policies."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature definitions, sources, and freshness requirements.",
+    "Model training, validation, approval, and deployment process.",
+    "Score thresholds and authorization policy.",
+    "Provenance record retention period and sensitive-data handling.",
+    "Availability targets, peak volumes, and behavior when scoring or dependencies fail."
+  ]
+}

@@ -1,0 +1,413 @@
+{
+  "decisions": [
+    {
+      "decision": "How to version data?",
+      "context": "Reproducing forecasts for any past week requires knowing which data produced each result. The brief does not prescribe a versioning mechanism.",
+      "drivers": [
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: dedicated data versions"
+          ],
+          "cons": [
+            "Fast iteration: extra repository workflow"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Reproducibility: versions alongside code"
+          ],
+          "cons": [
+            "Cost: repository may grow with data"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Fast iteration: no versioning setup"
+          ],
+          "cons": [
+            "Reproducibility: past inputs unclear"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducibility decides the choice: a dedicated repository makes past input versions identifiable. This adds a separate workflow for a three-person team.",
+      "consequences": [
+        "Record the data version used for each weekly forecast.",
+        "Keep data and code version references together in run records."
+      ]
+    },
+    {
+      "decision": "Should forecasting and training use batch or real-time processing?",
+      "context": "The system produces weekly demand forecasts. The brief gives no real-time prediction requirement.",
+      "drivers": [
+        "Weekly run",
+        "Reproducibility",
+        "Fast iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Weekly run: aligns to weekly cadence",
+            "Reproducibility: bounded input snapshot"
+          ],
+          "cons": [
+            "Fast iteration: changes wait for next run"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Fast iteration: responds to incoming data"
+          ],
+          "cons": [
+            "Weekly run: extra continuous-processing complexity",
+            "Reproducibility: changing inputs are harder to replay"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "The weekly run decides the choice: batch processing fits the stated cadence and makes each run’s inputs easier to reproduce. This gives up immediate processing of new data.",
+      "consequences": [
+        "Run forecasts against a defined weekly data snapshot.",
+        "No real-time processing path is established."
+      ]
+    },
+    {
+      "decision": "When and how to train the model?",
+      "context": "The team needs to bring model ideas into production quickly while maintaining reproducible forecasts. The brief does not describe online learning needs.",
+      "drivers": [
+        "Reproducibility",
+        "Fast iteration",
+        "Weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Reproducibility: training can use fixed inputs",
+            "Weekly run: fits periodic training"
+          ],
+          "cons": [
+            "Fast iteration: model updates await a training run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Fast iteration: updates can be applied incrementally"
+          ],
+          "cons": [
+            "Reproducibility: evolving model state complicates replay"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Fast iteration: supports incremental updates"
+          ],
+          "cons": [
+            "Reproducibility: more moving model state",
+            "Weekly run: adds operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Reproducibility decides the choice: batch training can be tied to a fixed data version and run. The trade-off is that new ideas wait for a training cycle before evaluation and release.",
+      "consequences": [
+        "Train from versioned weekly data snapshots.",
+        "Record the training inputs and resulting model version."
+      ]
+    },
+    {
+      "decision": "How to automate integration and delivery?",
+      "context": "A three-person team owns the pipeline end to end, and new model ideas should reach production quickly without breaking the weekly run. The brief does not define a specific deployment process.",
+      "drivers": [
+        "Fast iteration",
+        "Weekly run reliability",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Fast iteration: automate build and delivery"
+          ],
+          "cons": [
+            "Weekly run reliability: faulty changes can reach production without gates"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Weekly run reliability: team controls deployment timing"
+          ],
+          "cons": [
+            "Small team: repeated manual release work",
+            "Fast iteration: release steps can slow changes"
+          ]
+        },
+        {
+          "label": "Machine learning orchestrator",
+          "value_id": "v:8.3",
+          "citations": [
+            "d:8",
+            "v:8.3"
+          ],
+          "pros": [
+            "Weekly run reliability: coordinates pipeline components"
+          ],
+          "cons": [
+            "Small team: added platform and maintenance burden"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [
+            "Small team: no automation setup"
+          ],
+          "cons": [
+            "Fast iteration: manual delivery slows releases",
+            "Weekly run reliability: less consistent execution"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Fast iteration decides the choice: CI/CD automates repeated integration and delivery work. To protect the weekly run, releases need checks and controlled promotion, which add pipeline setup and maintenance.",
+      "consequences": [
+        "Automate repeatable build and delivery steps.",
+        "Gate model changes before production promotion."
+      ]
+    },
+    {
+      "decision": "What should automated testing cover?",
+      "context": "New model ideas must reach production without breaking the weekly run. The system’s specific forecast quality thresholds are not stated.",
+      "drivers": [
+        "Weekly run reliability",
+        "Fast iteration",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Unit testing feature engineering logic",
+          "value_id": "v:26.6",
+          "citations": [
+            "d:26",
+            "v:26.6"
+          ],
+          "pros": [
+            "Reproducibility: catches changed feature calculations"
+          ],
+          "cons": [
+            "Weekly run reliability: misses failures across components"
+          ]
+        },
+        {
+          "label": "Integration testing pipeline components",
+          "value_id": "v:26.11",
+          "citations": [
+            "d:26",
+            "v:26.11"
+          ],
+          "pros": [
+            "Weekly run reliability: checks components working together"
+          ],
+          "cons": [
+            "Fast iteration: broader checks take longer than unit tests"
+          ]
+        },
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "Weekly run reliability: catches quality regressions"
+          ],
+          "cons": [
+            "Fast iteration: needs agreed quality thresholds"
+          ]
+        },
+        {
+          "label": "No testing",
+          "value_id": "v:26.14",
+          "citations": [
+            "d:26",
+            "v:26.14"
+          ],
+          "pros": [
+            "Fast iteration: no test development overhead"
+          ],
+          "cons": [
+            "Weekly run reliability: regressions may go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Integration testing pipeline components",
+        "value_id": "v:26.11"
+      },
+      "rationale": "Weekly run reliability decides the choice: integration tests can catch failures across the pipeline before release. They add execution time, and the brief does not supply thresholds for model quality tests.",
+      "consequences": [
+        "Include pipeline integration checks in delivery gates.",
+        "Define forecast quality thresholds separately."
+      ]
+    },
+    {
+      "decision": "How to monitor the model in production?",
+      "context": "The weekly forecasting run must continue to work as new ideas reach production. The brief does not state the production monitoring signals or response process.",
+      "drivers": [
+        "Weekly run reliability",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Weekly run reliability: surfaces quality changes"
+          ],
+          "cons": [
+            "Reproducibility: needs linked run and input records"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Reproducibility: records inputs and outputs"
+          ],
+          "cons": [
+            "Weekly run reliability: logs alone may not detect quality loss"
+          ]
+        },
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Reproducibility: tracks model usage and outputs"
+          ],
+          "cons": [
+            "Small team: broader tracking needs more upkeep"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "Small team: no monitoring setup"
+          ],
+          "cons": [
+            "Weekly run reliability: failures may remain unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Weekly run reliability decides the choice: monitoring model performance can reveal quality changes after release. The brief does not specify metrics, so choosing and maintaining useful measures remains additional work.",
+      "consequences": [
+        "Select forecast quality measures and alert thresholds.",
+        "Link monitoring results to model and data versions."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast quality metrics and acceptance thresholds.",
+    "How model versions are promoted or rolled back safely.",
+    "Storage and access design for forecasts by store and product.",
+    "Operational ownership and response to failed weekly runs."
+  ]
+}

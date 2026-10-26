@@ -1,0 +1,294 @@
+{
+  "decisions": [
+    {
+      "decision": "Process documents in batches or in real time?",
+      "context": "The system classifies millions of documents daily, with volume varying by season. The brief gives no per-document latency target.",
+      "drivers": [
+        "Millions of documents/day",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Throughput: process large volumes together",
+            "Cost: scale capacity with workload"
+          ],
+          "cons": [
+            "Latency: results wait for a batch"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Latency: process documents as they arrive"
+          ],
+          "cons": [
+            "Cost: continuous processing capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "Seasonal scale and daily volume decide the choice because the brief sets no latency target; results may take longer while a batch runs.",
+      "consequences": [
+        "Schedule batches to meet downstream needs.",
+        "Adjust capacity for seasonal peaks."
+      ]
+    },
+    {
+      "decision": "How should prediction results be served?",
+      "context": "Several teams consume classification results, and the brief does not require synchronous responses. The design space includes batch serving that writes results to storage and real-time service options (d:5).",
+      "drivers": [
+        "Millions of documents/day",
+        "Seasonal volume",
+        "Several consuming teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Throughput: process documents in scheduled batches",
+            "Consumers: write results to shared storage"
+          ],
+          "cons": [
+            "Latency: consumers wait for batch output"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Latency: return predictions in real time"
+          ],
+          "cons": [
+            "Cost: maintain service capacity through demand changes"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Daily volume and multiple consumers favor batch output in shared storage; this gives up immediate prediction availability, which the brief does not require.",
+      "consequences": [
+        "Consumers need access to the result store.",
+        "Batch completion becomes an availability dependency."
+      ]
+    },
+    {
+      "decision": "How should teams access stored results?",
+      "context": "Several teams consume the results, so the architecture needs a shared access point. The design space distinguishes shared storage from data services (d:2).",
+      "drivers": [
+        "Several consuming teams",
+        "Millions of documents/day"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared data store",
+          "value_id": "v:2.1",
+          "citations": [
+            "d:2",
+            "v:2.1"
+          ],
+          "pros": [
+            "Consumers: make results available in one place"
+          ],
+          "cons": [
+            "Scale: concurrent access needs capacity planning"
+          ]
+        },
+        {
+          "label": "Data service",
+          "value_id": "v:2.2",
+          "citations": [
+            "d:2",
+            "v:2.2"
+          ],
+          "pros": [
+            "Consumers: provide a managed access interface"
+          ],
+          "cons": [
+            "Scale: service adds a runtime component"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared data store",
+        "value_id": "v:2.1"
+      },
+      "rationale": "Multiple consuming teams decide the choice: a shared store makes batch outputs available in one place, at the cost of planning for concurrent reads.",
+      "consequences": [
+        "Define stable result schemas for consumers.",
+        "Manage access and capacity for concurrent reads."
+      ]
+    },
+    {
+      "decision": "How should production quality be monitored?",
+      "context": "Operators need to see when classification quality drifts. The design space includes performance monitoring and logging data and predictions as production monitoring options (d:22).",
+      "drivers": [
+        "Quality drift visibility",
+        "Millions of documents/day"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Quality: observe model performance measures"
+          ],
+          "cons": [
+            "Quality: requires suitable measures and labels"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Quality: retain data and predictions for analysis"
+          ],
+          "cons": [
+            "Scale: logging creates storage and processing load"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Drift visibility decides the choice: monitor model performance directly, accepting that useful measures and labels must be available. The design space treats these as alternatives, though the brief does not rule out combining them.",
+      "consequences": [
+        "Define performance measures and alert thresholds.",
+        "Arrange access to labels or other quality signals."
+      ]
+    },
+    {
+      "decision": "How should data be versioned?",
+      "context": "Classification quality must be monitored over time, and data versioning can help identify which data informed a model or result. The design space offers a dedicated data version repository (d:11).",
+      "drivers": [
+        "Quality drift visibility",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: track data versions explicitly"
+          ],
+          "cons": [
+            "Cost: operate versioning infrastructure"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Reproducibility: harder to trace training data"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Drift investigation and reproducibility decide the choice; explicit data versions add operating cost but help trace model inputs.",
+      "consequences": [
+        "Retain links between model releases and data versions.",
+        "Budget storage for versioned datasets."
+      ]
+    },
+    {
+      "decision": "How should models be adjusted after monitoring finds drift?",
+      "context": "Operators need drift visibility, but the brief does not authorize automatic retraining or deployment. The design space offers manual and automated adjustment (d:24).",
+      "drivers": [
+        "Quality drift visibility",
+        "Operational control"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual model adjustment",
+          "value_id": "v:24.1",
+          "citations": [
+            "d:24",
+            "v:24.1"
+          ],
+          "pros": [
+            "Quality: operators review drift before changes"
+          ],
+          "cons": [
+            "Response time: adjustment waits for human action"
+          ]
+        },
+        {
+          "label": "Automated model adjustment",
+          "value_id": "v:24.2",
+          "citations": [
+            "d:24",
+            "v:24.2"
+          ],
+          "pros": [
+            "Response time: trigger changes without manual delay"
+          ],
+          "cons": [
+            "Operational control: automated changes need safeguards"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Manual model adjustment",
+        "value_id": "v:24.1"
+      },
+      "rationale": "Operational control decides the choice because the brief asks operators to see drift but does not require automated correction; slower response is the trade-off.",
+      "consequences": [
+        "Define an operator review and retraining process.",
+        "Drift alerts do not change production models by themselves."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Per-document latency target and batch completion objective",
+    "Quality metric, drift threshold, and alert routing",
+    "Input and result retention, privacy, and access controls",
+    "Model selection, training cadence, and validation criteria",
+    "Seasonal capacity targets and recovery objectives"
+  ]
+}

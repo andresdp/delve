@@ -1,0 +1,284 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents enter classification?",
+      "context": "The system handles millions of documents daily, with volume that varies strongly by season. Processing asynchronously can absorb bursts without requiring every consumer to wait for classification.",
+      "drivers": [
+        "millions per day",
+        "seasonal volume",
+        "multiple consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request path",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "simple flow",
+            "immediate result"
+          ],
+          "cons": [
+            "burst-sensitive",
+            "couples producers to inference"
+          ]
+        },
+        {
+          "label": "Durable queue with workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "absorbs bursts",
+            "decouples producers"
+          ],
+          "cons": [
+            "adds queue operations",
+            "results arrive later"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable queue with workers",
+        "value_id": null
+      },
+      "rationale": "A durable queue buffers seasonal surges and lets classification capacity scale independently of document producers.",
+      "consequences": [
+        "Producers need an acknowledgement and retry contract.",
+        "Queue depth and processing lag need monitoring."
+      ]
+    },
+    {
+      "decision": "How should classification capacity scale?",
+      "context": "Daily volume varies strongly through the year, while the system must process millions of documents. Capacity needs to follow demand without making peak capacity a year-round requirement.",
+      "drivers": [
+        "seasonal volume",
+        "high throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Fixed-size worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "predictable capacity",
+            "simple operations"
+          ],
+          "cons": [
+            "idle off-peak",
+            "may lag at peaks"
+          ]
+        },
+        {
+          "label": "Autoscaling worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "tracks demand",
+            "reduces idle capacity"
+          ],
+          "cons": [
+            "scaling lag",
+            "needs capacity limits"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscaling worker pool",
+        "value_id": null
+      },
+      "rationale": "Autoscaling workers fit variable demand while keeping throughput adjustable; queue depth and lag can guide scaling.",
+      "consequences": [
+        "Scaling thresholds require tuning.",
+        "Peak capacity still needs a configured ceiling."
+      ]
+    },
+    {
+      "decision": "How should the LLM classifier be invoked?",
+      "context": "Classification relies on an LLM, and the system must sustain high daily volume. The serving approach affects throughput, scaling, and operational control.",
+      "drivers": [
+        "LLM classifier",
+        "millions per day",
+        "seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "External hosted LLM API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "managed inference",
+            "quick model updates"
+          ],
+          "cons": [
+            "provider dependency",
+            "cost and quota exposure"
+          ]
+        },
+        {
+          "label": "Self-hosted model endpoint",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "serving control",
+            "capacity tuning"
+          ],
+          "cons": [
+            "GPU operations",
+            "model maintenance"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "External hosted LLM API",
+        "value_id": null
+      },
+      "rationale": "A hosted endpoint avoids operating model-serving infrastructure; queued, autoscaled workers can regulate request volume.",
+      "consequences": [
+        "Provider quotas and availability constrain throughput.",
+        "Per-document inference costs need tracking."
+      ]
+    },
+    {
+      "decision": "How should classification results reach consumers?",
+      "context": "Several teams consume the classification results, so delivery should support independent consumers without coupling them to classifier internals.",
+      "drivers": [
+        "several consumers",
+        "classification results"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared results database",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "easy querying",
+            "central record"
+          ],
+          "cons": [
+            "consumer coupling",
+            "shared load"
+          ]
+        },
+        {
+          "label": "Versioned events per result",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "consumer independence",
+            "replay support"
+          ],
+          "cons": [
+            "delivery coordination",
+            "duplicate handling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned events per result",
+        "value_id": null
+      },
+      "rationale": "Versioned result events let teams consume classifications independently and accommodate future schema changes.",
+      "consequences": [
+        "Consumers must handle duplicate delivery.",
+        "Event schema changes need version management."
+      ]
+    },
+    {
+      "decision": "How should classification output be constrained?",
+      "context": "The classifier assigns documents to claim types, so results need to fit the insurer’s classification scheme and be usable by downstream teams.",
+      "drivers": [
+        "claim types",
+        "multiple consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Free-form model response",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "flexible output",
+            "simple prompt"
+          ],
+          "cons": [
+            "inconsistent labels",
+            "hard to validate"
+          ]
+        },
+        {
+          "label": "Validated structured output",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "consistent labels",
+            "machine-checkable"
+          ],
+          "cons": [
+            "taxonomy updates needed",
+            "invalid outputs need handling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Validated structured output",
+        "value_id": null
+      },
+      "rationale": "Validating output against a defined claim-type schema makes results more consistent for downstream consumers.",
+      "consequences": [
+        "A taxonomy change requires schema coordination.",
+        "Invalid outputs need a retry or exception path."
+      ]
+    },
+    {
+      "decision": "How should classification quality drift be detected?",
+      "context": "Operators need to see when classification quality drifts. Detection therefore needs ongoing quality signals rather than only infrastructure health metrics.",
+      "drivers": [
+        "quality drift visibility",
+        "operator needs"
+      ],
+      "alternatives": [
+        {
+          "label": "Periodic labeled-sample evaluation",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "direct quality measure",
+            "supports trend analysis"
+          ],
+          "cons": [
+            "requires labeled samples",
+            "detection has delay"
+          ]
+        },
+        {
+          "label": "Unlabeled confidence monitoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "continuous signals",
+            "no labels required"
+          ],
+          "cons": [
+            "indirect quality proxy",
+            "confidence may mislead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Periodic labeled-sample evaluation",
+        "value_id": null
+      },
+      "rationale": "Labeled samples provide a direct quality measure for detecting drift; confidence signals alone cannot establish correctness.",
+      "consequences": [
+        "A labeled evaluation sample must be maintained.",
+        "Operators need thresholds and an escalation process."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document format and preprocessing requirements",
+    "Claim-type taxonomy ownership and change process",
+    "Latency, availability, and recovery targets",
+    "PII handling, data residency, and retention constraints",
+    "Human review and escalation policy for uncertain classifications",
+    "Provider selection, quotas, and cost limits"
+  ]
+}

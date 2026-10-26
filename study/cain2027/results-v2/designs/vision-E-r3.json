@@ -1,0 +1,456 @@
+{
+  "decisions": [
+    {
+      "decision": "How should predictions run on production cameras?",
+      "context": "Inspection must continue when network access is unavailable. Predictions are needed at the line, so serving should be local.",
+      "drivers": [
+        "Offline operation",
+        "Low prediction latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Offline: serves predictions locally",
+            "Latency: avoids remote round trips"
+          ],
+          "cons": [
+            "Cost: requires local service upkeep"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Latency: real-time service interface"
+          ],
+          "cons": [
+            "Offline: depends on service reachability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Offline operation decides the choice: local serving keeps inspection available without network access, at the cost of maintaining a local service.",
+      "consequences": [
+        "Each device needs a compatible model runtime.",
+        "Model updates must reach devices locally."
+      ]
+    },
+    {
+      "decision": "How should the application integrate the model?",
+      "context": "The model runs with the inspection application on devices with limited infrastructure. A separate service would add deployment and network dependencies.",
+      "drivers": [
+        "Offline operation",
+        "Tight infrastructure budget",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "Offline: embeds inference with application",
+            "Budget: avoids separate service"
+          ],
+          "cons": [
+            "Small team: application and model releases are coupled"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Small team: model has a service boundary"
+          ],
+          "cons": [
+            "Offline: service availability must be maintained"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as module in modular monolith",
+        "value_id": "v:1.3"
+      },
+      "rationale": "Offline operation and budget decide for a model module in the application, giving up independent model-service deployment.",
+      "consequences": [
+        "Application packages must include the model and runtime.",
+        "Model updates follow the device application release path."
+      ]
+    },
+    {
+      "decision": "When and how should models be trained?",
+      "context": "Newly labelled images arrive weekly, and the brief does not require learning from each image as it arrives. Training can happen centrally, apart from offline inference.",
+      "drivers": [
+        "Weekly retraining",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Budget: trains in scheduled batches"
+          ],
+          "cons": [
+            "Weekly retraining: changes wait for the next run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Weekly retraining: can incorporate new data continuously"
+          ],
+          "cons": [
+            "Budget: requires an ongoing training path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Tight budget decides for batch training on the weekly cadence; this gives up immediate use of newly labelled images.",
+      "consequences": [
+        "Training requires a weekly data and compute window.",
+        "Validated model artifacts need a delivery path to devices."
+      ]
+    },
+    {
+      "decision": "How should training data be versioned?",
+      "context": "Weekly retraining depends on labelled images, and reproducibility requires identifying which data produced each model. Dedicated version support costs additional setup and upkeep.",
+      "drivers": [
+        "Reproducibility",
+        "Small team",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: tracks dataset versions"
+          ],
+          "cons": [
+            "Small team: adds a repository to maintain"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Budget: avoids versioning infrastructure"
+          ],
+          "cons": [
+            "Reproducibility: training inputs are harder to recover"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducibility decides for explicit data versioning, accepting its maintenance cost so a model can be linked to its training data.",
+      "consequences": [
+        "Dataset versions and model artifacts need linked identifiers.",
+        "The team must maintain versioned data storage."
+      ]
+    },
+    {
+      "decision": "How should weekly integration and delivery be automated?",
+      "context": "A small team needs a repeatable way to package and push weekly model updates. Automation reduces manual work but takes initial setup.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Small team: automates repeatable delivery"
+          ],
+          "cons": [
+            "Budget: requires pipeline setup and upkeep"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Budget: lightweight automation"
+          ],
+          "cons": [
+            "Small team: more manual release coordination"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [
+            "Budget: no pipeline infrastructure"
+          ],
+          "cons": [
+            "Weekly retraining: manual deployments add effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "The small-team driver decides for automated delivery, trading setup and upkeep for repeatable weekly packaging and deployment.",
+      "consequences": [
+        "The pipeline needs checks before device rollout.",
+        "Offline devices require a staged transfer mechanism."
+      ]
+    },
+    {
+      "decision": "What should trigger retraining?",
+      "context": "The brief specifies a weekly retraining rhythm. A scheduled trigger matches that cadence without needing devices to report new data or performance over a network.",
+      "drivers": [
+        "Weekly retraining",
+        "Offline operation",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Weekly retraining: matches a fixed cadence"
+          ],
+          "cons": [
+            "Small team: schedule and failures need oversight"
+          ]
+        },
+        {
+          "label": "On availability of new training data trigger",
+          "value_id": "v:12.4",
+          "citations": [
+            "d:12",
+            "v:12.4"
+          ],
+          "pros": [
+            "Weekly retraining: reacts when new images arrive"
+          ],
+          "cons": [
+            "Offline operation: depends on data availability signals"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "The specified weekly cadence decides for a schedule, trading immediate response to new data for a predictable, simple trigger.",
+      "consequences": [
+        "Missed runs need detection and recovery.",
+        "Label arrival timing may delay retraining until the next scheduled run."
+      ]
+    },
+    {
+      "decision": "How should a deployed model be rolled back?",
+      "context": "Models are pushed to devices and may need to be replaced if a release causes problems. Keeping a previous version available supports recovery, with storage and rollout overhead.",
+      "drivers": [
+        "Offline operation",
+        "Reliable inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Reliable inspection: supports recovery from a bad release"
+          ],
+          "cons": [
+            "Offline operation: rollback packages must be available on devices"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Budget: keeps only one active version"
+          ],
+          "cons": [
+            "Reliable inspection: recovery requires another deployment"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Reliable inspection decides for retaining a rollback path, giving up device storage and package management simplicity.",
+      "consequences": [
+        "Devices need access to a prior known-good artifact.",
+        "Rollout and rollback state must be tracked per device."
+      ]
+    },
+    {
+      "decision": "How should training and labelled images be stored?",
+      "context": "Retraining uses newly labelled images, so training needs a durable place to access them. The brief does not specify a shared or networked store, and devices may be offline.",
+      "drivers": [
+        "Weekly retraining",
+        "Offline operation",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared data store",
+          "value_id": "v:2.1",
+          "citations": [
+            "d:2",
+            "v:2.1"
+          ],
+          "pros": [
+            "Weekly retraining: provides a common training dataset"
+          ],
+          "cons": [
+            "Offline operation: store access may be unavailable at devices"
+          ]
+        },
+        {
+          "label": "No data store",
+          "value_id": "v:2.4",
+          "citations": [
+            "d:2",
+            "v:2.4"
+          ],
+          "pros": [
+            "Budget: avoids shared storage infrastructure"
+          ],
+          "cons": [
+            "Weekly retraining: organizing inputs becomes manual"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared data store",
+        "value_id": "v:2.1"
+      },
+      "rationale": "Weekly retraining decides for a shared training store, accepting infrastructure cost to centralize labelled images; the design space does not establish a storage topology suited to offline devices.",
+      "consequences": [
+        "Training infrastructure needs access to the shared store.",
+        "Device-side inspection must not depend on that store."
+      ]
+    },
+    {
+      "decision": "How should model quality be monitored in production?",
+      "context": "Models run on devices that may be offline, limiting centralized observation. Some monitoring is needed to detect degradation, but the brief gives no telemetry budget or connectivity assumptions.",
+      "drivers": [
+        "Reliable inspection",
+        "Offline operation",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Reliable inspection: tracks model quality"
+          ],
+          "cons": [
+            "Offline operation: metrics may not reach a central monitor"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "Budget: avoids monitoring infrastructure"
+          ],
+          "cons": [
+            "Reliable inspection: degradation may go undetected"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Reliable inspection decides for monitoring, giving up some budget to detect quality degradation; collection and transfer during offline periods remain unresolved.",
+      "consequences": [
+        "Monitoring needs a way to measure model quality.",
+        "Offline periods require deferred reporting or local review."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How devices receive model packages while offline, including connectivity windows, transfer security, and rollout coordination.",
+    "Device hardware, model runtime, latency target, and local resource limits.",
+    "What prediction-quality metrics and acceptance thresholds gate a release.",
+    "How devices record and later transfer inspection data and monitoring results.",
+    "How training data is labelled, stored, and synchronized from production sites."
+  ]
+}

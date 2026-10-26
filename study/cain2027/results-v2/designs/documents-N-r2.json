@@ -1,0 +1,192 @@
+{
+  "decisions": [
+    {
+      "decision": "Process classifications asynchronously",
+      "context": "Millions of documents arrive daily, with strongly seasonal volume. The brief gives no per-document response-time requirement.",
+      "drivers": [
+        "Throughput: millions/day",
+        "Elasticity: seasonal peaks"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-backed worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Throughput: parallel consumers",
+            "Elasticity: scale workers independently"
+          ],
+          "cons": [
+            "Latency: queue adds delay",
+            "Operations: broker to manage"
+          ]
+        },
+        {
+          "label": "Synchronous request path",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: immediate response",
+            "Operations: simpler flow"
+          ],
+          "cons": [
+            "Throughput: request path bottleneck",
+            "Elasticity: peak capacity harder"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-backed worker pool",
+        "value_id": null
+      },
+      "rationale": "Throughput and seasonal elasticity decide the choice; the system gives up immediate results in exchange for buffering and independently scaled workers.",
+      "consequences": [
+        "Consumers must tolerate delayed results.",
+        "Queue depth and worker capacity need monitoring."
+      ]
+    },
+    {
+      "decision": "Scale inference workers with demand",
+      "context": "Volume varies strongly over the year, so fixed inference capacity risks either peak shortfalls or idle capacity off peak.",
+      "drivers": [
+        "Elasticity: seasonal peaks",
+        "Throughput: millions/day",
+        "Cost: capacity utilization"
+      ],
+      "alternatives": [
+        {
+          "label": "Autoscaled worker fleet",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Elasticity: capacity follows demand",
+            "Cost: reduce idle capacity"
+          ],
+          "cons": [
+            "Latency: scale-up lag",
+            "Operations: scaling policy tuning"
+          ]
+        },
+        {
+          "label": "Fixed-capacity fleet",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: predictable capacity",
+            "Operations: simpler sizing"
+          ],
+          "cons": [
+            "Cost: idle off-peak capacity",
+            "Throughput: peak overload risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscaled worker fleet",
+        "value_id": null
+      },
+      "rationale": "Seasonal elasticity decides the choice; some scale-up lag and policy complexity are accepted to avoid sizing permanently for peak demand.",
+      "consequences": [
+        "Scaling needs safe bounds and queue-aware signals.",
+        "Peak capacity still requires an explicit target."
+      ]
+    },
+    {
+      "decision": "Track quality by model and time",
+      "context": "Operators need to see when classification quality drifts. The brief does not specify the source or timeliness of quality labels.",
+      "drivers": [
+        "Quality: detect drift",
+        "Operations: operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Monitor labeled outcomes by model version",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quality: measures classification outcomes",
+            "Operations: supports version comparisons"
+          ],
+          "cons": [
+            "Latency: depends on label arrival",
+            "Data: requires trustworthy labels"
+          ]
+        },
+        {
+          "label": "Monitor input and prediction distributions",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: signals without labels",
+            "Operations: detects distribution shifts"
+          ],
+          "cons": [
+            "Quality: proxy can miss errors",
+            "Quality: shifts may be harmless"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Monitor labeled outcomes by model version",
+        "value_id": null
+      },
+      "rationale": "Detecting classification quality drift decides the choice; outcome measurement gives stronger evidence but sacrifices timeliness when labels arrive late.",
+      "consequences": [
+        "Label collection and linkage are required.",
+        "Operators need thresholds and an alert workflow."
+      ]
+    },
+    {
+      "decision": "Publish results through a shared result store",
+      "context": "Several teams consume the same classifications. A shared durable interface avoids coupling inference workers to each consumer.",
+      "drivers": [
+        "Consumers: several teams",
+        "Throughput: millions/day"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared durable result store",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consumers: independent reads",
+            "Throughput: decouples inference from reads"
+          ],
+          "cons": [
+            "Operations: store to operate",
+            "Latency: persistence adds a step"
+          ]
+        },
+        {
+          "label": "Directly call each consumer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: direct delivery",
+            "Operations: no shared store"
+          ],
+          "cons": [
+            "Consumers: tight coupling",
+            "Throughput: fan-out load on inference"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared durable result store",
+        "value_id": null
+      },
+      "rationale": "Multiple independent consuming teams decide the choice; durable shared access costs an additional storage component and persistence step.",
+      "consequences": [
+        "A result schema and access controls are needed.",
+        "Retention and replay policies must be set."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Required classification latency and availability targets.",
+    "Document formats, sizes, and ingestion interface.",
+    "Label source, delay, and quality metric for drift detection.",
+    "Model selection, hosting constraints, and fallback or human-review policy.",
+    "Result retention, privacy, and access requirements."
+  ]
+}

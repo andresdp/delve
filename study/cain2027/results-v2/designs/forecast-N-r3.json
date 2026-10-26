@@ -1,0 +1,140 @@
+{
+  "decisions": [
+    {
+      "decision": "Run forecasts as a scheduled weekly batch",
+      "context": "The system produces demand forecasts once per week for each store and product. The brief gives no need for interactive or real-time predictions.",
+      "drivers": [
+        "Weekly-run reliability",
+        "Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly-run reliability: bounded, repeatable run",
+            "Fast model iteration: changes fit pipeline stages"
+          ],
+          "cons": [
+            "Weekly-run reliability: failures can delay the full run"
+          ]
+        },
+        {
+          "label": "On-demand prediction service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fast model iteration: deploy behind a service"
+          ],
+          "cons": [
+            "Weekly-run reliability: adds always-on service operations",
+            "Fast model iteration: requires serving integration"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch pipeline",
+        "value_id": null
+      },
+      "rationale": "Weekly-run reliability decides the choice: a scheduled batch matches the forecast cadence and keeps execution bounded. This gives up on-demand forecasts, which the brief does not require.",
+      "consequences": [
+        "Pipeline must complete within the weekly delivery window.",
+        "Model changes must integrate with the batch run."
+      ]
+    },
+    {
+      "decision": "Preserve versioned inputs and artifacts for reproducibility",
+      "context": "The team must reproduce forecasts for any past week. That requires retaining enough information about the data and model used for each run to recreate its outputs.",
+      "drivers": [
+        "Forecast reproducibility",
+        "Weekly-run reliability"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned data, code, configuration, and model artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Forecast reproducibility: records each run's inputs and artifacts",
+            "Weekly-run reliability: supports reruns from recorded state"
+          ],
+          "cons": [
+            "Forecast reproducibility: requires storage and retention practices"
+          ]
+        },
+        {
+          "label": "Keep only the latest data and model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly-run reliability: minimal artifact management"
+          ],
+          "cons": [
+            "Forecast reproducibility: past runs may not be recreated"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned data, code, configuration, and model artifacts",
+        "value_id": null
+      },
+      "rationale": "Forecast reproducibility decides the choice: retaining versioned run inputs and artifacts enables past forecasts to be recreated. This costs storage and additional artifact management.",
+      "consequences": [
+        "Each run must record references to its data, code, configuration, and model.",
+        "Retention and artifact storage need ongoing ownership."
+      ]
+    },
+    {
+      "decision": "Validate model changes before the weekly production run",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. A separate validation step can check candidate changes before they affect production forecasts.",
+      "drivers": [
+        "Weekly-run reliability",
+        "Fast model iteration",
+        "Forecast reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Validate candidates on historical weeks before promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly-run reliability: candidate failures stay out of production",
+            "Fast model iteration: supports repeatable candidate evaluation"
+          ],
+          "cons": [
+            "Fast model iteration: validation adds a promotion step"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fast model iteration: shortest path to production"
+          ],
+          "cons": [
+            "Weekly-run reliability: candidate changes can break the run",
+            "Forecast reproducibility: unrecorded changes complicate reruns"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Validate candidates on historical weeks before promotion",
+        "value_id": null
+      },
+      "rationale": "Weekly-run reliability decides the choice: candidate models are checked before promotion, reducing the chance that an experiment disrupts production. This gives up some deployment speed for the validation step.",
+      "consequences": [
+        "Historical evaluation data and acceptance criteria must be maintained.",
+        "Promoted model versions must be recorded with production runs."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast accuracy targets and evaluation metrics",
+    "Data sources, quality checks, and historical data retention period",
+    "Forecast delivery format, consumers, and delivery deadline",
+    "Infrastructure, orchestration, monitoring, and recovery requirements",
+    "Model ownership and production promotion authority"
+  ]
+}

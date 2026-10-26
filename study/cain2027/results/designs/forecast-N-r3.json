@@ -1,0 +1,145 @@
+{
+  "decisions": [
+    {
+      "decision": "How should forecasts run?",
+      "context": "Demand is forecast weekly for each store and product. The weekly run must complete reliably without slowing model development.",
+      "drivers": [
+        "Weekly cadence",
+        "Store-product forecasts",
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fits weekly cadence",
+            "Runs independently"
+          ],
+          "cons": [
+            "Results arrive in batches"
+          ]
+        },
+        {
+          "label": "Online per-request inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "On-demand results"
+          ],
+          "cons": [
+            "Unneeded request infrastructure",
+            "More operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch pipeline",
+        "value_id": null
+      },
+      "rationale": "A scheduled batch pipeline matches the weekly forecast cadence and keeps production execution separate from experimentation.",
+      "consequences": [
+        "Forecasts update on the weekly schedule.",
+        "The pipeline needs monitoring and recovery for failed runs."
+      ]
+    },
+    {
+      "decision": "How should past forecasts be reproducible?",
+      "context": "The team must reproduce forecasts for any past week. That requires retaining the inputs and implementation details used for each run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "End-to-end team ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned run inputs and artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports reruns",
+            "Makes runs traceable"
+          ],
+          "cons": [
+            "Requires artifact retention",
+            "Adds version management"
+          ]
+        },
+        {
+          "label": "Keep only latest inputs and model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simpler storage"
+          ],
+          "cons": [
+            "Past runs may be unrecoverable",
+            "Results can drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned run inputs and artifacts",
+        "value_id": null
+      },
+      "rationale": "Retaining versioned data references, code, configuration, and model artifacts gives the team the information needed to reconstruct a historical run.",
+      "consequences": [
+        "Storage and retention policies are needed.",
+        "Each run needs links to its inputs and artifacts."
+      ]
+    },
+    {
+      "decision": "How should model changes reach production?",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. Candidate models therefore need an isolated path to evaluation and promotion.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Small owning team"
+      ],
+      "alternatives": [
+        {
+          "label": "Isolated candidate runs with promotion gate",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Separates experiments from production",
+            "Allows checks before promotion"
+          ],
+          "cons": [
+            "Requires promotion workflow",
+            "Adds candidate-run compute"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few deployment steps"
+          ],
+          "cons": [
+            "Experiments can disrupt runs",
+            "Harder to compare versions"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Isolated candidate runs with promotion gate",
+        "value_id": null
+      },
+      "rationale": "Isolated candidate runs let the three-person team iterate while keeping the weekly production pipeline on its current model until a replacement is ready.",
+      "consequences": [
+        "Promotion criteria and ownership must be defined.",
+        "Production model versions need to be recorded per run."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast evaluation metrics and acceptance thresholds",
+    "Data sources, quality checks, and historical data availability",
+    "Deployment environment, orchestration technology, and recovery targets",
+    "Forecast consumers, delivery format, and timing requirements",
+    "Required forecast horizon and handling of new stores or products",
+    "Artifact retention period and access controls"
+  ]
+}

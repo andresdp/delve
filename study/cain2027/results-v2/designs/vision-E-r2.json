@@ -1,0 +1,457 @@
+{
+  "decisions": [
+    {
+      "decision": "How should inference run on production cameras?",
+      "context": "Cameras inspect defects on production lines, often without network access. Inference must remain available locally.",
+      "drivers": [
+        "Network independence",
+        "Low latency",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "Network independence: runs with the application",
+            "Tight budget: avoids separate service infrastructure"
+          ],
+          "cons": [
+            "Weekly updates: coordinate model and application releases"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Separation: model can be managed independently"
+          ],
+          "cons": [
+            "Network independence: service may require connectivity",
+            "Tight budget: adds service operations"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Network independence: embed model in application"
+          ],
+          "cons": [
+            "Weekly updates: model changes are coupled to application code"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as module in modular monolith",
+        "value_id": "v:1.3"
+      },
+      "rationale": "Network independence decides the choice: package inference with the camera application while keeping a module boundary. This gives up independent model service deployment.",
+      "consequences": [
+        "Bundle model runtime and application for each device.",
+        "Model updates require a coordinated device release."
+      ]
+    },
+    {
+      "decision": "How should predictions be served?",
+      "context": "Inspection must continue when a camera has no network access. Predictions need to reach the local production application in real time.",
+      "drivers": [
+        "Network independence",
+        "Low latency",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Network independence: serves predictions locally",
+            "Low latency: avoids remote inference round trips"
+          ],
+          "cons": [
+            "Tight budget: adds local service/API operations"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Separation: model serving is distributed"
+          ],
+          "cons": [
+            "Network independence: remote calls can fail offline",
+            "Low latency: network adds delay"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Tight budget: scheduled batch processing"
+          ],
+          "cons": [
+            "Low latency: results are not immediate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Network independence decides the choice, with low latency also favoring local inference. The trade-off is operating a local serving interface on each device.",
+      "consequences": [
+        "The camera application calls a device-local endpoint.",
+        "Local service health and resource use need operational attention."
+      ]
+    },
+    {
+      "decision": "How should weekly retraining run?",
+      "context": "The team retrains from newly labelled images every week. The workspace describes scheduled triggers and batch-based learning as alternatives for pipeline execution and training.",
+      "drivers": [
+        "Weekly retraining",
+        "Tight budget",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger with batch-based learning",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3",
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Weekly retraining: scheduled runs match the cadence",
+            "Tight budget: trains only on the weekly schedule"
+          ],
+          "cons": [
+            "Freshness: labels arriving just after a run wait until the next run"
+          ]
+        },
+        {
+          "label": "On availability of new training data trigger with batch-based learning",
+          "value_id": "v:12.4",
+          "citations": [
+            "d:12",
+            "v:12.4",
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Freshness: starts when new data is available"
+          ],
+          "cons": [
+            "Tight budget: irregular runs may use more resources"
+          ]
+        },
+        {
+          "label": "On-demand trigger with incremental learning",
+          "value_id": "v:12.1",
+          "citations": [
+            "d:12",
+            "v:12.1",
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Control: operators decide when to run"
+          ],
+          "cons": [
+            "Weekly retraining: depends on manual or external triggering"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger with batch-based learning",
+        "value_id": "v:12.3"
+      },
+      "rationale": "The stated weekly cadence decides the choice: scheduled batch training keeps execution predictable and bounded. It gives up immediate use of labels added between runs.",
+      "consequences": [
+        "Schedule the retraining pipeline weekly.",
+        "A failed run delays the next model unless operators rerun it."
+      ]
+    },
+    {
+      "decision": "How should training data be versioned?",
+      "context": "Newly labelled images feed recurring model training. Reproducing a model requires identifying which data version produced it.",
+      "drivers": [
+        "Reproducibility",
+        "Weekly retraining",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: records specific data versions"
+          ],
+          "cons": [
+            "Tight budget: adds repository setup and maintenance"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Tight budget: keeps versioning near existing code"
+          ],
+          "cons": [
+            "Reproducibility: large image datasets may be awkward to manage"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Tight budget: no added versioning system"
+          ],
+          "cons": [
+            "Reproducibility: training inputs cannot be reliably restored"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducibility decides the choice because weekly retraining must be traceable to its labelled images. It costs the small team additional repository operations.",
+      "consequences": [
+        "Record the data version alongside each trained model.",
+        "Maintain the repository as part of the training workflow."
+      ]
+    },
+    {
+      "decision": "How should model delivery be automated?",
+      "context": "Models are retrained weekly and pushed to cameras that may be disconnected. A small team and tight infrastructure budget favor repeatable automation without a large platform.",
+      "drivers": [
+        "Weekly delivery",
+        "Tight budget",
+        "Network independence"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Weekly delivery: automates repeatable build and deployment steps"
+          ],
+          "cons": [
+            "Network independence: device delivery still needs an offline-capable mechanism",
+            "Tight budget: pipeline maintenance has a cost"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Tight budget: straightforward automation"
+          ],
+          "cons": [
+            "Weekly delivery: manual execution can become error-prone"
+          ]
+        },
+        {
+          "label": "Machine learning orchestrator",
+          "value_id": "v:8.3",
+          "citations": [
+            "d:8",
+            "v:8.3"
+          ],
+          "pros": [
+            "Weekly delivery: coordinates multiple pipelines and components"
+          ],
+          "cons": [
+            "Tight budget: adds platform complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Weekly delivery decides the choice: CI/CD makes repeated model packaging and release steps consistent. The trade-off is pipeline upkeep, while delivery to disconnected cameras remains a separate design problem.",
+      "consequences": [
+        "Automate model build and release validation.",
+        "The pipeline does not itself define how disconnected devices receive updates."
+      ]
+    },
+    {
+      "decision": "How should production model versions be managed?",
+      "context": "New models are delivered weekly to production devices. Defect detection needs a recovery path if a new release performs poorly.",
+      "drivers": [
+        "Reliable production",
+        "Weekly delivery",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Reliable production: supports recovery to a prior model"
+          ],
+          "cons": [
+            "Tight budget: requires retaining and distributing prior artifacts"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Reliable production: supports concurrent model versions"
+          ],
+          "cons": [
+            "Tight budget: more storage and release coordination"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Tight budget: simplest active model state"
+          ],
+          "cons": [
+            "Reliable production: no explicit prior-version recovery path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Reliable production decides the choice: retaining a previous model enables recovery after a bad weekly release. This costs artifact storage and device delivery capacity.",
+      "consequences": [
+        "Keep a known prior model artifact available for each device.",
+        "Define an operational rollback procedure."
+      ]
+    },
+    {
+      "decision": "What should be monitored in production?",
+      "context": "Models operate on cameras that may be offline, so central observation cannot be assumed. Monitoring should still help detect quality problems and diagnose releases.",
+      "drivers": [
+        "Reliable production",
+        "Network independence",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Reliable production: tracks model quality measures"
+          ],
+          "cons": [
+            "Network independence: offline devices may delay reporting"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Diagnosis: captures inputs and outputs"
+          ],
+          "cons": [
+            "Tight budget: storage and review costs can grow"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "Tight budget: avoids monitoring infrastructure"
+          ],
+          "cons": [
+            "Reliable production: quality regressions may go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Reliable production decides the choice: observe model performance to identify regressions after releases. This gives up immediate centralized visibility when devices are disconnected.",
+      "consequences": [
+        "Collect performance signals locally and report them when connectivity returns.",
+        "Choose domain-specific quality measures, which the design space does not specify."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Offline device update protocol, including package transfer, retries, and fleet rollout strategy.",
+    "Camera hardware sizing, inference latency targets, and resource limits.",
+    "Model acceptance thresholds, defect class metrics, and labeling quality controls.",
+    "Security, authentication, and integrity checks for model artifacts and device updates.",
+    "Retention and privacy rules for production images, predictions, and logs."
+  ]
+}

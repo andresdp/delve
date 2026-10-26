@@ -1,0 +1,149 @@
+{
+  "decisions": [
+    {
+      "decision": "How should classification work scale with volume?",
+      "context": "The system processes millions of incoming documents daily, with strong seasonal variation. Processing capacity must absorb peaks without requiring peak-sized always-on workers.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume swings",
+        "Classification throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request path",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple request flow",
+            "Immediate response"
+          ],
+          "cons": [
+            "Peak load strains service",
+            "Caller waits on inference"
+          ]
+        },
+        {
+          "label": "Queue with elastic workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers volume spikes",
+            "Workers scale independently"
+          ],
+          "cons": [
+            "Results arrive asynchronously",
+            "Queue operations add complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue with elastic workers",
+        "value_id": null
+      },
+      "rationale": "A durable queue absorbs seasonal surges, while independently scalable workers process documents through the LLM classifier. This fits high daily volume without tying submitters to inference latency.",
+      "consequences": [
+        "Callers must handle delayed results.",
+        "Queue depth and worker capacity need monitoring."
+      ]
+    },
+    {
+      "decision": "How should results be shared with consuming teams?",
+      "context": "Several teams consume classification results, so the system needs a stable way to distribute them without coupling each consumer to classifier internals.",
+      "drivers": [
+        "Several consuming teams",
+        "Shared classification results"
+      ],
+      "alternatives": [
+        {
+          "label": "Direct calls to each consumer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Straightforward delivery",
+            "Consumers receive results promptly"
+          ],
+          "cons": [
+            "Classifier couples to consumers",
+            "Consumer outages disrupt delivery"
+          ]
+        },
+        {
+          "label": "Persist results and publish events",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consumers evolve independently",
+            "Results can be replayed"
+          ],
+          "cons": [
+            "Requires storage and event operations",
+            "Consumers handle duplicate events"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist results and publish events",
+        "value_id": null
+      },
+      "rationale": "Persisting each result and publishing an event gives multiple teams independent access while preserving results for recovery or replay.",
+      "consequences": [
+        "Define a versioned result schema.",
+        "Operate result storage and event delivery."
+      ]
+    },
+    {
+      "decision": "How should classification quality drift be detected?",
+      "context": "Operators need visibility when classification quality drifts. The system therefore needs ongoing quality signals and a way to surface changes for review.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operator oversight"
+      ],
+      "alternatives": [
+        {
+          "label": "Monitor operational metrics only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Low measurement overhead",
+            "Reuses service metrics"
+          ],
+          "cons": [
+            "Does not measure correctness",
+            "Quality regressions may go unseen"
+          ]
+        },
+        {
+          "label": "Track labeled quality samples over time",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Measures classification quality",
+            "Supports trend alerts"
+          ],
+          "cons": [
+            "Needs reviewed labels",
+            "Feedback may arrive late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Track labeled quality samples over time",
+        "value_id": null
+      },
+      "rationale": "Operational metrics alone cannot show whether claim types are being assigned correctly. Tracking labeled samples over time gives operators a direct quality signal for detecting drift.",
+      "consequences": [
+        "Arrange a source of reviewed labels.",
+        "Define alert thresholds and review ownership."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document formats, ingestion sources, and preprocessing rules.",
+    "Model provider, model selection, and update strategy.",
+    "Classification taxonomy, confidence thresholds, and human review policy.",
+    "Latency and availability targets.",
+    "Data retention, privacy, security, and regulatory requirements.",
+    "Result schema details and consumer delivery guarantees.",
+    "Labeled-data source, sampling rate, and drift alert thresholds."
+  ]
+}

@@ -1,0 +1,376 @@
+{
+  "decisions": [
+    {
+      "decision": "Reproduce forecasts from past data",
+      "context": "The system must recreate forecasts for any past week. The brief does not specify a storage mechanism, so this ADR uses data versioning as the grounded design choice.",
+      "drivers": [
+        "1. Past-week reproducibility",
+        "2. Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: versions data explicitly"
+          ],
+          "cons": [
+            "Small team: adds a repository to manage"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Small team: keeps data versioning near code"
+          ],
+          "cons": [
+            "Reproducibility: may not suit large data"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Reproducibility: cannot reliably recreate past inputs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Past-week reproducibility decides the choice: explicitly versioning data supports reconstruction. The cost is added repository management for a three-person team.",
+      "consequences": [
+        "Record the data version used for each weekly forecast.",
+        "The design space has no sources or attested systems for this choice."
+      ]
+    },
+    {
+      "decision": "When and how to train",
+      "context": "Weekly forecasts imply a recurring run, while the team also wants new model ideas to reach production quickly. The brief does not require continuous learning.",
+      "drivers": [
+        "1. Protect weekly run",
+        "2. Fast model iteration",
+        "3. Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Weekly run: fits scheduled offline training"
+          ],
+          "cons": [
+            "Fast iteration: changes wait for a batch run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Fast iteration: can incorporate data incrementally"
+          ],
+          "cons": [
+            "Weekly run: adds complexity to a simple recurring process"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Fast iteration: supports incremental updates"
+          ],
+          "cons": [
+            "Small team: more training paths to maintain"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Protecting the weekly run decides the choice: batch training fits the stated cadence and keeps the workflow manageable. The trade-off is that model changes wait for a batch cycle.",
+      "consequences": [
+        "Run training on a schedule aligned with the weekly forecast.",
+        "The brief leaves the training-data cutoff and retraining cadence unspecified."
+      ]
+    },
+    {
+      "decision": "Automate model and component delivery",
+      "context": "Model ideas should reach production quickly, but releases must not break the weekly run. The design space covers CI/CD scope and testing, but not a specific release safety mechanism.",
+      "drivers": [
+        "1. Fast model iteration",
+        "2. Protect weekly run",
+        "3. Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Build, test, and deploy models to be served and other system components",
+          "value_id": "v:25.1",
+          "citations": [
+            "d:25",
+            "v:25.1"
+          ],
+          "pros": [
+            "Fast iteration: automates model delivery"
+          ],
+          "cons": [
+            "Protect weekly run: deployment needs strong checks"
+          ]
+        },
+        {
+          "label": "Build, test, and deploy machine learning pipelines and components needed during pipeline runs",
+          "value_id": "v:25.2",
+          "citations": [
+            "d:25",
+            "v:25.2"
+          ],
+          "pros": [
+            "Protect weekly run: automates pipeline component delivery"
+          ],
+          "cons": [
+            "Fast iteration: does not explicitly cover served models"
+          ]
+        },
+        {
+          "label": "No automated deployment",
+          "value_id": "v:25.3",
+          "citations": [
+            "d:25",
+            "v:25.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Fast iteration: manual releases slow model ideas"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Build, test, and deploy models to be served and other system components",
+        "value_id": "v:25.1"
+      },
+      "rationale": "Fast model iteration decides the choice: automate delivery of models and system components. This gives up some simplicity and makes release checks essential to protect the weekly run.",
+      "consequences": [
+        "Include model and serving components in the automated delivery path.",
+        "Define release checks and recovery behavior; the brief does not specify them."
+      ]
+    },
+    {
+      "decision": "Test changes before production",
+      "context": "New model ideas must reach production without breaking the weekly forecast. The design space lists testing options, but provides no evidence passages or system attestations.",
+      "drivers": [
+        "1. Protect weekly run",
+        "2. Fast model iteration",
+        "3. Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "Protect weekly run: checks model quality before release"
+          ],
+          "cons": [
+            "Small team: requires a defined quality criterion"
+          ]
+        },
+        {
+          "label": "System integration testing",
+          "value_id": "v:26.5",
+          "citations": [
+            "d:26",
+            "v:26.5"
+          ],
+          "pros": [
+            "Protect weekly run: exercises connected components"
+          ],
+          "cons": [
+            "Fast iteration: adds integration setup and runtime"
+          ]
+        },
+        {
+          "label": "Canary testing",
+          "value_id": "v:26.1",
+          "citations": [
+            "d:26",
+            "v:26.1"
+          ],
+          "pros": [
+            "Protect weekly run: limits initial exposure"
+          ],
+          "cons": [
+            "Small team: requires rollout and observation support"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Testing trained model quality",
+        "value_id": "v:26.9"
+      },
+      "rationale": "Protecting the weekly run decides the choice: check trained model quality before release. This requires the team to define acceptance criteria, and by itself does not validate pipeline integration or rollout behavior.",
+      "consequences": [
+        "Set an explicit quality gate for candidate models.",
+        "Add integration or rollout checks if the weekly run requires them; the brief does not specify their form."
+      ]
+    },
+    {
+      "decision": "Trigger the weekly forecast pipeline",
+      "context": "The system produces weekly demand forecasts, so its main pipeline needs a recurring trigger. The design space includes scheduled and manual triggers.",
+      "drivers": [
+        "1. Protect weekly run",
+        "2. Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Weekly run: runs on a recurring cadence"
+          ],
+          "cons": [
+            "Protect weekly run: requires failure handling"
+          ]
+        },
+        {
+          "label": "On-demand trigger",
+          "value_id": "v:12.1",
+          "citations": [
+            "d:12",
+            "v:12.1"
+          ],
+          "pros": [
+            "Small team: simple to start manually"
+          ],
+          "cons": [
+            "Weekly run: depends on an operator to remember"
+          ]
+        },
+        {
+          "label": "On availability of new training data trigger",
+          "value_id": "v:12.4",
+          "citations": [
+            "d:12",
+            "v:12.4"
+          ],
+          "pros": [
+            "Weekly run: reacts when data arrives"
+          ],
+          "cons": [
+            "Protect weekly run: arrival may not match weekly cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "Protecting the weekly run decides the choice: a scheduled trigger directly matches the required cadence. The trade-off is that missed or failed runs need handling that the brief does not define.",
+      "consequences": [
+        "Configure a recurring weekly run.",
+        "Specify monitoring and recovery for missed or failed runs."
+      ]
+    },
+    {
+      "decision": "Monitor production forecasts",
+      "context": "A broken weekly run would undermine the system, and new models will be released over time. The brief does not state what production signals to track.",
+      "drivers": [
+        "1. Protect weekly run",
+        "2. Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Protect weekly run: observes model performance"
+          ],
+          "cons": [
+            "Fast iteration: needs performance measures and labels"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Protect weekly run: records inputs and outputs"
+          ],
+          "cons": [
+            "Small team: adds log storage and review work"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Protect weekly run: failures may go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Monitoring or logging data and predictions",
+        "value_id": "v:22.2"
+      },
+      "rationale": "Protecting the weekly run decides the choice: logging data and predictions provides operational visibility even when forecast outcomes are not yet known. The cost is storing and reviewing those records.",
+      "consequences": [
+        "Retain forecast inputs and outputs for operational review.",
+        "Choose retention, alerting, and privacy rules; the brief does not specify them."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast serving interface and consumers",
+    "Data ingestion and source quality controls",
+    "Forecast output storage and access",
+    "Release rollback or promotion policy",
+    "Definition of model quality thresholds",
+    "Failure alerting, recovery, and run ownership",
+    "Data retention and access controls"
+  ]
+}

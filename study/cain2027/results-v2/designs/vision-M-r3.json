@@ -1,0 +1,255 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras often lack network access, so defect detection must execute at the production line. The design space supports edge inference, while the remote service option assumes online connectivity.",
+      "drivers": [
+        "Offline operation",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s01_p06",
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Offline operation: runs on device",
+            "Low latency: avoids network round trip"
+          ],
+          "cons": [
+            "Tight budget: distributes deployment work"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [],
+          "pros": [
+            "Small team: centralized model operations",
+            "Low cost: shared serving infrastructure"
+          ],
+          "cons": [
+            "Offline operation: requires connectivity",
+            "Low latency: network round trip"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "Offline operation decides the choice: edge inference keeps inspection available without a network. This gives up the operational simplicity of centralized model serving.",
+      "consequences": [
+        "Package and distribute model runtime to cameras.",
+        "Plan for device-level model updates and rollback."
+      ]
+    },
+    {
+      "decision": "How should predictions be produced?",
+      "context": "Defect checks happen on cameras at production lines where network access may be unavailable. The brief gives no response-time target, but local inference avoids depending on a remote prediction path.",
+      "drivers": [
+        "Offline operation",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08",
+            "s02_p02",
+            "s02_p12"
+          ],
+          "pros": [
+            "Low cost: scores on a schedule"
+          ],
+          "cons": [
+            "Low latency: results are not request-time",
+            "Offline operation: device inputs may not reach batch system"
+          ]
+        },
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [],
+          "pros": [
+            "Low latency: scores current context immediately"
+          ],
+          "cons": [
+            "Offline operation: often depends on reachable service"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online computation serving",
+        "value_id": null
+      },
+      "rationale": "Offline operation decides where computation happens: use online computation locally on each device, without a remote request. The design space does not specifically ground local online inference, so this choice is an interpretation of the brief rather than an attested alternative.",
+      "consequences": [
+        "Run prediction as images arrive at the camera.",
+        "No numerical latency or throughput target is established."
+      ]
+    },
+    {
+      "decision": "How should weekly retraining start?",
+      "context": "Newly labelled images arrive for retraining every week. The design space describes both scheduled retraining and retraining after drift or performance changes.",
+      "drivers": [
+        "Weekly update cadence",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p07",
+            "s06_p11",
+            "s20_p06",
+            "s22_p08"
+          ],
+          "pros": [
+            "Weekly cadence: directly matches the brief",
+            "Small team: predictable automation"
+          ],
+          "cons": [
+            "Small team: requires schedule operations"
+          ]
+        },
+        {
+          "label": "Performance- or drift-based retraining trigger",
+          "value_id": "v:6.8",
+          "citations": [],
+          "pros": [
+            "Small team: can avoid unnecessary retraining",
+            "Model quality: responds to detected change"
+          ],
+          "cons": [
+            "Weekly cadence: does not ensure weekly updates",
+            "Small team: needs drift or quality monitoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "The weekly update cadence decides the choice: a scheduled trigger directly fits the stated process. This gives up triggering additional retraining between scheduled runs when drift or quality changes.",
+      "consequences": [
+        "Automate a weekly training run.",
+        "Validate newly labelled data before using it."
+      ]
+    },
+    {
+      "decision": "How should model releases reach devices?",
+      "context": "Retrained models are pushed to production devices weekly, and an unsuccessful update could disrupt inspection. The design space includes staged releases that allow rollback.",
+      "drivers": [
+        "Weekly update cadence",
+        "Production continuity",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p03",
+            "s04_p10",
+            "s25_p01",
+            "s25_p06"
+          ],
+          "pros": [
+            "Production continuity: supports rollback",
+            "Small team: automates release steps"
+          ],
+          "cons": [
+            "Small team: staged rollout adds setup work"
+          ]
+        },
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [],
+          "pros": [
+            "Small team: automates build and deployment",
+            "Weekly cadence: repeatable release path"
+          ],
+          "cons": [
+            "Production continuity: rollback is not explicit"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Production continuity decides the choice: rollback limits the impact of a problematic model update. This gives up some simplicity because staged rollout and recovery paths require setup.",
+      "consequences": [
+        "Retain a prior model version for recovery.",
+        "Define how staged rollout maps to camera groups."
+      ]
+    },
+    {
+      "decision": "What model lifecycle information should be versioned?",
+      "context": "Weekly retraining and device deployment require identifying which model is running and how it was produced. The design space offers broad lifecycle traceability as well as artifact-only version control.",
+      "drivers": [
+        "Reproducibility",
+        "Small team",
+        "Weekly update cadence"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04",
+            "s22_p06"
+          ],
+          "pros": [
+            "Reproducibility: links data, runs, and models",
+            "Weekly cadence: records deployment health"
+          ],
+          "cons": [
+            "Small team: broader metadata upkeep"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Small team: tracks deployable model artifacts",
+            "Weekly cadence: supports known versions"
+          ],
+          "cons": [
+            "Reproducibility: omits full training context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "Reproducibility decides the choice: linking datasets, runs, artifacts, and deployment health supports tracing weekly model changes. This gives up the lower upkeep of artifact-only versioning.",
+      "consequences": [
+        "Record training data and run metadata with each model.",
+        "Track the model version installed on each device."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device fleet management and update transport for cameras with intermittent connectivity.",
+    "Image storage, retention, and transfer for newly labelled training data.",
+    "The model's accuracy target and the validation gate before promotion.",
+    "Device hardware, model size, and runtime compatibility constraints.",
+    "The recovery behavior when a device update is interrupted."
+  ]
+}

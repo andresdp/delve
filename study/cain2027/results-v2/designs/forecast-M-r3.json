@@ -1,0 +1,375 @@
+{
+  "decisions": [
+    {
+      "decision": "Preserve data for historical replay",
+      "context": "Forecasts must be reproducible for any past week, so the system needs to retain the inputs and their provenance. The design space supports preserving original data and tracing how it was processed.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Weekly run stability"
+      ],
+      "alternatives": [
+        {
+          "label": "Traceable and preserved data",
+          "value_id": "v:42.1",
+          "citations": [
+            "s02_p04",
+            "s02_p05",
+            "s02_p06",
+            "s10_p08"
+          ],
+          "pros": [
+            "Reproducibility: recover original inputs and processing history"
+          ],
+          "cons": [
+            "Weekly run stability: requires retained data and provenance"
+          ]
+        },
+        {
+          "label": "Cataloged data",
+          "value_id": "v:42.2",
+          "citations": [
+            "s02_p04"
+          ],
+          "pros": [
+            "Reproducibility: records dataset versions and metadata"
+          ],
+          "cons": [
+            "Past-week reproducibility: cataloging alone does not preserve original data"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Traceable and preserved data",
+        "value_id": "v:42.1"
+      },
+      "rationale": "Past-week reproducibility decides the choice: retained, traceable inputs make historical reconstruction possible. Sources including “Architecting a Machine Learning Pipeline” describe provenance and data preservation; this adds storage and tracking work.",
+      "consequences": [
+        "Retain immutable input snapshots and provenance.",
+        "Historical runs need references to the appropriate snapshots."
+      ]
+    },
+    {
+      "decision": "Version pipelines and experiments together",
+      "context": "Reproducing a forecast requires more than retaining its data: the pipeline and experiment configuration must also be recoverable. The design space distinguishes this from versioning artifacts alone.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [
+            "s04_p01",
+            "s04_p03",
+            "s04_p05",
+            "s04_p15",
+            "s04_p18",
+            "s17_p03"
+          ],
+          "pros": [
+            "Reproducibility: compares and recovers configurations and runs"
+          ],
+          "cons": [
+            "Fast model iteration: adds versioning and tracking work"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Reproducibility: preserves model artifacts and dependencies"
+          ],
+          "cons": [
+            "Past-week reproducibility: omits pipeline and experiment history"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Pipeline and experiment version control",
+        "value_id": "v:20.2"
+      },
+      "rationale": "Past-week reproducibility decides the choice because artifact versions alone do not capture how a forecast was produced. “Productionizing Machine Learning with a Microservices Architecture” and “AutoML” support versioning pipelines and experiments together.",
+      "consequences": [
+        "Record pipeline and experiment versions with each run.",
+        "The team maintains more lifecycle metadata."
+      ]
+    },
+    {
+      "decision": "Ingest weekly inputs in batches",
+      "context": "The system forecasts weekly demand, and workflow coordination in the design space requires an ingestion mechanism to be decided first. Batch ETL is a supported option for extracting and transforming records into features.",
+      "drivers": [
+        "Weekly run stability",
+        "Past-week reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "ETL-based feature ingestion",
+          "value_id": "v:21.1",
+          "citations": [],
+          "pros": [
+            "Weekly run stability: fits scheduled batch processing"
+          ],
+          "cons": [
+            "Past-week reproducibility: requires retained source snapshots"
+          ]
+        },
+        {
+          "label": "Streaming feature ingestion",
+          "value_id": "v:21.2",
+          "citations": [],
+          "pros": [
+            "Weekly run stability: continuously receives new records"
+          ],
+          "cons": [
+            "Weekly run stability: adds continuous ingestion operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "ETL-based feature ingestion",
+        "value_id": "v:21.1"
+      },
+      "rationale": "Weekly run stability decides the choice: batch extraction and transformation fits the stated weekly cadence. “Architecting a Machine Learning Pipeline” is evidence for this value; the brief does not call for continuous ingestion.",
+      "consequences": [
+        "Schedule extraction and transformation ahead of the forecast run.",
+        "Preserve the ingested inputs for historical replay."
+      ]
+    },
+    {
+      "decision": "Coordinate recurring model runs",
+      "context": "The system has a weekly run and new model ideas should reach production quickly without disrupting it. The design space presents an orchestrated pipeline as a repeatable alternative to manual script execution.",
+      "drivers": [
+        "Weekly run stability",
+        "Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07",
+            "s04_p15",
+            "s04_p17",
+            "s04_p18",
+            "s21_p10",
+            "s25_p01",
+            "s25_p02",
+            "s25_p09",
+            "s28_p03"
+          ],
+          "pros": [
+            "Weekly run stability: connects repeatable workflow stages"
+          ],
+          "cons": [
+            "Fast model iteration: requires pipeline setup and upkeep"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [],
+          "pros": [
+            "Fast model iteration: permits direct manual experimentation"
+          ],
+          "cons": [
+            "Weekly run stability: depends on manual execution across stages"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "Weekly run stability decides the choice: an orchestrated pipeline makes stages repeatable, while manual execution leaves the weekly process dependent on operator actions. Sources including “Architecting a Machine Learning Pipeline” and “MLOps Principles” support pipeline coordination.",
+      "consequences": [
+        "Represent preparation, training, and evaluation as ordered stages.",
+        "Pipeline changes require maintenance and validation."
+      ]
+    },
+    {
+      "decision": "Promote model changes through staged automation",
+      "context": "New model ideas should reach production quickly, but must not break the weekly run. Automated builds and tests with staged promotion provide a release path that checks changes before production.",
+      "drivers": [
+        "Fast model iteration",
+        "Weekly run stability"
+      ],
+      "alternatives": [
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p06",
+            "s06_p13",
+            "s06_p14",
+            "s06_p15",
+            "s08_p01",
+            "s08_p02",
+            "s13_p09"
+          ],
+          "pros": [
+            "Fast model iteration: repository changes trigger delivery stages"
+          ],
+          "cons": [
+            "Weekly run stability: failed gates can delay promotion"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s02_p11",
+            "s19_p05",
+            "s20_p02",
+            "s20_p05",
+            "s20_p10",
+            "s20_p12"
+          ],
+          "pros": [
+            "Fast model iteration: automates build, test, package, and release"
+          ],
+          "cons": [
+            "Weekly run stability: less explicit stage-by-stage promotion"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "Weekly run stability decides the choice: staged promotion allows automated delivery while retaining checks before production. “MLOps: Continuous delivery and automation pipelines in machine learning” supports commit-triggered builds and staged release; the trade-off is that gates can slow an individual change.",
+      "consequences": [
+        "Changes pass automated build and test stages before production.",
+        "Promotion depends on passing release gates."
+      ]
+    },
+    {
+      "decision": "Evaluate candidates before promotion",
+      "context": "Model ideas need a reliable route to production that protects the weekly run. The design space describes held-out offline evaluation as a promotion check and threshold testing as a separate regression practice.",
+      "drivers": [
+        "Weekly run stability",
+        "Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15",
+            "s06_p02",
+            "s09_p04",
+            "s20_p03",
+            "s20_p09",
+            "s22_p08",
+            "s25_p09"
+          ],
+          "pros": [
+            "Weekly run stability: checks candidates before deployment"
+          ],
+          "cons": [
+            "Fast model iteration: evaluation adds a promotion step"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s09_p04",
+            "s17_p04",
+            "s19_p05",
+            "s22_p06",
+            "s22_p15",
+            "s23_p09",
+            "s25_p09"
+          ],
+          "pros": [
+            "Fast model iteration: compares candidates on selected metrics"
+          ],
+          "cons": [
+            "Weekly run stability: does not alone define a held-out deployment check"
+          ]
+        },
+        {
+          "label": "Previously-built-model diff testing",
+          "value_id": "v:13.3",
+          "citations": [],
+          "pros": [
+            "Weekly run stability: compares a candidate with an existing model"
+          ],
+          "cons": [
+            "Fast model iteration: sources report maintenance difficulty"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Weekly run stability decides the choice: evaluate candidates against held-out data before promotion. Sources including “MLOps Principles” and “MLOps: Continuous delivery and automation pipelines in machine learning” support offline evaluation; this adds a check to the delivery path.",
+      "consequences": [
+        "Maintain held-out data and evaluation steps.",
+        "Promotion waits for evaluation results."
+      ]
+    },
+    {
+      "decision": "Develop model ideas iteratively",
+      "context": "A three-person team owns the pipeline end to end and wants new ideas to reach production quickly. Short development cycles align with that goal, while the weekly run creates a need to validate changes as they progress.",
+      "drivers": [
+        "Fast model iteration",
+        "Weekly run stability"
+      ],
+      "alternatives": [
+        {
+          "label": "Lean iterative ML development",
+          "value_id": "v:40.1",
+          "citations": [
+            "s01_p06",
+            "s01_p08",
+            "s06_p06",
+            "s06_p15",
+            "s13_p07",
+            "s17_p03",
+            "s21_p02",
+            "s22_p01"
+          ],
+          "pros": [
+            "Fast model iteration: delivers through short cycles"
+          ],
+          "cons": [
+            "Weekly run stability: frequent changes need validation"
+          ]
+        },
+        {
+          "label": "Waterfall or V-model process",
+          "value_id": "v:40.6",
+          "citations": [],
+          "pros": [
+            "Weekly run stability: defines sequential process stages"
+          ],
+          "cons": [
+            "Fast model iteration: sources reject heavyweight sequencing"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Lean iterative ML development",
+        "value_id": "v:40.1"
+      },
+      "rationale": "Fast model iteration decides the choice: short cycles help the small team move model ideas forward. “MLOps Principles” and “MLOps: Continuous delivery and automation pipelines in machine learning” support iterative delivery; the cost is validating frequent changes against the weekly run.",
+      "consequences": [
+        "Deliver model changes in small increments.",
+        "Keep release checks aligned with the weekly run."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How historical training labels and later corrections are versioned for past-week replay.",
+    "The forecast quality metric and promotion threshold for weekly demand.",
+    "How monitoring signals should combine and what action should follow drift or forecast degradation.",
+    "How the weekly production run is isolated and recovered if a candidate or pipeline change fails."
+  ]
+}

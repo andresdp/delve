@@ -1,0 +1,300 @@
+{
+  "decisions": [
+    {
+      "decision": "Model integration",
+      "context": "Every transaction needs a score before authorization, and auditors need model version and feature lineage. The design space covers integration patterns (d:1).",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Peak availability: scale model service independently",
+            "Auditability: isolate model version per service"
+          ],
+          "cons": [
+            "Low latency: network hop"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Low latency: direct in-process call"
+          ],
+          "cons": [
+            "Peak availability: scale application and model together",
+            "Auditability: model releases coupled to application"
+          ]
+        },
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "Low latency: in-process module call"
+          ],
+          "cons": [
+            "Peak availability: scale application and model together"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "Peak availability decides: a separate model service can scale independently under load. This gives up the lower latency of an in-process call; the checked design point had no warnings, though no sources attested the combination.",
+      "consequences": [
+        "Network call is on the authorization path.",
+        "Model capacity can scale independently."
+      ]
+    },
+    {
+      "decision": "Online score serving",
+      "context": "The score must return within tens of milliseconds, ruling out scheduled batch scoring for the authorization path. The design space distinguishes real-time serving options (d:5).",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Peak availability: distributed service can scale"
+          ],
+          "cons": [
+            "Low latency: network hop"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Low latency: local service call"
+          ],
+          "cons": [
+            "Peak availability: less independent scaling"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Low latency: scheduled batch cannot serve authorization-time scores"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "Peak availability decides in favor of distributed service serving, at the cost of a network hop that consumes latency budget. The checked combination had no warnings, but no sources attested it.",
+      "consequences": [
+        "The online service must fit within the end-to-end latency budget.",
+        "Peak capacity depends on service scaling."
+      ]
+    },
+    {
+      "decision": "Feature persistence and access",
+      "context": "Auditors need to identify the features used for each score. The design space covers feature access and persistence choices (d:4), but does not specify audit record contents.",
+      "drivers": [
+        "Auditability",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Auditability: central feature access point"
+          ],
+          "cons": [
+            "Low latency: feature lookup adds a dependency"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Low latency: direct access to existing stores"
+          ],
+          "cons": [
+            "Auditability: feature lineage may be fragmented"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "Auditability decides: a feature store provides a central point for feature access, at the cost of an additional lookup in the scoring path. This choice appeared in the checked combination, which had no warnings and no attesting sources.",
+      "consequences": [
+        "Feature lookup latency must fit the score deadline.",
+        "Feature values and versions need to be recorded for audit."
+      ]
+    },
+    {
+      "decision": "Model version deployment",
+      "context": "The system must retain which model version produced each score and remain available during peaks. The design space includes single-version deployment, concurrent versions, and rollback (d:10).",
+      "drivers": [
+        "Auditability",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Peak availability: allows recovery to prior version",
+            "Auditability: previous version can be identified"
+          ],
+          "cons": [
+            "Peak availability: switch requires redeployment"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Peak availability: supports concurrent versions"
+          ],
+          "cons": [
+            "Auditability: score-to-version routing must be recorded"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Auditability: one active version to identify"
+          ],
+          "cons": [
+            "Peak availability: no concurrent version during transition"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Peak availability decides: rollback provides a recovery path, while accepting that switching versions takes redeployment. The checked combination had no warnings, but the design space lists no sources attesting it.",
+      "consequences": [
+        "Record the active model version with each score.",
+        "Keep the prior deployable model available for rollback."
+      ]
+    },
+    {
+      "decision": "Production model tracking",
+      "context": "Auditors must later know the model version and features that produced a score. The design space includes tracking model usage, inputs, outputs, interpretability, and fairness (d:22).",
+      "drivers": [
+        "Auditability",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Auditability: tracks usage, inputs, and outputs"
+          ],
+          "cons": [
+            "Peak availability: tracking adds operational dependencies"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Auditability: records system data and predictions"
+          ],
+          "cons": [
+            "Auditability: feature and model lineage not explicit"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Auditability: lacks production records"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "Auditability decides: tracking explicitly includes model usage, inputs, and outputs, at the cost of added operational work. The checked combination had no warnings, but no sources attested it.",
+      "consequences": [
+        "Capture model version and feature inputs with each score.",
+        "Tracking storage and access require operational capacity."
+      ]
+    }
+  ],
+  "uncovered": [
+    "The brief does not specify a numeric latency budget, peak throughput, or availability target.",
+    "The design space does not determine a durable audit event schema, retention period, or tamper controls for linking each score to its exact model version and feature values.",
+    "The design space does not cover payment authorization behavior when scoring is unavailable, including timeout and fallback policy."
+  ]
+}

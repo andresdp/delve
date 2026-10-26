@@ -1,0 +1,166 @@
+{
+  "decisions": [
+    {
+      "decision": "How should incoming documents be scored?",
+      "context": "The system classifies millions of documents per day, and volume changes seasonally. The brief does not specify a response-time target.",
+      "drivers": [
+        "High throughput",
+        "Seasonal volume",
+        "Shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07"
+          ],
+          "pros": [
+            "High throughput: queue distributes scoring load",
+            "Seasonal volume: buffers demand spikes"
+          ],
+          "cons": [
+            "Shared results: requires a separate results store"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08",
+            "s02_p02",
+            "s12_p02"
+          ],
+          "pros": [
+            "High throughput: scores documents in batches",
+            "Shared results: writes results to storage"
+          ],
+          "cons": [
+            "Seasonal volume: batch capacity must be scheduled",
+            "Freshness: results wait for the next run"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-fronted online serving cluster",
+        "value_id": "v:31.1"
+      },
+      "rationale": "High throughput decides the choice: the queue distributes scoring across predictors and absorbs bursts, as described in “Architecting a Machine Learning Pipeline” and “System Architectures for Personalization and Recommendation.” This gives up batch simplicity; the brief does not establish a latency target.",
+      "consequences": [
+        "Operate a queue and scale predictor capacity with backlog.",
+        "Persist results for multiple consuming teams."
+      ]
+    },
+    {
+      "decision": "How should runtime capacity respond to seasonal demand?",
+      "context": "Classification demand varies strongly over the year, so fixed capacity risks either insufficient peak capacity or unused off-peak resources.",
+      "drivers": [
+        "Seasonal volume",
+        "Cost"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s04_p06"
+          ],
+          "pros": [
+            "Seasonal volume: capacity follows workload demand"
+          ],
+          "cons": [
+            "Cost: scaling policy needs tuning"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04",
+            "s13_p09",
+            "s13_p10"
+          ],
+          "pros": [
+            "Cost: removes idle serving capacity"
+          ],
+          "cons": [
+            "Seasonal volume: cold starts may slow resumed scoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Seasonal volume decides the choice: elastic resources adjust to workload demand, as described in “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture.” This gives up some cost simplicity because scaling behavior needs tuning.",
+      "consequences": [
+        "Monitor workload and capacity to tune scaling.",
+        "Peak throughput depends on available infrastructure."
+      ]
+    },
+    {
+      "decision": "How should classification quality drift be detected?",
+      "context": "Operators need to see when classification quality drifts. The design space treats monitoring practices as combinable, so use input drift signals alongside measured prediction quality when labels become available.",
+      "drivers": [
+        "Drift visibility",
+        "Quality feedback"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring + real-time prediction-quality monitoring",
+          "value_id": null,
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03",
+            "s23_p04"
+          ],
+          "pros": [
+            "Drift visibility: flags changing inputs and schemas",
+            "Quality feedback: measures predictions when labels arrive"
+          ],
+          "cons": [
+            "Quality feedback: waits for labeled examples",
+            "Operations: requires monitoring both inputs and predictions"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10",
+            "s21_p07",
+            "s23_p13"
+          ],
+          "pros": [
+            "Operations: minimal monitoring work"
+          ],
+          "cons": [
+            "Drift visibility: no active tracking",
+            "Quality feedback: failures may remain unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring + real-time prediction-quality monitoring",
+        "value_id": null
+      },
+      "rationale": "Drift visibility decides the choice: input monitoring can reveal changes before delayed labels arrive, while prediction-quality monitoring checks outcomes once labels are available. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Machine Learning Monitoring: What It Is, and What We Are Missing” describe these monitoring practices; the trade-off is added monitoring work and delayed quality feedback.",
+      "consequences": [
+        "Retain inputs and predictions for monitoring and later evaluation.",
+        "Define alert thresholds and a response process."
+      ]
+    }
+  ],
+  "uncovered": [
+    "The LLM model, provider, and inference-cost strategy.",
+    "Document ingestion, retries, deduplication, and ordering guarantees.",
+    "The result contract, persistence, and access controls for consuming teams.",
+    "Label collection and evaluation policy for delayed quality measurement.",
+    "Data privacy, retention, and security requirements."
+  ]
+}

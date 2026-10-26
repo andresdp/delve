@@ -1,0 +1,136 @@
+{
+  "decisions": [
+    {
+      "decision": "Score synchronously before authorization",
+      "context": "Authorization needs the fraud score before it can proceed, and the brief sets a tens-of-milliseconds response target.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Continuous peak operation"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous scoring in the authorization path",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: score available before authorization"
+          ],
+          "cons": [
+            "Availability: scorer failure can delay authorization"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring after authorization",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Availability: authorization need not wait for scoring"
+          ],
+          "cons": [
+            "Latency: score arrives too late for the authorization decision"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous scoring in the authorization path",
+        "value_id": null
+      },
+      "rationale": "The latency target decides this choice: authorization must receive the score in time to use it. This makes scorer availability part of the authorization path.",
+      "consequences": [
+        "The authorization flow needs a defined timeout and failure behavior."
+      ]
+    },
+    {
+      "decision": "Scale scoring with stateless replicas",
+      "context": "The service must keep working during peaks while returning scores quickly. Replicas can serve requests independently if model artifacts are available to each one.",
+      "drivers": [
+        "Continuous peak operation",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless scoring replicas",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak operation: add replicas to serve more requests",
+            "Latency: score without a central inference hop"
+          ],
+          "cons": [
+            "Peak operation: model artifacts must be distributed to replicas"
+          ]
+        },
+        {
+          "label": "Single centralized scoring service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: one serving endpoint to manage"
+          ],
+          "cons": [
+            "Peak operation: centralized capacity can become a bottleneck"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless scoring replicas",
+        "value_id": null
+      },
+      "rationale": "Peak operation decides this choice: independent replicas can add serving capacity as load rises. It costs additional work to distribute and keep model artifacts consistent.",
+      "consequences": [
+        "Deployments need to manage replica capacity and artifact consistency."
+      ]
+    },
+    {
+      "decision": "Record score-time model and feature inputs",
+      "context": "Auditors need to establish which model version and which features produced each score. Retaining the score-time inputs preserves that evidence if models or feature sources later change.",
+      "drivers": [
+        "Auditor explainability",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist model version and feature values with each score",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Explainability: retain the inputs used for the score",
+            "Reproducibility: identify the scoring model version"
+          ],
+          "cons": [
+            "Cost: store a record for every score"
+          ]
+        },
+        {
+          "label": "Persist model version and recompute features later",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Cost: store fewer feature values"
+          ],
+          "cons": [
+            "Reproducibility: later feature sources may differ",
+            "Explainability: historical inputs may be unavailable"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist model version and feature values with each score",
+        "value_id": null
+      },
+      "rationale": "Auditor explainability decides this choice: the actual score-time inputs and model version provide direct evidence of how the score was produced. This gives up storage cost and requires managing retained records.",
+      "consequences": [
+        "Each score requires a durable record of its model version and feature values.",
+        "Retention and access controls for these records need definition."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Model family and training approach",
+    "Feature definitions and sources",
+    "Model rollout and rollback policy",
+    "Timeout and fallback behavior when scoring is unavailable",
+    "Record retention period and access controls",
+    "Deployment platform and capacity targets"
+  ]
+}

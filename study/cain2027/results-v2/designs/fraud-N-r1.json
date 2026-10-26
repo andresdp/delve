@@ -1,0 +1,138 @@
+{
+  "decisions": [
+    {
+      "decision": "Score transactions inline before authorization",
+      "context": "Authorization needs a fraud score before it proceeds, and scores must return within tens of milliseconds. An asynchronous scoring path would not meet that sequence.",
+      "drivers": [
+        "Low latency",
+        "Score before authorization"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous scoring request",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Low latency: score available in authorization path"
+          ],
+          "cons": [
+            "Peak availability: scoring delays can delay authorization"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring queue",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: buffers traffic bursts"
+          ],
+          "cons": [
+            "Score before authorization: result may arrive too late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous scoring request",
+        "value_id": null
+      },
+      "rationale": "Scoring before authorization decides the choice. This gives up the queue's ability to absorb bursts, so the synchronous path must be sized and managed for peak traffic.",
+      "consequences": [
+        "Authorization depends on the scoring path's response time.",
+        "The scoring service needs capacity for peak request rates."
+      ]
+    },
+    {
+      "decision": "Scale the scoring service horizontally",
+      "context": "The service must keep working during transaction peaks while meeting a tight response-time target. Multiple serving instances can add capacity and reduce reliance on a single instance.",
+      "drivers": [
+        "Peak availability",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled serving instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Peak availability: capacity can be distributed across instances",
+            "Low latency: concurrent requests handled in parallel"
+          ],
+          "cons": [
+            "Peak availability: instance coordination adds operational complexity"
+          ]
+        },
+        {
+          "label": "Single larger serving instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Low latency: avoids cross-instance coordination"
+          ],
+          "cons": [
+            "Peak availability: one instance limits capacity and creates a failure point"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled serving instances",
+        "value_id": null
+      },
+      "rationale": "Peak availability decides the choice: distributing serving capacity avoids depending on one instance. The trade-off is more deployment and coordination complexity.",
+      "consequences": [
+        "The service must distribute requests across instances.",
+        "Capacity management must account for peak demand."
+      ]
+    },
+    {
+      "decision": "Record model and feature provenance with each score",
+      "context": "Auditors need to know which model version and which features produced each transaction score. That evidence must remain associated with the individual score for later review.",
+      "drivers": [
+        "Audit explainability",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist model version and scoring features per score",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Audit explainability: each score has its model and features",
+            "Reproducibility: scoring inputs can be reviewed later"
+          ],
+          "cons": [
+            "Low latency: persistence adds work to the request path"
+          ]
+        },
+        {
+          "label": "Persist scores and model version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Low latency: stores less data per score"
+          ],
+          "cons": [
+            "Audit explainability: cannot establish which features produced a score",
+            "Reproducibility: original scoring inputs are missing"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist model version and scoring features per score",
+        "value_id": null
+      },
+      "rationale": "Audit explainability decides the choice because the brief specifically requires the features behind each score. This costs additional storage and request-path work.",
+      "consequences": [
+        "Each score record includes its model version and feature values.",
+        "Storage and write volume grow with transaction volume."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Model family, training process, and update cadence",
+    "Feature definitions, sources, and freshness requirements",
+    "Latency target within the stated tens of milliseconds",
+    "Peak traffic volume, availability target, and overload behavior",
+    "Audit record retention, access controls, and data protection",
+    "Deployment environment and model rollout or rollback process"
+  ]
+}

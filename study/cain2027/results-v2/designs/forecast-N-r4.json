@@ -1,0 +1,141 @@
+{
+  "decisions": [
+    {
+      "decision": "How should forecasts be generated?",
+      "context": "Weekly demand must be forecast for each store and product, and the pipeline is owned end to end by a small data science team.",
+      "drivers": [
+        "Weekly run reliability",
+        "Fast model iteration",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "One batch pipeline for training and forecasting",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly run reliability: one scheduled path",
+            "End-to-end ownership: fewer components"
+          ],
+          "cons": [
+            "Fast model iteration: changes can disrupt runs"
+          ]
+        },
+        {
+          "label": "Separate training and forecast pipelines",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly run reliability: isolate forecast execution",
+            "Fast model iteration: train models independently"
+          ],
+          "cons": [
+            "End-to-end ownership: more components to operate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Separate training and forecast pipelines",
+        "value_id": null
+      },
+      "rationale": "Weekly run reliability decides the choice: isolate production forecasting from model development, while accepting extra operational components.",
+      "consequences": [
+        "Training and forecasting need a shared model handoff.",
+        "The small team must maintain two workflows."
+      ]
+    },
+    {
+      "decision": "How should past forecasts be reproduced?",
+      "context": "The system must reproduce forecasts for any past week; doing so requires preserving the inputs and model state used for each run.",
+      "drivers": [
+        "Forecast reproducibility",
+        "Weekly run reliability",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Version data, code, configuration, and model artifacts per run",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Forecast reproducibility: retain complete run inputs",
+            "Weekly run reliability: identifiable artifacts"
+          ],
+          "cons": [
+            "End-to-end ownership: storage and versioning overhead"
+          ]
+        },
+        {
+          "label": "Keep only the latest data and model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "End-to-end ownership: minimal artifact management"
+          ],
+          "cons": [
+            "Forecast reproducibility: past runs cannot be reconstructed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Version data, code, configuration, and model artifacts per run",
+        "value_id": null
+      },
+      "rationale": "Forecast reproducibility decides the choice; retaining each run’s dependencies costs storage and lifecycle management.",
+      "consequences": [
+        "Each run must record immutable input and artifact references.",
+        "Retention policy affects storage needs."
+      ]
+    },
+    {
+      "decision": "How should model ideas reach production?",
+      "context": "The team wants new model ideas in production quickly without breaking the weekly forecast run.",
+      "drivers": [
+        "Weekly run reliability",
+        "Fast model iteration",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Promote models through validation and staged release",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Weekly run reliability: validate before promotion",
+            "Fast model iteration: parallel candidate evaluation"
+          ],
+          "cons": [
+            "Fast model iteration: promotion adds a step"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fast model iteration: shortest path to production"
+          ],
+          "cons": [
+            "Weekly run reliability: unvalidated changes can break runs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Promote models through validation and staged release",
+        "value_id": null
+      },
+      "rationale": "Weekly run reliability is the deciding driver; staged validation costs some release speed but reduces the chance that experiments disrupt the scheduled run.",
+      "consequences": [
+        "A validation and promotion process must be maintained.",
+        "Production needs a known-good model fallback."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast accuracy targets and evaluation metrics",
+    "Data sources, freshness, and quality requirements",
+    "Weekly run deadline and recovery expectations",
+    "Forecast serving or delivery interface",
+    "Compute, storage, and deployment constraints"
+  ]
+}

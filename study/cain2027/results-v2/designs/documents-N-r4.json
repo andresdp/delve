@@ -1,0 +1,215 @@
+{
+  "decisions": [
+    {
+      "decision": "How should classification work scale with demand?",
+      "context": "The system processes millions of incoming documents per day, and volume varies strongly over the year. A queue can absorb bursts and let worker capacity scale with demand.",
+      "drivers": [
+        "High volume: millions per day",
+        "Seasonal demand: strong variation"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous inference API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "High volume: direct request path"
+          ],
+          "cons": [
+            "Seasonal demand: callers face capacity spikes"
+          ]
+        },
+        {
+          "label": "Queue-backed worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Seasonal demand: buffer bursts",
+            "High volume: scale workers horizontally"
+          ],
+          "cons": [
+            "High volume: queue adds processing steps"
+          ]
+        },
+        {
+          "label": "Scheduled bulk batches",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "High volume: efficient bulk processing"
+          ],
+          "cons": [
+            "Seasonal demand: capacity changes less responsively"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-backed worker pool",
+        "value_id": null
+      },
+      "rationale": "Seasonal demand decides the choice: a queue absorbs peaks while workers scale horizontally. This adds a queueing step and can increase time to results.",
+      "consequences": [
+        "Classification becomes asynchronous.",
+        "Workers need scaling and queue monitoring.",
+        "Result latency depends on backlog and capacity."
+      ]
+    },
+    {
+      "decision": "How should classification results reach consuming teams?",
+      "context": "Several teams consume classification results, so each needs a stable way to access them without coupling its workflow directly to the classifier.",
+      "drivers": [
+        "Multiple consumers: several teams",
+        "High volume: millions per day"
+      ],
+      "alternatives": [
+        {
+          "label": "Direct integration from classifier to each team",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Multiple consumers: direct delivery"
+          ],
+          "cons": [
+            "Multiple consumers: integrations multiply with each team"
+          ]
+        },
+        {
+          "label": "Shared results API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Multiple consumers: one stable interface"
+          ],
+          "cons": [
+            "High volume: shared API must handle concurrent reads"
+          ]
+        },
+        {
+          "label": "Shared results store with change events",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Multiple consumers: teams can consume independently",
+            "High volume: decouples reads from inference"
+          ],
+          "cons": [
+            "Multiple consumers: event and store operations add complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared results store with change events",
+        "value_id": null
+      },
+      "rationale": "Multiple consumers decide the choice: a shared store and events let teams integrate independently. Operating both components adds complexity.",
+      "consequences": [
+        "Define a common result schema.",
+        "Consumers need event handling and store access.",
+        "The store and event path need operational ownership."
+      ]
+    },
+    {
+      "decision": "How should the system expose quality drift?",
+      "context": "Operators need to see when classification quality drifts. Input and output metrics can flag changes, while reviewed examples help check whether quality has actually changed.",
+      "drivers": [
+        "Quality drift: operator visibility",
+        "High volume: millions per day"
+      ],
+      "alternatives": [
+        {
+          "label": "Aggregate input and output metrics",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "High volume: inexpensive to compute at scale"
+          ],
+          "cons": [
+            "Quality drift: metrics are indirect quality signals"
+          ]
+        },
+        {
+          "label": "Sampled case review",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quality drift: operators inspect actual classifications"
+          ],
+          "cons": [
+            "High volume: samples cover only a fraction of cases"
+          ]
+        },
+        {
+          "label": "Metrics with sampled case review",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quality drift: combines broad signals with case inspection"
+          ],
+          "cons": [
+            "High volume: review requires sampling and operator effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Metrics with sampled case review",
+        "value_id": null
+      },
+      "rationale": "Operator visibility decides the choice: metrics can surface broad changes and sampled reviews provide case-level evidence. The trade-off is ongoing review effort, with samples unable to represent every case.",
+      "consequences": [
+        "Choose metrics and sampling rules.",
+        "Provide operators with a review workflow.",
+        "Plan for review effort as volume changes."
+      ]
+    },
+    {
+      "decision": "How should model changes be deployed and attributed?",
+      "context": "The system needs to distinguish changes in classification behavior from changes in incoming documents. Recording the model version with each result supports comparisons when quality drift appears.",
+      "drivers": [
+        "Quality drift: operator visibility",
+        "High volume: millions per day"
+      ],
+      "alternatives": [
+        {
+          "label": "Deploy the latest model without per-result versioning",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "High volume: minimal result metadata"
+          ],
+          "cons": [
+            "Quality drift: harder to attribute behavior changes"
+          ]
+        },
+        {
+          "label": "Version models and record version per result",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quality drift: compare results by model version"
+          ],
+          "cons": [
+            "High volume: store and manage version metadata"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Version models and record version per result",
+        "value_id": null
+      },
+      "rationale": "Quality drift visibility decides the choice: per-result versioning supports attribution across model changes. It costs extra metadata storage and model lifecycle management.",
+      "consequences": [
+        "Include model version in stored results.",
+        "Track deployments alongside quality signals.",
+        "Manage version lifecycle and rollback procedures."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Classification result latency target or freshness SLO.",
+    "Cost limits and compute budget.",
+    "Security, privacy, regulatory, and document retention requirements.",
+    "How ground-truth labels are obtained and who reviews sampled cases.",
+    "Required availability, recovery, and data-loss targets.",
+    "Result schema, consumer delivery guarantees, and event retention."
+  ]
+}

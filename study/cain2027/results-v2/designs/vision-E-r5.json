@@ -1,0 +1,418 @@
+{
+  "decisions": [
+    {
+      "decision": "How should predictions be served on production devices?",
+      "context": "Cameras need local inference because production lines often lack network access.",
+      "drivers": [
+        "Offline operation",
+        "Low latency",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Offline operation: serves locally",
+            "Low latency: avoids network round trips"
+          ],
+          "cons": [
+            "Tight budget: adds local service management"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Maintainability: separates serving"
+          ],
+          "cons": [
+            "Offline operation: depends on reachable service",
+            "Tight budget: adds service infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Offline operation decides the choice: local serving keeps inference available without network access. This gives up the separation of a distributed service. The design space has no source passages; this choice is grounded in d:5 and v:5.2.",
+      "consequences": [
+        "Inference runs on each device.",
+        "Device resources must support serving.",
+        "Network outages do not block predictions."
+      ]
+    },
+    {
+      "decision": "How should the model integrate with the camera application?",
+      "context": "The model must run alongside the inspection application on devices with intermittent connectivity.",
+      "drivers": [
+        "Offline operation",
+        "Low latency",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Offline operation: model ships with application",
+            "Low latency: avoids remote calls"
+          ],
+          "cons": [
+            "Maintainability: model and app release together"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Maintainability: separates model service"
+          ],
+          "cons": [
+            "Offline operation: service must be available locally or remotely",
+            "Tight budget: adds service deployment"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in monolith",
+        "value_id": "v:1.2"
+      },
+      "rationale": "Offline operation decides the choice: embedding the model keeps application inference self-contained. This gives up independent model-service releases. The design space has no source passages; this choice is grounded in d:1 and v:1.2.",
+      "consequences": [
+        "The application package includes the model.",
+        "App and model updates are coupled.",
+        "Local deployment stays simple."
+      ]
+    },
+    {
+      "decision": "How should weekly retraining be triggered?",
+      "context": "Newly labelled images arrive for regular retraining, so training should run on a predictable cadence.",
+      "drivers": [
+        "Weekly updates",
+        "Reproducibility",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Weekly updates: matches a regular cadence",
+            "Reproducibility: predictable run timing"
+          ],
+          "cons": [
+            "Tight budget: scheduled runs may occur without new labels"
+          ]
+        },
+        {
+          "label": "On-demand trigger",
+          "value_id": "v:12.1",
+          "citations": [
+            "d:12",
+            "v:12.1"
+          ],
+          "pros": [
+            "Tight budget: run only when requested"
+          ],
+          "cons": [
+            "Weekly updates: requires manual action",
+            "Reproducibility: timing can vary"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "Weekly updates decide the choice: scheduled runs match the stated retraining cadence. This gives up avoiding runs when no new labels are available. The design space has no source passages; this choice is grounded in d:12 and v:12.3.",
+      "consequences": [
+        "A scheduler starts weekly training.",
+        "Training data availability needs checking.",
+        "Runs are easy to anticipate."
+      ]
+    },
+    {
+      "decision": "How should the model be trained?",
+      "context": "The brief specifies weekly retraining from newly labelled images rather than continuous adaptation on the production device.",
+      "drivers": [
+        "Weekly updates",
+        "Reproducibility",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Weekly updates: fits periodic retraining",
+            "Reproducibility: trains from a fixed batch"
+          ],
+          "cons": [
+            "Freshness: labels wait for the next run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Freshness: incorporates data incrementally"
+          ],
+          "cons": [
+            "Reproducibility: model evolves across updates",
+            "Tight budget: may add operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Reproducibility decides the choice: each weekly run can train from a fixed image set. This gives up incorporating labels immediately. The design space has no source passages; this choice is grounded in d:19 and v:19.1.",
+      "consequences": [
+        "Each run produces a discrete model artifact.",
+        "Training can run away from production devices.",
+        "Dataset selection must be recorded."
+      ]
+    },
+    {
+      "decision": "How should training data be versioned?",
+      "context": "Weekly training must be repeatable against specific newly labelled image sets.",
+      "drivers": [
+        "Reproducibility",
+        "Weekly updates",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: identifies training data versions",
+            "Weekly updates: tracks successive image sets"
+          ],
+          "cons": [
+            "Tight budget: adds repository tooling and storage"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Tight budget: avoids versioning infrastructure"
+          ],
+          "cons": [
+            "Reproducibility: cannot reliably identify training set"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducibility decides the choice: versioned data makes weekly training inputs identifiable. This gives up some simplicity and storage budget. The design space has no source passages; this choice is grounded in d:11 and v:11.1.",
+      "consequences": [
+        "Each model release links to a dataset version.",
+        "Versioned images consume storage.",
+        "Training runs can be traced to inputs."
+      ]
+    },
+    {
+      "decision": "How should models be delivered to devices?",
+      "context": "A small team must push weekly model updates to production devices.",
+      "drivers": [
+        "Weekly updates",
+        "Tight budget",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Weekly updates: automates recurring delivery",
+            "Reproducibility: standardizes deployment steps"
+          ],
+          "cons": [
+            "Tight budget: requires pipeline setup and upkeep"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Tight budget: small initial setup"
+          ],
+          "cons": [
+            "Weekly updates: manual execution adds effort",
+            "Reproducibility: steps can drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Weekly updates decide the choice: a pipeline reduces repeated delivery work for the small team. This gives up the lower initial setup cost of scripts. The design space has no source passages; this choice is grounded in d:8 and v:8.1.",
+      "consequences": [
+        "Deployment steps are automated.",
+        "Pipeline maintenance is required.",
+        "Device connectivity and update windows need coordination."
+      ]
+    },
+    {
+      "decision": "What should be tested before model release?",
+      "context": "A newly trained model is pushed to production each week, making a quality gate important before deployment.",
+      "drivers": [
+        "Reproducibility",
+        "Weekly updates",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "Reproducibility: applies a quality gate to each model",
+            "Weekly updates: checks every trained release"
+          ],
+          "cons": [
+            "Tight budget: requires labelled evaluation data and compute"
+          ]
+        },
+        {
+          "label": "No testing",
+          "value_id": "v:26.14",
+          "citations": [
+            "d:26",
+            "v:26.14"
+          ],
+          "pros": [
+            "Tight budget: no test infrastructure"
+          ],
+          "cons": [
+            "Weekly updates: defects can ship with each release",
+            "Reproducibility: no consistent quality gate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Testing trained model quality",
+        "value_id": "v:26.9"
+      },
+      "rationale": "Weekly updates decide the choice: test every trained model before it reaches devices. This gives up some compute and evaluation-data budget. The design space has no source passages; this choice is grounded in d:26 and v:26.9.",
+      "consequences": [
+        "Each release requires an evaluation set.",
+        "Quality thresholds must be defined.",
+        "Failed candidates need a release hold."
+      ]
+    },
+    {
+      "decision": "How should model versions be deployed and recovered?",
+      "context": "Weekly device updates can introduce regressions, so deployment needs a recovery path.",
+      "drivers": [
+        "Offline operation",
+        "Weekly updates",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Offline operation: previous artifact can remain on device",
+            "Weekly updates: supports recovery after a bad release"
+          ],
+          "cons": [
+            "Tight budget: retains prior model artifacts"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Tight budget: stores only the current model"
+          ],
+          "cons": [
+            "Weekly updates: recovery path is unspecified",
+            "Offline operation: remote recovery may be unavailable"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Offline operation decides the choice: retaining a prior model allows recovery without depending on network access. This gives up device storage for previous artifacts. The design space has no source passages; this choice is grounded in d:10 and v:10.2.",
+      "consequences": [
+        "Devices retain a known prior model.",
+        "Deployment tracks current and previous versions.",
+        "Rollback policy must define when to switch."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device update transport, synchronization, and recovery when devices reconnect.",
+    "Model and dataset artifact storage and distribution topology.",
+    "Device hardware capacity, model size, and inference latency targets.",
+    "Security and integrity checks for model artifacts.",
+    "Monitoring and reporting from intermittently connected devices."
+  ]
+}

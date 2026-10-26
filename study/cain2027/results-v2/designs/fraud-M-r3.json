@@ -1,0 +1,335 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction serving mode",
+      "context": "Every transaction must receive its score before authorization, so predictions must be computed during the request. The scoring path also needs capacity for peak traffic.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Availability: peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s02_p13",
+            "s04_p10"
+          ],
+          "pros": [
+            "Latency: scores current transaction context",
+            "Availability: supports request-time scoring"
+          ],
+          "cons": [
+            "Availability: each request depends on live serving capacity"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07"
+          ],
+          "pros": [
+            "Availability: distributes work across predictors",
+            "Latency: supports low-latency serving"
+          ],
+          "cons": [
+            "Latency: queueing can add delay"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08",
+            "s02_p12",
+            "s12_p02"
+          ],
+          "pros": [
+            "Availability: scores large sets on a schedule",
+            "Latency: avoids request-time model computation"
+          ],
+          "cons": [
+            "Latency: cannot score each transaction before authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online computation serving",
+        "value_id": "v:31.5"
+      },
+      "rationale": "The authorization deadline makes request-time scoring decisive; scheduled batch scoring cannot meet it. This gives up the decoupling batch processing offers and requires the online path to remain available.",
+      "consequences": [
+        "Keep prediction computation on the authorization path.",
+        "Live serving capacity must be available when transactions arrive."
+      ]
+    },
+    {
+      "decision": "Serving interface",
+      "context": "The payments authorization flow needs to submit transaction features and receive a fraud score synchronously. The interface must fit within the brief’s short response window.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Availability: peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s02_p11"
+          ],
+          "pros": [
+            "Availability: separates and independently deploys prediction service",
+            "Latency: direct request and response"
+          ],
+          "cons": [
+            "Latency: service and network calls add overhead"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s16_p03",
+            "s16_p04"
+          ],
+          "pros": [
+            "Latency: direct service-to-service interface",
+            "Availability: independently deployed model"
+          ],
+          "cons": [
+            "Availability: requires compatible clients and service setup"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [
+            "s10_p03",
+            "s10_p04"
+          ],
+          "pros": [
+            "Availability: portable model representation",
+            "Latency: supports online scoring"
+          ],
+          "cons": [
+            "Availability: requires compatible PMML tooling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "The synchronous authorization flow makes a direct API request the clearest fit, and REST prediction microservices are described in “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2.” We accept network-call overhead to keep the model independently deployable.",
+      "consequences": [
+        "Authorization depends on the prediction service response.",
+        "The API contract must carry transaction inputs and return a score."
+      ]
+    },
+    {
+      "decision": "Feature serving storage",
+      "context": "Scoring needs features available within tens of milliseconds, while later audits require the feature values associated with a score to remain available. Serving and durable storage must support both needs.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Auditability: feature traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Online/offline feature-store architecture",
+          "value_id": "v:43.4",
+          "citations": [
+            "s06_p09",
+            "s21_p09"
+          ],
+          "pros": [
+            "Latency: online store supports fast inference reads",
+            "Auditability: durable store retains features"
+          ],
+          "cons": [
+            "Availability: requires keeping complementary stores aligned"
+          ]
+        },
+        {
+          "label": "Online feature-serving pipeline",
+          "value_id": "v:43.2",
+          "citations": [
+            "s06_p09"
+          ],
+          "pros": [
+            "Latency: materializes features for online inference",
+            "Availability: shared preparation pipeline"
+          ],
+          "cons": [
+            "Auditability: durable feature history is not explicit"
+          ]
+        },
+        {
+          "label": "Central analytical ML data platform",
+          "value_id": "v:43.1",
+          "citations": [
+            "s01_p05",
+            "s01_p06",
+            "s09_p08"
+          ],
+          "pros": [
+            "Auditability: centralizes prepared data",
+            "Availability: supports downstream ML pipelines"
+          ],
+          "cons": [
+            "Latency: analytical storage may not serve tight online reads"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online/offline feature-store architecture",
+        "value_id": "v:43.4"
+      },
+      "rationale": "The latency deadline and need to retain features both decide this choice: complementary online and durable stores address the two access patterns. We accept the operational cost of keeping the stores aligned; “MLOps: Continuous delivery and automation pipelines in machine learning” and “MLOps: What It Is, Why it Matters, and How To Implement It (from a Data Scientist Perspective)” describe this architecture.",
+      "consequences": [
+        "Maintain online and durable feature representations.",
+        "Record the feature values used for each scored transaction."
+      ]
+    },
+    {
+      "decision": "ML lifecycle traceability",
+      "context": "Auditors need to identify the model version and features behind each score. This requires linking deployed artifacts and datasets to the model lifecycle metadata.",
+      "drivers": [
+        "Auditability: model version",
+        "Auditability: feature traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04"
+          ],
+          "pros": [
+            "Auditability: links artifacts, runs, metadata, and datasets",
+            "Reproducibility: tracks lifecycle context"
+          ],
+          "cons": [
+            "Availability: requires lifecycle metadata capture and governance"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s12_p05",
+            "s19_p05"
+          ],
+          "pros": [
+            "Auditability: identifies managed artifact versions",
+            "Reproducibility: tracks artifact dependencies"
+          ],
+          "cons": [
+            "Auditability: does not alone link features and scores"
+          ]
+        },
+        {
+          "label": "Data-to-model lineage management",
+          "value_id": "v:20.4",
+          "citations": [
+            "s22_p06",
+            "s22_p08"
+          ],
+          "pros": [
+            "Auditability: connects dataset versions to model metadata",
+            "Reproducibility: preserves training context"
+          ],
+          "cons": [
+            "Auditability: does not alone establish per-score feature values"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "The requirement to identify both the model version and features decides in favor of lifecycle-wide traceability over artifact-only versioning. We accept broader metadata and governance work; “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” and “MLOps Principles” describe integrated lifecycle tracking.",
+      "consequences": [
+        "Capture model, run, dataset, and deployment metadata.",
+        "Associate score records with the deployed model version and feature snapshot."
+      ]
+    },
+    {
+      "decision": "Peak serving capacity",
+      "context": "Transaction scoring must keep working through peaks without allowing model computation to miss its short deadline. Serving capacity therefore needs to respond to changing demand.",
+      "drivers": [
+        "Availability: peak traffic",
+        "Latency: tens of milliseconds"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s04_p06"
+          ],
+          "pros": [
+            "Availability: scales compute with demand",
+            "Latency: adds capacity during peaks"
+          ],
+          "cons": [
+            "Availability: scaling may lag sudden demand changes"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04",
+            "s13_p09"
+          ],
+          "pros": [
+            "Cost: removes idle serving capacity"
+          ],
+          "cons": [
+            "Latency: startup delay risks the scoring deadline",
+            "Availability: no warm capacity at low demand"
+          ]
+        },
+        {
+          "label": "Replicated mutable model instances",
+          "value_id": "v:26.4",
+          "citations": [
+            "s12_p07"
+          ],
+          "pros": [
+            "Availability: serves from multiple instances",
+            "Latency: distributes prediction load"
+          ],
+          "cons": [
+            "Availability: mutable replicas require coordination"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Peak availability decides the choice: elastic scaling can add capacity with demand, while scale-to-zero risks startup delay against the latency deadline. We accept some unused warm capacity; “Productionizing Machine Learning with a Microservices Architecture” discusses scaling resources with workload demand.",
+      "consequences": [
+        "Set scaling limits and observe peak resource use.",
+        "Keep sufficient warm capacity to protect the response deadline."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Per-score audit record format, retention period, and access controls.",
+    "Fraud-specific fallback behavior when features or model serving are unavailable.",
+    "Feature-store consistency and synchronization guarantees."
+  ]
+}

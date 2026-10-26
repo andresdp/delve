@@ -1,0 +1,176 @@
+{
+  "decisions": [
+    {
+      "decision": "How should transaction scores be served?",
+      "context": "Each transaction needs a fraud score before authorization, within tens of milliseconds. The serving path must also keep working during demand peaks.",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Peak availability",
+        "Before authorization"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07",
+            "s19_p15"
+          ],
+          "pros": [
+            "Online scoring",
+            "Load balancing",
+            "Low latency"
+          ],
+          "cons": [
+            "Queue adds a component",
+            "Requires capacity management"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08",
+            "s02_p02",
+            "s02_p12",
+            "s02_p13",
+            "s12_p02",
+            "s15_p04",
+            "s15_p05",
+            "s19_p14",
+            "s19_p16",
+            "s25_p06"
+          ],
+          "pros": [
+            "Scores computed in advance",
+            "Simple result delivery"
+          ],
+          "cons": [
+            "Cannot score each live transaction",
+            "Results may be stale"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-fronted online serving cluster",
+        "value_id": "v:31.1"
+      },
+      "rationale": "Online scoring fits the authorization path, and a queue-fronted cluster is described as supporting load balancing and low latency. Practitioner sources include “Architecting a Machine Learning Pipeline” and “Three Levels of ML Software”; the batch alternative does not fit per-transaction scoring before authorization.",
+      "consequences": [
+        "Keep predictors available for online requests.",
+        "Operate the queue and predictor capacity through peaks."
+      ]
+    },
+    {
+      "decision": "How should serving scale and communicate?",
+      "context": "Peak demand requires the scoring service to absorb changing load without depending on one serving instance. The checked design point pairs stateless horizontal scaling with a prediction service interface.",
+      "drivers": [
+        "Peak availability",
+        "Changing demand",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless horizontally scaled serving",
+          "value_id": "v:25.1",
+          "citations": [
+            "s01_p02",
+            "s04_p01"
+          ],
+          "pros": [
+            "Independent requests",
+            "Scale by adding replicas"
+          ],
+          "cons": [
+            "Requires external handling of shared state",
+            "Replica capacity must be managed"
+          ]
+        },
+        {
+          "label": "Asynchronous message-driven serving",
+          "value_id": "v:25.2",
+          "citations": [],
+          "pros": [
+            "Decouples components",
+            "Non-blocking communication"
+          ],
+          "cons": [
+            "Queue processing adds complexity",
+            "Synchronous authorization latency may be difficult"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless horizontally scaled serving",
+        "value_id": "v:25.1"
+      },
+      "rationale": "Independent stateless requests support horizontal scaling and fit the peak-availability driver. The checked point combined this with the queue-fronted online cluster and REST interface; it returned no warnings, though no sources attested to the full combination. “How to power up your product by machine learning with python microservice” supports the stateless option.",
+      "consequences": [
+        "Keep request state outside serving replicas.",
+        "Scale replicas to match incoming demand."
+      ]
+    },
+    {
+      "decision": "How should model versions and scoring inputs be traceable?",
+      "context": "Auditors need to determine which model version and features produced each score. The system therefore needs lifecycle metadata that connects deployed models to their training and data context.",
+      "drivers": [
+        "Auditor traceability",
+        "Model version",
+        "Feature provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04",
+            "s22_p06",
+            "s22_p08",
+            "s22_p13",
+            "s22_p17"
+          ],
+          "pros": [
+            "Links artifacts and datasets",
+            "Tracks runs and deployment health"
+          ],
+          "cons": [
+            "Requires lifecycle metadata",
+            "Adds governance work"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Versions models and dependencies",
+            "Supports reproducible deployment"
+          ],
+          "cons": [
+            "Narrower audit trail",
+            "Does not alone link features to scores"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "The broader traceability option covers artifacts, runs, metadata, deployment health, and datasets, making it a better fit for auditor review of model and feature provenance. “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” and “MLOps Principles” support this approach.",
+      "consequences": [
+        "Record model version and feature context for each score.",
+        "Maintain links between deployed artifacts, training runs, and datasets."
+      ]
+    }
+  ],
+  "uncovered": [
+    "The design space does not establish how to capture and retain per-transaction feature values or feature snapshots for audit.",
+    "The brief does not specify scoring failure behavior, such as whether to decline, allow, or route transactions for review when scoring is unavailable.",
+    "The brief does not specify the fraud model family, decision thresholds, or how delayed fraud labels should affect monitoring and retraining."
+  ]
+}

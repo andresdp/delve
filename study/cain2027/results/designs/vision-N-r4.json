@@ -1,0 +1,254 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should defect inference run?",
+      "context": "Production cameras inspect defects, often without network access. Results must remain available during outages.",
+      "drivers": [
+        "intermittent connectivity",
+        "production-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "works offline",
+            "local response"
+          ],
+          "cons": [
+            "device compute limits",
+            "fleet deployment effort"
+          ]
+        },
+        {
+          "label": "Central server inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "centralized compute",
+            "simpler model management"
+          ],
+          "cons": [
+            "requires connectivity",
+            "network latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "The brief places the model on cameras and notes frequent lack of network access, favoring local inference.",
+      "consequences": [
+        "Each device needs compatible inference software and compute.",
+        "Inspection can continue during network outages."
+      ]
+    },
+    {
+      "decision": "How should weekly model updates reach devices?",
+      "context": "Retraining happens weekly, and the resulting model must be pushed to devices that may be offline. Update delivery needs to tolerate delayed connectivity.",
+      "drivers": [
+        "weekly retraining",
+        "offline devices",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Device-initiated download",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "uses outbound connectivity",
+            "simple central hosting"
+          ],
+          "cons": [
+            "updates wait for reconnection",
+            "device polling overhead"
+          ]
+        },
+        {
+          "label": "Central push to devices",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "prompt delivery when reachable",
+            "central orchestration"
+          ],
+          "cons": [
+            "requires reachable devices",
+            "more infrastructure"
+          ]
+        },
+        {
+          "label": "Removable-media distribution",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "works without network",
+            "low server needs"
+          ],
+          "cons": [
+            "manual handling",
+            "slower fleet rollout"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Device-initiated download",
+        "value_id": null
+      },
+      "rationale": "It supports unattended delivery when a device reconnects and avoids requiring every camera to be continuously reachable.",
+      "consequences": [
+        "Offline devices may miss a weekly update until they reconnect.",
+        "A central service must host versioned model packages."
+      ]
+    },
+    {
+      "decision": "How should model updates be activated?",
+      "context": "A newly retrained model is distributed to production devices, where a faulty or incompatible update could disrupt inspection. The brief does not specify a validation or recovery process.",
+      "drivers": [
+        "production inspection",
+        "weekly model changes",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Replace model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "simple implementation",
+            "low storage use"
+          ],
+          "cons": [
+            "no quick rollback",
+            "interrupted update risk"
+          ]
+        },
+        {
+          "label": "Stage, validate, and retain prior model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "rollback path",
+            "checks before activation"
+          ],
+          "cons": [
+            "extra device storage",
+            "more update logic"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stage, validate, and retain prior model",
+        "value_id": null
+      },
+      "rationale": "Keeping the previous model available limits the impact of a failed update while allowing the weekly release cadence.",
+      "consequences": [
+        "Devices need storage for at least two model versions.",
+        "Update software must validate packages and support rollback."
+      ]
+    },
+    {
+      "decision": "Where should model training run?",
+      "context": "The model is retrained weekly from newly labelled images, while inference runs on cameras. The brief gives no indication that training must happen on the production devices.",
+      "drivers": [
+        "weekly retraining",
+        "small team",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Central training pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "shared compute",
+            "consistent process"
+          ],
+          "cons": [
+            "training infrastructure cost",
+            "image collection needed"
+          ]
+        },
+        {
+          "label": "Train on production devices",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "local data access",
+            "no central training service"
+          ],
+          "cons": [
+            "device resource contention",
+            "complex fleet coordination"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Central training pipeline",
+        "value_id": null
+      },
+      "rationale": "A shared pipeline fits weekly retraining better than coordinating training across production cameras, though its hosting details remain open.",
+      "consequences": [
+        "Newly labelled images must be available to the training pipeline.",
+        "Training requires some centralized compute and storage."
+      ]
+    },
+    {
+      "decision": "How should model packages be versioned?",
+      "context": "Weekly retraining produces successive models that must be pushed across an intermittently connected fleet. Devices and operators need to identify which model is installed.",
+      "drivers": [
+        "weekly releases",
+        "fleet updates",
+        "offline operation"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned, immutable model packages",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "traceable releases",
+            "reproducible deployment"
+          ],
+          "cons": [
+            "package registry needed",
+            "version retention cost"
+          ]
+        },
+        {
+          "label": "Overwrite a single model artifact",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "simple storage",
+            "simple naming"
+          ],
+          "cons": [
+            "weak traceability",
+            "rollback difficulty"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned, immutable model packages",
+        "value_id": null
+      },
+      "rationale": "Immutable versions make delayed device updates and rollback manageable across weekly releases.",
+      "consequences": [
+        "A registry or equivalent storage must retain package versions.",
+        "Devices need a way to report their installed version."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Camera hardware, operating system, and supported inference runtime.",
+    "Model architecture, accuracy targets, and acceptance criteria.",
+    "How labelled images are collected, transferred, stored, and governed.",
+    "Update authentication, integrity checks, and authorization.",
+    "Fleet size, rollout rings, monitoring, and update success criteria.",
+    "Training compute, package hosting, and infrastructure budget limits."
+  ]
+}

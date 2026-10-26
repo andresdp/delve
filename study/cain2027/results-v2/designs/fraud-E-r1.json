@@ -1,0 +1,409 @@
+{
+  "decisions": [
+    {
+      "decision": "How to integrate the model?",
+      "context": "Each transaction needs a score before authorization, so the application needs an online model interface. The design space includes service-based and in-application integration patterns (d:1).",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Peak availability: scale service independently"
+          ],
+          "cons": [
+            "Latency: network hop"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Latency: in-process call"
+          ],
+          "cons": [
+            "Peak availability: scales with application"
+          ]
+        },
+        {
+          "label": "Event-driven model as a service",
+          "value_id": "v:1.5",
+          "citations": [
+            "d:1",
+            "v:1.5"
+          ],
+          "pros": [
+            "Peak availability: decoupled processing"
+          ],
+          "cons": [
+            "Latency: asynchronous response path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "Peak availability decides the choice: a separately scalable service isolates scoring capacity, at the cost of a network hop that must fit the latency budget.",
+      "consequences": [
+        "Operate scoring capacity independently.",
+        "Keep the synchronous request path within the latency budget."
+      ]
+    },
+    {
+      "decision": "How to serve scores?",
+      "context": "The authorization flow needs a transaction score in real time, making online serving necessary (d:5).",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Peak availability: distributed service"
+          ],
+          "cons": [
+            "Latency: remote call overhead"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Latency: local call"
+          ],
+          "cons": [
+            "Peak availability: shares local capacity"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Peak availability: scheduled workload"
+          ],
+          "cons": [
+            "Latency: no immediate score"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "Peak availability decides the choice: distributed serving can scale for transaction peaks; the cost is remote-call overhead against the latency target.",
+      "consequences": [
+        "Provision and scale serving capacity for peaks.",
+        "Measure request latency across the network boundary."
+      ]
+    },
+    {
+      "decision": "How to ingest and process transaction data?",
+      "context": "Fraud scoring occurs on each transaction, so fresh data must be available on the online path (d:7, d:15).",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Streamed ingestion with real-time processing",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1",
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Latency: continuously updated inputs"
+          ],
+          "cons": [
+            "Peak availability: stream processing adds operational load"
+          ]
+        },
+        {
+          "label": "Batch ingestion with batch processing",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3",
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Peak availability: process off the request path"
+          ],
+          "cons": [
+            "Latency: data may be stale"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Streamed ingestion with real-time processing",
+        "value_id": "v:7.1"
+      },
+      "rationale": "Tens-of-ms scoring on current transactions decides the choice: streaming keeps inputs fresh, at the cost of additional processing operations. The selected point pairs streamed ingestion with real-time processing (v:15.2).",
+      "consequences": [
+        "Operate continuous ingestion and processing.",
+        "Keep feature computation off the critical scoring path where possible."
+      ]
+    },
+    {
+      "decision": "How to persist and provide access to features?",
+      "context": "The scorer needs transaction features during the online request, and auditors need to know which features contributed to a score (d:4, d:22).",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Audit traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Latency: dedicated feature access"
+          ],
+          "cons": [
+            "Audit traceability: requires recorded feature references"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Audit traceability: use existing storage"
+          ],
+          "cons": [
+            "Latency: access may vary across stores"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "Tens-of-ms latency decides the choice: a feature store gives the serving path a focused feature access pattern; it still requires recording the feature values or references for each score.",
+      "consequences": [
+        "Design online feature access for the latency budget.",
+        "Capture the features used with each scored transaction."
+      ]
+    },
+    {
+      "decision": "How to track model versions and scoring inputs?",
+      "context": "Auditors must be able to reconstruct which model version and features produced a score, so production records must link predictions to their inputs and model identity (d:22).",
+      "drivers": [
+        "Audit traceability",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Audit traceability: tracks inputs and outputs"
+          ],
+          "cons": [
+            "Latency: recording adds work to the request path"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Audit traceability: records data and predictions"
+          ],
+          "cons": [
+            "Reproducibility: may omit model usage details"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Audit traceability: no production record"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "Audit traceability decides the choice: the design space describes tracking inputs, outputs, and model usage; recording this context costs storage and processing.",
+      "consequences": [
+        "Retain model identity and scoring inputs with each prediction.",
+        "Set retention and access rules for audit records."
+      ]
+    },
+    {
+      "decision": "How to manage model versions in production?",
+      "context": "Auditors need the model version for every score, and production must remain available while versions change (d:10).",
+      "drivers": [
+        "Audit traceability",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Audit traceability: one active version"
+          ],
+          "cons": [
+            "Peak availability: rollout may require a switch"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Peak availability: versions can coexist"
+          ],
+          "cons": [
+            "Audit traceability: route and record version per score"
+          ]
+        },
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Peak availability: restore prior version"
+          ],
+          "cons": [
+            "Audit traceability: preserve version history"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Peak availability decides the choice: rollback provides a recovery path after a bad release; preserving the version-to-score history adds operational recordkeeping.",
+      "consequences": [
+        "Maintain a deployable previous model version.",
+        "Record the active model version for each score."
+      ]
+    },
+    {
+      "decision": "How to version data?",
+      "context": "Reproducing an audited score depends on identifying the data and features used during model development and production (d:11).",
+      "drivers": [
+        "Reproducibility",
+        "Audit traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: explicit data versions"
+          ],
+          "cons": [
+            "Audit traceability: repository requires management"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Reproducibility: versioned with code"
+          ],
+          "cons": [
+            "Audit traceability: large data handling may be constrained"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Reproducibility: inputs may not be recoverable"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducibility decides the choice: explicit data versions support repeatable model builds; operating a separate repository adds management cost.",
+      "consequences": [
+        "Keep data versions linked to model releases.",
+        "Retain the feature inputs or references needed to reconstruct a score."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Specific latency and availability targets, peak transaction volume, and failure behavior.",
+    "Feature definitions, storage retention, and secure handling of payment data.",
+    "Model training, validation thresholds, approval controls, and release cadence.",
+    "Audit record schema, retention duration, access controls, and exact score reconstruction method."
+  ]
+}

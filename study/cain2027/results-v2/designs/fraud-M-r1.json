@@ -1,0 +1,208 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction mode",
+      "context": "Every card must be scored before authorization, so predictions must be computed during the transaction request.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Availability: peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s02_p13",
+            "s04_p10"
+          ],
+          "pros": [
+            "Latency: scores current request context"
+          ],
+          "cons": [
+            "Availability: depends on live serving path"
+          ]
+        },
+        {
+          "label": "Precomputed offline serving",
+          "value_id": "v:31.6",
+          "citations": [
+            "s02_p13",
+            "s12_p02",
+            "s19_p08"
+          ],
+          "pros": [
+            "Availability: prepared results can be served quickly"
+          ],
+          "cons": [
+            "Latency: may miss the transaction's current context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online computation serving",
+        "value_id": "v:31.5"
+      },
+      "rationale": "Online computation best serves the required per-transaction decision within tens of milliseconds; it gives up the simpler, prepared path of offline scoring. The sources “Architecting a Machine Learning Pipeline” and “System Architectures for Personalization and Recommendation” describe online and precomputed approaches.",
+      "consequences": [
+        "Serve each transaction on a live scoring path.",
+        "Keep feature retrieval and model execution within the latency budget."
+      ]
+    },
+    {
+      "decision": "Scoring interface",
+      "context": "The payment authorization flow needs a request-response interface to obtain a fraud score. The brief does not specify a protocol.",
+      "drivers": [
+        "Latency: tens of milliseconds",
+        "Availability: peaks"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s10_p03",
+            "s19_p08"
+          ],
+          "pros": [
+            "Availability: API service can be independently deployed"
+          ],
+          "cons": [
+            "Latency: request and serialization overhead"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s19_p14",
+            "s21_p10"
+          ],
+          "pros": [
+            "Latency: compact service-to-service interface"
+          ],
+          "cons": [
+            "Availability: requires compatible client integration"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "The brief prioritizes latency but sets no protocol constraint; REST is supported across more practitioner sources and fits the online service choice. I accept possible protocol overhead and would need to validate it against the tens-of-milliseconds target. “Three Levels of ML Software” and “Architecting a Machine Learning System for Risk” discuss REST prediction services.",
+      "consequences": [
+        "Integrate authorization through a prediction API.",
+        "Measure end-to-end request latency, including feature access."
+      ]
+    },
+    {
+      "decision": "Serving capacity under peaks",
+      "context": "The scoring service must continue working as transaction volume rises. The brief gives no traffic profile or cost target.",
+      "drivers": [
+        "Availability: peaks",
+        "Latency: tens of milliseconds"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s13_p09",
+            "s21_p15"
+          ],
+          "pros": [
+            "Availability: capacity follows workload demand"
+          ],
+          "cons": [
+            "Latency: scale-up may lag sudden spikes"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04",
+            "s13_p09"
+          ],
+          "pros": [
+            "Cost: avoids idle serving capacity"
+          ],
+          "cons": [
+            "Latency: cold start can delay scoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Peak availability and low latency decide the choice: elastic capacity can meet changing load, while scale-to-zero risks startup delay. That gives up some potential idle-capacity savings. “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” describe elastic scaling.",
+      "consequences": [
+        "Maintain scaling headroom for sudden peaks.",
+        "Tune scaling behavior against observed latency and demand."
+      ]
+    },
+    {
+      "decision": "Model and feature audit trail",
+      "context": "Auditors must later determine which model version and features produced each score. The brief does not specify the retention period or audit format.",
+      "drivers": [
+        "Auditability: model version",
+        "Auditability: features used"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04",
+            "s22_p06"
+          ],
+          "pros": [
+            "Auditability: links datasets, runs, artifacts, and deployment metadata"
+          ],
+          "cons": [
+            "Latency: recording metadata adds operational work"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s22_p03"
+          ],
+          "pros": [
+            "Auditability: identifies managed model artifacts"
+          ],
+          "cons": [
+            "Auditability: does not alone link feature inputs and training context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "Auditability decides the choice: the comprehensive approach links datasets, training runs, artifacts, and deployment metadata, while artifact version control alone leaves gaps in the requested feature-to-score history. It entails more metadata management. “Continuous Intelligence” and “MLOps Principles” describe lifecycle traceability.",
+      "consequences": [
+        "Record the model and feature context for each scored transaction.",
+        "Retain linked dataset, training, and deployment metadata for later review."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Model family and fraud decision threshold; the brief does not specify accuracy targets, error costs, or authorization policy.",
+    "Feature retrieval and storage design, including online/offline feature consistency.",
+    "Prediction fallback behavior when the model or feature dependencies are unavailable.",
+    "Monitoring and alerting thresholds, retraining triggers, and model promotion controls.",
+    "Audit record retention duration, access controls, and privacy requirements.",
+    "Concrete protocol choice, traffic profile, deployment infrastructure, and latency measurement target within the stated tens of milliseconds."
+  ]
+}

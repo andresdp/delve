@@ -1,0 +1,362 @@
+{
+  "decisions": [
+    {
+      "decision": "Version input data for reproducible forecasts",
+      "context": "Past weekly forecasts must be reproducible. The design space offers repository based data versioning and alternatives without data versioning (d:11).",
+      "drivers": [
+        "Reproduce past weeks",
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: records data versions"
+          ],
+          "cons": [
+            "Delivery speed: adds versioning work"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Reproducibility: tracks data with code"
+          ],
+          "cons": [
+            "Delivery speed: adds repository workflow"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Delivery speed: no versioning setup"
+          ],
+          "cons": [
+            "Reproducibility: past inputs may be unavailable"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducing a past week is the deciding driver, so retain explicit data versions despite the added workflow. The design point combining this with model quality testing, rollback, and scheduled runs returned no warnings, but no attesting sources.",
+      "consequences": [
+        "Record the data version used for each forecast run.",
+        "Maintain storage and retrieval for historical data versions."
+      ]
+    },
+    {
+      "decision": "What to test before accepting a model",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. The design space includes model quality tests and no testing (d:26).",
+      "drivers": [
+        "Protect weekly run",
+        "Production speed"
+      ],
+      "alternatives": [
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "Protect weekly run: checks model quality"
+          ],
+          "cons": [
+            "Production speed: adds evaluation work"
+          ]
+        },
+        {
+          "label": "Unit testing feature engineering logic",
+          "value_id": "v:26.6",
+          "citations": [
+            "d:26",
+            "v:26.6"
+          ],
+          "pros": [
+            "Protect weekly run: catches feature logic errors"
+          ],
+          "cons": [
+            "Production speed: requires maintained tests"
+          ]
+        },
+        {
+          "label": "No testing",
+          "value_id": "v:26.14",
+          "citations": [
+            "d:26",
+            "v:26.14"
+          ],
+          "pros": [
+            "Production speed: no test delay"
+          ],
+          "cons": [
+            "Protect weekly run: regressions may pass unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Testing trained model quality",
+        "value_id": "v:26.9"
+      },
+      "rationale": "Protecting the weekly run decides the choice: evaluate candidate model quality before release, accepting added evaluation work. The design point returned no warnings, while the rival combination with no testing did too; neither point had attesting sources.",
+      "consequences": [
+        "Define quality checks for candidate forecasts before release.",
+        "Account for evaluation time in the model delivery workflow."
+      ]
+    },
+    {
+      "decision": "How to roll out and recover a model",
+      "context": "A new model must reach production without disrupting the weekly forecast. The design space considers rollback, multiple production versions, and a single production model (d:10).",
+      "drivers": [
+        "Protect weekly run",
+        "Production speed"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Protect weekly run: permits recovery"
+          ],
+          "cons": [
+            "Production speed: rollback needs a release step"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Production speed: supports concurrent versions"
+          ],
+          "cons": [
+            "Protect weekly run: increases operational complexity"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Protect weekly run: simpler production state"
+          ],
+          "cons": [
+            "Production speed: less room for gradual rollout"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Protecting the weekly run decides the choice: make recovery to a known model version part of deployment, at the cost of a rollback step. The design point returned no warnings; its rival using a single production model also returned no warnings, and neither had attesting sources.",
+      "consequences": [
+        "Keep the previous model version available for recovery.",
+        "Include rollback in the release procedure."
+      ]
+    },
+    {
+      "decision": "How to trigger the forecast pipeline",
+      "context": "Demand is forecast weekly, and changes should not break that run. The design space includes scheduled and commit triggered pipeline runs (d:12).",
+      "drivers": [
+        "Protect weekly run",
+        "Production speed"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Protect weekly run: supports weekly cadence"
+          ],
+          "cons": [
+            "Production speed: experiments may await schedule"
+          ]
+        },
+        {
+          "label": "On-commit trigger",
+          "value_id": "v:12.2",
+          "citations": [
+            "d:12",
+            "v:12.2"
+          ],
+          "pros": [
+            "Production speed: starts work after changes"
+          ],
+          "cons": [
+            "Protect weekly run: changes may trigger unintended runs"
+          ]
+        },
+        {
+          "label": "On-demand trigger",
+          "value_id": "v:12.1",
+          "citations": [
+            "d:12",
+            "v:12.1"
+          ],
+          "pros": [
+            "Protect weekly run: run timing is controlled"
+          ],
+          "cons": [
+            "Production speed: requires manual initiation"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "Protecting the weekly run decides the choice: schedule the production forecast to its required cadence, accepting that experiments may not run immediately. The chosen design point returned no warnings; its on-commit rival also returned no warnings, and neither had attesting sources.",
+      "consequences": [
+        "Set and maintain the weekly production schedule.",
+        "Provide a separate controlled path for ad hoc experiments."
+      ]
+    },
+    {
+      "decision": "Automate integration and delivery",
+      "context": "A three person team owns the pipeline end to end and wants new ideas to reach production quickly. The design space includes CI/CD pipelines and manually run build and deployment scripts (d:8).",
+      "drivers": [
+        "Production speed",
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Production speed: automates delivery on changes"
+          ],
+          "cons": [
+            "Protect weekly run: requires safe release checks"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Protect weekly run: deployment can be explicitly initiated"
+          ],
+          "cons": [
+            "Production speed: manual release workflow"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [
+            "Protect weekly run: avoids automatic releases"
+          ],
+          "cons": [
+            "Production speed: releases remain manual"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Production speed decides the choice: automate integration and delivery, accepting the need for release checks to protect the weekly run. This is grounded in the design space alternatives (d:8), but was not included in the checked design points.",
+      "consequences": [
+        "Maintain automated integration and delivery workflows.",
+        "Gate production releases on the selected model quality checks."
+      ]
+    },
+    {
+      "decision": "Process weekly demand data in batches",
+      "context": "The system forecasts weekly demand per store and product. The design space contrasts batch and real time processing (d:15).",
+      "drivers": [
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Protect weekly run: fits scheduled processing"
+          ],
+          "cons": [
+            "Protect weekly run: depends on batch completion timing"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Protect weekly run: supports continuously arriving data"
+          ],
+          "cons": [
+            "Protect weekly run: adds stream processing complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "The weekly forecast cadence decides the choice: batch processing matches the stated workload without requiring continuous processing. This is grounded in the design space alternatives (d:15), but was not included in the checked design points.",
+      "consequences": [
+        "Coordinate data availability with the weekly forecast schedule.",
+        "Monitor batch completion before publishing forecasts."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Choice of forecasting model and training method.",
+    "Forecast artifact storage and retrieval interface.",
+    "Production monitoring signals and thresholds.",
+    "Data ingestion and feature construction specifics.",
+    "Release approval and candidate promotion criteria."
+  ]
+}

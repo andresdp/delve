@@ -1,0 +1,264 @@
+{
+  "decisions": [
+    {
+      "decision": "How should document classifications be computed and delivered?",
+      "context": "Millions of documents arrive each day, with volume varying substantially by season. The brief gives no per-document latency target, so scheduled scoring can meet the stated scale without assuming real-time delivery.",
+      "drivers": [
+        "Daily volume",
+        "Seasonal demand swings",
+        "Unspecified latency target"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s02_p13",
+            "s12_p02",
+            "s19_p14",
+            "s19_p16",
+            "s25_p06"
+          ],
+          "pros": [
+            "Daily volume: scores large workloads in batches",
+            "Seasonal demand: schedule work around demand"
+          ],
+          "cons": [
+            "Freshness: results wait for the next run"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07",
+            "s19_p15"
+          ],
+          "pros": [
+            "Daily volume: distributes scoring across predictors"
+          ],
+          "cons": [
+            "Cost: capacity must support online demand",
+            "Unspecified latency: adds needless serving complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Daily volume and absent latency requirements favor scheduled batch scoring, as described in “Architecting a Machine Learning Pipeline” and “Three Levels of ML Software.” This gives up immediate per-document results; the point check returned no warnings, though its combination was unattested.",
+      "consequences": [
+        "Classification results are available after each scoring run.",
+        "Run frequency must balance freshness and compute cost."
+      ]
+    },
+    {
+      "decision": "How should production quality drift be detected?",
+      "context": "Operators need visibility when classification quality drifts. The design space’s monitoring dimension has low exclusivity, so monitoring practices can be combined; this ADR chooses drift monitoring as the primary practice.",
+      "drivers": [
+        "Quality drift visibility",
+        "Daily volume",
+        "Seasonal demand swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p05",
+            "s04_p12",
+            "s06_p02",
+            "s06_p08",
+            "s20_p03",
+            "s21_p10",
+            "s22_p11",
+            "s23_p03",
+            "s23_p04",
+            "s23_p05",
+            "s24_p01",
+            "s24_p07",
+            "s24_p08",
+            "s24_p11",
+            "s25_p01"
+          ],
+          "pros": [
+            "Quality drift: surfaces input and distribution changes",
+            "Daily volume: monitors data without manual review of every item"
+          ],
+          "cons": [
+            "Quality drift: drift is an indirect signal of prediction quality"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10",
+            "s21_p07",
+            "s23_p13"
+          ],
+          "pros": [
+            "Daily volume: minimal monitoring overhead"
+          ],
+          "cons": [
+            "Quality drift: provides no active visibility"
+          ]
+        },
+        {
+          "label": "Periodic model health checks",
+          "value_id": "v:6.18",
+          "citations": [
+            "s06_p02",
+            "s20_p03",
+            "s21_p07",
+            "s23_p08",
+            "s23_p11",
+            "s24_p07",
+            "s24_p11"
+          ],
+          "pros": [
+            "Cost: limits continuous monitoring work"
+          ],
+          "cons": [
+            "Quality drift: issues may go unseen between checks"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Quality drift visibility decides the choice: “MLOps Principles” and “Machine Learning Monitoring: What It Is, and What We Are Missing” support watching input changes, while the checked point had no warnings but was unattested. Add prediction-quality measurement when labels become available; the design space treats monitoring as combinable, but the point tool warns when multiple monitoring values are checked together.",
+      "consequences": [
+        "Drift alerts require investigation and do not alone prove quality loss.",
+        "Label availability and delay determine when prediction quality can be measured."
+      ]
+    },
+    {
+      "decision": "How should compute capacity respond to seasonal workload?",
+      "context": "Demand swings seasonally, so the system must handle peaks without keeping peak capacity idle year-round. No hard cost or latency target is stated.",
+      "drivers": [
+        "Seasonal demand swings",
+        "Daily volume",
+        "Compute cost"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s04_p06",
+            "s13_p09",
+            "s13_p10",
+            "s15_p04",
+            "s21_p15"
+          ],
+          "pros": [
+            "Seasonal demand: scales compute with workload",
+            "Daily volume: supports larger processing peaks"
+          ],
+          "cons": [
+            "Compute cost: scaling policy needs tuning"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04",
+            "s13_p09",
+            "s13_p10"
+          ],
+          "pros": [
+            "Compute cost: removes idle serving capacity"
+          ],
+          "cons": [
+            "Daily volume: cold starts may delay resumed work"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Seasonal demand and daily volume favor automatic scaling, supported by “Productionizing Machine Learning with a Microservices Architecture” and “Architecting a Machine Learning Pipeline.” This gives up the maximum idle-capacity savings of scale-to-zero; the checked point had no warnings but was unattested.",
+      "consequences": [
+        "Capacity policies must account for seasonal peaks and batch windows.",
+        "Operating cost varies with workload."
+      ]
+    },
+    {
+      "decision": "How should inference be packaged and deployed?",
+      "context": "The classifier must process large and variable workloads, and the brief does not specify a particular cloud or runtime. A portable package supports scaling across managed or self-managed infrastructure.",
+      "drivers": [
+        "Daily volume",
+        "Seasonal demand swings",
+        "Reproducible deployment"
+      ],
+      "alternatives": [
+        {
+          "label": "Containerized inference deployment",
+          "value_id": "v:30.19",
+          "citations": [
+            "s04_p02",
+            "s06_p07",
+            "s07_p03",
+            "s19_p17"
+          ],
+          "pros": [
+            "Reproducible deployment: packages code and dependencies",
+            "Seasonal demand: deploys across managed or hybrid runtimes"
+          ],
+          "cons": [
+            "Compute cost: container infrastructure needs operation"
+          ]
+        },
+        {
+          "label": "Model-as-dependency deployment",
+          "value_id": "v:30.18",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s09_p09",
+            "s19_p13",
+            "s19_p14",
+            "s19_p15",
+            "s21_p05",
+            "s21_p18",
+            "s25_p01",
+            "s25_p06"
+          ],
+          "pros": [
+            "Reproducible deployment: model ships with consuming application"
+          ],
+          "cons": [
+            "Seasonal demand: scaling is coupled to the application"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Containerized inference deployment",
+        "value_id": "v:30.19"
+      },
+      "rationale": "Seasonal scaling and reproducible deployment decide the choice: “MLOps: Continuous Delivery and Automation Pipelines in Machine Learning” describes containerized inference across runtimes. This adds container operations compared with bundling the model into each application; the checked point had no warnings but was unattested.",
+      "consequences": [
+        "Inference images and dependencies must be versioned and maintained.",
+        "Runtime placement remains open to managed, on-premise, or hybrid infrastructure."
+      ]
+    }
+  ],
+  "uncovered": [
+    "LLM provider, classifier model, and prompt/version strategy.",
+    "Ground-truth collection and label delay for measuring classification quality.",
+    "Document privacy, retention, and insurer-specific regulatory controls.",
+    "Batch cadence, freshness target, and any per-document latency service level."
+  ]
+}

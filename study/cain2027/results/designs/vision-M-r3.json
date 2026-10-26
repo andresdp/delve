@@ -1,0 +1,377 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inspection inference run?",
+      "context": "Cameras operate along production lines that often lack network access. Inference must remain available at the line.",
+      "drivers": [
+        "Offline operation",
+        "Production-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Works without network",
+            "Inference stays at device"
+          ],
+          "cons": [
+            "Device runtime constraints",
+            "Fleet deployment overhead"
+          ]
+        },
+        {
+          "label": "Containerized offline prediction service",
+          "value_id": "v:30.1",
+          "citations": [
+            "s02_p09"
+          ],
+          "pros": [
+            "Packaged runtime",
+            "Supports scheduled prediction"
+          ],
+          "cons": [
+            "Needs a service host",
+            "Less direct fit for cameras"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "Choose local inference to keep inspection available offline. “Composing Deep-Learning Microservices for the Hybrid Internet of Things” and “Three Levels of ML Software” document edge inference; this combination had no attesting sources in the checked design point.",
+      "consequences": [
+        "Provision and update models across devices.",
+        "Device compute and storage bound the runtime."
+      ]
+    },
+    {
+      "decision": "How should weekly training candidates be evaluated?",
+      "context": "Newly labeled images feed a weekly retraining cycle. A candidate needs validation before it replaces the deployed model.",
+      "drivers": [
+        "Weekly retraining",
+        "Regression control"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s06_p08",
+            "s22_p09"
+          ],
+          "pros": [
+            "Checks against held-out data",
+            "Supports pre-deployment selection"
+          ],
+          "cons": [
+            "Requires representative test data",
+            "Adds promotion time"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s20_p03",
+            "s20_p09"
+          ],
+          "pros": [
+            "Compares candidate models",
+            "Uses selected metrics"
+          ],
+          "cons": [
+            "Metric choice matters",
+            "Does not alone ensure safe rollout"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Evaluate each weekly candidate offline against held-out examples before selection. “MLOps: Continuous delivery and automation pipelines in machine learning” and “MLOps Principles” support evaluation and regression thresholds; both checked combinations warned that workflow coordination must be decided first.",
+      "consequences": [
+        "Maintain held-out labeled inspection examples.",
+        "Set acceptance thresholds before promotion."
+      ]
+    },
+    {
+      "decision": "How are training images labeled?",
+      "context": "The brief says images are newly labeled each week but does not specify who selects or labels them. The choice affects the quality and effort of each retraining cycle.",
+      "drivers": [
+        "New labeled images",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Human-in-the-loop data labeling",
+          "value_id": "v:23.1",
+          "citations": [
+            "s09_p03",
+            "s10_p08",
+            "s22_p17"
+          ],
+          "pros": [
+            "Human review supplies labels",
+            "Fits controlled review"
+          ],
+          "cons": [
+            "Requires reviewer time",
+            "Can slow data preparation"
+          ]
+        },
+        {
+          "label": "Active-learning sample selection",
+          "value_id": "v:23.2",
+          "citations": [
+            "s24_p08",
+            "s24_p09"
+          ],
+          "pros": [
+            "Focuses review on selected samples",
+            "Can reduce labeling volume"
+          ],
+          "cons": [
+            "Requires selection logic",
+            "Still needs human labels"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Human-in-the-loop data labeling",
+        "value_id": "v:23.1"
+      },
+      "rationale": "Use human review as the grounded default because the brief establishes labeling but gives no mechanism for sample selection. “Architecture of a real-world Machine Learning system” and “MLOps Principles” describe human-in-the-loop labeling; active learning remains a possible extension.",
+      "consequences": [
+        "Allocate time for review and label quality checks.",
+        "The design space does not determine the labeling workflow details."
+      ]
+    },
+    {
+      "decision": "What triggers retraining?",
+      "context": "The brief fixes retraining at a weekly cadence. A scheduled trigger maps directly to that requirement; monitoring can still inform later changes to the cadence.",
+      "drivers": [
+        "Weekly cadence",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p07",
+            "s22_p08"
+          ],
+          "pros": [
+            "Matches weekly cycle",
+            "Predictable operations"
+          ],
+          "cons": [
+            "May train without meaningful change",
+            "Does not react immediately to drift"
+          ]
+        },
+        {
+          "label": "Performance- or drift-based retraining trigger",
+          "value_id": "v:6.8",
+          "citations": [
+            "s04_p05",
+            "s06_p02",
+            "s24_p07"
+          ],
+          "pros": [
+            "Responds to detected change",
+            "Can avoid unnecessary runs"
+          ],
+          "cons": [
+            "Needs monitoring thresholds",
+            "May miss changes without labels"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "Choose the required weekly schedule. “MLOps: Continuous delivery and automation pipelines in machine learning” and “MLOps Principles” discuss recurring retraining; the checked design point also included this trigger, though it had no source attestation as a complete combination.",
+      "consequences": [
+        "Run training and evaluation on a weekly schedule.",
+        "Monitor drift and quality to inform future cadence decisions."
+      ]
+    },
+    {
+      "decision": "How should model and training artifacts be tracked?",
+      "context": "Weekly retraining produces successive models that must be associated with their training inputs and deployment state. The small team benefits from traceability when investigating regressions.",
+      "drivers": [
+        "Weekly model versions",
+        "Regression investigation",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p06"
+          ],
+          "pros": [
+            "Links data, runs, and models",
+            "Tracks deployment health"
+          ],
+          "cons": [
+            "More metadata to maintain",
+            "May exceed team capacity"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s22_p03"
+          ],
+          "pros": [
+            "Tracks deployable model artifacts",
+            "Lower scope"
+          ],
+          "cons": [
+            "Less lifecycle context",
+            "Weaker data-to-model lineage"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "Choose lifecycle traceability to connect each weekly model to its data, training run, and deployment status. “MLOps Principles” and “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” support this approach; the checked point was novel and unattested, so keep the implementation proportionate to the small team.",
+      "consequences": [
+        "Record dataset, training, model, and deployment identifiers.",
+        "Integrated tracking adds operational setup and maintenance."
+      ]
+    },
+    {
+      "decision": "How should model updates reach production devices?",
+      "context": "Models are pushed to devices, so releases must account for distributed deployment and recovery if a candidate causes problems. The brief does not describe device connectivity or rollout controls.",
+      "drivers": [
+        "Device updates",
+        "Production continuity"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p10",
+            "s25_p01",
+            "s25_p06"
+          ],
+          "pros": [
+            "Incremental rollout",
+            "Supports rollback"
+          ],
+          "cons": [
+            "Requires rollout coordination",
+            "May be difficult across offline devices"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s06_p07",
+            "s25_p09"
+          ],
+          "pros": [
+            "One automated release process",
+            "Builds and packages together"
+          ],
+          "cons": [
+            "Less explicit staged rollout",
+            "Rollback is not specified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Choose staged rollout with rollback as the safer release pattern for a distributed device fleet. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” support progressive releases; device-specific delivery remains outside the design space evidence.",
+      "consequences": [
+        "Keep a prior model available for recovery.",
+        "Define how devices receive updates when connectivity returns."
+      ]
+    },
+    {
+      "decision": "What should production monitoring cover?",
+      "context": "Devices may be disconnected, while inspection quality and input conditions can change. Monitoring should include changes in inputs and service health; the brief does not state that labels are available at inference time.",
+      "drivers": [
+        "Intermittent network",
+        "Model quality",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p12",
+            "s06_p02"
+          ],
+          "pros": [
+            "Surfaces input changes",
+            "Can run without immediate labels"
+          ],
+          "cons": [
+            "Drift does not prove quality loss",
+            "Requires baselines and thresholds"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s24_p01",
+            "s24_p07"
+          ],
+          "pros": [
+            "Measures prediction quality",
+            "Can expose degradation"
+          ],
+          "cons": [
+            "Needs timely ground truth",
+            "Connectivity may delay reporting"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Choose input and feature monitoring as the feasible initial signal when network access and fresh ground truth are uncertain. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Continuous delivery and automation pipelines in machine learning” support drift monitoring; monitoring choices can be combined because this dimension has zero exclusivity.",
+      "consequences": [
+        "Collect device observations for later central review.",
+        "Add quality monitoring when labels become available."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How offline devices receive, authenticate, and resume model updates.",
+    "Model family, image preprocessing, and device-specific resource limits.",
+    "Label review ownership, image retention, and data access policy.",
+    "Workflow execution coordination required by evaluation; the design space point warned this prerequisite was undecided.",
+    "Monitoring telemetry transport, alerting, and behavior during network outages."
+  ]
+}

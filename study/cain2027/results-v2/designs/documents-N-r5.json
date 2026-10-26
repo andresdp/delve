@@ -1,0 +1,193 @@
+{
+  "decisions": [
+    {
+      "decision": "Process classifications asynchronously",
+      "context": "Millions of documents arrive per day, and volume varies strongly over the year. A synchronous request path could make callers wait on variable inference capacity.",
+      "drivers": [
+        "Millions/day throughput",
+        "Seasonal cost",
+        "Multi-team access"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-backed workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Throughput: absorb bursts and parallelize inference",
+            "Cost: scale workers with queue depth"
+          ],
+          "cons": [
+            "Latency: queueing adds delay",
+            "Operations: queue and retry handling"
+          ]
+        },
+        {
+          "label": "Synchronous service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latency: immediate result when capacity is available",
+            "Operations: simpler request path"
+          ],
+          "cons": [
+            "Throughput: callers contend for inference capacity",
+            "Cost: peak capacity may sit idle off-season"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-backed workers",
+        "value_id": null
+      },
+      "rationale": "Millions/day throughput decides the choice: queued work can be processed in parallel and buffered through bursts. This gives up immediate results and requires queue operations.",
+      "consequences": [
+        "Callers submit work and retrieve results later.",
+        "Retries and failure handling must avoid duplicate outcomes."
+      ]
+    },
+    {
+      "decision": "Scale inference workers with demand",
+      "context": "Document volume varies strongly over the year, while the classifier must handle millions of documents per day. Capacity should follow changing demand without requiring permanently provisioned peak compute.",
+      "drivers": [
+        "Seasonal cost",
+        "Millions/day throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Autoscaled workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Cost: capacity follows current demand",
+            "Throughput: add workers during peaks"
+          ],
+          "cons": [
+            "Latency: scale-up can lag sudden surges",
+            "Operations: scaling signals need tuning"
+          ]
+        },
+        {
+          "label": "Fixed peak-sized fleet",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Throughput: peak capacity is always ready",
+            "Latency: no scale-up delay"
+          ],
+          "cons": [
+            "Cost: excess capacity off-season",
+            "Cost: pay for peak even at low volume"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscaled workers",
+        "value_id": null
+      },
+      "rationale": "Seasonal cost decides the choice: autoscaling reduces idle capacity while adding workers for higher volume. This gives up some responsiveness during abrupt demand increases.",
+      "consequences": [
+        "Worker capacity needs a demand signal and scaling limits.",
+        "A backlog may grow while capacity catches up."
+      ]
+    },
+    {
+      "decision": "Expose results through a shared result service",
+      "context": "Several teams consume classification results, so each should have a consistent way to access them. The choice also affects how independently consumers can process new classifications.",
+      "drivers": [
+        "Multi-team access",
+        "Millions/day throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared result API backed by durable storage",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Multi-team access: one consistent interface",
+            "Throughput: storage decouples reads from inference"
+          ],
+          "cons": [
+            "Throughput: API and storage need capacity planning",
+            "Operations: service and access controls to maintain"
+          ]
+        },
+        {
+          "label": "Publish results to a shared event stream",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Throughput: consumers process independently",
+            "Multi-team access: new consumers can subscribe"
+          ],
+          "cons": [
+            "Multi-team access: each team manages consumption state",
+            "Operations: replay and delivery semantics add complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared result API backed by durable storage",
+        "value_id": null
+      },
+      "rationale": "Multi-team access decides the choice: a shared interface gives teams a common way to retrieve results. This gives up the independent processing and fan-out benefits of an event stream.",
+      "consequences": [
+        "The result service and storage become shared dependencies.",
+        "Retention and consumer access policies need definition."
+      ]
+    },
+    {
+      "decision": "Monitor classification quality drift",
+      "context": "Operators need to see when classification quality drifts. Monitoring should expose changes in quality over time, rather than relying only on service health signals.",
+      "drivers": [
+        "Quality drift visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Track labeled quality metrics over time",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quality drift visibility: measures outcome quality",
+            "Quality drift visibility: supports trend comparison"
+          ],
+          "cons": [
+            "Operations: depends on representative labeled data",
+            "Latency: labels may arrive after predictions"
+          ]
+        },
+        {
+          "label": "Track input and prediction distributions",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quality drift visibility: signals distribution changes quickly",
+            "Operations: no labels required"
+          ],
+          "cons": [
+            "Quality drift visibility: distribution change does not prove quality loss",
+            "Operations: thresholds can produce noisy alerts"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Track labeled quality metrics over time",
+        "value_id": null
+      },
+      "rationale": "Quality drift visibility decides the choice: labeled metrics directly measure classification outcomes. This gives up immediate signals when labels are delayed and requires representative labels.",
+      "consequences": [
+        "A labeled sample or outcomes feed is needed.",
+        "Metric definitions and alert thresholds remain to be set."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Required classification latency and whether results need ordering.",
+    "Document formats, ingestion channels, and input validation rules.",
+    "Data retention, privacy, security, and regional processing constraints.",
+    "Model provider, model selection, fallback behavior, and update cadence.",
+    "Label source, labeling delay, quality targets, and alert thresholds.",
+    "Result schema, consumer access patterns, and delivery guarantees.",
+    "Availability, recovery, and operational service-level targets."
+  ]
+}

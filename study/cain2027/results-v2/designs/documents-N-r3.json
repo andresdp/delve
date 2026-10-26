@@ -1,0 +1,159 @@
+{
+  "decisions": [
+    {
+      "decision": "Prioritize requirements",
+      "context": "The brief describes high daily volume, strong seasonal variation, multiple consumers, and a need to detect quality drift. These drive the architecture in this order.",
+      "drivers": [
+        "Millions of documents per day",
+        "Seasonal volume variation",
+        "Detect quality drift",
+        "Several consuming teams"
+      ],
+      "alternatives": [],
+      "chosen": {
+        "label": "Prioritized drivers",
+        "value_id": null
+      },
+      "rationale": "Scale and variable demand shape the processing and cost choices; drift visibility and team access shape monitoring and delivery.",
+      "consequences": []
+    },
+    {
+      "decision": "Process documents through a durable asynchronous queue",
+      "context": "Millions of classifications per day and seasonal peaks make synchronous, tightly coupled processing difficult to scale. A queue can buffer bursts and let workers scale with demand.",
+      "drivers": [
+        "Millions of documents per day",
+        "Seasonal volume variation"
+      ],
+      "alternatives": [
+        {
+          "label": "Durable queue with autoscaled workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scale: add workers for peaks",
+            "Seasonality: buffer bursts"
+          ],
+          "cons": [
+            "Cost: queue and worker operations"
+          ]
+        },
+        {
+          "label": "Synchronous classification service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simplicity: direct request flow"
+          ],
+          "cons": [
+            "Scale: caller-bound throughput",
+            "Seasonality: peak capacity required"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable queue with autoscaled workers",
+        "value_id": null
+      },
+      "rationale": "Millions per day and seasonal variation decide in favor of buffering and elastic workers; this adds queue operations and can increase end-to-end latency.",
+      "consequences": [
+        "Workers need retry and idempotency handling.",
+        "Queue depth becomes a capacity signal."
+      ]
+    },
+    {
+      "decision": "Expose results through a shared results interface",
+      "context": "Several teams consume the classifications, so a common result contract avoids making each team depend directly on classifier internals. The brief does not specify whether consumers need push or pull access.",
+      "drivers": [
+        "Several consuming teams",
+        "Millions of documents per day"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared result store with documented API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Teams: common access contract",
+            "Scale: decouples reads from inference"
+          ],
+          "cons": [
+            "Teams: requires API and schema ownership"
+          ]
+        },
+        {
+          "label": "Publish results to each team separately",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Teams: tailored delivery per consumer"
+          ],
+          "cons": [
+            "Scale: duplicate distribution work",
+            "Teams: more integrations to maintain"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared result store with documented API",
+        "value_id": null
+      },
+      "rationale": "Several consumers decide in favor of one shared contract; teams give up some delivery customization and must coordinate on schema changes.",
+      "consequences": [
+        "Define stable fields for class, confidence, and processing status.",
+        "Consumer access patterns and freshness needs remain to be specified."
+      ]
+    },
+    {
+      "decision": "Track classification quality by model and prompt version",
+      "context": "Operators need to see when quality drifts. Recording the model and prompt version with results makes observed changes traceable to classifier changes.",
+      "drivers": [
+        "Detect quality drift",
+        "Millions of documents per day"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned results with drift dashboards and alerts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Drift: relate changes to model versions",
+            "Scale: aggregate quality signals"
+          ],
+          "cons": [
+            "Drift: needs quality signals or review labels"
+          ]
+        },
+        {
+          "label": "Monitor only aggregate operational metrics",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scale: low monitoring overhead"
+          ],
+          "cons": [
+            "Drift: misses quality degradation",
+            "Drift: cannot attribute changes"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned results with drift dashboards and alerts",
+        "value_id": null
+      },
+      "rationale": "The need to detect quality drift decides in favor of quality monitoring and version attribution; this requires suitable quality signals, which the brief does not define.",
+      "consequences": [
+        "Persist model and prompt versions with each result.",
+        "Define drift thresholds and alert ownership."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Classification latency or freshness targets",
+    "Document privacy, security, and data residency constraints",
+    "Classification taxonomy and confidence-based escalation rules",
+    "Quality labels or review process for measuring drift",
+    "Budget and model/provider constraints",
+    "Retention, replay, and recovery requirements",
+    "Consumer-specific access patterns and availability targets"
+  ]
+}

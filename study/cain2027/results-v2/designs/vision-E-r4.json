@@ -1,0 +1,448 @@
+{
+  "decisions": [
+    {
+      "decision": "On-device prediction serving",
+      "context": "Cameras need defect predictions on production lines where network access is often unavailable.",
+      "drivers": [
+        "Offline availability",
+        "Low latency",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Offline availability: serves locally",
+            "Low latency: avoids network round trip"
+          ],
+          "cons": [
+            "Tight budget: devices need serving resources"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Central operation: shared service"
+          ],
+          "cons": [
+            "Offline availability: requires network",
+            "Low latency: network round trip"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Tight budget: scheduled processing"
+          ],
+          "cons": [
+            "Low latency: predictions are delayed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Offline availability decides the choice: local serving can keep inspecting when disconnected. It costs device resources compared with centralized serving.",
+      "consequences": [
+        "Package and update a local prediction service.",
+        "Plan for device compute and storage limits."
+      ]
+    },
+    {
+      "decision": "Weekly model training",
+      "context": "Newly labelled images arrive for retraining each week, while deployed cameras may be offline.",
+      "drivers": [
+        "Weekly retraining",
+        "Offline devices",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Weekly retraining: fits scheduled offline training",
+            "Reproducibility: produces discrete model versions"
+          ],
+          "cons": [
+            "Freshness: waits for next training cycle"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Freshness: updates incrementally"
+          ],
+          "cons": [
+            "Offline devices: depends on updates reaching devices",
+            "Reproducibility: complicates model lineage"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Weekly retraining: supports batch updates"
+          ],
+          "cons": [
+            "Tight budget: more operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Weekly retraining decides the choice: train a candidate model offline on each labelled data batch. This gives up incremental freshness between weekly runs.",
+      "consequences": [
+        "Schedule training against each weekly labelled data snapshot.",
+        "Validate each resulting model before release."
+      ]
+    },
+    {
+      "decision": "Model delivery automation",
+      "context": "A small team must push weekly model updates to cameras without relying on continuous network access at the devices.",
+      "drivers": [
+        "Small team",
+        "Weekly releases",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Small team: automates repeatable delivery"
+          ],
+          "cons": [
+            "Tight budget: pipeline setup and maintenance"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Tight budget: lightweight tooling"
+          ],
+          "cons": [
+            "Small team: manual release work"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [],
+          "cons": [
+            "Weekly releases: repetitive manual work",
+            "Small team: error-prone release process"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Small team capacity decides the choice: automate the recurring weekly build and release workflow. The trade-off is time spent establishing and maintaining the pipeline.",
+      "consequences": [
+        "Include model validation and packaging in delivery automation.",
+        "Stage artifacts for devices to retrieve when connectivity returns."
+      ]
+    },
+    {
+      "decision": "Production model version strategy",
+      "context": "Models are pushed to multiple devices and a bad weekly release could affect defect detection across the line.",
+      "drivers": [
+        "Safe releases",
+        "Offline devices",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Safe releases: supports recovery from a bad model"
+          ],
+          "cons": [
+            "Offline devices: rollback waits for device connectivity"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Safe releases: enables parallel model versions"
+          ],
+          "cons": [
+            "Tight budget: increases storage and rollout complexity"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Tight budget: simplest deployment state"
+          ],
+          "cons": [
+            "Safe releases: no explicit previous-version recovery"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Safe releases decide the choice: preserve and redeploy the previous model if the candidate underperforms. Recovery is delayed for disconnected devices.",
+      "consequences": [
+        "Retain a known-good model artifact on each device.",
+        "Track which version each device is running."
+      ]
+    },
+    {
+      "decision": "Training data versioning",
+      "context": "Weekly model retraining uses newly labelled images; linking each model to its training data helps reproduce and investigate releases.",
+      "drivers": [
+        "Reproducibility",
+        "Weekly retraining",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: records dataset versions"
+          ],
+          "cons": [
+            "Tight budget: adds repository tooling and storage"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Tight budget: uses existing repository workflow"
+          ],
+          "cons": [
+            "Weekly retraining: large image datasets strain code repositories"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Tight budget: avoids added tooling"
+          ],
+          "cons": [
+            "Reproducibility: cannot reliably recover training inputs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Reproducibility decides the choice: record the image dataset version used for each weekly model. This adds storage and tooling costs for the small team.",
+      "consequences": [
+        "Keep dataset references with each model artifact.",
+        "Budget for storage of versioned image data."
+      ]
+    },
+    {
+      "decision": "Production model monitoring",
+      "context": "Cameras may operate disconnected, so the system needs a way to assess whether deployed models continue to perform well.",
+      "drivers": [
+        "Defect detection quality",
+        "Offline operation",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Defect detection quality: tracks model performance"
+          ],
+          "cons": [
+            "Offline operation: central monitoring may be delayed"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Offline operation: device logs can be collected later"
+          ],
+          "cons": [
+            "Tight budget: logs require storage and review"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "Tight budget: avoids monitoring infrastructure"
+          ],
+          "cons": [
+            "Defect detection quality: degradation can go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Monitoring or logging data and predictions",
+        "value_id": "v:22.2"
+      },
+      "rationale": "Offline operation decides the choice: log inputs and predictions locally for later review and monitoring. The trade-off is device storage and the effort needed to inspect collected logs.",
+      "consequences": [
+        "Provide bounded local log storage and a collection path.",
+        "Use reviewed labels to assess model performance."
+      ]
+    },
+    {
+      "decision": "Model release testing",
+      "context": "Each weekly retraining produces a candidate model that must be checked before distribution to production cameras.",
+      "drivers": [
+        "Defect detection quality",
+        "Weekly releases",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "Defect detection quality: gates on model results"
+          ],
+          "cons": [
+            "Weekly releases: requires representative labelled evaluation data"
+          ]
+        },
+        {
+          "label": "Canary testing",
+          "value_id": "v:26.1",
+          "citations": [
+            "d:26",
+            "v:26.1"
+          ],
+          "pros": [
+            "Safe releases: limits initial exposure"
+          ],
+          "cons": [
+            "Offline devices: staged rollout may take time"
+          ]
+        },
+        {
+          "label": "No testing",
+          "value_id": "v:26.14",
+          "citations": [
+            "d:26",
+            "v:26.14"
+          ],
+          "pros": [
+            "Tight budget: avoids test work"
+          ],
+          "cons": [
+            "Defect detection quality: bad models may ship"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Testing trained model quality",
+        "value_id": "v:26.9"
+      },
+      "rationale": "Defect detection quality decides the choice: evaluate each candidate against labelled examples before deployment. This costs evaluation data and weekly review time.",
+      "consequences": [
+        "Maintain a representative labelled evaluation set.",
+        "Block release when candidate quality misses agreed thresholds."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device-to-device update transport and retry behavior for intermittently connected cameras.",
+    "Hardware sizing and model format/runtime compatibility across camera devices.",
+    "Image retention, privacy, and security requirements.",
+    "Acceptable prediction latency, quality thresholds, and rollback triggers.",
+    "How labels are collected from production and reconciled with delayed device logs."
+  ]
+}

@@ -1,0 +1,367 @@
+{
+  "decisions": [
+    {
+      "decision": "How should compute scale with demand?",
+      "context": "Classification volume reaches millions per day and varies strongly by season, so capacity must handle peaks without remaining fixed year round.",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p06",
+            "s15_p04"
+          ],
+          "pros": [
+            "Adjusts to workload demand",
+            "Supports peak capacity"
+          ],
+          "cons": [
+            "Scaling needs operational controls"
+          ]
+        },
+        {
+          "label": "Fixed-capacity deployment",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simple sizing"
+          ],
+          "cons": [
+            "Can waste off-season capacity",
+            "May constrain peak throughput"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Choose elastic capacity for seasonal demand changes. This is supported by “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Productionizing Machine Learning with a Microservices Architecture.”",
+      "consequences": [
+        "Capacity must scale and contract with workload.",
+        "Scaling behavior needs operational monitoring."
+      ]
+    },
+    {
+      "decision": "How should incoming documents enter processing?",
+      "context": "The brief describes high, variable daily volume, so intake should be able to absorb bursts and feed classification independently of document arrival rate.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal bursts"
+      ],
+      "alternatives": [
+        {
+          "label": "Streaming feature ingestion",
+          "value_id": "v:21.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02"
+          ],
+          "pros": [
+            "Accepts continuous arrivals",
+            "Supports event-driven processing"
+          ],
+          "cons": [
+            "Requires stream operations",
+            "Long-term retention needs a separate plan"
+          ]
+        },
+        {
+          "label": "ETL-based feature ingestion",
+          "value_id": "v:21.1",
+          "citations": [
+            "s02_p02"
+          ],
+          "pros": [
+            "Familiar batch flow",
+            "Fits scheduled processing"
+          ],
+          "cons": [
+            "Data may wait for batch runs",
+            "Peak arrivals may build up"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Streaming feature ingestion",
+        "value_id": "v:21.2"
+      },
+      "rationale": "Choose streaming ingestion to accommodate changing arrival rates. The design point check found this combination unattested, so this is a brief-driven choice rather than a source-attested combination.",
+      "consequences": [
+        "Define durable retention and replay separately.",
+        "Monitor intake lag and processing backlog."
+      ]
+    },
+    {
+      "decision": "When should predictions be computed?",
+      "context": "Several teams consume classification results, and the brief sets no per-document response-time requirement. Scheduled batch scoring can write results for downstream use.",
+      "drivers": [
+        "Millions of documents daily",
+        "Several consuming teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s15_p04"
+          ],
+          "pros": [
+            "Processes large workloads in batches",
+            "Writes results for later consumption"
+          ],
+          "cons": [
+            "Results are not immediate",
+            "Batch timing must meet consumer needs"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s12_p07"
+          ],
+          "pros": [
+            "Supports low-latency requests",
+            "Queue helps distribute load"
+          ],
+          "cons": [
+            "Adds always-ready serving capacity",
+            "Online latency needs are unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Choose batch scoring because the brief emphasizes volume and shared results, without requiring immediate responses. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Three Levels of ML Software” describe scheduled batch deployment; the rival online option is supported by “System Architectures for Personalization and Recommendation.”",
+      "consequences": [
+        "Agree result delivery cadence with consuming teams.",
+        "Persist results for downstream access and review."
+      ]
+    },
+    {
+      "decision": "How should runtime components communicate?",
+      "context": "Classification, result storage, and multiple consuming teams need to operate independently as demand varies.",
+      "drivers": [
+        "Variable workload",
+        "Several consuming teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Asynchronous message-driven serving",
+          "value_id": "v:25.2",
+          "citations": [
+            "s10_p04",
+            "s16_p04",
+            "s16_p05"
+          ],
+          "pros": [
+            "Decouples producers and consumers",
+            "Buffers bursts"
+          ],
+          "cons": [
+            "Requires queue operations",
+            "Results arrive asynchronously"
+          ]
+        },
+        {
+          "label": "Stateless horizontally scaled serving",
+          "value_id": "v:25.1",
+          "citations": [
+            "s01_p02",
+            "s04_p01"
+          ],
+          "pros": [
+            "Scales by adding replicas",
+            "Independent request handling"
+          ],
+          "cons": [
+            "Does not itself buffer bursts",
+            "Requires a synchronous caller"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Asynchronous message-driven serving",
+        "value_id": "v:25.2"
+      },
+      "rationale": "Choose asynchronous messaging to decouple classification from downstream consumption and absorb variable load. “Architecting a Machine Learning System for Risk” and “Machine Learning in Production: Software Architecture” support this approach. The combination check flagged the serving interface as a prerequisite; a REST prediction microservice is selected below.",
+      "consequences": [
+        "Define delivery, retry, and duplicate-handling behavior.",
+        "Consumers must handle asynchronous results."
+      ]
+    },
+    {
+      "decision": "How should results be exposed to consuming teams?",
+      "context": "The brief names several result consumers but does not specify their integration protocols. A shared prediction API offers a concrete integration boundary.",
+      "drivers": [
+        "Several consuming teams",
+        "Shared classification results"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p02",
+            "s04_p01"
+          ],
+          "pros": [
+            "Common application integration boundary",
+            "Separates model from consumers"
+          ],
+          "cons": [
+            "Requires service availability",
+            "Does not define batch delivery cadence"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [
+            "s02_p11"
+          ],
+          "pros": [
+            "Portable model representation",
+            "Supports batch and online scoring"
+          ],
+          "cons": [
+            "Consumers need compatible tooling",
+            "Does not define result access patterns"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "Choose the REST prediction microservice as the interface decision required by the runtime communication choice. “How to power up your product by machine learning with python microservice, pt. 1” and “Productionizing Machine Learning with a Microservices Architecture” support an API-backed boundary; the exact protocol needs confirmation with consumers.",
+      "consequences": [
+        "Publish a stable request and response contract.",
+        "Specify how batch results are retrieved through the interface."
+      ]
+    },
+    {
+      "decision": "How should production quality be monitored?",
+      "context": "Operators need to see when classification quality drifts. Input drift can provide an early signal, while direct quality measures depend on labeled outcomes becoming available.",
+      "drivers": [
+        "Visible quality drift",
+        "Operational awareness"
+      ],
+      "alternatives": [
+        {
+          "label": "Combined quality and input-drift monitoring",
+          "value_id": null,
+          "citations": [
+            "s01_p06",
+            "s04_p03",
+            "s06_p08"
+          ],
+          "pros": [
+            "Tracks quality and changing inputs",
+            "Can reveal issues before labels arrive"
+          ],
+          "cons": [
+            "Needs labels for direct quality measures",
+            "Adds monitoring and alerting work"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10",
+            "s23_p13"
+          ],
+          "pros": [
+            "Lower monitoring effort",
+            "Simple to operate"
+          ],
+          "cons": [
+            "Quality drift may go unnoticed",
+            "No active performance tracking"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Combined quality and input-drift monitoring",
+        "value_id": null
+      },
+      "rationale": "Combine real-time prediction-quality monitoring with input and feature-drift monitoring. The decision has zero exclusivity, so its values are combinable; “How to power up your product by machine learning with python microservice, pt. 1,” “Productionizing Machine Learning with a Microservices Architecture,” and “MLOps: Continuous delivery and automation pipelines in machine learning” support monitoring. The checked combination is unattested.",
+      "consequences": [
+        "Track quality when labeled outcomes are available.",
+        "Set drift thresholds and alert ownership."
+      ]
+    },
+    {
+      "decision": "How should ML workflow steps be coordinated?",
+      "context": "At this scale, the workflow needs repeatable preparation, evaluation, and deployment steps to support operational consistency.",
+      "drivers": [
+        "Millions of documents daily",
+        "Production classification"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p15",
+            "s06_p07"
+          ],
+          "pros": [
+            "Repeatable connected stages",
+            "Supports automated evaluation and deployment"
+          ],
+          "cons": [
+            "Requires pipeline operations",
+            "Workflow depends on ingestion design"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s20_p12"
+          ],
+          "pros": [
+            "Simple to start",
+            "Flexible for occasional runs"
+          ],
+          "cons": [
+            "Manual transitions add toil",
+            "Harder to repeat consistently"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "Choose an orchestrated pipeline for repeatable production workflow stages. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “MLOps: Continuous delivery and automation pipelines in machine learning” support orchestration; the point check includes streaming ingestion as its prerequisite but remains unattested overall.",
+      "consequences": [
+        "Coordinate pipeline triggers with ingestion.",
+        "Version workflow stages and deployment artifacts."
+      ]
+    }
+  ],
+  "uncovered": [
+    "LLM provider, model choice, and inference cost controls.",
+    "Claim taxonomy, confidence thresholds, and fallback handling.",
+    "Label collection and ground-truth timing for quality measurement.",
+    "Retention, privacy, and access controls for insurance documents.",
+    "Consumer-specific freshness, availability, and delivery guarantees."
+  ]
+}

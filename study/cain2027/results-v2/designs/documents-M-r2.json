@@ -1,0 +1,329 @@
+{
+  "decisions": [
+    {
+      "decision": "How should source documents enter the workflow?",
+      "context": "Millions of documents arrive daily, but the brief does not require predictions at request time. The ingestion path must handle volume while feeding repeatable classification runs.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal capacity swings"
+      ],
+      "alternatives": [
+        {
+          "label": "ETL-based feature ingestion",
+          "value_id": "v:21.1",
+          "citations": [
+            "s02_p12",
+            "s04_p04"
+          ],
+          "pros": [
+            "High volume: batch extraction and transformation"
+          ],
+          "cons": [
+            "Freshness: waits for the next load"
+          ]
+        },
+        {
+          "label": "Streaming feature ingestion",
+          "value_id": "v:21.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02"
+          ],
+          "pros": [
+            "Freshness: continuous event intake"
+          ],
+          "cons": [
+            "Cost: continuous processing capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "ETL-based feature ingestion",
+        "value_id": "v:21.1"
+      },
+      "rationale": "Daily volume favors batch loading, consistent with the scalable data processing described in “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture.” This gives up immediate ingestion freshness, which the brief does not require.",
+      "consequences": [
+        "Process documents in scheduled batches.",
+        "Size batch windows to seasonal peaks.",
+        "Define an acceptable arrival-to-classification delay."
+      ]
+    },
+    {
+      "decision": "When should predictions be computed?",
+      "context": "The classifier must process millions of documents, and several teams consume its results. The brief sets no per-document response-time target.",
+      "drivers": [
+        "High daily volume",
+        "Multiple consumers",
+        "Seasonal capacity swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s12_p02",
+            "s19_p14"
+          ],
+          "pros": [
+            "High volume: scores large sets in scheduled runs",
+            "Multiple consumers: writes results to shared storage"
+          ],
+          "cons": [
+            "Freshness: results wait for a run"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s12_p07",
+            "s19_p15"
+          ],
+          "pros": [
+            "Freshness: scores on demand",
+            "High volume: queue distributes requests"
+          ],
+          "cons": [
+            "Cost: serving capacity remains provisioned"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "High daily volume decides the choice: scheduled scoring can write results for multiple teams to consume, as described in “Architecting a Machine Learning Pipeline” and “System Architectures for Personalization and Recommendation.” This gives up immediate results; the brief provides no latency requirement to justify online serving.",
+      "consequences": [
+        "Teams consume persisted results after each run.",
+        "Run cadence sets result freshness.",
+        "Batch failures can delay results for every consumer."
+      ]
+    },
+    {
+      "decision": "How should runtime capacity respond to seasonal demand?",
+      "context": "Document volume varies strongly over the year, so fixed capacity risks either peak-time bottlenecks or idle resources outside peaks.",
+      "drivers": [
+        "Seasonal capacity swings",
+        "High daily volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "Seasonal capacity: compute follows workload demand",
+            "High volume: expands for large jobs"
+          ],
+          "cons": [
+            "Cost: peak capacity may be expensive"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04",
+            "s13_p09"
+          ],
+          "pros": [
+            "Cost: removes idle serving capacity"
+          ],
+          "cons": [
+            "Seasonal capacity: startup can delay work"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Seasonal capacity swings decide the choice: elastic scaling fits variable workloads, as described in “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture.” It may cost more during peaks than scaling to zero, but keeps capacity available when document volume rises.",
+      "consequences": [
+        "Set scaling limits for peak periods.",
+        "Monitor queue depth and job completion time.",
+        "Provisioning changes can lag sudden demand spikes."
+      ]
+    },
+    {
+      "decision": "How should production quality and drift be monitored?",
+      "context": "Operators need visibility when classification quality drifts. The brief does not state how quickly labels or quality measurements become available.",
+      "drivers": [
+        "Drift visibility",
+        "Classification quality"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Drift visibility: detects changes in inputs and distributions"
+          ],
+          "cons": [
+            "Classification quality: drift does not prove accuracy loss"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s01_p06",
+            "s04_p12",
+            "s23_p04"
+          ],
+          "pros": [
+            "Classification quality: measures model behavior when labels are available"
+          ],
+          "cons": [
+            "Drift visibility: quality signal may arrive late"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s04_p02",
+            "s20_p02"
+          ],
+          "pros": [
+            "Cost: little monitoring infrastructure"
+          ],
+          "cons": [
+            "Drift visibility: operators may miss degradation"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Drift visibility decides the choice: input monitoring gives operators a signal about changing document data, as described in “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Continuous delivery and automation pipelines in machine learning.” It cannot establish that accuracy has fallen, so prediction quality should also be measured when labels become available.",
+      "consequences": [
+        "Track input distributions and schema changes.",
+        "Retain predictions and eventual labels for quality checks.",
+        "Define which drift signals require investigation."
+      ]
+    },
+    {
+      "decision": "How should ML workflow stages be coordinated?",
+      "context": "At this volume, repeated classification runs need dependable preparation, scoring, and evaluation stages. Teams also need a consistent workflow to operate and evolve the system.",
+      "drivers": [
+        "High daily volume",
+        "Repeatable operation",
+        "Multiple teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07",
+            "s06_p07"
+          ],
+          "pros": [
+            "Repeatable operation: connects workflow stages",
+            "High volume: automates recurring runs"
+          ],
+          "cons": [
+            "Cost: requires pipeline setup and maintenance"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s20_p12",
+            "s21_p07"
+          ],
+          "pros": [
+            "Cost: simple to start"
+          ],
+          "cons": [
+            "High volume: manual transitions limit repeatability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "Repeatable operation decides the choice: an orchestrated pipeline connects recurring stages, as described in “Architecting a Machine Learning Pipeline” and “MLOps: Continuous delivery and automation pipelines in machine learning.” This costs more to establish than manual scripts, but supports frequent, consistent runs.",
+      "consequences": [
+        "Pipeline stages need operational ownership.",
+        "Failures require retry and alert policies.",
+        "The ingestion mechanism must be decided first."
+      ]
+    },
+    {
+      "decision": "How should teams access classification results?",
+      "context": "Several teams consume the classifications, so the system needs a shared integration boundary. Since the selected prediction mode is batch, an API can expose persisted results without requiring online scoring.",
+      "drivers": [
+        "Multiple consumers",
+        "High daily volume"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s09_p03"
+          ],
+          "pros": [
+            "Multiple consumers: common application interface",
+            "Integration: separates callers from model implementation"
+          ],
+          "cons": [
+            "High volume: request traffic can burden serving"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [
+            "s02_p12",
+            "s15_p04"
+          ],
+          "pros": [
+            "Integration: portable model representation"
+          ],
+          "cons": [
+            "Multiple consumers: requires compatible tooling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "Multiple consumers decide the choice: a REST interface offers a shared application boundary, as described in “How to power up your product by machine learning with python microservice” and “Architecting a Machine Learning Pipeline.” The service exposes completed batch results; it does not require synchronous scoring for every document.",
+      "consequences": [
+        "Publish a stable result schema and access contract.",
+        "Control access for each consuming team.",
+        "Persist batch outputs behind the service."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document arrival-to-classification freshness target and batch cadence.",
+    "Required throughput and seasonal peak sizing targets.",
+    "Label availability and the quality metric or drift threshold that should alert operators.",
+    "Retry, deduplication, ordering, and failure recovery for document ingestion.",
+    "Result retention, access controls, and audit requirements for insurer data.",
+    "Model family, prompt design, and evaluation policy for the LLM classifier."
+  ]
+}

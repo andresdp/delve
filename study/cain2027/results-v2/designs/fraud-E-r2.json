@@ -1,0 +1,417 @@
+{
+  "decisions": [
+    {
+      "decision": "How should transaction scoring be integrated?",
+      "context": "Every payment needs a score before authorization, so scoring must be called on the transaction path. The design space offers service and in-process integration patterns (d:1).",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability",
+        "Model version traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Peak availability: scale service independently",
+            "Traceability: isolate model releases"
+          ],
+          "cons": [
+            "Latency: network hop on request path"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Latency: avoid service network hop"
+          ],
+          "cons": [
+            "Availability: share application failure domain",
+            "Traceability: couple model and app releases"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "Peak availability decides: an independently scalable model service supports transaction surges. This gives up the lower call overhead of in-process scoring.",
+      "consequences": [
+        "Requires a highly available online service.",
+        "Model and application releases can be tracked separately."
+      ]
+    },
+    {
+      "decision": "How should online predictions be served?",
+      "context": "The score must be available before authorization, ruling out scheduled batch output for the transaction decision. The design space describes real-time serving through distributed or local services (d:5).",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Availability: scale serving independently",
+            "Latency: supports real-time responses"
+          ],
+          "cons": [
+            "Latency: distributed call overhead"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Latency: local call path"
+          ],
+          "cons": [
+            "Availability: less independent scaling"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Cost: scheduled bulk processing"
+          ],
+          "cons": [
+            "Latency: unavailable before authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "Peak availability decides: a distributed real-time service can scale separately as transaction demand rises. This accepts the network overhead that local serving avoids.",
+      "consequences": [
+        "Serving capacity must scale with transaction peaks.",
+        "The authorization path depends on service availability."
+      ]
+    },
+    {
+      "decision": "Should transaction features be processed in batch or in real time?",
+      "context": "The authorization decision requires a score for the current transaction, while batch processing produces results on a schedule. The design space distinguishes batch and stream-based processing (d:15).",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Latency: process incoming transactions online"
+          ],
+          "cons": [
+            "Availability: streaming path adds operational dependencies"
+          ]
+        },
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Cost: process data in scheduled groups"
+          ],
+          "cons": [
+            "Latency: cannot serve the current authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Real-time, stream-based data processing",
+        "value_id": "v:15.2"
+      },
+      "rationale": "Latency decides: the current transaction must be processed online to score it before authorization. This costs more operational complexity than scheduled batch processing.",
+      "consequences": [
+        "The transaction feature path must operate continuously.",
+        "Stream processing details and recovery behavior need definition."
+      ]
+    },
+    {
+      "decision": "How should features be persisted and accessed?",
+      "context": "Online scoring needs transaction features available at request time, and audit review needs the inputs associated with each score. The design space presents a feature store or general-purpose data stores (d:4).",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability",
+        "Audit traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Latency: purpose-built feature access",
+            "Traceability: central feature definitions"
+          ],
+          "cons": [
+            "Availability: adds a serving dependency"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Availability: use existing storage"
+          ],
+          "cons": [
+            "Latency: access patterns may vary",
+            "Traceability: feature definitions can diverge"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "Latency decides: consistent online feature access best serves the transaction path, while centralized definitions help preserve audit context. This adds a storage dependency to the scoring path.",
+      "consequences": [
+        "Feature-store availability is part of scoring availability.",
+        "Feature values used for each score need to be recorded for audit."
+      ]
+    },
+    {
+      "decision": "How should data used for model building be versioned?",
+      "context": "Auditors need to identify which model version and features produced each score; reproducibility also depends on retaining the data basis used to build models. The design space offers dedicated data versioning, repository-based versioning, or no versioning (d:11).",
+      "drivers": [
+        "Audit traceability",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Reproducibility: version datasets explicitly",
+            "Traceability: connect training data to model"
+          ],
+          "cons": [
+            "Cost: operate a dedicated repository"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Traceability: keep data references near code"
+          ],
+          "cons": [
+            "Reproducibility: repository fit may constrain data handling"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Reproducibility: training data basis can be lost",
+            "Traceability: weak audit trail"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Audit traceability decides: an explicit data version gives a model release a reproducible training-data reference. This incurs the cost of a dedicated repository.",
+      "consequences": [
+        "Training data versions must be retained and linked to model releases.",
+        "Storage and version-management costs increase."
+      ]
+    },
+    {
+      "decision": "How should production model versions be deployed?",
+      "context": "Scores must remain available through peaks, and auditors need to associate each score with the model version that produced it. The design space distinguishes multiple concurrent versions, rollback, or a single production version (d:10).",
+      "drivers": [
+        "Peak availability",
+        "Audit traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Availability: allows staged or parallel deployment",
+            "Traceability: versions can be identified per score"
+          ],
+          "cons": [
+            "Cost: operate multiple versions concurrently"
+          ]
+        },
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Availability: return to a prior model after a bad release"
+          ],
+          "cons": [
+            "Traceability: rollback does not itself identify version per score"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Cost: run one production model"
+          ],
+          "cons": [
+            "Availability: release transition can be a risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "N versions in production",
+        "value_id": "v:10.1"
+      },
+      "rationale": "Peak availability decides: concurrent versions permit staged rollout while maintaining production scoring. This costs more to operate and requires recording the version used for every score.",
+      "consequences": [
+        "Production must support routing to multiple model versions.",
+        "Score records need the selected model version."
+      ]
+    },
+    {
+      "decision": "What production model information should be monitored and tracked?",
+      "context": "Auditors need the model version and features behind each score; production tracking can capture usage, inputs, outputs, and interpretability information. The design space separates performance monitoring, logging, tracking, or no monitoring (d:22).",
+      "drivers": [
+        "Audit traceability",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Traceability: track model usage, inputs, and outputs",
+            "Availability: supports operational visibility"
+          ],
+          "cons": [
+            "Cost: retain and manage score records"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Traceability: log inputs and predictions"
+          ],
+          "cons": [
+            "Availability: limited model-specific tracking"
+          ]
+        },
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Availability: observe model performance"
+          ],
+          "cons": [
+            "Traceability: does not alone link inputs to scores"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Traceability: no production score trail",
+            "Availability: operational issues less visible"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "Audit traceability decides: tracking usage, inputs, and outputs provides a basis for linking scores to the model and features used. This increases record-retention and management costs.",
+      "consequences": [
+        "Each score needs a durable record of model version and feature inputs.",
+        "Tracking data needs access controls and retention rules."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to meet the tens-of-milliseconds latency target with a concrete latency budget and timeout policy.",
+    "How to achieve availability targets, including redundancy, failover, and behavior when scoring is unavailable.",
+    "How scores, model versions, and feature inputs are durably linked and retained for auditors.",
+    "How to validate score quality and approve model releases; the design space offers test categories (d:26) but the brief does not specify acceptance criteria."
+  ]
+}

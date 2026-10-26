@@ -1,0 +1,297 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents be ingested?",
+      "context": "Millions of incoming documents and strong seasonal volume swings make ingestion throughput and load handling central. The brief gives no latency target.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal volume swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Seasonal capacity: collect and schedule batches"
+          ],
+          "cons": [
+            "Freshness: results wait for the batch"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Freshness: continuous intake"
+          ],
+          "cons": [
+            "Seasonal capacity: continuous processing demand"
+          ]
+        },
+        {
+          "label": "Data ingestion by request",
+          "value_id": "v:7.2",
+          "citations": [
+            "d:7",
+            "v:7.2"
+          ],
+          "pros": [
+            "Control: fetch data when needed"
+          ],
+          "cons": [
+            "High daily volume: repeated retrieval overhead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "High daily volume and seasonal swings decide in favor of batch intake, which supports scheduled capacity. This gives up immediate processing; the brief does not require low latency.",
+      "consequences": [
+        "Results become available after batch processing.",
+        "Batch scheduling must accommodate seasonal peaks."
+      ]
+    },
+    {
+      "decision": "Should data be processed in batches or in real time?",
+      "context": "The classifier must handle millions of documents daily, with load that varies over the year. No real-time service level is specified.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal volume swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Seasonal capacity: schedule processing windows"
+          ],
+          "cons": [
+            "Freshness: results wait for a batch"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Freshness: process incoming data continuously"
+          ],
+          "cons": [
+            "Seasonal capacity: ongoing demand as volume changes"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "High daily volume and seasonal swings decide in favor of scheduled batch processing. The trade-off is slower result availability, which the brief does not constrain with a latency target.",
+      "consequences": [
+        "Classification results arrive after a processing run.",
+        "Capacity must be planned for seasonal peaks."
+      ]
+    },
+    {
+      "decision": "How should data processing be parallelized?",
+      "context": "Processing millions of documents makes parallel work relevant, and seasonal volume swings make the ability to scale throughput important.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal volume swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Data partitioning in data pipeline",
+          "value_id": "v:17.2",
+          "citations": [
+            "d:17",
+            "v:17.2"
+          ],
+          "pros": [
+            "High daily volume: partitions enable parallel processing"
+          ],
+          "cons": [
+            "Seasonal capacity: partition sizing needs tuning"
+          ]
+        },
+        {
+          "label": "Data pipeline per data set",
+          "value_id": "v:17.1",
+          "citations": [
+            "d:17",
+            "v:17.1"
+          ],
+          "pros": [
+            "Seasonal capacity: scale pipelines by data set"
+          ],
+          "cons": [
+            "High daily volume: separate pipelines add overhead"
+          ]
+        },
+        {
+          "label": "No parallel data processing",
+          "value_id": "v:17.4",
+          "citations": [
+            "d:17",
+            "v:17.4"
+          ],
+          "pros": [],
+          "cons": [
+            "High daily volume: processing remains serial"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data partitioning in data pipeline",
+        "value_id": "v:17.2"
+      },
+      "rationale": "High daily volume decides in favor of partitioning to enable parallel processing. This costs tuning effort as volume changes seasonally.",
+      "consequences": [
+        "The pipeline must partition and coordinate document work.",
+        "Partition sizing may need seasonal adjustment."
+      ]
+    },
+    {
+      "decision": "How should model quality be monitored in production?",
+      "context": "Operators need to see when classification quality drifts, so the system needs production monitoring that surfaces model performance changes.",
+      "drivers": [
+        "Detect quality drift"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Detect quality drift: observe model performance"
+          ],
+          "cons": [
+            "Operational visibility: requires performance measures"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Operational visibility: logs inputs and predictions"
+          ],
+          "cons": [
+            "Detect quality drift: logs alone may not measure quality"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Detect quality drift: no production signal"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Detect quality drift decides in favor of monitoring model performance. It requires defining performance measures and may require labeled outcomes to assess quality.",
+      "consequences": [
+        "Operators need performance measures and drift thresholds.",
+        "Quality signals must be made available to operators."
+      ]
+    },
+    {
+      "decision": "How should predictions be served to consuming teams?",
+      "context": "Several teams consume classification results, while the brief does not specify synchronous access or a latency requirement. Batch results in shared storage provide a simple fit for scheduled processing and multiple consumers.",
+      "drivers": [
+        "Multiple consuming teams",
+        "High daily volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "High daily volume: process and publish batches"
+          ],
+          "cons": [
+            "Multiple consuming teams: consumers wait for batch output"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Multiple consuming teams: distributed real-time access"
+          ],
+          "cons": [
+            "High daily volume: online serving capacity required"
+          ]
+        },
+        {
+          "label": "Hybrid online/offline model serving",
+          "value_id": "v:5.5",
+          "citations": [
+            "d:5",
+            "v:5.5"
+          ],
+          "pros": [
+            "Multiple consuming teams: supports online and batch consumers"
+          ],
+          "cons": [
+            "High daily volume: operates two serving paths"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "High daily volume and the absence of a stated real-time requirement decide in favor of batch serving. This gives up immediate results and assumes teams can consume published batches.",
+      "consequences": [
+        "Results are written to storage for team consumption.",
+        "Consumers must handle batch availability and timing."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Business latency target and batch cadence",
+    "Document and prediction storage, retention, and access controls",
+    "How teams discover and retrieve results",
+    "Quality metric, source of ground truth, and drift thresholds",
+    "Whether monitoring should trigger human review, retraining, or model replacement"
+  ]
+}
