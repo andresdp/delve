@@ -672,3 +672,32 @@ def test_fit_reports_how_many_decisions_it_rests_on():
     hits = _hits(d, {"Online service": ["service"], "On-device model": ["embedded"], "Lake": ["lake"],
                      "Warehouse": ["warehouse"]})
     assert score.metrics(d, hits, _gt(), BRIEF, "N")["fit_decisions"] == 2
+
+
+# ---------------------------------------------------------------- citation support
+
+SUPPORT_GRAPH = {"nodes": [{"id": "d:1", "kind": "dimension"},
+                           {"id": "v:1.1", "kind": "value", "dimension_id": "d:1",
+                            "passages": [{"doc": "s01_p02", "stance": "accepts"}, {"doc": "s02_p01", "stance": "rejects"}]},
+                           {"id": "v:1.2", "kind": "value", "dimension_id": "d:1",
+                            "passages": [{"doc": "s03_p04", "stance": "accepts"}]}], "edges": []}
+
+
+def _cited(citations, value_id="v:1.1"):
+    d = _design(("Serving", ["Online service", "On-device model"], "Online service"))
+    d["decisions"][0]["alternatives"][0].update(citations=citations, value_id=value_id)
+    d["decisions"][0]["chosen"]["value_id"] = value_id
+    return d
+
+
+def test_passage_citations_support_or_oppose_the_chosen_value():
+    d = _cited(["s01_p02", "s02_p01", "s03_p04", "s09_p99"])      # adopts, rejects, another value's, unknown
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "M", graph=SUPPORT_GRAPH)
+    assert m["citations_on_choice"] == 0.5 and m["supporting_citations"] == 0.25 and m["opposing_citations"] == 1
+
+
+def test_id_citations_count_on_the_choice_without_passage_support():
+    d = _cited(["v:1.1", "d:1", "v:1.2"])                         # the expert model cites ids, not passages
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "E", graph=SUPPORT_GRAPH)
+    assert m["citations_on_choice"] == pytest.approx(2 / 3) and m["supporting_citations"] is None
+    assert score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N")["citations_on_choice"] is None

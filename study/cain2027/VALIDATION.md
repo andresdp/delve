@@ -43,6 +43,7 @@ Caveats to report:
 |---|---|---|
 | Structure | The output schema holds; the chosen option is one of those considered | All |
 | Grounding | Share of choices with a citation; share of citations that exist in the condition's graph | M, E |
+| Citation support | Share of the chosen options' citations that refer to the chosen value (its id, its dimension, or one of its evidence passages); of the passage citations, the share whose source adopts the chosen value, and the number whose source rejects it | M, E (adoption: M) |
 | Consistency | `ddspace point` warnings on the chosen value ids (rejected values, two values of one dimension), and ids that do not exist | M, E |
 | Exploration | Alternatives per decision; design points explored with `ddspace point` | All; points M, E |
 | Cost | Input and output tokens, priced from `rates.yaml` | All |

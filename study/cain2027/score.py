@@ -17,6 +17,8 @@ decides, verdicts cached). From those matches and the session summary, per sessi
   the brief's forces (missing impact = 0; ties excluded; a choice that matches no option of that decision is
   "unmatched"), averaged over the qualifying decisions (``fit_decisions``: how many; report it with the fit);
 - grounding (M, E): share of choices with a citation, and share of citations that exist in the condition's graph;
+- citation support (M, E): whether the chosen options' citations refer to the chosen value, and, for passage
+  citations, whether their source adopts it (``_citation_support``);
 - consistency (M, E): warnings of ``ddspace point`` on the chosen value ids, plus ids that do not exist;
 - design points explored (M, E) and cost (tokens priced from a dated rate table).
 
@@ -264,6 +266,38 @@ def _graph_ids(graph: Mapping[str, Any]) -> Set[str]:
     return ids
 
 
+SUPPORTING = {"accepts", "supports"}      # passage stances that back a value (a "rejects" passage argues against it)
+
+
+def _citation_support(doc, graph) -> Dict[str, Any]:
+    """Whether the citations on each chosen option back that choice.
+
+    - ``citations_on_choice``: share of the chosen options' citations that refer to the chosen value: its id, its
+      dimension's id, or a passage recorded as evidence for it;
+    - ``supporting_citations``: of the passage citations among them (M), the share whose source adopts the chosen
+      value (stance ``accepts`` or ``supports``); None without passage citations;
+    - ``opposing_citations``: passage citations whose source rejects the chosen value.
+    """
+    by_id = {n["id"]: n for n in graph.get("nodes") or []}
+    on_choice = total = passages = supporting = opposing = 0
+    for dec in doc["decisions"]:
+        j = _chosen_index(dec)
+        if j is None:
+            continue
+        alt = dec["alternatives"][j]
+        value = by_id.get(alt["value_id"]) if alt["value_id"] else None
+        stances = {p.get("doc"): p.get("stance") for p in (value or {}).get("passages") or []}
+        for c in alt["citations"]:
+            total += 1
+            on_choice += bool(value) and (c == value["id"] or c == value.get("dimension_id") or c in stances)
+            if c not in by_id:
+                passages += 1
+                supporting += stances.get(c) in SUPPORTING
+                opposing += stances.get(c) == "rejects"
+    return {"citations_on_choice": on_choice / total if total else None,
+            "supporting_citations": supporting / passages if passages else None, "opposing_citations": opposing}
+
+
 def _consistency(doc, graph) -> Dict[str, Any]:
     from taxonomy_generator.wiki import query as q
     loaded = graph if "_by_id" in graph else {**graph, "_by_id": {n["id"]: n for n in graph.get("nodes") or []}}
@@ -334,9 +368,11 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
         out["grounded_choices"] = (sum(bool(c) for c in chosen_cites) / len(chosen_cites)) if chosen_cites else None
         out["valid_citations"] = (sum(c in valid for c in cites) / len(cites)) if cites else None
         out.update(_consistency(doc, graph))
+        out.update(_citation_support(doc, graph))
     else:
         out.update(grounded_choices=None, valid_citations=None, consistency_warnings=None, unknown_value_ids=None,
-                   value_ids_used=None)
+                   value_ids_used=None, citations_on_choice=None, supporting_citations=None,
+                   opposing_citations=None)
     if summary is not None:
         out["points_explored"] = len(summary.get("points") or []) if condition in SPACE_CONDITIONS else None
         out["network_flag"] = bool(summary.get("network_commands"))
@@ -353,7 +389,8 @@ NUMERIC = ("decision_coverage", "expert_decisions_matched", "relevant_decision_c
            "decision_coverage_lenient", "relevant_decision_coverage_lenient",
            "alternatives_per_decision", "alternatives_matched",
            "requirements_fit", "fit_decisions", "driver_recall", "choices_matched", "choices_unmatched",
-           "grounded_choices", "valid_citations", "consistency_warnings", "unknown_value_ids", "points_explored",
+           "grounded_choices", "valid_citations", "citations_on_choice", "supporting_citations",
+           "opposing_citations", "consistency_warnings", "unknown_value_ids", "points_explored",
            "cost_usd", "seconds")
 
 
