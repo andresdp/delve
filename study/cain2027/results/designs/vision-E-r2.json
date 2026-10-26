@@ -1,0 +1,391 @@
+{
+  "decisions": [
+    {
+      "decision": "How is the model integrated?",
+      "context": "The defect model must run on cameras that often have no network access. The design space includes embedded and service based integration options (d:1).",
+      "drivers": [
+        "Offline operation",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Runs with application",
+            "No network dependency"
+          ],
+          "cons": [
+            "Ties model to application release",
+            "Device resource limits"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Separate model lifecycle",
+            "Clear interface"
+          ],
+          "cons": [
+            "Service operations overhead",
+            "May depend on network"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in monolith",
+        "value_id": "v:1.2"
+      },
+      "rationale": "Embedding the model in the camera application supports inference without network access and keeps the deployment shape simple for a small team (d:1, v:1.2).",
+      "consequences": [
+        "Model updates require application package delivery.",
+        "Each device needs sufficient compute and storage."
+      ]
+    },
+    {
+      "decision": "How are predictions served?",
+      "context": "Cameras need defect predictions while disconnected. The design space distinguishes local API serving from distributed and batch approaches (d:5).",
+      "drivers": [
+        "Offline inference",
+        "On-line inspection",
+        "Low infrastructure cost"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Local real-time predictions",
+            "No remote service required"
+          ],
+          "cons": [
+            "Local service to operate",
+            "Device resource use"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Service isolation"
+          ],
+          "cons": [
+            "Network dependency",
+            "Additional infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Local serving provides real-time predictions at the camera without relying on network connectivity (d:5, v:5.2).",
+      "consequences": [
+        "The camera must host and operate the serving interface.",
+        "Serving capacity is limited by device resources."
+      ]
+    },
+    {
+      "decision": "When and how is the model trained?",
+      "context": "The brief specifies retraining each week from newly labelled images. The design space offers batch, incremental, and hybrid learning (d:19).",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images",
+        "Offline devices"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Fits scheduled retraining",
+            "Produces discrete model versions"
+          ],
+          "cons": [
+            "Training waits for batch",
+            "Requires training resources"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Uses data as it arrives",
+            "Can update continuously"
+          ],
+          "cons": [
+            "More complex update path",
+            "Less aligned with weekly cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Weekly labelled data naturally fits offline batch training, which can produce a model package for later device delivery (d:19, v:19.1).",
+      "consequences": [
+        "Training runs on a schedule against accumulated labels.",
+        "Device inference can continue on its current model during training."
+      ]
+    },
+    {
+      "decision": "What triggers the training pipeline?",
+      "context": "A weekly retraining cadence calls for a predictable pipeline trigger. Scheduled runs are one of the design space alternatives (d:12).",
+      "drivers": [
+        "Weekly cadence",
+        "Predictable operations",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Predictable weekly runs",
+            "Simple operating rhythm"
+          ],
+          "cons": [
+            "May run without useful new data",
+            "Data readiness must be managed"
+          ]
+        },
+        {
+          "label": "On availability of new training data trigger",
+          "value_id": "v:12.4",
+          "citations": [
+            "d:12",
+            "v:12.4"
+          ],
+          "pros": [
+            "Runs when data is ready",
+            "Avoids empty runs"
+          ],
+          "cons": [
+            "Needs reliable data eventing",
+            "Timing may vary"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "A scheduled trigger matches the explicit weekly retraining requirement and gives the small team a regular operating cadence (d:12, v:12.3).",
+      "consequences": [
+        "The pipeline must check that newly labelled images are available.",
+        "Missed runs need an operational recovery path."
+      ]
+    },
+    {
+      "decision": "How is model delivery automated?",
+      "context": "Retrained models must reach devices in production. The design space considers CI/CD, scripts, and an ML orchestrator (d:8).",
+      "drivers": [
+        "Weekly model delivery",
+        "Tight infrastructure budget",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Low infrastructure overhead",
+            "Straightforward deployment steps"
+          ],
+          "cons": [
+            "More manual coordination",
+            "Limited workflow visibility"
+          ]
+        },
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Repeatable delivery",
+            "Automated checks and deployment"
+          ],
+          "cons": [
+            "Pipeline setup and maintenance",
+            "Device fleet integration needed"
+          ]
+        },
+        {
+          "label": "Machine learning orchestrator",
+          "value_id": "v:8.3",
+          "citations": [
+            "d:8",
+            "v:8.3"
+          ],
+          "pros": [
+            "Coordinates multiple ML workflows",
+            "Central workflow management"
+          ],
+          "cons": [
+            "Added platform overhead",
+            "May exceed team needs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "A CI/CD pipeline makes weekly model delivery repeatable and can automate checks before promoting packages to devices (d:8, v:8.1). The checked combination had no warnings; the rival combination also had no warnings, and neither was attested by sources.",
+      "consequences": [
+        "The pipeline must package models for device installation.",
+        "Pipeline maintenance adds ongoing work."
+      ]
+    },
+    {
+      "decision": "How are production model versions managed?",
+      "context": "Weekly updates can introduce regressions on the production line. The design space includes rollback and multiple-version deployment choices (d:10).",
+      "drivers": [
+        "Reliable inspection",
+        "Weekly updates",
+        "Device fleet"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Recovery path for regressions",
+            "Keeps deployment simple"
+          ],
+          "cons": [
+            "Requires retaining prior package",
+            "Rollback needs device coordination"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Supports parallel versions",
+            "Allows staged comparison"
+          ],
+          "cons": [
+            "More fleet complexity",
+            "Higher operational overhead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Keeping a rollback path provides a practical recovery option for weekly releases without requiring multiple simultaneous production versions (d:10, v:10.2).",
+      "consequences": [
+        "Retain the previous known-good model package.",
+        "Define how devices receive and apply rollback instructions."
+      ]
+    },
+    {
+      "decision": "What is monitored in production?",
+      "context": "Devices may be disconnected, limiting immediate central visibility into predictions. The design space includes prediction logging and model performance monitoring (d:22).",
+      "drivers": [
+        "Offline devices",
+        "Defect detection quality",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Captures operational evidence",
+            "Can sync when connected"
+          ],
+          "cons": [
+            "Requires local storage",
+            "Labels may arrive later"
+          ]
+        },
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks model quality",
+            "Can reveal regressions"
+          ],
+          "cons": [
+            "Needs trustworthy labels",
+            "Feedback may be delayed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Monitoring or logging data and predictions",
+        "value_id": "v:22.2"
+      },
+      "rationale": "Logging inputs and predictions gives disconnected devices a basis for later review and delayed quality assessment (d:22, v:22.2).",
+      "consequences": [
+        "Bound local log retention and storage use.",
+        "Provide a sync path for devices when connectivity returns."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device update transport, fleet targeting, and offline package synchronization.",
+    "Camera hardware sizing, model runtime, and inference latency targets.",
+    "Image labelling workflow, dataset governance, and label quality controls.",
+    "Model acceptance thresholds and production release gates.",
+    "Security, access control, and protection of stored images and logs."
+  ]
+}

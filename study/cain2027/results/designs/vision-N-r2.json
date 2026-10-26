@@ -1,0 +1,150 @@
+{
+  "decisions": [
+    {
+      "decision": "Run inference on the production-line devices",
+      "context": "Cameras need defect detection where network access is often unavailable. Inference must therefore work locally on each device.",
+      "drivers": [
+        "Intermittent connectivity",
+        "Camera-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low network dependence"
+          ],
+          "cons": [
+            "Device compute limits",
+            "Per-device deployment"
+          ]
+        },
+        {
+          "label": "Central inference service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model hosting"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Network adds latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference keeps inspection available during network outages, matching the stated operating conditions.",
+      "consequences": [
+        "Devices need compatible inference hardware and runtime.",
+        "Model updates must reach devices separately."
+      ]
+    },
+    {
+      "decision": "Retrain models on a weekly batch cadence",
+      "context": "The model is retrained every week from newly labelled images. A batch workflow fits this cadence and avoids requiring a continuously available training pipeline.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Weekly batch training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches stated cadence",
+            "Simple orchestration"
+          ],
+          "cons": [
+            "Updates wait for batch",
+            "Training failures delay release"
+          ]
+        },
+        {
+          "label": "Continuous training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Faster incorporation",
+            "Frequent model refresh"
+          ],
+          "cons": [
+            "More operational complexity",
+            "Higher infrastructure demand"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Weekly batch training",
+        "value_id": null
+      },
+      "rationale": "A weekly batch aligns directly with the required retraining interval while limiting operational and infrastructure overhead.",
+      "consequences": [
+        "Training and release become weekly operational steps.",
+        "New labels may wait until the next batch."
+      ]
+    },
+    {
+      "decision": "Distribute model updates to devices",
+      "context": "Retrained models are pushed to devices, although those devices often lack network access. The update mechanism must tolerate devices being unreachable during a release.",
+      "drivers": [
+        "Push models to devices",
+        "Intermittent connectivity",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Direct network push with retry",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Automated delivery",
+            "No manual media handling"
+          ],
+          "cons": [
+            "Needs eventual connectivity",
+            "Requires retry tracking"
+          ]
+        },
+        {
+          "label": "Removable-media transfer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works without network",
+            "Low service infrastructure"
+          ],
+          "cons": [
+            "Manual fleet work",
+            "Slower rollout"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Direct network push with retry",
+        "value_id": null
+      },
+      "rationale": "Push is the stated delivery approach; retrying allows disconnected devices to receive updates when connectivity returns.",
+      "consequences": [
+        "Devices need a mechanism to check for and install pending updates.",
+        "Rollout completion can lag the weekly training cadence."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Where newly labelled images are collected, stored, and transferred from production lines.",
+    "Training compute, framework, and execution environment.",
+    "Model validation and release criteria before deployment.",
+    "Model artifact format and device inference runtime.",
+    "Update authentication, integrity checks, staged rollout, and rollback behavior.",
+    "Device hardware and supported operating systems.",
+    "Inspection result storage, alerting, and retention requirements."
+  ]
+}

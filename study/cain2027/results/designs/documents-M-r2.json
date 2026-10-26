@@ -1,0 +1,305 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction mode",
+      "context": "The classifier processes millions of documents daily, with seasonal volume swings and multiple downstream teams. The brief does not require request-time results.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal demand",
+        "Shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08"
+          ],
+          "pros": [
+            "High-throughput scoring",
+            "Results persist for consumers"
+          ],
+          "cons": [
+            "Results arrive on a schedule"
+          ]
+        },
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s02_p13"
+          ],
+          "pros": [
+            "Fresh per-request results",
+            "Supports interactive use"
+          ],
+          "cons": [
+            "Serves requests individually"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Scheduled batch scoring fits the stated large daily volume and shared consumption. Sources including “How to power up your product by machine learning with python microservice, pt. 1” describe batch deployment; the checked design point was unattested, so this is a reasoned choice rather than a documented combination.",
+      "consequences": [
+        "Consumers read persisted classification results.",
+        "Processing capacity must accommodate seasonal peaks."
+      ]
+    },
+    {
+      "decision": "Scaling for variable workload",
+      "context": "Document volume changes considerably over the year, so capacity needs to follow workload. The brief does not specify latency or cost targets.",
+      "drivers": [
+        "Seasonal volume",
+        "Large workload",
+        "Capacity flexibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01"
+          ],
+          "pros": [
+            "Capacity follows demand",
+            "Supports large workloads"
+          ],
+          "cons": [
+            "Requires scaling controls"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04"
+          ],
+          "pros": [
+            "Reduces idle capacity",
+            "Controls serving cost"
+          ],
+          "cons": [
+            "May add startup delay"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling addresses the explicit seasonal workload swings; the rival scale-to-zero choice may be less suitable when high-volume scoring needs ready capacity. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” discusses elastic resources. The checked combination was unattested.",
+      "consequences": [
+        "Capacity changes with scoring demand.",
+        "Peak throughput still needs sizing and observation."
+      ]
+    },
+    {
+      "decision": "Classification result interface",
+      "context": "Several teams consume the classifier’s results, so the system needs a stable way to expose them. The brief does not specify each team’s integration pattern.",
+      "drivers": [
+        "Multiple consumers",
+        "Shared results",
+        "Integration"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s01_p08"
+          ],
+          "pros": [
+            "Common application interface",
+            "Separates model from consumers"
+          ],
+          "cons": [
+            "Requires service operations"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s02_p13"
+          ],
+          "pros": [
+            "Supports independent deployment",
+            "Typed interface"
+          ],
+          "cons": [
+            "Requires compatible clients"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "REST provides a broadly consumable interface for the several teams named in the brief. “How to power up your product by machine learning with python microservice, pt. 1” documents API-backed model services; the checked combination was unattested.",
+      "consequences": [
+        "Teams integrate through a shared prediction contract.",
+        "Service availability and interface changes need operational ownership."
+      ]
+    },
+    {
+      "decision": "Detecting production quality drift",
+      "context": "Operators need visibility when classification quality drifts. Drift can be observed from input changes and measured from predictions when labeled outcomes become available.",
+      "drivers": [
+        "Drift visibility",
+        "Operator response",
+        "Quality assurance"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p05"
+          ],
+          "pros": [
+            "Surfaces input changes",
+            "Can alert operators early"
+          ],
+          "cons": [
+            "Input shifts do not prove quality loss"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s01_p06"
+          ],
+          "pros": [
+            "Tracks observed quality",
+            "Connects to outcomes"
+          ],
+          "cons": [
+            "Needs labels",
+            "Quality signal may be delayed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Choose input-drift monitoring for timely operator visibility, and treat it as a signal to investigate rather than proof of quality decline. “Productionizing Machine Learning with a Microservices Architecture” describes monitoring feature processes and values. The checked point warned that multiple monitoring values are not exclusive, so monitoring practices can be combined where labels permit.",
+      "consequences": [
+        "Operators receive drift signals for investigation.",
+        "Quality assessment depends on labeled outcomes, whose availability is unspecified."
+      ]
+    },
+    {
+      "decision": "Candidate model evaluation",
+      "context": "Drift response may lead to model updates, and candidate classifiers need a quality check before deployment. The brief does not define an evaluation metric or acceptance threshold.",
+      "drivers": [
+        "Classification quality",
+        "Safe updates",
+        "Regression control"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09"
+          ],
+          "pros": [
+            "Tests held-out examples",
+            "Checks candidates before deployment"
+          ],
+          "cons": [
+            "Needs representative labeled data"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s02_p09"
+          ],
+          "pros": [
+            "Compares candidate models",
+            "Makes selection measurable"
+          ],
+          "cons": [
+            "Requires metric selection"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Held-out offline evaluation gives a pre-deployment quality gate for any update. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” documents candidate evaluation; the point check flagged that workflow coordination should be decided first, and its combination was unattested.",
+      "consequences": [
+        "Model promotion waits for evaluation.",
+        "The brief must define labels, metrics, and acceptance thresholds."
+      ]
+    },
+    {
+      "decision": "Model and data traceability",
+      "context": "Drift investigations and safe updates benefit from linking deployed models to their training data and runs. Multiple teams also need reproducible classification behavior.",
+      "drivers": [
+        "Drift investigation",
+        "Reproducible updates",
+        "Shared operation"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p03",
+            "s22_p04"
+          ],
+          "pros": [
+            "Links data, runs, and models",
+            "Tracks deployment health"
+          ],
+          "cons": [
+            "Adds governance work"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s22_p03"
+          ],
+          "pros": [
+            "Versions model assets",
+            "Supports reuse"
+          ],
+          "cons": [
+            "Less lifecycle context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "Comprehensive traceability best supports explaining drift and reproducing candidate updates across teams. “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” and “MLOps Principles” document end-to-end lifecycle records; the checked point was unattested.",
+      "consequences": [
+        "Record dataset, pipeline, run, model, and deployment metadata.",
+        "Teams take on additional tracking and governance work."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Workflow execution coordination and orchestration (flagged as a prerequisite by the evaluation decision).",
+    "Data retention, privacy, and access controls for insurance documents.",
+    "Label acquisition and delay, evaluation metrics, and promotion thresholds.",
+    "Consumer-specific delivery, availability, and freshness requirements.",
+    "Model choice, including whether the LLM classifier is hosted or self-managed."
+  ]
+}

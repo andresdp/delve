@@ -1,0 +1,315 @@
+{
+  "decisions": [
+    {
+      "decision": "Reproducibility and lifecycle traceability",
+      "context": "Forecasts must be reproducible for any past week, including their inputs and training context. The team needs a way to track experiments and production artifacts.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Small team",
+        "Experiment speed"
+      ],
+      "alternatives": [
+        {
+          "label": "End-to-end reproducible lifecycle governance",
+          "value_id": "v:20.6",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04",
+            "s22_p06",
+            "s22_p08",
+            "s22_p13",
+            "s22_p17"
+          ],
+          "pros": [
+            "Links data, runs, and models",
+            "Supports replay and audit"
+          ],
+          "cons": [
+            "More metadata to maintain"
+          ]
+        },
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [],
+          "pros": [
+            "Tracks pipeline changes",
+            "Supports experiment comparison"
+          ],
+          "cons": [
+            "Less lifecycle coverage"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "End-to-end reproducible lifecycle governance",
+        "value_id": "v:20.6"
+      },
+      "rationale": "It covers dataset versions, pipeline definitions, dependencies, and training snapshots needed to reproduce a past forecast. “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” and “MLOps Principles” support this traceability approach.",
+      "consequences": [
+        "Retain versioned inputs and training context.",
+        "Record lineage through model promotion.",
+        "Budget effort for metadata and artifact management."
+      ]
+    },
+    {
+      "decision": "Weekly workflow coordination",
+      "context": "A scheduled weekly forecast needs repeatable stages that can run without hand-coordinated transitions. New model ideas should fit into the same workflow.",
+      "drivers": [
+        "Reliable weekly run",
+        "Rapid experimentation",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07",
+            "s04_p15",
+            "s04_p17",
+            "s04_p18",
+            "s06_p07",
+            "s06_p13",
+            "s06_p15",
+            "s08_p01",
+            "s08_p02",
+            "s09_p07",
+            "s09_p08",
+            "s10_p07",
+            "s17_p05",
+            "s17_p06",
+            "s19_p05",
+            "s19_p09",
+            "s20_p05",
+            "s20_p10",
+            "s21_p10",
+            "s25_p01",
+            "s25_p02",
+            "s25_p09",
+            "s28_p03"
+          ],
+          "pros": [
+            "Repeatable staged execution",
+            "Supports evaluation and deployment"
+          ],
+          "cons": [
+            "Requires orchestration upkeep"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s09_p08",
+            "s18_p06",
+            "s20_p12",
+            "s21_p07",
+            "s24_p09",
+            "s24_p10"
+          ],
+          "pros": [
+            "Low initial setup",
+            "Direct operator control"
+          ],
+          "cons": [
+            "Manual handoffs",
+            "Poor fit for recurring runs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "A pipeline makes weekly preparation, training, evaluation, and promotion repeatable while providing a path for new candidates. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” describe this approach; the manual workflow is described as suitable for infrequently changing models in “Productionizing Machine Learning with a Microservices Architecture.”",
+      "consequences": [
+        "Define and version pipeline stages.",
+        "Make the weekly run observable and restartable.",
+        "Choose a data-ingestion mechanism before finalizing orchestration; the design-space point flags this dependency."
+      ]
+    },
+    {
+      "decision": "Model release safety",
+      "context": "New model ideas should reach production quickly without breaking the scheduled weekly forecast. Releases need a way to limit impact and recover.",
+      "drivers": [
+        "Protect weekly run",
+        "Fast model delivery",
+        "Recoverability"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p03",
+            "s04_p10",
+            "s04_p12",
+            "s04_p18",
+            "s25_p01",
+            "s25_p06",
+            "s25_p09"
+          ],
+          "pros": [
+            "Incremental production updates",
+            "Can revert a bad release"
+          ],
+          "cons": [
+            "Requires release automation",
+            "Adds promotion steps"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [],
+          "pros": [
+            "Automates build and release",
+            "One delivery process"
+          ],
+          "cons": [
+            "Rollback not explicit"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Incremental promotion and rollback directly address the risk of a new model disrupting the weekly run. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” support this release pattern.",
+      "consequences": [
+        "Keep a known-good model available for recovery.",
+        "Add staged promotion to the release path.",
+        "Automate rollback or document its operational trigger."
+      ]
+    },
+    {
+      "decision": "Pre-release forecast evaluation",
+      "context": "Candidates need to be evaluated before replacing the production model, with checks that detect deterioration. The brief does not specify a particular forecasting metric or threshold.",
+      "drivers": [
+        "Avoid regressions",
+        "Compare model ideas",
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15",
+            "s06_p08",
+            "s08_p02",
+            "s09_p04",
+            "s20_p03",
+            "s20_p09",
+            "s22_p08",
+            "s25_p09"
+          ],
+          "pros": [
+            "Tests candidates before deployment",
+            "Uses held-out data"
+          ],
+          "cons": [
+            "Depends on suitable labels",
+            "Does not set business thresholds"
+          ]
+        },
+        {
+          "label": "Threshold-based quality regression testing",
+          "value_id": "v:13.2",
+          "citations": [
+            "s06_p02",
+            "s06_p08",
+            "s09_p07",
+            "s22_p09",
+            "s24_p07",
+            "s24_p08"
+          ],
+          "pros": [
+            "Flags quality drops",
+            "Can gate promotion"
+          ],
+          "cons": [
+            "Requires chosen thresholds",
+            "Needs ongoing calibration"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Offline evaluation provides the pre-promotion comparison needed to introduce new model ideas safely. “MLOps Principles” and “MLOps: Continuous delivery and automation pipelines in machine learning” support held-out evaluation; metric and threshold selection remain system-specific.",
+      "consequences": [
+        "Evaluate candidates before promotion.",
+        "Preserve evaluation data and results for comparison.",
+        "Define forecasting metrics and acceptance thresholds separately."
+      ]
+    },
+    {
+      "decision": "Data preservation for forecast replay",
+      "context": "Reproducing a forecast from a past week requires retaining its input data and provenance. The brief does not state retention or privacy constraints.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Input provenance",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Traceable and preserved data",
+          "value_id": "v:42.1",
+          "citations": [
+            "s02_p04",
+            "s02_p05",
+            "s02_p06",
+            "s10_p08",
+            "s12_p07",
+            "s29_p08"
+          ],
+          "pros": [
+            "Retains original inputs",
+            "Tracks provenance"
+          ],
+          "cons": [
+            "Storage and retention cost"
+          ]
+        },
+        {
+          "label": "Cataloged data",
+          "value_id": "v:42.2",
+          "citations": [],
+          "pros": [
+            "Documents data versions",
+            "Improves discoverability"
+          ],
+          "cons": [
+            "Preservation not explicit"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Traceable and preserved data",
+        "value_id": "v:42.1"
+      },
+      "rationale": "Keeping inputs recoverable with their provenance supports replaying forecasts from past weeks. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Architecting a Machine Learning System for Risk” support preservation and traceability.",
+      "consequences": [
+        "Retain source snapshots or equivalent immutable inputs.",
+        "Record processing provenance for each forecast run.",
+        "Set retention and access policies."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Data-ingestion mechanism and source-system interfaces; the checked design point says workflow coordination requires this decision first.",
+    "Forecasting model family and business-selected error metric or acceptance thresholds.",
+    "Weekly schedule, late-data handling, and rerun policy.",
+    "Data-retention duration, access controls, and privacy constraints.",
+    "Production monitoring signals and alert ownership."
+  ]
+}

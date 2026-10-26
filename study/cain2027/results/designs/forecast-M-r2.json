@@ -1,0 +1,277 @@
+{
+  "decisions": [
+    {
+      "decision": "How should weekly runs be coordinated?",
+      "context": "The system runs a recurring forecast per store and product, and new model ideas should reach production quickly. Repeatable stages can make the weekly run easier to operate consistently.",
+      "drivers": [
+        "Weekly reliability",
+        "Fast iteration",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07",
+            "s06_p07"
+          ],
+          "pros": [
+            "Repeatable stages",
+            "Connects evaluation to deployment"
+          ],
+          "cons": [
+            "Requires pipeline setup"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s09_p08",
+            "s20_p12"
+          ],
+          "pros": [
+            "Simple to start",
+            "Flexible for experiments"
+          ],
+          "cons": [
+            "Manual handoffs",
+            "Harder to repeat weekly"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "A pipeline supports recurring preparation, training, evaluation, and deployment while helping a small team move changes through a repeatable process. The design point and its rival were both novel and flagged that data ingestion also needs a decision; Architecting a Machine Learning Pipeline and Google’s MLOps guidance support orchestration.",
+      "consequences": [
+        "Pipeline stages and dependencies need maintenance.",
+        "Data ingestion must be decided alongside coordination."
+      ]
+    },
+    {
+      "decision": "How should past forecasts be reproducible?",
+      "context": "The brief requires reproducing forecasts for any past week. That requires retaining enough information about the data, pipeline, and experiment to reconstruct a run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Run traceability",
+        "Experiment comparison"
+      ],
+      "alternatives": [
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [
+            "s04_p01",
+            "s04_p03",
+            "s04_p05",
+            "s17_p03"
+          ],
+          "pros": [
+            "Versions pipelines and experiments",
+            "Supports run comparison"
+          ],
+          "cons": [
+            "Requires consistent capture"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s12_p05",
+            "s19_p05"
+          ],
+          "pros": [
+            "Versions model artifacts",
+            "Supports reuse"
+          ],
+          "cons": [
+            "Does not track full run context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Pipeline and experiment version control",
+        "value_id": "v:20.2"
+      },
+      "rationale": "Versioning pipeline definitions and experiments alongside artifacts better serves reconstruction of a historical forecast than tracking artifacts alone. Productionizing Machine Learning with a Microservices Architecture and IBM’s AutoML overview support this approach.",
+      "consequences": [
+        "Record data and configuration references for each run.",
+        "Retain the versioned assets needed to rebuild a forecast."
+      ]
+    },
+    {
+      "decision": "How should model changes be released?",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. A release process can validate and promote changes through stages.",
+      "drivers": [
+        "Fast model iteration",
+        "Weekly run continuity",
+        "Safe promotion"
+      ],
+      "alternatives": [
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p06",
+            "s06_p13",
+            "s06_p14",
+            "s08_p01"
+          ],
+          "pros": [
+            "Automates build and promotion",
+            "Separates release stages"
+          ],
+          "cons": [
+            "Requires release setup"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s02_p11",
+            "s19_p05",
+            "s20_p02"
+          ],
+          "pros": [
+            "One release process",
+            "Packages model and services"
+          ],
+          "cons": [
+            "Less explicit stage gating"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "Repository-triggered builds and staged promotion support fast iteration while allowing validation before production. Google’s MLOps guidance and Continuous Intelligence describe this release pattern.",
+      "consequences": [
+        "Automated checks must gate promotion.",
+        "Release stages and rollback behavior need configuration."
+      ]
+    },
+    {
+      "decision": "How should candidate forecasts be evaluated?",
+      "context": "Model changes need validation before they affect the weekly production run. Historical data provides a basis for offline evaluation and regression checks.",
+      "drivers": [
+        "Avoid quality regressions",
+        "Compare model ideas",
+        "Protect weekly forecasts"
+      ],
+      "alternatives": [
+        {
+          "label": "Threshold-based quality regression testing",
+          "value_id": "v:13.2",
+          "citations": [
+            "s06_p02",
+            "s06_p08",
+            "s09_p07",
+            "s22_p09"
+          ],
+          "pros": [
+            "Catches quality drops",
+            "Checks changes against thresholds"
+          ],
+          "cons": [
+            "Thresholds require calibration"
+          ]
+        },
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15",
+            "s06_p08",
+            "s08_p02"
+          ],
+          "pros": [
+            "Tests candidates before release",
+            "Uses held-out data"
+          ],
+          "cons": [
+            "Needs evaluation data and metrics"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Threshold-based quality regression testing",
+        "value_id": "v:13.2"
+      },
+      "rationale": "Threshold checks directly address the risk of a model update degrading weekly forecast quality, and can be run before promotion. Google’s MLOps guidance and MLOps Principles support threshold-based regression checks; the checked design point warns that workflow coordination must be decided first.",
+      "consequences": [
+        "Choose and maintain forecast quality thresholds.",
+        "Historical evaluation data and metric definitions are required."
+      ]
+    },
+    {
+      "decision": "How should source data be preserved?",
+      "context": "Reproducing a past forecast depends on recovering the data state used for that week. The design space describes preserving source data and its provenance as one approach.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Data traceability",
+        "Run reconstruction"
+      ],
+      "alternatives": [
+        {
+          "label": "Traceable and preserved data",
+          "value_id": "v:42.1",
+          "citations": [
+            "s02_p04",
+            "s02_p05",
+            "s02_p06",
+            "s10_p08"
+          ],
+          "pros": [
+            "Preserves original data",
+            "Records provenance"
+          ],
+          "cons": [
+            "Requires retention capacity"
+          ]
+        },
+        {
+          "label": "Cataloged data",
+          "value_id": "v:42.2",
+          "citations": [
+            "s04_p05",
+            "s06_p09",
+            "s20_p08"
+          ],
+          "pros": [
+            "Records metadata and versions",
+            "Improves data discovery"
+          ],
+          "cons": [
+            "Catalog alone may not preserve past contents"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Traceable and preserved data",
+        "value_id": "v:42.1"
+      },
+      "rationale": "Preserving the original data with provenance makes historical inputs more recoverable than cataloging metadata alone. Architecting a Machine Learning Pipeline and Architecting a Machine Learning System for Risk describe provenance and preservation practices.",
+      "consequences": [
+        "Define retention for source data and derived inputs.",
+        "The checked design point leaves data ingestion undecided."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecasting model family and seasonal or calendar feature strategy.",
+    "Historical data storage and retrieval design, including retention duration.",
+    "Forecast publication interface and consumer access patterns.",
+    "Compute platform, deployment environment, and recovery objectives.",
+    "Forecast quality metric definitions and acceptable thresholds."
+  ]
+}
