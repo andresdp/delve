@@ -7,6 +7,7 @@ decides, verdicts cached). From those matches and the session summary, per sessi
 
 - decision coverage: expert decisions with at least one matched alternative, over all expert decisions;
 - alternatives per decision, and the share of alternatives that match an expert option;
+- driver recall: the share of the brief's (hidden) forces that the ADRs' stated decision drivers name;
 - requirements fit: per touched expert decision, (chosen - worst) / (best - worst) of the summed expert impacts on
   the brief's forces (missing impact = 0; ties excluded; a choice that matches no option of that decision is
   "unmatched"), averaged over the qualifying decisions;
@@ -129,6 +130,30 @@ def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optio
     return hits
 
 
+def match_drivers(doc: Mapping[str, Any], gt: Mapping[str, Any], brief: Mapping[str, Any], config, *,
+                  embed: Optional[Callable] = None, judge_model: Any = None, cache: Any = None) -> Set[str]:
+    """Return the brief's forces that some stated decision driver names (same, broader or narrower match)."""
+    from taxonomy_generator.evaluation import gt_match
+    from taxonomy_generator.evaluation.gt_match import Item
+    from taxonomy_generator.evaluation.judge import openai_judge_model
+    names = {f["id"]: f.get("name") or f["id"] for f in gt.get("forces") or []}
+    forces = [Item(id=f, name=names.get(f, f), description="", parent_ids=["forces"], parent_name="Requirement")
+              for f in brief["forces"]]
+    drivers = [Item(id=f"d{i}r{j}", name=text, description="", parent_ids=["drivers"], parent_name="Requirement")
+               for i, dec in enumerate(doc["decisions"]) for j, text in enumerate(dec.get("drivers") or [])]
+    if not drivers:
+        return set()
+    embed = embed or gt_match.embedder_from_config(config)
+    if judge_model is None and config.mode == "judge":
+        judge_model = openai_judge_model(gt_match.check_matching_llm(config.matching_llm))
+    own_cache = cache is None
+    cache = gt_match.JudgeCache(config.cache_path) if own_cache else cache
+    pairs = asyncio.run(gt_match.label_pairs(drivers, forces, embed, judge_model, config, cache=cache))
+    if own_cache:
+        cache.save()
+    return {p["gt_id"] for p in pairs if p["label"] in gt_match.HIT_LABELS}
+
+
 def _option_sums(gt: Mapping[str, Any], forces: List[str]) -> Dict[str, int]:
     sums = {o["id"]: 0 for o in gt.get("options") or []}
     for i in gt.get("impacts") or []:
@@ -205,7 +230,7 @@ def _cost(summary, rates) -> Optional[float]:
 
 def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[str, Any], brief: Mapping[str, Any],
             condition: str, *, graph: Optional[Mapping[str, Any]] = None, summary: Optional[Mapping[str, Any]] = None,
-            rates: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+            rates: Optional[Mapping[str, Any]] = None, driver_hits: Optional[Set[str]] = None) -> Dict[str, Any]:
     """Return the study metrics of one session (see the module docstring)."""
     decisions = {d["id"] for d in gt.get("decisions") or []}
     decision_of = {o["id"]: o.get("decision_ids") or [] for o in gt.get("options") or []}
@@ -219,6 +244,9 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
         "alternatives_per_decision": mean(alts) if alts else 0,
         "alternatives_matched": (sum(bool(hits.get(k)) for k in considered) / len(considered)) if considered else None,
         "uncovered_listed": len(doc.get("uncovered") or []),
+        "drivers_listed": sum(len(d.get("drivers") or []) for d in doc["decisions"]),
+        "driver_recall": (len(set(driver_hits) & set(brief["forces"])) / len(brief["forces"])
+                          if driver_hits is not None and brief.get("forces") else None),
         **_fit(doc, hits, gt, brief),
     }
     space = condition in SPACE_CONDITIONS and graph is not None
@@ -247,7 +275,7 @@ def metrics(doc: Mapping[str, Any], hits: Mapping[str, Set[str]], gt: Mapping[st
 
 
 NUMERIC = ("decision_coverage", "expert_decisions_matched", "alternatives_per_decision", "alternatives_matched",
-           "requirements_fit", "choices_matched", "choices_unmatched", "grounded_choices", "valid_citations",
+           "requirements_fit", "driver_recall", "choices_matched", "choices_unmatched", "grounded_choices", "valid_citations",
            "consistency_warnings", "unknown_value_ids", "points_explored", "cost_usd", "seconds")
 
 
@@ -300,11 +328,14 @@ def main() -> None:
         sources: Dict[str, int] = {}
         hits = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options,
                      label_sources=sources)
+        drivers = match_drivers(doc, gt, briefs[summary["brief"]], config, embed=embed, judge_model=judge,
+                                cache=cache)
         cache.save()                        # after each session, so an interrupted run keeps its verdicts
         row = {"session": sid, "brief": summary["brief"], "condition": summary["condition"], "rep": summary["rep"],
                "model": summary["model"], "matching_model": config.matching_llm, "label_sources": sources,
                **metrics(doc, hits, gt, briefs[summary["brief"]], summary["condition"],
-                         graph=graphs.get(summary["condition"]), summary=summary, rates=rates)}
+                         graph=graphs.get(summary["condition"]), summary=summary, rates=rates,
+                         driver_hits=drivers)}
         rows.append(row)
         if args.export_labels:
             labels = RESULTS / "labels"

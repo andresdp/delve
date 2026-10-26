@@ -83,3 +83,46 @@ def redact(text: str, home: str, secrets: Iterable[str] = ()) -> str:
         if len(user) > 2:
             text = re.sub(rf"\b{re.escape(user)}\b", "[user]", text)
     return text
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60] or "decision"
+
+
+def _ids(value_id: Optional[str], citations: Iterable[str] = ()) -> str:
+    """Return the identifiers of an option as inline code (empty when there are none)."""
+    ids = ([value_id] if value_id else []) + list(citations)
+    return " (" + ", ".join(f"`{i}`" for i in ids) + ")" if ids else ""
+
+
+def render_adrs(doc: Dict[str, Any], system: str) -> Dict[str, str]:
+    """Render a design as MADR-style Markdown ADRs, one file per decision (``0001-<slug>.md``)."""
+    files = {}
+    for n, dec in enumerate(doc["decisions"], 1):
+        chosen = dec["chosen"]
+        lines = [f"# {dec['decision']}", "", f"* System: {system}", "", "## Context and Problem Statement", "",
+                 dec["context"], "", "## Decision Drivers", ""]
+        lines += [f"* {d}" for d in dec["drivers"]] or ["* (none stated)"]
+        lines += ["", "## Considered Options", ""]
+        lines += [f"* {a['label']}{_ids(a['value_id'])}" for a in dec["alternatives"]]
+        lines += ["", "## Decision Outcome", "",
+                  f"Chosen option: \"{chosen['label']}\"{_ids(chosen['value_id'])}.", "", dec["rationale"],
+                  "", "### Consequences", ""]
+        lines += [f"* {c}" for c in dec["consequences"]] or ["* (none stated)"]
+        lines += ["", "## Pros and Cons of the Options", ""]
+        for a in dec["alternatives"]:
+            lines += [f"### {a['label']}", ""]
+            lines += [f"* Good, because {x}" for x in a["pros"]] + [f"* Bad, because {x}" for x in a["cons"]]
+            if a["citations"]:
+                lines.append("* Sources: " + ", ".join(f"`{c}`" for c in a["citations"]))
+            lines.append("")
+        files[f"{n:04d}-{_slug(dec['decision'])}.md"] = "\n".join(lines).rstrip() + "\n"
+    return files
+
+
+def render_index(doc: Dict[str, Any], system: str, files: Iterable[str]) -> str:
+    """Return the index of a session's ADRs, with the decisions the agent could not ground."""
+    lines = [f"# Architecture decisions: {system}", ""] + [f"* [{f[5:-3].replace('-', ' ')}]({f})" for f in files]
+    if doc.get("uncovered"):
+        lines += ["", "## Not grounded in the design space", ""] + [f"* {u}" for u in doc["uncovered"]]
+    return "\n".join(lines) + "\n"

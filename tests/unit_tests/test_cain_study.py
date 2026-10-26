@@ -128,10 +128,15 @@ design = _load("design")
 sessions = _load("run_sessions")
 
 FIXTURE_DESIGN = {
-    "decisions": [{"decision": "Model serving", "rationale": "Low latency matters most.",
-                   "alternatives": [{"label": "Model as a service", "value_id": "v:3.1", "citations": ["s03_p02"]},
-                                    {"label": "Embedded model", "value_id": "v:3.2", "citations": []}],
-                   "chosen": {"label": "Model as a service", "value_id": "v:3.1"}}],
+    "decisions": [{"decision": "Model serving", "context": "Scores are needed before authorization.",
+                   "drivers": ["latency under 50 ms", "auditability"],
+                   "rationale": "Low latency matters most.",
+                   "alternatives": [{"label": "Model as a service", "value_id": "v:3.1", "citations": ["s03_p02"],
+                                     "pros": ["scales independently"], "cons": ["network hop"]},
+                                    {"label": "Embedded model", "value_id": "v:3.2", "citations": [],
+                                     "pros": ["no network hop"], "cons": ["redeploy to update"]}],
+                   "chosen": {"label": "Model as a service", "value_id": "v:3.1"},
+                   "consequences": ["Needs a model registry."]}],
     "uncovered": ["Data labelling"],
 }
 
@@ -270,8 +275,10 @@ BRIEF = {"id": "fraud", "forces": ["low_latency", "reduce_cost"]}
 def _design(*decisions):
     out = []
     for name, alts, chosen in decisions:
-        out.append({"decision": name, "rationale": "r", "chosen": {"label": chosen, "value_id": None},
-                    "alternatives": [{"label": a, "value_id": None, "citations": []} for a in alts]})
+        out.append({"decision": name, "context": "c", "drivers": [], "rationale": "r", "consequences": [],
+                    "chosen": {"label": chosen, "value_id": None},
+                    "alternatives": [{"label": a, "value_id": None, "citations": [], "pros": [], "cons": []}
+                                     for a in alts]})
     return {"decisions": out, "uncovered": []}
 
 
@@ -467,3 +474,47 @@ def test_timed_out_session_fails_and_leaves_no_login(tmp_path, monkeypatch):
     assert rec["status"] == "failed" and "timed out after 5 s" in rec["problems"]
     assert not (tmp_path / "results" / "designs" / "fraud-N-r1.json").exists()
     assert not (tmp_path / "scratch" / "fraud-N-r1" / "codex-home").exists()
+
+
+def test_adrs_render_as_concise_madr_markdown():
+    files = design.render_adrs(FIXTURE_DESIGN, "Card-fraud scoring service")
+    assert list(files) == ["0001-model-serving.md"]
+    text = files["0001-model-serving.md"]
+    for heading in ("# Model serving", "## Context and Problem Statement", "## Decision Drivers",
+                    "## Considered Options", "## Decision Outcome", "### Consequences"):
+        assert heading in text
+    assert "Chosen option: \"Model as a service\" (`v:3.1`)" in text and "Good, because scales independently" in text
+    assert "Bad, because redeploy to update" in text and "s03_p02" in text
+
+
+def test_run_writes_the_adrs_of_a_valid_design(tmp_path, monkeypatch):
+    _fake_codex(monkeypatch, _jsonl(*_events()), FIXTURE_DESIGN)
+    sessions.run(sessions.Session("fraud", "N", 1), {"system": "Fraud", "text": "T"}, tmp_path / "ws",
+                 tmp_path / "scratch", model="m-test", results=tmp_path / "results")
+    assert (tmp_path / "results" / "adrs" / "fraud-N-r1" / "0001-model-serving.md").is_file()
+
+
+def test_driver_recall_counts_the_brief_forces_the_drivers_name():
+    d = _design(("Serving", ["A", "B"], "A"))
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N", driver_hits={"low_latency"})
+    assert m["driver_recall"] == 0.5 and m["drivers_listed"] == 0
+    assert score.metrics(d, _hits(d, {}), _gt(), BRIEF, "N")["driver_recall"] is None
+
+
+def test_drivers_are_matched_to_force_names(tmp_path):
+    import numpy as np
+
+    from taxonomy_generator.evaluation import gt_match
+
+    d = _design(("Serving", ["A", "B"], "A"))
+    d["decisions"][0]["drivers"] = ["fast responses", "cheap to run"]
+    table = {"fast responses": [1, 0, 0], "cheap to run": [0, 1, 0], "Low latency": [1, 0.01, 0],
+             "Reduce cost": [0.01, 1, 0], "Other": [0, 0, 1]}
+
+    def embed(texts):
+        return np.asarray([next(v for k, v in table.items() if k in t) for t in texts], dtype=float)
+
+    config = gt_match.MatcherConfig(matching_llm=None, generation_llm=None, embedding="x", lower_threshold=0.0,
+                                    upper_threshold=0.6, max_candidates=5, include_outcomes=False,
+                                    min_alignment_share=0.25, seed=0, cache_path=None, mode="embeddings")
+    assert score.match_drivers(d, _gt(), BRIEF, config, embed=embed) == {"low_latency", "reduce_cost"}

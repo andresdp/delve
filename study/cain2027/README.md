@@ -38,9 +38,13 @@ python study/cain2027/score.py --workspaces <folder> [--export-labels]
 ```
 
 - `briefs.yaml`: the design briefs; `forces` are expert force ids (never shown to the agent).
-- `prompt.md` and `design.schema.json`: the same prompt and output schema in every condition.
-- `results/summaries/`, `results/designs/`: one sanitized summary and one design per session; raw logs are not
-  kept. `results/scores.json`: per-session metrics and per-condition means and ranges.
+- `prompt.md` and `design.schema.json`: the same prompt and output schema in every condition. The agent returns
+  one concise Architecture Decision Record (ADR) per decision, in the MADR shape: context, drivers, options with
+  pros and cons, chosen option and rationale, consequences, and citations.
+- `results/summaries/`, `results/designs/`: one sanitized summary and one design (JSON) per session; raw logs
+  are not kept. `results/adrs/<session>/`: the same design rendered as Markdown ADRs, with an index, for
+  reading and comparing sessions of one brief. `results/scores.json`: per-session metrics (including driver
+  recall: the share of the brief's hidden forces that the ADRs' drivers name) and per-condition means and ranges.
 - Scoring uses the project's ground-truth matcher with its frozen settings: judge `openai/gpt-5.4-mini`, the
   default distance thresholds and candidate cap, and a verdict cache in `results/judge_cache.json`. The session
   model must differ from the judge. Costs use `rates.yaml` (list prices on a stated date).

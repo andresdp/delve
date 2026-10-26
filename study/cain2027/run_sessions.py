@@ -326,9 +326,17 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
     (results / "summaries" / f"{session.id}.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     if not problems:
         text = design.redact(last.read_text(encoding="utf-8"), str(Path.home()), [key] if key else [])
+        doc = json.loads(text)
         (results / "designs").mkdir(parents=True, exist_ok=True)
         (results / "designs" / f"{session.id}.json").write_text(
-            json.dumps(json.loads(text), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        adrs = results / "adrs" / session.id                 # the same design, as Markdown ADRs to read
+        shutil.rmtree(adrs, ignore_errors=True)
+        adrs.mkdir(parents=True)
+        files = design.render_adrs(doc, brief["system"])
+        for name, content in files.items():
+            (adrs / name).write_text(content, encoding="utf-8")
+        (adrs / "README.md").write_text(design.render_index(doc, brief["system"], files), encoding="utf-8")
     return record
 
 

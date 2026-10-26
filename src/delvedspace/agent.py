@@ -123,8 +123,9 @@ When asked to design a system (a brief with requirements):
    wrong, only unattested. If descriptions fail (no network or key), use `ddspace point ... --no-llm`.
 4. Choose one value per decision whose alternatives exclude each other; where exclusivity is low, say which values
    you combine.
-5. For each decision, record the alternatives you considered, the chosen one with its value id (`v:3.1`), the
-   rationale, and {cite}. The chosen alternative is one of the alternatives you list, with its value id and
+5. Record one concise Architecture Decision Record (ADR) per decision: its context, the brief's drivers, the
+   alternatives you considered with short pros and cons, the chosen one with its value id (`v:3.1`), the
+   rationale and the consequences, and {cite}. The chosen alternative is one of the alternatives you list, with its value id and
    citations.
 6. Say which decisions the brief needs that the design space does not cover.
 """
