@@ -39,7 +39,11 @@ def _taxonomy_file(path: Path, name: str, run_id: str) -> str:
     """Keep a run's file name when ``runs.find_taxonomy`` would find it, else name it like a pipeline run."""
     if runs.is_taxonomy_name(path.name):
         return path.name
-    return f"{name}_taxonomy_{run_id}.json"
+    for stem in (name, "import"):     # a name with an artifact marker (e.g. "_metrics") would hide the file
+        candidate = f"{stem}_taxonomy_{run_id}.json"
+        if runs.is_taxonomy_name(candidate):
+            return candidate
+    return f"import_taxonomy_{run_id}.json"
 
 
 def model_to_taxonomy(model: Dict[str, Any], name: str) -> Dict[str, Any]:
@@ -68,9 +72,10 @@ def model_to_taxonomy(model: Dict[str, Any], name: str) -> Dict[str, Any]:
         if source is not None and target is not None and source is not target:
             source["relations"].append({"target_id": target["id"], "type": LINK_TYPE,
                                         "rationale": link.get("label") or ", ".join(link.get("stereotypes") or [])})
-    dims, _dropped = clean_relations(dims)
+    dims, dropped = clean_relations(dims)       # opposite pairs and duplicates are dropped, and counted
     return {"taxonomy_name": name, "selected_clusters": dims, "iterations": [{"clusters": dims}],
-            "dropped_dimensions": [], "provenance": {"kind": "decision model", "study": model.get("study")}}
+            "dropped_dimensions": [], "provenance": {"kind": "decision model", "study": model.get("study"),
+                                                     "relations_dropped": len(dropped)}}
 
 
 def import_space(ws: Workspace, path: Path, kind: str, corpus: Optional[Path] = None,
@@ -78,9 +83,13 @@ def import_space(ws: Workspace, path: Path, kind: str, corpus: Optional[Path] = 
     """Import ``path`` as the current run; return the new run folder."""
     if kind not in KINDS:
         raise WorkspaceError(f"Unknown kind {kind!r}: use one of {', '.join(KINDS)}.")
-    for extra in (corpus, sources):
-        if extra is not None and not extra.is_file():
-            raise WorkspaceError(f"{extra} is not a file.")
+    if kind == "decision-model" and (corpus or sources):
+        raise WorkspaceError("--corpus and --sources go with --kind run; a decision model has no passages.")
+    if sources is not None and not sources.is_file():
+        raise WorkspaceError(f"{sources} is not a file.")
+    passages = _read(corpus) if corpus is not None else []        # validated before anything is written
+    if not isinstance(passages, list):
+        raise WorkspaceError(f"{corpus} is not a corpus (a JSON list of passages).")
     data = _read(path)
     name = path.stem.split("_taxonomy_")[0] or ws.root.name
     if kind == "run":
@@ -92,11 +101,10 @@ def import_space(ws: Workspace, path: Path, kind: str, corpus: Optional[Path] = 
             raise WorkspaceError(f"{path} has no decisions; is it a decision model (ground-truth format)?")
         taxonomy = model_to_taxonomy(data, name=name)
     run_id = runs.now_id()
+    run_dir = runs.adopt(ws, taxonomy, _taxonomy_file(path, name, run_id), RUN_KINDS[kind],
+                         run_sources(selected_dims(taxonomy)), passages=passages)
     if sources is not None and sources.resolve() != ws.sources_csv.resolve():
         shutil.copy2(sources, ws.sources_csv)
-    run_dir = runs.adopt(ws, taxonomy, _taxonomy_file(path, name, run_id), RUN_KINDS[kind],
-                         run_sources(selected_dims(taxonomy)), corpus=corpus)
-    if kind == "decision-model":
-        for key, value in MODEL_WIKI.items():
-            ws.set(f"wiki.{key}", value)
+    for key, value in MODEL_WIKI.items():   # model-only answers; a run import asks (or defaults) again
+        ws.set(f"wiki.{key}", value if kind == "decision-model" else None)
     return run_dir

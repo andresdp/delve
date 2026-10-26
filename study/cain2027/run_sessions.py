@@ -42,7 +42,11 @@ HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "results"
 MANIFEST = HERE / "inputs" / "manifest.json"
 MANIFEST_COPY = design.MANIFEST_COPY
-MATCHING_MODEL = "openai/gpt-5.4-mini"     # the matcher's judge (KTD10); the session model must differ
+MATCHING_MODEL = design.matching_model()   # the matcher's judge (KTD10); the session model must differ
+CONDITIONS = ("N",) + design.SPACE_CONDITIONS
+TIMEOUT = 1800                             # seconds per session before it is stopped and failed
+# The only variables a session inherits (plus PATH, CODEX_HOME and, for M and E, the study key).
+SAFE_ENV = ("HOME", "USER", "LOGNAME", "SHELL", "TERM", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE")
 SPACE_CONDITIONS = design.SPACE_CONDITIONS
 WEB_SEARCH_OFF = 'web_search="disabled"'
 NETWORK_ON = "sandbox_workspace_write.network_access=true"
@@ -51,6 +55,7 @@ DISABLED_FEATURES = ("browser_use", "browser_use_external", "in_app_browser", "c
                      "memories")
 _NETWORK = re.compile(r"(^|[\s;&|(])(curl|wget|pip3?|npm|npx|uv|conda|brew|git\s+clone|nc|ssh)\b"
                       r"|import\s+(requests|urllib|httpx|openai)|https?://")
+_SEGMENTS = re.compile(r"&&|\|\||;|\n|\|")
 _SHELL = re.compile(r"^\S*(?:sh|bash|zsh)\s+-l?c\s+(.*)$", re.S)
 
 
@@ -124,16 +129,28 @@ def _inner(command_line: str) -> str:
 def _ddspace_calls(script: str) -> List[List[str]]:
     """Return the argument lists of every ddspace invocation in a shell script."""
     calls = []
-    for piece in re.split(r"&&|\|\||;|\n|\|", script):
-        try:
-            words = shlex.split(piece)
-        except ValueError:
-            continue
-        for i, w in enumerate(words):
-            if Path(w).name == "ddspace" or w.endswith("delvedspace.cli"):
-                calls.append(words[i + 1:])
-                break
+    for piece in _SEGMENTS.split(script):
+        args = _ddspace_args(piece)
+        if args is not None:
+            calls.append(args)
     return calls
+
+
+def _ddspace_args(piece: str) -> Optional[List[str]]:
+    """Return the arguments when one shell segment invokes ddspace, else None."""
+    try:
+        words = shlex.split(piece)
+    except ValueError:
+        return None
+    for i, w in enumerate(words):
+        if Path(w).name == "ddspace" or w.endswith("delvedspace.cli"):
+            return words[i + 1:]
+    return None
+
+
+def _uses_network(script: str) -> bool:
+    """Whether any shell segment other than a ddspace call reaches the network (curl, pip, a URL, ...)."""
+    return any(_NETWORK.search(piece) and _ddspace_args(piece) is None for piece in _SEGMENTS.split(script))
 
 
 def _point_event(args: List[str], output: str, ok: bool, clean) -> Dict[str, Any]:
@@ -190,7 +207,7 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
             if args[0] == "point":
                 points.append(_point_event(args, str(item.get("aggregated_output") or ""),
                                            item.get("exit_code") == 0, clean))
-        if _NETWORK.search(script) and not ddspace:
+        if _uses_network(script):
             network += 1
     return {"complete": complete, "commands": commands, "ddspace_calls": dict(calls), "points": points,
             "network_commands": network, "web_search": web, "tokens": tokens}
@@ -225,9 +242,10 @@ def _codex_home(root: Path) -> Path:
 
 
 def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path], key: Optional[str]) -> Dict[str, str]:
+    """Return the session's environment: an allow-list, never the operator's secrets."""
     path = [p for p in os.environ.get("PATH", "").split(os.pathsep)
             if not (Path(p) / "ddspace").exists()]                  # N: no ddspace on the PATH
-    env = {k: v for k, v in os.environ.items() if k not in ("OPENAI_API_KEY", "STUDY_OPENAI_API_KEY")}
+    env = {k: os.environ[k] for k in SAFE_ENV if k in os.environ}
     env.update(CODEX_HOME=str(codex_home), PATH=os.pathsep.join(path))
     if session.condition in SPACE_CONDITIONS:
         if ddspace_bin is not None:
@@ -237,12 +255,36 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
     return env
 
 
+def _events(stdout: str) -> List[Dict[str, Any]]:
+    """Parse the JSONL event stream, skipping lines that are not JSON objects."""
+    events = []
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+    return events
+
+
 def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path, *, model: str,
         results: Path = RESULTS, keep_raw: bool = False, ddspace_bin: Optional[Path] = None,
-        key: Optional[str] = None) -> Dict[str, Any]:
+        key: Optional[str] = None, timeout: int = TIMEOUT) -> Dict[str, Any]:
     """Run one session; write its design and summary; return the summary."""
     root = scratch / session.id
     shutil.rmtree(root, ignore_errors=True)
+    try:
+        return _run(session, brief, workspaces, root, model=model, results=results, keep_raw=keep_raw,
+                    ddspace_bin=ddspace_bin, key=key, timeout=timeout)
+    finally:
+        shutil.rmtree(root / "codex-home", ignore_errors=True)     # the copied login never outlives the session
+        if not keep_raw:
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, *, model: str, results: Path,
+         keep_raw: bool, ddspace_bin: Optional[Path], key: Optional[str], timeout: int) -> Dict[str, Any]:
     workdir = root / "ws"
     if session.condition in SPACE_CONDITIONS:
         shutil.copytree(workspaces / session.condition, workdir)
@@ -251,6 +293,7 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
     (workdir / "BRIEF.md").write_text(f"# {brief['system']}\n\n{brief['text'].strip()}\n", encoding="utf-8")
     last = root / "last.json"
     argv = command(session, workdir, last, model=model)
+    argv[0] = shutil.which("codex") or "codex"           # resolved here: the session PATH may not have it
     record = {"session": session.id, "brief": session.brief, "condition": session.condition, "rep": session.rep,
               "model": model, "matching_model": MATCHING_MODEL,
               "prompt_sha256": design.sha256(design.PROMPT), "schema_sha256": design.sha256(design.SCHEMA),
@@ -260,18 +303,24 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
     if not problems:
         env = _environment(session, _codex_home(root), ddspace_bin, key)
         start = time.monotonic()
-        proc = subprocess.run(argv, input=design.PROMPT.read_text(encoding="utf-8"), capture_output=True,
-                              text=True, env=env)
+        timed_out = False
+        try:
+            proc = subprocess.run(argv, input=design.PROMPT.read_text(encoding="utf-8"), capture_output=True,
+                                  text=True, env=env, timeout=timeout)
+            stdout, stderr, record["exit_code"] = proc.stdout, proc.stderr, proc.returncode
+        except subprocess.TimeoutExpired as exc:
+            timed_out = True
+            stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+            stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+            record["exit_code"] = None
         record["seconds"] = round(time.monotonic() - start, 1)
-        record["exit_code"] = proc.returncode
-        events = [json.loads(line) for line in proc.stdout.splitlines() if line.strip().startswith("{")]
         if keep_raw:
             raw = results / "raw"
             raw.mkdir(parents=True, exist_ok=True)
-            (raw / f"{session.id}.jsonl").write_text(proc.stdout, encoding="utf-8")
-            (raw / f"{session.id}.stderr.txt").write_text(proc.stderr, encoding="utf-8")
-        summary = summarize(events, home=str(Path.home()), secrets=[key] if key else [])
-        problems = postflight(summary, last)
+            (raw / f"{session.id}.jsonl").write_text(stdout, encoding="utf-8")
+            (raw / f"{session.id}.stderr.txt").write_text(stderr, encoding="utf-8")
+        summary = summarize(_events(stdout), home=str(Path.home()), secrets=[key] if key else [])
+        problems = ([f"timed out after {timeout} s"] if timed_out else []) + postflight(summary, last)
     record.update(summary, status="failed" if problems else "ok", problems=problems)
     (results / "summaries").mkdir(parents=True, exist_ok=True)
     (results / "summaries" / f"{session.id}.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
@@ -280,9 +329,13 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
         (results / "designs").mkdir(parents=True, exist_ok=True)
         (results / "designs" / f"{session.id}.json").write_text(
             json.dumps(json.loads(text), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    if not keep_raw:
-        shutil.rmtree(root, ignore_errors=True)
     return record
+
+
+def inside(path: Path, folder: Path) -> bool:
+    """Whether ``path`` is ``folder`` or lies below it."""
+    resolved, folder = path.resolve(), folder.resolve()
+    return resolved == folder or folder in resolved.parents
 
 
 def main() -> None:
@@ -295,21 +348,31 @@ def main() -> None:
     parser.add_argument("--conditions", default="N,M,E")
     parser.add_argument("--reps", type=int, default=2)
     parser.add_argument("--keep-raw", action="store_true", help="keep raw logs and session copies (debugging)")
+    parser.add_argument("--timeout", type=int, default=TIMEOUT, help="seconds per session before it fails")
     args = parser.parse_args()
     repo = HERE.parents[1]
-    if repo in args.scratch.resolve().parents or repo in args.workspaces.resolve().parents:
+    if inside(args.scratch, repo) or inside(args.workspaces, repo):
         sys.exit("Run sessions outside the repository (--scratch and --workspaces), so agents cannot read it.")
+    conditions = args.conditions.split(",")
+    unknown = [c for c in conditions if c not in CONDITIONS]
+    if unknown:
+        sys.exit(f"Unknown condition(s) {', '.join(unknown)}: use {', '.join(CONDITIONS)}.")
     briefs = design.load_briefs()
     wanted = set(filter(None, args.briefs.split(",")))
     briefs = [b for b in briefs if not wanted or b["id"] in wanted]
     key = os.environ.get("STUDY_OPENAI_API_KEY")
-    if not key and set(args.conditions.split(",")) & set(SPACE_CONDITIONS):
+    if not key and set(conditions) & set(SPACE_CONDITIONS):
         print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail (use --no-llm)")  # noqa: T201
     ddspace_bin = Path(sys.executable).with_name("ddspace")
-    for s in pending(plan(briefs, args.conditions.split(","), args.reps)):
+    for s in pending(plan(briefs, conditions, args.reps)):
         brief = next(b for b in briefs if b["id"] == s.brief)
-        rec = run(s, brief, args.workspaces.resolve(), args.scratch.resolve(), model=args.model,
-                  keep_raw=args.keep_raw, ddspace_bin=ddspace_bin if ddspace_bin.is_file() else None, key=key)
+        try:
+            rec = run(s, brief, args.workspaces.resolve(), args.scratch.resolve(), model=args.model,
+                      keep_raw=args.keep_raw, ddspace_bin=ddspace_bin if ddspace_bin.is_file() else None, key=key,
+                      timeout=args.timeout)
+        except Exception as exc:                          # one broken session must not stop the batch
+            print(f"{s.id}: error {type(exc).__name__}: {exc}")  # noqa: T201
+            continue
         print(f"{s.id}: {rec['status']} {'; '.join(rec['problems'])}")  # noqa: T201
 
 

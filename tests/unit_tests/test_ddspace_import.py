@@ -95,10 +95,63 @@ def test_imported_run_answers_queries_and_points(ws, run_files):
 def test_import_run_without_corpus_has_no_quotes(ws, run_files):
     taxonomy, _, sources = run_files
     assert _invoke("import", str(taxonomy), "--kind", "run", "--sources", str(sources), "--yes").exit_code == 0
-    assert not (runs.current_run_dir(ws) / runs.RUN_CORPUS).exists()
+    assert read_json(runs.current_run_dir(ws) / runs.RUN_CORPUS) == []      # an explicit empty snapshot
     assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
     page = next((ws.root / "wiki" / "entities").glob("disk-quorum*.md")).read_text()
     assert "Spokes keeps" not in page
+
+
+def test_import_without_corpus_ignores_an_old_workspace_corpus(ws, run_files):
+    taxonomy, _, sources = run_files
+    ws.corpus_path.write_text(json.dumps(list(CORPUS.values())))            # left by an earlier mining run
+    assert _invoke("import", str(taxonomy), "--kind", "run", "--sources", str(sources), "--yes").exit_code == 0
+    assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
+    page = next((ws.root / "wiki" / "entities").glob("disk-quorum*.md")).read_text()
+    assert "Spokes keeps" not in page
+
+
+def test_invalid_corpus_changes_nothing(ws, run_files, tmp_path):
+    taxonomy, _, sources = run_files
+    assert _invoke("import", str(taxonomy), "--kind", "run", "--yes").exit_code == 0
+    before_run, before_runs = ws.config()["workspace"]["current_run"], sorted(ws.runs_dir.iterdir())
+    bad = tmp_path / "bad_corpus.json"
+    bad.write_text("{not json")
+    result = _invoke("import", str(taxonomy), "--kind", "run", "--corpus", str(bad), "--sources", str(sources),
+                     "--yes")
+    assert result.exit_code != 0 and "not valid JSON" in result.output
+    assert ws.config()["workspace"]["current_run"] == before_run and sorted(ws.runs_dir.iterdir()) == before_runs
+    assert not ws.sources_csv.exists()
+
+
+def test_run_import_after_a_model_import_resets_model_wiki_answers(ws, run_files, tmp_path):
+    path = tmp_path / "gt_model.json"
+    path.write_text(json.dumps(_model()))
+    assert _invoke("import", str(path), "--kind", "decision-model", "--yes").exit_code == 0
+    taxonomy, corpus, sources = run_files
+    assert _invoke("import", str(taxonomy), "--kind", "run", "--corpus", str(corpus), "--yes").exit_code == 0
+    saved = ws.config()["wiki"]
+    assert saved["quotes"] is None and saved["design_points"] is None and saved["core_min_sources"] is None
+
+
+def test_model_import_refuses_a_corpus(ws, run_files, tmp_path):
+    path = tmp_path / "gt_model.json"
+    path.write_text(json.dumps(_model()))
+    _, corpus, _ = run_files
+    result = _invoke("import", str(path), "--kind", "decision-model", "--corpus", str(corpus), "--yes")
+    assert result.exit_code != 0 and "--kind run" in result.output
+
+
+def test_a_file_name_with_an_artifact_marker_stays_findable(ws, tmp_path):
+    path = tmp_path / "toy_metrics.json"
+    path.write_text(json.dumps(_taxonomy()))
+    assert _invoke("import", str(path), "--kind", "run", "--yes").exit_code == 0
+    assert runs.find_taxonomy(runs.current_run_dir(ws)) is not None
+
+
+def test_dropped_opposite_links_are_counted():
+    model = _model()
+    model["decision_links"].append({"from": "access_decision", "to": "store_decision", "label": "back"})
+    assert importer.model_to_taxonomy(model, name="m")["provenance"]["relations_dropped"] == 1
 
 
 def test_missing_input_fails_and_keeps_the_current_run(ws, run_files):

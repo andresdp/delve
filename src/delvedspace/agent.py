@@ -103,7 +103,8 @@ def _sketching(dim: str, value: str, where: str, expert: bool) -> str:
     compare = (f'`ddspace query values "{dim}"{where}` lists them' if expert else
                f'`ddspace query values "{dim}"{where}` lists them and `ddspace query evidence` shows who adopts or '
                f'rejects each')
-    cite = "the dimension and value ids you relied on" if expert else "passage ids and source titles"
+    cite = ("the dimension and value ids (`d:3`, `v:3.1`) you relied on" if expert else
+            "the passage ids (`s03_p02`) behind it; name source titles in the rationale, not among the citations")
     return f"""## Sketching a design
 
 When asked to design a system (a brief with requirements):
@@ -116,7 +117,8 @@ When asked to design a system (a brief with requirements):
 4. Choose one value per decision whose alternatives exclude each other; where exclusivity is low, say which values
    you combine.
 5. For each decision, record the alternatives you considered, the chosen one with its value id (`v:3.1`), the
-   rationale, and {cite}.
+   rationale, and {cite}. The chosen alternative is one of the alternatives you list, with its value id and
+   citations.
 6. Say which decisions the brief needs that the design space does not cover.
 """
 
@@ -244,7 +246,7 @@ def pointer_claude() -> str:
 def pointer_copilot() -> str:
     """copilot-instructions.md block: point to the guide."""
     return ("For questions about the design space, follow the instructions in `AGENTS.md` at the repository root: "
-            "use the `ddspace query` commands and cite passage ids.")
+            "use the `ddspace query` commands and cite the identifiers that AGENTS.md asks for.")
 
 
 def remove_block(path: Path) -> str:

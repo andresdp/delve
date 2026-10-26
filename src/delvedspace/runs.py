@@ -99,12 +99,14 @@ def current_run_dir(ws: Workspace) -> Optional[Path]:
 
 
 def adopt(ws: Workspace, taxonomy: Dict, file_name: str, kind: str, source_ids: List[str],
-          corpus: Optional[Path] = None) -> Path:
-    """Store ``taxonomy`` as a finished run of ``kind`` (with an optional corpus snapshot) and make it current."""
+          passages: Optional[List[Dict]] = None) -> Path:
+    """Store ``taxonomy`` as a finished run of ``kind`` with its corpus snapshot, and make it current.
+
+    The snapshot is written even when empty, so the run never falls back to an unrelated workspace corpus.
+    """
     run_dir = new_run_dir(ws)
     write_json(run_dir / file_name, taxonomy)
-    if corpus is not None:
-        write_json(run_dir / RUN_CORPUS, read_corpus(corpus))
+    write_json(run_dir / RUN_CORPUS, passages or [])
     stamp = datetime.now().isoformat(timespec="seconds")
     save(run_dir, Run(id=run_dir.name, kind=kind, started_at=stamp, finished_at=stamp, status="ok",
                       source_ids=source_ids, taxonomy=file_name))

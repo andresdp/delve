@@ -19,6 +19,7 @@ HERE = Path(__file__).resolve().parent
 SCHEMA = HERE / "design.schema.json"
 PROMPT = HERE / "prompt.md"
 BRIEFS = HERE / "briefs.yaml"
+INPUTS = HERE / "inputs"
 SPACE_CONDITIONS = ("M", "E")              # the conditions with a design space (N has none)
 MANIFEST_COPY = "study-manifest.json"      # the input manifest, as copied into each workspace
 _TYPES = {"object": dict, "array": list, "string": str, "null": type(None), "number": (int, float), "integer": int,
@@ -29,6 +30,12 @@ _KEY = re.compile(r"sk-[A-Za-z0-9_\-]{12,}")
 def schema() -> Dict[str, Any]:
     """Return the design schema."""
     return json.loads(SCHEMA.read_text(encoding="utf-8"))
+
+
+def matching_model() -> str:
+    """Return the matcher's judge model, as pinned in the tracked run config (``models.matching_llm``)."""
+    config = yaml.safe_load((INPUTS / "config.yaml").read_text(encoding="utf-8")) or {}
+    return str((config.get("models") or {}).get("matching_llm") or "")
 
 
 def sha256(path: Path) -> str:

@@ -45,7 +45,8 @@ _ABSOLUTE = re.compile(r"(^|[\s'\"=])(/\w|[A-Za-z]:\\)")   # an absolute path va
 
 
 def _taxonomy(folder: Path) -> Path:
-    found = sorted(folder.glob("*_taxonomy_*.json"))
+    from delvedspace.runs import is_taxonomy_name
+    found = sorted(p for p in folder.glob("*_taxonomy_*.json") if is_taxonomy_name(p.name))
     if len(found) != 1:
         raise ValueError(f"{folder}: expected one *_taxonomy_*.json, found {len(found)}")
     return found[0]

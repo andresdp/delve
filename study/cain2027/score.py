@@ -100,7 +100,8 @@ def _chosen_item(doc: Mapping[str, Any], i: int) -> str:
 
 
 def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optional[Callable] = None,
-          judge_model: Any = None, cache: Any = None, options: Optional[list] = None) -> Dict[str, Set[str]]:
+          judge_model: Any = None, cache: Any = None, options: Optional[list] = None,
+          label_sources: Optional[Dict[str, int]] = None) -> Dict[str, Set[str]]:
     """Return the expert options each design item matches (same, broader or narrower).
 
     Pass ``embed``, ``judge_model``, ``cache`` and ``options`` to reuse them across sessions; a cache created
@@ -119,6 +120,9 @@ def match(doc: Mapping[str, Any], gt: Mapping[str, Any], config, *, embed: Optio
     if own_cache:
         cache.save()
     hits: Dict[str, Set[str]] = {i.id: set() for i in items}
+    if label_sources is not None:        # auto, auto_rank, judge, judge_error: judge failures must stay visible
+        for p in pairs:
+            label_sources[p["label_source"]] = label_sources.get(p["label_source"], 0) + 1
     for p in pairs:
         if p["label"] in gt_match.HIT_LABELS:
             hits[p["system_id"]].add(p["gt_id"])
@@ -141,6 +145,7 @@ def _fit(doc, hits, gt, brief) -> Dict[str, Any]:
             options_of.setdefault(d, []).append(oid)
     sums = _option_sums(gt, brief["forces"])
     fit, unmatched, ties, matched = {}, 0, 0, 0
+    seen: Set[str] = set()       # each expert decision is classified once, by the first design decision touching it
     for i, dec in enumerate(doc["decisions"]):
         items = [k for k in hits if k.startswith(f"d{i}a")]
         touched = []
@@ -149,8 +154,9 @@ def _fit(doc, hits, gt, brief) -> Dict[str, Any]:
                 touched += [d for d in decision_of.get(oid, []) if d not in touched]
         chosen = hits.get(_chosen_item(doc, i), set())
         for d in touched:
-            if d in fit:
+            if d in seen:
                 continue
+            seen.add(d)
             mine = [o for o in chosen if d in decision_of.get(o, [])]
             if not mine:
                 unmatched += 1
@@ -291,10 +297,12 @@ def main() -> None:
         summary = json.loads((RESULTS / "summaries" / f"{sid}.json").read_text(encoding="utf-8"))
         check_summary(summary)
         doc = json.loads(path.read_text(encoding="utf-8"))
-        hits = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options)
+        sources: Dict[str, int] = {}
+        hits = match(doc, gt, config, embed=embed, judge_model=judge, cache=cache, options=options,
+                     label_sources=sources)
         cache.save()                        # after each session, so an interrupted run keeps its verdicts
         row = {"session": sid, "brief": summary["brief"], "condition": summary["condition"], "rep": summary["rep"],
-               "model": summary["model"], "matching_model": config.matching_llm,
+               "model": summary["model"], "matching_model": config.matching_llm, "label_sources": sources,
                **metrics(doc, hits, gt, briefs[summary["brief"]], summary["condition"],
                          graph=graphs.get(summary["condition"]), summary=summary, rates=rates)}
         rows.append(row)
@@ -306,7 +314,8 @@ def main() -> None:
                 w.writerow(["decision", "alternative", "matched_expert_options", "correct (y/n)"])
                 for item in design_items(doc):
                     w.writerow([item.parent_name, item.name, "; ".join(names[o] for o in sorted(hits[item.id])), ""])
-    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates.get("date"), "sessions": rows,
+    (RESULTS / "scores.json").write_text(json.dumps({"rates_date": rates.get("date"), "matcher": config.as_record(),
+                                                     "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
                                                      "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(aggregate(rows), indent=2))  # noqa: T201
 

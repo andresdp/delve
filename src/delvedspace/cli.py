@@ -515,8 +515,6 @@ def import_cmd(
     ws = current_workspace()
     if kind not in importer.KINDS:
         fail(f"--kind must be one of: {', '.join(importer.KINDS)}.")
-    if kind == "decision-model" and (corpus or sources):
-        fail("--corpus and --sources go with --kind run; a decision model has no passages.")
     try:
         current = runs.current_run_dir(ws)
     except WorkspaceError:
@@ -531,7 +529,9 @@ def import_cmd(
         run_dir = importer.import_space(ws, path, kind, corpus=corpus, sources=sources)
     except WorkspaceError as exc:
         fail(str(exc))
-    dims = wb.selected_dims(wsmod.read_json(runs.find_taxonomy(run_dir)))
+    taxonomy = wsmod.read_json(runs.find_taxonomy(run_dir))
+    dims = wb.selected_dims(taxonomy)
+    dropped = (taxonomy.get("provenance") or {}).get("relations_dropped") or 0
     if kind == "decision-model":
         evidence = "none (a decision model)"
     elif corpus:
@@ -542,6 +542,8 @@ def import_cmd(
         ("Run", f"{run_dir.name} ({importer.RUN_KINDS[kind]})"),
         ("Design space", f"{len(dims)} dimensions, {sum(len(d.get('values') or []) for d in dims)} values"),
         ("Evidence", evidence),
+        ("Relations", f"{sum(len(d.get('relations') or []) for d in dims)}"
+                      + (f" ({dropped} dropped: opposite pairs or duplicates)" if dropped else "")),
     ], next_steps=[("ddspace wiki build", "publish it"), ("ddspace agent setup", "let a coding agent use it")])
 
 

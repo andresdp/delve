@@ -378,3 +378,92 @@ def test_matching_reuses_the_matcher_and_its_cache(tmp_path):
     hits = score.match(d, _gt(), config, embed=embed)
     by_name = {i.name: hits[i.id] for i in score.design_items(d)}
     assert by_name["Online service"] == {"service"} and by_name["On-device model"] == {"embedded"}
+
+
+def test_fit_classifies_each_expert_decision_once():
+    d = _design(("Serving", ["GPU box", "Online service"], "GPU box"),
+                ("Hosting", ["On-device model", "Edge cache"], "On-device model"))
+    hits = _hits(d, {"Online service": ["service"], "On-device model": ["embedded"]})
+    m = score.metrics(d, hits, _gt(), BRIEF, "N")
+    assert m["choices_unmatched"] + m["choices_matched"] == 1      # "serving" counted once, not twice
+
+
+def test_consistency_flags_two_values_of_one_dimension_and_unknown_ids():
+    graph = {"nodes": [{"id": "d:1", "kind": "dimension", "label": "Serving"},
+                       {"id": "v:1.1", "kind": "value", "label": "Service", "dimension_id": "d:1", "dimension": "Serving",
+                        "status": "accepted"},
+                       {"id": "v:1.2", "kind": "value", "label": "Embedded", "dimension_id": "d:1",
+                        "dimension": "Serving", "status": "accepted"}], "edges": []}
+    d = _design(("Serving", ["Service", "Embedded"], "Service"), ("Serving again", ["Embedded", "X"], "Embedded"),
+                ("Other", ["Y", "Z"], "Y"))
+    d["decisions"][0]["chosen"]["value_id"] = "v:1.1"
+    d["decisions"][1]["chosen"]["value_id"] = "v:1.2"
+    d["decisions"][2]["chosen"]["value_id"] = "v:9.9"
+    m = score.metrics(d, _hits(d, {}), _gt(), BRIEF, "E", graph=graph)
+    assert m["consistency_warnings"] >= 1 and m["unknown_value_ids"] == 1 and m["value_ids_used"] == 3
+
+
+def test_environment_is_an_allow_list_and_keys_follow_the_condition(tmp_path, monkeypatch):
+    bin_dir = tmp_path / "envbin"
+    bin_dir.mkdir()
+    (bin_dir / "ddspace").write_text("")
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin")
+    monkeypatch.setenv("GITHUB_TOKEN", "ghp_secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-operator-key-000000000")
+    n = sessions._environment(sessions.Session("b", "N", 1), tmp_path / "home", bin_dir / "ddspace", "sk-study")
+    assert str(bin_dir) not in n["PATH"] and "OPENAI_API_KEY" not in n and "GITHUB_TOKEN" not in n
+    m = sessions._environment(sessions.Session("b", "M", 1), tmp_path / "home", bin_dir / "ddspace", "sk-study")
+    assert m["PATH"].split(":")[0] == str(bin_dir) and m["OPENAI_API_KEY"] == "sk-study"
+    assert "GITHUB_TOKEN" not in m and m["CODEX_HOME"] == str(tmp_path / "home")
+
+
+def test_network_use_chained_with_ddspace_is_still_counted():
+    events = _events(_cmd("ddspace query dims && curl https://example.org"))
+    assert sessions.summarize(events, home="/x", secrets=[])["network_commands"] == 1
+    assert sessions.summarize(_events(_cmd("ddspace query dims")), home="/x", secrets=[])["network_commands"] == 0
+
+
+def test_inside_refuses_the_folder_itself(tmp_path):
+    assert sessions.inside(tmp_path, tmp_path) and sessions.inside(tmp_path / "a", tmp_path)
+    assert not sessions.inside(tmp_path.parent / "elsewhere", tmp_path)
+
+
+class _Proc:
+    def __init__(self, stdout, code=0):
+        self.stdout, self.stderr, self.returncode = stdout, "", code
+
+
+def _fake_codex(monkeypatch, stdout, design_doc=None, raise_timeout=False):
+    def fake_run(argv, **kwargs):
+        if design_doc is not None:
+            Path(argv[argv.index("-o") + 1]).write_text(json.dumps(design_doc))
+        if raise_timeout:
+            raise sessions.subprocess.TimeoutExpired(argv, kwargs.get("timeout"), output=stdout)
+        return _Proc(stdout)
+    monkeypatch.setattr(sessions.subprocess, "run", fake_run)
+
+
+def _jsonl(*events):
+    return "\n".join(json.dumps(e) for e in events) + "\n"
+
+
+def test_run_writes_a_redacted_design_and_summary(tmp_path, monkeypatch):
+    stdout = _jsonl(*_events(_cmd("ls"))) + "not json\n"
+    doc = json.loads(json.dumps(FIXTURE_DESIGN))
+    doc["decisions"][0]["rationale"] = f"see {Path.home()}/notes"
+    _fake_codex(monkeypatch, stdout, doc)
+    rec = sessions.run(sessions.Session("fraud", "N", 1), {"system": "S", "text": "T"}, tmp_path / "ws",
+                       tmp_path / "scratch", model="m-test", results=tmp_path / "results")
+    assert rec["status"] == "ok" and rec["exit_code"] == 0
+    saved = (tmp_path / "results" / "designs" / "fraud-N-r1.json").read_text()
+    assert str(Path.home()) not in saved and not (tmp_path / "scratch" / "fraud-N-r1").exists()
+
+
+def test_timed_out_session_fails_and_leaves_no_login(tmp_path, monkeypatch):
+    _fake_codex(monkeypatch, _jsonl({"type": "turn.started"}), FIXTURE_DESIGN, raise_timeout=True)
+    rec = sessions.run(sessions.Session("fraud", "N", 1), {"system": "S", "text": "T"}, tmp_path / "ws",
+                       tmp_path / "scratch", model="m-test", results=tmp_path / "results", keep_raw=True,
+                       timeout=5)
+    assert rec["status"] == "failed" and "timed out after 5 s" in rec["problems"]
+    assert not (tmp_path / "results" / "designs" / "fraud-N-r1.json").exists()
+    assert not (tmp_path / "scratch" / "fraud-N-r1" / "codex-home").exists()
