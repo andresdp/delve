@@ -1,0 +1,222 @@
+{
+  "decisions": [
+    {
+      "decision": "Use batch serving for document classification",
+      "context": "The insurer processes millions of documents daily, and demand varies seasonally. The brief does not require immediate predictions.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal demand",
+        "Multiple consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled bulk processing",
+            "Writes results to storage"
+          ],
+          "cons": [
+            "Results arrive after each batch"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time predictions",
+            "Distributed service"
+          ],
+          "cons": [
+            "Per-request serving path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Batch serving aligns with high-volume document classification and leaves capacity to scale scheduled processing for seasonal peaks. The checked batch point was novel and unattested; the real-time rival was also novel and unattested (d:5, d:15).",
+      "consequences": [
+        "Consumers read completed predictions from storage.",
+        "Classification latency depends on batch schedule."
+      ]
+    },
+    {
+      "decision": "Ingest documents in batches",
+      "context": "Incoming volume reaches millions per day and varies over the year. The brief does not specify a real-time response requirement.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal demand"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Collects documents for bulk processing",
+            "Supports scheduled ingestion"
+          ],
+          "cons": [
+            "Documents wait for a batch"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous input",
+            "Can feed real-time processing"
+          ],
+          "cons": [
+            "Requires continuous processing"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion matches the batch serving choice and enables processing capacity to be scaled around seasonal demand. The checked batch combination and the real-time rival were both unattested (d:7, d:15).",
+      "consequences": [
+        "Ingestion schedules must accommodate seasonal peaks.",
+        "Consumers receive results after processing completes."
+      ]
+    },
+    {
+      "decision": "Partition batch processing to scale throughput",
+      "context": "The system classifies millions of documents each day, with seasonal changes in volume. Processing needs to scale to the incoming workload.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal demand"
+      ],
+      "alternatives": [
+        {
+          "label": "Data partitioning in data pipeline",
+          "value_id": "v:17.2",
+          "citations": [
+            "d:17",
+            "v:17.2"
+          ],
+          "pros": [
+            "Enables parallel processing",
+            "Scales within a pipeline"
+          ],
+          "cons": [
+            "Requires partition management"
+          ]
+        },
+        {
+          "label": "No parallel data processing",
+          "value_id": "v:17.4",
+          "citations": [
+            "d:17",
+            "v:17.4"
+          ],
+          "pros": [
+            "Simpler processing flow"
+          ],
+          "cons": [
+            "Limited throughput scaling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data partitioning in data pipeline",
+        "value_id": "v:17.2"
+      },
+      "rationale": "Partitioning provides a way to increase batch throughput as seasonal volume rises. It was selected in the checked batch point; the rival point using no parallel processing was also unattested (d:17).",
+      "consequences": [
+        "Partitions need to be balanced across workers.",
+        "Results must be gathered for consumers."
+      ]
+    },
+    {
+      "decision": "Monitor model performance and log predictions",
+      "context": "Operators need to see when classification quality drifts. Monitoring needs to capture model performance as well as the data and predictions needed to investigate changes.",
+      "drivers": [
+        "Detect quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks model performance",
+            "Supports drift visibility"
+          ],
+          "cons": [
+            "Needs performance measures"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Records inputs and predictions",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Requires log storage"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "No monitoring overhead"
+          ],
+          "cons": [
+            "Cannot meet drift visibility need"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Model performance monitoring directly addresses the brief’s need to see quality drift. Logging data and predictions is a useful complementary practice, but the design-space check permits one value per dimension, so only performance monitoring is selected (d:22).",
+      "consequences": [
+        "Define and track classification performance measures.",
+        "Logging details and retention remain to be designed."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How consumers discover and retrieve completed results, including notification or polling behavior.",
+    "How to define, measure, and alert on classification quality drift, including ground-truth availability and thresholds.",
+    "How to manage privacy, security, and retention for insurer documents and predictions.",
+    "How to handle failures, retries, duplicate documents, and processing deadlines.",
+    "How to choose, evaluate, and update the LLM classifier and its claim-type taxonomy.",
+    "How to scale compute and control costs during seasonal peaks."
+  ]
+}

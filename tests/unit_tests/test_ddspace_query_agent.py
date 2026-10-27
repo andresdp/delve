@@ -107,6 +107,34 @@ def test_agents_md_examples_use_real_names_and_run(ws):
         assert _invoke(*args).exit_code == 0, args
 
 
+def test_guide_teaches_sketching_a_design_with_points(ws):
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    text = (ws.root / "AGENTS.md").read_text()
+    section = re.search(r"## Sketching a design\n(.*?)\n## ", text, re.S).group(1)
+    assert "ddspace point" in section and "--no-llm" in section and "at least two alternatives" in section
+    assert "This step is required" in section and "rival combination" in section
+    assert "value id" in section and "cite passage ids" in text
+
+
+def test_guide_for_an_imported_expert_model_drops_passage_citations(tmp_path, monkeypatch):
+    root = tmp_path / "expert"
+    assert _invoke("init", str(root), "--yes").exit_code == 0
+    monkeypatch.chdir(root)
+    model = {"decisions": [{"id": "a", "name": "Data storage", "question": "Where is data stored?"},
+                           {"id": "b", "name": "Data access", "question": "How is data accessed?"}],
+             "options": [{"id": "x", "name": "Data lake", "decision_ids": ["a"]},
+                         {"id": "y", "name": "Data warehouse", "decision_ids": ["a"]},
+                         {"id": "z", "name": "Direct access", "decision_ids": ["b"]}]}
+    (tmp_path / "gt_model.json").write_text(json.dumps(model))
+    assert _invoke("import", str(tmp_path / "gt_model.json"), "--kind", "decision-model", "--yes").exit_code == 0
+    assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    text = (root / "AGENTS.md").read_text()
+    assert "expert decision model" in text and "Data storage" in text
+    assert "cite passage ids" not in text and "query evidence" not in text
+    assert "## Sketching a design" in text and "dimension and value ids" in text
+
+
 def test_setup_from_a_parent_folder_points_commands_at_the_workspace(ws, monkeypatch):
     parent = ws.root.parent
     assert _invoke("agent", "setup", "--dir", str(parent), "--yes").exit_code == 0
@@ -142,11 +170,19 @@ def test_claude_and_copilot_pointers_and_the_allow_rule(ws):
     assert "AGENTS.md" in (ws.root / ".github" / "copilot-instructions.md").read_text()
     data = json.loads(settings.read_text())
     assert data["permissions"]["allow"] == ["Bash(ls:*)", "Bash(ddspace query:*)",
-                                            "Bash(/opt/envs/toy/bin/ddspace query:*)"] and data["model"] == "x"
+                                            "Bash(/opt/envs/toy/bin/ddspace query:*)", "Bash(ddspace point:*)",
+                                            "Bash(/opt/envs/toy/bin/ddspace point:*)"] and data["model"] == "x"
     _invoke("agent", "setup", "--claude", "--yes")
-    assert json.loads(settings.read_text())["permissions"]["allow"].count("Bash(ddspace query:*)") == 1
-    assert agent.disallow_query(settings) == "cleaned"                 # both rules go, the user's stays
+    allow = json.loads(settings.read_text())["permissions"]["allow"]
+    assert allow.count("Bash(ddspace query:*)") == 1 and allow.count("Bash(ddspace point:*)") == 1
+    assert agent.disallow_query(settings) == "cleaned"                 # query and point rules go, the user's stays
     assert json.loads(settings.read_text())["permissions"]["allow"] == ["Bash(ls:*)"]
+
+
+def test_point_can_be_left_to_prompt(ws):
+    assert _invoke("agent", "setup", "--claude", "--no-allow-point", "--yes").exit_code == 0
+    allow = json.loads((ws.root / ".claude" / "settings.json").read_text())["permissions"]["allow"]
+    assert "Bash(ddspace query:*)" in allow and not [r for r in allow if "point" in r]
 
 
 def test_guide_says_how_to_reach_ddspace_when_the_shell_lacks_it(ws):
@@ -200,3 +236,10 @@ def test_evidence_quotes_come_from_the_run_corpus(ws):
 def test_evidence_quotes_fall_back_to_the_workspace_corpus_without_a_run_snapshot(ws):
     (ws.runs_dir / "20261008_000000").mkdir(parents=True)
     assert "Continuity writes a WAL to S3." in _quote_texts()
+
+
+def test_guide_tells_agents_to_use_the_commands_not_the_raw_graph(ws):
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    rules = (ws.root / "AGENTS.md").read_text().split("## Rules", 1)[1]
+    assert "through `ddspace query` and `ddspace point`, not by opening or parsing" in rules
+    assert "`raw/graph.json`" in rules

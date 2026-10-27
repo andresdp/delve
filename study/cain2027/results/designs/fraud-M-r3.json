@@ -1,0 +1,388 @@
+{
+  "decisions": [
+    {
+      "decision": "Track the full ML lifecycle for auditable scores",
+      "context": "Auditors need to trace each score to its model version and features. Lifecycle metadata can connect deployed models with training runs and datasets.",
+      "drivers": [
+        "Audit trail",
+        "Model versioning",
+        "Feature lineage"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p03"
+          ],
+          "pros": [
+            "Links artifacts and datasets",
+            "Supports deployment audit"
+          ],
+          "cons": [
+            "Requires metadata discipline"
+          ]
+        },
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [],
+          "pros": [
+            "Reproduces training runs",
+            "Compares experiments"
+          ],
+          "cons": [
+            "Less production context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "It covers artifacts, runs, metadata, deployment health, and datasets together, giving auditors a route from a score to the model and feature inputs. The MLOps Principles and Continuous Intelligence sources support this broader traceability.",
+      "consequences": [
+        "Record model and feature references per score.",
+        "Maintain versioned training and deployment metadata."
+      ]
+    },
+    {
+      "decision": "Serve features through an online feature pipeline",
+      "context": "Each authorization request needs its features quickly enough to meet the brief’s tens-of-milliseconds target. Features also need a defined production path into inference.",
+      "drivers": [
+        "Low latency",
+        "Online scoring",
+        "Feature traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Online feature-serving pipeline",
+          "value_id": "v:43.2",
+          "citations": [
+            "s04_p01",
+            "s22_p03"
+          ],
+          "pros": [
+            "Materializes online features",
+            "Supports low-latency inference"
+          ],
+          "cons": [
+            "Requires serving-store operations"
+          ]
+        },
+        {
+          "label": "Central analytical ML data platform",
+          "value_id": "v:43.1",
+          "citations": [],
+          "pros": [
+            "Shared data platform",
+            "Supports downstream reuse"
+          ],
+          "cons": [
+            "Online access not explicit"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online feature-serving pipeline",
+        "value_id": "v:43.2"
+      },
+      "rationale": "A low-latency online store fits synchronous authorization scoring better than an analytical platform alone. Productionizing Machine Learning with a Microservices Architecture and MLOps Principles support shared preparation and online feature serving.",
+      "consequences": [
+        "Keep online feature retrieval on the scoring path.",
+        "Track feature definitions and materialized versions."
+      ]
+    },
+    {
+      "decision": "Expose scoring through a REST prediction microservice",
+      "context": "The payments authorization flow needs a request-response interface for fraud scores. A separate prediction endpoint provides a clear integration boundary.",
+      "drivers": [
+        "Synchronous scoring",
+        "Low latency",
+        "Application integration"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10"
+          ],
+          "pros": [
+            "Direct request-response API",
+            "Independent deployment"
+          ],
+          "cons": [
+            "Network hop adds latency"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [],
+          "pros": [
+            "Portable model format",
+            "Supports online scoring"
+          ],
+          "cons": [
+            "Requires compatible tooling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST prediction endpoint matches the authorization request-response interaction and keeps model integration independent. Practitioner sources describe API-backed prediction services for application integration.",
+      "consequences": [
+        "Budget the API and feature lookup within the latency target.",
+        "Version the request and response contract."
+      ]
+    },
+    {
+      "decision": "Deploy the model as a real-time service",
+      "context": "Fraud scores are required before each card transaction is authorized, so batch prediction cannot serve the primary path. A real-time model service fits that interaction.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s01_p06",
+            "s04_p01",
+            "s06_p13"
+          ],
+          "pros": [
+            "Real-time predictions",
+            "Independent model deployment"
+          ],
+          "cons": [
+            "Service operations required"
+          ]
+        },
+        {
+          "label": "Containerized offline prediction service",
+          "value_id": "v:30.1",
+          "citations": [],
+          "pros": [
+            "Containerized runtime",
+            "Fits scheduled scoring"
+          ],
+          "cons": [
+            "Does not fit per-transaction scoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model-as-a-service deployment",
+        "value_id": "v:30.3"
+      },
+      "rationale": "The brief requires an online score before authorization; a real-time service directly meets that need. Sources describe this deployment as serving predictions to product applications.",
+      "consequences": [
+        "Keep model instances warm for request latency.",
+        "Operate and scale the scoring service."
+      ]
+    },
+    {
+      "decision": "Use stateless horizontally scaled scoring instances",
+      "context": "The service must keep working during peaks. Independent request handling allows capacity to grow by adding serving instances.",
+      "drivers": [
+        "Peak availability",
+        "Horizontal scaling",
+        "Request independence"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless horizontally scaled serving",
+          "value_id": "v:25.1",
+          "citations": [
+            "s01_p02",
+            "s04_p01"
+          ],
+          "pros": [
+            "Independent request handling",
+            "Scales by adding replicas"
+          ],
+          "cons": [
+            "Shared state needs separate storage"
+          ]
+        },
+        {
+          "label": "Asynchronous message-driven serving",
+          "value_id": "v:25.2",
+          "citations": [],
+          "pros": [
+            "Decouples downstream work",
+            "Buffers queued work"
+          ],
+          "cons": [
+            "Does not directly return an immediate score"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless horizontally scaled serving",
+        "value_id": "v:25.1"
+      },
+      "rationale": "Authorization needs an immediate score, while peak capacity benefits from independent replicas. The cited production architecture sources describe stateless serving that can scale horizontally.",
+      "consequences": [
+        "Keep per-request state outside serving instances.",
+        "Provide capacity controls and health checks."
+      ]
+    },
+    {
+      "decision": "Scale scoring resources elastically",
+      "context": "Traffic peaks require more capacity, while the service still needs low response times. Elastic resource scaling adjusts compute to workload demand.",
+      "drivers": [
+        "Traffic peaks",
+        "Latency target",
+        "Capacity"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s04_p02",
+            "s13_p09"
+          ],
+          "pros": [
+            "Adapts capacity to demand",
+            "Supports peak workloads"
+          ],
+          "cons": [
+            "Scaling behavior needs tuning"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [],
+          "pros": [
+            "Reduces idle resource use",
+            "Can lower cost"
+          ],
+          "cons": [
+            "Cold starts threaten latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling aligns capacity with demand while preserving the service’s ability to handle peaks. Scale-to-zero is a poor fit for a latency-sensitive authorization path because startup delay can affect responses.",
+      "consequences": [
+        "Set a warm minimum serving capacity.",
+        "Measure latency and capacity under peak load."
+      ]
+    },
+    {
+      "decision": "Monitor input and feature drift in production",
+      "context": "Fraud patterns and transaction inputs can change after deployment. The brief also requires later identification of the features used for each score.",
+      "drivers": [
+        "Changing fraud patterns",
+        "Feature integrity",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Surfaces input changes",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Requires baselines and alerts"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Lower monitoring effort"
+          ],
+          "cons": [
+            "Misses production changes"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Monitoring feature and input changes helps detect when deployed scoring inputs diverge from expectations. Productionizing Machine Learning with a Microservices Architecture and Machine Learning Monitoring describe monitoring of feature generation and input changes.",
+      "consequences": [
+        "Retain feature and schema observations.",
+        "Define investigation and response thresholds."
+      ]
+    },
+    {
+      "decision": "Retrain when quality or data shifts cross thresholds",
+      "context": "Changes in data or model quality can make deployed fraud scores less useful. Retraining should follow measured signals rather than an unspecified cadence.",
+      "drivers": [
+        "Model quality",
+        "Data changes",
+        "Controlled updates"
+      ],
+      "alternatives": [
+        {
+          "label": "Threshold-based retraining",
+          "value_id": "v:6.3",
+          "citations": [
+            "s06_p08",
+            "s20_p03"
+          ],
+          "pros": [
+            "Responds to measured shifts",
+            "Can halt on schema anomalies"
+          ],
+          "cons": [
+            "Thresholds need calibration"
+          ]
+        },
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [],
+          "pros": [
+            "Predictable retraining cadence"
+          ],
+          "cons": [
+            "May miss sudden drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Threshold-based retraining",
+        "value_id": "v:6.3"
+      },
+      "rationale": "A threshold trigger connects retraining to observed quality or input changes, while schema anomalies can stop the process for investigation. MLOps: Continuous Delivery and Automation Pipelines in Machine Learning supports threshold-driven adaptation.",
+      "consequences": [
+        "Calibrate triggers against labeled outcomes.",
+        "Require review before promoting a retrained model."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Model family and fraud-scoring algorithm selection",
+    "Explanation method and how explanations are retained per score",
+    "Fallback behavior when scoring or feature retrieval is unavailable",
+    "Latency budget allocation and hard timeout behavior",
+    "Authentication, authorization, encryption, and retention policies",
+    "Training-data labeling and feedback process"
+  ]
+}

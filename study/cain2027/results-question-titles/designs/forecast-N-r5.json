@@ -1,0 +1,192 @@
+{
+  "decisions": [
+    {
+      "decision": "What is the forecast grain?",
+      "context": "The system forecasts weekly demand for each store and product. That grain defines the output key and the units the pipeline must produce.",
+      "drivers": [
+        "Weekly forecasts",
+        "Store/product coverage"
+      ],
+      "alternatives": [
+        {
+          "label": "Store × product × week",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches stated requirement",
+            "Directly actionable"
+          ],
+          "cons": [
+            "Potentially many series"
+          ]
+        },
+        {
+          "label": "Product × week across stores",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fewer forecast series",
+            "Simpler output"
+          ],
+          "cons": [
+            "Loses store-level demand"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Store × product × week",
+        "value_id": null
+      },
+      "rationale": "It directly matches the brief’s stated forecast grain and preserves store-level demand information.",
+      "consequences": [
+        "Outputs are keyed by store, product, and week.",
+        "Pipeline must handle the number of resulting series."
+      ]
+    },
+    {
+      "decision": "How should weekly runs be scheduled and isolated?",
+      "context": "Forecasts are produced weekly, and new model ideas must not break the weekly run. The pipeline needs a predictable run boundary and a way to keep experiments from disrupting it.",
+      "drivers": [
+        "Weekly run",
+        "Safe experimentation",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch run with isolated experiments",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fits weekly cadence",
+            "Separates experiments"
+          ],
+          "cons": [
+            "Requires run monitoring",
+            "Needs promotion steps"
+          ]
+        },
+        {
+          "label": "Continuous retraining and deployment",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Frequent updates",
+            "Fewer scheduled jobs"
+          ],
+          "cons": [
+            "Higher operational churn",
+            "Can disrupt weekly output"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch run with isolated experiments",
+        "value_id": null
+      },
+      "rationale": "A scheduled batch aligns with the stated cadence, while isolating experiments protects the production run.",
+      "consequences": [
+        "The weekly run needs an explicit schedule and status tracking.",
+        "Experimental models require a promotion path into production."
+      ]
+    },
+    {
+      "decision": "What must be recorded to reproduce a past forecast?",
+      "context": "The brief requires forecasts to be reproducible for any past week. Reproduction depends on retaining the inputs and implementation details used for each run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Weekly pipeline"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned inputs, code, configuration, and model artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports reruns",
+            "Makes changes traceable"
+          ],
+          "cons": [
+            "Requires retained artifacts",
+            "Adds metadata management"
+          ]
+        },
+        {
+          "label": "Store forecasts only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple retention",
+            "Fast historical lookup"
+          ],
+          "cons": [
+            "Cannot regenerate outputs",
+            "Weak audit trail"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned inputs, code, configuration, and model artifacts",
+        "value_id": null
+      },
+      "rationale": "Retaining the run’s inputs and implementation state enables regeneration of historical forecasts rather than only retrieving saved outputs.",
+      "consequences": [
+        "Each run needs links to its data and artifact versions.",
+        "Historical inputs and artifacts require retention and retrieval."
+      ]
+    },
+    {
+      "decision": "How should model ideas reach production?",
+      "context": "The three-person data science team owns the pipeline end to end and wants new model ideas in production quickly without disrupting the weekly run. Model changes need a reviewable path from experiment to production.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Promote a validated model version between runs",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Controlled rollout",
+            "Clear model history"
+          ],
+          "cons": [
+            "Promotion adds a step",
+            "Requires validation criteria"
+          ]
+        },
+        {
+          "label": "Replace the production model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few deployment steps",
+            "Fast replacement"
+          ],
+          "cons": [
+            "Harder rollback",
+            "Can disrupt run"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Promote a validated model version between runs",
+        "value_id": null
+      },
+      "rationale": "Versioned promotion gives the team a short, controlled path to production while keeping the weekly run tied to a known model version.",
+      "consequences": [
+        "Production runs must pin a model version.",
+        "The team must define minimum validation checks and rollback steps."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast horizon and whether forecasts are generated one or multiple weeks ahead.",
+    "Demand definition, source systems, data quality rules, and late-arriving data policy.",
+    "Accuracy metrics, acceptance thresholds, and model selection criteria.",
+    "Required forecast delivery format, consumers, and availability deadline.",
+    "Runtime, hosting, access control, monitoring, alerting, and recovery requirements.",
+    "Retention period and exact replay expectations when historical source data changes."
+  ]
+}

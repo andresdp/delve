@@ -1,0 +1,345 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a model service for transaction scoring",
+      "context": "Each transaction needs a fraud score before authorization, within tens of milliseconds. The model must be reachable from the payment application at request time.",
+      "drivers": [
+        "Tens of milliseconds",
+        "Pre-authorization scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Request-time access",
+            "Separate model service"
+          ],
+          "cons": [
+            "Network call overhead"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Avoids service hop"
+          ],
+          "cons": [
+            "Tighter application coupling"
+          ]
+        },
+        {
+          "label": "Model in batch prediction system",
+          "value_id": "v:1.4",
+          "citations": [
+            "d:1",
+            "v:1.4"
+          ],
+          "pros": [
+            "External prediction system"
+          ],
+          "cons": [
+            "Batch oriented"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "A request-time model service supports live scoring and keeps model serving separately deployable. The design point had no warnings; the batch rival conflicts with the brief’s timing requirement.",
+      "consequences": [
+        "Keep the scoring call within the latency budget.",
+        "Provide service capacity for peak transaction volume."
+      ]
+    },
+    {
+      "decision": "Serve scores through a real-time microservice",
+      "context": "Fraud scores must be returned as part of transaction authorization. Scheduled batch scoring cannot meet that request path.",
+      "drivers": [
+        "Real-time scores",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time distributed service"
+          ],
+          "cons": [
+            "Network and service operations"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Local API access"
+          ],
+          "cons": [
+            "Deployment locality constraints"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled scoring"
+          ],
+          "cons": [
+            "Not request-time"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "The design space describes this option as real-time delivery through a distributed service, which fits pre-authorization scoring. The batch rival point returned no warnings, but its scheduled processing does not meet the brief’s latency need.",
+      "consequences": [
+        "Scale and monitor the serving service during peaks.",
+        "Account for service-call latency in the authorization path."
+      ]
+    },
+    {
+      "decision": "Persist features in a feature store",
+      "context": "Scoring needs access to transaction features during the live request. Feature persistence is a relevant design choice for the selected real-time serving approach.",
+      "drivers": [
+        "Fast feature access",
+        "Scoring inputs"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Purpose-built feature access"
+          ],
+          "cons": [
+            "Additional system to operate"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Uses existing data stores"
+          ],
+          "cons": [
+            "Feature-specific behavior unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "The feature store is the more directly aligned option for serving features alongside the real-time scoring service. The design point reported no warnings, though the workspace provides no evidence about latency or operational tradeoffs for this choice.",
+      "consequences": [
+        "Operate a feature persistence and access path.",
+        "Verify that feature retrieval fits the scoring latency budget."
+      ]
+    },
+    {
+      "decision": "Track production model inputs and outputs",
+      "context": "Auditors need to reconstruct which model version and features produced a score. Production tracking covers model usage, inputs, and outputs in the design space.",
+      "drivers": [
+        "Auditor traceability",
+        "Model version",
+        "Feature provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks usage, inputs, outputs"
+          ],
+          "cons": [
+            "Additional tracking data"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Logs data and predictions"
+          ],
+          "cons": [
+            "Version attribution unspecified"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "No production record"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "Tracking inputs, outputs, and usage best supports later reconstruction of a score. The design point reported no warnings; the batch rival selected basic logging, which does not explicitly cover model version tracking.",
+      "consequences": [
+        "Record model version and scoring inputs with each result.",
+        "Define retention and access controls for audit records."
+      ]
+    },
+    {
+      "decision": "Version data in a dedicated repository",
+      "context": "Reconstructing a score requires identifying the features and data state used to produce it. The design space includes a dedicated data version repository as one approach.",
+      "drivers": [
+        "Audit reconstruction",
+        "Data provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Dedicated data version support"
+          ],
+          "cons": [
+            "Additional repository to operate"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Keeps versions with code"
+          ],
+          "cons": [
+            "Fit for data unspecified"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Weak data provenance"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "A dedicated data version repository offers explicit support for data versioning, which helps identify the data used in an audited score. The design point reported no warnings; the batch rival used no data versioning.",
+      "consequences": [
+        "Maintain links between score records and data versions.",
+        "Choose retention and version granularity."
+      ]
+    },
+    {
+      "decision": "Process scoring inputs in real time",
+      "context": "Transaction data must be processed in the authorization path to produce a score within tens of milliseconds. The design space distinguishes real-time stream processing from batch processing.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens of milliseconds"
+      ],
+      "alternatives": [
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Supports live data processing"
+          ],
+          "cons": [
+            "Streaming operations required"
+          ]
+        },
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Batch workflow"
+          ],
+          "cons": [
+            "Cannot serve each transaction in time"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Real-time, stream-based data processing",
+        "value_id": "v:15.2"
+      },
+      "rationale": "Real-time processing fits the transaction scoring path. The checked point reported no warnings; the batch rival is inconsistent with scoring each transaction before authorization.",
+      "consequences": [
+        "Keep the live processing path within the latency budget.",
+        "Plan capacity for peak transaction rates."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Peak-traffic scaling and failover design.",
+    "The specific audit record schema and retention period.",
+    "How to bind each score to an immutable model artifact and exact feature values."
+  ]
+}

@@ -1,0 +1,271 @@
+{
+  "decisions": [
+    {
+      "decision": "Use batch ingestion for incoming documents",
+      "context": "The system classifies millions of documents each day, and volume varies strongly over the year. The design space includes batch and streamed ingestion (d:7).",
+      "drivers": [
+        "High daily volume",
+        "Seasonal volume variation"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Groups high-volume input",
+            "Fits offline processing"
+          ],
+          "cons": [
+            "Results arrive after batch processing"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous input",
+            "Supports prompt processing"
+          ],
+          "cons": [
+            "Requires stream handling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion fits the stated scale and allows processing capacity to follow seasonal volume. The checked design point had no warnings, though it was unattested.",
+      "consequences": [
+        "Classification runs on collected batches.",
+        "Batch timing and size need operational definition."
+      ]
+    },
+    {
+      "decision": "Combine batch and online prediction serving",
+      "context": "Several teams consume classification results, while the brief does not specify how quickly each team needs them. The design space offers batch, online, and hybrid serving (d:5).",
+      "drivers": [
+        "Multiple consuming teams",
+        "Millions of daily predictions",
+        "Unspecified result latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Hybrid online/offline model serving",
+          "value_id": "v:5.5",
+          "citations": [
+            "d:5",
+            "v:5.5"
+          ],
+          "pros": [
+            "Supports batch and online access",
+            "Accommodates varied consumers"
+          ],
+          "cons": [
+            "Adds serving paths to operate"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Processes large batches",
+            "Writes results to storage"
+          ],
+          "cons": [
+            "Results are not immediate"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time predictions",
+            "Distributed service"
+          ],
+          "cons": [
+            "Per-document requests at scale"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Hybrid online/offline model serving",
+        "value_id": "v:5.5"
+      },
+      "rationale": "The hybrid option supports batch processing at high volume while leaving room for consumers that need online predictions. The checked design point had no warnings, but no combination was attested by sources.",
+      "consequences": [
+        "Define which consumers use each serving path.",
+        "Maintain consistency across prediction access paths."
+      ]
+    },
+    {
+      "decision": "Notify consumers when results are ready",
+      "context": "Several teams consume predictions produced by a high-volume classifier. The design space considers notification, polling, and blocking for result availability (d:6).",
+      "drivers": [
+        "Multiple consuming teams",
+        "Batch completion"
+      ],
+      "alternatives": [
+        {
+          "label": "Push notification",
+          "value_id": "v:6.1",
+          "citations": [
+            "d:6",
+            "v:6.1"
+          ],
+          "pros": [
+            "Signals result availability",
+            "Avoids repeated checks"
+          ],
+          "cons": [
+            "Requires notification handling"
+          ]
+        },
+        {
+          "label": "Polling",
+          "value_id": "v:6.2",
+          "citations": [
+            "d:6",
+            "v:6.2"
+          ],
+          "pros": [
+            "Simple consumer model",
+            "Consumers control check timing"
+          ],
+          "cons": [
+            "Repeated checks add load"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Push notification",
+        "value_id": "v:6.1"
+      },
+      "rationale": "A notification can tell multiple teams when a batch is ready without requiring them to repeatedly check. The serving decision affects how consumers learn results are available (d:5, d:6).",
+      "consequences": [
+        "Consumers need a way to receive notifications.",
+        "Specify retry and missed-notification handling."
+      ]
+    },
+    {
+      "decision": "Partition data processing to handle volume variation",
+      "context": "Daily volume is in the millions and varies over the year. The design space includes partitioned processing as an option for parallelizing data processing (d:17).",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume variation"
+      ],
+      "alternatives": [
+        {
+          "label": "Data partitioning in data pipeline",
+          "value_id": "v:17.2",
+          "citations": [
+            "d:17",
+            "v:17.2"
+          ],
+          "pros": [
+            "Enables parallel processing",
+            "Can scale with batch size"
+          ],
+          "cons": [
+            "Requires partition coordination"
+          ]
+        },
+        {
+          "label": "No parallel data processing",
+          "value_id": "v:17.4",
+          "citations": [
+            "d:17",
+            "v:17.4"
+          ],
+          "pros": [
+            "Simpler execution path"
+          ],
+          "cons": [
+            "Limits processing throughput"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data partitioning in data pipeline",
+        "value_id": "v:17.2"
+      },
+      "rationale": "Partitioning is the design-space option that directly supports parallel processing, which suits the stated high and variable volume. The checked combination had no warnings, but was unattested.",
+      "consequences": [
+        "Choose partitioning and workload limits.",
+        "Coordinate aggregation of partition results."
+      ]
+    },
+    {
+      "decision": "Monitor model performance in production",
+      "context": "Operators need to see when classification quality drifts. The design space includes model performance monitoring and logging of data and predictions (d:22).",
+      "drivers": [
+        "Detect quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks performance measures",
+            "Directly addresses quality"
+          ],
+          "cons": [
+            "Needs quality measurements"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Records inputs and outputs",
+            "Supports operational review"
+          ],
+          "cons": [
+            "Logs alone may not reveal drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Performance monitoring most directly addresses the stated need to detect classification quality drift. The checked design point had no warnings, but the design space contains no attesting sources.",
+      "consequences": [
+        "Define quality measures and alert thresholds.",
+        "Determine how quality feedback becomes available."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to measure classification quality and detect drift when ground-truth labels arrive late or sparsely.",
+    "How to choose, evaluate, update, and roll back the LLM classifier.",
+    "How to protect sensitive insurance documents and control team access to results.",
+    "How to store, retain, and version documents, predictions, and model configurations.",
+    "Capacity, latency, availability, and cost targets for seasonal peaks."
+  ]
+}

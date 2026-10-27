@@ -1,0 +1,303 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents be ingested?",
+      "context": "Millions of documents arrive daily, with volume varying by season. The brief does not specify whether arrivals are continuous or provided in scheduled batches.",
+      "drivers": [
+        "Millions per day",
+        "Seasonal volume swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Fits scheduled high-volume loads",
+            "Supports variable batch sizes"
+          ],
+          "cons": [
+            "Results wait for a batch"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous intake",
+            "Supports low-latency processing"
+          ],
+          "cons": [
+            "Requires stream operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion matches the scale and accommodates seasonal volume by adjusting batch size. The design-space check had no warnings, though the combination is unattested.",
+      "consequences": [
+        "Classification results are produced after ingestion batches run.",
+        "Batch sizing and cadence need operational tuning."
+      ]
+    },
+    {
+      "decision": "Should documents be processed in batches or in real time?",
+      "context": "The classifier must handle millions of documents each day, but the brief gives no latency target. Batch processing aligns with bulk volume; real-time processing remains an option if consumers need immediate results.",
+      "drivers": [
+        "High throughput",
+        "Seasonal scaling",
+        "Unspecified latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Processes bulk workloads",
+            "Can schedule around demand"
+          ],
+          "cons": [
+            "Adds processing delay"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Processes arrivals continuously",
+            "Can reduce result delay"
+          ],
+          "cons": [
+            "Needs continuous stream capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "Without a stated latency requirement, batch processing is a reasonable fit for the stated daily scale and seasonal variation. The rival real-time combination also produced no design-space warnings; neither combination is attested.",
+      "consequences": [
+        "Consumers receive results after batch processing.",
+        "A latency requirement could change this choice."
+      ]
+    },
+    {
+      "decision": "How should model predictions be served?",
+      "context": "Several teams consume classification results, and the brief does not require synchronous responses. Scheduled batch serving can write predictions to shared storage for downstream consumers.",
+      "drivers": [
+        "Several consuming teams",
+        "Millions of predictions",
+        "Unspecified response latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Writes scheduled prediction batches",
+            "Supports downstream consumption"
+          ],
+          "cons": [
+            "Results are not immediate"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Serves predictions in real time",
+            "Offers a service interface"
+          ],
+          "cons": [
+            "Requires online serving capacity"
+          ]
+        },
+        {
+          "label": "Hybrid online/offline model serving",
+          "value_id": "v:5.5",
+          "citations": [
+            "d:5",
+            "v:5.5"
+          ],
+          "pros": [
+            "Supports batch and online use",
+            "Can serve varied latency needs"
+          ],
+          "cons": [
+            "Adds serving paths to operate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Batch serving fits the selected processing approach and provides results for multiple consumers without assuming an immediate-response requirement. The checked combination had no warnings and was unattested.",
+      "consequences": [
+        "Consumers need access to the prediction store.",
+        "Freshness depends on the batch schedule."
+      ]
+    },
+    {
+      "decision": "How should data processing scale across the workload?",
+      "context": "Daily volume is large and changes substantially over the year. Partitioning work within a pipeline provides a design-space option for parallel processing.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal volume swings"
+      ],
+      "alternatives": [
+        {
+          "label": "Data partitioning in data pipeline",
+          "value_id": "v:17.2",
+          "citations": [
+            "d:17",
+            "v:17.2"
+          ],
+          "pros": [
+            "Enables parallel processing",
+            "Scales work within a pipeline"
+          ],
+          "cons": [
+            "Requires partition management"
+          ]
+        },
+        {
+          "label": "Data pipeline per data set",
+          "value_id": "v:17.1",
+          "citations": [
+            "d:17",
+            "v:17.1"
+          ],
+          "pros": [
+            "Separates dataset workflows",
+            "Allows independent pipeline runs"
+          ],
+          "cons": [
+            "Adds pipeline overhead"
+          ]
+        },
+        {
+          "label": "No parallel data processing",
+          "value_id": "v:17.4",
+          "citations": [
+            "d:17",
+            "v:17.4"
+          ],
+          "pros": [
+            "Simpler execution model"
+          ],
+          "cons": [
+            "Limits throughput headroom"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data partitioning in data pipeline",
+        "value_id": "v:17.2"
+      },
+      "rationale": "Partitioning is a direct fit for parallelizing a high-volume workload and can accommodate seasonal increases. The checked point raised no warnings and had no attesting sources.",
+      "consequences": [
+        "Partitions and worker capacity need tuning.",
+        "Uneven partitions can slow batch completion."
+      ]
+    },
+    {
+      "decision": "How should production classification quality be monitored?",
+      "context": "Operators need to see when classification quality drifts. Monitoring data and predictions can support investigation, while model performance monitoring focuses on model quality.",
+      "drivers": [
+        "Detect quality drift",
+        "Support operator investigation"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks model performance",
+            "Targets quality changes"
+          ],
+          "cons": [
+            "Needs quality measurements"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Records inputs and outputs",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Logs alone do not measure quality"
+          ]
+        },
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks usage and inputs/outputs",
+            "Can include fairness and interpretability"
+          ],
+          "cons": [
+            "Broader tracking scope"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Performance monitoring most directly addresses quality drift. Pair it with data and prediction logging as a complementary practice if investigation requires those records; the design-space alternatives have null exclusivity, so they may be combined. The checked logging point had no warnings and was unattested.",
+      "consequences": [
+        "Define quality measures and alert thresholds.",
+        "Performance monitoring needs a way to obtain quality signals."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to establish ground-truth labels and measure classification quality when labels arrive late or are unavailable.",
+    "How to govern claim data, including retention, privacy, access controls, and audit requirements.",
+    "How to version and roll back prompts, models, and classification taxonomies.",
+    "How to handle invalid documents, low-confidence predictions, and human review.",
+    "How to set batch cadence, seasonal capacity targets, latency objectives, and service-level objectives.",
+    "How consuming teams discover and access prediction results and receive availability notifications."
+  ]
+}

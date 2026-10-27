@@ -1,0 +1,185 @@
+{
+  "decisions": [
+    {
+      "decision": "Buffer incoming documents through a durable queue",
+      "context": "The system classifies millions of incoming documents per day, and volume varies strongly over the year. A durable buffer separates intake from classification capacity.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Durable queue",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Absorbs bursts",
+            "Decouples intake"
+          ],
+          "cons": [
+            "Adds infrastructure"
+          ]
+        },
+        {
+          "label": "Synchronous processing",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple flow"
+          ],
+          "cons": [
+            "Intake tied to capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable queue",
+        "value_id": null
+      },
+      "rationale": "A queue buffers seasonal peaks and lets classification capacity scale independently of intake.",
+      "consequences": [
+        "Queued documents need retry handling.",
+        "Classification results arrive asynchronously."
+      ]
+    },
+    {
+      "decision": "Scale LLM classification workers with queue demand",
+      "context": "Daily volume is large and seasonally variable. Worker capacity needs to follow the backlog while using an LLM-based classifier.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume",
+        "LLM classifier"
+      ],
+      "alternatives": [
+        {
+          "label": "Autoscaled worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Follows demand",
+            "Processes in parallel"
+          ],
+          "cons": [
+            "Scaling needs tuning"
+          ]
+        },
+        {
+          "label": "Fixed worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity"
+          ],
+          "cons": [
+            "Peak backlog",
+            "Idle off-peak"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscaled worker pool",
+        "value_id": null
+      },
+      "rationale": "Autoscaling can raise throughput during seasonal peaks and reduce excess capacity when demand falls.",
+      "consequences": [
+        "Capacity signals and scaling limits need configuration.",
+        "LLM service limits constrain peak throughput."
+      ]
+    },
+    {
+      "decision": "Publish classification results through a shared result store and interface",
+      "context": "Several teams consume the classifier's results. A common publication path gives consumers a consistent way to retrieve them.",
+      "drivers": [
+        "Several consumer teams",
+        "Shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared result store and interface",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consistent access",
+            "Decouples consumers"
+          ],
+          "cons": [
+            "Requires interface ownership"
+          ]
+        },
+        {
+          "label": "Direct delivery to each team",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consumer-specific delivery"
+          ],
+          "cons": [
+            "Duplicate integrations",
+            "Tighter coupling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared result store and interface",
+        "value_id": null
+      },
+      "rationale": "A shared interface serves multiple teams without requiring the classifier to maintain a separate integration for each.",
+      "consequences": [
+        "The interface needs a stable result schema.",
+        "Consumer access patterns need coordination."
+      ]
+    },
+    {
+      "decision": "Monitor classification quality over time",
+      "context": "Operators need to see when classification quality drifts. The system therefore needs ongoing quality monitoring with an operator-visible signal.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operator needs"
+      ],
+      "alternatives": [
+        {
+          "label": "Quality metrics and drift dashboard",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Visible trends",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Needs quality signals"
+          ]
+        },
+        {
+          "label": "Periodic manual review",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Human judgment"
+          ],
+          "cons": [
+            "Delayed detection",
+            "Manual effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Quality metrics and drift dashboard",
+        "value_id": null
+      },
+      "rationale": "A dashboard gives operators a recurring view of quality changes and makes drift easier to spot than periodic review alone.",
+      "consequences": [
+        "Quality indicators and thresholds need definition.",
+        "Dashboard alerts require an operational owner."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document ingestion formats and validation rules",
+    "Whether and how uncertain classifications receive human review",
+    "LLM provider, model selection, and fallback strategy",
+    "Quality measurement method and source of ground-truth labels",
+    "Retention, privacy, security, and regional data requirements",
+    "Consumer latency and availability requirements",
+    "Cost limits and per-document processing targets"
+  ]
+}

@@ -1,0 +1,195 @@
+{
+  "decisions": [
+    {
+      "decision": "Run defect detection on the production-line devices",
+      "context": "Cameras inspect products where network access is often unavailable. Defect detection must continue during network outages.",
+      "drivers": [
+        "Offline operation",
+        "Line-side inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low network latency"
+          ],
+          "cons": [
+            "Device compute limits",
+            "Fleet deployment effort"
+          ]
+        },
+        {
+          "label": "Cloud inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model updates"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Adds network latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference keeps inspection available without network access and avoids a network round trip for each image.",
+      "consequences": [
+        "Devices need sufficient compute and storage.",
+        "The team must manage model versions across devices."
+      ]
+    },
+    {
+      "decision": "Retrain the model centrally on newly labelled images",
+      "context": "The model is retrained weekly using newly labelled images, while the team has limited infrastructure budget. Central training avoids requiring training hardware on every production device.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Central training pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Shared compute",
+            "One training workflow"
+          ],
+          "cons": [
+            "Needs image transfer",
+            "Requires training infrastructure"
+          ]
+        },
+        {
+          "label": "Train on each device",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Local data stays local",
+            "No central training service"
+          ],
+          "cons": [
+            "Repeated compute cost",
+            "Hard to coordinate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Central training pipeline",
+        "value_id": null
+      },
+      "rationale": "A shared pipeline fits a weekly cadence and avoids duplicating training work across the fleet.",
+      "consequences": [
+        "New labelled images must reach the training environment.",
+        "Training infrastructure and dataset handling need ownership."
+      ]
+    },
+    {
+      "decision": "Distribute versioned model packages to devices",
+      "context": "Retrained models must reach cameras along production lines, many of which may be offline. Versioned packages let devices install a known model when connectivity is available.",
+      "drivers": [
+        "Weekly model updates",
+        "Intermittent connectivity",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model packages",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Repeatable releases",
+            "Supports deferred installation"
+          ],
+          "cons": [
+            "Requires package tracking",
+            "Devices may lag behind"
+          ]
+        },
+        {
+          "label": "Stream models on demand",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Latest model on request",
+            "No local package staging"
+          ],
+          "cons": [
+            "Needs connectivity",
+            "Inspection can be blocked"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model packages",
+        "value_id": null
+      },
+      "rationale": "Packages can be staged and installed when devices regain connectivity, without making inspection depend on a live connection.",
+      "consequences": [
+        "The team must track deployed versions.",
+        "Updates may reach devices at different times."
+      ]
+    },
+    {
+      "decision": "Keep inspection operational when model updates are unavailable",
+      "context": "Devices often lack network access, so updates cannot be assumed to arrive on schedule. Each device needs a usable local model between releases.",
+      "drivers": [
+        "Offline operation",
+        "Weekly updates",
+        "Continuous inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "Retain the current local model until replacement",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Inspection continues offline",
+            "Update timing is flexible"
+          ],
+          "cons": [
+            "Some devices use older models",
+            "Requires local storage"
+          ]
+        },
+        {
+          "label": "Require an update before inspection",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Keeps versions aligned",
+            "Avoids stale models"
+          ],
+          "cons": [
+            "Outages stop inspection",
+            "Requires reliable connectivity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Retain the current local model until replacement",
+        "value_id": null
+      },
+      "rationale": "Keeping the installed model available preserves inspection during outages and allows updates to wait for connectivity.",
+      "consequences": [
+        "Devices can temporarily run different model versions.",
+        "The team must define how long older versions remain acceptable."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Target device hardware and model runtime",
+    "Image retention, transfer, and privacy requirements",
+    "Update authentication, integrity checks, rollout policy, and rollback behavior",
+    "Model acceptance criteria and validation process",
+    "Inspection outputs, alert handling, and failure behavior",
+    "Fleet health monitoring and offline-device reporting"
+  ]
+}

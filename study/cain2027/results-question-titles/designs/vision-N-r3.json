@@ -1,0 +1,196 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should defect inference run?",
+      "context": "Production cameras may have no network access, so inspection must continue locally.",
+      "drivers": [
+        "Offline operation",
+        "Line-side inspection",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low network load"
+          ],
+          "cons": [
+            "Device compute limits",
+            "Fleet hardware needs management"
+          ]
+        },
+        {
+          "label": "Central server inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model hardware"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Network adds latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference keeps inspection available without network access and avoids sending each image to a server.",
+      "consequences": [
+        "Devices need enough compute for the model.",
+        "Inference software must be deployed and maintained across the fleet."
+      ]
+    },
+    {
+      "decision": "How should devices receive model updates?",
+      "context": "Models are retrained weekly and pushed to production devices that may be offline.",
+      "drivers": [
+        "Weekly retraining",
+        "Offline devices",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Direct device download from a central model store",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few infrastructure components",
+            "Straightforward distribution"
+          ],
+          "cons": [
+            "Devices need store access",
+            "Offline updates are delayed"
+          ]
+        },
+        {
+          "label": "Managed device update service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Coordinates fleet rollout",
+            "Can track update status"
+          ],
+          "cons": [
+            "Additional service to operate",
+            "May raise infrastructure cost"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Direct device download from a central model store",
+        "value_id": null
+      },
+      "rationale": "A central store and device-initiated downloads provide a simple, low-cost path for weekly updates when devices regain connectivity.",
+      "consequences": [
+        "Updates arrive later on disconnected devices.",
+        "The team must track which model version each device runs."
+      ]
+    },
+    {
+      "decision": "How should models be validated before release?",
+      "context": "Newly labelled images feed weekly retraining, and resulting models are pushed to production inspection devices.",
+      "drivers": [
+        "Weekly retraining",
+        "Production defect detection",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Automated evaluation against a fixed validation set",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Repeatable release check",
+            "Low manual effort"
+          ],
+          "cons": [
+            "Validation set can become stale",
+            "Metrics may miss line-specific issues"
+          ]
+        },
+        {
+          "label": "Manual review of each candidate model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Human judgment of examples",
+            "Can spot unusual failures"
+          ],
+          "cons": [
+            "Slower weekly cadence",
+            "Review effort grows"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Automated evaluation against a fixed validation set",
+        "value_id": null
+      },
+      "rationale": "A repeatable automated check better fits weekly retraining and a small team; the brief gives no basis for prescribing specific thresholds.",
+      "consequences": [
+        "The validation set and release criteria need ownership.",
+        "Candidate models that pass may still fail on new production conditions."
+      ]
+    },
+    {
+      "decision": "How should model installation handle failures?",
+      "context": "Models are pushed to devices that may lack reliable connectivity, so an update can be interrupted or prove unusable.",
+      "drivers": [
+        "Offline devices",
+        "Weekly updates",
+        "Production inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "Stage, verify, then activate with rollback",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Preserves working model",
+            "Detects incomplete updates"
+          ],
+          "cons": [
+            "Needs local version storage",
+            "Adds update logic"
+          ]
+        },
+        {
+          "label": "Replace the active model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple installation flow",
+            "Less local storage"
+          ],
+          "cons": [
+            "Interrupted update risk",
+            "Recovery may need intervention"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stage, verify, then activate with rollback",
+        "value_id": null
+      },
+      "rationale": "Keeping the current model until the replacement is verified protects inspection from interrupted downloads or unusable updates.",
+      "consequences": [
+        "Devices need temporary storage for another model copy.",
+        "The update process must define verification and rollback behavior."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How labelled images are collected, stored, and transferred from production lines.",
+    "Required inference latency, throughput, and device hardware constraints.",
+    "Model quality metrics, release thresholds, and validation-set ownership.",
+    "Device fleet size, connectivity patterns, and update scheduling requirements.",
+    "Security, access control, and signing requirements for images and model artifacts.",
+    "How inference results, failures, and device health are monitored and retained."
+  ]
+}

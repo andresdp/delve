@@ -1,0 +1,192 @@
+{
+  "decisions": [
+    {
+      "decision": "Version input data and pipeline code for reproducible historical forecasts",
+      "context": "Forecasts must be reproducible for any past week, which requires preserving the inputs and implementation used for each run.",
+      "drivers": [
+        "Historical reproducibility",
+        "Weekly forecasts"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned snapshots and code revisions",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Traceable run inputs",
+            "Repeatable outputs"
+          ],
+          "cons": [
+            "Snapshot storage cost",
+            "More pipeline metadata"
+          ]
+        },
+        {
+          "label": "Latest data and code only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple operations"
+          ],
+          "cons": [
+            "Past runs drift",
+            "Cannot reproduce inputs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned snapshots and code revisions",
+        "value_id": null
+      },
+      "rationale": "Recording each run's data snapshot and code revision directly supports reproducing forecasts for past weeks.",
+      "consequences": [
+        "Retain or reference each run's inputs and code revision.",
+        "Run records need stable identifiers."
+      ]
+    },
+    {
+      "decision": "Use a shared forecasting model across stores and products",
+      "context": "The system forecasts demand at store and product level, but the brief gives no evidence that each combination has enough history for an independent model.",
+      "drivers": [
+        "Store and product forecasts",
+        "Three-person team",
+        "Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared model across combinations",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Pools available history",
+            "One model to operate"
+          ],
+          "cons": [
+            "May miss local patterns",
+            "Requires combination features"
+          ]
+        },
+        {
+          "label": "Separate model per combination",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Combination-specific fit",
+            "Independent tuning"
+          ],
+          "cons": [
+            "Many models to maintain",
+            "Sparse histories risk weak fits"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared model across combinations",
+        "value_id": null
+      },
+      "rationale": "A shared model is a practical starting point for a small team and can use store and product identity or attributes to distinguish combinations.",
+      "consequences": [
+        "Model features must identify stores and products.",
+        "Evaluate performance across combinations for uneven fit."
+      ]
+    },
+    {
+      "decision": "Run the forecast pipeline on a weekly schedule",
+      "context": "Demand is forecast weekly, and the production run must complete reliably without slowing model development.",
+      "drivers": [
+        "Weekly run",
+        "Safe production changes"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches forecast cadence",
+            "Isolates run from development"
+          ],
+          "cons": [
+            "Results update on schedule",
+            "Needs run monitoring"
+          ]
+        },
+        {
+          "label": "Manual execution",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple initial setup",
+            "Operator controls timing"
+          ],
+          "cons": [
+            "Human-dependent cadence",
+            "More run inconsistency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch pipeline",
+        "value_id": null
+      },
+      "rationale": "A scheduled batch run matches the weekly forecast cadence and removes routine execution from the data scientists' manual workload.",
+      "consequences": [
+        "Configure and monitor the weekly trigger.",
+        "Failed runs need a recovery procedure."
+      ]
+    },
+    {
+      "decision": "Promote model changes through a staged release",
+      "context": "New ideas should reach production quickly while protecting the weekly run from unproven changes.",
+      "drivers": [
+        "Fast model iteration",
+        "Weekly run stability",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Stage and validate before promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Limits production exposure",
+            "Supports side-by-side checks"
+          ],
+          "cons": [
+            "Adds release steps",
+            "Needs acceptance criteria"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few release steps",
+            "Fastest model switch"
+          ],
+          "cons": [
+            "Failures affect weekly run",
+            "Harder to compare outcomes"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stage and validate before promotion",
+        "value_id": null
+      },
+      "rationale": "A staged release allows the team to evaluate a candidate before it becomes the weekly production model, balancing iteration speed with run stability.",
+      "consequences": [
+        "Keep the current production model available during validation.",
+        "Define promotion checks and rollback steps."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Source systems, data quality rules, and historical data availability.",
+    "Forecast horizon and when forecasts must be delivered.",
+    "Accuracy and business acceptance metrics.",
+    "Runtime, storage, deployment, and monitoring platform.",
+    "How forecasts are consumed and corrected after publication."
+  ]
+}

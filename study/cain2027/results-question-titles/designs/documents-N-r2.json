@@ -1,0 +1,196 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents enter classification?",
+      "context": "Millions of documents arrive daily, and demand varies strongly by season. Intake must absorb bursts without coupling submitters to classifier capacity.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume",
+        "Multiple teams consume results"
+      ],
+      "alternatives": [
+        {
+          "label": "Durable queue with asynchronous workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers bursts",
+            "Scales workers independently"
+          ],
+          "cons": [
+            "Adds processing latency",
+            "Requires retry handling"
+          ]
+        },
+        {
+          "label": "Synchronous classification API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Immediate response",
+            "Simple request flow"
+          ],
+          "cons": [
+            "Ties up callers",
+            "Burst capacity is harder"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable queue with asynchronous workers",
+        "value_id": null
+      },
+      "rationale": "A durable queue buffers seasonal peaks and lets classification capacity scale independently of document submitters.",
+      "consequences": [
+        "Results arrive asynchronously.",
+        "Queue retention and retry policy must be set."
+      ]
+    },
+    {
+      "decision": "How should classifier capacity scale?",
+      "context": "Daily volume reaches millions and changes substantially through the year. The system needs to expand capacity during peaks without keeping peak-sized resources year-round.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume",
+        "Classification throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Statically sized inference fleet",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simple operations"
+          ],
+          "cons": [
+            "Pays for idle capacity",
+            "May fall behind at peaks"
+          ]
+        },
+        {
+          "label": "Autoscaled inference workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches changing demand",
+            "Scales independently"
+          ],
+          "cons": [
+            "Scaling lag",
+            "Capacity limits need tuning"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscaled inference workers",
+        "value_id": null
+      },
+      "rationale": "Autoscaled workers better match the strong seasonal variation while supporting high daily throughput.",
+      "consequences": [
+        "Scaling signals and limits need configuration.",
+        "Peak capacity must be provisioned and monitored."
+      ]
+    },
+    {
+      "decision": "How should teams consume classifications?",
+      "context": "Several teams use the classification results, so results should be accessible without requiring each consumer to call the classifier directly. The brief does not specify whether teams need push delivery, queries, or both.",
+      "drivers": [
+        "Several consuming teams",
+        "Millions daily",
+        "Shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared results store with query API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Common source of truth",
+            "Supports varied consumers"
+          ],
+          "cons": [
+            "Adds API and storage operations",
+            "Consumers may see results later"
+          ]
+        },
+        {
+          "label": "Publish results to a shared event stream",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports independent consumers",
+            "Low coupling"
+          ],
+          "cons": [
+            "Requires consumer coordination",
+            "Replay and retention need design"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared results store with query API",
+        "value_id": null
+      },
+      "rationale": "A shared store and API provide a common access point for multiple teams; the brief does not establish a need for event-driven delivery.",
+      "consequences": [
+        "The results schema becomes a shared contract.",
+        "Access controls and query capacity need design."
+      ]
+    },
+    {
+      "decision": "How should classification quality drift be monitored?",
+      "context": "Operators need to see when classification quality drifts. That requires quality signals over time and a way to surface changes to operators.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operator needs",
+        "LLM classifier"
+      ],
+      "alternatives": [
+        {
+          "label": "Track labeled evaluation metrics over time",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Measures classification quality",
+            "Supports trend detection"
+          ],
+          "cons": [
+            "Needs labeled examples",
+            "Labels may arrive late"
+          ]
+        },
+        {
+          "label": "Monitor prediction and input statistics",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Signals available quickly",
+            "No labels required"
+          ],
+          "cons": [
+            "Indirect quality evidence",
+            "May miss silent errors"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Track labeled evaluation metrics over time",
+        "value_id": null
+      },
+      "rationale": "Labeled evaluation metrics directly reflect classification quality, which is the drift operators need to observe.",
+      "consequences": [
+        "A labeled evaluation source is required.",
+        "Metric thresholds and operator alerts must be defined."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document formats, sizes, and privacy or retention constraints",
+    "Required classification latency and availability targets",
+    "Claim type taxonomy and confidence or escalation policy",
+    "Model provider, hosting, versioning, and fallback strategy",
+    "Consumer access patterns, delivery guarantees, and result retention",
+    "Availability and freshness of labeled evaluation data; drift alert thresholds and response process"
+  ]
+}

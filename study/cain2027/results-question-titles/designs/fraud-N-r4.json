@@ -1,0 +1,248 @@
+{
+  "decisions": [
+    {
+      "decision": "How should authorization obtain a fraud score?",
+      "context": "Each transaction needs a score before authorization, with a response in tens of milliseconds. The scoring path therefore needs a bounded, predictable response time.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous scoring API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct authorization flow",
+            "Simple result handling"
+          ],
+          "cons": [
+            "Adds authorization-path dependency"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples services",
+            "Absorbs bursts"
+          ],
+          "cons": [
+            "Cannot gate current authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous scoring API",
+        "value_id": null
+      },
+      "rationale": "Authorization needs the score before it proceeds, so a synchronous request fits the transaction flow. Its dependency makes availability and latency controls essential.",
+      "consequences": [
+        "Authorization depends on scoring availability.",
+        "The API needs strict latency and timeout limits."
+      ]
+    },
+    {
+      "decision": "Where should model inference run?",
+      "context": "The scoring service must return results within tens of milliseconds. Inference placement affects network overhead and how independently model capacity can be scaled.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Inference in the scoring service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Avoids inference network hop",
+            "One request boundary"
+          ],
+          "cons": [
+            "Couples model runtime to service"
+          ]
+        },
+        {
+          "label": "Separate model-serving service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Independent scaling",
+            "Isolated model runtime"
+          ],
+          "cons": [
+            "Adds network hop",
+            "Adds service dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Inference in the scoring service",
+        "value_id": null
+      },
+      "rationale": "Co-located inference avoids an extra network call on a tight latency path. This favors predictable response time, while limiting independent scaling of model-serving capacity.",
+      "consequences": [
+        "Scoring and inference capacity scale together.",
+        "Model runtime changes require scoring-service deployment."
+      ]
+    },
+    {
+      "decision": "How should features reach inference?",
+      "context": "The brief requires auditors to identify which features produced each score, while scoring must remain fast. Feature retrieval and the recorded feature snapshot both affect latency and later traceability.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Feature provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Retrieve features online per request",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Uses current data",
+            "Central feature definitions"
+          ],
+          "cons": [
+            "Adds retrieval latency",
+            "Adds data-service dependency"
+          ]
+        },
+        {
+          "label": "Compute features in the scoring service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Avoids feature-store hop",
+            "Direct control of inputs"
+          ],
+          "cons": [
+            "Duplicates feature logic",
+            "May lack latest signals"
+          ]
+        },
+        {
+          "label": "Use cached online features",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fast lookup",
+            "Shared feature values"
+          ],
+          "cons": [
+            "Can be stale",
+            "Requires cache consistency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Use cached online features",
+        "value_id": null
+      },
+      "rationale": "A low-latency online lookup is a reasonable fit for the response target, provided the exact values used are captured for audit. The brief does not establish freshness needs, so cache policy remains an open design detail.",
+      "consequences": [
+        "Feature freshness and cache updates need defined policies.",
+        "The score record must preserve the resolved feature values."
+      ]
+    },
+    {
+      "decision": "What should be recorded for audit?",
+      "context": "Auditors must later establish which model version and features produced any score. The record must link the scoring result to those inputs and the transaction.",
+      "drivers": [
+        "Auditable model version",
+        "Auditable feature inputs"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score and inference snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Reconstructs scoring inputs",
+            "Supports audit queries"
+          ],
+          "cons": [
+            "Storage and retention cost",
+            "Write path needs reliability"
+          ]
+        },
+        {
+          "label": "Persist model version and feature references",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Smaller records",
+            "Can reuse feature store"
+          ],
+          "cons": [
+            "References may expire",
+            "Reconstruction may vary"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score and inference snapshot",
+        "value_id": null
+      },
+      "rationale": "Persisting the actual model version and feature values directly addresses the stated audit question. It costs more storage, but avoids relying on mutable or unavailable references later.",
+      "consequences": [
+        "Each score needs a durable audit record.",
+        "Retention, access control, and sensitive-feature handling need policies."
+      ]
+    },
+    {
+      "decision": "How should scoring handle traffic peaks?",
+      "context": "The service must keep working during peaks as well as return scores quickly. Capacity management and overload behavior determine whether the authorization path remains usable under load.",
+      "drivers": [
+        "Peak availability",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scale stateless scoring instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Adds serving capacity",
+            "Limits instance-level failure"
+          ],
+          "cons": [
+            "Needs capacity headroom",
+            "Depends on shared state availability"
+          ]
+        },
+        {
+          "label": "Fixed-capacity scoring pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable resource ceiling",
+            "Simpler capacity planning"
+          ],
+          "cons": [
+            "May saturate at peaks",
+            "Can waste idle capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scale stateless scoring instances",
+        "value_id": null
+      },
+      "rationale": "Horizontal scaling provides a way to add capacity for peaks and reduce dependence on individual instances. It requires load management and capacity headroom to protect the latency target.",
+      "consequences": [
+        "Serving instances should not hold required transaction state locally.",
+        "Scaling thresholds and overload behavior need definition."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Required availability target, recovery objectives, and regional deployment model.",
+    "Transaction volume, peak profile, and precise latency percentile and timeout budget.",
+    "Model family, artifact format, runtime, and hardware requirements.",
+    "Feature definitions, data sources, freshness targets, and cache consistency rules.",
+    "Score thresholds, authorization fallback behavior, and human review policy.",
+    "Model release, rollback, monitoring, drift detection, and retraining process.",
+    "Audit retention period, access rules, privacy constraints, and tamper-evidence requirements."
+  ]
+}

@@ -1,0 +1,207 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should defect inference run?",
+      "context": "Production cameras inspect items even when the line has no network access. Detection therefore needs to work at the device or depend on a local network service.",
+      "drivers": [
+        "Offline operation",
+        "Production-line cameras"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works without network",
+            "Low network traffic"
+          ],
+          "cons": [
+            "Device compute limits",
+            "Fleet deployment burden"
+          ]
+        },
+        {
+          "label": "Central inference service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model hosting"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Network adds latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "It can keep inspecting products when network access is unavailable, which is a stated operating condition. It places model execution and resource constraints on the cameras or their attached devices.",
+      "consequences": [
+        "Devices need compatible inference hardware and runtime.",
+        "Model updates must reach and install on devices."
+      ]
+    },
+    {
+      "decision": "How should weekly models reach devices?",
+      "context": "The model is retrained weekly and pushed to devices that may often lack network access. Distribution must handle both regular updates and periods without connectivity.",
+      "drivers": [
+        "Weekly retraining",
+        "Intermittent connectivity",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Direct device downloads",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few distribution components",
+            "Devices fetch updates"
+          ],
+          "cons": [
+            "Needs device connectivity",
+            "Fleet coordination burden"
+          ]
+        },
+        {
+          "label": "Staged update service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Central rollout control",
+            "Can track deployment"
+          ],
+          "cons": [
+            "More infrastructure",
+            "Offline devices lag"
+          ]
+        },
+        {
+          "label": "Removable-media updates",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low service cost"
+          ],
+          "cons": [
+            "Manual handling",
+            "Slower fleet rollout"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Staged update service",
+        "value_id": null
+      },
+      "rationale": "A staged service provides a way to push weekly models and coordinate device rollout, while offline devices can receive updates when they reconnect. It adds infrastructure, so the service should remain small in scope given the team and budget constraints.",
+      "consequences": [
+        "Devices without connectivity remain on an older model until updated.",
+        "The team must operate update distribution and track versions."
+      ]
+    },
+    {
+      "decision": "How should training run?",
+      "context": "Newly labelled images arrive for weekly retraining, while the team and infrastructure budget are limited. Training can be managed centrally or separately across devices.",
+      "drivers": [
+        "Weekly retraining",
+        "New labels",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Central batch training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "One training workflow",
+            "Consistent model artifact"
+          ],
+          "cons": [
+            "Needs training infrastructure",
+            "Requires image collection"
+          ]
+        },
+        {
+          "label": "Train on devices",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Images can stay local",
+            "Uses device data"
+          ],
+          "cons": [
+            "Device resource limits",
+            "Fleet training complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Central batch training",
+        "value_id": null
+      },
+      "rationale": "A single weekly batch workflow fits the stated retraining cadence and small team better than coordinating training across production devices. It implies that labelled images must be accessible to the training environment.",
+      "consequences": [
+        "A central dataset and training environment are required.",
+        "Image transfer and storage costs depend on data volume."
+      ]
+    },
+    {
+      "decision": "How should model updates be protected?",
+      "context": "A weekly trained model is pushed into a production inspection system. A faulty update could reduce defect detection until replaced.",
+      "drivers": [
+        "Production inspection",
+        "Weekly model changes",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Replace model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "Low storage needs"
+          ],
+          "cons": [
+            "Harder rollback",
+            "Update failure impact"
+          ]
+        },
+        {
+          "label": "Versioned rollout with rollback",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports rollback",
+            "Tracks deployed versions"
+          ],
+          "cons": [
+            "Keeps multiple artifacts",
+            "Needs rollout logic"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned rollout with rollback",
+        "value_id": null
+      },
+      "rationale": "Keeping model versions and a rollback path limits the impact of a problematic weekly update. This adds deployment logic and storage, but is a practical safeguard for production inspection.",
+      "consequences": [
+        "Devices need a way to retain or reacquire a known-good model.",
+        "The team must define when to halt or reverse a rollout."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Camera and device hardware, inference runtime, and compute limits.",
+    "Image volume, retention, privacy constraints, and the process for moving newly labelled images to training.",
+    "Defect acceptance thresholds, model evaluation criteria, and who approves weekly releases.",
+    "Required update freshness, offline duration, connectivity patterns, and device identity or authentication.",
+    "Expected inspection throughput, latency, availability, and behavior when inference fails."
+  ]
+}

@@ -1,0 +1,238 @@
+{
+  "decisions": [
+    {
+      "decision": "Use scheduled batch scoring for document classification",
+      "context": "The system processes millions of documents daily, with seasonal volume changes. The brief does not require immediate predictions for each incoming document.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal peaks",
+        "Result delivery to teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s19_p14"
+          ],
+          "pros": [
+            "Handles bulk scoring",
+            "Writes results for consumers"
+          ],
+          "cons": [
+            "Results arrive on a schedule",
+            "Freshness depends on cadence"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s12_p07"
+          ],
+          "pros": [
+            "Supports low latency",
+            "Distributes request load"
+          ],
+          "cons": [
+            "Adds always-on service capacity",
+            "Requires online request handling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Batch scoring fits the stated high volume without an unstated real-time requirement. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Three Levels of ML Software” describe scheduled batch prediction deployment.",
+      "consequences": [
+        "Choose a scoring cadence that meets operational freshness needs.",
+        "Persist results where consuming teams can access them.",
+        "Plan capacity for seasonal processing peaks."
+      ]
+    },
+    {
+      "decision": "Scale classification resources elastically with demand",
+      "context": "Incoming volume varies strongly over the year, so fixed capacity risks either peak-period bottlenecks or idle capacity.",
+      "drivers": [
+        "Seasonal volume",
+        "Millions of documents daily",
+        "Capacity efficiency"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p06"
+          ],
+          "pros": [
+            "Adapts capacity to demand",
+            "Supports workload peaks"
+          ],
+          "cons": [
+            "Scaling policy needs tuning",
+            "Peak capacity still costs more"
+          ]
+        },
+        {
+          "label": "Vertically scalable training",
+          "value_id": "v:3.1",
+          "citations": [
+            "s02_p01"
+          ],
+          "pros": [
+            "Simple capacity model",
+            "Fewer distributed components"
+          ],
+          "cons": [
+            "Bounded by machine size",
+            "Does not directly address variable serving load"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling matches the seasonal workload pattern. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Productionizing Machine Learning with a Microservices Architecture” discuss scaling resources with workload demand.",
+      "consequences": [
+        "Define scaling thresholds and maximum capacity.",
+        "Track utilization and processing backlog across seasons.",
+        "Validate scaling behavior against peak volume."
+      ]
+    },
+    {
+      "decision": "Expose classification results through a REST prediction microservice",
+      "context": "Several teams consume the classification results, so the system needs a common integration boundary. The brief does not specify a required client protocol.",
+      "drivers": [
+        "Multiple consumers",
+        "Shared integration boundary",
+        "Operational reuse"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s02_p10",
+            "s02_p12",
+            "s19_p14"
+          ],
+          "pros": [
+            "Common API boundary",
+            "Supports independent consumers"
+          ],
+          "cons": [
+            "Requires service operation",
+            "Batch result access still needs a delivery contract"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s07_p01"
+          ],
+          "pros": [
+            "Defined service interface",
+            "Supports independent deployment"
+          ],
+          "cons": [
+            "Requires compatible clients",
+            "Less directly grounded for batch consumers"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST interface gives consuming teams a shared integration point; pair it with persisted batch results for scheduled scoring. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Three Levels of ML Software” describe API-backed prediction services.",
+      "consequences": [
+        "Specify a stable request and result schema.",
+        "Coordinate service access and version changes across teams.",
+        "Clarify whether consumers read stored results or submit requests."
+      ]
+    },
+    {
+      "decision": "Monitor input drift and prediction quality in production",
+      "context": "Operators need visibility into quality drift. Inputs may shift before delayed labels make prediction quality measurable, so monitoring should cover both signals.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operational oversight",
+        "Changing input distributions"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Can surface input changes",
+            "Supports early investigation"
+          ],
+          "cons": [
+            "Drift does not prove quality loss",
+            "Requires baselines and alert thresholds"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s06_p06",
+            "s23_p04"
+          ],
+          "pros": [
+            "Tracks model behavior",
+            "Connects monitoring to quality"
+          ],
+          "cons": [
+            "Needs timely labels",
+            "Quality calculation may lag predictions"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Low monitoring overhead",
+            "Simple operation"
+          ],
+          "cons": [
+            "Drift can remain unseen",
+            "Conflicts with operator visibility need"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Use input drift as the primary early signal and add quality monitoring where labels become available; the monitoring dimension has low exclusivity, so these practices can be combined. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Machine Learning Monitoring: What It Is, and What We Are Missing” discuss drift and quality monitoring.",
+      "consequences": [
+        "Retain suitable input statistics for comparison.",
+        "Set thresholds and an investigation process.",
+        "Connect delayed labels to later quality assessment."
+      ]
+    }
+  ],
+  "uncovered": [
+    "LLM provider, model selection, and prompt or model versioning.",
+    "Label acquisition and ground-truth timing for quality measurement.",
+    "Classification accuracy targets and drift alert thresholds.",
+    "Privacy, retention, and access controls for insurance documents.",
+    "Batch cadence, freshness objectives, and backlog recovery targets.",
+    "Result storage, ownership, and delivery contracts for consuming teams.",
+    "Human review and escalation for uncertain or consequential classifications. Design-point checks were novel and unattested: the proposed combination returned no attested sources or warnings; a rival combination using queued online serving, vertically scalable training, and passive operation was also unattested."
+  ]
+}

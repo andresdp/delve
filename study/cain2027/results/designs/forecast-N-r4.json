@@ -1,0 +1,146 @@
+{
+  "decisions": [
+    {
+      "decision": "Run demand forecasting as a weekly batch pipeline",
+      "context": "The system produces forecasts at weekly store-and-product granularity. A scheduled batch run fits that cadence.",
+      "drivers": [
+        "Weekly forecast cadence",
+        "Store-product granularity"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches weekly cadence",
+            "Simple operations"
+          ],
+          "cons": [
+            "Not real time"
+          ]
+        },
+        {
+          "label": "Continuous streaming forecasts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Low-latency updates"
+          ],
+          "cons": [
+            "More operational complexity",
+            "Exceeds stated cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch pipeline",
+        "value_id": null
+      },
+      "rationale": "Weekly batch execution fits the required forecast cadence and keeps operations manageable for a three-person team.",
+      "consequences": [
+        "Forecasts update on the weekly schedule.",
+        "The pipeline needs a defined run schedule."
+      ]
+    },
+    {
+      "decision": "Version inputs and artifacts to reproduce forecasts for past weeks",
+      "context": "Past-week forecasts must be reproducible, so each run needs a stable record of its input data and model state.",
+      "drivers": [
+        "Past-week reproducibility",
+        "End-to-end team ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned run inputs and artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports replay",
+            "Makes runs auditable"
+          ],
+          "cons": [
+            "Requires artifact storage",
+            "Adds run metadata"
+          ]
+        },
+        {
+          "label": "Use current data and model code",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Minimal storage",
+            "Simple setup"
+          ],
+          "cons": [
+            "Past runs can change",
+            "Hard to debug"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned run inputs and artifacts",
+        "value_id": null
+      },
+      "rationale": "Recording the data snapshot, code or model version, and run configuration makes a past forecast repeatable.",
+      "consequences": [
+        "Each run must retain identifying metadata.",
+        "Historical inputs and model artifacts require retention."
+      ]
+    },
+    {
+      "decision": "Isolate model experiments from the weekly production run",
+      "context": "New model ideas should reach production quickly without disrupting the weekly run. Experiments therefore need a separate path to evaluation and promotion.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Separate experiment and production paths with promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Limits run disruption",
+            "Enables controlled comparison"
+          ],
+          "cons": [
+            "Requires promotion steps",
+            "Maintains separate configurations"
+          ]
+        },
+        {
+          "label": "Replace the production model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few process steps",
+            "Fast code changes"
+          ],
+          "cons": [
+            "Experiments can break runs",
+            "Harder to compare models"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Separate experiment and production paths with promotion",
+        "value_id": null
+      },
+      "rationale": "A promotion path lets the team test new ideas while keeping the scheduled production run stable.",
+      "consequences": [
+        "Candidate models need evaluation before promotion.",
+        "The production model version must be tracked per run."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast horizon and delivery time",
+    "Source systems and data quality requirements",
+    "Forecast accuracy metrics and promotion thresholds",
+    "Serving and forecast consumer interfaces",
+    "Infrastructure, orchestration, and artifact storage choices",
+    "Failure handling, alerting, and recovery targets"
+  ]
+}

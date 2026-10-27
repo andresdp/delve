@@ -1,0 +1,419 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction serving mode",
+      "context": "Every transaction needs a score before authorization, so scoring must use current request context within tens of milliseconds.",
+      "drivers": [
+        "Tens-of-ms latency",
+        "Fresh transaction context",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s04_p10"
+          ],
+          "pros": [
+            "Uses current context",
+            "Fits request-time scoring"
+          ],
+          "cons": [
+            "Depends on timely feature retrieval"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s19_p14"
+          ],
+          "pros": [
+            "Scores ahead of demand",
+            "Supports batch workloads"
+          ],
+          "cons": [
+            "Results may be stale",
+            "Does not score each live transaction"
+          ]
+        },
+        {
+          "label": "Precomputed-result fallback",
+          "value_id": "v:31.7",
+          "citations": [
+            "s09_p11",
+            "s12_p03"
+          ],
+          "pros": [
+            "Can preserve availability",
+            "Avoids slow online work"
+          ],
+          "cons": [
+            "May return stale results",
+            "Needs fallback data"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online computation serving",
+        "value_id": "v:31.5"
+      },
+      "rationale": "Request-time scoring best fits transaction authorization. The checked design point had no warnings, though no sources attest to the full combination; the batch rival also had no warnings and was likewise unattested.",
+      "consequences": [
+        "Feature retrieval and scoring must fit the latency budget.",
+        "Define fallback behavior for unavailable or slow dependencies."
+      ]
+    },
+    {
+      "decision": "Prediction service interface",
+      "context": "The authorization path needs a synchronous way to submit transaction features and receive a score. The brief does not specify an API protocol.",
+      "drivers": [
+        "Synchronous scoring",
+        "Application integration",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10"
+          ],
+          "pros": [
+            "API-backed integration",
+            "Practitioner evidence"
+          ],
+          "cons": [
+            "Protocol overhead must be measured"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s19_p14",
+            "s21_p10"
+          ],
+          "pros": [
+            "Supports independent deployment",
+            "Practitioner evidence"
+          ],
+          "cons": [
+            "Protocol choice needs client compatibility"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "Choose a REST prediction service as a clear application boundary; the brief provides no client or protocol constraints to justify a narrower choice.",
+      "consequences": [
+        "Define request, response, timeout, and error contracts.",
+        "Measure end-to-end latency under peak load."
+      ]
+    },
+    {
+      "decision": "Serving state and scaling",
+      "context": "Traffic peaks require additional scoring capacity, while serving state can complicate scaling and recovery.",
+      "drivers": [
+        "Peak availability",
+        "Horizontal scale",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless horizontally scaled serving",
+          "value_id": "v:25.1",
+          "citations": [
+            "s01_p02",
+            "s04_p01"
+          ],
+          "pros": [
+            "Independent request handling",
+            "Scale by adding replicas"
+          ],
+          "cons": [
+            "Shared state belongs elsewhere"
+          ]
+        },
+        {
+          "label": "Asynchronous message-driven serving",
+          "value_id": "v:25.2",
+          "citations": [
+            "s10_p04",
+            "s16_p04"
+          ],
+          "pros": [
+            "Decouples downstream work",
+            "Non-blocking communication"
+          ],
+          "cons": [
+            "Queueing may add latency",
+            "Less suited to synchronous authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless horizontally scaled serving",
+        "value_id": "v:25.1"
+      },
+      "rationale": "Independent scoring instances can scale with peaks while keeping the authorization request synchronous; queues risk delaying a score needed before authorization.",
+      "consequences": [
+        "Keep durable features and model artifacts outside serving instances.",
+        "Provide health checks and load balancing for replicas."
+      ]
+    },
+    {
+      "decision": "Runtime capacity strategy",
+      "context": "Scoring demand varies, and the service must remain available during peaks without letting latency grow beyond the brief’s budget.",
+      "drivers": [
+        "Peak demand",
+        "Tens-of-ms latency",
+        "Capacity elasticity"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02"
+          ],
+          "pros": [
+            "Adapts capacity to demand",
+            "Practitioner evidence"
+          ],
+          "cons": [
+            "Scaling delay requires headroom"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [],
+          "pros": [
+            "Reduces idle capacity"
+          ],
+          "cons": [
+            "Cold starts threaten latency",
+            "Not grounded by brief constraints"
+          ]
+        },
+        {
+          "label": "Service resource and latency profiling",
+          "value_id": "v:26.8",
+          "citations": [
+            "s04_p02",
+            "s22_p11"
+          ],
+          "pros": [
+            "Measures latency and resource use",
+            "Informs capacity sizing"
+          ],
+          "cons": [
+            "Requires representative workloads"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling addresses peak demand; profiling should inform its capacity settings. In “Productionizing Machine Learning with a Microservices Architecture,” practitioners also describe profiling service latency and resources.",
+      "consequences": [
+        "Maintain warm capacity to avoid scaling delays.",
+        "Set scaling thresholds against measured latency and load."
+      ]
+    },
+    {
+      "decision": "Production monitoring",
+      "context": "The scoring service must expose operational problems, and fraud patterns or transaction features may change after deployment.",
+      "drivers": [
+        "Service availability",
+        "Feature changes",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02"
+          ],
+          "pros": [
+            "Detects schema and distribution changes",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Drift alone does not establish model quality"
+          ]
+        },
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s04_p02",
+            "s06_p02"
+          ],
+          "pros": [
+            "Covers latency and uptime",
+            "Includes data quality"
+          ],
+          "cons": [
+            "Needs model-specific signals"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Low monitoring effort"
+          ],
+          "cons": [
+            "No active failure visibility",
+            "Weak fit for availability needs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Monitor feature and schema changes to surface risks to live scoring. “Productionizing Machine Learning with a Microservices Architecture” and Google’s “MLOps: Continuous delivery and automation pipelines in machine learning” describe input and feature monitoring; the brief does not specify a retraining policy.",
+      "consequences": [
+        "Log and compare production feature statistics over time.",
+        "Define alert thresholds and investigation ownership."
+      ]
+    },
+    {
+      "decision": "Model and feature traceability",
+      "context": "Auditors need to identify the model version and features that produced each score; reproducibility also requires linking deployed artifacts to their training context.",
+      "drivers": [
+        "Model version per score",
+        "Features per score",
+        "Audit traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p03"
+          ],
+          "pros": [
+            "Links artifacts and datasets",
+            "Tracks runs and metadata"
+          ],
+          "cons": [
+            "Requires lifecycle metadata discipline"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Versions model artifacts"
+          ],
+          "cons": [
+            "Does not alone link features and score records"
+          ]
+        },
+        {
+          "label": "Data-to-model lineage management",
+          "value_id": "v:20.4",
+          "citations": [],
+          "pros": [
+            "Connects datasets to models",
+            "Supports reproducible training"
+          ],
+          "cons": [
+            "Does not alone record each production score"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "This option best covers model artifacts, datasets, training context, and deployment metadata. “MLOps Principles” describes lifecycle metadata and model registry practices; per-score audit records must link those identifiers to the features used.",
+      "consequences": [
+        "Persist model version and feature snapshot or references with each score.",
+        "Set retention and access rules for audit records."
+      ]
+    },
+    {
+      "decision": "Online and durable feature storage",
+      "context": "Online scoring needs quick feature access, while later audits need the feature values that contributed to each score.",
+      "drivers": [
+        "Low-latency feature reads",
+        "Feature audit trail",
+        "Durable retention"
+      ],
+      "alternatives": [
+        {
+          "label": "Online/offline feature-store architecture",
+          "value_id": "v:43.4",
+          "citations": [
+            "s06_p09",
+            "s21_p09"
+          ],
+          "pros": [
+            "Separates fast and durable access",
+            "Supports reuse"
+          ],
+          "cons": [
+            "Requires consistency between stores"
+          ]
+        },
+        {
+          "label": "Online feature-serving pipeline",
+          "value_id": "v:43.2",
+          "citations": [],
+          "pros": [
+            "Materializes features for inference",
+            "Supports low-latency reads"
+          ],
+          "cons": [
+            "Durable audit needs are less explicit"
+          ]
+        },
+        {
+          "label": "Central analytical ML data platform",
+          "value_id": "v:43.1",
+          "citations": [],
+          "pros": [
+            "Shared prepared data platform",
+            "Supports downstream workflows"
+          ],
+          "cons": [
+            "Online latency fit is unclear"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online/offline feature-store architecture",
+        "value_id": "v:43.4"
+      },
+      "rationale": "Complementary stores address fast inference reads and durable feature retention. Google’s “MLOps: Continuous delivery and automation pipelines in machine learning” describes an online/offline feature-store architecture.",
+      "consequences": [
+        "Keep feature transformations consistent across stores.",
+        "Record the exact feature values or immutable references used per score."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Score retention period, privacy controls, and audit access policy.",
+    "Feature retrieval timeout and degraded-mode behavior.",
+    "Fraud labels, evaluation metrics, alert thresholds, and model promotion policy.",
+    "Deployment topology, regional failover, and recovery objectives."
+  ]
+}

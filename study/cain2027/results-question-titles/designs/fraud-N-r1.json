@@ -1,0 +1,212 @@
+{
+  "decisions": [
+    {
+      "decision": "Score transactions synchronously before authorization",
+      "context": "The service must return a score within tens of milliseconds, before each transaction is authorized.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous inline scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score available before authorization",
+            "Direct latency control"
+          ],
+          "cons": [
+            "Adds authorization-path dependency"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples request path",
+            "Absorbs bursts"
+          ],
+          "cons": [
+            "Score arrives too late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous inline scoring",
+        "value_id": null
+      },
+      "rationale": "Inline scoring makes the result available for the authorization decision and keeps latency within the stated budget.",
+      "consequences": [
+        "Authorization depends on scoring response time.",
+        "Scoring capacity must handle transaction traffic."
+      ]
+    },
+    {
+      "decision": "Scale the scoring service to sustain peak traffic",
+      "context": "Scoring must continue during peaks while meeting a tight response-time target.",
+      "drivers": [
+        "Peak availability",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Replicated stateless service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Horizontal scaling",
+            "No shared request state"
+          ],
+          "cons": [
+            "Requires managed model distribution"
+          ]
+        },
+        {
+          "label": "Single scoring instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "No replication coordination"
+          ],
+          "cons": [
+            "Limited peak capacity",
+            "Single failure point"
+          ]
+        },
+        {
+          "label": "Queued scoring workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers traffic bursts",
+            "Decouples intake from compute"
+          ],
+          "cons": [
+            "Adds queue delay",
+            "May miss authorization deadline"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Replicated stateless service",
+        "value_id": null
+      },
+      "rationale": "Replicas can add capacity for peaks and avoid a single scoring instance becoming a failure point; keeping requests synchronous supports the latency requirement.",
+      "consequences": [
+        "Replicas need consistent model versions.",
+        "Capacity and health management are required."
+      ]
+    },
+    {
+      "decision": "Record model version and scoring features for each score",
+      "context": "Auditors must later identify the model version and features used to produce each score.",
+      "drivers": [
+        "Auditability",
+        "Model traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score, model version, and feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct decision reconstruction",
+            "Explicit audit evidence"
+          ],
+          "cons": [
+            "Storage and retention cost",
+            "Feature data needs protection"
+          ]
+        },
+        {
+          "label": "Persist score and model version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Lower storage cost",
+            "Simpler data handling"
+          ],
+          "cons": [
+            "Cannot identify input features later"
+          ]
+        },
+        {
+          "label": "Persist score and feature snapshot only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Feature evidence retained",
+            "No model registry dependency"
+          ],
+          "cons": [
+            "Cannot identify model version"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score, model version, and feature snapshot",
+        "value_id": null
+      },
+      "rationale": "This records both items the brief explicitly requires auditors to recover for every score.",
+      "consequences": [
+        "A durable per-score audit record is needed.",
+        "Feature snapshots increase storage and data-governance obligations."
+      ]
+    },
+    {
+      "decision": "Keep model versions identifiable and selectable",
+      "context": "Audit records need to refer to the exact model version used, and the live service must be able to use a model to score transactions.",
+      "drivers": [
+        "Model version traceability",
+        "Live scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model artifacts with explicit serving selection",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Stable version references",
+            "Controlled model selection"
+          ],
+          "cons": [
+            "Requires artifact and rollout management"
+          ]
+        },
+        {
+          "label": "Replace a single mutable model artifact",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple artifact handling",
+            "Few deployment controls"
+          ],
+          "cons": [
+            "Version history can be lost",
+            "Audits may not identify the model"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model artifacts with explicit serving selection",
+        "value_id": null
+      },
+      "rationale": "Versioned artifacts let each score record refer to an identifiable model while the service selects the version it serves.",
+      "consequences": [
+        "Artifact versions must remain available for audit needs.",
+        "Model rollout and rollback require operational controls."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature definitions, sources, and freshness requirements.",
+    "Audit record retention period, access controls, and storage location.",
+    "Required availability target and recovery objectives.",
+    "Behavior when scoring is unavailable or exceeds its latency budget.",
+    "Model training, validation, approval, and rollout process.",
+    "Deployment platform, capacity limits, and peak traffic profile."
+  ]
+}

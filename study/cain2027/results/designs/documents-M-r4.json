@@ -1,0 +1,212 @@
+{
+  "decisions": [
+    {
+      "decision": "Use scheduled batch prediction for document classification",
+      "context": "The classifier processes millions of documents daily, with seasonal volume swings. The brief gives no requirement for immediate results.",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume variation"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s12_p02",
+            "s19_p14"
+          ],
+          "pros": [
+            "Processes large volumes",
+            "Writes results for consumers"
+          ],
+          "cons": [
+            "Results wait for batch completion"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s12_p07",
+            "s19_p15"
+          ],
+          "pros": [
+            "Handles requests continuously",
+            "Queue supports load balancing"
+          ],
+          "cons": [
+            "Adds serving infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Batch scoring fits the stated high volume and avoids assuming a real-time response requirement. The rival online cluster is a viable option if consumers later require immediate classifications, but the brief does not establish that need.",
+      "consequences": [
+        "Consumers receive results after each scheduled run.",
+        "Batch cadence and result availability targets need definition."
+      ]
+    },
+    {
+      "decision": "Scale classification resources elastically",
+      "context": "Document volume changes strongly over the year, so a fixed allocation may be insufficient during peaks or wasteful during quieter periods.",
+      "drivers": [
+        "Seasonal volume variation",
+        "High daily volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "Adjusts capacity to demand",
+            "Supports large workloads"
+          ],
+          "cons": [
+            "Requires scaling controls"
+          ]
+        },
+        {
+          "label": "Fixed resource allocation",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simple resource planning"
+          ],
+          "cons": [
+            "May waste off-peak capacity",
+            "May constrain peak throughput"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling directly addresses seasonal variation and large workloads; the design point check returned no warnings, though its combination of choices was unattested by sources.",
+      "consequences": [
+        "Scaling thresholds and limits need operational tuning.",
+        "Capacity changes can affect processing cost."
+      ]
+    },
+    {
+      "decision": "Expose classifications through a REST prediction microservice",
+      "context": "Several teams consume classification results, so the system needs a consistent integration boundary. The brief does not specify their existing interfaces.",
+      "drivers": [
+        "Multiple consumer teams",
+        "Shared classification results"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s16_p03"
+          ],
+          "pros": [
+            "API-backed integration",
+            "Separates consumers from model runtime"
+          ],
+          "cons": [
+            "Requires service operations"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s19_p14",
+            "s21_p10"
+          ],
+          "pros": [
+            "Supports independently deployed models",
+            "Clear service interface"
+          ],
+          "cons": [
+            "Consumer compatibility is unknown"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "REST provides an API boundary for the teams consuming results, without assuming they share a particular runtime. The checked design point had no warnings but was unattested as a complete combination.",
+      "consequences": [
+        "The API contract and versioning need definition.",
+        "Batch result access patterns remain to be specified."
+      ]
+    },
+    {
+      "decision": "Monitor service health and data quality in production",
+      "context": "Operators need to see when classification quality drifts. Monitoring data quality and service health provides operational context for investigating such changes.",
+      "drivers": [
+        "Detect quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s04_p02",
+            "s06_p02",
+            "s22_p04"
+          ],
+          "pros": [
+            "Tracks data shifts and quality",
+            "Includes service health"
+          ],
+          "cons": [
+            "Does not alone define quality metrics"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s04_p12",
+            "s06_p06",
+            "s23_p03"
+          ],
+          "pros": [
+            "Tracks prediction quality",
+            "Supports prompt detection"
+          ],
+          "cons": [
+            "Requires timely labels",
+            "Does not alone cover service health"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Service-health and data-quality monitoring",
+        "value_id": "v:6.23"
+      },
+      "rationale": "This option covers data shifts alongside service health, matching the drift visibility and operator needs. The design point check had no warnings; it does not attest this whole system combination.",
+      "consequences": [
+        "Define drift indicators and alert thresholds.",
+        "Prediction-quality metrics and their label availability need separate definition."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How incoming documents are ingested and validated.",
+    "How classifications are persisted and made available to consumer teams.",
+    "How classifier versions are evaluated, approved, and rolled back.",
+    "How drift alerts lead to investigation or model updates.",
+    "Document privacy, retention, and access controls."
+  ]
+}

@@ -1,0 +1,285 @@
+{
+  "decisions": [
+    {
+      "decision": "How should weekly ML work be coordinated?",
+      "context": "The weekly run must be repeatable, while new model ideas should reach production quickly. A three-person team needs a workflow that limits manual coordination.",
+      "drivers": [
+        "weekly reliability",
+        "fast experimentation",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07",
+            "s06_p07"
+          ],
+          "pros": [
+            "repeatable stages",
+            "automated handoffs"
+          ],
+          "cons": [
+            "setup effort",
+            "pipeline maintenance"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s09_p08",
+            "s20_p12"
+          ],
+          "pros": [
+            "low initial overhead",
+            "direct control"
+          ],
+          "cons": [
+            "manual coordination",
+            "harder repeatability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "The chosen workflow supports a safe weekly run and fast iterations. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Productionizing Machine Learning with a Microservices Architecture” describe repeatable stages; the design point supports this direction, though it warns that data ingestion must be decided first.",
+      "consequences": [
+        "Pipeline stages and dependencies need ownership.",
+        "Changes require pipeline validation.",
+        "Data ingestion design remains to be settled."
+      ]
+    },
+    {
+      "decision": "How should past forecasts and training runs be reproduced?",
+      "context": "The system must reproduce forecasts for any past week, which requires retaining the model and the inputs and configuration used to produce each result.",
+      "drivers": [
+        "historical reproducibility",
+        "auditability",
+        "experiment comparison"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p03",
+            "s22_p06"
+          ],
+          "pros": [
+            "links data and models",
+            "supports run reconstruction"
+          ],
+          "cons": [
+            "metadata overhead",
+            "more governance work"
+          ]
+        },
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [
+            "s04_p01",
+            "s04_p03",
+            "s17_p03"
+          ],
+          "pros": [
+            "compares experiments",
+            "versions pipeline and artifacts"
+          ],
+          "cons": [
+            "less complete lineage",
+            "dataset linkage may be missing"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "This choice covers dataset versions, pipeline definitions, artifacts, runs, and deployment status needed to reproduce a past week. “MLOps Principles” and “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” support lifecycle traceability; the checked design point selected this value, while a simpler artifact-versioning rival offered less coverage.",
+      "consequences": [
+        "Record dataset and code versions for each run.",
+        "Persist run parameters and output metadata.",
+        "Maintain a traceable model promotion history."
+      ]
+    },
+    {
+      "decision": "How should forecasts be delivered?",
+      "context": "Demand is forecast weekly per store and product, with no stated requirement for request-time predictions. A scheduled scoring run can produce results for downstream use.",
+      "drivers": [
+        "weekly cadence",
+        "store-product coverage",
+        "operational simplicity"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08",
+            "s02_p02",
+            "s19_p14"
+          ],
+          "pros": [
+            "fits weekly scoring",
+            "writes results for reuse"
+          ],
+          "cons": [
+            "results wait for next run",
+            "requires batch failure recovery"
+          ]
+        },
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s04_p10",
+            "s12_p02"
+          ],
+          "pros": [
+            "fresh request-time results",
+            "supports interactive consumers"
+          ],
+          "cons": [
+            "adds serving operations",
+            "unneeded for stated cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "The weekly cadence supports scheduled batch scoring and the brief gives no low-latency requirement. “Three Levels of ML Software” and “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” describe batch prediction delivery; the checked point selected this option, though it also flags the unresolved ingestion decision.",
+      "consequences": [
+        "Publish a dated forecast set after each successful run.",
+        "Consumers read persisted results.",
+        "Define handling for late or failed runs."
+      ]
+    },
+    {
+      "decision": "How should code and model changes reach production?",
+      "context": "New model ideas should reach production quickly without breaking the weekly forecast run. Release automation can validate changes before promotion.",
+      "drivers": [
+        "fast model iteration",
+        "protect weekly run",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p13",
+            "s08_p01"
+          ],
+          "pros": [
+            "automated validation",
+            "staged promotion"
+          ],
+          "cons": [
+            "pipeline setup effort",
+            "release failures need recovery"
+          ]
+        },
+        {
+          "label": "Recovery-oriented release automation with manual intervention",
+          "value_id": "v:19.4",
+          "citations": [
+            "s06_p13",
+            "s08_p02"
+          ],
+          "pros": [
+            "supports rollback",
+            "allows operator recovery"
+          ],
+          "cons": [
+            "manual recovery load",
+            "slower routine promotion"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "Automated builds, tests, and staged promotion let the team iterate while guarding the weekly run. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” support this release path.",
+      "consequences": [
+        "Gate production promotion on validation.",
+        "Keep the prior production model available for recovery.",
+        "Maintain automated build and release workflows."
+      ]
+    },
+    {
+      "decision": "How should production forecasts be monitored?",
+      "context": "A weekly forecast can degrade as inputs or demand patterns change. The system needs visibility to detect problems before relying on a faulty forecast set.",
+      "drivers": [
+        "forecast quality",
+        "input changes",
+        "weekly operations"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p08",
+            "s22_p11"
+          ],
+          "pros": [
+            "detects changing inputs",
+            "supports investigation"
+          ],
+          "cons": [
+            "drift is not quality",
+            "thresholds need tuning"
+          ]
+        },
+        {
+          "label": "Periodic model health checks",
+          "value_id": "v:6.18",
+          "citations": [
+            "s06_p02",
+            "s23_p08",
+            "s24_p07"
+          ],
+          "pros": [
+            "fits recurring cadence",
+            "lower continuous monitoring load"
+          ],
+          "cons": [
+            "issues may be found later",
+            "requires review effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Input and feature checks can flag a changed weekly data profile and prompt investigation before forecast use. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps Principles” support monitoring changes in features; drift alone does not establish forecast accuracy, so quality evaluation remains an uncovered design detail.",
+      "consequences": [
+        "Define expected input schemas and profiles.",
+        "Investigate drift before changing the production model.",
+        "Add forecast quality checks when labels become available."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Data ingestion mechanism and source-of-truth selection; the workflow coordination dimension explicitly requires this decision first.",
+    "Forecast evaluation metrics, acceptance thresholds, and model promotion criteria.",
+    "Historical raw data retention and point-in-time reconstruction policy for each past week.",
+    "Forecast consumer interface, access control, and delivery format.",
+    "Infrastructure and scheduling platform appropriate to the team's operational capacity."
+  ]
+}

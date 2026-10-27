@@ -1,0 +1,193 @@
+{
+  "decisions": [
+    {
+      "decision": "How should scoring fit into authorization?",
+      "context": "Every transaction needs a fraud score before authorization, with a response in tens of milliseconds. The scoring path therefore needs a synchronous request and response.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous scoring API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score returned inline",
+            "Simple authorization flow"
+          ],
+          "cons": [
+            "Authorization depends on scorer",
+            "Timeouts need handling"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring event",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Loose coupling",
+            "Absorbs bursts"
+          ],
+          "cons": [
+            "Score arrives later",
+            "Does not fit inline authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous scoring API",
+        "value_id": null
+      },
+      "rationale": "Inline scoring meets the requirement to score before authorization and return results within tens of milliseconds.",
+      "consequences": [
+        "Authorization needs a defined scorer timeout policy.",
+        "The scoring API must sustain peak request rates."
+      ]
+    },
+    {
+      "decision": "How should the scoring service handle peaks?",
+      "context": "The system must keep scoring transactions during peak load. The brief does not prescribe a deployment or scaling platform.",
+      "drivers": [
+        "Peak availability",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless replicated service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Horizontal scaling",
+            "Instance failure tolerance"
+          ],
+          "cons": [
+            "Needs capacity management",
+            "Shared dependencies can bottleneck"
+          ]
+        },
+        {
+          "label": "Single scoring instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "No coordination"
+          ],
+          "cons": [
+            "Single failure point",
+            "Limited peak capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless replicated service",
+        "value_id": null
+      },
+      "rationale": "Replicated instances can add capacity for peaks and reduce dependence on any one scoring process.",
+      "consequences": [
+        "Instances need consistent model and feature access.",
+        "Capacity and overload behavior need operational design."
+      ]
+    },
+    {
+      "decision": "How should model versions be selected and recorded?",
+      "context": "Auditors must later identify which model version produced each score. Scoring and audit records therefore need a stable version association.",
+      "drivers": [
+        "Auditable model version",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Pin a version per scoring deployment",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Stable version per instance",
+            "Fast local selection"
+          ],
+          "cons": [
+            "Rollouts need coordination",
+            "Old versions need retention"
+          ]
+        },
+        {
+          "label": "Resolve a version on every request",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Central version control",
+            "Flexible routing"
+          ],
+          "cons": [
+            "Adds runtime dependency",
+            "Selection can vary per request"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Pin a version per scoring deployment",
+        "value_id": null
+      },
+      "rationale": "A deployment-pinned version provides a clear version identifier for each score without adding per-request version resolution to the latency-sensitive path.",
+      "consequences": [
+        "Each score record must include the pinned version identifier.",
+        "Rollouts must preserve the association between requests and versions."
+      ]
+    },
+    {
+      "decision": "What should be retained for audit explanation?",
+      "context": "The brief requires later explanation of which features produced a score, as well as which model version was used. A durable record must connect each score to those inputs.",
+      "drivers": [
+        "Auditor review",
+        "Feature provenance",
+        "Model provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score, version, and feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Reconstructs scoring inputs",
+            "Supports later audit"
+          ],
+          "cons": [
+            "Storage and retention cost",
+            "Feature data needs protection"
+          ]
+        },
+        {
+          "label": "Persist score and version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Smaller records",
+            "Simpler retention"
+          ],
+          "cons": [
+            "Cannot identify used features",
+            "Insufficient for stated audit need"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score, version, and feature snapshot",
+        "value_id": null
+      },
+      "rationale": "Retaining the feature snapshot alongside the score and model version directly supports later identification of the inputs that produced it.",
+      "consequences": [
+        "Audit records require durable storage and retention rules.",
+        "Feature snapshots increase storage and data-governance needs."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature definitions, sources, and computation strategy",
+    "Required audit retention period and access controls",
+    "Timeout, fallback, and authorization behavior when scoring is unavailable",
+    "Deployment platform, peak throughput, and availability targets",
+    "Model training, validation, approval, and rollout process",
+    "Required form of explanation beyond identifying model version and features"
+  ]
+}

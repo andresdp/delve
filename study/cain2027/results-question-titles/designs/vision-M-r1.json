@@ -1,0 +1,313 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras on production lines need defect predictions where network access is often unavailable.",
+      "drivers": [
+        "offline operation",
+        "on-device inference"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "works offline",
+            "local predictions"
+          ],
+          "cons": [
+            "device constraints",
+            "fleet deployment effort"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [],
+          "pros": [
+            "centralized serving",
+            "simpler model updates"
+          ],
+          "cons": [
+            "needs connectivity",
+            "network dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "It supports prediction on devices without relying on network access. The checked design point had no warnings, though its combination of values was unattested.",
+      "consequences": [
+        "Ship the model and inference runtime to each device.",
+        "Plan for device fleet updates and rollback."
+      ]
+    },
+    {
+      "decision": "How should labeled images be produced?",
+      "context": "The brief says each weekly model retraining uses newly labeled images, so label creation is part of the recurring workflow.",
+      "drivers": [
+        "weekly retraining",
+        "labeled images",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Human-in-the-loop data labeling",
+          "value_id": "v:23.1",
+          "citations": [
+            "s09_p03",
+            "s10_p08",
+            "s22_p17"
+          ],
+          "pros": [
+            "domain review",
+            "controlled labels"
+          ],
+          "cons": [
+            "review effort",
+            "labeling throughput limits"
+          ]
+        },
+        {
+          "label": "Active-learning sample selection",
+          "value_id": "v:23.2",
+          "citations": [],
+          "pros": [
+            "targets uncertain cases",
+            "reduces review volume"
+          ],
+          "cons": [
+            "needs selection logic",
+            "depends on reviewer capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Human-in-the-loop data labeling",
+        "value_id": "v:23.1"
+      },
+      "rationale": "The brief already specifies newly labeled images, and human review provides a grounded way to create them. Active learning could prioritize review, but the brief does not require it.",
+      "consequences": [
+        "Reserve reviewer time each week.",
+        "Maintain a controlled labeling workflow."
+      ]
+    },
+    {
+      "decision": "How should weekly model candidates be trained and tuned?",
+      "context": "Retraining occurs on a weekly cadence, while the infrastructure budget and team size are limited.",
+      "drivers": [
+        "weekly cadence",
+        "small team",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Automated hyperparameter optimization",
+          "value_id": "v:28.4",
+          "citations": [],
+          "pros": [
+            "repeatable search",
+            "less manual tuning"
+          ],
+          "cons": [
+            "uses training compute",
+            "adds workflow complexity"
+          ]
+        },
+        {
+          "label": "Manual hyperparameter tuning",
+          "value_id": "v:28.5",
+          "citations": [
+            "s06_p06",
+            "s17_p03"
+          ],
+          "pros": [
+            "direct control",
+            "low setup effort"
+          ],
+          "cons": [
+            "recurring specialist effort",
+            "slower comparisons"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Automated hyperparameter optimization",
+        "value_id": "v:28.4"
+      },
+      "rationale": "A bounded automated search can make weekly retraining repeatable for a small team; cap its compute to fit the budget. The checked point produced no warnings but was unattested, so this remains a brief-driven choice rather than a source-attested combination.",
+      "consequences": [
+        "Set a fixed search budget and time limit.",
+        "Compare candidates against a held-out evaluation set."
+      ]
+    },
+    {
+      "decision": "How should model releases reach devices?",
+      "context": "Weekly retraining creates frequent model artifacts that must be pushed to devices, including those that may be offline during a rollout.",
+      "drivers": [
+        "weekly model updates",
+        "intermittent connectivity",
+        "safe rollout"
+      ],
+      "alternatives": [
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p13",
+            "s08_p01"
+          ],
+          "pros": [
+            "repeatable builds",
+            "staged promotion"
+          ],
+          "cons": [
+            "pipeline setup",
+            "device delivery still needed"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [],
+          "pros": [
+            "one release process",
+            "automated packaging"
+          ],
+          "cons": [
+            "less explicit staging",
+            "rollback not specified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "Staged promotion supports automated build and validation before distribution. The architecture must account for devices receiving the promoted model only when connectivity returns.",
+      "consequences": [
+        "Validate and package each model before promotion.",
+        "Retain the last known good model on devices."
+      ]
+    },
+    {
+      "decision": "How should models and training runs be tracked?",
+      "context": "Weekly retraining produces successive model versions that need to be identified and made reproducible for device rollout and recovery.",
+      "drivers": [
+        "weekly versions",
+        "reproducibility",
+        "rollback"
+      ],
+      "alternatives": [
+        {
+          "label": "End-to-end reproducible lifecycle governance",
+          "value_id": "v:20.6",
+          "citations": [
+            "s21_p03",
+            "s21_p05",
+            "s21_p09",
+            "s25_p01"
+          ],
+          "pros": [
+            "tracks data and runs",
+            "supports audit and recovery"
+          ],
+          "cons": [
+            "metadata overhead",
+            "process setup"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "tracks deployable models",
+            "lower process scope"
+          ],
+          "cons": [
+            "limited training context",
+            "weaker lineage"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "End-to-end reproducible lifecycle governance",
+        "value_id": "v:20.6"
+      },
+      "rationale": "Linking datasets, training snapshots, artifacts, and deployment health makes weekly releases traceable and supports recovery. The checked combination returned no warnings but had no adopting sources.",
+      "consequences": [
+        "Record the data and configuration behind each model.",
+        "Keep device version and deployment status visible."
+      ]
+    },
+    {
+      "decision": "How should deployed models be monitored and adapted?",
+      "context": "Production images and operating conditions may change, and model health must inform subsequent weekly retraining.",
+      "drivers": [
+        "defect detection quality",
+        "weekly retraining",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Periodic model health checks",
+          "value_id": "v:6.18",
+          "citations": [
+            "s06_p02",
+            "s20_p03",
+            "s23_p08"
+          ],
+          "pros": [
+            "fits scheduled review",
+            "lower continuous operations load"
+          ],
+          "cons": [
+            "issues may wait until review",
+            "requires health signals"
+          ]
+        },
+        {
+          "label": "Automated retraining pipeline",
+          "value_id": "v:6.5",
+          "citations": [
+            "s04_p01",
+            "s06_p02",
+            "s06_p06"
+          ],
+          "pros": [
+            "automates recurring retraining",
+            "uses new labeled data"
+          ],
+          "cons": [
+            "needs quality gates",
+            "automated release risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Periodic model health checks",
+        "value_id": "v:6.18"
+      },
+      "rationale": "The weekly retraining cadence suits scheduled health review, and periodic checks keep operational burden bounded for a small team. The evidence identifies automated retraining as an option, but the brief only requires weekly retraining, not autonomous promotion.",
+      "consequences": [
+        "Review model and service health at least weekly.",
+        "Gate each candidate on evaluation before release."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Model evaluation metrics and acceptance thresholds for defect detection.",
+    "Device update protocol, security, and behavior when a device remains offline for an extended period.",
+    "Target hardware limits, model format, and runtime compatibility.",
+    "Data retention, privacy, and access controls for production images.",
+    "Rollback triggers and responsibility for release approval."
+  ]
+}

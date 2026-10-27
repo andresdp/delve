@@ -1,0 +1,319 @@
+{
+  "decisions": [
+    {
+      "decision": "Serve predictions through a local device API",
+      "context": "Cameras need defect predictions where network access is often unavailable. The runtime must work without a remote serving dependency.",
+      "drivers": [
+        "Offline operation",
+        "Device inference"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Local predictions",
+            "No network dependency"
+          ],
+          "cons": [
+            "Device resource use",
+            "Per-device operations"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Independent deployment"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Network adds failure modes"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "A local API supports real-time inference without relying on network access, matching the brief’s device and connectivity constraints (d:5, v:5.2).",
+      "consequences": [
+        "Package and run the model on each device.",
+        "Manage device resource limits."
+      ]
+    },
+    {
+      "decision": "Use deployment scripts for weekly model releases",
+      "context": "The model is retrained weekly and needs a repeatable path from training output to production devices. The team is small and the infrastructure budget is tight.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Low infrastructure needs",
+            "Automates repeatable steps"
+          ],
+          "cons": [
+            "Less continuous automation",
+            "Requires operational discipline"
+          ]
+        },
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Automated release workflow",
+            "Repeatable integration"
+          ],
+          "cons": [
+            "Pipeline setup and upkeep",
+            "May exceed team needs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Build and Deployment scripts",
+        "value_id": "v:8.2"
+      },
+      "rationale": "Scripts can automate the weekly build and rollout with limited infrastructure; this fits the team and budget constraints better than a continuously automated pipeline (d:8, v:8.2).",
+      "consequences": [
+        "Schedule and monitor script execution.",
+        "Document recovery and release steps."
+      ]
+    },
+    {
+      "decision": "Keep a rollback path for deployed model updates",
+      "context": "Weekly updates reach production devices, where connectivity may be intermittent. A faulty model needs a recovery path that does not depend on immediate retraining.",
+      "drivers": [
+        "Weekly updates",
+        "Offline devices",
+        "Release recovery"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Known recovery target",
+            "Supports recovery from a bad update"
+          ],
+          "cons": [
+            "Requires retaining prior artifact",
+            "Device rollout state needs tracking"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Multiple versions available",
+            "Can compare versions in production"
+          ],
+          "cons": [
+            "More device storage",
+            "More rollout complexity"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple active state",
+            "Lower storage needs"
+          ],
+          "cons": [
+            "No explicit prior version choice",
+            "Recovery may take longer"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Retaining a previous model gives the team a direct recovery option after a weekly update, while avoiding the added production complexity of running multiple versions (d:10, v:10.2).",
+      "consequences": [
+        "Retain and identify the prior model artifact.",
+        "Provide a rollback mechanism for devices."
+      ]
+    },
+    {
+      "decision": "Schedule retraining weekly as a batch job",
+      "context": "The brief specifies weekly retraining from newly labelled images. It does not require training to happen continuously as images arrive.",
+      "drivers": [
+        "Weekly cadence",
+        "New labelled images",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Can train offline"
+          ],
+          "cons": [
+            "Updates wait for next run",
+            "Requires a batch data set"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Can incorporate data continuously",
+            "Avoids full batch retraining"
+          ],
+          "cons": [
+            "Adds online training complexity",
+            "Not required by the brief"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Combines training modes",
+            "Flexible update timing"
+          ],
+          "cons": [
+            "More operational complexity",
+            "Unneeded for stated cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "A batch job follows the stated weekly retraining cadence and can run independently of the devices’ network availability (d:19, v:19.1).",
+      "consequences": [
+        "Collect labelled images for each training run.",
+        "Coordinate training completion with device rollout."
+      ]
+    },
+    {
+      "decision": "Trigger retraining on a weekly schedule",
+      "context": "The brief calls for retraining every week from newly labelled images. A scheduled trigger makes that cadence explicit and predictable.",
+      "drivers": [
+        "Weekly cadence",
+        "Repeatable operation",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Predictable execution"
+          ],
+          "cons": [
+            "May run without new labels",
+            "Needs schedule monitoring"
+          ]
+        },
+        {
+          "label": "On availability of new training data trigger",
+          "value_id": "v:12.4",
+          "citations": [
+            "d:12",
+            "v:12.4"
+          ],
+          "pros": [
+            "Runs when data arrives",
+            "Avoids unnecessary runs"
+          ],
+          "cons": [
+            "Data arrival may be irregular",
+            "May not enforce weekly cadence"
+          ]
+        },
+        {
+          "label": "On-demand trigger",
+          "value_id": "v:12.1",
+          "citations": [
+            "d:12",
+            "v:12.1"
+          ],
+          "pros": [
+            "Simple manual control",
+            "Useful for ad hoc runs"
+          ],
+          "cons": [
+            "Relies on operator action",
+            "Cadence can be missed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "A weekly schedule directly implements the requested retraining frequency; the checked combination has no warnings, though it is unattested in the design space (d:12, v:12.3).",
+      "consequences": [
+        "Track missed or failed scheduled runs.",
+        "Define how late-arriving labels enter a run."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to securely distribute and install model updates on devices that are offline.",
+    "How devices buffer images or predictions while disconnected, and when they synchronize.",
+    "How to monitor device health and model quality when telemetry cannot be sent continuously.",
+    "How to manage image labelling and the training data pipeline.",
+    "How to define acceptance criteria and testing before a model is released.",
+    "How to provision and manage device hardware and runtime resources."
+  ]
+}

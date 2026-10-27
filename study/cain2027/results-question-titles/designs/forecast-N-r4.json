@@ -1,0 +1,251 @@
+{
+  "decisions": [
+    {
+      "decision": "How should the weekly pipeline run?",
+      "context": "Forecasts are produced weekly for every store and product, and the weekly run must remain dependable as the team iterates. A scheduled, staged pipeline makes the run repeatable and separates failures by step.",
+      "drivers": [
+        "weekly cadence",
+        "run reliability",
+        "small team ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled staged pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "clear step boundaries",
+            "repeatable runs"
+          ],
+          "cons": [
+            "requires orchestration",
+            "more setup"
+          ]
+        },
+        {
+          "label": "Single end-to-end script",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "simple to start",
+            "few components"
+          ],
+          "cons": [
+            "harder to recover",
+            "experiments can disrupt runs"
+          ]
+        },
+        {
+          "label": "Event-driven services",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "independent scaling",
+            "flexible triggers"
+          ],
+          "cons": [
+            "more operational overhead",
+            "unneeded complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled staged pipeline",
+        "value_id": null
+      },
+      "rationale": "The weekly cadence suits a scheduled workflow with explicit data preparation, training or model selection, forecasting, and publication stages. Stage boundaries support diagnosis and recovery without coupling experiments to the production run.",
+      "consequences": [
+        "Add orchestration and run monitoring.",
+        "Make stages safe to rerun.",
+        "Track run status and outputs."
+      ]
+    },
+    {
+      "decision": "How should past-week forecasts be reproducible?",
+      "context": "The brief requires forecasts to be reproducible for any past week. That requires retaining the inputs and model artifacts used for each run, not only the latest forecast.",
+      "drivers": [
+        "historical reproducibility",
+        "weekly forecasting",
+        "auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned run snapshots",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "preserves inputs and outputs",
+            "supports replay"
+          ],
+          "cons": [
+            "storage costs",
+            "retention policy needed"
+          ]
+        },
+        {
+          "label": "Recompute from current data",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "less stored data",
+            "simple retention"
+          ],
+          "cons": [
+            "past data may change",
+            "results may drift"
+          ]
+        },
+        {
+          "label": "Save forecasts only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "small storage footprint",
+            "easy retrieval"
+          ],
+          "cons": [
+            "cannot replay runs",
+            "limited diagnosis"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned run snapshots",
+        "value_id": null
+      },
+      "rationale": "Snapshots of the data version, configuration, model artifact, and forecast output provide a basis for replaying a past week. Recomputing against mutable current data or retaining outputs alone cannot reliably reproduce the original result.",
+      "consequences": [
+        "Record identifiers for inputs, code, configuration, and model artifacts per run.",
+        "Retain snapshots and artifacts for an agreed period.",
+        "Define whether replay means bit-for-bit or tolerance-based equivalence."
+      ]
+    },
+    {
+      "decision": "How should new model ideas reach production?",
+      "context": "The three data scientists own the pipeline end to end and want model ideas to reach production quickly without breaking the weekly run. Isolating candidate evaluation from the production forecast path allows both goals to be addressed.",
+      "drivers": [
+        "fast model iteration",
+        "protect weekly run",
+        "team of three"
+      ],
+      "alternatives": [
+        {
+          "label": "Isolated candidate evaluation with promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "production stays stable",
+            "comparable candidates"
+          ],
+          "cons": [
+            "promotion workflow needed",
+            "evaluation adds time"
+          ]
+        },
+        {
+          "label": "Edit production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "few process steps",
+            "fastest initial change"
+          ],
+          "cons": [
+            "weekly run exposed",
+            "hard to compare"
+          ]
+        },
+        {
+          "label": "Separate experimentation platform",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "strong isolation",
+            "rich experimentation"
+          ],
+          "cons": [
+            "higher operating cost",
+            "team overhead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Isolated candidate evaluation with promotion",
+        "value_id": null
+      },
+      "rationale": "Evaluate candidate models on historical weeks using the same data and metrics as the current production model, then promote a selected candidate through a controlled change. This keeps experimentation close to the existing pipeline while limiting risk to the weekly run.",
+      "consequences": [
+        "Keep candidate evaluation separate from production publishing.",
+        "Define shared evaluation data and metrics.",
+        "Provide a rollback path to the previous model."
+      ]
+    },
+    {
+      "decision": "How should forecasts be published for consumers?",
+      "context": "The brief requires forecasts but does not specify downstream consumers or interfaces. A durable, versioned output gives the weekly pipeline a clear handoff while preserving its history.",
+      "drivers": [
+        "weekly output",
+        "historical reproducibility",
+        "unspecified consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned forecast table",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "queryable history",
+            "clear run linkage"
+          ],
+          "cons": [
+            "schema ownership needed",
+            "consumer access needed"
+          ]
+        },
+        {
+          "label": "Overwrite latest forecast file",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "simple handoff",
+            "low setup"
+          ],
+          "cons": [
+            "history can be lost",
+            "partial writes possible"
+          ]
+        },
+        {
+          "label": "Consumer-specific API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "tailored access",
+            "supports live queries"
+          ],
+          "cons": [
+            "more service operations",
+            "consumer needs unknown"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned forecast table",
+        "value_id": null
+      },
+      "rationale": "A versioned table can preserve forecasts by week, store, product, and run, supporting both consumption and historical replay. The brief gives no evidence for an API or a particular file-based handoff.",
+      "consequences": [
+        "Agree on forecast keys and schema with consumers.",
+        "Publish atomically when a run succeeds.",
+        "Define access and retention policies."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Source systems, data quality rules, and late or corrected data handling.",
+    "Forecast horizon, required accuracy, evaluation metrics, and baseline.",
+    "Infrastructure, orchestration technology, storage platform, and deployment environment.",
+    "Consumer requirements, access controls, and forecast delivery timing.",
+    "Run failure service levels, alerting ownership, and artifact retention period."
+  ]
+}

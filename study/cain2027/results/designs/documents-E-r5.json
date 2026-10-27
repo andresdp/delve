@@ -1,0 +1,252 @@
+{
+  "decisions": [
+    {
+      "decision": "Process incoming documents in batches",
+      "context": "The insurer classifies millions of documents daily, with seasonal volume changes and no stated real-time latency requirement.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Scheduled processing",
+            "Fits bulk workloads"
+          ],
+          "cons": [
+            "Results wait for batch"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Continuous processing",
+            "Low result delay"
+          ],
+          "cons": [
+            "More operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "The brief emphasizes daily volume and seasonal variation without specifying immediate results; batch processing is the checked design point choice (d:15, v:15.1).",
+      "consequences": [
+        "Classification results arrive after each batch completes.",
+        "Capacity must handle seasonal peaks."
+      ]
+    },
+    {
+      "decision": "Partition data processing to handle volume",
+      "context": "Daily document volume is large and varies over the year, so processing capacity must scale across workload peaks.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Data partitioning in data pipeline",
+          "value_id": "v:17.2",
+          "citations": [
+            "d:17",
+            "v:17.2"
+          ],
+          "pros": [
+            "Parallel work units",
+            "Supports larger batches"
+          ],
+          "cons": [
+            "Requires partition coordination"
+          ]
+        },
+        {
+          "label": "No parallel data processing",
+          "value_id": "v:17.4",
+          "citations": [
+            "d:17",
+            "v:17.4"
+          ],
+          "pros": [
+            "Simpler execution"
+          ],
+          "cons": [
+            "Limited throughput"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data partitioning in data pipeline",
+        "value_id": "v:17.2"
+      },
+      "rationale": "Partitioning supports processing large batches in parallel; it is the choice in the checked point (d:17, v:17.2).",
+      "consequences": [
+        "Partitions and results need coordination.",
+        "Uneven partitions can constrain throughput."
+      ]
+    },
+    {
+      "decision": "Publish predictions through batch serving",
+      "context": "Several teams consume classification results, and the brief does not require synchronous predictions.",
+      "drivers": [
+        "Multiple consumers",
+        "Millions daily"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Writes results to shared storage",
+            "Fits batch workflow"
+          ],
+          "cons": [
+            "Consumers wait for output"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time predictions",
+            "Service interface"
+          ],
+          "cons": [
+            "Requires online capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Scheduled prediction batches fit the processing choice and give multiple teams a shared result set; this choice was included in the checked point (d:5, v:5.3).",
+      "consequences": [
+        "Consumers need access to persisted results.",
+        "Result availability follows batch completion."
+      ]
+    },
+    {
+      "decision": "Monitor model performance in production",
+      "context": "Operators need visibility into classification quality drift after deployment.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operational monitoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks performance measures",
+            "Directly addresses quality"
+          ],
+          "cons": [
+            "Requires quality signals"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "No monitoring overhead"
+          ],
+          "cons": [
+            "Drift is not visible"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Performance monitoring directly addresses the stated need to see quality drift and was selected in the checked point (d:22, v:22.1).",
+      "consequences": [
+        "Quality measures must be defined and collected.",
+        "Monitoring needs to surface changes to operators."
+      ]
+    },
+    {
+      "decision": "Review monitoring results before adjusting models",
+      "context": "Monitoring can reveal quality changes, but the brief does not authorize automatic retraining or adjustment.",
+      "drivers": [
+        "Quality drift visibility",
+        "Controlled model changes"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual model adjustment",
+          "value_id": "v:24.1",
+          "citations": [
+            "d:24",
+            "v:24.1"
+          ],
+          "pros": [
+            "Human review of changes",
+            "Explicit redeployment"
+          ],
+          "cons": [
+            "Slower response"
+          ]
+        },
+        {
+          "label": "Automated model adjustment",
+          "value_id": "v:24.2",
+          "citations": [
+            "d:24",
+            "v:24.2"
+          ],
+          "pros": [
+            "Can react automatically"
+          ],
+          "cons": [
+            "Change policy unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Manual model adjustment",
+        "value_id": "v:24.1"
+      },
+      "rationale": "Manual adjustment leaves model changes under operator control because the brief asks for drift visibility but gives no criteria for automatic intervention; this was the checked choice (d:24, v:24.1).",
+      "consequences": [
+        "Operators must review alerts and decide on changes.",
+        "Model updates may take longer."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How classification results are shared and access-controlled across consuming teams.",
+    "How and when classification jobs are triggered and scheduled.",
+    "How document data and prediction results are stored and retained.",
+    "How to define quality measures, detect drift, and alert operators."
+  ]
+}

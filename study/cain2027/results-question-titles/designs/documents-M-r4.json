@@ -1,0 +1,226 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction serving mode",
+      "context": "Millions of documents arrive daily, with volume that varies through the year. The brief does not require immediate predictions for each incoming document.",
+      "drivers": [
+        "high daily volume",
+        "seasonal demand",
+        "shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s12_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "scores large volumes",
+            "writes results for consumers"
+          ],
+          "cons": [
+            "results wait for the batch"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s12_p07"
+          ],
+          "pros": [
+            "handles online requests",
+            "supports load balancing"
+          ],
+          "cons": [
+            "keeps serving capacity available"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Batch scoring fits the stated scale and shared consumption model; no per-document response-time requirement is given. Sources including “Architecting a Machine Learning Pipeline” and “System Architectures for Personalization and Recommendation” describe scheduled scoring.",
+      "consequences": [
+        "Consumers read results from shared storage or analytics systems.",
+        "Results reflect the most recent completed scoring run."
+      ]
+    },
+    {
+      "decision": "Scaling for seasonal volume",
+      "context": "Classification demand varies strongly over the year, so capacity needs to respond to workload changes. The brief does not specify a hosting platform or latency target.",
+      "drivers": [
+        "seasonal demand",
+        "millions of documents",
+        "resource efficiency"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "adjusts capacity to demand",
+            "supports large workloads"
+          ],
+          "cons": [
+            "requires scaling configuration"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s13_p09"
+          ],
+          "pros": [
+            "reduces idle serving cost"
+          ],
+          "cons": [
+            "may not suit scheduled batch capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling directly addresses seasonal workload variation and large processing volumes. “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” support scaling compute with demand.",
+      "consequences": [
+        "Capacity follows workload demand.",
+        "Scaling behavior and limits need operational configuration."
+      ]
+    },
+    {
+      "decision": "Production quality and drift monitoring",
+      "context": "Operators need visibility when classification quality drifts. Monitoring can combine practices: this design-space dimension has zero exclusivity, and the checked point warns that it permits only one value per dimension.",
+      "drivers": [
+        "quality drift visibility",
+        "operational oversight"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "detects changing inputs",
+            "reveals data shifts"
+          ],
+          "cons": [
+            "drift alone does not measure quality"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s04_p02",
+            "s06_p06",
+            "s23_p04"
+          ],
+          "pros": [
+            "tracks prediction behavior",
+            "surfaces quality changes"
+          ],
+          "cons": [
+            "depends on label availability"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10",
+            "s23_p13"
+          ],
+          "pros": [
+            "requires little monitoring setup"
+          ],
+          "cons": [
+            "does not track quality"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Choose drift monitoring to give operators visibility into changing inputs, and combine it with prediction-quality monitoring when labels become available. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Continuous delivery and automation pipelines in machine learning” support drift monitoring; “Machine Learning Monitoring: What It Is, and What We Are Missing” supports quality monitoring.",
+      "consequences": [
+        "Monitor input and feature changes in production.",
+        "Assess prediction quality when ground-truth labels arrive.",
+        "The checked design point flags the combined monitoring values as a same-dimension warning."
+      ]
+    },
+    {
+      "decision": "Prediction delivery interface",
+      "context": "Several teams consume classification results, so the system needs a defined way to expose predictions. The brief does not specify how those teams integrate.",
+      "drivers": [
+        "multiple consumers",
+        "shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s19_p14"
+          ],
+          "pros": [
+            "supports application integration",
+            "well represented in evidence"
+          ],
+          "cons": [
+            "requires service operation"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [
+            "s02_p12"
+          ],
+          "pros": [
+            "portable model representation",
+            "supports batch and online scoring"
+          ],
+          "cons": [
+            "requires compatible tooling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST interface is a broadly supported option for exposing model predictions to multiple application consumers. “How to power up your product by machine learning with python microservice” and “Three Levels of ML Software” document this approach.",
+      "consequences": [
+        "Consumers integrate through an API.",
+        "Service ownership and access patterns remain to be specified."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Data ingestion mechanism and source integration; the design-space relation says workflow coordination requires this decision first.",
+    "Result schema, storage retention, and access control for the consuming teams.",
+    "Ground-truth label collection and its delay, needed to define prediction-quality monitoring.",
+    "Classification error costs, acceptance thresholds, and human review policy.",
+    "Deployment platform, availability targets, and batch schedule."
+  ]
+}

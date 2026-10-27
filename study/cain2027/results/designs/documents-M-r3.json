@@ -1,0 +1,227 @@
+{
+  "decisions": [
+    {
+      "decision": "Use scheduled batch scoring for document classification",
+      "context": "The system classifies millions of documents daily, with seasonal volume swings and no stated per-document latency target.",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume variation",
+        "Several consuming teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s02_p13",
+            "s15_p04",
+            "s15_p05"
+          ],
+          "pros": [
+            "Writes results for downstream use",
+            "Supports high-volume scoring"
+          ],
+          "cons": [
+            "Results arrive on a schedule"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s19_p15"
+          ],
+          "pros": [
+            "Handles variable request load",
+            "Supports low-latency responses"
+          ],
+          "cons": [
+            "Adds always-on serving complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "The brief establishes large, variable volume but no immediate response requirement. Scheduled scoring fits those needs; the checked rival point used online serving, but neither combination was attested by the workspace sources.",
+      "consequences": [
+        "Teams consume persisted classification results after each run.",
+        "Run cadence and completion time become operational concerns."
+      ]
+    },
+    {
+      "decision": "Monitor classification quality and input drift in production",
+      "context": "Operators need visibility when classification quality drifts, while input changes can signal that model behavior needs investigation.",
+      "drivers": [
+        "Detect quality drift",
+        "Observe changing inputs",
+        "Operational visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p05",
+            "s06_p02",
+            "s06_p08",
+            "s23_p03"
+          ],
+          "pros": [
+            "Surfaces changing inputs",
+            "Can reveal drift early"
+          ],
+          "cons": [
+            "Drift does not prove quality loss"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s04_p02",
+            "s04_p12",
+            "s06_p06",
+            "s06_p13",
+            "s23_p04"
+          ],
+          "pros": [
+            "Tracks model behavior",
+            "Measures quality when labels arrive"
+          ],
+          "cons": [
+            "Depends on available labels"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Use input and feature drift as the primary early signal, and assess prediction quality when labels become available. These are complementary practices in the design space, whose exclusivity is zero; the checked point warns that its one-value-per-dimension rule does not encode this bundle.",
+      "consequences": [
+        "Quality evaluation follows label availability.",
+        "Drift alerts require operator interpretation."
+      ]
+    },
+    {
+      "decision": "Scale classification resources elastically",
+      "context": "Seasonal volume changes make fixed capacity liable to be insufficient at peaks or underused off season.",
+      "drivers": [
+        "Seasonal demand swings",
+        "Millions of documents daily",
+        "Capacity efficiency"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s04_p06",
+            "s15_p04"
+          ],
+          "pros": [
+            "Adjusts capacity with demand",
+            "Supports variable workloads"
+          ],
+          "cons": [
+            "Scaling behavior needs tuning"
+          ]
+        },
+        {
+          "label": "Fixed-capacity provisioning",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simple resource planning"
+          ],
+          "cons": [
+            "May waste off-peak capacity",
+            "May constrain peak throughput"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling directly addresses the stated seasonal variation. The workspace evidence supports automatic resource adjustment; fixed provisioning is included as a brief-derived alternative without a grounded value.",
+      "consequences": [
+        "Capacity changes with workload demand.",
+        "Provisioning and cost behavior need monitoring."
+      ]
+    },
+    {
+      "decision": "Expose classification results through a REST prediction microservice",
+      "context": "Several teams consume the classification results, so they need a shared interface to access them.",
+      "drivers": [
+        "Several consuming teams",
+        "Shared access interface",
+        "Independent integration"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s01_p08",
+            "s02_p10",
+            "s02_p11",
+            "s02_p12"
+          ],
+          "pros": [
+            "Provides an API for integration",
+            "Separates model access from consumers"
+          ],
+          "cons": [
+            "Requires service operations"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [
+            "s02_p10",
+            "s02_p11"
+          ],
+          "pros": [
+            "Portable model representation",
+            "Supports batch and online scoring"
+          ],
+          "cons": [
+            "Requires compatible tooling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST microservice provides multiple teams a common integration point. Sources describe this interface as a way to integrate applications with deployed prediction services; the batch output can also be persisted for scheduled consumption.",
+      "consequences": [
+        "The service contract must remain stable for consumers.",
+        "Service availability becomes a dependency."
+      ]
+    }
+  ],
+  "uncovered": [
+    "LLM provider, model choice, and model-version governance",
+    "Document intake and storage design",
+    "Classification label taxonomy and confidence or abstention policy",
+    "Access control and retention for insurer documents",
+    "Batch cadence, recovery, and duplicate handling",
+    "How results are published to consuming teams",
+    "Quality thresholds and drift alert escalation",
+    "Human review and retraining approval policy"
+  ]
+}

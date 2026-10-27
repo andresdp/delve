@@ -1,0 +1,238 @@
+{
+  "decisions": [
+    {
+      "decision": "Version pipelines, data, and model artifacts together",
+      "context": "Forecasts must be reproducible for any past week, which requires retaining the inputs and workflow context behind each result.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Traceable runs"
+      ],
+      "alternatives": [
+        {
+          "label": "Pipeline and experiment version control",
+          "value_id": "v:20.2",
+          "citations": [
+            "s04_p01",
+            "s04_p03",
+            "s04_p05"
+          ],
+          "pros": [
+            "Versions pipelines and experiments",
+            "Supports comparison and replay"
+          ],
+          "cons": [
+            "Limited lifecycle coverage"
+          ]
+        },
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04"
+          ],
+          "pros": [
+            "Links datasets, runs, and artifacts",
+            "Supports end-to-end traceability"
+          ],
+          "cons": [
+            "More metadata to maintain"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "It connects datasets, pipeline definitions, training runs, and artifacts, which best supports reproducing a forecast for a past week. MLOps Principles and Continuous Intelligence describe this integrated lifecycle approach.",
+      "consequences": [
+        "Record dataset versions and run metadata.",
+        "Retain versioned pipeline and model artifacts."
+      ]
+    },
+    {
+      "decision": "Orchestrate recurring training and evaluation as an ML pipeline",
+      "context": "The weekly forecast run needs repeatable execution, and model ideas should move through training and evaluation quickly.",
+      "drivers": [
+        "Weekly repeatability",
+        "Fast iteration",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07",
+            "s06_p07"
+          ],
+          "pros": [
+            "Repeatable connected stages",
+            "Automates training and evaluation"
+          ],
+          "cons": [
+            "Requires orchestration setup"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s20_p12"
+          ],
+          "pros": [
+            "Simple to start",
+            "Flexible for infrequent changes"
+          ],
+          "cons": [
+            "Manual run coordination",
+            "Harder to repeat reliably"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "A connected pipeline makes the weekly workflow repeatable while giving the small team a consistent path to test new model ideas. Practitioner sources describe orchestration for linked preparation, training, evaluation, and deployment stages.",
+      "consequences": [
+        "Define and maintain pipeline stages.",
+        "Decide upstream data ingestion before finalizing the workflow."
+      ]
+    },
+    {
+      "decision": "Release model updates progressively with rollback",
+      "context": "New model ideas need a fast route to production without putting the weekly run at risk.",
+      "drivers": [
+        "Safe weekly run",
+        "Fast production changes",
+        "Recovery"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p03",
+            "s04_p10",
+            "s25_p06"
+          ],
+          "pros": [
+            "Incremental rollout",
+            "Can restore prior version"
+          ],
+          "cons": [
+            "Requires release automation",
+            "Needs rollback readiness"
+          ]
+        },
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p06",
+            "s06_p13"
+          ],
+          "pros": [
+            "Automates build and promotion",
+            "Speeds routine releases"
+          ],
+          "cons": [
+            "Does not itself specify rollback",
+            "Requires staged environments"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Progressive rollout and the ability to revert directly address the requirement to introduce model ideas without disrupting the weekly run. Productionizing Machine Learning with a Microservices Architecture and Azure Machine Learning document incremental release and recovery practices.",
+      "consequences": [
+        "Keep the prior model version deployable.",
+        "Define rollout and rollback criteria."
+      ]
+    },
+    {
+      "decision": "Evaluate candidates offline before promotion",
+      "context": "New model ideas need a consistent check against known outcomes before replacing the production forecast.",
+      "drivers": [
+        "Prevent regressions",
+        "Compare candidates",
+        "Safe promotion"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15",
+            "s06_p08"
+          ],
+          "pros": [
+            "Tests candidates before deployment",
+            "Uses held-out data"
+          ],
+          "cons": [
+            "Depends on representative test data",
+            "Does not define acceptance thresholds"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s02_p09",
+            "s09_p04",
+            "s22_p06"
+          ],
+          "pros": [
+            "Compares multiple candidates",
+            "Uses selected metrics"
+          ],
+          "cons": [
+            "Metric choice needs justification",
+            "Does not alone gate release"
+          ]
+        },
+        {
+          "label": "Threshold-based quality regression testing",
+          "value_id": "v:13.2",
+          "citations": [
+            "s06_p02",
+            "s06_p08",
+            "s22_p09"
+          ],
+          "pros": [
+            "Flags quality drops",
+            "Can gate promotion"
+          ],
+          "cons": [
+            "Thresholds need calibration",
+            "Does not specify candidate evaluation alone"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Offline candidate evaluation gives the team a pre-production check against known outcomes. Threshold-based regression checks can complement this choice, but the brief does not specify forecast metrics or acceptable thresholds; practitioner sources describe both offline evaluation and threshold-based regression checks.",
+      "consequences": [
+        "Maintain an evaluation dataset representative of past weeks.",
+        "Choose forecast metrics and promotion thresholds."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Data ingestion mechanism and source-data snapshot policy are not determined by the brief or grounded by the checked alternatives; both affect reproducibility of past-week forecasts.",
+    "Forecast-specific error metrics, acceptance thresholds, and business-impact evaluation criteria are unspecified."
+  ]
+}

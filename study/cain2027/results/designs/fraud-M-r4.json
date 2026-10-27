@@ -1,0 +1,278 @@
+{
+  "decisions": [
+    {
+      "decision": "Serve fraud scores through a queue-fronted online cluster",
+      "context": "Authorization requires a score within tens of milliseconds, including during transaction peaks.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Peak availability",
+        "Real-time authorization"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07"
+          ],
+          "pros": [
+            "Load balances requests",
+            "Targets low latency"
+          ],
+          "cons": [
+            "Adds queue operations"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12"
+          ],
+          "pros": [
+            "Efficient bulk scoring",
+            "Writes results to storage"
+          ],
+          "cons": [
+            "Scores may be stale",
+            "Cannot score each live transaction"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-fronted online serving cluster",
+        "value_id": "v:31.1"
+      },
+      "rationale": "The queue-fronted cluster distributes online predictors for throughput and low latency, which fits authorization-time scoring better than scheduled batch output (Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2; System Architectures for Personalization and Recommendation). The checked design point had no warnings, though no source attested to the full combination.",
+      "consequences": [
+        "Operate a queue and multiple predictors.",
+        "Set capacity and overload behavior to meet the latency target."
+      ]
+    },
+    {
+      "decision": "Expose predictions through a REST microservice",
+      "context": "The payment authorization path needs a request-response interface to obtain a transaction score from an independently operated model.",
+      "drivers": [
+        "Online scoring",
+        "Application integration",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10",
+            "s02_p11"
+          ],
+          "pros": [
+            "API-backed integration",
+            "Broad practitioner support"
+          ],
+          "cons": [
+            "Network hop adds latency"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s19_p14",
+            "s21_p10"
+          ],
+          "pros": [
+            "Independent service interface"
+          ],
+          "cons": [
+            "Fewer sources in this design space"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST prediction microservice provides a clear application integration boundary, while the brief does not require a particular transport optimization. Sources describe REST-backed model prediction services (How to power up your product by machine learning with python microservice, pt. 1; Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2).",
+      "consequences": [
+        "Keep request and response schemas versioned.",
+        "Measure end-to-end latency, including feature lookup and network time."
+      ]
+    },
+    {
+      "decision": "Deploy the scorer as a model-as-a-service",
+      "context": "Transaction scoring must remain available as traffic changes, with the model deployable independently from payment application code.",
+      "drivers": [
+        "Peak availability",
+        "Online scoring",
+        "Independent deployment"
+      ],
+      "alternatives": [
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s01_p06",
+            "s04_p01",
+            "s06_p13"
+          ],
+          "pros": [
+            "Real-time service integration",
+            "Independent release path"
+          ],
+          "cons": [
+            "Requires service operations"
+          ]
+        },
+        {
+          "label": "Monolithic application architecture",
+          "value_id": "v:30.2",
+          "citations": [
+            "s03_p01",
+            "s16_p06"
+          ],
+          "pros": [
+            "Single deployment unit"
+          ],
+          "cons": [
+            "Ties model release to application"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model-as-a-service deployment",
+        "value_id": "v:30.3"
+      },
+      "rationale": "A real-time model service integrates with product applications and supports a separate deployment boundary suited to scaling the scorer for peaks (Productionizing Machine Learning with a Microservices Architecture; MLOps: Continuous delivery and automation pipelines in machine learning).",
+      "consequences": [
+        "Operate and scale the serving service separately.",
+        "Coordinate compatibility between model and caller versions."
+      ]
+    },
+    {
+      "decision": "Track model, feature, and training lineage end to end",
+      "context": "Auditors must be able to identify the exact model version and features behind each score after the transaction.",
+      "drivers": [
+        "Audit traceability",
+        "Model version identification",
+        "Feature provenance"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p06"
+          ],
+          "pros": [
+            "Links models and datasets",
+            "Tracks runs and deployment health"
+          ],
+          "cons": [
+            "Requires lifecycle metadata capture"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s22_p03"
+          ],
+          "pros": [
+            "Versions model artifacts"
+          ],
+          "cons": [
+            "Does not cover full training lineage"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "This choice includes versioned artifacts, training runs, metadata, deployment health, and datasets, providing a stronger basis for answering auditors than artifact versioning alone (Continuous Intelligence: Moving Machine Learning Application into Production Reliably; MLOps Principles). The checked design point had no warnings, though no source attested to the full combination.",
+      "consequences": [
+        "Persist the model version and feature-set identifiers with each score.",
+        "Retain lineage metadata for the audit period."
+      ]
+    },
+    {
+      "decision": "Monitor service health and input quality in production",
+      "context": "Peak traffic and strict response times make operational failures visible risks; changing transaction data can also degrade scores.",
+      "drivers": [
+        "Latency target",
+        "Peak reliability",
+        "Changing inputs"
+      ],
+      "alternatives": [
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s04_p02",
+            "s06_p02",
+            "s22_p04"
+          ],
+          "pros": [
+            "Tracks latency and uptime",
+            "Covers data quality and shifts"
+          ],
+          "cons": [
+            "Requires monitoring thresholds"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s04_p12",
+            "s06_p06",
+            "s23_p03"
+          ],
+          "pros": [
+            "Tracks model behavior",
+            "Can expose quality changes"
+          ],
+          "cons": [
+            "Needs timely labels"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10",
+            "s23_p13"
+          ],
+          "pros": [
+            "Minimal monitoring setup"
+          ],
+          "cons": [
+            "No active issue tracking"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Service-health and data-quality monitoring",
+        "value_id": "v:6.23"
+      },
+      "rationale": "This monitoring covers latency, uptime, dependencies, input quality, and data shifts, directly addressing the brief’s operational constraints. Real-time quality checks can complement it when labels become available; monitoring practices are combinable in this dimension (Productionizing Machine Learning with a Microservices Architecture; MLOps Principles).",
+      "consequences": [
+        "Alert on latency, availability, dependency, and input-quality breaches.",
+        "Decide separately how label delays affect model-quality alerts."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How transaction features are computed and served within the latency budget.",
+    "How to explain individual fraud scores and preserve the exact feature values used for each decision.",
+    "Fraud-label delay, retraining approval, and rollback policy.",
+    "Authorization behavior when the scorer or feature dependencies are unavailable."
+  ]
+}

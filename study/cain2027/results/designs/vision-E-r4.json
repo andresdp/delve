@@ -1,0 +1,454 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a local prediction service for on-device inspection",
+      "context": "Cameras need defect predictions where network access is often unavailable. Serving must work at the production line.",
+      "drivers": [
+        "Offline operation",
+        "Camera integration"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Runs locally",
+            "Real-time predictions"
+          ],
+          "cons": [
+            "Device deployment needed"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Distributed service",
+            "Centralized serving"
+          ],
+          "cons": [
+            "Depends on network"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled processing",
+            "Writes results to storage"
+          ],
+          "cons": [
+            "Not immediate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Local serving supports real-time inspection without relying on network connectivity; the design space lists it as an accepted option (d:5, v:5.2).",
+      "consequences": [
+        "Each device must carry and run the model.",
+        "Device resources constrain inference capacity."
+      ]
+    },
+    {
+      "decision": "Train models in weekly batches",
+      "context": "Newly labelled images arrive for retraining each week. This calls for a repeatable training cycle.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Fits scheduled retraining",
+            "Offline training possible"
+          ],
+          "cons": [
+            "Updates arrive on batch cadence"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Updates incrementally",
+            "Can learn online"
+          ],
+          "cons": [
+            "More frequent update handling"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Combines training modes"
+          ],
+          "cons": [
+            "More moving parts"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "A weekly labelled-image cycle aligns with batch training, which can run offline (d:19, v:19.1).",
+      "consequences": [
+        "Training runs on a weekly schedule.",
+        "The model reflects labels available at each run."
+      ]
+    },
+    {
+      "decision": "Use deployment scripts for weekly model delivery",
+      "context": "Trained models must be pushed to devices. The team is small and the infrastructure budget is tight.",
+      "drivers": [
+        "Weekly delivery",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Automates deployment steps",
+            "Lightweight approach"
+          ],
+          "cons": [
+            "Less orchestration support"
+          ]
+        },
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Automates continuous delivery",
+            "Repeatable workflow"
+          ],
+          "cons": [
+            "Pipeline infrastructure needed"
+          ]
+        },
+        {
+          "label": "Machine learning orchestrator",
+          "value_id": "v:8.3",
+          "citations": [
+            "d:8",
+            "v:8.3"
+          ],
+          "pros": [
+            "Orchestrates multiple pipelines"
+          ],
+          "cons": [
+            "More infrastructure to operate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Build and Deployment scripts",
+        "value_id": "v:8.2"
+      },
+      "rationale": "Scripts provide automated deployment steps with a comparatively lightweight operating footprint for the stated team and budget (d:8, v:8.2).",
+      "consequences": [
+        "The team maintains the scripts and their execution environment.",
+        "Delivery coordination remains relatively simple."
+      ]
+    },
+    {
+      "decision": "Keep a rollback path for deployed models",
+      "context": "Weekly releases change the model running on production cameras. A way to restore a prior version limits the impact of a faulty release.",
+      "drivers": [
+        "Weekly releases",
+        "Production inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Restores prior model",
+            "Supports recovery"
+          ],
+          "cons": [
+            "Previous artifact must be retained"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Multiple versions available"
+          ],
+          "cons": [
+            "More deployment complexity"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple active deployment"
+          ],
+          "cons": [
+            "No explicit version fallback"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "The design space describes this option as redeploying the prior version and switching back to it (d:10, v:10.2).",
+      "consequences": [
+        "Retain the previous deployable model artifact.",
+        "Device rollout must support switching versions."
+      ]
+    },
+    {
+      "decision": "Version labelled training data in a data version repository",
+      "context": "Weekly retraining uses newly labelled images. Keeping track of dataset versions makes training inputs identifiable across releases.",
+      "drivers": [
+        "Weekly retraining",
+        "Labelled images",
+        "Release traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Purpose-built data versioning",
+            "Identifies training inputs"
+          ],
+          "cons": [
+            "Repository adds a tool to manage"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Keeps versioning with code"
+          ],
+          "cons": [
+            "May add repository overhead"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "No versioning setup"
+          ],
+          "cons": [
+            "Training inputs harder to identify"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "A dedicated data version repository supports identifying the labelled-image set used for each weekly training run (d:11, v:11.1).",
+      "consequences": [
+        "The team must retain dataset version references with model releases.",
+        "Repository operation adds a small infrastructure cost."
+      ]
+    },
+    {
+      "decision": "Store shared training data in a shared data store",
+      "context": "The system needs a place for labelled images used by recurring training. Data storage should support the training workflow without prescribing a specific product.",
+      "drivers": [
+        "Training data retention",
+        "Weekly retraining",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared data store",
+          "value_id": "v:2.1",
+          "citations": [
+            "d:2",
+            "v:2.1"
+          ],
+          "pros": [
+            "Shared data access",
+            "Straightforward storage"
+          ],
+          "cons": [
+            "Store must be operated"
+          ]
+        },
+        {
+          "label": "Data service",
+          "value_id": "v:2.2",
+          "citations": [
+            "d:2",
+            "v:2.2"
+          ],
+          "pros": [
+            "Access through services"
+          ],
+          "cons": [
+            "Service to maintain"
+          ]
+        },
+        {
+          "label": "No data store",
+          "value_id": "v:2.4",
+          "citations": [
+            "d:2",
+            "v:2.4"
+          ],
+          "pros": [
+            "Avoids storage layer"
+          ],
+          "cons": [
+            "Poor fit for recurring image training"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared data store",
+        "value_id": "v:2.1"
+      },
+      "rationale": "A shared store provides a simple place for the training workflow to access retained images (d:2, v:2.1).",
+      "consequences": [
+        "Storage capacity and retention need management.",
+        "The brief does not determine storage technology or location."
+      ]
+    },
+    {
+      "decision": "Test model quality and the deployed prediction API",
+      "context": "Weekly retraining and device deployment create recurring opportunities for regressions. The brief provides no explicit testing requirements, but these choices address trained models and prediction services in the design space.",
+      "drivers": [
+        "Weekly releases",
+        "Defect detection",
+        "Device deployment"
+      ],
+      "alternatives": [
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "Checks model output quality"
+          ],
+          "cons": [
+            "Requires quality criteria"
+          ]
+        },
+        {
+          "label": "Prediction service API testing",
+          "value_id": "v:26.12",
+          "citations": [
+            "d:26",
+            "v:26.12"
+          ],
+          "pros": [
+            "Checks serving interface"
+          ],
+          "cons": [
+            "Does not measure model quality"
+          ]
+        },
+        {
+          "label": "Canary testing",
+          "value_id": "v:26.1",
+          "citations": [
+            "d:26",
+            "v:26.1"
+          ],
+          "pros": [
+            "Exercises a limited rollout"
+          ],
+          "cons": [
+            "Rollout coordination needed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Testing trained model quality",
+        "value_id": "v:26.9"
+      },
+      "rationale": "Quality checks on each trained model directly support the weekly release cycle; API testing and canary rollout remain complementary options (d:26, v:26.9).",
+      "consequences": [
+        "The team must define acceptance criteria for model quality.",
+        "This choice does not specify a full device rollout test strategy."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device fleet management and rollout coordination across cameras.",
+    "How devices receive updates while offline and reconcile when connectivity returns.",
+    "Model artifact format, compatibility checks, and device resource limits.",
+    "Image retention, privacy, security, and access control.",
+    "Monitoring and alerting for camera health, predictions, and model performance.",
+    "How newly labelled images are collected and validated."
+  ]
+}

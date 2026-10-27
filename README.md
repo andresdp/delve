@@ -35,6 +35,30 @@ decision point, alternative, design point and source, and graph and tree views.
 
 The source texts themselves are not included (copyright). The wiki quotes short passages as evidence.
 
+## Coding agents designing with a design space (study)
+
+[study/cain2027/](study/cain2027/) holds a study of whether a coding agent (Codex CLI) designs ML-enabled systems
+differently when it has a design space. The agent writes architecture decision records (ADRs) for four briefs in
+three conditions: N (the brief only), M (a design space mined by ddspace from the sources of the C1 study on the
+machine-learning workflow) and E (the C1 expert decision model, imported as a design space). The two design spaces
+the agent used are included as wikis:
+
+| Design space | Browse online | Folder |
+|---|---|---|
+| C1 mined by ddspace (condition M): 32 dimensions, 279 values, linked to passage ids (no source text) | [site](https://anonymous.4open.science/api/repo/ddspace-E704/file/study/cain2027/wikis/c1-mined/site/index.html) | `study/cain2027/wikis/c1-mined/` |
+| C1 expert decision model (condition E): 28 dimensions, 124 values, 40 relations | [site](https://anonymous.4open.science/api/repo/ddspace-E704/file/study/cain2027/wikis/c1-expert/site/index.html) | `study/cain2027/wikis/c1-expert/` |
+
+Each folder has the Markdown wiki (`wiki/`, OKF) and the HTML site (`site/`); open `site/index.html` from a
+download for the graph and tree views. In the study, the agent read them through `ddspace query` and
+`ddspace point`, in workspaces that `study/cain2027/build_workspaces.py` rebuilds from the tracked inputs.
+
+- What was run and what it shows: [study/cain2027/FINDINGS.md](study/cain2027/FINDINGS.md).
+- How to rerun it, step by step: [study/cain2027/RUNNING.md](study/cain2027/RUNNING.md); validation criteria:
+  [study/cain2027/VALIDATION.md](study/cain2027/VALIDATION.md).
+- The agent's ADRs, as Markdown: `study/cain2027/results/adrs/<brief>-<condition>-r<repetition>/` (the primary
+  run); `results-question-titles/` holds a further run with an earlier prompt wording. Each results folder keeps
+  its judge cache, so rescoring reuses the recorded verdicts.
+
 ## Install
 
 Python 3.10 or newer is required.
@@ -132,6 +156,7 @@ Configuration, commands and output files: [USAGE.md](USAGE.md). Vocabulary: [CON
 | `src/delvedspace/` | The `ddspace` command: workspaces, sources and corpus, runs, wiki build, queries, agent setup |
 | `src/taxonomy_generator/` | The mining workflow (LangGraph), prompts, wiki export and queries |
 | `examples/` | The C3 sample wiki and two small corpora for QUICKSTART |
+| `study/cain2027/` | The coding-agent study: briefs, prompts, runner, scorer, results, and the two C1 wikis |
 | `tests/` | Unit tests, no API calls: `python -m pytest tests/unit_tests` |
 
 ## Background
