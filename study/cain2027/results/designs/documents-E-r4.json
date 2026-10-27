@@ -1,0 +1,311 @@
+{
+  "decisions": [
+    {
+      "decision": "Use batch based serving for document classifications",
+      "context": "The system classifies millions of documents daily, with seasonal volume changes; the brief gives no real time response requirement. The design space includes scheduled batch serving and real time alternatives (d:5).",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume changes",
+        "Results used by several teams"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Processes on a schedule",
+            "Writes results to storage"
+          ],
+          "cons": [
+            "Results arrive after batch processing"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real time predictions",
+            "Distributed service"
+          ],
+          "cons": [
+            "Always on serving path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Batch serving matches the stated high, seasonally varying volume and there is no requirement for immediate results. The checked point had no attesting systems, so this is a novel combination in the design space.",
+      "consequences": [
+        "Teams read completed results from storage.",
+        "Processing cadence and completion delays need agreement."
+      ]
+    },
+    {
+      "decision": "Ingest documents in batches",
+      "context": "The brief specifies large daily document volumes but no continuous arrival or latency constraint. Batch and streamed ingestion are both represented in the design space (d:7).",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume changes",
+        "No latency target specified"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Supports large scheduled loads",
+            "Can automate ingestion"
+          ],
+          "cons": [
+            "Waits for batch availability"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous arrivals",
+            "Low processing delay"
+          ],
+          "cons": [
+            "Adds stream operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion aligns with batch serving and the brief's lack of an immediate classification requirement. The checked batch point produced no conflict warning for this choice.",
+      "consequences": [
+        "Ingestion cadence sets result freshness.",
+        "Seasonal capacity must cover peak loads."
+      ]
+    },
+    {
+      "decision": "Store inputs and predictions in a shared data store",
+      "context": "Several teams consume classification results, so the system needs a shared access path. Shared stores and event stores are options in the design space (d:2).",
+      "drivers": [
+        "Several consuming teams",
+        "Daily document volumes",
+        "Batch results"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared data store",
+          "value_id": "v:2.1",
+          "citations": [
+            "d:2",
+            "v:2.1"
+          ],
+          "pros": [
+            "Shared access path",
+            "Fits batch result storage"
+          ],
+          "cons": [
+            "Requires shared data conventions"
+          ]
+        },
+        {
+          "label": "Event store",
+          "value_id": "v:2.3",
+          "citations": [
+            "d:2",
+            "v:2.3"
+          ],
+          "pros": [
+            "Stores events as exchanged",
+            "Supports event consumers"
+          ],
+          "cons": [
+            "Event consumption model required"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared data store",
+        "value_id": "v:2.1"
+      },
+      "rationale": "A shared store directly supports multiple teams consuming completed batch predictions. The checked point had no attesting systems, so the combination is novel in the design space.",
+      "consequences": [
+        "Teams need a common result schema.",
+        "Storage retention and access policies need definition."
+      ]
+    },
+    {
+      "decision": "Notify clients by polling for completed results",
+      "context": "Batch serving writes predictions to storage, while the brief does not specify how clients learn that a batch is complete. Polling is one supported availability pattern (d:6).",
+      "drivers": [
+        "Several consuming teams",
+        "Batch result availability",
+        "No notification requirement specified"
+      ],
+      "alternatives": [
+        {
+          "label": "Polling",
+          "value_id": "v:6.2",
+          "citations": [
+            "d:6",
+            "v:6.2"
+          ],
+          "pros": [
+            "Simple client interaction",
+            "Clients control retrieval"
+          ],
+          "cons": [
+            "Repeated status requests"
+          ]
+        },
+        {
+          "label": "Push notification",
+          "value_id": "v:6.1",
+          "citations": [
+            "d:6",
+            "v:6.1"
+          ],
+          "pros": [
+            "Notifies clients on availability",
+            "Avoids repeated checks"
+          ],
+          "cons": [
+            "Requires notification delivery"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Polling",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Polling fits results written after batch processing and avoids assuming a notification service not called for in the brief. The design space says serving choices affect client availability choices (d:5 to d:6).",
+      "consequences": [
+        "Clients need a result status endpoint or equivalent.",
+        "Polling frequency affects load and freshness."
+      ]
+    },
+    {
+      "decision": "Monitor model performance in production",
+      "context": "Operators need to see when classification quality drifts. The design space distinguishes monitoring model performance from logging data and predictions (d:22).",
+      "drivers": [
+        "Detect quality drift",
+        "Operational visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Observes model performance",
+            "Targets quality changes"
+          ],
+          "cons": [
+            "Requires performance measures"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Records data and outputs",
+            "Supports operational review"
+          ],
+          "cons": [
+            "Does not alone establish drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Performance monitoring most directly addresses the explicit need to see classification quality drift. The batch design point warned against selecting two values for this dimension, so the checked choice uses performance monitoring alone.",
+      "consequences": [
+        "Define quality measures and drift thresholds.",
+        "Determine how labels or review outcomes feed measurement."
+      ]
+    },
+    {
+      "decision": "Review drift before adjusting the model",
+      "context": "The brief requires drift visibility but does not authorize automatic model changes. Manual and automated adjustment are alternatives in the design space (d:24).",
+      "drivers": [
+        "Quality drift visibility",
+        "No retraining policy specified"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual model adjustment",
+          "value_id": "v:24.1",
+          "citations": [
+            "d:24",
+            "v:24.1"
+          ],
+          "pros": [
+            "Human review before changes",
+            "Explicit redeployment control"
+          ],
+          "cons": [
+            "Slower response to drift"
+          ]
+        },
+        {
+          "label": "Automated model adjustment",
+          "value_id": "v:24.2",
+          "citations": [
+            "d:24",
+            "v:24.2"
+          ],
+          "pros": [
+            "Can respond quickly",
+            "Reduces manual intervention"
+          ],
+          "cons": [
+            "Needs safe adjustment rules"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Manual model adjustment",
+        "value_id": "v:24.1"
+      },
+      "rationale": "Manual review is the conservative choice because the brief asks operators to observe drift but gives no criteria or authority for automatic adaptation. The design space relates monitoring choices to adjustment choices (d:22 to d:24).",
+      "consequences": [
+        "Operators review drift signals and decide actions.",
+        "Response time depends on the review process."
+      ]
+    }
+  ],
+  "uncovered": [
+    "LLM selection, hosting, prompt design, and classifier output schema",
+    "Document privacy, security, retention, and audit requirements",
+    "Capacity planning, autoscaling, and seasonal peak handling",
+    "Batch cadence, retry behavior, deduplication, and failure recovery",
+    "Team access controls and result ownership",
+    "Ground truth collection, drift thresholds, and alert routing",
+    "Model validation, release approval, rollback, and retraining workflow"
+  ]
+}

@@ -1,0 +1,319 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a model service for transaction scoring",
+      "context": "Every transaction needs a fraud score before authorization, with a response in tens of milliseconds. The model must be independently identifiable for later audit.",
+      "drivers": [
+        "Low-latency scoring",
+        "Model traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Separate model boundary",
+            "Clear model identity"
+          ],
+          "cons": [
+            "Network hop",
+            "Service operations"
+          ]
+        },
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "In-process call",
+            "Fewer services"
+          ],
+          "cons": [
+            "Shared release boundary",
+            "Tighter coupling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "A dedicated model service provides a clear unit to version and identify for each score. The brief’s latency target makes synchronous real-time service operation necessary.",
+      "consequences": [
+        "Keep service calls on the authorization path.",
+        "Record the serving model version with each score."
+      ]
+    },
+    {
+      "decision": "Serve fraud scores through a real-time microservice",
+      "context": "Authorization needs each transaction’s score before it can proceed. Scheduled batch scoring cannot meet that timing requirement.",
+      "drivers": [
+        "Tens-of-milliseconds response",
+        "Continuous peaks"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time scoring",
+            "Independent scaling"
+          ],
+          "cons": [
+            "Network overhead",
+            "Service availability dependency"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled processing",
+            "Batch efficiency"
+          ],
+          "cons": [
+            "Delayed results",
+            "Cannot gate authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "Real-time service scoring matches the authorization flow; batch serving returns results too late. The brief does not specify a particular scaling mechanism for peak demand.",
+      "consequences": [
+        "Scale capacity for transaction peaks.",
+        "Keep the synchronous scoring path within the latency budget."
+      ]
+    },
+    {
+      "decision": "Use a feature store for scoring features",
+      "context": "The score must be explainable later by identifying the features used to produce it. The brief does not prescribe how features are stored or accessed.",
+      "drivers": [
+        "Feature traceability",
+        "Low-latency access"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Central feature access",
+            "Feature-specific support"
+          ],
+          "cons": [
+            "Additional component",
+            "Operational dependency"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Use existing stores",
+            "Fewer specialized components"
+          ],
+          "cons": [
+            "Feature access conventions needed",
+            "Harder consistency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "A feature store is the available alternative specifically for persisting and providing feature access. Pairing it with score records supports later feature-level review, though the design space does not specify the required audit record format.",
+      "consequences": [
+        "Feature retrieval becomes a serving dependency.",
+        "Retain the exact feature values used for each score."
+      ]
+    },
+    {
+      "decision": "Track model usage, inputs, and outputs in production",
+      "context": "Auditors need to know which model version and features produced each score. Production records must connect the transaction, model, and scoring inputs and result.",
+      "drivers": [
+        "Auditor explainability",
+        "Model version traceability",
+        "Feature traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks inputs and outputs",
+            "Includes interpretability"
+          ],
+          "cons": [
+            "More data to retain",
+            "Additional instrumentation"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Captures predictions",
+            "Supports operational review"
+          ],
+          "cons": [
+            "Model and feature linkage unclear",
+            "Audit detail unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "This alternative explicitly includes tracking model usage, inputs, outputs, and interpretability, which best fits the audit requirement. Log the model version and feature values alongside each score.",
+      "consequences": [
+        "Define retention for scoring records.",
+        "Protect logged transaction and feature data."
+      ]
+    },
+    {
+      "decision": "Keep multiple model versions in production",
+      "context": "Scores must be attributable to the exact model version used. Keeping multiple versions available supports explicit version identification during rollout and operation.",
+      "drivers": [
+        "Version traceability",
+        "Continuous availability"
+      ],
+      "alternatives": [
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Multiple versions available",
+            "Supports controlled rollout"
+          ],
+          "cons": [
+            "More serving complexity",
+            "Version routing required"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simpler routing",
+            "One active version"
+          ],
+          "cons": [
+            "No concurrent versions",
+            "Replacement risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "N versions in production",
+        "value_id": "v:10.1"
+      },
+      "rationale": "Concurrent versions make the version behind each score explicit while supporting model changes. The brief does not specify traffic allocation or rollout policy.",
+      "consequences": [
+        "Tag every score with its model version.",
+        "Manage routing and lifecycle for active versions."
+      ]
+    },
+    {
+      "decision": "Process transaction inputs in real time",
+      "context": "The fraud score is required before each transaction is authorized. Processing transactions in scheduled batches would delay scores beyond that decision point.",
+      "drivers": [
+        "Score before authorization",
+        "Tens-of-milliseconds response"
+      ],
+      "alternatives": [
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Processes incoming events",
+            "Fits real-time decisions"
+          ],
+          "cons": [
+            "Continuous processing operations",
+            "Peak capacity planning"
+          ]
+        },
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Scheduled workloads",
+            "Batch efficiency"
+          ],
+          "cons": [
+            "Results arrive later",
+            "Cannot gate each transaction"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Real-time, stream-based data processing",
+        "value_id": "v:15.2"
+      },
+      "rationale": "Real-time processing fits the per-transaction authorization path; batch processing cannot provide the score in time. This design point is novel and unattested in the space, with no warnings returned.",
+      "consequences": [
+        "Process transactions as they arrive.",
+        "Plan for sustained and peak event volumes."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Exact audit record schema and retention period for model version, feature values, and score.",
+    "Feature store consistency and lookup latency guarantees.",
+    "Peak throughput, capacity strategy, and behavior when scoring is unavailable.",
+    "Model rollout, traffic allocation, and rollback policy.",
+    "Transaction data privacy, access controls, and audit access procedures.",
+    "Training data ingestion, model evaluation thresholds, and retraining cadence."
+  ]
+}

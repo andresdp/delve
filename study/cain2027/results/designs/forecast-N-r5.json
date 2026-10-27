@@ -1,0 +1,238 @@
+{
+  "decisions": [
+    {
+      "decision": "Forecast demand at the store–product–week grain",
+      "context": "The retailer’s stated forecast unit is weekly demand per store and product. Keeping this grain explicit gives the pipeline a consistent input and output contract.",
+      "drivers": [
+        "Weekly forecasts",
+        "Store–product detail"
+      ],
+      "alternatives": [
+        {
+          "label": "Store–product–week forecasts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches stated unit",
+            "Directly actionable"
+          ],
+          "cons": [
+            "Many individual series"
+          ]
+        },
+        {
+          "label": "Aggregate by store or product",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fewer series",
+            "Simpler modeling"
+          ],
+          "cons": [
+            "Loses detail",
+            "Needs allocation later"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Store–product–week forecasts",
+        "value_id": null
+      },
+      "rationale": "It directly matches the brief’s required forecast unit and avoids introducing an unstated allocation step.",
+      "consequences": [
+        "Pipeline inputs and outputs use this grain.",
+        "Sparse or new series need a defined fallback."
+      ]
+    },
+    {
+      "decision": "Version all forecast inputs and code for historical reproducibility",
+      "context": "The team must reproduce forecasts for any past week. That requires preserving the data, configuration, and code state used for each run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned inputs, code, and run configuration",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Recreates past runs",
+            "Supports audit"
+          ],
+          "cons": [
+            "Requires storage discipline",
+            "Adds run metadata"
+          ]
+        },
+        {
+          "label": "Keep only the latest data and code",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Less storage",
+            "Simple operations"
+          ],
+          "cons": [
+            "Past runs drift",
+            "Cannot reliably reproduce"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned inputs, code, and run configuration",
+        "value_id": null
+      },
+      "rationale": "Reproduction depends on restoring the full state of a run, not merely rerunning current code against changed data.",
+      "consequences": [
+        "Each run records immutable input and code versions.",
+        "Historical artifacts require retention and storage."
+      ]
+    },
+    {
+      "decision": "Run forecasting as a scheduled, repeatable weekly pipeline",
+      "context": "Forecasts are needed weekly, and the pipeline is owned end to end by a small team. A repeatable pipeline makes that recurring work operationally manageable.",
+      "drivers": [
+        "Weekly run",
+        "Three-person team",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled pipeline with explicit stages",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Repeatable execution",
+            "Failures are visible"
+          ],
+          "cons": [
+            "Needs orchestration",
+            "Requires stage contracts"
+          ]
+        },
+        {
+          "label": "Manual scripts run each week",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Quick to start",
+            "Flexible"
+          ],
+          "cons": [
+            "Error-prone repetition",
+            "Harder handoffs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled pipeline with explicit stages",
+        "value_id": null
+      },
+      "rationale": "A weekly recurring task benefits from consistent execution and clear failure points, especially with a small team responsible for the whole pipeline.",
+      "consequences": [
+        "Stages need defined inputs and outputs.",
+        "The team must maintain scheduling and run visibility."
+      ]
+    },
+    {
+      "decision": "Evaluate and promote model changes through a gated workflow",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. Separating experimentation from promotion lets the team compare changes before they affect production forecasts.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Evaluate candidates before promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Limits production regressions",
+            "Enables comparison"
+          ],
+          "cons": [
+            "Adds evaluation work",
+            "Needs promotion criteria"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fastest change path",
+            "Few workflow steps"
+          ],
+          "cons": [
+            "Can disrupt weekly run",
+            "Weak comparison basis"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Evaluate candidates before promotion",
+        "value_id": null
+      },
+      "rationale": "A lightweight gate balances quick iteration with the requirement that experiments not break the established weekly run.",
+      "consequences": [
+        "Candidate and production versions remain distinguishable.",
+        "Acceptance metrics and thresholds must be specified."
+      ]
+    },
+    {
+      "decision": "Keep production forecasts available when a candidate run fails",
+      "context": "The weekly run must not be broken by new model ideas. A failure-safe release path lets experimentation proceed while preserving the most recent usable production forecasts.",
+      "drivers": [
+        "Protect weekly run",
+        "Fast model iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Publish only after a complete successful run",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Avoids partial outputs",
+            "Clear release point"
+          ],
+          "cons": [
+            "Fresh forecasts may be delayed",
+            "Needs previous output retention"
+          ]
+        },
+        {
+          "label": "Replace outputs as each stage completes",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Partial progress visible",
+            "Less release staging"
+          ],
+          "cons": [
+            "Can expose inconsistent results",
+            "Failure may erase usable output"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Publish only after a complete successful run",
+        "value_id": null
+      },
+      "rationale": "Staging publication until the run succeeds protects consumers from incomplete results; retaining the last successful output provides continuity.",
+      "consequences": [
+        "Publication needs an atomic or staged handoff.",
+        "The system retains the last successful forecast set."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast horizon and when each weekly forecast is issued.",
+    "Demand data sources, schemas, and data-quality rules.",
+    "Evaluation metrics, acceptance thresholds, and baseline model.",
+    "Model families, hierarchy or cross-series reconciliation, and cold-start behavior.",
+    "Deployment environment, orchestration and storage technology choices.",
+    "Forecast consumers, delivery interface, and freshness or latency expectations.",
+    "Operational ownership, alerting targets, and recovery-time expectations."
+  ]
+}

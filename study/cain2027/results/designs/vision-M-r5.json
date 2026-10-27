@@ -1,0 +1,314 @@
+{
+  "decisions": [
+    {
+      "decision": "Run defect inference on-device",
+      "context": "Cameras operate along production lines that often lack network access, so prediction must remain available locally.",
+      "drivers": [
+        "Intermittent network",
+        "Line-side inference"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Works offline",
+            "Local predictions"
+          ],
+          "cons": [
+            "Device deployment effort"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s06_p13",
+            "s25_p06"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Simpler device footprint"
+          ],
+          "cons": [
+            "Network dependency",
+            "Remote availability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "The design space describes edge inference as running models on deployed devices; that directly fits cameras which often have no network connection. The service alternative depends on network access for predictions.",
+      "consequences": [
+        "Package inference runtime with the device release.",
+        "Plan for local model storage and execution."
+      ]
+    },
+    {
+      "decision": "Automate weekly retraining from new labels",
+      "context": "The model is retrained weekly using newly labelled images, which calls for a repeatable training workflow and a clear trigger.",
+      "drivers": [
+        "Weekly cadence",
+        "New labels",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p07",
+            "s22_p08"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Predictable runs"
+          ],
+          "cons": [
+            "May run without useful new data"
+          ]
+        },
+        {
+          "label": "Performance- or drift-based retraining trigger",
+          "value_id": "v:6.8",
+          "citations": [
+            "s06_p08",
+            "s20_p06",
+            "s22_p15"
+          ],
+          "pros": [
+            "Responds to degradation",
+            "Uses drift signals"
+          ],
+          "cons": [
+            "Requires monitoring thresholds",
+            "Less predictable cadence"
+          ]
+        },
+        {
+          "label": "Manual retraining trigger",
+          "value_id": "v:6.14",
+          "citations": [
+            "s20_p06"
+          ],
+          "pros": [
+            "Human control",
+            "Simple trigger"
+          ],
+          "cons": [
+            "Adds team workload",
+            "Can miss cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "The brief specifies weekly retraining, and the design space supports recurring schedule-based starts. A drift trigger could complement the schedule if monitoring is later added, but it does not replace the required cadence.",
+      "consequences": [
+        "Run the training workflow weekly.",
+        "Define behavior for weeks with no new labels."
+      ]
+    },
+    {
+      "decision": "Evaluate candidates offline before promotion",
+      "context": "New weekly training runs produce candidates that must be checked before their model package reaches production devices.",
+      "drivers": [
+        "Safe updates",
+        "Candidate quality",
+        "Limited operations capacity"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s06_p08",
+            "s22_p08"
+          ],
+          "pros": [
+            "Tests held-out data",
+            "Supports pre-release selection"
+          ],
+          "cons": [
+            "Needs representative evaluation data"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s02_p09",
+            "s09_p07",
+            "s22_p06"
+          ],
+          "pros": [
+            "Compares candidates",
+            "Makes selection measurable"
+          ],
+          "cons": [
+            "Metric choice requires care",
+            "Does not specify deployment checks"
+          ]
+        },
+        {
+          "label": "Previously-built-model diff testing",
+          "value_id": "v:13.3",
+          "citations": [
+            "s06_p08"
+          ],
+          "pros": [
+            "Highlights output changes"
+          ],
+          "cons": [
+            "Difficult to maintain",
+            "Mixed evidence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "An offline pipeline checks candidates against held-out data and true labels before selection, fitting a controlled weekly update flow. This design point has no attesting sources and warns that workflow coordination must also be decided; its combination is therefore an architectural choice for this brief, not a directly attested pattern.",
+      "consequences": [
+        "Keep evaluation data separate from training inputs.",
+        "Specify acceptance thresholds before device rollout."
+      ]
+    },
+    {
+      "decision": "Version models and lifecycle artifacts",
+      "context": "Weekly retraining and device distribution create successive model packages; the team needs to identify which model and training inputs produced each release.",
+      "drivers": [
+        "Repeatable releases",
+        "Release traceability",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s12_p05",
+            "s19_p05"
+          ],
+          "pros": [
+            "Versions model assets",
+            "Supports reproducible deployment"
+          ],
+          "cons": [
+            "Requires artifact management"
+          ]
+        },
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p06",
+            "s22_p13"
+          ],
+          "pros": [
+            "Links runs, data, and models",
+            "Supports audit trail"
+          ],
+          "cons": [
+            "More metadata upkeep",
+            "More process overhead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Artifact version control",
+        "value_id": "v:20.1"
+      },
+      "rationale": "Versioning the model artifacts establishes the basic identity needed to track weekly device releases without assuming a larger lifecycle platform. Comprehensive traceability offers broader lineage, but the brief’s small team and tight budget favor beginning with artifact versions.",
+      "consequences": [
+        "Tag every device package with its model version.",
+        "Retain the training inputs and run details needed to reproduce releases."
+      ]
+    },
+    {
+      "decision": "Automate the recurring ML workflow",
+      "context": "Weekly training and distribution are recurring work for a small team, so lifecycle tasks should run through a repeatable workflow.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Automated ML lifecycle workflows",
+          "value_id": "v:38.1",
+          "citations": [
+            "s22_p03",
+            "s22_p04",
+            "s25_p01"
+          ],
+          "pros": [
+            "Automates recurring work",
+            "Covers deployment workflow"
+          ],
+          "cons": [
+            "Requires initial setup",
+            "Needs operational upkeep"
+          ]
+        },
+        {
+          "label": "Composable DataOps-centered ML toolchain",
+          "value_id": "v:38.2",
+          "citations": [
+            "s22_p03"
+          ],
+          "pros": [
+            "Replaceable components",
+            "Composable workflow"
+          ],
+          "cons": [
+            "Integration overhead",
+            "Mixed evidence"
+          ]
+        },
+        {
+          "label": "Production engineering and DevOps omission",
+          "value_id": "v:38.4",
+          "citations": [
+            "s29_p02"
+          ],
+          "pros": [
+            "Less setup initially"
+          ],
+          "cons": [
+            "Manual recurring work",
+            "Rejected approach"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Automated ML lifecycle workflows",
+        "value_id": "v:38.1"
+      },
+      "rationale": "Automating recurring training and release tasks reduces manual effort across the weekly lifecycle. The checked point combines this with edge inference and schedule-based training, but was unattested; the rival cloud-service and drift-triggered point was also unattested, so evidence does not establish either as a complete system pattern.",
+      "consequences": [
+        "Build and maintain the training and release workflow.",
+        "Keep the automation scope proportionate to the team and budget."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Offline model package transfer to devices when connectivity is unavailable.",
+    "Device fleet rollout, staged deployment, rollback, and recovery from interrupted updates.",
+    "How devices cache labeled images and synchronize them with the training workflow.",
+    "Camera hardware limits, model size, inference latency, and accelerator selection.",
+    "How model evaluation relates to the ML workflow execution coordination choice flagged by the design point."
+  ]
+}

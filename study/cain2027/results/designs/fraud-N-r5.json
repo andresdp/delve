@@ -1,0 +1,210 @@
+{
+  "decisions": [
+    {
+      "decision": "Use synchronous model serving for pre-authorization fraud scores",
+      "context": "Each transaction needs a score before authorization, with a response time in the tens of milliseconds. A synchronous request lets the authorization flow use the score directly.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous scoring API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Immediate score",
+            "Simple authorization flow"
+          ],
+          "cons": [
+            "Adds a dependency",
+            "Needs strict latency control"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring queue",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers bursts",
+            "Decouples services"
+          ],
+          "cons": [
+            "Score arrives later",
+            "Complicates authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous scoring API",
+        "value_id": null
+      },
+      "rationale": "It returns a usable score in the authorization path and best fits the stated latency requirement. The service must be provisioned and monitored to keep that dependency responsive.",
+      "consequences": [
+        "Authorization depends on scoring availability",
+        "Scoring latency needs a defined budget"
+      ]
+    },
+    {
+      "decision": "Serve low-latency features from an online feature store",
+      "context": "The model needs transaction features at scoring time, and feature computation or remote lookups can consume the latency budget. An online store can supply precomputed features quickly.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Consistent model inputs",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Online feature store",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fast feature reads",
+            "Reusable feature definitions"
+          ],
+          "cons": [
+            "Requires fresh updates",
+            "Adds operational dependency"
+          ]
+        },
+        {
+          "label": "Compute features in the scoring service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fewer services",
+            "Direct access to request data"
+          ],
+          "cons": [
+            "Repeats computation",
+            "May increase latency"
+          ]
+        },
+        {
+          "label": "Fetch features from source systems per request",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Current source data",
+            "Avoids feature replication"
+          ],
+          "cons": [
+            "Many network calls",
+            "Source outages affect scoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online feature store",
+        "value_id": null
+      },
+      "rationale": "Precomputed features help meet the tight response-time requirement while keeping model inputs reusable. The online store must be kept sufficiently fresh and available.",
+      "consequences": [
+        "Feature freshness needs monitoring",
+        "Store failures affect scoring"
+      ]
+    },
+    {
+      "decision": "Run replicated stateless scoring instances",
+      "context": "The service must keep working during traffic peaks. Stateless instances can be scaled horizontally and replaced without coordinating local transaction state.",
+      "drivers": [
+        "Peak availability",
+        "Variable transaction load",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Replicated stateless instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Horizontal scaling",
+            "Instance failure isolation"
+          ],
+          "cons": [
+            "Needs capacity management",
+            "Shared dependencies remain"
+          ]
+        },
+        {
+          "label": "Single scoring instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "No coordination overhead"
+          ],
+          "cons": [
+            "Single failure point",
+            "Limited peak capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Replicated stateless instances",
+        "value_id": null
+      },
+      "rationale": "Replicas provide capacity for peaks and reduce the impact of an individual instance failure. This choice depends on shared feature and model dependencies also having suitable availability.",
+      "consequences": [
+        "Requires load balancing",
+        "Peak capacity must be provisioned"
+      ]
+    },
+    {
+      "decision": "Record model version and feature snapshot with each score",
+      "context": "Auditors must later be able to identify which model version and features produced a score. Recording them alongside the result makes that provenance retrievable after model or feature changes.",
+      "drivers": [
+        "Audit explainability",
+        "Model version traceability",
+        "Feature traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score with model version and feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct decision reconstruction",
+            "Auditable feature provenance"
+          ],
+          "cons": [
+            "Storage and retention cost",
+            "Sensitive data handling"
+          ]
+        },
+        {
+          "label": "Persist score and model version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Lower storage cost",
+            "Simpler logging"
+          ],
+          "cons": [
+            "Features cannot be verified",
+            "Limited decision reconstruction"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score with model version and feature snapshot",
+        "value_id": null
+      },
+      "rationale": "The brief requires auditors to know both the model version and features used, so both must be captured with the score. Access controls and retention rules are needed for the stored feature data.",
+      "consequences": [
+        "Each decision creates an audit record",
+        "Feature data needs access and retention controls"
+      ]
+    }
+  ],
+  "uncovered": [
+    "Fraud threshold and how scores affect authorization outcomes",
+    "Exact latency target and timeout behavior",
+    "Feature definitions, source systems, and freshness targets",
+    "Model training, validation, approval, and deployment process",
+    "Behavior when scoring or feature dependencies are unavailable",
+    "Audit record retention, access controls, and data privacy requirements",
+    "Deployment environment, regions, and recovery objectives"
+  ]
+}

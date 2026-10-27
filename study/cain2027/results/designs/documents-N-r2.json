@@ -1,0 +1,206 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a durable queue for bursty document classification",
+      "context": "Daily volume reaches millions and varies strongly by season. A queue can absorb bursts and let classification workers scale independently.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Durable work queue",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers bursts",
+            "Decouples workers"
+          ],
+          "cons": [
+            "Queue operations",
+            "Added processing delay"
+          ]
+        },
+        {
+          "label": "Synchronous request processing",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct response path"
+          ],
+          "cons": [
+            "Burst sensitive",
+            "Tightly couples services"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable work queue",
+        "value_id": null
+      },
+      "rationale": "Buffering and independent worker scaling address large, seasonally variable volume.",
+      "consequences": [
+        "Classification is asynchronous.",
+        "Queue lag needs operational monitoring."
+      ]
+    },
+    {
+      "decision": "Scale stateless classifier workers horizontally",
+      "context": "The classifier must process millions of documents per day while demand varies over the year. Stateless workers can be added or removed as queue demand changes.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled stateless workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Elastic capacity",
+            "Independent deployment"
+          ],
+          "cons": [
+            "Scaling complexity",
+            "Model capacity limits"
+          ]
+        },
+        {
+          "label": "Fixed-capacity worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simple operations"
+          ],
+          "cons": [
+            "Peak overprovisioning",
+            "May fall behind at peaks"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled stateless workers",
+        "value_id": null
+      },
+      "rationale": "Elastic workers match seasonal demand while keeping the classifier separate from ingestion and consumers.",
+      "consequences": [
+        "Worker count must track backlog and capacity.",
+        "Model serving capacity constrains scale."
+      ]
+    },
+    {
+      "decision": "Publish classification results through a shared event stream",
+      "context": "Several teams consume classification results. Publishing each completed classification to a shared stream decouples consumers from classifier execution.",
+      "drivers": [
+        "Several consumers",
+        "High volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared result event stream",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fan-out to consumers",
+            "Consumer independence"
+          ],
+          "cons": [
+            "Stream operations",
+            "Delivery semantics to define"
+          ]
+        },
+        {
+          "label": "Direct calls to each consumer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple for few consumers"
+          ],
+          "cons": [
+            "Consumer coupling",
+            "Fan-out failures affect processing"
+          ]
+        },
+        {
+          "label": "Shared results database",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports queries",
+            "Single result store"
+          ],
+          "cons": [
+            "Schema coupling",
+            "Consumer load concentration"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared result event stream",
+        "value_id": null
+      },
+      "rationale": "A shared stream lets teams consume results independently and accommodates multiple downstream consumers.",
+      "consequences": [
+        "A versioned result contract is needed.",
+        "Delivery and replay behavior must be defined."
+      ]
+    },
+    {
+      "decision": "Track classification quality over time",
+      "context": "Operators need to see when classification quality drifts. The system therefore needs to collect quality signals and present their trends to operators.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operator oversight"
+      ],
+      "alternatives": [
+        {
+          "label": "Quality metrics with trend dashboards",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Visible trends",
+            "Supports alerting"
+          ],
+          "cons": [
+            "Needs quality signals",
+            "Thresholds require tuning"
+          ]
+        },
+        {
+          "label": "Periodic manual quality reviews",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Human judgment",
+            "Low instrumentation"
+          ],
+          "cons": [
+            "Slow detection",
+            "Labor intensive"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Quality metrics with trend dashboards",
+        "value_id": null
+      },
+      "rationale": "Continuous metrics and trends give operators a timely view of quality changes at this scale.",
+      "consequences": [
+        "Quality measurements and reference labels are needed.",
+        "Drift thresholds and response procedures remain to be set."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document ingestion formats and source systems",
+    "Claim-type taxonomy and classification output contract",
+    "Latency and availability targets",
+    "Model choice, hosting, and update strategy",
+    "Privacy, security, and data retention requirements",
+    "Ground-truth source and quality measurement method",
+    "Retry, deduplication, and failure handling semantics",
+    "Consumer access patterns and replay requirements",
+    "Deployment platform and regional requirements"
+  ]
+}

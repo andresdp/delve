@@ -1,0 +1,231 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a durable queue to buffer classification work",
+      "context": "Millions of documents arrive each day, with strong seasonal volume swings. A queue lets ingestion absorb bursts while workers scale independently.",
+      "drivers": [
+        "Daily volume",
+        "Seasonal peaks",
+        "Throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Durable queue with worker pool",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers bursts",
+            "Scales workers independently"
+          ],
+          "cons": [
+            "Adds queue operations"
+          ]
+        },
+        {
+          "label": "Synchronous classification",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple request flow"
+          ],
+          "cons": [
+            "Ties up callers",
+            "Peak load causes delays"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable queue with worker pool",
+        "value_id": null
+      },
+      "rationale": "Buffering and independent worker scaling address variable load while keeping ingestion decoupled from slower LLM inference.",
+      "consequences": [
+        "Classification becomes asynchronous.",
+        "Track queue age and retry failed work."
+      ]
+    },
+    {
+      "decision": "Scale stateless classification workers horizontally",
+      "context": "Classification demand varies over the year, and the system must process millions of documents per day. Stateless workers can scale with queued demand.",
+      "drivers": [
+        "Seasonal peaks",
+        "Daily volume",
+        "Processing capacity"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled stateless workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scales with demand",
+            "Simple recovery"
+          ],
+          "cons": [
+            "Needs capacity controls"
+          ]
+        },
+        {
+          "label": "Fixed-capacity worker fleet",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity"
+          ],
+          "cons": [
+            "Overprovisioned off-peak",
+            "May fall behind at peaks"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled stateless workers",
+        "value_id": null
+      },
+      "rationale": "A horizontally scaled pool can add throughput for seasonal peaks and reduce idle capacity outside them.",
+      "consequences": [
+        "Worker scaling must respect LLM rate limits.",
+        "Define limits for backlog age and scale-up time."
+      ]
+    },
+    {
+      "decision": "Publish classification results as events",
+      "context": "Several teams consume classification results, so one processing workflow should serve multiple independent consumers. Events let teams consume results on their own schedules.",
+      "drivers": [
+        "Multiple consumers",
+        "Consumer independence"
+      ],
+      "alternatives": [
+        {
+          "label": "Publish result events",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples consumers",
+            "Supports replay"
+          ],
+          "cons": [
+            "Requires event contracts"
+          ]
+        },
+        {
+          "label": "Direct calls to each consumer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Immediate delivery"
+          ],
+          "cons": [
+            "Couples classifier to teams",
+            "Consumer failures affect processing"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Publish result events",
+        "value_id": null
+      },
+      "rationale": "Events let teams consume the same classification independently without coupling classifier availability to each consumer.",
+      "consequences": [
+        "Define and version a shared result schema.",
+        "Provide replay and delivery-failure handling."
+      ]
+    },
+    {
+      "decision": "Version the classifier and record each prediction's version",
+      "context": "Operators need to identify when classification quality drifts. Linking predictions to the model or prompt version makes quality changes traceable.",
+      "drivers": [
+        "Quality drift",
+        "Operational diagnosis"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned classifier with prediction metadata",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Enables comparisons",
+            "Supports rollback diagnosis"
+          ],
+          "cons": [
+            "Requires release discipline"
+          ]
+        },
+        {
+          "label": "Unversioned classifier updates",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fewer release artifacts"
+          ],
+          "cons": [
+            "Changes are hard to trace",
+            "Comparisons are unreliable"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned classifier with prediction metadata",
+        "value_id": null
+      },
+      "rationale": "Version metadata makes it possible to compare quality across classifier changes and narrow the cause of observed drift.",
+      "consequences": [
+        "Store version metadata with results.",
+        "Maintain evaluations for each release."
+      ]
+    },
+    {
+      "decision": "Monitor quality using labeled outcomes and drift indicators",
+      "context": "Operators need to see when classification quality drifts, but production predictions alone do not establish correctness. Quality monitoring needs outcome labels when available, alongside changes in prediction patterns.",
+      "drivers": [
+        "Quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Labeled outcome monitoring with drift indicators",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Measures observed quality",
+            "Can surface shifts early"
+          ],
+          "cons": [
+            "Labels may arrive late",
+            "Requires alert thresholds"
+          ]
+        },
+        {
+          "label": "Prediction-volume monitoring only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Available immediately"
+          ],
+          "cons": [
+            "Does not measure correctness",
+            "May miss quality loss"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Labeled outcome monitoring with drift indicators",
+        "value_id": null
+      },
+      "rationale": "Outcome labels provide a quality signal, while prediction-pattern indicators can alert operators before enough labels accumulate.",
+      "consequences": [
+        "Define how labels are collected and joined to predictions.",
+        "Tune alerts to limit noise."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document formats, sizes, and ingestion interfaces",
+    "Required classification latency and backlog objectives",
+    "Claim-type taxonomy, confidence thresholds, and human-review policy",
+    "Data residency, retention, and privacy requirements",
+    "LLM provider, deployment model, rate limits, and cost targets",
+    "Availability, recovery, and delivery guarantees for consumers",
+    "Source and timing of ground-truth labels"
+  ]
+}

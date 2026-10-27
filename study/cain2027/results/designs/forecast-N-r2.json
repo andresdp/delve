@@ -1,0 +1,149 @@
+{
+  "decisions": [
+    {
+      "decision": "Version input data and code for reproducible weekly forecasts",
+      "context": "Forecasts must be reproducible for any past week, so each run needs traceable inputs and implementation. The brief does not prescribe a storage or versioning technology.",
+      "drivers": [
+        "Past-week reproducibility",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Record immutable data snapshots and code versions per run",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Traceable inputs",
+            "Repeatable runs"
+          ],
+          "cons": [
+            "Snapshot storage cost",
+            "Versioning upkeep"
+          ]
+        },
+        {
+          "label": "Rebuild from current source data",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple pipeline",
+            "Less storage"
+          ],
+          "cons": [
+            "Historical data may change",
+            "Past results may drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Record immutable data snapshots and code versions per run",
+        "value_id": null
+      },
+      "rationale": "This directly supports replaying a past week with its original inputs and code. The additional storage and versioning work fits a small team better than relying on mutable sources.",
+      "consequences": [
+        "Each run records data and code versions.",
+        "Historical snapshots require retention and storage."
+      ]
+    },
+    {
+      "decision": "Separate model experiments from the weekly production run",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. A three-person team also needs a small, understandable path from experimentation to production.",
+      "drivers": [
+        "Fast model iteration",
+        "Reliable weekly run",
+        "Small team ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Promote candidates through an isolated evaluation step",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Protects scheduled run",
+            "Enables comparable evaluation"
+          ],
+          "cons": [
+            "Requires promotion workflow",
+            "Adds candidate tracking"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few workflow steps",
+            "Fastest initial rollout"
+          ],
+          "cons": [
+            "Experiments can disrupt runs",
+            "Harder to compare models"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Promote candidates through an isolated evaluation step",
+        "value_id": null
+      },
+      "rationale": "An evaluation step allows the team to try candidates independently and promote only a selected model. This balances iteration speed with continuity of the weekly forecast.",
+      "consequences": [
+        "Candidate and production models need distinct versions.",
+        "Promotion adds an explicit workflow step."
+      ]
+    },
+    {
+      "decision": "Make the weekly forecast pipeline a single team-owned workflow",
+      "context": "The team of three data scientists owns the pipeline end to end, and forecasts are produced weekly. The brief favors a manageable operational shape but does not specify a platform.",
+      "drivers": [
+        "Three-person team",
+        "End-to-end ownership",
+        "Weekly cadence"
+      ],
+      "alternatives": [
+        {
+          "label": "Use one scheduled workflow for data, training, and forecasts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "One operational view",
+            "Fewer handoffs"
+          ],
+          "cons": [
+            "Workflow can grow complex",
+            "Failure affects full run"
+          ]
+        },
+        {
+          "label": "Split work across independently operated services",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Independent components",
+            "Separate scaling"
+          ],
+          "cons": [
+            "More operational overhead",
+            "More integration points"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Use one scheduled workflow for data, training, and forecasts",
+        "value_id": null
+      },
+      "rationale": "A single workflow keeps ownership and run status clear for a small team. It can be decomposed later if scale or operational needs justify the added service boundaries.",
+      "consequences": [
+        "The workflow needs clear stages and failure reporting.",
+        "One team remains responsible for the full run."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast serving and delivery interface",
+    "Forecast horizon and required output schema",
+    "Data sources, quality rules, and late-arriving data policy",
+    "Evaluation metrics and candidate promotion thresholds",
+    "Retraining cadence and model rollback policy",
+    "Runtime, cloud, security, and availability constraints"
+  ]
+}

@@ -1,0 +1,223 @@
+{
+  "decisions": [
+    {
+      "decision": "Run inspection inference on the production-line devices",
+      "context": "Cameras must inspect items where network access is often unavailable. The architecture needs to place prediction close to image capture.",
+      "drivers": [
+        "Intermittent network",
+        "On-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11",
+            "s25_p07"
+          ],
+          "pros": [
+            "Runs at the device",
+            "Works without network"
+          ],
+          "cons": [
+            "Device resources constrain models",
+            "Device rollout required"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s01_p08",
+            "s06_p13",
+            "s19_p08"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Shared runtime"
+          ],
+          "cons": [
+            "Depends on connectivity",
+            "Adds network latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "This matches inspection on cameras during network outages. Sources *Composing Deep-Learning Microservices for the Hybrid Internet of Things*, *Three Levels of ML Software*, and Microsoft’s *MLOps: Model management, deployment, and monitoring with Azure Machine Learning* describe this placement (s07_p01, s19_p11, s25_p07).",
+      "consequences": [
+        "Package and deploy the model to each device.",
+        "Plan for device-specific resource limits and updates."
+      ]
+    },
+    {
+      "decision": "Scale weekly training vertically",
+      "context": "Newly labelled images feed a weekly retraining cycle, while infrastructure budget is tight. The brief gives no indication that training requires distributed compute.",
+      "drivers": [
+        "Weekly retraining",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Vertically scalable training",
+          "value_id": "v:3.1",
+          "citations": [
+            "s11_p06",
+            "s12_p03"
+          ],
+          "pros": [
+            "Uses a larger single machine",
+            "Avoids distributed setup"
+          ],
+          "cons": [
+            "Limited by machine capacity",
+            "Larger machine may cost more"
+          ]
+        },
+        {
+          "label": "Distributed event computation",
+          "value_id": "v:3.3",
+          "citations": [
+            "s02_p05",
+            "s04_p11",
+            "s12_p04"
+          ],
+          "pros": [
+            "Processes work in parallel",
+            "Can scale across machines"
+          ],
+          "cons": [
+            "Requires distributed infrastructure",
+            "Adds operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Vertically scalable training",
+        "value_id": "v:3.1"
+      },
+      "rationale": "The brief describes periodic retraining but no scale requirement that warrants distributed infrastructure. Sources *Architecting a Scalable Real Time Learning System* and *System Architectures for Personalization and Recommendation* describe vertical scaling (s11_p06, s12_p03).",
+      "consequences": [
+        "Training capacity is bounded by the chosen machine.",
+        "Revisit distribution if the image corpus outgrows that capacity."
+      ]
+    },
+    {
+      "decision": "Trigger retraining on a weekly schedule",
+      "context": "The team already retrains weekly from newly labelled images. A recurring trigger fits that process and avoids making the small team operate a more complex trigger system.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p07",
+            "s22_p08"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Predictable workload"
+          ],
+          "cons": [
+            "May train without new labels",
+            "May miss changes between runs"
+          ]
+        },
+        {
+          "label": "Manual retraining trigger",
+          "value_id": "v:6.14",
+          "citations": [
+            "s06_p11",
+            "s19_p08",
+            "s22_p04"
+          ],
+          "pros": [
+            "Human controls each run",
+            "Low trigger automation"
+          ],
+          "cons": [
+            "Depends on staff availability",
+            "Adds recurring manual work"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "The stated weekly cadence directly supports a scheduled trigger and reduces routine operator effort. Sources *Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2*, Google’s *MLOps: Continuous delivery and automation pipelines in machine learning*, and *MLOps Principles* describe schedule-based retraining (s02_p08, s06_p07, s22_p08).",
+      "consequences": [
+        "Run training weekly and account for label availability.",
+        "Define handling for weeks with no new labelled images."
+      ]
+    },
+    {
+      "decision": "Release model updates through staged automation",
+      "context": "Retrained models must be pushed to devices, and the small team has limited capacity for manual release work. Releases need a repeatable path from model build to deployment.",
+      "drivers": [
+        "Weekly model updates",
+        "Small team",
+        "Device deployment"
+      ],
+      "alternatives": [
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p13",
+            "s08_p01"
+          ],
+          "pros": [
+            "Automates build and promotion",
+            "Supports delivery stages"
+          ],
+          "cons": [
+            "Requires release pipeline setup",
+            "Pipeline must support device rollout"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s02_p11",
+            "s19_p05",
+            "s20_p02"
+          ],
+          "pros": [
+            "One process for model and service",
+            "Automates build and release"
+          ],
+          "cons": [
+            "May couple model and service releases",
+            "Less explicit stage detail"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "Staged automation gives a repeatable path to build, validate, and promote each weekly model artifact. Sources Google’s *MLOps: Continuous delivery and automation pipelines in machine learning*, *Continuous Intelligence: Moving Machine Learning Application into Production Reliably*, and *Architectural thinking in the Wild West of data science* describe this approach (s06_p02, s08_p01, s13_p09).",
+      "consequences": [
+        "Model artifacts need a controlled promotion path.",
+        "The pipeline must account for devices that are temporarily offline."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Camera and device hardware requirements, including compute, memory, and supported model formats.",
+    "Image and label storage, retention, access controls, and data lineage.",
+    "Model quality thresholds and pre-release validation criteria.",
+    "Device update protocol, rollout pacing, rollback behavior, and recovery for devices offline during updates.",
+    "Production monitoring signals and how inspection errors are detected between weekly retraining runs."
+  ]
+}

@@ -1,0 +1,270 @@
+{
+  "decisions": [
+    {
+      "decision": "Use streaming feature ingestion for document intake",
+      "context": "Millions of daily documents and strong seasonal volume changes require ingestion that can accommodate changing input rates.",
+      "drivers": [
+        "Millions of documents daily",
+        "Seasonal volume variation"
+      ],
+      "alternatives": [
+        {
+          "label": "ETL-based feature ingestion",
+          "value_id": "v:21.1",
+          "citations": [
+            "s02_p12",
+            "s04_p04"
+          ],
+          "pros": [
+            "Batch processing",
+            "Established pipeline pattern"
+          ],
+          "cons": [
+            "Less suited to continuous intake"
+          ]
+        },
+        {
+          "label": "Streaming feature ingestion",
+          "value_id": "v:21.2",
+          "citations": [
+            "s02_p04",
+            "s04_p11"
+          ],
+          "pros": [
+            "Continuous intake",
+            "Event-driven processing"
+          ],
+          "cons": [
+            "Requires stream operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Streaming feature ingestion",
+        "value_id": "v:21.2"
+      },
+      "rationale": "Streaming ingestion fits continuous document arrival and variable volume. The design point check found no adopting source for the full combination, so this remains a novel combination rather than an attested one.",
+      "consequences": [
+        "Plan for variable-rate stream processing.",
+        "Retain data needed for training and replay."
+      ]
+    },
+    {
+      "decision": "Use an orchestrated ML pipeline for repeatable model operations",
+      "context": "A high-volume classification service needs coordinated model workflows, while operators need visibility into changing quality. The brief does not specify a retraining cadence.",
+      "drivers": [
+        "High daily volume",
+        "Quality drift visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02"
+          ],
+          "pros": [
+            "Simple to start",
+            "Human-controlled steps"
+          ],
+          "cons": [
+            "Manual transitions",
+            "Poor fit for frequent operations"
+          ]
+        },
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s04_p07"
+          ],
+          "pros": [
+            "Repeatable stages",
+            "Coordinates evaluation and deployment"
+          ],
+          "cons": [
+            "Requires pipeline operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "An orchestrated pipeline supports repeatable preparation, evaluation, and deployment as volume and model quality change. It also provides a basis for later drift-triggered workflows; no source attested to the complete checked design point.",
+      "consequences": [
+        "Automate and observe workflow stages.",
+        "Define promotion and retraining controls."
+      ]
+    },
+    {
+      "decision": "Expose classification through a REST prediction microservice",
+      "context": "Several teams consume the classification results, so the model needs a shared integration boundary. The brief does not specify synchronous versus asynchronous delivery.",
+      "drivers": [
+        "Several consuming teams",
+        "Shared prediction access"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s02_p10",
+            "s02_p11"
+          ],
+          "pros": [
+            "API integration",
+            "Independent deployment"
+          ],
+          "cons": [
+            "Requires service operations"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s19_p14",
+            "s21_p10"
+          ],
+          "pros": [
+            "Independent deployment",
+            "Typed service interface"
+          ],
+          "cons": [
+            "Client integration required"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST service gives multiple teams a common prediction interface. The chosen interface is supported by sources, but the complete combination was unattested in the design-point check.",
+      "consequences": [
+        "Maintain a stable request and response contract.",
+        "Scale and monitor the serving service."
+      ]
+    },
+    {
+      "decision": "Monitor input drift and model quality in production",
+      "context": "Operators need to see when classification quality drifts. The brief does not say whether labels arrive promptly, so input drift can be observed before labeled quality measures are available.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operational awareness"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02"
+          ],
+          "pros": [
+            "Detects changing inputs",
+            "Does not require immediate labels"
+          ],
+          "cons": [
+            "Drift does not prove quality loss"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s01_p06",
+            "s04_p12"
+          ],
+          "pros": [
+            "Tracks measured quality",
+            "Supports rapid detection"
+          ],
+          "cons": [
+            "Depends on label availability"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10"
+          ],
+          "pros": [
+            "Lower monitoring effort"
+          ],
+          "cons": [
+            "No active drift visibility"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Input-drift monitoring addresses the stated need for drift visibility without assuming timely ground-truth labels. In the design space, monitoring practices are alternatives within one dimension; the checked point therefore flagged combining drift monitoring with a retraining trigger as two values of that dimension.",
+      "consequences": [
+        "Surface drift signals to operators.",
+        "Set investigation thresholds and ownership."
+      ]
+    },
+    {
+      "decision": "Evaluate candidate models offline before promotion",
+      "context": "Changes to the classifier need quality checks before deployment, especially when observed drift prompts model updates. The brief does not define the classification metrics or error costs.",
+      "drivers": [
+        "Classification quality",
+        "Safe model updates"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15"
+          ],
+          "pros": [
+            "Uses held-out data",
+            "Checks candidates before deployment"
+          ],
+          "cons": [
+            "Needs representative labeled data"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s09_p04",
+            "s22_p06"
+          ],
+          "pros": [
+            "Compares candidates by metric",
+            "Supports selection"
+          ],
+          "cons": [
+            "Metric choice is unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Offline evaluation gives a pre-promotion quality gate for candidate models. The sources support the approach, but the checked combination had no attesting source.",
+      "consequences": [
+        "Maintain held-out labeled evaluation data.",
+        "Choose claim-type metrics and thresholds."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Synchronous or asynchronous result delivery and delivery guarantees for consuming teams.",
+    "Seasonal capacity, queueing, and cost strategy for the classification service.",
+    "LLM provider, model choice, prompt or version management, and inference limits.",
+    "Label acquisition and ground-truth timing for measuring classification quality.",
+    "Claim-type error costs, quality thresholds, fairness, privacy, and retention requirements.",
+    "Security, access control, and audit requirements for insurer documents and predictions."
+  ]
+}

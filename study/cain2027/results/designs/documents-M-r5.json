@@ -1,0 +1,161 @@
+{
+  "decisions": [
+    {
+      "decision": "Use scheduled batch scoring for document classification",
+      "context": "The system classifies millions of documents daily, and several teams consume its results. The brief gives no requirement for request-time predictions.",
+      "drivers": [
+        "High daily volume",
+        "Multiple result consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s12_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "Scales scoring in scheduled runs",
+            "Writes results for downstream use"
+          ],
+          "cons": [
+            "Results are not immediate"
+          ]
+        },
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s04_p10",
+            "s12_p03"
+          ],
+          "pros": [
+            "Uses current request context",
+            "Provides predictions on demand"
+          ],
+          "cons": [
+            "Adds online serving complexity",
+            "Does not match a stated latency need"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "It fits the stated volume and shared result consumption. Netflix’s “System Architectures for Personalization and Recommendation” and “Scalable Software and Big Data Architecture” describe scheduled scoring and stored results; the checked rival point using online serving was attested by one source, while this combination was unattested.",
+      "consequences": [
+        "Consumers read completed scoring outputs.",
+        "Classification freshness depends on the scoring schedule."
+      ]
+    },
+    {
+      "decision": "Scale runtime resources elastically with workload demand",
+      "context": "Document volume varies strongly over the year, so fixed capacity risks either peak-time bottlenecks or unused capacity outside peaks.",
+      "drivers": [
+        "Seasonal volume variation",
+        "Large scoring workload"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "Adjusts capacity to demand",
+            "Supports variable workloads"
+          ],
+          "cons": [
+            "Scaling requires operational configuration"
+          ]
+        },
+        {
+          "label": "Fixed runtime capacity",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable provisioned capacity"
+          ],
+          "cons": [
+            "May be underused off-peak",
+            "May constrain peak throughput"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic scaling addresses seasonal variation directly. “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” support scaling resources with workload demand; the checked design point returned no conflicting warnings.",
+      "consequences": [
+        "Capacity must be monitored as demand changes.",
+        "Resource use and cost will vary with workload."
+      ]
+    },
+    {
+      "decision": "Monitor input and feature drift in production",
+      "context": "Operators need visibility into quality drift, and changes in incoming documents can affect classifier behavior. Monitoring practices can be combined because this dimension has low exclusivity in the design space.",
+      "drivers": [
+        "Quality drift visibility",
+        "Changing input volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Surfaces changing input patterns",
+            "Can identify schema anomalies"
+          ],
+          "cons": [
+            "Drift does not prove quality loss"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s04_p02",
+            "s06_p06",
+            "s23_p04"
+          ],
+          "pros": [
+            "Tracks prediction quality",
+            "Shows model behavior after serving"
+          ],
+          "cons": [
+            "Quality measurement depends on labels",
+            "Quality issues may appear after delay"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Drift monitoring provides operators a direct signal when incoming data changes; “Productionizing Machine Learning with a Microservices Architecture” and Google Cloud’s “MLOps: Continuous delivery and automation pipelines in machine learning” support monitoring inputs and features. Add prediction-quality monitoring when labels become available; it is compatible as a combined practice, though the point checker accepts only one value per dimension and the batch-plus-drift-plus-elastic point was unattested.",
+      "consequences": [
+        "Monitoring needs baselines for expected inputs.",
+        "Drift alerts require investigation before retraining."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How document data is ingested, retained, and governed, including insurer privacy and access controls.",
+    "How classifier labels and model quality are evaluated, and how false positives and false negatives are weighted.",
+    "How scoring schedules, freshness targets, and workload partitioning are set.",
+    "How classification outputs are versioned and delivered consistently to consuming teams.",
+    "How model changes are approved, deployed, and rolled back."
+  ]
+}

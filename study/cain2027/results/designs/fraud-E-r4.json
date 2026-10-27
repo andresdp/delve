@@ -1,0 +1,452 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a dedicated model service for transaction scoring",
+      "context": "Each transaction needs a fraud score before authorization, with a response time of tens of milliseconds. A dedicated service gives the scoring model an online application interface. (d:1)",
+      "drivers": [
+        "Tens of milliseconds",
+        "Pre-authorization scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Dedicated serving boundary",
+            "Online integration"
+          ],
+          "cons": [
+            "Network hop",
+            "Service operations"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "No service call",
+            "Simple deployment"
+          ],
+          "cons": [
+            "Tighter application coupling",
+            "Scaling tied to application"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "A dedicated service supports an online scoring path and provides an independent scaling boundary for transaction peaks. The point check returned no warnings, though it was unattested. (d:1, v:1.1)",
+      "consequences": [
+        "The authorization path depends on service availability.",
+        "Model deployment and service capacity need coordination."
+      ]
+    },
+    {
+      "decision": "Serve transaction scores through a real-time model service",
+      "context": "Fraud scores must be available before authorization, so scheduled batch output cannot meet the brief. The workspace distinguishes distributed microservice serving from local service/API serving. (d:5)",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens of milliseconds",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time scores",
+            "Independent capacity"
+          ],
+          "cons": [
+            "Network dependency",
+            "Distributed operations"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Real-time scores",
+            "Local call path"
+          ],
+          "cons": [
+            "Less independent scaling",
+            "Shares host resources"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled processing",
+            "Writes scores to storage"
+          ],
+          "cons": [
+            "Not available per transaction",
+            "Stale results"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "Real-time distributed serving matches the authorization deadline and can scale apart from other application components during peaks. The point check returned no warnings, though it was unattested. (d:5, v:5.1)",
+      "consequences": [
+        "The request path depends on network and service health.",
+        "Capacity planning must cover peak transaction load."
+      ]
+    },
+    {
+      "decision": "Ingest transaction data as a stream",
+      "context": "The system scores every incoming transaction, so inputs need to reach the ML application continuously. The workspace offers streamed, request-based, and batch ingestion alternatives. (d:7)",
+      "drivers": [
+        "Every transaction",
+        "Real-time scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous inputs",
+            "Fits transaction flow"
+          ],
+          "cons": [
+            "Stream operations",
+            "Requires handling delivery failures"
+          ]
+        },
+        {
+          "label": "Data ingestion by request",
+          "value_id": "v:7.2",
+          "citations": [
+            "d:7",
+            "v:7.2"
+          ],
+          "pros": [
+            "Explicit retrieval",
+            "Simple request flow"
+          ],
+          "cons": [
+            "Per-request retrieval overhead",
+            "Can delay scoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Streamed data ingestion",
+        "value_id": "v:7.1"
+      },
+      "rationale": "Continuous ingestion fits scoring each transaction as it arrives. The point check returned no warnings, though it was unattested. (d:7, v:7.1)",
+      "consequences": [
+        "The ingestion path needs resilient stream handling.",
+        "The brief does not specify event ordering or replay requirements."
+      ]
+    },
+    {
+      "decision": "Process transaction features in real time",
+      "context": "The model must score transactions before authorization, making batch processing unsuitable for the primary scoring path. Real-time processing is an explicit workspace alternative. (d:15)",
+      "drivers": [
+        "Pre-authorization deadline",
+        "Continuous transaction flow"
+      ],
+      "alternatives": [
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Fresh features",
+            "Fits online scoring"
+          ],
+          "cons": [
+            "More operational complexity",
+            "Sensitive to stream delays"
+          ]
+        },
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Simpler scheduled work",
+            "Efficient bulk processing"
+          ],
+          "cons": [
+            "Cannot meet per-transaction deadline",
+            "Features may be stale"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Real-time, stream-based data processing",
+        "value_id": "v:15.2"
+      },
+      "rationale": "Real-time feature processing aligns with scoring before authorization. The rival point using batch processing also returned no warnings, but conflicts with the brief’s timing requirement. (d:15, v:15.2)",
+      "consequences": [
+        "Feature computation becomes part of the latency budget.",
+        "Peak traffic requires processing capacity to scale."
+      ]
+    },
+    {
+      "decision": "Train fraud models in batches",
+      "context": "The brief requires serving scores quickly and identifying which model version produced each score; it does not require the model to learn during scoring. The workspace offers batch and incremental learning. (d:19)",
+      "drivers": [
+        "Traceable model versions",
+        "Separate training from serving"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Discrete model versions",
+            "Training can run offline"
+          ],
+          "cons": [
+            "Updates are periodic",
+            "Training needs batch data"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Can incorporate data incrementally",
+            "Potentially fresher model"
+          ],
+          "cons": [
+            "Model changes over time",
+            "Harder version attribution"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Batch training supports identifiable model releases while keeping training out of the transaction scoring path. This choice is an architectural inference from auditability; the workspace point check returned no warnings, though it was unattested. (d:19, v:19.1)",
+      "consequences": [
+        "Model updates arrive on a training schedule.",
+        "Training data and artifacts need version records."
+      ]
+    },
+    {
+      "decision": "Keep a previous model version available for rollback",
+      "context": "A scoring service must remain usable during peaks, and auditors need the serving model version tied to each score. A rollback path limits the impact of a problematic release. (d:10)",
+      "drivers": [
+        "Peak availability",
+        "Model version traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Recovery path for bad releases",
+            "Clear version switch"
+          ],
+          "cons": [
+            "Previous artifact must be retained",
+            "Rollback needs operational procedure"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple serving state",
+            "One active version"
+          ],
+          "cons": [
+            "No explicit rollback path",
+            "Release failures affect scoring"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Multiple versions available",
+            "Supports parallel deployment"
+          ],
+          "cons": [
+            "More complex score attribution",
+            "Higher serving resource use"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Retaining a known prior version gives operators a recovery option while preserving explicit version identity. The checked point returned no warnings, though it was unattested. (d:10, v:10.2)",
+      "consequences": [
+        "Each score needs the active model version recorded.",
+        "Release procedures must support switching back."
+      ]
+    },
+    {
+      "decision": "Track model usage and interpretability in production",
+      "context": "The brief requires auditors to know which model version and features produced each score. Production tracking includes model usage, inputs, outputs, and interpretability in the workspace. (d:22)",
+      "drivers": [
+        "Auditor traceability",
+        "Model and feature attribution"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks model usage and inputs",
+            "Includes interpretability"
+          ],
+          "cons": [
+            "Requires trace records",
+            "Additional storage and operations"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Captures data and predictions",
+            "Supports operational review"
+          ],
+          "cons": [
+            "Does not explicitly cover interpretability",
+            "May omit model usage context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "This alternative most directly covers the required link among model, inputs, and outputs; the feature attribution detail in the brief calls for preserving the features used for each score. The point check returned no warnings, though it was unattested. (d:22, v:22.4)",
+      "consequences": [
+        "Store model version and feature attribution with each score.",
+        "Define retention and access rules for audit records."
+      ]
+    },
+    {
+      "decision": "Performance test the prediction service",
+      "context": "The score must return within tens of milliseconds and the service must continue working during peaks. The workspace includes prediction service performance testing as a testing alternative. (d:26)",
+      "drivers": [
+        "Tens of milliseconds",
+        "Peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Prediction service performance testing",
+          "value_id": "v:26.13",
+          "citations": [
+            "d:26",
+            "v:26.13"
+          ],
+          "pros": [
+            "Targets service response time",
+            "Can exercise peak load"
+          ],
+          "cons": [
+            "Needs representative load profiles",
+            "Testing adds release work"
+          ]
+        },
+        {
+          "label": "System integration testing",
+          "value_id": "v:26.5",
+          "citations": [
+            "d:26",
+            "v:26.5"
+          ],
+          "pros": [
+            "Checks component interactions",
+            "Finds integration failures"
+          ],
+          "cons": [
+            "Does not establish latency limits",
+            "May not represent peak load"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Prediction service performance testing",
+        "value_id": "v:26.13"
+      },
+      "rationale": "Performance testing directly addresses both latency and peak operation. The rival point selected integration testing and returned no warnings, but does not directly test the stated response-time driver. (d:26, v:26.13)",
+      "consequences": [
+        "Define latency and peak load acceptance thresholds.",
+        "Run performance checks against the deployed scoring path."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to guarantee availability and recover from infrastructure or dependency failures during peaks, including redundancy and failover.",
+    "How to define feature computation and storage so that the exact inputs used for each prediction can be reconstructed for auditors.",
+    "How to protect transaction data and audit records, including access control, encryption, and retention.",
+    "How to version model artifacts, feature definitions, and scoring code together.",
+    "How to define fraud model quality thresholds and decide when a model is safe to promote."
+  ]
+}

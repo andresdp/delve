@@ -1,0 +1,190 @@
+{
+  "decisions": [
+    {
+      "decision": "Run visual inspection inference on-device at the production line",
+      "context": "Cameras operate along production lines that often lack network access, so predictions need to be available locally. The design space also includes server-hosted prediction services as an alternative.",
+      "drivers": [
+        "Intermittent network",
+        "Production-line inference"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s01_p06",
+            "s07_p01",
+            "s19_p11",
+            "s24_p01",
+            "s25_p07"
+          ],
+          "pros": [
+            "Local predictions",
+            "Works offline"
+          ],
+          "cons": [
+            "Device deployment effort"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s01_p08",
+            "s04_p01",
+            "s06_p13",
+            "s09_p01",
+            "s13_p11",
+            "s16_p04",
+            "s19_p08",
+            "s19_p13",
+            "s19_p14",
+            "s20_p09",
+            "s21_p18",
+            "s23_p07",
+            "s25_p06",
+            "s25_p09"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Shared operations"
+          ],
+          "cons": [
+            "Needs network access"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "The brief requires inspection where network access is often unavailable. “Composing Deep-Learning Microservices for the Hybrid Internet of Things” and “Three Levels of ML Software” document on-device inference; the checked rival point used a networked model service.",
+      "consequences": [
+        "Package and deploy model updates to devices.",
+        "Device compatibility and rollout details need further design."
+      ]
+    },
+    {
+      "decision": "Retrain on a weekly schedule",
+      "context": "The model is retrained every week from newly labelled images. The design space also describes retraining triggered by detected performance or data drift.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p07",
+            "s06_p11",
+            "s20_p06",
+            "s20_p12",
+            "s22_p08",
+            "s24_p07"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Predictable workflow"
+          ],
+          "cons": [
+            "May miss changes between runs"
+          ]
+        },
+        {
+          "label": "Performance- or drift-based retraining trigger",
+          "value_id": "v:6.8",
+          "citations": [],
+          "pros": [
+            "Responds to degradation",
+            "Can target needed updates"
+          ],
+          "cons": [
+            "Needs monitoring signals"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "A weekly schedule directly matches the brief. “MLOps: Continuous delivery and automation pipelines in machine learning” documents scheduled retraining; the rival point used drift-triggered retraining, which is not specified as the brief’s trigger.",
+      "consequences": [
+        "Run the training workflow weekly against available labelled images.",
+        "Define handling for missing or late labels."
+      ]
+    },
+    {
+      "decision": "Automate recurring ML lifecycle workflows",
+      "context": "Weekly retraining and pushing models to devices create recurring operational work for a small team. The design space contrasts lifecycle automation with manual script-driven execution.",
+      "drivers": [
+        "Small team",
+        "Weekly model updates",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Automated ML lifecycle workflows",
+          "value_id": "v:38.1",
+          "citations": [
+            "s01_p06",
+            "s04_p18",
+            "s10_p03",
+            "s18_p04",
+            "s18_p06",
+            "s22_p03",
+            "s22_p04",
+            "s25_p01",
+            "s29_p02"
+          ],
+          "pros": [
+            "Reduces repeated work",
+            "Covers deployment operations"
+          ],
+          "cons": [
+            "Requires workflow setup"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s09_p08",
+            "s18_p06",
+            "s20_p12",
+            "s21_p07",
+            "s24_p09",
+            "s24_p10"
+          ],
+          "pros": [
+            "Low initial setup",
+            "Simple to start"
+          ],
+          "cons": [
+            "Repeated operator effort",
+            "Error-prone handoffs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Automated ML lifecycle workflows",
+        "value_id": "v:38.1"
+      },
+      "rationale": "Automation fits the recurring weekly cycle and limited team capacity. “MLOps Principles” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” support lifecycle automation; the checked rival combined a service deployment, drift trigger, and DataOps-centered toolchain, which does not match the offline and weekly requirements as directly.",
+      "consequences": [
+        "Build a repeatable path from training through device rollout.",
+        "Keep workflow scope small to control infrastructure and maintenance costs."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device update transport and offline synchronization behavior.",
+    "How updates are staged, validated, and rolled back across production devices.",
+    "Image labeling workflow and dataset storage.",
+    "Model evaluation thresholds and promotion criteria.",
+    "Device hardware limits, model format, and inference performance targets.",
+    "Monitoring and health reporting when devices are offline."
+  ]
+}

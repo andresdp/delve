@@ -1,0 +1,387 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a CI/CD pipeline for weekly model delivery",
+      "context": "The model is retrained weekly and must reach production devices with limited team capacity.",
+      "drivers": [
+        "Weekly updates",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Repeatable delivery",
+            "Automates routine work"
+          ],
+          "cons": [
+            "Pipeline upkeep"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Simple automation",
+            "Low setup"
+          ],
+          "cons": [
+            "Manual operation",
+            "Error-prone repetition"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Automated delivery fits the weekly release cadence and reduces operational work for a small team (d:8, v:8.1).",
+      "consequences": [
+        "Maintain deployment automation.",
+        "Validate artifacts before release."
+      ]
+    },
+    {
+      "decision": "Deploy one production model with rollback",
+      "context": "Each device needs a clear active model, while weekly updates create a need to recover from a bad release.",
+      "drivers": [
+        "Device deployment",
+        "Weekly updates",
+        "Operational simplicity"
+      ],
+      "alternatives": [
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple active version",
+            "Low device overhead"
+          ],
+          "cons": [
+            "No parallel comparison"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Supports comparison",
+            "Gradual rollout"
+          ],
+          "cons": [
+            "More device storage",
+            "More deployment complexity"
+          ]
+        },
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Recovery path",
+            "Limits release impact"
+          ],
+          "cons": [
+            "Retain prior artifact",
+            "Rollback coordination"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Single model in production",
+        "value_id": "v:10.3"
+      },
+      "rationale": "A single active model keeps device operation simple; retain and redeploy the previous artifact as a recovery procedure (d:10, v:10.3, v:10.2).",
+      "consequences": [
+        "Keep the prior model available for rollback.",
+        "Model comparison requires a separate process."
+      ]
+    },
+    {
+      "decision": "Track training data in a data version repository",
+      "context": "Weekly retraining uses newly labelled images, so each released model should be traceable to its training data.",
+      "drivers": [
+        "Weekly labels",
+        "Reproducibility",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Explicit data versions",
+            "Traceable training inputs"
+          ],
+          "cons": [
+            "Repository upkeep",
+            "Storage overhead"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Co-located history",
+            "Familiar workflow"
+          ],
+          "cons": [
+            "May burden code repo",
+            "Large image data"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "A dedicated data version repository makes weekly training inputs identifiable and supports reproducing a model release (d:11, v:11.1).",
+      "consequences": [
+        "Record the data version with each model artifact.",
+        "Manage image storage and retention."
+      ]
+    },
+    {
+      "decision": "Train models in weekly batches",
+      "context": "The brief specifies a weekly retraining cycle from newly labelled images, which naturally supports an offline training run.",
+      "drivers": [
+        "Weekly cadence",
+        "New labels",
+        "Offline production"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Matches weekly cycle",
+            "Runs offline"
+          ],
+          "cons": [
+            "Updates await next run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Frequent updates",
+            "Uses new data promptly"
+          ],
+          "cons": [
+            "More operational complexity",
+            "May need continuous availability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Batch training directly matches the stated weekly retraining schedule and can run separately from disconnected production devices (d:19, v:19.1).",
+      "consequences": [
+        "Schedule and validate the weekly training job.",
+        "New labels affect production after the next release."
+      ]
+    },
+    {
+      "decision": "Run inference through a local device service",
+      "context": "Production cameras often lack network access, so prediction serving must remain available on the device.",
+      "drivers": [
+        "Intermittent network",
+        "Camera line inference",
+        "Low infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Works without network",
+            "Keeps inference local"
+          ],
+          "cons": [
+            "Device resource limits",
+            "Local operations required"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Centralized operation",
+            "Shared serving capacity"
+          ],
+          "cons": [
+            "Needs network access",
+            "Adds infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Local serving keeps defect inference available when the production line has no network connection (d:5, v:5.2).",
+      "consequences": [
+        "Package the model with its local serving runtime.",
+        "Provision and monitor device compute and storage."
+      ]
+    },
+    {
+      "decision": "Monitor model performance in production",
+      "context": "The system receives new labels regularly, creating a way to assess deployed model quality and detect regressions.",
+      "drivers": [
+        "Defect quality",
+        "Weekly labels",
+        "Device operation"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks model quality",
+            "Supports release decisions"
+          ],
+          "cons": [
+            "Needs performance measures",
+            "Labels may arrive later"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "No monitoring overhead"
+          ],
+          "cons": [
+            "Regressions may go unseen",
+            "Weak feedback loop"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Performance monitoring helps use newly labelled images to identify model regressions and inform subsequent training (d:22, v:22.1).",
+      "consequences": [
+        "Define measurable quality indicators.",
+        "Plan collection or return of labels and outcomes."
+      ]
+    },
+    {
+      "decision": "Use human review to adjust models",
+      "context": "A model update can affect production inspection, and the small team needs a controlled release process.",
+      "drivers": [
+        "Defect quality",
+        "Weekly retraining",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual model adjustment",
+          "value_id": "v:24.1",
+          "citations": [
+            "d:24",
+            "v:24.1"
+          ],
+          "pros": [
+            "Human release control",
+            "Fits weekly review"
+          ],
+          "cons": [
+            "Requires review effort",
+            "Slower response"
+          ]
+        },
+        {
+          "label": "Automated model adjustment",
+          "value_id": "v:24.2",
+          "citations": [
+            "d:24",
+            "v:24.2"
+          ],
+          "pros": [
+            "Fast reaction",
+            "Less manual intervention"
+          ],
+          "cons": [
+            "Needs safe automation",
+            "Harder to diagnose"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Manual model adjustment",
+        "value_id": "v:24.1"
+      },
+      "rationale": "Human review of monitoring results provides a controlled basis for approving weekly model changes (d:24, v:24.1).",
+      "consequences": [
+        "Review candidate models before deployment.",
+        "Updates may wait for the next review."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device enrollment, identity, and secure model transfer while offline.",
+    "Device hardware sizing and model optimization.",
+    "How predictions and inspection images are buffered or synchronized after connectivity returns.",
+    "Defect labels, acceptance thresholds, and release quality gates.",
+    "Model artifact signing and device-side integrity verification."
+  ]
+}

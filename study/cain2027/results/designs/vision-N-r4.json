@@ -1,0 +1,194 @@
+{
+  "decisions": [
+    {
+      "decision": "Run defect inference on the production-line devices",
+      "context": "Cameras may lack network access, so defect checks must work locally. The brief does not specify device hardware or latency targets.",
+      "drivers": [
+        "Offline operation",
+        "Line-side inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low network dependence"
+          ],
+          "cons": [
+            "Device resource limits",
+            "Fleet deployment work"
+          ]
+        },
+        {
+          "label": "Central server inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model management"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Network adds latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference keeps inspection available without a network connection, which is a stated operating condition. Device capacity must be verified against the selected model.",
+      "consequences": [
+        "Models must fit device resources.",
+        "Inspection can continue during outages."
+      ]
+    },
+    {
+      "decision": "Train models weekly from newly labelled images",
+      "context": "The model is retrained every week from newly labelled images. The small team and tight infrastructure budget favor a simple, scheduled training process.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable process",
+            "Simple operations"
+          ],
+          "cons": [
+            "Updates wait for schedule",
+            "Needs a training job"
+          ]
+        },
+        {
+          "label": "Continuous retraining",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Faster data feedback",
+            "Frequent updates"
+          ],
+          "cons": [
+            "More operational complexity",
+            "Higher infrastructure use"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch training",
+        "value_id": null
+      },
+      "rationale": "A weekly batch cycle matches the brief's retraining cadence and keeps operations manageable for a small team.",
+      "consequences": [
+        "New labels may wait until the next cycle.",
+        "Training runs need repeatable inputs and outputs."
+      ]
+    },
+    {
+      "decision": "Push versioned model packages to devices",
+      "context": "Retrained models must reach cameras along production lines, including devices that are often offline. Versioning supports identifying which model is deployed and returning to a prior release.",
+      "drivers": [
+        "Weekly model delivery",
+        "Often offline",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned package distribution",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports staged delivery",
+            "Enables rollback"
+          ],
+          "cons": [
+            "Needs package management",
+            "Offline devices update later"
+          ]
+        },
+        {
+          "label": "Direct replacement of model files",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Minimal tooling",
+            "Simple transfer"
+          ],
+          "cons": [
+            "Weak rollback support",
+            "Partial updates risk failure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned package distribution",
+        "value_id": null
+      },
+      "rationale": "A versioned package makes each weekly model identifiable and allows devices to update when reachable. It also gives the team a practical path to revert a bad release.",
+      "consequences": [
+        "Devices may run different model versions temporarily.",
+        "Packages need version and compatibility metadata."
+      ]
+    },
+    {
+      "decision": "Keep inference independent of network services",
+      "context": "Production cameras may have no network access. Inspection must therefore not depend on remote model calls or other online services during operation.",
+      "drivers": [
+        "Often offline",
+        "Continuous line operation"
+      ],
+      "alternatives": [
+        {
+          "label": "Self-contained local inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Operates offline",
+            "Predictable availability"
+          ],
+          "cons": [
+            "Local maintenance required",
+            "Limited central visibility"
+          ]
+        },
+        {
+          "label": "Remote inference service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized service updates",
+            "Shared compute"
+          ],
+          "cons": [
+            "Network dependency",
+            "Unavailable during outages"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Self-contained local inference",
+        "value_id": null
+      },
+      "rationale": "Keeping inference local preserves inspection during connectivity loss, directly matching the stated deployment environment.",
+      "consequences": [
+        "Devices need locally available models and runtime.",
+        "Remote monitoring cannot be assumed during outages."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device hardware, operating system, and accelerator capabilities",
+    "Required inference latency, throughput, and defect-detection quality",
+    "Image retention, labelling workflow, and dataset governance",
+    "Model evaluation and release acceptance criteria",
+    "Update transport, device authentication, and recovery behavior",
+    "Fleet monitoring and offline diagnostics"
+  ]
+}

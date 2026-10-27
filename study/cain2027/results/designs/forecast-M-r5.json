@@ -1,0 +1,310 @@
+{
+  "decisions": [
+    {
+      "decision": "Use an orchestrated pipeline for weekly model workflows",
+      "context": "Weekly forecasts must run reliably, and the three-person team owns the full pipeline. Repeatable stages support scheduled execution and delivery of model changes.",
+      "drivers": [
+        "Reliable weekly run",
+        "Small team",
+        "Fast iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [],
+          "pros": [
+            "Simple to start",
+            "Flexible for experiments"
+          ],
+          "cons": [
+            "Manual handoffs",
+            "Harder to repeat reliably"
+          ]
+        },
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s06_p07",
+            "s06_p13"
+          ],
+          "pros": [
+            "Repeatable stages",
+            "Automates handoffs"
+          ],
+          "cons": [
+            "Needs orchestration setup",
+            "Pipeline maintenance"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "The checked design point includes this accepted value, though it is unattested as a combination and warns that data ingestion must also be decided. Sources such as “MLOps: Continuous delivery and automation pipelines in machine learning” describe repeatable pipeline stages; this fits the weekly run and the team’s need to move ideas into production.",
+      "consequences": [
+        "Pipeline changes need review and maintenance.",
+        "Data ingestion remains an open decision."
+      ]
+    },
+    {
+      "decision": "Track complete lifecycle lineage for reproducible forecasts",
+      "context": "The system must reproduce forecasts for any past week, which requires recovering the data, pipeline, artifacts, and training context for that run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Run traceability",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Versions model assets",
+            "Supports reuse"
+          ],
+          "cons": [
+            "Limited run context",
+            "Limited dataset lineage"
+          ]
+        },
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p03",
+            "s22_p08"
+          ],
+          "pros": [
+            "Links data and runs",
+            "Tracks pipeline and model health"
+          ],
+          "cons": [
+            "More metadata to manage",
+            "Requires lifecycle discipline"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "This accepted value covers dataset versions, training runs, pipeline designs, artifacts, and deployment health. “MLOps Principles” and “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” support lifecycle traceability; the point check found no attested source combination, so this is a reasoned selection rather than a documented end-to-end pattern.",
+      "consequences": [
+        "Retain dataset and run metadata for each forecast week.",
+        "The team must keep lineage records complete."
+      ]
+    },
+    {
+      "decision": "Promote model changes through staged automated releases",
+      "context": "New model ideas should reach production quickly, while releases must not disrupt the weekly forecast run. Staged validation and promotion provide a controlled path from code change to production.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Automated delivery"
+      ],
+      "alternatives": [
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [],
+          "pros": [
+            "One release process",
+            "Automates build and packaging"
+          ],
+          "cons": [
+            "Limited stage-specific gates",
+            "Rollback not explicit"
+          ]
+        },
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p13",
+            "s08_p01"
+          ],
+          "pros": [
+            "Changes trigger delivery",
+            "Supports staged validation"
+          ],
+          "cons": [
+            "Needs release pipeline",
+            "Gate configuration required"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "The checked point includes this accepted option. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” describe automated staged delivery, which suits rapid iteration while providing checkpoints before production.",
+      "consequences": [
+        "Production promotion depends on passing configured checks.",
+        "The team must maintain release stages and gates."
+      ]
+    },
+    {
+      "decision": "Evaluate candidates against held-out historical data",
+      "context": "Model changes must be assessed before they affect weekly forecasts. Offline evaluation against known outcomes supports a repeatable promotion decision.",
+      "drivers": [
+        "Prevent regressions",
+        "Historical outcomes available",
+        "Safe model updates"
+      ],
+      "alternatives": [
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [],
+          "pros": [
+            "Compares candidate models",
+            "Uses a selected metric"
+          ],
+          "cons": [
+            "Metric choice can obscure tradeoffs",
+            "Validation data alone may miss regressions"
+          ]
+        },
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s06_p08",
+            "s22_p08"
+          ],
+          "pros": [
+            "Uses held-out outcomes",
+            "Repeatable before promotion"
+          ],
+          "cons": [
+            "Depends on representative labels",
+            "Adds evaluation stages"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "The checked point includes this accepted option and the relation data says evaluation depends on workflow coordination. “MLOps Principles” and “MLOps: Continuous delivery and automation pipelines in machine learning” support offline candidate checks; the brief’s historical weekly forecasts make this a fit for regression control.",
+      "consequences": [
+        "Promotion waits for evaluation results.",
+        "Historical data and outcomes must be retained."
+      ]
+    },
+    {
+      "decision": "Generate weekly forecasts with scheduled batch scoring",
+      "context": "The system forecasts weekly demand by store and product, with no requirement for request-time predictions. Batch scoring fits the stated cadence and makes forecast runs easier to reproduce.",
+      "drivers": [
+        "Weekly cadence",
+        "Store-product forecasts",
+        "No real-time requirement"
+      ],
+      "alternatives": [
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [],
+          "pros": [
+            "Fresh request-time results",
+            "Supports interactive use"
+          ],
+          "cons": [
+            "Adds runtime complexity",
+            "Not required by the brief"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s19_p14"
+          ],
+          "pros": [
+            "Matches weekly schedule",
+            "Writes results for downstream use"
+          ],
+          "cons": [
+            "Results refresh on schedule",
+            "Requires run and output tracking"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "This accepted option matches the weekly forecast cadence and was included in the checked point. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “Three Levels of ML Software” describe scheduled batch prediction patterns.",
+      "consequences": [
+        "Forecast outputs must be stored with their run identity.",
+        "Consumers receive updates on the weekly schedule."
+      ]
+    },
+    {
+      "decision": "Monitor feature drift after deployment",
+      "context": "Demand patterns and inputs may change over time, affecting forecast quality. Monitoring input and feature changes provides a signal for investigation and future retraining.",
+      "drivers": [
+        "Changing demand inputs",
+        "Protect forecast quality",
+        "Operational visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Low monitoring setup",
+            "Low ongoing effort"
+          ],
+          "cons": [
+            "No early drift signal",
+            "Failures may go unnoticed"
+          ]
+        },
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p08",
+            "s22_p11"
+          ],
+          "pros": [
+            "Surfaces data shifts",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Requires baselines and thresholds",
+            "Does not prove quality loss alone"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "The checked point includes this accepted option, although the point is unattested and warns that data ingestion remains undecided. “MLOps Principles” and “Productionizing Machine Learning with a Microservices Architecture” support monitoring feature and input changes; for a weekly forecast system, drift is a useful signal to investigate before changing models.",
+      "consequences": [
+        "Define baselines for monitored inputs.",
+        "Drift alerts require review and may prompt retraining."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Data ingestion mechanism and source-system integration; the checked workflow point warns this decision is required, but the brief does not identify the data sources or delivery mechanism.",
+    "Forecast model family, training and tuning approach, and demand-specific evaluation metrics.",
+    "Data retention period and access controls for historical inputs and forecast runs.",
+    "Alert ownership, response times, and whether drift should trigger automatic or human-approved retraining."
+  ]
+}

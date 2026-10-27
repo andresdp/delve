@@ -1,0 +1,347 @@
+{
+  "decisions": [
+    {
+      "decision": "Use batch ETL for weekly labelled-image ingestion",
+      "context": "New labels arrive for weekly retraining, and the brief does not require live data ingestion.",
+      "drivers": [
+        "Weekly retraining",
+        "Limited infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "ETL-based feature ingestion",
+          "value_id": "v:21.1",
+          "citations": [
+            "s02_p12",
+            "s04_p04"
+          ],
+          "pros": [
+            "Fits batch workflow",
+            "Supported by sources"
+          ],
+          "cons": [
+            "No live ingestion"
+          ]
+        },
+        {
+          "label": "Streaming feature ingestion",
+          "value_id": "v:21.2",
+          "citations": [],
+          "pros": [
+            "Continuous data flow"
+          ],
+          "cons": [
+            "More operational overhead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "ETL-based feature ingestion",
+        "value_id": "v:21.1"
+      },
+      "rationale": "Weekly retraining favors a batch path. The source “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” documents ETL-based ingestion.",
+      "consequences": [
+        "Images and labels are collected into batches before training."
+      ]
+    },
+    {
+      "decision": "Use an orchestrated pipeline for weekly training and evaluation",
+      "context": "Weekly model updates need repeatable preparation, training, and validation steps for a small team.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Repeatability"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s06_p07"
+          ],
+          "pros": [
+            "Repeatable stages",
+            "Supports evaluation"
+          ],
+          "cons": [
+            "Pipeline setup effort"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s09_p08"
+          ],
+          "pros": [
+            "Simple to start",
+            "Low tooling needs"
+          ],
+          "cons": [
+            "Manual handoffs",
+            "Error-prone repetition"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "A recurring weekly cycle benefits from repeatable training and evaluation stages. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” support pipeline coordination.",
+      "consequences": [
+        "The team must maintain pipeline definitions and execution."
+      ]
+    },
+    {
+      "decision": "Run inference on each production line device",
+      "context": "Cameras inspect production lines that often lack network access, so predictions must be available locally.",
+      "drivers": [
+        "Intermittent connectivity",
+        "On-device inference"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Works without network",
+            "Local predictions"
+          ],
+          "cons": [
+            "Device resource limits"
+          ]
+        },
+        {
+          "label": "Containerized inference deployment",
+          "value_id": "v:30.19",
+          "citations": [
+            "s04_p02",
+            "s07_p03"
+          ],
+          "pros": [
+            "Packages dependencies",
+            "Portable deployment"
+          ],
+          "cons": [
+            "Does not ensure offline operation"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "Local inference addresses production lines without reliable network access. “Composing Deep-Learning Microservices for the Hybrid Internet of Things” and “Three Levels of ML Software” describe edge inference.",
+      "consequences": [
+        "Devices need compatible runtimes and local model storage."
+      ]
+    },
+    {
+      "decision": "Use progressive releases with rollback for model updates",
+      "context": "Weekly retrained models must reach devices reliably, with a recovery path if a new model causes problems.",
+      "drivers": [
+        "Weekly model pushes",
+        "Safe recovery",
+        "Limited operations capacity"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p03",
+            "s25_p06"
+          ],
+          "pros": [
+            "Incremental rollout",
+            "Rollback support"
+          ],
+          "cons": [
+            "Release coordination effort"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s02_p11",
+            "s19_p05"
+          ],
+          "pros": [
+            "One release process",
+            "Automates packaging"
+          ],
+          "cons": [
+            "Rollback not specified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Progressive rollout and rollback reduce the risk of distributing a faulty weekly model. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” support this approach.",
+      "consequences": [
+        "Keep a prior model version available for restoration."
+      ]
+    },
+    {
+      "decision": "Gate model promotion on offline evaluation",
+      "context": "Each weekly candidate should be assessed before it replaces the model on production devices.",
+      "drivers": [
+        "Weekly candidates",
+        "Regression control"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15"
+          ],
+          "pros": [
+            "Tests held-out data",
+            "Pre-promotion check"
+          ],
+          "cons": [
+            "Requires labelled evaluation data"
+          ]
+        },
+        {
+          "label": "Threshold-based quality regression testing",
+          "value_id": "v:13.2",
+          "citations": [
+            "s06_p08",
+            "s22_p09"
+          ],
+          "pros": [
+            "Detects quality drops",
+            "Supports promotion gates"
+          ],
+          "cons": [
+            "Thresholds need maintenance"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Offline evaluation fits the weekly batch cycle and checks candidates against held-out labelled examples before release. “Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2” and “MLOps: Continuous delivery and automation pipelines in machine learning” document pre-deployment evaluation.",
+      "consequences": [
+        "Maintain a held-out set representative of production defects."
+      ]
+    },
+    {
+      "decision": "Monitor device health and input data quality",
+      "context": "Network limitations and resource-constrained devices can hide runtime issues; production inputs may also shift over time.",
+      "drivers": [
+        "Intermittent connectivity",
+        "Device health",
+        "Data quality"
+      ],
+      "alternatives": [
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s06_p02",
+            "s22_p04"
+          ],
+          "pros": [
+            "Tracks runtime and inputs",
+            "Supports diagnosis"
+          ],
+          "cons": [
+            "Telemetry needs collection"
+          ]
+        },
+        {
+          "label": "Periodic model health checks",
+          "value_id": "v:6.18",
+          "citations": [
+            "s20_p03",
+            "s23_p08"
+          ],
+          "pros": [
+            "Recurring review",
+            "Lower monitoring footprint"
+          ],
+          "cons": [
+            "Problems may surface later"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Service-health and data-quality monitoring",
+        "value_id": "v:6.23"
+      },
+      "rationale": "Monitor resource use, uptime, and data quality to surface operational and input problems; the design point checks this together with offline evaluation. “MLOps Principles” and “MLOps: Continuous delivery and automation pipelines in machine learning” describe these monitoring concerns.",
+      "consequences": [
+        "Buffer or summarize telemetry locally when devices are offline."
+      ]
+    },
+    {
+      "decision": "Use vertically scalable training initially",
+      "context": "The system retrains weekly, while the team and infrastructure budget are both small.",
+      "drivers": [
+        "Weekly training",
+        "Tight budget",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Vertically scalable training",
+          "value_id": "v:3.1",
+          "citations": [
+            "s11_p06",
+            "s12_p03"
+          ],
+          "pros": [
+            "Simpler operations",
+            "Scale one machine"
+          ],
+          "cons": [
+            "Machine capacity ceiling"
+          ]
+        },
+        {
+          "label": "Horizontal and vertical training scalability",
+          "value_id": "v:3.2",
+          "citations": [
+            "s02_p01",
+            "s15_p04"
+          ],
+          "pros": [
+            "Broader scaling options"
+          ],
+          "cons": [
+            "More infrastructure overhead"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Vertically scalable training",
+        "value_id": "v:3.1"
+      },
+      "rationale": "A larger single training machine is a simpler starting point under the stated team and budget constraints. The design point returned no attested sources for this combination, so this is a brief-driven choice rather than an established combination in the design space.",
+      "consequences": [
+        "Revisit distributed training if weekly jobs outgrow one machine."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to deliver and reconcile model updates on devices that are offline during a release.",
+    "Device hardware, runtime, and local storage sizing.",
+    "Image retention, privacy, and access controls.",
+    "Defect quality metrics and acceptable promotion thresholds; the brief does not specify them.",
+    "Operational response when a device cannot report monitoring data."
+  ]
+}

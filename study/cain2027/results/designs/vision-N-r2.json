@@ -1,0 +1,187 @@
+{
+  "decisions": [
+    {
+      "decision": "Run defect inference on the production-line devices",
+      "context": "Cameras may lack network access, but inspection must continue at the line. The brief calls for the model to run on those devices.",
+      "drivers": [
+        "Network-independent inspection",
+        "Production-line cameras"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low network dependence"
+          ],
+          "cons": [
+            "Device resource limits"
+          ]
+        },
+        {
+          "label": "Central server inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Adds network latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference lets inspection continue without network access and matches the brief’s camera-based deployment.",
+      "consequences": [
+        "Models must fit device resources",
+        "Inference software must be deployed to devices"
+      ]
+    },
+    {
+      "decision": "Retrain models weekly from newly labelled images",
+      "context": "Newly labelled images are available each week, and the model is retrained on that cadence. The brief does not specify how training compute is hosted.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled shared training pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Repeatable weekly runs",
+            "Shared compute"
+          ],
+          "cons": [
+            "Pipeline upkeep"
+          ]
+        },
+        {
+          "label": "Manual retraining by an engineer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple initial setup"
+          ],
+          "cons": [
+            "Manual effort",
+            "Harder to reproduce"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled shared training pipeline",
+        "value_id": null
+      },
+      "rationale": "A scheduled pipeline supports the specified weekly cadence while sharing limited training infrastructure.",
+      "consequences": [
+        "Training inputs and outputs need tracking",
+        "Pipeline failures can delay a release"
+      ]
+    },
+    {
+      "decision": "Distribute versioned model releases for offline installation",
+      "context": "Models are pushed to devices that may not have network access. Releases therefore need to be available for installation when a device can receive them.",
+      "drivers": [
+        "Intermittent connectivity",
+        "Weekly model releases",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model package with staged device rollout",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports offline transfer",
+            "Limits rollout impact"
+          ],
+          "cons": [
+            "Requires rollout tracking"
+          ]
+        },
+        {
+          "label": "Always-on remote model serving",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized model updates"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Adds infrastructure cost"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model package with staged device rollout",
+        "value_id": null
+      },
+      "rationale": "A package can be transferred when connectivity is available, and staging reduces the risk of pushing a faulty release to every camera.",
+      "consequences": [
+        "Devices may temporarily run different model versions",
+        "Release and installation status need tracking"
+      ]
+    },
+    {
+      "decision": "Keep the previous model available for rollback",
+      "context": "A new model is pushed to production devices weekly. The brief does not define an online recovery path for cameras that may be disconnected.",
+      "drivers": [
+        "Production inspection",
+        "Intermittent connectivity",
+        "Weekly model releases"
+      ],
+      "alternatives": [
+        {
+          "label": "Retain a known-good local model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Offline rollback",
+            "Limits outage duration"
+          ],
+          "cons": [
+            "Uses device storage"
+          ]
+        },
+        {
+          "label": "Reinstall from a central service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "One recovery source"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Recovery may be delayed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Retain a known-good local model",
+        "value_id": null
+      },
+      "rationale": "Keeping the prior model on-device supports recovery even when network access is unavailable.",
+      "consequences": [
+        "Devices need space for multiple model versions",
+        "Rollback behavior needs implementation"
+      ]
+    }
+  ],
+  "uncovered": [
+    "Camera hardware, device operating systems, and available compute",
+    "Defect classes, accuracy targets, and inspection latency limits",
+    "Image retention, privacy, and labelling workflow",
+    "Update transport, device identity, and release authorization",
+    "Model validation gates and rollout success criteria",
+    "Monitoring and reporting requirements for offline devices"
+  ]
+}

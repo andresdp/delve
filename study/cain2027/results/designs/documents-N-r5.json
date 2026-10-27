@@ -1,0 +1,206 @@
+{
+  "decisions": [
+    {
+      "decision": "Use an asynchronous queue to scale document classification",
+      "context": "Millions of documents arrive daily, with strong seasonal volume swings. Classification can be decoupled from ingestion so processing capacity can scale with demand.",
+      "drivers": [
+        "Millions per day",
+        "Seasonal volume",
+        "Classification throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous API calls",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple request flow"
+          ],
+          "cons": [
+            "Couples ingestion to inference",
+            "Harder to absorb peaks"
+          ]
+        },
+        {
+          "label": "Asynchronous queue with scalable workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers demand peaks",
+            "Scales workers independently"
+          ],
+          "cons": [
+            "Adds queue operations",
+            "Results arrive later"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Asynchronous queue with scalable workers",
+        "value_id": null
+      },
+      "rationale": "A queue absorbs seasonal surges and lets classification capacity scale independently of incoming document volume.",
+      "consequences": [
+        "Classification is eventually available.",
+        "Queue lag and worker capacity need monitoring."
+      ]
+    },
+    {
+      "decision": "Publish classifications through a shared results interface",
+      "context": "Several teams consume classification results. A shared, stable interface avoids coupling each consumer to classifier internals.",
+      "drivers": [
+        "Several consumers",
+        "Shared results"
+      ],
+      "alternatives": [
+        {
+          "label": "Directly integrate each consumer",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Tailored integrations"
+          ],
+          "cons": [
+            "Many integrations to maintain",
+            "Consumers couple to classifier"
+          ]
+        },
+        {
+          "label": "Shared results API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consistent access path",
+            "Consumers stay decoupled"
+          ],
+          "cons": [
+            "Requires API ownership",
+            "Consumers depend on its availability"
+          ]
+        },
+        {
+          "label": "Publish result events",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consumers process independently",
+            "Supports multiple subscribers"
+          ],
+          "cons": [
+            "Requires event operations",
+            "Consumers manage delivery"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared results API",
+        "value_id": null
+      },
+      "rationale": "A shared API gives multiple teams a consistent way to retrieve results while keeping classifier implementation behind a boundary.",
+      "consequences": [
+        "The API needs a stable contract.",
+        "Access patterns and availability targets remain to be defined."
+      ]
+    },
+    {
+      "decision": "Track classification quality over time",
+      "context": "Operators need to see when classification quality drifts. The system therefore needs quality measurements over time, not just per-request outputs.",
+      "drivers": [
+        "Quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Monitor operational metrics only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Low data requirements",
+            "Shows service health"
+          ],
+          "cons": [
+            "Does not measure accuracy",
+            "Can miss quality drift"
+          ]
+        },
+        {
+          "label": "Compare predictions with labeled outcomes",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Measures classification quality",
+            "Can reveal drift"
+          ],
+          "cons": [
+            "Needs labeled outcomes",
+            "Quality signals may arrive late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Compare predictions with labeled outcomes",
+        "value_id": null
+      },
+      "rationale": "Comparing predictions with labeled outcomes directly measures quality, which is the drift operators need to detect.",
+      "consequences": [
+        "A source of labeled outcomes is required.",
+        "Quality reports lag the arrival of labels."
+      ]
+    },
+    {
+      "decision": "Version models and classification outputs",
+      "context": "Quality can change as the LLM or its configuration changes. Several consuming teams need results whose origin and meaning can be identified.",
+      "drivers": [
+        "Quality drift",
+        "Several consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Use an unversioned mutable classifier",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment"
+          ],
+          "cons": [
+            "Hard to attribute changes",
+            "Results lack provenance"
+          ]
+        },
+        {
+          "label": "Version model configuration and output schema",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports comparisons",
+            "Makes output changes visible"
+          ],
+          "cons": [
+            "Adds release coordination",
+            "Requires version tracking"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Version model configuration and output schema",
+        "value_id": null
+      },
+      "rationale": "Versioning lets operators relate quality changes to classifier changes and gives consumers a way to interpret results consistently.",
+      "consequences": [
+        "Versions must accompany stored results.",
+        "Schema changes need consumer coordination."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Claim-type taxonomy and whether classes are hierarchical.",
+    "Document formats, languages, and preprocessing requirements.",
+    "Latency and availability targets for classification and result access.",
+    "Whether the LLM is hosted or self-managed, and its selection criteria.",
+    "Data residency, privacy, retention, and security requirements.",
+    "Source and labeling process for quality outcomes.",
+    "Human review, escalation, and correction workflow.",
+    "Retry, deduplication, and failure-handling requirements.",
+    "Consumer access patterns and result retention needs."
+  ]
+}
