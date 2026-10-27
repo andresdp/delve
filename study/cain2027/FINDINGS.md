@@ -17,6 +17,12 @@ wording).
     (`results-question-titles/`, run 2026-10-26): a robustness check.
 - **Execution:** all 120 sessions succeeded, with no network commands or web search. In M and E, every session
   checked at least two design points with `ddspace point` (a required step of the agent guide).
+- **How agents read the space:** through `ddspace query` and `ddspace point`, which answer from `raw/graph.json`;
+  the agent does not need to open that file. After the runs (2026-10-27), the guide gained an explicit rule to
+  that effect (Rule 6 of `AGENTS.md`), so workspaces built now include it and the recorded sessions did not. In
+  the pilot, whose full logs were kept, every command the agent ran in M and E was a `ddspace` call; the session
+  summaries of the full runs record the `ddspace` calls (all 40 M and E sessions made them) but not the text of
+  other commands. The study was not rerun for this change.
 - **Scoring:** the agent's options were matched to the expert options by the ground-truth matcher (judge
   `openai/gpt-5.4-mini`, frozen settings), each option through its best match only.
 - **Cost:** $0.27 (MADR titles) and $0.29 (earlier wording); about 1 minute per session in

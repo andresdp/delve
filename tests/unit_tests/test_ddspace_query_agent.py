@@ -236,3 +236,10 @@ def test_evidence_quotes_come_from_the_run_corpus(ws):
 def test_evidence_quotes_fall_back_to_the_workspace_corpus_without_a_run_snapshot(ws):
     (ws.runs_dir / "20261008_000000").mkdir(parents=True)
     assert "Continuity writes a WAL to S3." in _quote_texts()
+
+
+def test_guide_tells_agents_to_use_the_commands_not_the_raw_graph(ws):
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    rules = (ws.root / "AGENTS.md").read_text().split("## Rules", 1)[1]
+    assert "through `ddspace query` and `ddspace point`, not by opening or parsing" in rules
+    assert "`raw/graph.json`" in rules
