@@ -33,7 +33,6 @@ import argparse
 import asyncio
 import csv
 import json
-import shutil
 import sys
 import time
 from pathlib import Path
@@ -427,19 +426,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--workspaces", type=Path, help="folder with M and E, for grounding and consistency")
     parser.add_argument("--export-labels", action="store_true", help="write each session's matches for hand-checking")
-    parser.add_argument("--variant", choices=sorted(design.VARIANTS), default="v1",
-                        help="the prompt variant whose results to score (v1: results/, v2: results-v2/)")
     args = parser.parse_args()
-    results = design.VARIANTS[args.variant][1]
+    results = RESULTS
     gt = json.loads((INPUTS / "gt_model.json").read_text(encoding="utf-8"))
     briefs = {b["id"]: b for b in design.load_briefs()}
     check_briefs(list(briefs.values()), gt)
     settings = load_settings(str(INPUTS / "config.yaml"))
     config = MatcherConfig.from_settings(settings)
-    cache_path = results / "judge_cache.json"
-    if not cache_path.is_file() and (RESULTS / "judge_cache.json").is_file():
-        shutil.copyfile(RESULTS / "judge_cache.json", cache_path)    # same pair, same verdict across variants
-    config = MatcherConfig(**{**config.__dict__, "cache_path": str(cache_path)})
+    config = MatcherConfig(**{**config.__dict__, "cache_path": str(results / "judge_cache.json")})
     rates = yaml.safe_load(RATES.read_text(encoding="utf-8")) if RATES.is_file() else {}
     graphs = {}
     if args.workspaces:
@@ -457,8 +451,7 @@ def main() -> None:
         loop.close()
     rates_date = str(rates["date"]) if rates.get("date") else None      # YAML may read the date as a date
     matcher = {**config.as_record(), "cache_path": _study_path(config.cache_path)}   # no home folder in results
-    (results / "scores.json").write_text(json.dumps({"rates_date": rates_date, "variant": args.variant,
-                                                     "matcher": matcher,
+    (results / "scores.json").write_text(json.dumps({"rates_date": rates_date, "matcher": matcher,
                                                      "llm_warnings": gt_match.llm_warnings(config), "sessions": rows,
                                                      "by_condition": aggregate(rows)}, indent=2) + "\n", encoding="utf-8")
     _progress(f"wrote {results.name}/scores.json")

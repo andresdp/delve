@@ -75,26 +75,26 @@ limit of the blinding.
 For one brief, the three ADR sets (`results/adrs/<session>/`) are compared side by side: which decisions and
 options each condition reached, and where the design space changed the choice.
 
-## Repetitions and the trade-off variant (v2)
+## Repetitions and the prompt version
 
 Added after the first 24 sessions (2026-10-26), and reported as such:
 
-- **Five repetitions** per brief and condition instead of two (60 sessions per prompt variant), for ranges that
-  can be read. The first 24 sessions are kept; the runs only add repetitions 3 to 5.
+- **Five repetitions** per brief and condition instead of two (60 sessions per prompt version), for ranges that
+  can be read.
 - **Fit basis.** In v1, fit rested on few decisions (about two per session in N and M), because many choices
   matched no expert option of the decision they touched. Fit is reported with `fit_decisions`, and the
   human rating's fit item is the main evidence on fit.
-- **Prompt v2** (`prompt-v2.md`): v1 plus an explicit trade-off step (rank the brief's requirements, state pros
-  and cons per driver, name the deciding driver). It is the same for all three conditions, runs with the same
-  model, workspaces and briefs, and writes to `results-v2/`. It was declared after seeing v1's low fit, so it is
-  an exploratory variant: v1 stays the primary result, and v2 is reported next to it, never instead of it.
+- **MADR titles.** The prompt first asked for each decision "as a short title or question"; it now asks for
+  MADR titles (problem and chosen solution). The MADR run (`results/`) is the primary result; the earlier run
+  (`results-question-titles/`) is a robustness check. Decision titles are part of what the matcher compares, so
+  coverage is compared within one prompt version only.
 
 ## What the paper reports
 
 - Per condition, means and ranges of the layer 1 and layer 2 metrics, also per brief (only four briefs); fit
-  with its number of decisions; v1 as the primary result, v2 as the exploratory variant.
+  with its number of decisions; the MADR run as the primary result, the earlier run as a robustness check.
 - The layer 3 ratings with their agreement.
 - One qualitative example.
 - Threats: one domain, four author-written briefs, author-chosen forces, the expert model as the only reference, a
-  single agent and model from one provider (also the judge's), five repetitions, and a variant (v2) chosen after
-  seeing v1's results.
+  single agent and model from one provider (also the judge's), five repetitions, and a prompt change (MADR titles)
+  after the first full run.

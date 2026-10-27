@@ -2,8 +2,8 @@
 
 Results of the study as run on 2026-10-26 and 2026-10-27, with what they support and what they do not. The
 procedure is in `RUNNING.md` and the validation criteria in `VALIDATION.md`. Numbers come from
-`results/scores.json` (v1, MADR titles: the primary result), `results-question-titles/scores.json` (v1, the
-earlier wording) and `results-v2/scores.json` (v2).
+`results/scores.json` (MADR titles: the primary result) and `results-question-titles/scores.json` (the earlier
+wording).
 
 ## What was run
 
@@ -11,17 +11,15 @@ earlier wording) and `results-v2/scores.json` (v2).
   for four ML-enabled systems described in short briefs: `fraud`, `vision`, `forecast`, `documents`.
 - **Conditions:** N (the brief only), M (the design space mined from the C1 sources, seed 42), E (the C1 expert
   decision model as a design space, with forces and impacts held out).
-- **Sessions:** 4 briefs x 3 conditions x 5 repetitions = 60 sessions per prompt version, three versions:
-  - v1 with MADR titles (`prompt.md`, run 2026-10-27, `results/`): **the primary result**;
-  - v1 with the earlier wording, which asked for each decision "as a short title or question"
-    (`results-question-titles/`, run 2026-10-26): a robustness check;
-  - v2 (`prompt-v2.md` before the title change, `results-v2/`): an explicit trade-off step, added after seeing
-    the first v1 results; exploratory.
-- **Execution:** all 180 sessions succeeded, with no network commands or web search. In M and E, every session
+- **Sessions:** 4 briefs x 3 conditions x 5 repetitions = 60 sessions per prompt version, two versions:
+  - MADR titles (`prompt.md`, run 2026-10-27, `results/`): **the primary result**;
+  - the earlier wording, which asked for each decision "as a short title or question"
+    (`results-question-titles/`, run 2026-10-26): a robustness check.
+- **Execution:** all 120 sessions succeeded, with no network commands or web search. In M and E, every session
   checked at least two design points with `ddspace point` (a required step of the agent guide).
 - **Scoring:** the agent's options were matched to the expert options by the ground-truth matcher (judge
   `openai/gpt-5.4-mini`, frozen settings), each option through its best match only.
-- **Cost:** $0.27 (v1, MADR titles), $0.29 (v1, earlier wording) and $0.26 (v2); about 1 minute per session in
+- **Cost:** $0.27 (MADR titles) and $0.29 (earlier wording); about 1 minute per session in
   M and E, 25 s in N.
 - **Why the primary run is the MADR one:** the prompt was changed so that ADR titles follow MADR (problem and
   chosen solution, not a question; all 306 titles comply), not to change the scores. It is also the run less
@@ -102,7 +100,7 @@ Relevant-decision coverage per brief (N / M / E):
 ### 1. The design space widens what the agent considers
 
 The order N < M < E holds in every brief, under every reading of the matcher (best match, same-only, lenient),
-and in all three prompt versions. Its size depends on the prompt wording:
+and in both prompt versions. Its size depends on the prompt wording:
 
 - with MADR titles (primary): relevant coverage 0.16 (N), 0.22 (M), 0.30 (E); N vs M p = 0.055 two-sided
   (0.027 one-sided; lenient reading p = 0.002); M vs E p = 0.001;
@@ -148,22 +146,7 @@ affects latency, cost or reproducibility). The agent's evidence is adoption evid
 agent which option suits the brief's priorities. Only the expert model has impact ratings, and they are held
 out even from E.
 
-### 4. Asking for explicit trade-offs does not change this (v2)
-
-| Metric (v2) | N | M | E |
-|---|---|---|---|
-| Relevant-decision coverage | 0.09 | 0.21 | 0.28 |
-| Requirements fit | 0.77 | 0.66 | 0.85 |
-| Driver recall | 0.56 | 0.55 | 0.64 |
-| Design points checked | - | 3.20 | 2.15 |
-| Passage citations whose source adopts the chosen value | - | 0.98 | - |
-
-The trade-off step left coverage and fit essentially unchanged (M's fit 0.62 to 0.66; the N vs M fit difference
-is no longer significant, p = 0.14, because N dropped). Driver recall rose slightly in N and M, and M checked
-more design points. This supports finding 3: the limit lies in the design space's content (no trade-off
-knowledge), not in how the agent is asked to reason.
-
-### 5. Process observations
+### 4. Process observations
 
 - **Design points are used as instructed, not explored.** Before the guide required it, no session ran
   `ddspace point`. Since then, most sessions run exactly the two required checks.
@@ -181,12 +164,13 @@ knowledge), not in how the agent is asked to reason.
   effect for M (and a larger one for E), grounding as the clearest contribution, fit as the honest limit,
   reported with its decision counts and the batch-serving example. The earlier run (question titles) is
   reported as a robustness check, with the wording effect on matching stated.
-- **v2:** one sentence in the discussion or threats (finding 4), not part of the main story; its results stay
-  in the artifact.
 - **Qualitative example:** the `documents` brief across N, M and E (`results/adrs/documents-*-r1/`; M chose
   batch serving in r1). It shows both the wider coverage and the well-cited batch-serving choice that fit
   penalizes.
-- **Future work** suggested by the results: mine forces and impacts (trade-offs) along with options.
+- **Future work** suggested by the results: mine forces and impacts (trade-offs) along with options and expose
+  them to the agent, then test whether trade-off knowledge, given to the agent or asked of it (for example, a
+  prompt step that weighs each option against the brief's priorities), makes choices fit the requirements
+  better.
 
 ## Still pending
 
@@ -198,7 +182,6 @@ knowledge), not in how the agent is asked to reason.
 
 One domain (C1, ML workflow); four author-written briefs with author-chosen forces; the expert model as the
 only reference, with impacts not rated for these briefs; one agent and model from one provider, which also
-provides the judge; five repetitions; a lenient LLM judge (precision pending); v2 chosen after seeing v1's
-results; changes made after the pilot (the required point check, best-match scoring); and a prompt change
+provides the judge; five repetitions; a lenient LLM judge (precision pending); changes made after the pilot (the required point check, best-match scoring); and a prompt change
 after the first full run (MADR titles), which changed the matching and is reported with both runs. All are
 recorded in the commit history.

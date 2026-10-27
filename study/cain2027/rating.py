@@ -206,11 +206,8 @@ def main() -> None:
     g = sub.add_parser("agreement", help="kappa per item; per-condition means with --unblind")
     g.add_argument("--raters", default="A,B")
     g.add_argument("--unblind", action="store_true", help="read the key (only after both sheets are complete)")
-    for sp in (p, g):
-        sp.add_argument("--variant", choices=sorted(design.VARIANTS), default="v1",
-                        help="the prompt variant whose results to rate (v1: results/, v2: results-v2/)")
     args = parser.parse_args()
-    results = design.VARIANTS[args.variant][1]
+    results = RESULTS
     kit, key_path = results / "rating", results / "rating-key" / "key.json"
     raters = [r.strip() for r in args.raters.split(",") if r.strip()]
     if args.command == "packets":

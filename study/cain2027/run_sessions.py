@@ -388,10 +388,8 @@ def main() -> None:
     parser.add_argument("--reps", type=int, default=2)
     parser.add_argument("--keep-raw", action="store_true", help="keep raw logs and session copies (debugging)")
     parser.add_argument("--timeout", type=int, default=TIMEOUT, help="seconds per session before it fails")
-    parser.add_argument("--variant", choices=sorted(design.VARIANTS), default="v1",
-                        help="prompt variant: v1 (prompt.md -> results/) or v2 (prompt-v2.md -> results-v2/)")
     args = parser.parse_args()
-    prompt, results = design.VARIANTS[args.variant]
+    prompt, results = design.PROMPT, RESULTS
     mixed = prompt_mismatch(results, prompt)
     if mixed:
         sys.exit(f"{results.name}/ holds {len(mixed)} sessions run with another version of {prompt.name} "

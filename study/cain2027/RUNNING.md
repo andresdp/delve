@@ -373,67 +373,33 @@ The command should print nothing.
 
 When the study is done, revoke the study key in the OpenAI dashboard.
 
-## 11. More repetitions and the trade-off variant (v2)
+## 11. More repetitions
 
-Two additions to the first 24 sessions, decided after reading their results (see `VALIDATION.md`). Run them
-in the same terminal setup as before (step 0, and the study key from step 4).
-
-### More repetitions of the original prompt (v1)
+Five repetitions per brief and condition instead of two, decided after reading the first 24 sessions (see
+`VALIDATION.md`). Run in the same terminal setup as before (step 0, and the study key from step 4):
 
 ```bash
 python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model gpt-6-luna --reps 5
 ```
 
-The 24 sessions you already have are skipped; this runs repetitions 3 to 5 (36 new sessions). Results go to
-`study/cain2027/results/`, as before.
+Sessions that already have a design are skipped, so this runs only the missing repetitions. Then score as in
+step 7 and commit as in step 10.
 
-### The trade-off variant (v2)
+## 12. Rerunning with the MADR-title prompt
 
-```bash
-python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model gpt-6-luna --reps 5 --variant v2
-```
+After the first results, the prompt was changed to ask for MADR titles (a statement that names the problem and
+the chosen solution) instead of a title or question. The earlier run, kept in `results-question-titles/`, used
+the earlier wording. Its Markdown ADRs already show solution titles: when the agent wrote a question, the ADR's
+title is the chosen option and the question is shown below it.
 
-This runs the same 60 sessions (4 briefs, 3 conditions, 5 repetitions) with `prompt-v2.md`, and writes them to
-`study/cain2027/results-v2/`. Nothing else changes: same model, workspaces and briefs. Each summary records
-which prompt it ran (`prompt`).
-
-Do not edit `prompt.md` or `prompt-v2.md` between or during these runs.
-
-### Score both
+The runner refuses to add sessions to a folder made with another version of the prompt. To rerun with a new
+prompt, first move the recorded results aside, keeping their judge cache for the new scoring:
 
 ```bash
-export OPENAI_API_KEY=sk-...your scoring key...
-python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces
-python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --variant v2
-```
-
-Each writes its own `scores.json` (`results/` and `results-v2/`). The v2 scorer starts from a copy of v1's
-judge cache, so a pair judged in v1 gets the same verdict in v2.
-
-The label check (step 5) and the blind rating (step 8) apply to v1. Add `--variant v2` to `score.py
---export-labels` or to `rating.py` to do the same for v2.
-
-### Commit
-
-As in step 10, with `study/cain2027/results-v2` added to the `git add` list.
-
-
-## 12. Rerunning with the MADR-title prompts
-
-After the first results, both prompts were changed to ask for MADR titles (a statement that names the problem
-and the chosen solution) instead of a title or question. The recorded results in `results/` and `results-v2/`
-were run with the earlier wording. Their Markdown ADRs already show solution titles: when the agent wrote a
-question, the ADR's title is the chosen option and the question is shown below it.
-
-The runner refuses to add sessions to a folder made with another version of the prompt. To rerun with the new
-prompts, first move the recorded results aside, keeping their judge cache for the new scoring:
-
-```bash
-git mv study/cain2027/results study/cain2027/results-question-titles
-git mv study/cain2027/results-v2 study/cain2027/results-v2-question-titles
+git mv study/cain2027/results study/cain2027/results-<label>
 mkdir -p study/cain2027/results
-cp study/cain2027/results-question-titles/judge_cache.json study/cain2027/results/
+cp study/cain2027/results-<label>/judge_cache.json study/cain2027/results/
 ```
 
-Then run and score as in step 11 (both variants, `--reps 5`). The decision titles are part of what the matcher
-compares, so the new scores can differ from the recorded ones; report which prompt version the paper uses.
+Then run with `--reps 5` (step 11) and score (step 7). The decision titles are part of what the matcher compares,
+so scores from different prompt versions are not comparable; report which prompt version the paper uses.

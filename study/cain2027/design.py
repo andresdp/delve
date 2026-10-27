@@ -18,9 +18,6 @@ import yaml
 HERE = Path(__file__).resolve().parent
 SCHEMA = HERE / "design.schema.json"
 PROMPT = HERE / "prompt.md"
-# Prompt variants: each has its own prompt and results folder, so their sessions never mix. v2 adds an explicit
-# trade-off step (declared after v1's results; reported next to v1, never instead of it).
-VARIANTS = {"v1": (PROMPT, HERE / "results"), "v2": (HERE / "prompt-v2.md", HERE / "results-v2")}
 BRIEFS = HERE / "briefs.yaml"
 INPUTS = HERE / "inputs"
 SPACE_CONDITIONS = ("M", "E")              # the conditions with a design space (N has none)

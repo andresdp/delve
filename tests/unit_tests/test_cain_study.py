@@ -641,16 +641,10 @@ def test_results_record_the_cache_path_without_the_home_folder():
     assert score._study_path(None) is None
 
 
-# ---------------------------------------------------------------- prompt variants and the fit basis
+# ---------------------------------------------------------------- the prompt a session records, and the fit basis
 
 
-def test_variants_have_their_own_prompt_and_results_folder():
-    (p1, r1), (p2, r2) = design.VARIANTS["v1"], design.VARIANTS["v2"]
-    assert p1 == design.PROMPT and r1.name == "results" and r2.name == "results-v2"
-    assert p2.is_file() and "Weigh the trade-offs" in p2.read_text() and "Weigh the trade-offs" not in p1.read_text()
-
-
-def test_a_session_sends_and_records_its_variant_prompt(tmp_path, monkeypatch):
+def test_a_session_sends_and_records_its_prompt(tmp_path, monkeypatch):
     sent = {}
 
     def fake_run(argv, **kwargs):
@@ -658,12 +652,13 @@ def test_a_session_sends_and_records_its_variant_prompt(tmp_path, monkeypatch):
         Path(argv[argv.index("-o") + 1]).write_text(json.dumps(FIXTURE_DESIGN))
         return _Proc(_jsonl(*_events()))
     monkeypatch.setattr(sessions.subprocess, "run", fake_run)
-    prompt = design.VARIANTS["v2"][0]
+    prompt = tmp_path / "prompt-test.md"
+    prompt.write_text("Sketch the system in BRIEF.md.")
     rec = sessions.run(sessions.Session("fraud", "N", 1), {"system": "S", "text": "T"}, tmp_path / "ws",
-                       tmp_path / "scratch", model="m-test", results=tmp_path / "results-v2", prompt=prompt)
-    assert rec["status"] == "ok" and rec["prompt"] == "prompt-v2.md"
+                       tmp_path / "scratch", model="m-test", results=tmp_path / "results", prompt=prompt)
+    assert rec["status"] == "ok" and rec["prompt"] == "prompt-test.md"
     assert rec["prompt_sha256"] == design.sha256(prompt) and sent["input"] == prompt.read_text()
-    assert (tmp_path / "results-v2" / "designs" / "fraud-N-r1.json").is_file()
+    assert (tmp_path / "results" / "designs" / "fraud-N-r1.json").is_file()
 
 
 def test_fit_reports_how_many_decisions_it_rests_on():
@@ -721,10 +716,9 @@ def test_a_madr_title_is_kept_as_it_is():
     assert design.adr_title(d["decisions"][0]) == ("Serve scores from a stateless service", None)
 
 
-def test_prompts_ask_for_madr_titles_not_questions():
-    for prompt in (design.VARIANTS["v1"][0], design.VARIANTS["v2"][0]):
-        text = prompt.read_text()
-        assert "MADR style" in text and "not a question" in text and "title or question" not in text
+def test_the_prompt_asks_for_madr_titles_not_questions():
+    text = design.PROMPT.read_text()
+    assert "MADR style" in text and "not a question" in text and "title or question" not in text
 
 
 def test_sessions_of_another_prompt_version_are_reported(tmp_path):
