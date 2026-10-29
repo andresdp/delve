@@ -765,3 +765,31 @@ def test_results_folders_are_named_results_or_results_label():
     for bad in ("beam", "results/../x", "results beam", "../results"):
         with pytest.raises(ValueError):
             design.results_folder(bad)
+
+
+def test_a_reply_wrapped_in_a_code_block_is_unwrapped():
+    assert design.unfence('```json\n{"a": 1}\n```') == '{"a": 1}'
+    assert design.unfence('  ```\n{"a": 1}\n```  \n') == '{"a": 1}'
+    assert design.unfence('{"a": 1}') == '{"a": 1}'
+
+
+def test_local_providers_get_the_schema_in_the_prompt():
+    plain = design.prompt_text(design.PROMPT)
+    with_schema = design.prompt_text(design.PROMPT, schema_in_prompt=True)
+    assert plain == design.PROMPT.read_text() and with_schema.startswith(plain.rstrip("\n"))
+    assert '"decisions"' in with_schema and "Return only the JSON object" in with_schema
+
+
+def test_a_session_through_a_local_provider_sends_the_schema(tmp_path, monkeypatch):
+    sent = {}
+
+    def fake_run(argv, **kwargs):
+        sent["input"], sent["argv"] = kwargs.get("input"), argv
+        Path(argv[argv.index("-o") + 1]).write_text("```json\n" + json.dumps(FIXTURE_DESIGN) + "\n```")
+        return _Proc(_jsonl(*_events()))
+    monkeypatch.setattr(sessions.subprocess, "run", fake_run)
+    rec = sessions.run(sessions.Session("fraud", "N", 1), {"system": "S", "text": "T"}, tmp_path / "ws",
+                       tmp_path / "scratch", model="beam:cloud", results=tmp_path / "results-beam", oss="ollama")
+    assert rec["status"] == "ok" and rec["schema_in_prompt"] and rec["provider"] == "ollama"
+    assert '"decisions"' in sent["input"] and "--oss" in sent["argv"]
+    assert json.loads((tmp_path / "results-beam" / "designs" / "fraud-N-r1.json").read_text())["decisions"]

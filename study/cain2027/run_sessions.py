@@ -257,7 +257,7 @@ def postflight(summary: Dict[str, Any], last: Path) -> List[str]:
         problems.insert(0, "no design: Codex wrote no last message")
         return problems
     try:
-        problems += design.validate(json.loads(last.read_text(encoding="utf-8")))
+        problems += design.validate(json.loads(design.unfence(last.read_text(encoding="utf-8"))))
     except ValueError as exc:
         problems.append(f"the design is not JSON: {exc}")
     return problems
@@ -356,7 +356,8 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
     argv = command(session, workdir, last, model=model, oss=oss)
     argv[0] = shutil.which("codex") or "codex"           # resolved here: the session PATH may not have it
     record = {"session": session.id, "brief": session.brief, "condition": session.condition, "rep": session.rep,
-              "model": model, "provider": oss or "openai", "codex_version": version, "matching_model": MATCHING_MODEL,
+              "model": model, "provider": oss or "openai", "schema_in_prompt": bool(oss), "codex_version": version,
+              "matching_model": MATCHING_MODEL,
               "prompt": prompt.name, "prompt_sha256": design.sha256(prompt),
               "schema_sha256": design.sha256(design.SCHEMA),
               "started_at": datetime.now().isoformat(timespec="seconds")}
@@ -367,7 +368,7 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
         start = time.monotonic()
         timed_out = False
         try:
-            proc = subprocess.run(NATIVE + argv, input=prompt.read_text(encoding="utf-8"), capture_output=True,
+            proc = subprocess.run(NATIVE + argv, input=design.prompt_text(prompt, bool(oss)), capture_output=True,
                                   text=True, env=env, timeout=timeout)
             stdout, stderr, record["exit_code"] = proc.stdout, proc.stderr, proc.returncode
         except subprocess.TimeoutExpired as exc:
@@ -387,7 +388,7 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
     (results / "summaries").mkdir(parents=True, exist_ok=True)
     (results / "summaries" / f"{session.id}.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     if not problems:
-        text = design.redact(last.read_text(encoding="utf-8"), str(Path.home()), [key] if key else [])
+        text = design.redact(design.unfence(last.read_text(encoding="utf-8")), str(Path.home()), [key] if key else [])
         doc = json.loads(text)
         (results / "designs").mkdir(parents=True, exist_ok=True)
         (results / "designs" / f"{session.id}.json").write_text(
