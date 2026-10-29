@@ -314,3 +314,8 @@ Both are scored on their selected view.
   recorded per session. Before the full scoring run, the judge's labels on the three pilot designs are checked
   by hand (`score.py --export-labels`) and the agreement is added here; the thresholds are not retuned on study
   scores.
+- **2026-10-28 — CAIN agent study: matcher precision checked by hand.** Instead of the three pilot designs, one
+  author checked the best matches of all 40 N and M sessions of the primary run (`study/cain2027/results/labels/
+  *.checked.csv`): 155 of 244 correct, precision 0.64 (95% Wilson 0.57-0.69); N 0.66, M 0.62; 11 of 255 best
+  matches left unlabelled. Condition E was not checked (its options use the expert model's names). Thresholds
+  were not changed.

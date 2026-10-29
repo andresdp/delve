@@ -161,6 +161,14 @@ out even from E.
 - **The judge is lenient.** It labels loosely related options "same" (for example, an online feature-serving
   pipeline and a CI/CD pipeline). The lenient reading inflates coverage (M's relevant coverage: 0.22 best match,
   0.41 lenient in the primary run); the best-match reading is the one reported.
+- **Matcher precision (hand check, 2026-10-28).** One author checked whether each best match in N and M names the
+  same design option as the agent's option, in all 40 N and M sessions of the primary run
+  (`results/labels/*.checked.csv`; 244 of the 255 best matches labelled, 11 left unlabelled). Precision: 0.64
+  (155/244; 95% Wilson interval 0.57-0.69); N 0.66 (65/98), M 0.62 (90/146); per brief and condition from 0.46
+  (forecast M) to 0.74 (documents N). E was not checked: its options carry the expert model's own names. So the
+  matcher overstates absolute coverage by about a third, to a similar degree in N and M; the N vs M comparison is
+  not an artefact of matching errors. (On the vision brief alone, N looked worse, 0.54 against 0.71; that did not
+  hold over the four briefs.)
 - **The decision wording affects matching.** Titles that name the solution raised N's matched alternatives
   from 0.42 to 0.60 (see the primary results). Coverage comparisons are valid within one prompt version only.
 
@@ -170,9 +178,11 @@ out even from E.
   effect for M (and a larger one for E), grounding as the clearest contribution, fit as the honest limit,
   reported with its decision counts and the batch-serving example. The earlier run (question titles) is
   reported as a robustness check, with the wording effect on matching stated.
-- **Qualitative example:** the `documents` brief across N, M and E (`results/adrs/documents-*-r1/`; M chose
-  batch serving in r1). It shows both the wider coverage and the well-cited batch-serving choice that fit
-  penalizes.
+- **Qualitative example (paper Fig. 3):** the card-fraud brief, repetition 3, on feature access
+  (`results/adrs/fraud-*-r3/`). N does not decide it and lists it as open; M chooses an online feature-serving
+  pipeline (`v:43.2`) and cites two passages (`s04_p01`, `s22_p03`) from sources that adopt it; E chooses the
+  expert-preferred feature store and cites identifiers. The batch-serving choices of `documents` illustrate the
+  limit of fit in the text.
 - **Future work** suggested by the results: mine forces and impacts (trade-offs) along with options and expose
   them to the agent, then test whether trade-off knowledge, given to the agent or asked of it (for example, a
   prompt step that weighs each option against the brief's priorities), makes choices fit the requirements
@@ -180,8 +190,6 @@ out even from E.
 
 ## Still pending
 
-- **Label check** (matcher precision): mark the best matches of N and M, repetition 1 (8 files in
-  `results/labels/`, already exported for the primary run). Report the share judged correct.
 - **Blind rating** (layer 3): the main evidence on choice quality, since fit is weak. See `RUNNING.md` step 8.
 
 ## Threats
