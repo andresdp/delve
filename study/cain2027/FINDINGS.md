@@ -23,6 +23,11 @@ wording).
   the pilot, whose full logs were kept, every command the agent ran in M and E was a `ddspace` call; the session
   summaries of the full runs record the `ddspace` calls (all 40 M and E sessions made them) but not the text of
   other commands. The study was not rerun for this change.
+- **User-level skills were visible.** Codex loads skills from the operator's home folder (`~/.agents/skills`),
+  which the session's private Codex home does not cover. In every session, of every condition, the agent could
+  therefore see the names and descriptions of five installed skills (among them books on domain-driven design and
+  on microservices). In the pilot, whose full logs were kept, the agent never opened any of them. Found on
+  2026-10-28; kept as is for the second agent model, so both models run under the same setup.
 - **Scoring:** the agent's options were matched to the expert options by the ground-truth matcher (judge
   `openai/gpt-5.4-mini`, frozen settings), each option through its best match only.
 - **Cost:** $0.27 (MADR titles) and $0.29 (earlier wording); about 1 minute per session in
