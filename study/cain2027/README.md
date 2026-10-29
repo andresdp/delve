@@ -27,7 +27,9 @@ python study/cain2027/build_workspaces.py build --out <folder>
 ```
 
 The build refuses inputs whose hashes differ from the manifest, and copies the manifest into each workspace as
-`study-manifest.json`. Run sessions from a folder outside this repository, so agents cannot read it.
+`study-manifest.json`. It also builds the two design spaces' wikis, with no API key: `<folder>/M/site/index.html`
+(mined) and `<folder>/E/site/index.html` (expert), with the Markdown under `wiki/`. The published artifact ships
+them prebuilt under `wikis/`; they are not tracked here (26 MB, regenerated identically except for timestamps). Run sessions from a folder outside this repository, so agents cannot read it.
 
 ## Running and scoring
 

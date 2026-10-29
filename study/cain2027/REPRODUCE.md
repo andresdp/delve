@@ -23,7 +23,7 @@ Commands run from the repository's root folder unless stated otherwise.
 | `briefs.yaml` | The four briefs. `text` is what the agent reads; `forces` are expert force ids, used for scoring only |
 | `prompt.md`, `design.schema.json` | The prompt and the output schema, the same in every condition |
 | `inputs/` | The mined design space, its configuration, the source list and the expert model, with SHA-256 hashes in `manifest.json` |
-| `wikis/c1-mined/`, `wikis/c1-expert/` | The design spaces of M and E as wikis: Markdown (`wiki/`) and HTML (`site/index.html`) |
+| `wikis/c1-mined/`, `wikis/c1-expert/` | The design spaces of M and E as wikis: Markdown (`wiki/`) and HTML (`site/index.html`). Only in the published artifact; elsewhere, level 3 builds them |
 | `references/` | For each brief, the expert decisions that matter for its forces, with options ranked (written before any session) |
 | `results/` | The primary run (MADR titles), one file per session in each subfolder (below) |
 | `results-question-titles/` | The same 60 sessions with an earlier prompt wording, a robustness check |
@@ -55,6 +55,9 @@ The two design spaces open in a browser:
   relations).
 
 The graph and tree views need the files on disk (download the repository); the anonymous viewer blocks scripts.
+If `wikis/` is missing (it is kept only in the published artifact, being 26 MB of generated files), build the
+workspaces as in level 3: the same wikis are `M/wiki/` with `M/site/index.html` and `E/wiki/` with
+`E/site/index.html`. They are identical to the published ones except for build timestamps.
 The agent itself did not browse these pages: it read the same content through `ddspace query` and `ddspace point`
 (level 3).
 
