@@ -1,7 +1,7 @@
 # Findings of the C1 agent study
 
 Results of the study as run on 2026-10-26 and 2026-10-27, with what they support and what they do not. The
-procedure is in `RUNNING.md` and the validation criteria in `VALIDATION.md`. Numbers come from
+procedure is in `RUNNING.md` (reproduction: `REPRODUCE.md`) and the validation criteria in `VALIDATION.md`. Numbers come from
 `results/scores.json` (MADR titles: the primary result) and `results-question-titles/scores.json` (the earlier
 wording).
 
@@ -27,7 +27,7 @@ wording).
   which the session's private Codex home does not cover. In every session, of every condition, the agent could
   therefore see the names and descriptions of five installed skills (among them books on domain-driven design and
   on microservices). In the pilot, whose full logs were kept, the agent never opened any of them. Found on
-  2026-10-28; kept as is for the second agent model, so both models run under the same setup.
+  2026-10-28; kept as is, so that all sessions ran under the same setup.
 - **Scoring:** the agent's options were matched to the expert options by the ground-truth matcher (judge
   `openai/gpt-5.4-mini`, frozen settings), each option through its best match only.
 - **Cost:** $0.27 (MADR titles) and $0.29 (earlier wording); about 1 minute per session in

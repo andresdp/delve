@@ -793,3 +793,26 @@ def test_a_session_through_a_local_provider_sends_the_schema(tmp_path, monkeypat
     assert rec["status"] == "ok" and rec["schema_in_prompt"] and rec["provider"] == "ollama"
     assert '"decisions"' in sent["input"] and "--oss" in sent["argv"]
     assert json.loads((tmp_path / "results-beam" / "designs" / "fraud-N-r1.json").read_text())["decisions"]
+
+
+analyze = _load("analyze")
+
+
+def test_analysis_recomputes_the_reported_numbers_offline(tmp_path):
+    rows = [{"session": f"b-{c}-r{r}", "brief": "b", "condition": c, "rep": r, "decisions": 4 + r,
+             "relevant_decision_coverage": {"N": 0.1, "M": 0.2, "E": 0.3}[c] + r / 100, "cost_usd": 0.01}
+            for c in "NME" for r in (1, 2, 3)]
+    results = tmp_path / "results"
+    (results / "labels").mkdir(parents=True)
+    (results / "scores.json").write_text(json.dumps({"sessions": rows}))
+    with (results / "labels" / "b-M-r1.checked.csv").open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["decision", "alternative", "best_match", "other_matches", "best match correct (y/n)"])
+        w.writerows([["d", "a", "X [same]", "", "y"], ["d", "b", "Y [same]", "", "n"], ["d", "c", "", "", ""],
+                     ["d", "e", "Z [same]", "", ""]])
+    text = analyze.report(results)
+    assert "| Relevant-decision coverage (best match) | 0.12 ± 0.01 | 0.22 ± 0.01 | 0.32 ± 0.01 |" in text
+    assert "M above N in 3 of 3 pairs" in text and "$0.09 for 9 sessions" in text
+    assert "- all: 1/2 = 0.50" in text                        # unmarked and match-less rows are not counted
+    low, high = analyze.wilson(155, 244)
+    assert round(low, 2) == 0.57 and round(high, 2) == 0.69

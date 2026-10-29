@@ -1,5 +1,8 @@
 # Running the study
 
+This is the operator's procedure, from the design briefs to committed results. To reproduce or check the
+reported results, `REPRODUCE.md` is shorter.
+
 This guide takes you from the design briefs to committed, reproducible results. Each step says what it does,
 what you should see, and what to do if it goes wrong. The criteria used to validate the results (steps 3, 8 and
 9) are explained in `VALIDATION.md`.
@@ -11,8 +14,9 @@ systems described in short briefs, under three conditions:
 - **M**: the brief plus the design space mined by ddspace from the C1 sources;
 - **E**: the brief plus the C1 expert decision model, as a design space.
 
-There are 4 briefs, 3 conditions and 2 repetitions, so 24 sessions in all. The ADRs are then scored against the
-expert model and rated blind by two people.
+The plan started with 4 briefs, 3 conditions and 2 repetitions (24 sessions) and was extended to 5 repetitions
+(60 sessions, step 11). The ADRs are scored against the expert model. The blind rating by two people (step 8)
+was prepared but not run for the paper.
 
 **Time and cost.** About 30 minutes of setup, then 5 to 15 minutes per session, so 2 to 6 hours for the full run
 (it can be stopped and resumed). Expect roughly $1 to $3 per session, plus a few cents for scoring.
@@ -404,28 +408,11 @@ cp study/cain2027/results-<label>/judge_cache.json study/cain2027/results/
 Then run with `--reps 5` (step 11) and score (step 7). The decision titles are part of what the matcher compares,
 so scores from different prompt versions are not comparable; report which prompt version the paper uses.
 
-## 13. A second agent model (Ollama Cloud)
+## 13. Another agent model
 
-To check that the results do not depend on one model, the same study can be run with another agent model.
-Only the agent changes; the judge stays the same. With Ollama Cloud (signed in, with your Ollama API key in
-the environment):
-
-```bash
-python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model beam:cloud --oss ollama --results results-beam --briefs fraud --reps 1 --keep-raw
-```
-
-- `--oss ollama` runs the model through Ollama (`codex --oss --local-provider ollama`); only the `OLLAMA_*`
-  variables reach the session, besides the usual ones.
-- `--results results-beam` keeps this model's sessions apart: one results folder holds one agent model, and the
-  runner refuses to mix them.
-- Sessions run one at a time, so Codex makes one model call at a time (the free tier allows 3 concurrent calls).
-- Each summary records the model, the provider and the Codex version.
-
-Start with this pilot (one brief, three sessions). If all three are `ok` and the M and E sessions show
-`ddspace` calls and design-point checks, drop `--briefs fraud --reps 1 --keep-raw` and add `--reps 5`. Then score:
-
-```bash
-python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --results results-beam
-```
-
-The scorer starts from a copy of `results/judge_cache.json`, so pairs judged before keep their verdicts.
+The runner can drive a model served through a local provider, for example Ollama
+(`--model <name> --oss ollama --results results-<label>`): one results folder per agent model, and the schema is
+sent in the prompt, since such models may ignore Codex's output schema. No other model is part of the reported
+study. Codex's sandbox limits writes and network access, not reads, so a model that does not keep to its working
+folder can read other files on the machine. Run another model only under an account or container that holds
+nothing else, and check its logs (`--keep-raw`) for commands outside the session folder.
