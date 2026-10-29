@@ -403,3 +403,29 @@ cp study/cain2027/results-<label>/judge_cache.json study/cain2027/results/
 
 Then run with `--reps 5` (step 11) and score (step 7). The decision titles are part of what the matcher compares,
 so scores from different prompt versions are not comparable; report which prompt version the paper uses.
+
+## 13. A second agent model (Ollama Cloud)
+
+To check that the results do not depend on one model, the same study can be run with another agent model.
+Only the agent changes; the judge stays the same. With Ollama Cloud (signed in, with your Ollama API key in
+the environment):
+
+```bash
+python study/cain2027/run_sessions.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --scratch ~/Documents/GitHub/ddspace-sandboxes/cain2027/scratch --model beam:cloud --oss ollama --results results-beam --briefs fraud --reps 1 --keep-raw
+```
+
+- `--oss ollama` runs the model through Ollama (`codex --oss --local-provider ollama`); only the `OLLAMA_*`
+  variables reach the session, besides the usual ones.
+- `--results results-beam` keeps this model's sessions apart: one results folder holds one agent model, and the
+  runner refuses to mix them.
+- Sessions run one at a time, so Codex makes one model call at a time (the free tier allows 3 concurrent calls).
+- Each summary records the model, the provider and the Codex version.
+
+Start with this pilot (one brief, three sessions). If all three are `ok` and the M and E sessions show
+`ddspace` calls and design-point checks, drop `--briefs fraud --reps 1 --keep-raw` and add `--reps 5`. Then score:
+
+```bash
+python study/cain2027/score.py --workspaces ~/Documents/GitHub/ddspace-sandboxes/cain2027/workspaces --results results-beam
+```
+
+The scorer starts from a copy of `results/judge_cache.json`, so pairs judged before keep their verdicts.

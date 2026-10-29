@@ -730,3 +730,38 @@ def test_sessions_of_another_prompt_version_are_reported(tmp_path):
         json.dumps({"prompt_sha256": design.sha256(prompt)}))
     assert sessions.prompt_mismatch(tmp_path / "results", prompt) == ["fraud-N-r1"]
     assert sessions.prompt_mismatch(tmp_path / "nothing", prompt) == []
+
+
+# ---------------------------------------------------------------- a second agent model (e.g. through Ollama)
+
+
+def test_command_adds_a_local_provider_after_the_pinned_model(tmp_path):
+    argv = sessions.command(sessions.Session("fraud", "N", 1), tmp_path, tmp_path / "last.json", model="beam:cloud",
+                            oss="ollama")
+    assert argv[argv.index("-m") + 1] == "beam:cloud"
+    assert argv[argv.index("--oss") + 1:argv.index("--oss") + 3] == ["--local-provider", "ollama"]
+    assert "--oss" not in sessions.command(sessions.Session("fraud", "N", 1), tmp_path, tmp_path / "x", model="m")
+    assert sessions.preflight(sessions.Session("fraud", "N", 1), argv, tmp_path, model="beam:cloud") == []
+
+
+def test_only_the_local_providers_variables_reach_the_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("OLLAMA_API_KEY", "ollama-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-operator-secret-key")
+    s = sessions.Session("fraud", "N", 1)
+    with_oss = sessions._environment(s, tmp_path, None, None, "ollama")
+    assert with_oss["OLLAMA_API_KEY"] == "ollama-secret" and "OPENAI_API_KEY" not in with_oss
+    assert "OLLAMA_API_KEY" not in sessions._environment(s, tmp_path, None, None)
+
+
+def test_one_results_folder_holds_one_agent_model(tmp_path):
+    (tmp_path / "summaries").mkdir()
+    (tmp_path / "summaries" / "fraud-N-r1.json").write_text(json.dumps({"model": "gpt-6-luna"}))
+    assert sessions.model_mismatch(tmp_path, "gpt-6-luna") == []
+    assert sessions.model_mismatch(tmp_path, "beam:cloud") == ["fraud-N-r1"]
+
+
+def test_results_folders_are_named_results_or_results_label():
+    assert design.results_folder("results-beam").name == "results-beam"
+    for bad in ("beam", "results/../x", "results beam", "../results"):
+        with pytest.raises(ValueError):
+            design.results_folder(bad)

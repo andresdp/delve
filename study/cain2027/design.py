@@ -28,6 +28,19 @@ _KEY = re.compile(r"sk-[A-Za-z0-9_\-]{12,}")
 _QUESTION = re.compile(r"^(how|what|where|when|which|who|why|should|whether|do|does|is|are|can)\b", re.I)
 
 
+_RESULTS_NAME = re.compile(r"^results(-[A-Za-z0-9._-]+)?$")
+
+
+def results_folder(name: str) -> Path:
+    """The study's results folder ``name`` (``results`` or ``results-<label>``, e.g. one per agent model).
+
+    The name pattern keeps every results folder under the raw-log ignore rule (``results*/raw/``).
+    """
+    if not _RESULTS_NAME.match(name):
+        raise ValueError(f"results folder {name!r}: use 'results' or 'results-<label>' (letters, digits, . _ -)")
+    return HERE / name
+
+
 def schema() -> Dict[str, Any]:
     """Return the design schema."""
     return json.loads(SCHEMA.read_text(encoding="utf-8"))

@@ -78,6 +78,26 @@ def plan(briefs: List[Dict[str, Any]], conditions: Iterable[str], reps: int) -> 
     return [Session(b["id"], c, r) for b in briefs for r in range(1, reps + 1) for c in conditions]
 
 
+def model_mismatch(results: Path, model: str) -> List[str]:
+    """Sessions in ``results`` that ran with another agent model (one folder holds one agent model)."""
+    out = []
+    for path in sorted((results / "summaries").glob("*.json")):
+        recorded = json.loads(path.read_text(encoding="utf-8")).get("model")
+        if recorded and recorded != model:
+            out.append(path.stem)
+    return out
+
+
+def codex_version() -> Optional[str]:
+    """The installed Codex CLI version (``codex-cli X.Y.Z``), recorded in every summary."""
+    try:
+        out = subprocess.run(NATIVE + [shutil.which("codex") or "codex", "--version"], capture_output=True,
+                             text=True, timeout=60).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return out or None
+
+
 def prompt_mismatch(results: Path, prompt: Path) -> List[str]:
     """Sessions in ``results`` that ran with a different prompt (their summaries record its SHA-256)."""
     digest = design.sha256(prompt)
@@ -94,11 +114,13 @@ def pending(sessions: List[Session], results: Path = RESULTS) -> List[Session]:
     return [s for s in sessions if not (results / "designs" / f"{s.id}.json").is_file()]
 
 
-def command(session: Session, workdir: Path, last: Path, *, model: str) -> List[str]:
-    """Return the ``codex exec`` argv for one session."""
+def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Optional[str] = None) -> List[str]:
+    """Return the ``codex exec`` argv for one session (``oss``: a local provider such as ``ollama``)."""
     argv = ["codex", "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
             "-s", "workspace-write", "-m", model, "--output-schema", str(design.SCHEMA), "-o", str(last),
             "-C", str(workdir), "-c", WEB_SEARCH_OFF]
+    if oss:
+        argv += ["--oss", "--local-provider", oss]
     for feature in DISABLED_FEATURES:
         argv += ["--disable", feature]
     if session.condition in SPACE_CONDITIONS:
@@ -270,11 +292,18 @@ def _codex_home(root: Path) -> Path:
     return home
 
 
-def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path], key: Optional[str]) -> Dict[str, str]:
-    """Return the session's environment: an allow-list, never the operator's secrets."""
+def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path], key: Optional[str],
+                 oss: Optional[str] = None) -> Dict[str, str]:
+    """Return the session's environment: an allow-list, never the operator's secrets.
+
+    With a local provider (``oss``), its own variables (``OLLAMA_*``: host, API key) pass through, since Codex
+    needs them to reach the model.
+    """
     path = [p for p in os.environ.get("PATH", "").split(os.pathsep)
             if not (Path(p) / "ddspace").exists()]                  # N: no ddspace on the PATH
     env = {k: os.environ[k] for k in SAFE_ENV if k in os.environ}
+    if oss:
+        env.update({k: v for k, v in os.environ.items() if k.startswith(f"{oss.upper()}_")})
     env.update(CODEX_HOME=str(codex_home), PATH=os.pathsep.join(path))
     if session.condition in SPACE_CONDITIONS:
         if ddspace_bin is not None:
@@ -300,13 +329,14 @@ def _events(stdout: str) -> List[Dict[str, Any]]:
 def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path, *, model: str,
         results: Path = RESULTS, prompt: Path = design.PROMPT, keep_raw: bool = False,
         ddspace_bin: Optional[Path] = None,
-        key: Optional[str] = None, timeout: int = TIMEOUT) -> Dict[str, Any]:
+        key: Optional[str] = None, timeout: int = TIMEOUT, oss: Optional[str] = None,
+        version: Optional[str] = None) -> Dict[str, Any]:
     """Run one session; write its design and summary; return the summary."""
     root = scratch / session.id
     shutil.rmtree(root, ignore_errors=True)
     try:
         return _run(session, brief, workspaces, root, model=model, results=results, prompt=prompt,
-                    keep_raw=keep_raw, ddspace_bin=ddspace_bin, key=key, timeout=timeout)
+                    keep_raw=keep_raw, ddspace_bin=ddspace_bin, key=key, timeout=timeout, oss=oss, version=version)
     finally:
         shutil.rmtree(root / "codex-home", ignore_errors=True)     # the copied login never outlives the session
         if not keep_raw:
@@ -314,7 +344,8 @@ def run(session: Session, brief: Dict[str, Any], workspaces: Path, scratch: Path
 
 
 def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, *, model: str, results: Path,
-         prompt: Path, keep_raw: bool, ddspace_bin: Optional[Path], key: Optional[str], timeout: int) -> Dict[str, Any]:
+         prompt: Path, keep_raw: bool, ddspace_bin: Optional[Path], key: Optional[str], timeout: int,
+         oss: Optional[str] = None, version: Optional[str] = None) -> Dict[str, Any]:
     workdir = root / "ws"
     if session.condition in SPACE_CONDITIONS:
         shutil.copytree(workspaces / session.condition, workdir)
@@ -322,17 +353,17 @@ def _run(session: Session, brief: Dict[str, Any], workspaces: Path, root: Path, 
         workdir.mkdir(parents=True)
     (workdir / "BRIEF.md").write_text(f"# {brief['system']}\n\n{brief['text'].strip()}\n", encoding="utf-8")
     last = root / "last.json"
-    argv = command(session, workdir, last, model=model)
+    argv = command(session, workdir, last, model=model, oss=oss)
     argv[0] = shutil.which("codex") or "codex"           # resolved here: the session PATH may not have it
     record = {"session": session.id, "brief": session.brief, "condition": session.condition, "rep": session.rep,
-              "model": model, "matching_model": MATCHING_MODEL,
+              "model": model, "provider": oss or "openai", "codex_version": version, "matching_model": MATCHING_MODEL,
               "prompt": prompt.name, "prompt_sha256": design.sha256(prompt),
               "schema_sha256": design.sha256(design.SCHEMA),
               "started_at": datetime.now().isoformat(timespec="seconds")}
     problems = preflight(session, argv, workdir, model=model)
     summary: Dict[str, Any] = {}
     if not problems:
-        env = _environment(session, _codex_home(root), ddspace_bin, key)
+        env = _environment(session, _codex_home(root), ddspace_bin, key, oss)
         start = time.monotonic()
         timed_out = False
         try:
@@ -388,8 +419,21 @@ def main() -> None:
     parser.add_argument("--reps", type=int, default=2)
     parser.add_argument("--keep-raw", action="store_true", help="keep raw logs and session copies (debugging)")
     parser.add_argument("--timeout", type=int, default=TIMEOUT, help="seconds per session before it fails")
+    parser.add_argument("--oss", metavar="PROVIDER",
+                        help="run the model through a local provider (e.g. ollama, for Ollama Cloud models)")
+    parser.add_argument("--results", default="results",
+                        help="results folder in the study folder: results (default) or results-<label>, "
+                             "one per agent model")
     args = parser.parse_args()
-    prompt, results = design.PROMPT, RESULTS
+    prompt = design.PROMPT
+    try:
+        results = design.results_folder(args.results)
+    except ValueError as exc:
+        sys.exit(str(exc))
+    other = model_mismatch(results, args.model)
+    if other:
+        sys.exit(f"{results.name}/ holds {len(other)} sessions run with another agent model (such as {other[0]}). "
+                 f"Use another folder, e.g. --results results-{args.model.split(':')[0].replace('/', '-')}.")
     mixed = prompt_mismatch(results, prompt)
     if mixed:
         sys.exit(f"{results.name}/ holds {len(mixed)} sessions run with another version of {prompt.name} "
@@ -409,13 +453,16 @@ def main() -> None:
     if not key and set(conditions) & set(SPACE_CONDITIONS):
         print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail (use --no-llm)")  # noqa: T201
     ddspace_bin = Path(sys.executable).with_name("ddspace")
+    version = codex_version()
+    print(f"{version or 'codex version unknown'}; model {args.model}"  # noqa: T201
+          f"{f' via {args.oss}' if args.oss else ''}; results in {results.name}/")
     for s in pending(plan(briefs, conditions, args.reps), results):
         brief = next(b for b in briefs if b["id"] == s.brief)
         try:
             rec = run(s, brief, args.workspaces.resolve(), args.scratch.resolve(), model=args.model,
                       results=results, prompt=prompt, keep_raw=args.keep_raw,
                       ddspace_bin=ddspace_bin if ddspace_bin.is_file() else None, key=key,
-                      timeout=args.timeout)
+                      timeout=args.timeout, oss=args.oss, version=version)
         except Exception as exc:                          # one broken session must not stop the batch
             print(f"{s.id}: error {type(exc).__name__}: {exc}")  # noqa: T201
             continue
