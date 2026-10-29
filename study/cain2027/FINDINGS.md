@@ -128,8 +128,7 @@ Limits of this claim:
 
 - This is grounding, not quality: a cited choice is justified and traceable, not necessarily better (finding 3).
 - N has nothing to cite, so grounding is a property of M and E, not a measured difference with N.
-- The blind rating cannot see grounding (citations are removed from the packets to hide the condition), so the
-  claim rests on these automated checks.
+- The claim rests on these automated checks; no human judged the designs.
 
 ### 3. The mined space does not steer choices toward the expert preferences (fit)
 
@@ -188,9 +187,11 @@ out even from E.
   prompt step that weighs each option against the brief's priorities), makes choices fit the requirements
   better.
 
-## Still pending
+## Not done for this paper
 
-- **Blind rating** (layer 3): the main evidence on choice quality, since fit is weak. See `RUNNING.md` step 8.
+- **Blind rating** (layer 3): decided on 2026-10-28 not to run it for the CAIN paper. Choice quality is therefore
+  not assessed by people; the paper says so in its threats and lists practitioner assessment as future work. The
+  rating kit (`rating.py`, `RUNNING.md` step 8) stays in the artifact for a later study.
 
 ## Threats
 
