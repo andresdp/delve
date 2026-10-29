@@ -51,6 +51,8 @@ Caveats to report:
 
 ## Layer 3: a small blind human rating
 
+Not run for the CAIN 2027 paper (decided on 2026-10-28); the procedure and the kit stay for a later study.
+
 - **Sample:** repetition 1 of every brief and condition (4 briefs x 3 conditions = 12 ADR sets).
 - **Blinding:** `rating.py packets` renders each set as one packet (the brief, then the ADRs) under a random
   code, without value ids, citations, and any M or E graph id found in the text (with `--workspaces`). Each rater
@@ -82,8 +84,8 @@ Added after the first 24 sessions (2026-10-26), and reported as such:
 - **Five repetitions** per brief and condition instead of two (60 sessions per prompt version), for ranges that
   can be read.
 - **Fit basis.** In v1, fit rested on few decisions (about two per session in N and M), because many choices
-  matched no expert option of the decision they touched. Fit is reported with `fit_decisions`, and the
-  human rating's fit item is the main evidence on fit.
+  matched no expert option of the decision they touched. Fit is reported with `fit_decisions`, as a weak proxy;
+  no human assessment of choice quality was made for the paper.
 - **MADR titles.** The prompt first asked for each decision "as a short title or question"; it now asks for
   MADR titles (problem and chosen solution). The MADR run (`results/`) is the primary result; the earlier run
   (`results-question-titles/`) is a robustness check. Decision titles are part of what the matcher compares, so
@@ -93,7 +95,7 @@ Added after the first 24 sessions (2026-10-26), and reported as such:
 
 - Per condition, means and ranges of the layer 1 and layer 2 metrics, also per brief (only four briefs); fit
   with its number of decisions; the MADR run as the primary result, the earlier run as a robustness check.
-- The layer 3 ratings with their agreement.
+- The matcher's precision on the hand-checked best matches (layer 1). The layer 3 rating was not run.
 - One qualitative example.
 - Threats: one domain, four author-written briefs, author-chosen forces, the expert model as the only reference, a
   single agent and model from one provider (also the judge's), five repetitions, and a prompt change (MADR titles)

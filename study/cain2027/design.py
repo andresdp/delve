@@ -28,6 +28,42 @@ _KEY = re.compile(r"sk-[A-Za-z0-9_\-]{12,}")
 _QUESTION = re.compile(r"^(how|what|where|when|which|who|why|should|whether|do|does|is|are|can)\b", re.I)
 
 
+_RESULTS_NAME = re.compile(r"^results(-[A-Za-z0-9._-]+)?$")
+
+
+def results_folder(name: str) -> Path:
+    """The study's results folder ``name`` (``results`` or ``results-<label>``, e.g. one per agent model).
+
+    The name pattern keeps every results folder under the raw-log ignore rule (``results*/raw/``).
+    """
+    if not _RESULTS_NAME.match(name):
+        raise ValueError(f"results folder {name!r}: use 'results' or 'results-<label>' (letters, digits, . _ -)")
+    return HERE / name
+
+
+_FENCE = re.compile(r"^\s*```[A-Za-z]*\s*\n(.*)\n\s*```\s*$", re.S)
+
+
+def unfence(text: str) -> str:
+    """The reply without a Markdown code block around it (some models wrap their JSON in one)."""
+    match = _FENCE.match(text)
+    return match.group(1) if match else text
+
+
+def prompt_text(prompt: Path, schema_in_prompt: bool = False) -> str:
+    """The prompt sent to the agent; with ``schema_in_prompt``, the output schema is appended to it.
+
+    Codex passes ``--output-schema`` to OpenAI models as structured output; models reached through a local
+    provider (``--oss``) do not receive it, so they get the same schema as text instead.
+    """
+    text = prompt.read_text(encoding="utf-8")
+    if not schema_in_prompt:
+        return text
+    return (text.rstrip("\n") + "\n\nThe required JSON format, as a JSON Schema (every property is required):"
+            "\n\n```json\n" + SCHEMA.read_text(encoding="utf-8").strip()
+            + "\n```\n\nReturn only the JSON object, not wrapped in a code block.\n")
+
+
 def schema() -> Dict[str, Any]:
     """Return the design schema."""
     return json.loads(SCHEMA.read_text(encoding="utf-8"))

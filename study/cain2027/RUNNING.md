@@ -1,5 +1,8 @@
 # Running the study
 
+This is the operator's procedure, from the design briefs to committed results. To reproduce or check the
+reported results, `REPRODUCE.md` is shorter.
+
 This guide takes you from the design briefs to committed, reproducible results. Each step says what it does,
 what you should see, and what to do if it goes wrong. The criteria used to validate the results (steps 3, 8 and
 9) are explained in `VALIDATION.md`.
@@ -11,8 +14,9 @@ systems described in short briefs, under three conditions:
 - **M**: the brief plus the design space mined by ddspace from the C1 sources;
 - **E**: the brief plus the C1 expert decision model, as a design space.
 
-There are 4 briefs, 3 conditions and 2 repetitions, so 24 sessions in all. The ADRs are then scored against the
-expert model and rated blind by two people.
+The plan started with 4 briefs, 3 conditions and 2 repetitions (24 sessions) and was extended to 5 repetitions
+(60 sessions, step 11). The ADRs are scored against the expert model. The blind rating by two people (step 8)
+was prepared but not run for the paper.
 
 **Time and cost.** About 30 minutes of setup, then 5 to 15 minutes per session, so 2 to 6 hours for the full run
 (it can be stopped and resumed). Expect roughly $1 to $3 per session, plus a few cents for scoring.
@@ -403,3 +407,12 @@ cp study/cain2027/results-<label>/judge_cache.json study/cain2027/results/
 
 Then run with `--reps 5` (step 11) and score (step 7). The decision titles are part of what the matcher compares,
 so scores from different prompt versions are not comparable; report which prompt version the paper uses.
+
+## 13. Another agent model
+
+The runner can drive a model served through a local provider, for example Ollama
+(`--model <name> --oss ollama --results results-<label>`): one results folder per agent model, and the schema is
+sent in the prompt, since such models may ignore Codex's output schema. No other model is part of the reported
+study. Codex's sandbox limits writes and network access, not reads, so a model that does not keep to its working
+folder can read other files on the machine. Run another model only under an account or container that holds
+nothing else, and check its logs (`--keep-raw`) for commands outside the session folder.

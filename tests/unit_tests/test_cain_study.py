@@ -730,3 +730,89 @@ def test_sessions_of_another_prompt_version_are_reported(tmp_path):
         json.dumps({"prompt_sha256": design.sha256(prompt)}))
     assert sessions.prompt_mismatch(tmp_path / "results", prompt) == ["fraud-N-r1"]
     assert sessions.prompt_mismatch(tmp_path / "nothing", prompt) == []
+
+
+# ---------------------------------------------------------------- a second agent model (e.g. through Ollama)
+
+
+def test_command_adds_a_local_provider_after_the_pinned_model(tmp_path):
+    argv = sessions.command(sessions.Session("fraud", "N", 1), tmp_path, tmp_path / "last.json", model="beam:cloud",
+                            oss="ollama")
+    assert argv[argv.index("-m") + 1] == "beam:cloud"
+    assert argv[argv.index("--oss") + 1:argv.index("--oss") + 3] == ["--local-provider", "ollama"]
+    assert "--oss" not in sessions.command(sessions.Session("fraud", "N", 1), tmp_path, tmp_path / "x", model="m")
+    assert sessions.preflight(sessions.Session("fraud", "N", 1), argv, tmp_path, model="beam:cloud") == []
+
+
+def test_only_the_local_providers_variables_reach_the_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("OLLAMA_API_KEY", "ollama-secret")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-operator-secret-key")
+    s = sessions.Session("fraud", "N", 1)
+    with_oss = sessions._environment(s, tmp_path, None, None, "ollama")
+    assert with_oss["OLLAMA_API_KEY"] == "ollama-secret" and "OPENAI_API_KEY" not in with_oss
+    assert "OLLAMA_API_KEY" not in sessions._environment(s, tmp_path, None, None)
+
+
+def test_one_results_folder_holds_one_agent_model(tmp_path):
+    (tmp_path / "summaries").mkdir()
+    (tmp_path / "summaries" / "fraud-N-r1.json").write_text(json.dumps({"model": "gpt-6-luna"}))
+    assert sessions.model_mismatch(tmp_path, "gpt-6-luna") == []
+    assert sessions.model_mismatch(tmp_path, "beam:cloud") == ["fraud-N-r1"]
+
+
+def test_results_folders_are_named_results_or_results_label():
+    assert design.results_folder("results-beam").name == "results-beam"
+    for bad in ("beam", "results/../x", "results beam", "../results"):
+        with pytest.raises(ValueError):
+            design.results_folder(bad)
+
+
+def test_a_reply_wrapped_in_a_code_block_is_unwrapped():
+    assert design.unfence('```json\n{"a": 1}\n```') == '{"a": 1}'
+    assert design.unfence('  ```\n{"a": 1}\n```  \n') == '{"a": 1}'
+    assert design.unfence('{"a": 1}') == '{"a": 1}'
+
+
+def test_local_providers_get_the_schema_in_the_prompt():
+    plain = design.prompt_text(design.PROMPT)
+    with_schema = design.prompt_text(design.PROMPT, schema_in_prompt=True)
+    assert plain == design.PROMPT.read_text() and with_schema.startswith(plain.rstrip("\n"))
+    assert '"decisions"' in with_schema and "Return only the JSON object" in with_schema
+
+
+def test_a_session_through_a_local_provider_sends_the_schema(tmp_path, monkeypatch):
+    sent = {}
+
+    def fake_run(argv, **kwargs):
+        sent["input"], sent["argv"] = kwargs.get("input"), argv
+        Path(argv[argv.index("-o") + 1]).write_text("```json\n" + json.dumps(FIXTURE_DESIGN) + "\n```")
+        return _Proc(_jsonl(*_events()))
+    monkeypatch.setattr(sessions.subprocess, "run", fake_run)
+    rec = sessions.run(sessions.Session("fraud", "N", 1), {"system": "S", "text": "T"}, tmp_path / "ws",
+                       tmp_path / "scratch", model="beam:cloud", results=tmp_path / "results-beam", oss="ollama")
+    assert rec["status"] == "ok" and rec["schema_in_prompt"] and rec["provider"] == "ollama"
+    assert '"decisions"' in sent["input"] and "--oss" in sent["argv"]
+    assert json.loads((tmp_path / "results-beam" / "designs" / "fraud-N-r1.json").read_text())["decisions"]
+
+
+analyze = _load("analyze")
+
+
+def test_analysis_recomputes_the_reported_numbers_offline(tmp_path):
+    rows = [{"session": f"b-{c}-r{r}", "brief": "b", "condition": c, "rep": r, "decisions": 4 + r,
+             "relevant_decision_coverage": {"N": 0.1, "M": 0.2, "E": 0.3}[c] + r / 100, "cost_usd": 0.01}
+            for c in "NME" for r in (1, 2, 3)]
+    results = tmp_path / "results"
+    (results / "labels").mkdir(parents=True)
+    (results / "scores.json").write_text(json.dumps({"sessions": rows}))
+    with (results / "labels" / "b-M-r1.checked.csv").open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["decision", "alternative", "best_match", "other_matches", "best match correct (y/n)"])
+        w.writerows([["d", "a", "X [same]", "", "y"], ["d", "b", "Y [same]", "", "n"], ["d", "c", "", "", ""],
+                     ["d", "e", "Z [same]", "", ""]])
+    text = analyze.report(results)
+    assert "| Relevant-decision coverage (best match) | 0.12 ± 0.01 | 0.22 ± 0.01 | 0.32 ± 0.01 |" in text
+    assert "M above N in 3 of 3 pairs" in text and "$0.09 for 9 sessions" in text
+    assert "- all: 1/2 = 0.50" in text                        # unmarked and match-less rows are not counted
+    low, high = analyze.wilson(155, 244)
+    assert round(low, 2) == 0.57 and round(high, 2) == 0.69

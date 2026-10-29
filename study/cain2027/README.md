@@ -31,14 +31,16 @@ The build refuses inputs whose hashes differ from the manifest, and copies the m
 
 ## Running and scoring
 
-Step-by-step instructions, from the briefs to the committed results, are in `RUNNING.md`; the validation
-criteria are in `VALIDATION.md`.
+To reproduce or check the results (from recomputing the reported numbers offline to rerunning the agent), see
+`REPRODUCE.md`. The operator's step-by-step procedure, from the briefs to the committed results, is in
+`RUNNING.md`; the validation criteria are in `VALIDATION.md`.
 
 ```bash
 python study/cain2027/reference.py                    # per-brief expert reference (layer 1) -> references/
 STUDY_OPENAI_API_KEY=... python study/cain2027/run_sessions.py --workspaces <folder> --scratch <folder> \
     --model <codex model> [--briefs fraud] [--conditions N,M,E] [--reps 2]
 python study/cain2027/score.py --workspaces <folder> [--export-labels]
+python study/cain2027/analyze.py                      # the reported numbers, offline, from results/
 python study/cain2027/rating.py packets --workspaces <folder>   # blind rating kit (layer 3)
 python study/cain2027/rating.py agreement [--unblind]
 ```

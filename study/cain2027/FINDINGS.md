@@ -1,7 +1,7 @@
 # Findings of the C1 agent study
 
 Results of the study as run on 2026-10-26 and 2026-10-27, with what they support and what they do not. The
-procedure is in `RUNNING.md` and the validation criteria in `VALIDATION.md`. Numbers come from
+procedure is in `RUNNING.md` (reproduction: `REPRODUCE.md`) and the validation criteria in `VALIDATION.md`. Numbers come from
 `results/scores.json` (MADR titles: the primary result) and `results-question-titles/scores.json` (the earlier
 wording).
 
@@ -23,6 +23,11 @@ wording).
   the pilot, whose full logs were kept, every command the agent ran in M and E was a `ddspace` call; the session
   summaries of the full runs record the `ddspace` calls (all 40 M and E sessions made them) but not the text of
   other commands. The study was not rerun for this change.
+- **User-level skills were visible.** Codex loads skills from the operator's home folder (`~/.agents/skills`),
+  which the session's private Codex home does not cover. In every session, of every condition, the agent could
+  therefore see the names and descriptions of five installed skills (among them books on domain-driven design and
+  on microservices). In the pilot, whose full logs were kept, the agent never opened any of them. Found on
+  2026-10-28; kept as is, so that all sessions ran under the same setup.
 - **Scoring:** the agent's options were matched to the expert options by the ground-truth matcher (judge
   `openai/gpt-5.4-mini`, frozen settings), each option through its best match only.
 - **Cost:** $0.27 (MADR titles) and $0.29 (earlier wording); about 1 minute per session in
@@ -128,8 +133,7 @@ Limits of this claim:
 
 - This is grounding, not quality: a cited choice is justified and traceable, not necessarily better (finding 3).
 - N has nothing to cite, so grounding is a property of M and E, not a measured difference with N.
-- The blind rating cannot see grounding (citations are removed from the packets to hide the condition), so the
-  claim rests on these automated checks.
+- The claim rests on these automated checks; no human judged the designs.
 
 ### 3. The mined space does not steer choices toward the expert preferences (fit)
 
@@ -161,6 +165,14 @@ out even from E.
 - **The judge is lenient.** It labels loosely related options "same" (for example, an online feature-serving
   pipeline and a CI/CD pipeline). The lenient reading inflates coverage (M's relevant coverage: 0.22 best match,
   0.41 lenient in the primary run); the best-match reading is the one reported.
+- **Matcher precision (hand check, 2026-10-28).** One author checked whether each best match in N and M names the
+  same design option as the agent's option, in all 40 N and M sessions of the primary run
+  (`results/labels/*.checked.csv`; 244 of the 255 best matches labelled, 11 left unlabelled). Precision: 0.64
+  (155/244; 95% Wilson interval 0.57-0.69); N 0.66 (65/98), M 0.62 (90/146); per brief and condition from 0.46
+  (forecast M) to 0.74 (documents N). E was not checked: its options carry the expert model's own names. So the
+  matcher overstates absolute coverage by about a third, to a similar degree in N and M; the N vs M comparison is
+  not an artefact of matching errors. (On the vision brief alone, N looked worse, 0.54 against 0.71; that did not
+  hold over the four briefs.)
 - **The decision wording affects matching.** Titles that name the solution raised N's matched alternatives
   from 0.42 to 0.60 (see the primary results). Coverage comparisons are valid within one prompt version only.
 
@@ -170,19 +182,21 @@ out even from E.
   effect for M (and a larger one for E), grounding as the clearest contribution, fit as the honest limit,
   reported with its decision counts and the batch-serving example. The earlier run (question titles) is
   reported as a robustness check, with the wording effect on matching stated.
-- **Qualitative example:** the `documents` brief across N, M and E (`results/adrs/documents-*-r1/`; M chose
-  batch serving in r1). It shows both the wider coverage and the well-cited batch-serving choice that fit
-  penalizes.
+- **Qualitative example (paper Fig. 3):** the card-fraud brief, repetition 3, on feature access
+  (`results/adrs/fraud-*-r3/`). N does not decide it and lists it as open; M chooses an online feature-serving
+  pipeline (`v:43.2`) and cites two passages (`s04_p01`, `s22_p03`) from sources that adopt it; E chooses the
+  expert-preferred feature store and cites identifiers. The batch-serving choices of `documents` illustrate the
+  limit of fit in the text.
 - **Future work** suggested by the results: mine forces and impacts (trade-offs) along with options and expose
   them to the agent, then test whether trade-off knowledge, given to the agent or asked of it (for example, a
   prompt step that weighs each option against the brief's priorities), makes choices fit the requirements
   better.
 
-## Still pending
+## Not done for this paper
 
-- **Label check** (matcher precision): mark the best matches of N and M, repetition 1 (8 files in
-  `results/labels/`, already exported for the primary run). Report the share judged correct.
-- **Blind rating** (layer 3): the main evidence on choice quality, since fit is weak. See `RUNNING.md` step 8.
+- **Blind rating** (layer 3): decided on 2026-10-28 not to run it for the CAIN paper. Choice quality is therefore
+  not assessed by people; the paper says so in its threats and lists practitioner assessment as future work. The
+  rating kit (`rating.py`, `RUNNING.md` step 8) stays in the artifact for a later study.
 
 ## Threats
 

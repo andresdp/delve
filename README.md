@@ -53,8 +53,11 @@ download for the graph and tree views. In the study, the agent read them through
 `ddspace point`, in workspaces that `study/cain2027/build_workspaces.py` rebuilds from the tracked inputs.
 
 - What was run and what it shows: [study/cain2027/FINDINGS.md](study/cain2027/FINDINGS.md).
-- How to rerun it, step by step: [study/cain2027/RUNNING.md](study/cain2027/RUNNING.md); validation criteria:
-  [study/cain2027/VALIDATION.md](study/cain2027/VALIDATION.md).
+- **How to reproduce it: [study/cain2027/REPRODUCE.md](study/cain2027/REPRODUCE.md).** From recomputing every
+  reported number offline (`python study/cain2027/analyze.py`, no API key) and rebuilding the agent's workspaces,
+  to rescoring the recorded designs and rerunning the Codex sessions. Validation criteria:
+  [study/cain2027/VALIDATION.md](study/cain2027/VALIDATION.md); the operator's full procedure:
+  [study/cain2027/RUNNING.md](study/cain2027/RUNNING.md).
 - The agent's ADRs, as Markdown: `study/cain2027/results/adrs/<brief>-<condition>-r<repetition>/` (the primary
   run); `results-question-titles/` holds a further run with an earlier prompt wording. Each results folder keeps
   its judge cache, so rescoring reuses the recorded verdicts.
@@ -156,7 +159,7 @@ Configuration, commands and output files: [USAGE.md](USAGE.md). Vocabulary: [CON
 | `src/delvedspace/` | The `ddspace` command: workspaces, sources and corpus, runs, wiki build, queries, agent setup |
 | `src/taxonomy_generator/` | The mining workflow (LangGraph), prompts, wiki export and queries |
 | `examples/` | The C3 sample wiki and two small corpora for QUICKSTART |
-| `study/cain2027/` | The coding-agent study: briefs, prompts, runner, scorer, results, and the two C1 wikis |
+| `study/cain2027/` | The coding-agent study: briefs, prompt, runner, scorer, results, the two C1 wikis, and `REPRODUCE.md` |
 | `tests/` | Unit tests, no API calls: `python -m pytest tests/unit_tests` |
 
 ## Background

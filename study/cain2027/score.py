@@ -33,6 +33,7 @@ import argparse
 import asyncio
 import csv
 import json
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -426,14 +427,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--workspaces", type=Path, help="folder with M and E, for grounding and consistency")
     parser.add_argument("--export-labels", action="store_true", help="write each session's matches for hand-checking")
+    parser.add_argument("--results", default="results",
+                        help="results folder in the study folder: results (default) or results-<label>")
     args = parser.parse_args()
-    results = RESULTS
+    results = design.results_folder(args.results)
     gt = json.loads((INPUTS / "gt_model.json").read_text(encoding="utf-8"))
     briefs = {b["id"]: b for b in design.load_briefs()}
     check_briefs(list(briefs.values()), gt)
     settings = load_settings(str(INPUTS / "config.yaml"))
     config = MatcherConfig.from_settings(settings)
-    config = MatcherConfig(**{**config.__dict__, "cache_path": str(results / "judge_cache.json")})
+    cache_path = results / "judge_cache.json"
+    if results != RESULTS and not cache_path.is_file() and (RESULTS / "judge_cache.json").is_file():
+        results.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(RESULTS / "judge_cache.json", cache_path)     # same pair, same verdict across folders
+    config = MatcherConfig(**{**config.__dict__, "cache_path": str(cache_path)})
     rates = yaml.safe_load(RATES.read_text(encoding="utf-8")) if RATES.is_file() else {}
     graphs = {}
     if args.workspaces:
