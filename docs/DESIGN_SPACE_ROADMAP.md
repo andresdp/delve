@@ -2,6 +2,7 @@
 title: Design Space Roadmap — multi-persona GT + Shaw-faithful exploration
 description: A refined, phased implementation plan for making Delve approximate Mary Shaw's design-space notion more closely (flat/1-level for now), by simulating multiple analyst personas across open, axial, and selective coding, and by adding a distinct "unoccupied points" exploration capability.
 generated: 2026-08-21
+refreshed: 2026-10-31 (status per phase; the persona work is the "multi-persona coding" item of docs/plans/improvements.md)
 supersedes: >-
   The multi-persona bullet in docs/NEW_IDEAS.md (options A/B only) is refined and extended here to
   cover selective coding too, per direct request. docs/GT_DESIGN_SPACE_ASSESSMENT.md's enhancements
@@ -9,6 +10,41 @@ supersedes: >-
 ---
 
 # Design Space Roadmap: Multi-Persona Grounded Theory + Shaw-Faithful Exploration
+
+## Status (refreshed 2026-10-31)
+
+This roadmap was written on 2026-08-21. Since then the pipeline has gained, among other things:
+
+- tools-mode editing (validated operations with a log);
+- evidence linking with per-source stances;
+- value consolidation and recoding;
+- relevance selection with drop rationales;
+- an independent ground-truth matcher;
+- the `ddspace` workspace tool, with its wiki, design points and agent guide.
+
+The phases below are still valid in intent. What each one now means:
+
+| Phase | Status | What changed |
+|---|---|---|
+| 0. Measure before building | **Not run.** Still the gate for Phases 1–3 | Run it on C1 and C2 instead of `campus-bike`/`pharmacy-food`: they have expert references, so agreement can be read against the independent matcher's coverage, not only between runs. `compare_taxonomies` is now wired into the evaluation CLI (consistency mode). With model profiles, add a third contrast: the same persona on a different model. That gives a 2×2 of persona × model, which separates "perspective" from "model". |
+| 1. Multi-persona open coding | Not started | Per-persona model overrides come from model profiles (`docs/plans/2026-10-31-feat-model-profiles-plan.md`), not from a field of the persona. The persona tag must survive evidence linking and consolidation into the value's stances (`value.stances` per source today), so each value records whose reading it rests on. |
+| 2. Multi-persona axial coding, with reconciliation | Not started | In tools mode, each persona's draft is an operation log. Reconciliation is a diff and merge of taxonomies, the data-layer plan's R14, W17 and KTD5 (`docs/plans/2026-10-15-refactor-taxonomy-data-layer-plan.md`). The `actor` of each operation names the persona and its profile. Build after data-layer U3. |
+| 3. Multi-persona selective coding | Not started | `select_dimensions` and the dimension cap exist; the `core_nomination` field and the centrality signal are still new. The wiki already marks "core" dimensions by evidence (`core_min_sources`). Persona nominations would be a second, independent signal. |
+| 4. Explore unoccupied points | **Largely done, differently** | Design points exist: sampled and described in the wiki (`wiki.design_points: sample/describe`, `evaluation/design_points.py`), and composed on demand with `ddspace point` (checks, warnings, the sources that adopt every value). Two parts remain: novelty scoring against observed combinations, and value-level consistency. The forces plan (`2026-10-31-feat-forces-and-trade-offs-plan.md`) adds value-level `requires`/`excludes` links from expert models, and `point` warnings from them. |
+
+### Multi-persona coding: the plan in short (Phases 0–3)
+
+| Unit | What | Depends on |
+|---|---|---|
+| M0 | Phase 0 measurement on C1 and C2: personas folded into `use_case`, two same-persona reruns with other seeds, and, once profiles exist, the same persona on another model. Agreement by `compare_taxonomies` plus coverage by the independent matcher. **Gate:** cross-persona agreement must be clearly lower than same-persona agreement, at comparable coverage. | nothing (no code); profiles for the model contrast |
+| M1 | `personas:` in the config (id, lens description, profile name); a `{persona}` slot in `open_coding.md` (empty by default); `open_code_minibatch` fans out per document × persona; `OpenCode.persona`; the persona carried into stances | model profiles |
+| M2 | Per-persona drafts in a per-iteration state field; a reconciliation node before `check_saturation` (majority keeps; a single-persona dimension needs embedding cohesion as an independent second signal); edit-size saturation signal | M1; data-layer U3 (operations with `actor`) |
+| M3 | Per-persona selection with `core_nomination`; core by nominations plus relation centrality, with disagreements reported | M2 |
+| M4 | Inter-coder agreement in the run report (per stage, per persona pair), and persona provenance on wiki value pages | M1 |
+
+- **Cost:** open coding costs N times as much. Reconciliation adds one LLM call per borderline dimension.
+- **Defaults:** with `personas:` empty, the pipeline is unchanged, and the data-layer equivalence gate must
+  show identical output.
 
 ## What changed since the last assessment
 

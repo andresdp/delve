@@ -1,13 +1,14 @@
 ---
 title: "refactor: a taxonomy data layer — one model, validated operations, pluggable storage"
 type: refactor
-status: proposed (2026-10-15); parked until after the SANER submission (2026-10-23), except U1 (safe, additive)
+status: proposed (2026-10-15); refreshed 2026-10-31 (submissions done; U7 partly built; see Status)
 date: 2026-10-15
 related: >-
   src/taxonomy_generator/{state,schemas,taxonomy_editor,tool_update,utils,relations,pipeline_cli}.py,
   src/taxonomy_generator/nodes/*.py, src/taxonomy_generator/evaluation/*.py, src/taxonomy_generator/wiki/*.py,
   src/delvedspace/{runs,wiki_build,check,point}.py, benchmark/replay_consolidation.py,
-  docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md (the editor and the operation log)
+  docs/plans/2026-10-02-2134-feat-tool-based-taxonomy-update-plan.md (the editor and the operation log),
+  docs/plans/improvements.md (where this plan sits among the other improvements)
 ---
 
 # A taxonomy data layer
@@ -26,6 +27,33 @@ algorithms that change it, so that:
 
 The refactoring must not change any result the pipeline produces. In particular, the paper's C1–C3 numbers must
 stay the same (see Verification).
+
+## Status (refreshed 2026-10-31)
+
+- **Unblocked.** The SANER (2026-10-23) and CAIN (2026-10-30) submissions are in. Their artifacts are frozen on
+  the `artifact-paper` and `artifact-tool` branches, so work on main no longer collides with them. The
+  equivalence gate still applies: the C1–C3 numbers are the reference behaviour.
+- **Built since this plan (part of U7):**
+  - `ddspace import PATH --kind run|decision-model` (`src/delvedspace/importer.py`) makes an earlier run or an
+    expert decision model the workspace's current run;
+  - `ddspace point` composes and checks partial combinations of values without storing them.
+
+  Import checks only shape and relations (`clean_relations`), not the full `validate()` of U1; that remains U7's
+  job once U1 exists.
+- **Not started:** U0–U6, U8. There is no `model/` package; the run file is still the de facto data layer, and
+  every finding under "Current state" below still holds.
+- **New uses of the layer**, from `docs/plans/improvements.md`:
+  - **Forces and trade-offs** (`2026-10-31-feat-forces-and-trade-offs-plan.md`) add `Force`, `Impact` and
+    `ValueLink` to the model, with validation, and a top-level `forces` key to the run file (allowed by KTD2).
+    That plan prefers to land after U1.
+  - **Model profiles** (`2026-10-31-feat-model-profiles-plan.md`) share U0: the record/replay cache must key on
+    the resolved model and its profile settings, not only on a role's model string.
+  - **Multi-persona coding** (`docs/DESIGN_SPACE_ROADMAP.md`, refreshed 2026-10-31) needs the `actor` field of
+    U3 to name the persona and its profile. Its Phase 2 reconciliation of persona drafts is a diff and merge of
+    taxonomies (R14, W17 and KTD5).
+- **Answer to the question behind this plan:** "can a different construction procedure produce the taxonomy?"
+  Yes, once U3 and U4 exist. The Producers layer is exactly that seam: a LangGraph node, a deterministic pass, a
+  human, an agent or another procedure all emit the same validated operations.
 
 ## Current state (measured 2026-10-15, commit 4510f92)
 
@@ -353,14 +381,14 @@ reported metric.
 | Bulk ops become a "do anything" escape hatch | Medium | Medium | Each bulk op has its own validation and invariants, and is logged with its inputs |
 | A stricter seed validation rejects users' files | Low | Low | Warnings first, errors only for broken references; `--no-validate` |
 | Scope creep (event sourcing, DB backends) | Medium | Medium | U8 only on demand; `FileStore` is the default |
-| Work collides with the submission | High if started now | High | Only U1 (and U0) before 2026-10-23; the rest after |
+| Work collides with the submission | Resolved (2026-10-31) | — | Submissions are in; their artifacts are frozen on branches |
 
 ## Sequencing
 
 0. **U0: an LLM record/replay cache** for `load_chat_model` (keyed by model and prompt hash; record, replay and
    off modes). It is useful on its own: free reruns of benchmarks, and deterministic replays. It is a
    prerequisite for gating U3, U5 and U6.
-1. **U1, then U2:** additive; nothing in the pipeline changes. U1 can be done before the submission.
+1. **U1, then U2:** additive; nothing in the pipeline changes. U1 also unblocks the forces plan (2a).
 2. **U4, then U3:** storage and atomic operations; the tools-mode tests are the spec.
 3. **U5,** pass by pass, each with the gate.
 4. **U6, then U7:** a log for every mode, then import, edit and agent tools.
