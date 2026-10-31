@@ -117,7 +117,11 @@ ddspace query values "Replica placement" --table               # read-only quest
 ddspace ask "Which alternatives exist for replica placement?"  # an answer from the wiki, citing passages
 ddspace point "Leader-based" "WAL in S3" --table               # interpret one combination; nothing stored
 ddspace check                                                  # what is configured, missing, and done so far
+ddspace import gt_model.json --kind decision-model            # an expert decision model as the design space
 ```
+
+Every command and subcommand, with what it does and its main options, is described in
+[USAGE.md](USAGE.md#the-ddspace-command); `ddspace <command> --help` lists all options.
 
 ### Asking questions through a coding agent
 

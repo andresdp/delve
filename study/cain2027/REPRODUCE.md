@@ -23,7 +23,7 @@ Commands run from the repository's root folder unless stated otherwise.
 | `briefs.yaml` | The four briefs. `text` is what the agent reads; `forces` are expert force ids, used for scoring only |
 | `prompt.md`, `design.schema.json` | The prompt and the output schema, the same in every condition |
 | `inputs/` | The mined design space, its configuration, the source list and the expert model, with SHA-256 hashes in `manifest.json` |
-| `wikis/c1-mined/`, `wikis/c1-expert/` | The design spaces of M and E as wikis: Markdown (`wiki/`) and HTML (`site/index.html`) |
+| `wikis/c1-mined/`, `wikis/c1-expert/` | The design spaces of M and E as wikis: Markdown (`wiki/`) and HTML (`site/index.html`). Only in the published artifact; elsewhere, level 3 builds them |
 | `references/` | For each brief, the expert decisions that matter for its forces, with options ranked (written before any session) |
 | `results/` | The primary run (MADR titles), one file per session in each subfolder (below) |
 | `results-question-titles/` | The same 60 sessions with an earlier prompt wording, a robustness check |
@@ -43,7 +43,8 @@ Each results folder holds:
 - `labels/<session>.csv`: each option the agent considered and the expert option the matcher paired it with.
   The `*.checked.csv` copies (N and M of the primary run) hold an author's hand check of each pair, from which
   the matcher's precision is computed;
-- `judge_cache.json`: every verdict of the judge model, so that rescoring gives the same matches.
+- `judge_cache.json`: every verdict of the judge model, so that rescoring gives the same matches. It is in the
+  published artifact and at the git tag `cain2027-study`, but not on the main branch (see level 4).
 
 ## 1. Read
 
@@ -55,6 +56,9 @@ The two design spaces open in a browser:
   relations).
 
 The graph and tree views need the files on disk (download the repository); the anonymous viewer blocks scripts.
+If `wikis/` is missing (it is kept only in the published artifact, being 26 MB of generated files), build the
+workspaces as in level 3: the same wikis are `M/wiki/` with `M/site/index.html` and `E/wiki/` with
+`E/site/index.html`. They are identical to the published ones except for build timestamps.
 The agent itself did not browse these pages: it read the same content through `ddspace query` and `ddspace point`
 (level 3).
 
@@ -115,6 +119,17 @@ opening `raw/graph.json` (Rule 6, added after the runs; see `FINDINGS.md`).
 Scoring matches each option the agent considered to the expert options. Embeddings propose candidate pairs, and
 the judge model (`gpt-5.4-mini`) decides each pair. Every recorded verdict is in `judge_cache.json`, so rescoring
 the recorded designs makes no judge calls. It needs an OpenAI API key for the embeddings only.
+
+The caches (14 MB) are not on the main branch. They are in the published artifact and at the git tag
+`cain2027-study`; to restore them in a clone:
+
+```bash
+git restore --source cain2027-study -- study/cain2027/results/judge_cache.json \
+    study/cain2027/results-question-titles/judge_cache.json
+```
+
+Without them, rescoring asks the judge again (a few dollars), and since the judge is not deterministic, the
+numbers may differ slightly from the reported ones. Levels 1 to 3 and `analyze.py` do not need the caches.
 
 Score a copy, to keep the recorded scores for comparison:
 

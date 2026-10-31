@@ -3,6 +3,7 @@
 import json
 import re
 import shlex
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -243,3 +244,16 @@ def test_guide_tells_agents_to_use_the_commands_not_the_raw_graph(ws):
     rules = (ws.root / "AGENTS.md").read_text().split("## Rules", 1)[1]
     assert "through `ddspace query` and `ddspace point`, not by opening or parsing" in rules
     assert "`raw/graph.json`" in rules
+
+
+def test_usage_md_describes_every_command():
+    """USAGE.md is the command reference: a command added to the CLI must be described there."""
+    import typer.main
+
+    usage = (Path(__file__).resolve().parents[2] / "USAGE.md").read_text(encoding="utf-8")
+    root = typer.main.get_command(cli.app)
+    names = []
+    for name, command in root.commands.items():
+        names += [f"ddspace {name} {sub}" for sub in getattr(command, "commands", {})] or [f"ddspace {name}"]
+    missing = [n for n in names if f"`{n}" not in usage]
+    assert not missing, f"not described in USAGE.md: {missing}"
