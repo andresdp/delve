@@ -1,0 +1,384 @@
+{
+  "decisions": [
+    {
+      "decision": "How should the scoring model integrate with the payments application?",
+      "context": "Each transaction needs a score before authorization. A separately deployable model service fits the online scoring path.",
+      "drivers": [
+        "score before authorization",
+        "peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "independent scaling",
+            "separate deployment"
+          ],
+          "cons": [
+            "network hop",
+            "service dependency"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "no remote call",
+            "simple request path"
+          ],
+          "cons": [
+            "coupled deployment",
+            "shared scaling limits"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "A dedicated service can scale for transaction peaks and isolates model deployment; the extra network hop must fit the latency budget. (d:1, v:1.1)",
+      "consequences": [
+        "Keep the synchronous service path low latency.",
+        "Scale and monitor the scoring service independently."
+      ]
+    },
+    {
+      "decision": "How should online scores be served?",
+      "context": "Fraud scores must arrive within tens of milliseconds as part of authorization. This requires synchronous online inference rather than scheduled batch scoring.",
+      "drivers": [
+        "tens of milliseconds",
+        "synchronous authorization",
+        "peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "real-time scoring",
+            "independent scaling"
+          ],
+          "cons": [
+            "network overhead",
+            "service dependency"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "scheduled processing",
+            "writes results to storage"
+          ],
+          "cons": [
+            "not transaction synchronous",
+            "stale scores"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "real-time scoring",
+            "avoids remote model call"
+          ],
+          "cons": [
+            "less independent scaling",
+            "tied to application runtime"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "A real-time service matches the authorization flow and can be scaled for peaks; its network call must be kept within the response budget. (d:5, v:5.1)",
+      "consequences": [
+        "Authorization depends on scoring-service availability.",
+        "Capacity and latency need production monitoring."
+      ]
+    },
+    {
+      "decision": "How should features be persisted and accessed?",
+      "context": "Feature values contribute to each transaction score, and auditors need to identify which features produced it. A feature store is a candidate for providing a consistent access layer.",
+      "drivers": [
+        "feature-level traceability",
+        "low-latency access",
+        "auditor review"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "dedicated feature access",
+            "centralized feature management"
+          ],
+          "cons": [
+            "additional component",
+            "operational overhead"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "uses existing stores",
+            "fewer dedicated components"
+          ],
+          "cons": [
+            "feature access conventions needed",
+            "lineage may be harder"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "A dedicated feature access layer is a reasonable fit for traceable scoring, though the design space does not specify its latency or audit capabilities. (d:4, v:4.1)",
+      "consequences": [
+        "Feature reads add a dependency to online scoring.",
+        "Record feature values or immutable references with each score."
+      ]
+    },
+    {
+      "decision": "How should the system retain evidence for score audits?",
+      "context": "Auditors must be able to identify the model version and features behind each decision. Production tracking and data versioning provide relevant design-space options, but the space does not define a complete audit record.",
+      "drivers": [
+        "model-version traceability",
+        "feature traceability",
+        "auditor review"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "tracks usage and inputs",
+            "tracks outputs and interpretability"
+          ],
+          "cons": [
+            "added storage",
+            "sensitive records need controls"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "records inputs and predictions",
+            "supports operational review"
+          ],
+          "cons": [
+            "may omit model lineage",
+            "log volume"
+          ]
+        },
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "versions training data",
+            "supports reproducibility"
+          ],
+          "cons": [
+            "does not alone identify online features",
+            "added repository"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "It covers usage, inputs, outputs, and interpretability, making it the closest listed option for later score review; pair each decision record with the model version and feature values or immutable references. (d:22, v:22.4)",
+      "consequences": [
+        "Retain model version and feature evidence per score.",
+        "Set retention and access controls for audit records."
+      ]
+    },
+    {
+      "decision": "How should model updates be deployed?",
+      "context": "Model releases must be traceable and recoverable without disrupting transaction scoring. The design space includes a previous-version rollback option and a multi-version production option.",
+      "drivers": [
+        "model-version traceability",
+        "scoring availability",
+        "safe updates"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "recovery path",
+            "version changes explicit"
+          ],
+          "cons": [
+            "rollback takes deployment action",
+            "requires prior artifact retention"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "multiple versions available",
+            "supports staged rollout"
+          ],
+          "cons": [
+            "routing complexity",
+            "more serving capacity"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "simple active version",
+            "lower serving complexity"
+          ],
+          "cons": [
+            "no concurrent version option",
+            "switch may disrupt service"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "A previous version provides a direct recovery option while retaining a clear deployed version for audit; it does not by itself specify the rollout procedure. (d:10, v:10.2)",
+      "consequences": [
+        "Retain deployable prior model artifacts.",
+        "Log active model version with each score."
+      ]
+    },
+    {
+      "decision": "What production tests should gate model releases?",
+      "context": "A bad model or service release could affect transaction authorization. The brief gives latency and availability requirements, so rollout and performance checks matter.",
+      "drivers": [
+        "low latency",
+        "peak availability",
+        "safe model updates"
+      ],
+      "alternatives": [
+        {
+          "label": "Canary testing",
+          "value_id": "v:26.1",
+          "citations": [
+            "d:26",
+            "v:26.1"
+          ],
+          "pros": [
+            "limits initial exposure",
+            "checks release in production"
+          ],
+          "cons": [
+            "requires traffic control",
+            "needs rollback criteria"
+          ]
+        },
+        {
+          "label": "Prediction service performance testing",
+          "value_id": "v:26.13",
+          "citations": [
+            "d:26",
+            "v:26.13"
+          ],
+          "pros": [
+            "checks response performance",
+            "can exercise peak load"
+          ],
+          "cons": [
+            "test environment may differ",
+            "does not assess model quality"
+          ]
+        },
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "checks predictive quality",
+            "can gate model release"
+          ],
+          "cons": [
+            "needs representative data",
+            "does not check serving capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Canary testing",
+        "value_id": "v:26.1"
+      },
+      "rationale": "A canary limits exposure during rollout, while performance tests should also verify the latency and peak-load requirements. (d:26, v:26.1, v:26.13)",
+      "consequences": [
+        "Define release thresholds and rollback criteria.",
+        "Measure service performance under peak load."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Authorization behavior when scoring is unavailable or exceeds the latency budget.",
+    "Exact audit record schema, retention period, and privacy controls.",
+    "Feature computation and retrieval strategy for online scoring."
+  ]
+}

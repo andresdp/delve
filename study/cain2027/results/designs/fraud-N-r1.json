@@ -1,0 +1,186 @@
+{
+  "decisions": [
+    {
+      "decision": "Score transactions synchronously before authorization",
+      "context": "Each transaction needs a fraud score before it is authorized, with latency in the tens of milliseconds.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request-response scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score available before authorization",
+            "Direct latency measurement"
+          ],
+          "cons": [
+            "Scoring delays authorization",
+            "Depends on service availability"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring after authorization",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples scoring from authorization",
+            "Absorbs bursts"
+          ],
+          "cons": [
+            "Score arrives too late",
+            "Cannot gate authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous request-response scoring",
+        "value_id": null
+      },
+      "rationale": "A score must be available before authorization, and the brief sets a tight response-time target.",
+      "consequences": [
+        "Authorization depends on the scoring path meeting its latency target."
+      ]
+    },
+    {
+      "decision": "Scale scoring instances horizontally for transaction peaks",
+      "context": "The service must continue scoring transactions during peaks while returning results quickly.",
+      "drivers": [
+        "Peak availability",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled service instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Adds capacity during peaks",
+            "Limits single-instance bottlenecks"
+          ],
+          "cons": [
+            "Requires traffic distribution",
+            "Capacity management needed"
+          ]
+        },
+        {
+          "label": "Single larger service instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simpler deployment",
+            "No cross-instance coordination"
+          ],
+          "cons": [
+            "Limited peak capacity",
+            "Single failure point"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled service instances",
+        "value_id": null
+      },
+      "rationale": "Adding instances provides a direct way to handle peak load and reduce dependence on one scoring process.",
+      "consequences": [
+        "The service must distribute requests across instances."
+      ]
+    },
+    {
+      "decision": "Use immutable, versioned model artifacts for scoring",
+      "context": "Auditors must be able to identify which model produced each transaction score.",
+      "drivers": [
+        "Model version traceability",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Immutable, versioned model artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Identifies the scoring model",
+            "Supports historical reconstruction"
+          ],
+          "cons": [
+            "Requires version management",
+            "Retains older artifacts"
+          ]
+        },
+        {
+          "label": "Replace the active model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment process",
+            "Uses little artifact storage"
+          ],
+          "cons": [
+            "Obscures past model versions",
+            "Weakens audit reconstruction"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Immutable, versioned model artifacts",
+        "value_id": null
+      },
+      "rationale": "Recording a stable model version with each score makes the model used for that decision identifiable later.",
+      "consequences": [
+        "Each score must retain its model version identifier."
+      ]
+    },
+    {
+      "decision": "Record the feature values used for each score",
+      "context": "Auditors must be able to identify which features produced a score, not only which model was used.",
+      "drivers": [
+        "Feature traceability",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist a per-score feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Shows values used at scoring time",
+            "Supports later review"
+          ],
+          "cons": [
+            "Adds storage and write load",
+            "Requires retention controls"
+          ]
+        },
+        {
+          "label": "Persist feature names only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Lower storage use",
+            "Simpler records"
+          ],
+          "cons": [
+            "Does not show values used",
+            "Harder to reconstruct a score"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist a per-score feature snapshot",
+        "value_id": null
+      },
+      "rationale": "Keeping the values supplied to the model alongside its version provides an auditable record of the inputs that produced each score.",
+      "consequences": [
+        "Scoring records include feature values and require storage."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature definitions, sources, freshness requirements, and whether features are computed inline or retrieved from a feature store",
+    "Score schema, thresholds, and authorization behavior when scoring times out or is unavailable",
+    "Deployment platform, autoscaling policy, redundancy, and recovery targets",
+    "Audit record retention period, access controls, and storage technology"
+  ]
+}

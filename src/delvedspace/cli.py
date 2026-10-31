@@ -14,7 +14,7 @@ from typing import List, NoReturn, Optional
 import typer
 from rich.markup import escape
 
-from delvedspace import __version__, agent, chat, query_cli, runs, ui
+from delvedspace import __version__, agent, chat, importer, query_cli, runs, ui
 from delvedspace import sources as src
 from delvedspace import wiki_build as wb
 from delvedspace import workspace as wsmod
@@ -500,6 +500,53 @@ def update(
     _execute(ws, run, run_dir, new_corpus, ["--taxonomy", runs.relative(ws, seed), "--mode", "test"], html_report, verbose)
 
 
+# ---------------------------------------------------------------- import
+
+
+@app.command("import")
+def import_cmd(
+    path: Path = typer.Argument(..., help="A run's taxonomy JSON, or a decision model (gt_model.json)."),
+    kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy) or decision-model (expert decisions and options)."),
+    corpus: Optional[Path] = typer.Option(None, "--corpus", help="kind run: the corpus JSON, for quotes and design points."),
+    sources: Optional[Path] = typer.Option(None, "--sources", help="kind run: sources.csv (id, title, url)."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Replace the current run without asking."),
+) -> None:
+    """Make a design space built elsewhere the current run: a mined [bold]run[/bold] or an expert [bold]decision-model[/bold]."""
+    ws = current_workspace()
+    if kind not in importer.KINDS:
+        fail(f"--kind must be one of: {', '.join(importer.KINDS)}.")
+    try:
+        current = runs.current_run_dir(ws)
+    except WorkspaceError:
+        current = None
+    ui.header("import", f"Import {ui.short_path(path.resolve())} as a design space")
+    if current is not None and not yes:
+        if not interactive(yes):
+            fail(f"A design space exists (run {current.name}). Use --yes to replace it as the current run.")
+        if not ui.ask_yes(f"Replace the current run {current.name}? (it stays under runs/)", default=False):
+            raise typer.Exit()
+    try:
+        run_dir = importer.import_space(ws, path, kind, corpus=corpus, sources=sources)
+    except WorkspaceError as exc:
+        fail(str(exc))
+    taxonomy = wsmod.read_json(runs.find_taxonomy(run_dir))
+    dims = wb.selected_dims(taxonomy)
+    dropped = (taxonomy.get("provenance") or {}).get("relations_dropped") or 0
+    if kind == "decision-model":
+        evidence = "none (a decision model)"
+    elif corpus:
+        evidence = "quotes from the corpus"
+    else:
+        evidence = "passage ids, no quotes"
+    ui.summary("Imported", [
+        ("Run", f"{run_dir.name} ({importer.RUN_KINDS[kind]})"),
+        ("Design space", f"{len(dims)} dimensions, {sum(len(d.get('values') or []) for d in dims)} values"),
+        ("Evidence", evidence),
+        ("Relations", f"{sum(len(d.get('relations') or []) for d in dims)}"
+                      + (f" ({dropped} dropped: opposite pairs or duplicates)" if dropped else "")),
+    ], next_steps=[("ddspace wiki build", "publish it"), ("ddspace agent setup", "let a coding agent use it")])
+
+
 # ---------------------------------------------------------------- agent setup
 
 
@@ -509,6 +556,9 @@ def agent_setup(
     copilot: bool = typer.Option(False, "--copilot", help="Also write .github/copilot-instructions.md."),
     allow: Optional[bool] = typer.Option(None, "--allow-query/--no-allow-query",
                                          help="With --claude: let Claude Code run `ddspace query` without asking each time."),
+    allow_point: Optional[bool] = typer.Option(None, "--allow-point/--no-allow-point",
+                                               help="With --claude: let Claude Code run `ddspace point` without asking "
+                                                    "(one LLM call per combination unless --no-llm)."),
     directory: Optional[Path] = typer.Option(None, "--dir", help="Where the agent works: the workspace (default) "
                                              "or a project folder that contains it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
@@ -528,6 +578,14 @@ def agent_setup(
                 "Let Claude Code run ddspace query (read-only) without a permission prompt each time?", default=True)
         if allow:
             rules = agent.query_permissions(install)
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
+                        f"({', '.join(rules)})")
+        if allow_point is None:              # without an answer, follow the query answer (scripts) or ask
+            allow_point = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace point without a prompt? It makes one LLM call per combination "
+                "(with the workspace's API key) unless --no-llm is passed.", default=True)
+        if allow_point:
+            rules = agent.point_permissions(install)
             done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
                         f"({', '.join(rules)})")
     if copilot:

@@ -1,0 +1,321 @@
+{
+  "decisions": [
+    {
+      "decision": "How should transactions request fraud scores?",
+      "context": "Authorization needs a score within tens of milliseconds. The interface must support synchronous scoring and clear integration with payment processing.",
+      "drivers": [
+        "Tens-of-milliseconds latency",
+        "Authorization-time scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s02_p10"
+          ],
+          "pros": [
+            "Simple service integration",
+            "Separates model deployment"
+          ],
+          "cons": [
+            "Network hop adds latency",
+            "Requires service availability"
+          ]
+        },
+        {
+          "label": "PMML-based model serving",
+          "value_id": "v:29.2",
+          "citations": [
+            "s02_p13"
+          ],
+          "pros": [
+            "Portable model representation",
+            "Supports online and batch scoring"
+          ],
+          "cons": [
+            "Compatible tooling required"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "It provides a direct synchronous API for authorization-time scoring. Sources such as “How to power up your product by machine learning with python microservice” and “Architecting a Machine Learning Pipeline” describe this service pattern.",
+      "consequences": [
+        "Payment processing depends on the scoring endpoint.",
+        "The service must return within the authorization latency budget."
+      ]
+    },
+    {
+      "decision": "Where should online prediction run?",
+      "context": "The system must handle transaction peaks while scoring each transaction before authorization. A separately deployed model service can scale independently of payment applications.",
+      "drivers": [
+        "Peak availability",
+        "Online scoring",
+        "Independent scaling"
+      ],
+      "alternatives": [
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s04_p10",
+            "s19_p08"
+          ],
+          "pros": [
+            "Independent deployment",
+            "Real-time integration"
+          ],
+          "cons": [
+            "Adds service operations"
+          ]
+        },
+        {
+          "label": "Monolithic application architecture",
+          "value_id": "v:30.2",
+          "citations": [
+            "s03_p01"
+          ],
+          "pros": [
+            "Fewer service boundaries"
+          ],
+          "cons": [
+            "Couples model and application releases"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model-as-a-service deployment",
+        "value_id": "v:30.3"
+      },
+      "rationale": "A dedicated real-time model service supports independent capacity management during peaks. “Productionizing Machine Learning with a Microservices Architecture” and “Three Levels of ML Software” document this approach.",
+      "consequences": [
+        "Operate the model endpoint as a production service.",
+        "Scale its capacity with transaction demand."
+      ]
+    },
+    {
+      "decision": "When should transaction predictions be computed?",
+      "context": "A fraud score must reflect the current transaction and be returned before authorization. Periodic predictions cannot provide that request-time freshness.",
+      "drivers": [
+        "Current transaction context",
+        "Authorization-time response"
+      ],
+      "alternatives": [
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s04_p10"
+          ],
+          "pros": [
+            "Uses current context",
+            "Returns score per request"
+          ],
+          "cons": [
+            "Latency depends on online dependencies"
+          ]
+        },
+        {
+          "label": "Precomputed offline serving",
+          "value_id": "v:31.6",
+          "citations": [
+            "s12_p02"
+          ],
+          "pros": [
+            "Fast result lookup",
+            "Moves computation off request path"
+          ],
+          "cons": [
+            "Can become stale",
+            "Cannot score unseen transactions"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online computation serving",
+        "value_id": "v:31.5"
+      },
+      "rationale": "Request-time computation fits transaction-specific fraud scoring. “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” describe online serving; the design point check returned no warnings, though the combination was unattested.",
+      "consequences": [
+        "Keep request-path feature retrieval within the latency budget.",
+        "Online dependencies affect scoring availability."
+      ]
+    },
+    {
+      "decision": "How should features be stored for training and inference?",
+      "context": "Online scoring needs low-latency feature access, while audit and model development need durable feature data. A single store may not serve both access patterns well.",
+      "drivers": [
+        "Low-latency feature lookup",
+        "Durable training data",
+        "Feature reuse"
+      ],
+      "alternatives": [
+        {
+          "label": "Online/offline feature-store architecture",
+          "value_id": "v:43.4",
+          "citations": [
+            "s06_p09",
+            "s21_p09"
+          ],
+          "pros": [
+            "Fast online reads",
+            "Durable offline features"
+          ],
+          "cons": [
+            "Stores must stay consistent"
+          ]
+        },
+        {
+          "label": "Central analytical ML data platform",
+          "value_id": "v:43.1",
+          "citations": [
+            "s06_p09"
+          ],
+          "pros": [
+            "Shared prepared data",
+            "Supports downstream workflows"
+          ],
+          "cons": [
+            "Analytical access may not fit online latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online/offline feature-store architecture",
+        "value_id": "v:43.4"
+      },
+      "rationale": "Separate online and durable stores fit the latency needs of serving while retaining data for training and review. “MLOps: Continuous delivery and automation pipelines in machine learning” and “MLOps: What It Is, Why it Matters, and How To Implement It” describe this arrangement.",
+      "consequences": [
+        "Maintain consistent feature definitions across both stores.",
+        "Manage retention and access controls for durable feature data."
+      ]
+    },
+    {
+      "decision": "How should model and feature changes be monitored?",
+      "context": "Fraud patterns and transaction inputs can change after deployment. Auditors also need the system to identify the model version and features associated with a score.",
+      "drivers": [
+        "Audit traceability",
+        "Changing fraud patterns",
+        "Production visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p03",
+            "s22_p06"
+          ],
+          "pros": [
+            "Links runs, data, and models",
+            "Supports audit trail"
+          ],
+          "cons": [
+            "Requires lifecycle metadata discipline"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s22_p03"
+          ],
+          "pros": [
+            "Versions deployed artifacts",
+            "Supports reproducible deployment"
+          ],
+          "cons": [
+            "Does not alone link scores to feature data"
+          ]
+        },
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Surfaces input changes",
+            "Helps identify drift"
+          ],
+          "cons": [
+            "Requires investigation of alerts"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "Integrated metadata can connect model versions, datasets, and training runs for audit review. “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” and “MLOps Principles” describe lifecycle traceability; drift monitoring is a complementary practice because this dimension combines practices rather than exclusive choices.",
+      "consequences": [
+        "Record model version and feature lineage with each score.",
+        "Retain lifecycle metadata for audit review."
+      ]
+    },
+    {
+      "decision": "How should serving capacity respond to transaction peaks?",
+      "context": "The service must keep working during peaks and answer within tens of milliseconds. Capacity must be available as demand changes.",
+      "drivers": [
+        "Peak availability",
+        "Low latency",
+        "Variable demand"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s15_p04"
+          ],
+          "pros": [
+            "Adjusts capacity to demand",
+            "Supports peak workloads"
+          ],
+          "cons": [
+            "Scaling behavior needs tuning"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s21_p15"
+          ],
+          "pros": [
+            "Reduces idle capacity"
+          ],
+          "cons": [
+            "Cold starts risk latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic capacity addresses peaks while keeping the online service available. “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” discuss scaling resources with workload demand.",
+      "consequences": [
+        "Provision headroom for sudden demand increases.",
+        "Validate scaling against the response-time target."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Fraud-model family and decision threshold selection",
+    "Authorization behavior when scoring or feature retrieval fails",
+    "Audit retention period and access policy for transaction-level records",
+    "Regional failover and recovery objectives",
+    "Training labels, retraining cadence, and model promotion policy"
+  ]
+}

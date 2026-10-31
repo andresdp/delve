@@ -1,0 +1,271 @@
+{
+  "decisions": [
+    {
+      "decision": "Score transactions synchronously before authorization",
+      "context": "Fraud scores must be available before a transaction is authorized, within tens of milliseconds.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request-response scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score available for authorization",
+            "Simple request flow"
+          ],
+          "cons": [
+            "Scoring latency delays authorization"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples scoring work"
+          ],
+          "cons": [
+            "Score may arrive too late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous request-response scoring",
+        "value_id": null
+      },
+      "rationale": "The authorization path needs the score before it can proceed, and the latency target supports a bounded synchronous call.",
+      "consequences": [
+        "Authorization depends on scoring availability.",
+        "The scoring endpoint needs a strict latency budget."
+      ]
+    },
+    {
+      "decision": "Scale scoring service instances horizontally",
+      "context": "The service must continue scoring during peaks while responding within tens of milliseconds.",
+      "drivers": [
+        "Peak traffic",
+        "Low latency",
+        "Continued availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled service instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Add capacity for peaks",
+            "Distribute requests"
+          ],
+          "cons": [
+            "Requires load balancing"
+          ]
+        },
+        {
+          "label": "Single larger service instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simpler deployment"
+          ],
+          "cons": [
+            "Limited peak capacity",
+            "Single failure point"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled service instances",
+        "value_id": null
+      },
+      "rationale": "Additional instances provide a direct way to absorb peaks and avoid relying on one scoring process.",
+      "consequences": [
+        "Instances should avoid local state needed by other requests.",
+        "Capacity management and load balancing are required."
+      ]
+    },
+    {
+      "decision": "Serve explicitly versioned models",
+      "context": "Auditors must be able to identify which model produced each transaction score.",
+      "drivers": [
+        "Model attribution",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Stable model identity",
+            "Supports historical attribution"
+          ],
+          "cons": [
+            "Requires artifact lifecycle management"
+          ]
+        },
+        {
+          "label": "Unversioned mutable model",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple replacement flow"
+          ],
+          "cons": [
+            "Historical scores become ambiguous"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model artifacts",
+        "value_id": null
+      },
+      "rationale": "An immutable version identifier makes each scoring decision attributable to a specific model.",
+      "consequences": [
+        "Each score record must include the model version.",
+        "Model versions need retention and lifecycle rules."
+      ]
+    },
+    {
+      "decision": "Record the feature values used for each score",
+      "context": "Auditability requires identifying which features produced a score, including the values supplied to the model at scoring time.",
+      "drivers": [
+        "Feature attribution",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist scoring-time feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Preserves exact inputs",
+            "Supports later review"
+          ],
+          "cons": [
+            "Increases storage volume"
+          ]
+        },
+        {
+          "label": "Persist feature names only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Smaller audit records"
+          ],
+          "cons": [
+            "Cannot establish input values"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist scoring-time feature snapshot",
+        "value_id": null
+      },
+      "rationale": "A snapshot preserves the actual feature inputs used, rather than only describing the feature set.",
+      "consequences": [
+        "Feature snapshots must be linked to the transaction score.",
+        "Storage and access controls must account for feature data."
+      ]
+    },
+    {
+      "decision": "Keep an auditable record for every score",
+      "context": "Auditors need to reconstruct which model version and features produced a transaction score after the live request has completed.",
+      "drivers": [
+        "Later audit",
+        "Model attribution",
+        "Feature attribution"
+      ],
+      "alternatives": [
+        {
+          "label": "Durable per-score audit records",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports later lookup",
+            "Decouples audit from live serving"
+          ],
+          "cons": [
+            "Adds write and retention costs"
+          ]
+        },
+        {
+          "label": "Operational logs only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Uses existing telemetry path"
+          ],
+          "cons": [
+            "Records may be incomplete or short-lived"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Durable per-score audit records",
+        "value_id": null
+      },
+      "rationale": "A durable record can retain the score, model version, and feature snapshot for later auditor review.",
+      "consequences": [
+        "Audit writes add work to the scoring path or a downstream path.",
+        "Retention and lookup behavior must be defined."
+      ]
+    },
+    {
+      "decision": "Make scoring capacity independent of individual requests",
+      "context": "Peak resilience and low latency favor serving requests across interchangeable instances instead of depending on one process's local state.",
+      "drivers": [
+        "Peak resilience",
+        "Low latency",
+        "Horizontal scaling"
+      ],
+      "alternatives": [
+        {
+          "label": "Load models into interchangeable instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Requests can use available capacity",
+            "Instance replacement is straightforward"
+          ],
+          "cons": [
+            "Model rollout must be coordinated"
+          ]
+        },
+        {
+          "label": "Route requests to stateful model owners",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Can reuse local state"
+          ],
+          "cons": [
+            "Creates routing dependencies",
+            "Uneven load risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Load models into interchangeable instances",
+        "value_id": null
+      },
+      "rationale": "Interchangeable instances allow requests to be spread across capacity during peaks and simplify replacing unhealthy instances.",
+      "consequences": [
+        "Instances need access to the same model versions.",
+        "Rollouts must preserve version attribution for in-flight scores."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature computation sources, freshness requirements, and online/offline consistency",
+    "Score thresholding and authorization outcomes",
+    "Fallback behavior when scoring or required features are unavailable",
+    "Peak traffic volume, capacity targets, and precise latency budget",
+    "Audit record schema, retention period, and access controls",
+    "Model training, validation, approval, deployment, and rollback process",
+    "Required explanation format and auditor interface",
+    "Data residency, privacy, and security constraints"
+  ]
+}

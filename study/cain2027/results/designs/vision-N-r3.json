@@ -1,0 +1,194 @@
+{
+  "decisions": [
+    {
+      "decision": "Run defect inference on the production-line devices",
+      "context": "Cameras operate along production lines that often lack network access. Defect detection must remain available when connectivity is unavailable.",
+      "drivers": [
+        "Offline operation",
+        "Production-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low network demand"
+          ],
+          "cons": [
+            "Device compute limits",
+            "Fleet deployment effort"
+          ]
+        },
+        {
+          "label": "Centralized inference service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model hosting"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Adds network dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference supports inspection during network outages and avoids dependence on a central service for each image.",
+      "consequences": [
+        "Devices need adequate compute and storage.",
+        "Inference software must be maintained across the fleet."
+      ]
+    },
+    {
+      "decision": "Distribute retrained models as device updates",
+      "context": "The model is retrained weekly and must reach production devices, some of which are offline. The brief does not specify a deployment platform or update protocol.",
+      "drivers": [
+        "Weekly retraining",
+        "Intermittent connectivity",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Device-initiated update polling",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple distribution flow",
+            "Devices choose when connected"
+          ],
+          "cons": [
+            "Updates may be delayed",
+            "Polling requires coordination"
+          ]
+        },
+        {
+          "label": "Always-on central push",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Prompt rollout",
+            "Central control"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "More infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Device-initiated update polling",
+        "value_id": null
+      },
+      "rationale": "Polling allows devices to retrieve weekly model updates when they have network access, without requiring a continuously reachable connection.",
+      "consequences": [
+        "Offline devices may run older models until reconnecting.",
+        "The system needs a way to identify the latest approved model."
+      ]
+    },
+    {
+      "decision": "Retrain models in a centralized weekly pipeline",
+      "context": "Newly labelled images arrive for weekly retraining, while the devices are intended to perform inference. A shared training pipeline fits the small team and constrained infrastructure budget.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Centralized scheduled training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "One training workflow",
+            "Shared compute"
+          ],
+          "cons": [
+            "Training depends on data upload",
+            "Central compute required"
+          ]
+        },
+        {
+          "label": "Train separately on devices",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Local data use",
+            "Less central compute"
+          ],
+          "cons": [
+            "Fleet coordination burden",
+            "Inconsistent training runs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Centralized scheduled training",
+        "value_id": null
+      },
+      "rationale": "A single weekly pipeline is easier for a small team to operate and avoids coordinating training across production devices.",
+      "consequences": [
+        "Training needs access to the newly labelled images.",
+        "Compute demand concentrates in the training environment."
+      ]
+    },
+    {
+      "decision": "Track model releases with explicit versions",
+      "context": "Weekly retraining creates successive model artifacts that must be distributed to devices. Explicit versions make it possible to identify which model each device is using.",
+      "drivers": [
+        "Weekly retraining",
+        "Device rollout"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model releases",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Traceable deployments",
+            "Supports rollback"
+          ],
+          "cons": [
+            "Release bookkeeping",
+            "Version policy needed"
+          ]
+        },
+        {
+          "label": "Replace a single latest model file",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple storage",
+            "Few release steps"
+          ],
+          "cons": [
+            "Weak deployment traceability",
+            "Rollback is harder"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model releases",
+        "value_id": null
+      },
+      "rationale": "Versioned releases let the team distinguish weekly artifacts and identify the model installed on each device.",
+      "consequences": [
+        "Each release needs a stable identifier.",
+        "The system needs a retention policy for older artifacts."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Image storage location, retention, and access controls",
+    "Model validation and approval criteria before release",
+    "Device update authentication, integrity checks, and rollback behavior",
+    "Device hardware and inference latency requirements",
+    "Fleet connectivity patterns and update scheduling policy"
+  ]
+}

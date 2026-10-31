@@ -1,0 +1,308 @@
+{
+  "decisions": [
+    {
+      "decision": "Use batched ingestion for incoming documents",
+      "context": "The classifier receives millions of documents per day, with volume varying strongly by season. The brief gives no requirement for immediate classification.",
+      "drivers": [
+        "High volume",
+        "Seasonal volume shifts",
+        "No latency target"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Handles grouped workloads",
+            "Fits scheduled capacity"
+          ],
+          "cons": [
+            "Adds processing delay"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous arrival handling",
+            "Low ingestion delay"
+          ],
+          "cons": [
+            "Always-on processing demand"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion fits the stated volume pattern, and the brief does not require real-time results. The checked point has no warnings; the rival streaming point also has no warnings, so the choice follows the batch scale and unspecified latency drivers.",
+      "consequences": [
+        "Classification runs on batch arrival or schedule.",
+        "Batch size and cadence need operational tuning."
+      ]
+    },
+    {
+      "decision": "Partition batches to parallelize document processing",
+      "context": "Millions of documents per day create substantial processing demand, and seasonal variation makes it useful to scale processing capacity. The design space identifies partitioning within a pipeline as a parallelization option.",
+      "drivers": [
+        "High throughput",
+        "Seasonal capacity variation"
+      ],
+      "alternatives": [
+        {
+          "label": "Data partitioning in data pipeline",
+          "value_id": "v:17.2",
+          "citations": [
+            "d:17",
+            "v:17.2"
+          ],
+          "pros": [
+            "Parallel work within pipeline",
+            "Supports throughput scaling"
+          ],
+          "cons": [
+            "Requires partition coordination"
+          ]
+        },
+        {
+          "label": "No parallel data processing",
+          "value_id": "v:17.4",
+          "citations": [
+            "d:17",
+            "v:17.4"
+          ],
+          "pros": [
+            "Simple processing flow"
+          ],
+          "cons": [
+            "Limited throughput scaling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data partitioning in data pipeline",
+        "value_id": "v:17.2"
+      },
+      "rationale": "Partitioned processing better fits the stated daily volume. The checked point has no warnings; the rival point also has no warnings, but no-parallel processing does not address the throughput driver.",
+      "consequences": [
+        "Partitioning strategy must preserve document and result association.",
+        "Capacity must scale with seasonal load."
+      ]
+    },
+    {
+      "decision": "Serve classifications through batch prediction",
+      "context": "The system classifies a large volume of documents and several teams consume the results. The brief does not specify synchronous or low-latency access.",
+      "drivers": [
+        "High volume",
+        "Multiple consumers",
+        "Unspecified latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Writes results to shared storage",
+            "Fits batch workload"
+          ],
+          "cons": [
+            "Results are not immediate"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time result delivery",
+            "Service interface for consumers"
+          ],
+          "cons": [
+            "Requires online capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Batch serving aligns with the volume and batch-processing choice, while the brief sets no real-time service level. The checked batch point and real-time rival both have no warnings; the latency tradeoff remains a brief-level unknown.",
+      "consequences": [
+        "Consumers read completed predictions from shared storage.",
+        "Result freshness depends on batch cadence."
+      ]
+    },
+    {
+      "decision": "Integrate the classifier as an event-driven service",
+      "context": "Several teams consume classification results, so the model should be decoupled from individual applications. The design space describes an event-driven model service as using a pub/sub or queueing interface.",
+      "drivers": [
+        "Multiple consuming teams",
+        "Decoupled integration",
+        "High volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Event-driven model as a service",
+          "value_id": "v:1.5",
+          "citations": [
+            "d:1",
+            "v:1.5"
+          ],
+          "pros": [
+            "Queue or pub/sub interface",
+            "Decouples producers and consumers"
+          ],
+          "cons": [
+            "Requires event coordination"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Separate model service",
+            "Direct service boundary"
+          ],
+          "cons": [
+            "Synchronous coupling risk"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Event-driven model as a service",
+        "value_id": "v:1.5"
+      },
+      "rationale": "An event-driven interface supports multiple consumers and is compatible with the batch-oriented point checked. The checked point has no warnings; the service-based rival also has no warnings, but does not express the decoupled queueing interface as directly.",
+      "consequences": [
+        "Events or queued work need stable identifiers.",
+        "Consumers must handle delayed result availability."
+      ]
+    },
+    {
+      "decision": "Monitor model performance in production",
+      "context": "Operators need to see when classification quality drifts. The design space includes monitoring specific model performance parameters as well as logging data and predictions.",
+      "drivers": [
+        "Detect quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Observes model performance",
+            "Targets quality changes"
+          ],
+          "cons": [
+            "Needs performance signals"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Records inputs and outputs",
+            "Supports later investigation"
+          ],
+          "cons": [
+            "Logs alone may miss drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Direct performance monitoring matches the explicit drift requirement. The checked point has no warnings; the rival logging choice also has no warnings but does not by itself establish that quality is being monitored.",
+      "consequences": [
+        "Define quality measures and alert thresholds.",
+        "Quality labels or other feedback may arrive later."
+      ]
+    },
+    {
+      "decision": "Use manual model adjustment after drift review",
+      "context": "Monitoring may reveal that classification quality has changed, so the system needs a response path. The brief asks for visibility but does not authorize automatic model changes.",
+      "drivers": [
+        "Respond to drift",
+        "Operator oversight"
+      ],
+      "alternatives": [
+        {
+          "label": "Manual model adjustment",
+          "value_id": "v:24.1",
+          "citations": [
+            "d:24",
+            "v:24.1"
+          ],
+          "pros": [
+            "Human review before changes",
+            "Controlled redeployment"
+          ],
+          "cons": [
+            "Slower response"
+          ]
+        },
+        {
+          "label": "Automated model adjustment",
+          "value_id": "v:24.2",
+          "citations": [
+            "d:24",
+            "v:24.2"
+          ],
+          "pros": [
+            "Can respond quickly",
+            "Reduces manual operation"
+          ],
+          "cons": [
+            "May act on noisy signals"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Manual model adjustment",
+        "value_id": "v:24.1"
+      },
+      "rationale": "Manual review keeps model changes under operator control, and the brief requires visibility rather than automated correction. The checked point has no warnings; its rival also has no warnings, leaving the desired level of automation unspecified.",
+      "consequences": [
+        "Operators review drift alerts and decide on remediation.",
+        "Model updates require a deployment process."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document storage, retention, and access control",
+    "Result notification and delivery contract for consuming teams",
+    "Quality metrics, drift thresholds, and ground-truth feedback",
+    "Model training, retraining cadence, and version promotion",
+    "Seasonal capacity provisioning and failure recovery",
+    "Security, privacy, and audit requirements for insurer documents"
+  ]
+}

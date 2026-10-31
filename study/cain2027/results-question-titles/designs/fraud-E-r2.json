@@ -1,0 +1,247 @@
+{
+  "decisions": [
+    {
+      "decision": "How to serve fraud scores?",
+      "context": "Each transaction needs a score before authorization, within tens of milliseconds, including during peaks.",
+      "drivers": [
+        "Low latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Online scoring",
+            "Independent scaling"
+          ],
+          "cons": [
+            "Network hop",
+            "Service dependency"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Online scoring",
+            "Fewer network hops"
+          ],
+          "cons": [
+            "Tighter application coupling",
+            "Scaling tied to callers"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled processing",
+            "Writes scores to storage"
+          ],
+          "cons": [
+            "Not transaction-time scoring"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "The design space describes microservice serving as real-time distributed scoring, which fits transaction-time scoring and peak demand better than batch serving (d:5, v:5.1, v:5.3). The checked combination had no warnings, though it was unattested; its rival also had no warnings and was unattested.",
+      "consequences": [
+        "Scale scoring service independently.",
+        "Keep the authorization path dependent on scoring availability."
+      ]
+    },
+    {
+      "decision": "How to persist and provide access to features?",
+      "context": "The scoring service needs transaction features, and auditors must later identify which features produced each score.",
+      "drivers": [
+        "Feature traceability",
+        "Online scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Dedicated feature access"
+          ],
+          "cons": [
+            "Additional system to operate"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Uses existing stores"
+          ],
+          "cons": [
+            "Feature access conventions unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "A feature store is the dedicated feature persistence and access option in the design space (d:4, v:4.1). The brief's audit requirement favors a deliberate feature access layer, though the space does not establish its audit capabilities.",
+      "consequences": [
+        "Operate a feature store alongside scoring.",
+        "Record feature values or a reproducible feature reference for each score."
+      ]
+    },
+    {
+      "decision": "How to track model use in production?",
+      "context": "Auditors need to reconstruct which model version and features produced a score after the transaction.",
+      "drivers": [
+        "Audit trail",
+        "Model version traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks model usage",
+            "Tracks inputs and outputs"
+          ],
+          "cons": [
+            "Requires production tracking"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Logs data and predictions"
+          ],
+          "cons": [
+            "Model usage detail unspecified"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "No production record"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "The design space says this option tracks model usage, inputs, and outputs, matching the audit need more directly than general logging or no monitoring (d:22, v:22.4, v:22.2, v:22.3).",
+      "consequences": [
+        "Capture model version and feature inputs with each scored transaction.",
+        "Provide retention and retrieval for audit requests."
+      ]
+    },
+    {
+      "decision": "How many model versions should run in production?",
+      "context": "The brief requires later identification of the model version used for each score, while the service must remain available during peaks.",
+      "drivers": [
+        "Version traceability",
+        "Service availability"
+      ],
+      "alternatives": [
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Multiple versions can run",
+            "Supports version-specific scoring"
+          ],
+          "cons": [
+            "More versions to track"
+          ]
+        },
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Previous version can be restored"
+          ],
+          "cons": [
+            "Rollback procedure needed"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "One active version to track"
+          ],
+          "cons": [
+            "No concurrent version option"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "N versions in production",
+        "value_id": "v:10.1"
+      },
+      "rationale": "The design space supports running multiple versions concurrently, and production tracking can associate each score with its model version (d:10, v:10.1; d:22, v:22.4). The checked combination had no warnings but was unattested; the rival was also warning-free and unattested.",
+      "consequences": [
+        "Include the serving model version in each score record.",
+        "Define how versions are selected and retired."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Scoring timeout, fallback, and authorization behavior",
+    "Latency and availability targets and recovery design",
+    "Feature source, retention, and historical reconstruction policy",
+    "Audit record retention, access controls, and privacy rules",
+    "Model training, validation, approval, and release criteria",
+    "Fraud threshold and decision policy"
+  ]
+}

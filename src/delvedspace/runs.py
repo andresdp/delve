@@ -26,6 +26,7 @@ LOG_FILE = "pipeline.log"   # the pipeline's full output, when not shown with --
 TOKENS_PER_PASSAGE = 30_000
 SECONDS_PER_PASSAGE = 28
 _ARTIFACT_MARKERS = ("_design_points", "_match", "_metrics", "_vectors")
+IMPORT_RUN, IMPORT_MODEL = "import-run", "import-model"   # run kinds of `ddspace import`
 
 
 @dataclass
@@ -33,7 +34,7 @@ class Run:
     """What one run was; stored as ``runs/<id>/run.json``."""
 
     id: str
-    kind: str                                  # mine | update-feedback | update-test
+    kind: str                                  # mine | update-feedback | update-test | import-run | import-model
     started_at: str
     status: str = "running"                    # running | ok | failed
     finished_at: Optional[str] = None
@@ -73,9 +74,15 @@ def load(run_dir: Path) -> Optional[Run]:
     return Run(**data) if data is not None else None
 
 
+def is_taxonomy_name(name: str) -> bool:
+    """Whether a file name is a run's taxonomy JSON (not a design-point, match, metrics or vectors file)."""
+    path = Path(name)
+    return path.match("*_taxonomy_*.json") and not any(m in path.stem for m in _ARTIFACT_MARKERS)
+
+
 def find_taxonomy(run_dir: Path) -> Optional[Path]:
     """Return the taxonomy JSON a pipeline run wrote into ``run_dir`` (the newest, if several)."""
-    found = [p for p in run_dir.glob("*_taxonomy_*.json") if not any(m in p.stem for m in _ARTIFACT_MARKERS)]
+    found = [p for p in run_dir.glob("*_taxonomy_*.json") if is_taxonomy_name(p.name)]
     return max(found, key=lambda p: p.name) if found else None
 
 
@@ -88,6 +95,22 @@ def current_run_dir(ws: Workspace) -> Optional[Path]:
     if not run_dir.is_dir():
         raise WorkspaceError(f"The current run {value} is missing. Set workspace.current_run in ddspace.yaml "
                              "to an existing folder under runs/, or run `ddspace mine --fresh`.")
+    return run_dir
+
+
+def adopt(ws: Workspace, taxonomy: Dict, file_name: str, kind: str, source_ids: List[str],
+          passages: Optional[List[Dict]] = None) -> Path:
+    """Store ``taxonomy`` as a finished run of ``kind`` with its corpus snapshot, and make it current.
+
+    The snapshot is written even when empty, so the run never falls back to an unrelated workspace corpus.
+    """
+    run_dir = new_run_dir(ws)
+    write_json(run_dir / file_name, taxonomy)
+    write_json(run_dir / RUN_CORPUS, passages or [])
+    stamp = datetime.now().isoformat(timespec="seconds")
+    save(run_dir, Run(id=run_dir.name, kind=kind, started_at=stamp, finished_at=stamp, status="ok",
+                      source_ids=source_ids, taxonomy=file_name))
+    ws.set("workspace.current_run", relative(ws, run_dir))
     return run_dir
 
 

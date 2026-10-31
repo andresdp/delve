@@ -1,0 +1,203 @@
+{
+  "decisions": [
+    {
+      "decision": "Production quality and drift monitoring",
+      "context": "The classifier must expose quality drift to operators after deployment. Labels may arrive later, so monitoring needs to observe input changes as well as prediction quality.",
+      "drivers": [
+        "Detect quality drift",
+        "Operator visibility",
+        "Delayed labels"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Flags changing inputs",
+            "Works before labels arrive"
+          ],
+          "cons": [
+            "Drift may not mean quality loss",
+            "Requires baseline management"
+          ]
+        },
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s04_p02",
+            "s06_p06",
+            "s23_p04"
+          ],
+          "pros": [
+            "Tracks model behavior",
+            "Direct quality signal"
+          ],
+          "cons": [
+            "Needs timely labels",
+            "May miss input changes"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Minimal monitoring effort"
+          ],
+          "cons": [
+            "No drift visibility",
+            "Failures may go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Choose input monitoring because the brief explicitly requires drift visibility, including when labels are delayed. Practitioners describe this in “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Continuous delivery and automation pipelines in machine learning.”",
+      "consequences": [
+        "Operators need to review drift alerts.",
+        "Define baselines and alert thresholds.",
+        "Quality impact still needs validation when labels arrive."
+      ]
+    },
+    {
+      "decision": "Prediction serving mode",
+      "context": "Millions of documents arrive daily, with strong seasonal variation, and multiple teams consume classification results. The brief does not specify an interactive latency requirement.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal demand",
+        "Multiple consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s12_p02",
+            "s19_p14"
+          ],
+          "pros": [
+            "Processes large volumes",
+            "Writes reusable results"
+          ],
+          "cons": [
+            "Results arrive on a schedule",
+            "Peak windows need capacity planning"
+          ]
+        },
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s12_p07",
+            "s19_p15"
+          ],
+          "pros": [
+            "Distributes request load",
+            "Supports low latency"
+          ],
+          "cons": [
+            "More serving infrastructure",
+            "Seasonal peaks require scaling"
+          ]
+        },
+        {
+          "label": "Serverless function deployment",
+          "value_id": "v:31.2",
+          "citations": [
+            "s04_p01",
+            "s04_p06",
+            "s11_p04"
+          ],
+          "pros": [
+            "Managed scaling",
+            "Less runtime operations"
+          ],
+          "cons": [
+            "Runtime limits may constrain workloads",
+            "Cost varies with volume"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Choose scheduled batch scoring because the brief describes very high document volume but gives no need for immediate responses; persisted results can serve several teams. “Architecting a Machine Learning Pipeline” and “Three Levels of ML Software” describe batch prediction deployments.",
+      "consequences": [
+        "Agree on result freshness with consuming teams.",
+        "Persist results for downstream access.",
+        "Schedule capacity for seasonal peaks."
+      ]
+    },
+    {
+      "decision": "Runtime capacity scaling",
+      "context": "Seasonal volume shifts make fixed compute capacity a poor fit for classification workloads. Capacity should respond to demand while handling large processing volumes.",
+      "drivers": [
+        "Seasonal volume",
+        "Millions of documents",
+        "Capacity efficiency"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s13_p09",
+            "s15_p04"
+          ],
+          "pros": [
+            "Follows workload demand",
+            "Handles changing capacity needs"
+          ],
+          "cons": [
+            "Requires scaling policies",
+            "Peak capacity can be costly"
+          ]
+        },
+        {
+          "label": "Scale-to-zero serving",
+          "value_id": "v:26.2",
+          "citations": [
+            "s11_p04",
+            "s13_p09"
+          ],
+          "pros": [
+            "Reduces idle serving cost"
+          ],
+          "cons": [
+            "May add startup delay",
+            "Evidence focuses on serving"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Choose elastic scaling to match compute capacity to the brief’s seasonal workload swings. “Architecting a Machine Learning Pipeline” and “Productionizing Machine Learning with a Microservices Architecture” discuss scaling resources with demand.",
+      "consequences": [
+        "Set peak and scale limits.",
+        "Monitor scaling behavior and cost.",
+        "Batch schedules must account for capacity ramp-up."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How teams authenticate to and access shared classification results.",
+    "The required freshness or latency for each consuming team.",
+    "How labels are collected and how drift alerts are escalated or approved for action."
+  ]
+}

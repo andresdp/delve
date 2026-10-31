@@ -1,0 +1,340 @@
+{
+  "decisions": [
+    {
+      "decision": "Prediction serving mode",
+      "context": "Each card must be scored before authorization, with tens-of-milliseconds response time. Scheduled batch scoring cannot provide a fresh score for each transaction.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency",
+        "Peak throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Queue-fronted online serving cluster",
+          "value_id": "v:31.1",
+          "citations": [
+            "s02_p11",
+            "s02_p13",
+            "s12_p07",
+            "s19_p15"
+          ],
+          "pros": [
+            "Online scoring",
+            "Queue distributes load"
+          ],
+          "cons": [
+            "Queue adds a latency hop",
+            "Requires capacity management"
+          ]
+        },
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s01_p08",
+            "s02_p02",
+            "s02_p12",
+            "s02_p13",
+            "s12_p02",
+            "s15_p04",
+            "s15_p05",
+            "s19_p14",
+            "s19_p16",
+            "s25_p06"
+          ],
+          "pros": [
+            "Scores many records together",
+            "Writes results for later use"
+          ],
+          "cons": [
+            "Scores are not current per transaction",
+            "Does not fit authorization flow"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queue-fronted online serving cluster",
+        "value_id": "v:31.1"
+      },
+      "rationale": "It supports online scoring and distributes requests across predictors, matching the authorization latency and peak-load drivers. Evidence from “Architecting a Machine Learning Pipeline” and “System Architectures for Personalization and Recommendation” supports the pattern; the checked rival point used batch scoring and was also unattested, so the brief’s per-transaction timing is decisive.",
+      "consequences": [
+        "Keep the synchronous scoring path short.",
+        "Size and operate the queue and predictor pool for peaks."
+      ]
+    },
+    {
+      "decision": "Model serving interface",
+      "context": "The authorization system needs to request a score from an independently operated predictor. The brief does not specify a protocol, but the design space includes API-backed prediction services.",
+      "drivers": [
+        "Authorization integration",
+        "Low response time",
+        "Service boundary"
+      ],
+      "alternatives": [
+        {
+          "label": "REST prediction microservice",
+          "value_id": "v:29.1",
+          "citations": [
+            "s01_p05",
+            "s01_p08",
+            "s02_p10",
+            "s02_p11",
+            "s02_p12"
+          ],
+          "pros": [
+            "Clear service boundary",
+            "Common application integration"
+          ],
+          "cons": [
+            "Serialization overhead",
+            "Requires API operations"
+          ]
+        },
+        {
+          "label": "gRPC model interface",
+          "value_id": "v:29.7",
+          "citations": [
+            "s04_p01"
+          ],
+          "pros": [
+            "Independent model service",
+            "Typed RPC interface"
+          ],
+          "cons": [
+            "Requires client and server compatibility",
+            "Evidence covers few sources"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "REST prediction microservice",
+        "value_id": "v:29.1"
+      },
+      "rationale": "A REST prediction service gives the authorization application a direct model API and has broader support in the design-space evidence than the gRPC option. “How to power up your product by machine learning with python microservice” and “Architecting a Machine Learning Pipeline” describe this integration pattern.",
+      "consequences": [
+        "The API contract becomes part of the authorization path.",
+        "Measure request overhead against the latency budget."
+      ]
+    },
+    {
+      "decision": "Serving instance state and scaling",
+      "context": "Scoring traffic varies with transaction volume, and the service must remain available during peaks. Independent request handling allows capacity to grow by adding serving instances.",
+      "drivers": [
+        "Peak availability",
+        "Horizontal scaling",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Stateless horizontally scaled serving",
+          "value_id": "v:25.1",
+          "citations": [
+            "s01_p02",
+            "s04_p01"
+          ],
+          "pros": [
+            "Scale by adding replicas",
+            "Independent request handling"
+          ],
+          "cons": [
+            "Shared state must live elsewhere",
+            "Replica capacity needs monitoring"
+          ]
+        },
+        {
+          "label": "Horizontally scaled Redis-backed asynchronous serving",
+          "value_id": "v:25.3",
+          "citations": [],
+          "pros": [
+            "Combines scalable serving and shared storage",
+            "Decouples work through messages"
+          ],
+          "cons": [
+            "Adds storage and queue dependencies",
+            "May add latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stateless horizontally scaled serving",
+        "value_id": "v:25.1"
+      },
+      "rationale": "Stateless replicas fit variable peaks and keep the scoring workers independently scalable. “How to power up your product by machine learning with python microservice” and “Productionizing Machine Learning with a Microservices Architecture” support this approach.",
+      "consequences": [
+        "Keep durable state and feature data in external stores.",
+        "Scale replicas against measured traffic and latency."
+      ]
+    },
+    {
+      "decision": "Online feature serving",
+      "context": "Online scoring needs the transaction’s current context and low-latency access to prepared features. A shared preparation pipeline can materialize those features for inference.",
+      "drivers": [
+        "Fresh transaction context",
+        "Low-latency feature access",
+        "Training and serving consistency"
+      ],
+      "alternatives": [
+        {
+          "label": "Online feature-serving pipeline",
+          "value_id": "v:43.2",
+          "citations": [
+            "s04_p01",
+            "s04_p04",
+            "s04_p05",
+            "s04_p11",
+            "s13_p11",
+            "s20_p06",
+            "s22_p03",
+            "s22_p17"
+          ],
+          "pros": [
+            "Features prepared for online access",
+            "Shared preparation pipeline"
+          ],
+          "cons": [
+            "Requires online store operations",
+            "Feature freshness must be maintained"
+          ]
+        },
+        {
+          "label": "Central analytical ML data platform",
+          "value_id": "v:43.1",
+          "citations": [],
+          "pros": [
+            "Shared prepared data",
+            "Supports downstream workflows"
+          ],
+          "cons": [
+            "Analytical storage may not meet serving latency",
+            "No explicit online serving store"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Online feature-serving pipeline",
+        "value_id": "v:43.2"
+      },
+      "rationale": "The online feature pipeline explicitly materializes features in a low-latency serving store, which fits scoring before authorization. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps Principles” support this pattern.",
+      "consequences": [
+        "Operate the online feature store on the latency-critical path.",
+        "Keep feature preparation aligned with model inputs."
+      ]
+    },
+    {
+      "decision": "Model and feature audit traceability",
+      "context": "Auditors must be able to identify the model version and features behind each score. The brief makes that record a system requirement.",
+      "drivers": [
+        "Auditor traceability",
+        "Model version per score",
+        "Features per score"
+      ],
+      "alternatives": [
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s08_p02",
+            "s22_p03",
+            "s22_p04",
+            "s22_p06",
+            "s22_p08",
+            "s22_p13",
+            "s22_p17"
+          ],
+          "pros": [
+            "Links artifacts, runs, datasets, and metadata",
+            "Supports lifecycle audit trail"
+          ],
+          "cons": [
+            "More metadata to manage",
+            "Needs consistent capture at serving time"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [],
+          "pros": [
+            "Tracks model artifacts and dependencies",
+            "Supports reproducible deployment"
+          ],
+          "cons": [
+            "Does not alone link each score to its features",
+            "Narrower lifecycle record"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Comprehensive ML lifecycle traceability",
+        "value_id": "v:20.3"
+      },
+      "rationale": "Comprehensive lifecycle traceability covers artifacts and metadata, while the brief specifically requires a per-score record of model version and features. “Continuous Intelligence: Moving Machine Learning Application into Production Reliably” and “MLOps Principles” support the broader traceability approach.",
+      "consequences": [
+        "Persist model version and feature references with each score.",
+        "Retain records in a form auditors can retrieve."
+      ]
+    },
+    {
+      "decision": "Production monitoring",
+      "context": "Peak service operation depends on visibility into availability and latency, while changing inputs can affect score quality. The design space treats monitoring practices as combinable rather than exclusive.",
+      "drivers": [
+        "Peak availability",
+        "Latency visibility",
+        "Data quality"
+      ],
+      "alternatives": [
+        {
+          "label": "Service-health and data-quality monitoring",
+          "value_id": "v:6.23",
+          "citations": [
+            "s04_p02",
+            "s06_p02",
+            "s06_p13",
+            "s21_p10",
+            "s22_p04",
+            "s22_p11",
+            "s23_p04"
+          ],
+          "pros": [
+            "Covers latency and uptime",
+            "Tracks data quality and shifts"
+          ],
+          "cons": [
+            "Needs alert thresholds and ownership",
+            "Does not itself prescribe retraining"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Less monitoring infrastructure",
+            "Fewer operational alerts"
+          ],
+          "cons": [
+            "No active performance visibility",
+            "Failures may go undetected"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Service-health and data-quality monitoring",
+        "value_id": "v:6.23"
+      },
+      "rationale": "Monitoring latency, uptime, and data quality directly supports peak operation and exposes issues that can affect scoring. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps Principles” describe this coverage; passive operation does not meet the service-health need.",
+      "consequences": [
+        "Define operational alerts for latency and availability.",
+        "Track data-quality changes alongside service health."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Per-transaction audit event schema, retention period, and access controls.",
+    "Scoring timeout, feature-store failure, and authorization fallback behavior.",
+    "Transaction data ingestion and feature freshness guarantees.",
+    "Fraud model family, score calibration, decision thresholds, and human review.",
+    "Deployment topology, regional failover, capacity targets, and service-level objectives."
+  ]
+}

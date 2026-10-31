@@ -1,0 +1,416 @@
+{
+  "decisions": [
+    {
+      "decision": "How should the model integrate with the inspection application?",
+      "context": "The model runs on production line cameras, where connectivity may be unavailable. The design space offers application integration patterns, but does not specify device packaging.",
+      "drivers": [
+        "intermittent network",
+        "small team",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "simple deployment",
+            "clear module boundary"
+          ],
+          "cons": [
+            "shared application lifecycle"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "independent model service"
+          ],
+          "cons": [
+            "service overhead",
+            "network dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as module in modular monolith",
+        "value_id": "v:1.3"
+      },
+      "rationale": "A module keeps the model close to the camera application and limits operational overhead. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Package and update model with the application.",
+        "Keep model interfaces distinct within the application."
+      ]
+    },
+    {
+      "decision": "How should predictions be served?",
+      "context": "Inspection cameras need predictions even when the line has no network access. The design space includes local and distributed serving options.",
+      "drivers": [
+        "offline operation",
+        "camera-side inference",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "local real-time inference",
+            "no remote service dependency"
+          ],
+          "cons": [
+            "local runtime to maintain"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "distributed service boundary"
+          ],
+          "cons": [
+            "network dependency",
+            "more infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "A local service supports real-time predictions without requiring network access. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Run the serving process on or near each camera.",
+        "Manage local service health and resource use."
+      ]
+    },
+    {
+      "decision": "When and how should the model be trained?",
+      "context": "Newly labelled images arrive for retraining every week. The design space distinguishes batch, incremental, and hybrid learning.",
+      "drivers": [
+        "weekly retraining",
+        "new labelled images",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "fits weekly cadence",
+            "bounded training runs"
+          ],
+          "cons": [
+            "updates wait for next run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "learns as data arrives"
+          ],
+          "cons": [
+            "more frequent model updates"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Weekly batch retraining matches the stated cadence and keeps the training workflow bounded. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Schedule a weekly training run.",
+        "Validate each candidate before delivery."
+      ]
+    },
+    {
+      "decision": "How should integration and delivery be automated?",
+      "context": "Retrained models must be pushed to production devices each week. The design space compares a CI/CD pipeline with deployment scripts and an ML orchestrator.",
+      "drivers": [
+        "weekly model delivery",
+        "small team",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "repeatable delivery",
+            "automates routine steps"
+          ],
+          "cons": [
+            "pipeline setup and upkeep"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "simple starting point"
+          ],
+          "cons": [
+            "manual execution",
+            "less integrated checks"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "A CI/CD pipeline can make weekly delivery repeatable for a small team. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Automate model packaging and device delivery.",
+        "Maintain the pipeline as deployment needs change."
+      ]
+    },
+    {
+      "decision": "How should model versions be deployed and recovered?",
+      "context": "A new model is delivered weekly to devices that may be offline. The design space includes rollback to a previous version and running multiple versions in production.",
+      "drivers": [
+        "weekly updates",
+        "offline devices",
+        "production defect detection"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "recovery path after bad release"
+          ],
+          "cons": [
+            "requires retained prior version"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "multiple versions available"
+          ],
+          "cons": [
+            "more version management"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Keeping a previous model available provides a straightforward recovery option when devices receive a problematic update. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Retain a known-good model on each device.",
+        "Provide a way to switch back locally."
+      ]
+    },
+    {
+      "decision": "How should the deployed model be monitored?",
+      "context": "The brief does not specify how devices report status, and network access may be absent. The design space includes model performance monitoring and logging data and predictions.",
+      "drivers": [
+        "production inspection",
+        "intermittent network",
+        "model quality"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "tracks model performance"
+          ],
+          "cons": [
+            "needs usable performance signals"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "records inputs and outputs"
+          ],
+          "cons": [
+            "requires storage and review"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Monitoring performance focuses on whether the model remains suitable for inspection. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Define performance indicators for inspection quality.",
+        "Plan for collecting or reviewing signals from offline devices."
+      ]
+    },
+    {
+      "decision": "What should automated delivery build, test, and deploy?",
+      "context": "The system delivers retrained models to production devices. The design space distinguishes deploying served models and system components from deploying pipeline components.",
+      "drivers": [
+        "weekly model delivery",
+        "device deployment",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Build, test, and deploy models to be served and other system components",
+          "value_id": "v:25.1",
+          "citations": [
+            "d:25",
+            "v:25.1"
+          ],
+          "pros": [
+            "covers served model delivery"
+          ],
+          "cons": [
+            "requires device delivery integration"
+          ]
+        },
+        {
+          "label": "Build, test, and deploy machine learning pipelines and components needed during pipeline runs",
+          "value_id": "v:25.2",
+          "citations": [
+            "d:25",
+            "v:25.2"
+          ],
+          "pros": [
+            "covers pipeline runtime components"
+          ],
+          "cons": [
+            "does not itself deliver served models"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Build, test, and deploy models to be served and other system components",
+        "value_id": "v:25.1"
+      },
+      "rationale": "The stated delivery need is the retrained model and components used by the inspection application. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Include model artifacts in the delivery workflow.",
+        "Coordinate deployment with device availability."
+      ]
+    },
+    {
+      "decision": "What should be tested before model delivery?",
+      "context": "Weekly retraining produces a candidate model for production cameras. The design space lists model quality testing and several software and pipeline testing options.",
+      "drivers": [
+        "defect detection quality",
+        "weekly retraining",
+        "production delivery"
+      ],
+      "alternatives": [
+        {
+          "label": "Testing trained model quality",
+          "value_id": "v:26.9",
+          "citations": [
+            "d:26",
+            "v:26.9"
+          ],
+          "pros": [
+            "checks candidate quality"
+          ],
+          "cons": [
+            "quality criteria must be defined"
+          ]
+        },
+        {
+          "label": "Canary testing",
+          "value_id": "v:26.1",
+          "citations": [
+            "d:26",
+            "v:26.1"
+          ],
+          "pros": [
+            "limits initial exposure"
+          ],
+          "cons": [
+            "requires staged rollout"
+          ]
+        },
+        {
+          "label": "Unit testing system components",
+          "value_id": "v:26.4",
+          "citations": [
+            "d:26",
+            "v:26.4"
+          ],
+          "pros": [
+            "checks component behavior"
+          ],
+          "cons": [
+            "does not establish model quality"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Testing trained model quality",
+        "value_id": "v:26.9"
+      },
+      "rationale": "Testing candidate model quality directly supports the requirement to detect defects on production lines. The checked combination had no warnings, but no attesting sources.",
+      "consequences": [
+        "Set acceptance criteria for each candidate model.",
+        "Retain representative labelled images for evaluation."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to transfer and stage updates on intermittently connected devices.",
+    "How to store and synchronize newly labelled images.",
+    "Device provisioning, hardware constraints, and fleet management.",
+    "Model artifact security and release authorization.",
+    "Inspection quality metrics and thresholds."
+  ]
+}

@@ -1,0 +1,308 @@
+{
+  "decisions": [
+    {
+      "decision": "Use an orchestrated ML pipeline",
+      "context": "Weekly forecasting needs repeatable preparation, training, evaluation, and release steps. A three-person team benefits from reducing manual coordination.",
+      "drivers": [
+        "Weekly run reliability",
+        "Small team",
+        "Fast iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Orchestrated ML pipeline",
+          "value_id": "v:32.2",
+          "citations": [
+            "s02_p09",
+            "s06_p07"
+          ],
+          "pros": [
+            "Repeatable stages",
+            "Automates handoffs"
+          ],
+          "cons": [
+            "Pipeline upkeep"
+          ]
+        },
+        {
+          "label": "Manual script-driven workflow",
+          "value_id": "v:32.1",
+          "citations": [
+            "s04_p02",
+            "s20_p12"
+          ],
+          "pros": [
+            "Simple to start",
+            "Flexible execution"
+          ],
+          "cons": [
+            "Manual coordination",
+            "Harder to repeat"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Orchestrated ML pipeline",
+        "value_id": "v:32.2"
+      },
+      "rationale": "Choose a repeatable pipeline to support the weekly run and get model changes through preparation, evaluation, and deployment with less manual coordination. Practitioners describe connected pipeline stages in “MLOps: Continuous delivery and automation pipelines in machine learning.”",
+      "consequences": [
+        "Pipeline stages and dependencies need maintenance.",
+        "Workflow orchestration becomes a production dependency."
+      ]
+    },
+    {
+      "decision": "Track the full ML lifecycle for reproducibility",
+      "context": "Reproducing a past week requires retaining the data and training context behind each forecast. Artifact-only versioning does not cover the complete lifecycle.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Data and model lineage",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "End-to-end reproducible lifecycle governance",
+          "value_id": "v:20.6",
+          "citations": [
+            "s21_p03",
+            "s21_p05",
+            "s21_p06",
+            "s21_p09",
+            "s21_p10",
+            "s25_p01",
+            "s25_p02",
+            "s25_p07"
+          ],
+          "pros": [
+            "Tracks datasets and runs",
+            "Supports lifecycle audits"
+          ],
+          "cons": [
+            "More metadata to maintain",
+            "Governance overhead"
+          ]
+        },
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s12_p05",
+            "s19_p05"
+          ],
+          "pros": [
+            "Versions model assets",
+            "Supports reuse"
+          ],
+          "cons": [
+            "Narrower lineage",
+            "May omit run context"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "End-to-end reproducible lifecycle governance",
+        "value_id": "v:20.6"
+      },
+      "rationale": "Choose lifecycle-wide tracking so past forecasts can be tied to dataset versions, pipeline definitions, dependencies, and training runs. “MLOps: What It Is, Why it Matters, and How To Implement It (from a Data Scientist Perspective)” describes these practices together.",
+      "consequences": [
+        "Dataset snapshots and run metadata must be retained.",
+        "Reproducibility depends on capturing pipeline and dependency changes."
+      ]
+    },
+    {
+      "decision": "Use commit-triggered staged release automation",
+      "context": "New model ideas should reach production quickly without disrupting the weekly run. Releases need repeatable validation and a controlled path into production.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Release consistency"
+      ],
+      "alternatives": [
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p02",
+            "s06_p06",
+            "s06_p13",
+            "s06_p14",
+            "s06_p15",
+            "s08_p01",
+            "s08_p02"
+          ],
+          "pros": [
+            "Automates build and tests",
+            "Stages promotion"
+          ],
+          "cons": [
+            "Pipeline upkeep",
+            "Requires release gates"
+          ]
+        },
+        {
+          "label": "Unified release automation",
+          "value_id": "v:19.1",
+          "citations": [
+            "s02_p11",
+            "s19_p05",
+            "s20_p02",
+            "s20_p05"
+          ],
+          "pros": [
+            "One release process",
+            "Automates packaging"
+          ],
+          "cons": [
+            "Less explicit staging",
+            "Broader process scope"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Commit-triggered staged release automation",
+        "value_id": "v:19.2"
+      },
+      "rationale": "Choose repository-triggered builds and tests with staged promotion to speed delivery while providing checkpoints before production. “MLOps: Continuous delivery and automation pipelines in machine learning” describes commit-triggered releases across delivery stages.",
+      "consequences": [
+        "Release checks must finish before promotion.",
+        "Staging environments and promotion rules require ownership."
+      ]
+    },
+    {
+      "decision": "Evaluate candidates offline before promotion",
+      "context": "Model changes must not break forecasts already used by the weekly run. Candidate quality needs assessment before a release reaches production.",
+      "drivers": [
+        "Protect forecast quality",
+        "Safe model iteration",
+        "Repeatable weekly process"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s04_p15",
+            "s06_p08",
+            "s08_p02",
+            "s09_p04",
+            "s20_p03",
+            "s22_p08",
+            "s25_p09"
+          ],
+          "pros": [
+            "Checks held-out data",
+            "Fits staged promotion"
+          ],
+          "cons": [
+            "Needs representative test data",
+            "Does not prove live performance"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s02_p09",
+            "s09_p04",
+            "s09_p07",
+            "s09_p09",
+            "s22_p06",
+            "s22_p15",
+            "s25_p09"
+          ],
+          "pros": [
+            "Compares candidate metrics",
+            "Supports model selection"
+          ],
+          "cons": [
+            "Metric choice matters",
+            "May miss data leakage"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Choose held-out offline evaluation as a pre-release quality gate, with the pipeline running it consistently before model promotion. “MLOps Principles” and “MLOps: Continuous delivery and automation pipelines in machine learning” describe offline evaluation in the delivery workflow.",
+      "consequences": [
+        "Evaluation data and criteria need versioning.",
+        "Promotion depends on evaluation results."
+      ]
+    },
+    {
+      "decision": "Monitor input and feature drift in production",
+      "context": "Weekly forecasts can become unreliable as retail inputs change. The brief gives no requirement for fully automatic retraining, so drift monitoring provides visibility without assuming retraining policy.",
+      "drivers": [
+        "Forecast reliability",
+        "Weekly operation",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p05",
+            "s04_p12",
+            "s06_p02",
+            "s06_p08",
+            "s20_p03",
+            "s21_p10",
+            "s22_p11",
+            "s23_p03",
+            "s23_p04",
+            "s23_p05",
+            "s24_p01",
+            "s24_p07",
+            "s24_p08",
+            "s24_p11",
+            "s25_p01"
+          ],
+          "pros": [
+            "Detects changing inputs",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Requires drift thresholds",
+            "Drift may not mean quality loss"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [
+            "s13_p10",
+            "s21_p07",
+            "s23_p13"
+          ],
+          "pros": [
+            "Low operating overhead",
+            "No alert tuning"
+          ],
+          "cons": [
+            "Problems may go unseen",
+            "No drift visibility"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Choose drift monitoring to surface changes in schemas and feature distributions that could affect weekly forecasts. “Machine Learning Monitoring: What It Is, and What We Are Missing” and “MLOps Principles” describe monitoring these changes.",
+      "consequences": [
+        "Monitoring signals need review and response ownership.",
+        "Drift alerts alone do not establish forecast degradation."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Data ingestion mechanism and source-system integration; the checked design point indicates workflow coordination requires this decision.",
+    "Forecasting model family and model update policy.",
+    "Prediction serving mode, forecast delivery interface, and fallback behavior for a failed weekly run.",
+    "Forecast-specific metrics, acceptance thresholds, and rollback criteria."
+  ]
+}

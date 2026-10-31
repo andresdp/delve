@@ -1,0 +1,221 @@
+{
+  "decisions": [
+    {
+      "decision": "Use synchronous online scoring before transaction authorization",
+      "context": "Each card transaction needs a fraud score before authorization, with a tens-of-milliseconds response budget.",
+      "drivers": [
+        "Pre-authorization score",
+        "Tens-of-milliseconds latency",
+        "Transaction peaks"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request-response scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score available in time",
+            "Simple transaction flow"
+          ],
+          "cons": [
+            "Adds authorization-path dependency",
+            "Latency budget is tight"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring after authorization",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples transaction path",
+            "Absorbs traffic bursts"
+          ],
+          "cons": [
+            "Score arrives too late",
+            "Cannot gate authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous request-response scoring",
+        "value_id": null
+      },
+      "rationale": "The score must be available before authorization, so synchronous scoring fits the transaction flow despite its latency and availability demands.",
+      "consequences": [
+        "Scoring becomes part of authorization-path latency",
+        "Capacity must handle peak request volume"
+      ]
+    },
+    {
+      "decision": "Serve the scoring model in a horizontally scalable stateless tier",
+      "context": "The service must return scores quickly and keep working during traffic peaks.",
+      "drivers": [
+        "Low latency",
+        "Peak availability",
+        "Per-transaction scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled stateless serving",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scale out with demand",
+            "Instances can be replaced"
+          ],
+          "cons": [
+            "Requires replicated model artifacts",
+            "Feature access may add latency"
+          ]
+        },
+        {
+          "label": "Single centralized scoring instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "No model replication"
+          ],
+          "cons": [
+            "Capacity bottleneck",
+            "Single failure point"
+          ]
+        },
+        {
+          "label": "Embedded model in authorization services",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Avoids network hop",
+            "Local availability"
+          ],
+          "cons": [
+            "Couples model releases to callers",
+            "Harder to centralize version tracking"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled stateless serving",
+        "value_id": null
+      },
+      "rationale": "A replicated serving tier can scale with peaks and avoid a single scoring bottleneck while keeping model serving separate from authorization components.",
+      "consequences": [
+        "Serving instances need consistent model artifacts",
+        "Scaling and health monitoring are required"
+      ]
+    },
+    {
+      "decision": "Version models as immutable deployable artifacts",
+      "context": "Auditors must be able to identify which model produced each historical score.",
+      "drivers": [
+        "Auditability",
+        "Model attribution",
+        "Online scoring"
+      ],
+      "alternatives": [
+        {
+          "label": "Immutable versioned model artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Stable model identity",
+            "Supports controlled rollout"
+          ],
+          "cons": [
+            "Requires artifact retention",
+            "Deployment metadata needed"
+          ]
+        },
+        {
+          "label": "Replace a shared model in place",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple update path",
+            "Less artifact management"
+          ],
+          "cons": [
+            "Historical identity is ambiguous",
+            "Rollback is harder"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Immutable versioned model artifacts",
+        "value_id": null
+      },
+      "rationale": "Immutable versions give each score a stable model identifier and make historical attribution and rollback practical.",
+      "consequences": [
+        "Retain artifacts for the audit period",
+        "Record the deployed version with every score"
+      ]
+    },
+    {
+      "decision": "Record the model version and feature snapshot for every score",
+      "context": "The audit requirement covers both the model version and the features used to produce each score.",
+      "drivers": [
+        "Auditor explainability",
+        "Feature attribution",
+        "Historical reconstruction"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score with model and feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct audit evidence",
+            "Reconstructs scoring inputs"
+          ],
+          "cons": [
+            "Storage and write overhead",
+            "Sensitive data controls needed"
+          ]
+        },
+        {
+          "label": "Persist score and model version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Lower storage cost",
+            "Simpler logging"
+          ],
+          "cons": [
+            "Cannot establish used features",
+            "Limited explanation later"
+          ]
+        },
+        {
+          "label": "Recompute features from transaction history",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Smaller score records",
+            "Uses existing history"
+          ],
+          "cons": [
+            "Historical inputs may change",
+            "Recomputation may diverge"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score with model and feature snapshot",
+        "value_id": null
+      },
+      "rationale": "Persisting the exact inputs alongside the model identity provides the strongest evidence of what produced each score.",
+      "consequences": [
+        "Define a durable score record and retention policy",
+        "Protect stored feature data with appropriate access controls"
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature definitions, sources, and online freshness requirements",
+    "Model training, validation, approval, and deployment process",
+    "Authorization behavior on scoring timeout or service failure",
+    "Audit retention period and required explanation format",
+    "Security, privacy, and regulatory constraints for transaction features"
+  ]
+}

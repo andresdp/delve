@@ -1,0 +1,190 @@
+{
+  "decisions": [
+    {
+      "decision": "Score transactions synchronously before authorization",
+      "context": "Authorization needs a fraud score within tens of milliseconds, so scoring must complete in the transaction path. The score must be available before the authorization decision proceeds.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous request-response scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Score gates authorization",
+            "Immediate result"
+          ],
+          "cons": [
+            "Adds path latency"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Decouples services",
+            "Buffers bursts"
+          ],
+          "cons": [
+            "Score arrives later",
+            "Cannot gate authorization"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous request-response scoring",
+        "value_id": null
+      },
+      "rationale": "A synchronous call makes the score available before authorization; its added latency must fit within the stated tens-of-milliseconds budget.",
+      "consequences": [
+        "Authorization depends on scoring response time.",
+        "The scoring path needs a strict latency budget."
+      ]
+    },
+    {
+      "decision": "Scale stateless scoring workers horizontally",
+      "context": "The service must continue working during peaks while returning scores quickly. Stateless workers can be replicated to add inference capacity without coordinating per-transaction state.",
+      "drivers": [
+        "Peak availability",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Horizontally scaled stateless workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Add capacity by replication",
+            "Simple request distribution"
+          ],
+          "cons": [
+            "Needs shared dependencies",
+            "Capacity planning required"
+          ]
+        },
+        {
+          "label": "Single larger scoring server",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "No distribution layer"
+          ],
+          "cons": [
+            "Capacity ceiling",
+            "Single failure point"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Horizontally scaled stateless workers",
+        "value_id": null
+      },
+      "rationale": "Replicated workers provide a straightforward way to add inference capacity during peaks and avoid a single scoring host as the sole failure point.",
+      "consequences": [
+        "Requests need distribution across workers.",
+        "Shared feature and model dependencies must also support peak load."
+      ]
+    },
+    {
+      "decision": "Serve a pinned model version for each scoring request",
+      "context": "Auditors need to identify the model version that produced each score. Recording the version with the score makes the inference result traceable across model updates.",
+      "drivers": [
+        "Audit traceability",
+        "Low-latency inference"
+      ],
+      "alternatives": [
+        {
+          "label": "Pinned model artifact per worker",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable inference",
+            "Explicit version identity"
+          ],
+          "cons": [
+            "Rollouts require coordination",
+            "Workers may hold stale versions"
+          ]
+        },
+        {
+          "label": "Fetch a model for every request",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Central version control",
+            "Updates take effect quickly"
+          ],
+          "cons": [
+            "Adds request latency",
+            "Model source becomes a dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Pinned model artifact per worker",
+        "value_id": null
+      },
+      "rationale": "Keeping a known artifact available to each worker avoids a per-request model fetch and lets the service attach an explicit version to every result.",
+      "consequences": [
+        "Rollouts must manage model versions across workers.",
+        "Model artifacts need versioned identifiers."
+      ]
+    },
+    {
+      "decision": "Record the model version and feature values with each score",
+      "context": "The brief requires later audit of both the model version and the features used. Persisting these alongside the score provides a record of the specific inference inputs.",
+      "drivers": [
+        "Auditor explainability",
+        "Feature traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist score with model and feature snapshot",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct audit evidence",
+            "Reconstructs inference inputs"
+          ],
+          "cons": [
+            "Storage and write overhead",
+            "Sensitive data retention"
+          ]
+        },
+        {
+          "label": "Persist score and model version only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Smaller records",
+            "Fewer feature copies"
+          ],
+          "cons": [
+            "Cannot inspect input values",
+            "Limited audit detail"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist score with model and feature snapshot",
+        "value_id": null
+      },
+      "rationale": "The required audit trail names both the model version and features, so storing a feature snapshot with each score most directly supports later review.",
+      "consequences": [
+        "Every score creates a durable record.",
+        "Feature retention and access controls need definition."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Feature definitions, sources, and online freshness requirements.",
+    "Training data, model development, validation, and deployment process.",
+    "Availability targets and behavior when scoring or feature dependencies fail.",
+    "Audit record retention, access controls, and storage technology.",
+    "Traffic volumes, peak rates, and the precise latency objective."
+  ]
+}

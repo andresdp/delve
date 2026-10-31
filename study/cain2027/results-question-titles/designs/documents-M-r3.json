@@ -1,0 +1,212 @@
+{
+  "decisions": [
+    {
+      "decision": "How should predictions be served?",
+      "context": "Millions of documents arrive per day, and several teams consume classifications. The brief gives no per-document response-time requirement.",
+      "drivers": [
+        "Daily volume",
+        "Multiple consumers",
+        "Unspecified latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch prediction deployment",
+          "value_id": "v:31.3",
+          "citations": [
+            "s02_p02",
+            "s02_p12",
+            "s02_p13"
+          ],
+          "pros": [
+            "Writes results for consumers",
+            "Supports batch throughput"
+          ],
+          "cons": [
+            "Results arrive on a schedule"
+          ]
+        },
+        {
+          "label": "Online computation serving",
+          "value_id": "v:31.5",
+          "citations": [
+            "s02_p02",
+            "s04_p10"
+          ],
+          "pros": [
+            "Fresh per-request results",
+            "Supports interactive use"
+          ],
+          "cons": [
+            "Requires online capacity",
+            "Latency sensitive"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch prediction deployment",
+        "value_id": "v:31.3"
+      },
+      "rationale": "Scheduled batch scoring fits the stated daily volume and shared result consumption without an identified real-time need. The scalable pipeline patterns in “Architecting a Machine Learning Pipeline” and “Scalable Software and Big Data Architecture” support this option.",
+      "consequences": [
+        "Persist classifications for consuming teams.",
+        "Set batch cadence and freshness expectations.",
+        "Support replay when classification jobs fail."
+      ]
+    },
+    {
+      "decision": "How should runtime capacity handle seasonal volume?",
+      "context": "Document volume varies strongly over the year, so fixed capacity risks either peak overload or unused resources.",
+      "drivers": [
+        "Seasonal demand",
+        "Millions of documents",
+        "Capacity utilization"
+      ],
+      "alternatives": [
+        {
+          "label": "Elastic resource scaling",
+          "value_id": "v:26.6",
+          "citations": [
+            "s02_p01",
+            "s04_p02",
+            "s04_p06"
+          ],
+          "pros": [
+            "Follows workload demand",
+            "Handles volume changes"
+          ],
+          "cons": [
+            "Requires scaling controls"
+          ]
+        },
+        {
+          "label": "CPU-or-GPU resource allocation",
+          "value_id": "v:26.3",
+          "citations": [],
+          "pros": [
+            "Explicit compute choice",
+            "Supports cluster jobs"
+          ],
+          "cons": [
+            "Does not specify elasticity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Elastic resource scaling",
+        "value_id": "v:26.6"
+      },
+      "rationale": "Elastic capacity directly addresses seasonal changes in classification workload. “Productionizing Machine Learning with a Microservices Architecture” and “Architecting a Machine Learning Pipeline” document automatic scaling with workload demand.",
+      "consequences": [
+        "Scale batch workers with queued work.",
+        "Tune capacity limits and cost controls.",
+        "Measure throughput before setting capacity targets."
+      ]
+    },
+    {
+      "decision": "How should classification quality be monitored?",
+      "context": "Operators need visibility into quality drift after deployment. Classification labels may arrive after predictions, so quality measurement depends on label availability.",
+      "drivers": [
+        "Quality drift visibility",
+        "Delayed labels",
+        "Operator awareness"
+      ],
+      "alternatives": [
+        {
+          "label": "Real-time prediction-quality monitoring",
+          "value_id": "v:6.1",
+          "citations": [
+            "s06_p06",
+            "s23_p03",
+            "s24_p05"
+          ],
+          "pros": [
+            "Surfaces quality changes",
+            "Tracks live model behavior"
+          ],
+          "cons": [
+            "Needs labels for measurement",
+            "Requires monitoring coverage"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Minimal monitoring setup"
+          ],
+          "cons": [
+            "No active quality visibility",
+            "Drift may go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Real-time prediction-quality monitoring",
+        "value_id": "v:6.1"
+      },
+      "rationale": "The brief explicitly requires operators to see quality drift, so active quality monitoring is necessary. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Machine Learning Monitoring: What It Is, and What We Are Missing” describe measuring deployed prediction quality.",
+      "consequences": [
+        "Retain predictions and eventual labels for comparison.",
+        "Report quality by claim type and time window.",
+        "Quality alerts may lag until labels arrive."
+      ]
+    },
+    {
+      "decision": "How should input drift be detected?",
+      "context": "The brief calls out quality drift but does not specify whether it comes from changing document inputs or changing model behavior. Input monitoring provides an early signal alongside labeled quality measurements.",
+      "drivers": [
+        "Drift visibility",
+        "Changing document mix",
+        "Operational diagnosis"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s06_p02",
+            "s23_p03"
+          ],
+          "pros": [
+            "Detects input changes",
+            "Can signal before labels"
+          ],
+          "cons": [
+            "Drift is not quality loss",
+            "Requires reference distributions"
+          ]
+        },
+        {
+          "label": "Software-metrics-only monitoring",
+          "value_id": "v:6.10",
+          "citations": [],
+          "pros": [
+            "Tracks service health"
+          ],
+          "cons": [
+            "Misses ML input shifts",
+            "Misses prediction quality"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Combine input-drift checks with the quality monitoring decision: they address complementary signals, and monitoring alternatives in this dimension are not exclusive. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Continuous delivery and automation pipelines in machine learning” describe monitoring input, schema, and statistical changes.",
+      "consequences": [
+        "Compare incoming document characteristics with a baseline.",
+        "Investigate drift before treating it as confirmed quality loss.",
+        "Coordinate drift alerts with the quality dashboard."
+      ]
+    }
+  ],
+  "uncovered": [
+    "LLM model selection, hosting, token limits, and inference cost.",
+    "Document ingestion format, source integration, and queueing or retry policy.",
+    "Result schema, access controls, and delivery contract for consuming teams.",
+    "Batch cadence, freshness target, and service-level objectives."
+  ]
+}

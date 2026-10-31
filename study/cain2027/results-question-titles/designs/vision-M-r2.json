@@ -1,0 +1,215 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras operate on production lines that often lack network access, so inspection must remain available locally.",
+      "drivers": [
+        "Intermittent network",
+        "Production-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s01_p06",
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Runs on device",
+            "Works offline"
+          ],
+          "cons": [
+            "Device deployment required"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s01_p08",
+            "s04_p01",
+            "s06_p13"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Integrates with applications"
+          ],
+          "cons": [
+            "Needs network connectivity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "The brief requires inspection on cameras that may have no network access. Sources including “Composing Deep-Learning Microservices for the Hybrid Internet of Things” and “Three Levels of ML Software” document on-device inference (s07_p01, s19_p11).",
+      "consequences": [
+        "Package inference for the target device.",
+        "Plan for device-side model updates."
+      ]
+    },
+    {
+      "decision": "How should retraining be triggered?",
+      "context": "Newly labelled images arrive for a recurring weekly retraining cycle. The small team benefits from a repeatable trigger with limited manual operation.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "New labelled images"
+      ],
+      "alternatives": [
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s02_p08",
+            "s06_p07",
+            "s20_p06"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Predictable operation"
+          ],
+          "cons": [
+            "May run without new labels"
+          ]
+        },
+        {
+          "label": "Manual retraining trigger",
+          "value_id": "v:6.14",
+          "citations": [
+            "s06_p11",
+            "s19_p08"
+          ],
+          "pros": [
+            "Human-controlled timing"
+          ],
+          "cons": [
+            "Recurring manual effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Schedule-based retraining trigger",
+        "value_id": "v:6.6"
+      },
+      "rationale": "A weekly schedule directly fits the stated retraining cadence and reduces repeated operator work. “MLOps: Continuous delivery and automation pipelines in machine learning” describes recurring scheduled triggers (s06_p07).",
+      "consequences": [
+        "Automate a weekly training start.",
+        "Define behavior when the latest labels are unavailable."
+      ]
+    },
+    {
+      "decision": "How should candidate models be evaluated?",
+      "context": "Weekly training produces updated candidates that must be assessed before they replace models on production devices.",
+      "drivers": [
+        "Weekly model updates",
+        "Production quality"
+      ],
+      "alternatives": [
+        {
+          "label": "Offline evaluation pipeline",
+          "value_id": "v:13.1",
+          "citations": [
+            "s02_p09",
+            "s06_p08",
+            "s20_p03"
+          ],
+          "pros": [
+            "Tests against held-out data",
+            "Fits pre-release review"
+          ],
+          "cons": [
+            "Requires representative test data"
+          ]
+        },
+        {
+          "label": "Metric-driven candidate model evaluation",
+          "value_id": "v:13.6",
+          "citations": [
+            "s09_p04",
+            "s19_p05",
+            "s22_p06"
+          ],
+          "pros": [
+            "Compares candidates by metric",
+            "Supports selection"
+          ],
+          "cons": [
+            "Metric choice affects results"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Offline evaluation pipeline",
+        "value_id": "v:13.1"
+      },
+      "rationale": "Evaluate each candidate against held-out labelled images before selecting it for rollout. “MLOps: Continuous delivery and automation pipelines in machine learning” and “Architecting a Machine Learning Pipeline” describe offline evaluation before deployment (s06_p08, s02_p09).",
+      "consequences": [
+        "Maintain held-out labelled images.",
+        "Block promotion when evaluation fails."
+      ]
+    },
+    {
+      "decision": "How should updated models be released?",
+      "context": "Selected models must reach cameras that may be disconnected, and a faulty update could impair production inspection.",
+      "drivers": [
+        "Offline devices",
+        "Frequent updates",
+        "Production continuity"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p10",
+            "s25_p06"
+          ],
+          "pros": [
+            "Incremental rollout",
+            "Supports rollback"
+          ],
+          "cons": [
+            "Requires rollout coordination"
+          ]
+        },
+        {
+          "label": "Recovery-oriented release automation with manual intervention",
+          "value_id": "v:19.4",
+          "citations": [
+            "s21_p02",
+            "s21_p09",
+            "s22_p03"
+          ],
+          "pros": [
+            "Supports recovery",
+            "Allows manual intervention"
+          ],
+          "cons": [
+            "Manual recovery effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Progressive release with rollback limits the impact of a problematic candidate while allowing updates to be staged across devices. “Productionizing Machine Learning with a Microservices Architecture” and “MLOps: Model management, deployment, and monitoring with Azure Machine Learning” document progressive release and rollback (s04_p10, s25_p06).",
+      "consequences": [
+        "Track deployed model versions per device.",
+        "Provide a rollback path for failed updates."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How devices exchange model packages when network access is unavailable.",
+    "Image and label storage, retention, and transfer to the training environment.",
+    "Training compute and workflow coordination for the weekly cycle.",
+    "Model family and resource fit for the camera hardware.",
+    "Device fleet management, update authentication, and recovery protocol."
+  ]
+}

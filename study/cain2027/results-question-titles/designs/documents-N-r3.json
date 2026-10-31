@@ -1,0 +1,239 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents enter classification?",
+      "context": "The system must classify millions of incoming documents each day. The brief does not prescribe a transport mechanism.",
+      "drivers": [
+        "High daily volume",
+        "Incoming documents"
+      ],
+      "alternatives": [
+        {
+          "label": "Queued asynchronous ingestion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers bursts",
+            "Decouples producers"
+          ],
+          "cons": [
+            "Adds queue operations",
+            "Results are delayed"
+          ]
+        },
+        {
+          "label": "Synchronous request processing",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple request flow",
+            "Immediate response"
+          ],
+          "cons": [
+            "Tightly couples callers",
+            "Harder to absorb bursts"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queued asynchronous ingestion",
+        "value_id": null
+      },
+      "rationale": "Buffering and decoupling suit high volume with strong seasonal variation, while allowing producers to submit documents without waiting for classification.",
+      "consequences": [
+        "Classification results arrive asynchronously.",
+        "Queue capacity and backlog need operational monitoring."
+      ]
+    },
+    {
+      "decision": "How should inference scale with seasonal demand?",
+      "context": "Classification volume varies strongly over the year, so fixed capacity risks being insufficient during peaks or underused otherwise.",
+      "drivers": [
+        "Seasonal volume variation",
+        "Millions per day"
+      ],
+      "alternatives": [
+        {
+          "label": "Autoscaled stateless workers",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scales with demand",
+            "Workers can be replaced"
+          ],
+          "cons": [
+            "Scaling has lag",
+            "Capacity limits still apply"
+          ]
+        },
+        {
+          "label": "Fixed worker fleet",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Predictable capacity",
+            "Simpler scaling behavior"
+          ],
+          "cons": [
+            "Peak overprovisioning",
+            "Peak capacity may be insufficient"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Autoscaled stateless workers",
+        "value_id": null
+      },
+      "rationale": "Stateless workers can expand or contract as queued work changes, aligning capacity with seasonal demand.",
+      "consequences": [
+        "Worker scaling signals and limits must be configured.",
+        "Peak bursts may still create processing delays."
+      ]
+    },
+    {
+      "decision": "How should classification results reach consuming teams?",
+      "context": "Several teams consume classification results, but the brief does not specify their integration patterns or latency needs.",
+      "drivers": [
+        "Several consumer teams",
+        "High result volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Publish results to a shared event stream",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Consumers are decoupled",
+            "Supports multiple teams"
+          ],
+          "cons": [
+            "Requires consumer handling",
+            "Delivery semantics need design"
+          ]
+        },
+        {
+          "label": "Expose a shared query API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Central access point",
+            "Consumers query as needed"
+          ],
+          "cons": [
+            "Adds request load",
+            "Requires availability coordination"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Publish results to a shared event stream",
+        "value_id": null
+      },
+      "rationale": "A shared stream lets multiple teams consume results independently without coupling classification to each team's access patterns.",
+      "consequences": [
+        "Consumers must manage their own progress and retries.",
+        "Result schema changes affect multiple teams."
+      ]
+    },
+    {
+      "decision": "How should classification quality drift be surfaced?",
+      "context": "Operators need to see when classification quality drifts. The brief does not specify the available quality signals or alerting thresholds.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operator needs"
+      ],
+      "alternatives": [
+        {
+          "label": "Quality monitoring dashboard with alerts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Makes trends visible",
+            "Can notify operators"
+          ],
+          "cons": [
+            "Needs quality signals",
+            "Thresholds require tuning"
+          ]
+        },
+        {
+          "label": "Periodic manual quality reports",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple initial process",
+            "Supports human review"
+          ],
+          "cons": [
+            "Slower detection",
+            "Requires recurring effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Quality monitoring dashboard with alerts",
+        "value_id": null
+      },
+      "rationale": "A dashboard with alerts gives operators ongoing visibility and can surface changes sooner than periodic reports, provided suitable quality signals are established.",
+      "consequences": [
+        "Quality signals and alert thresholds must be defined.",
+        "Operators need a process to investigate detected drift."
+      ]
+    },
+    {
+      "decision": "How should classifier updates be introduced?",
+      "context": "An LLM-based classifier produces results used by several teams, and operators need to monitor quality drift. Changes to the classifier can therefore affect both quality and downstream use.",
+      "drivers": [
+        "LLM classification",
+        "Quality drift",
+        "Several consumers"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned, staged model rollout",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Limits rollout exposure",
+            "Supports comparison"
+          ],
+          "cons": [
+            "Requires version tracking",
+            "Adds rollout steps"
+          ]
+        },
+        {
+          "label": "Replace the active model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment path",
+            "No parallel capacity"
+          ],
+          "cons": [
+            "Broad immediate impact",
+            "Harder to compare"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned, staged model rollout",
+        "value_id": null
+      },
+      "rationale": "Staging and versioning make quality changes observable and limit the impact of a classifier update on consuming teams.",
+      "consequences": [
+        "Results need to identify the classifier version.",
+        "Rollouts require comparison and promotion steps."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Document formats, sizes, and ingestion interfaces",
+    "Claim type taxonomy and labeled quality data",
+    "LLM provider, model, and deployment constraints",
+    "Latency and backlog service objectives",
+    "Data retention, privacy, and security requirements",
+    "Quality metrics, alert thresholds, and operator response process",
+    "Event delivery guarantees and consumer replay needs"
+  ]
+}

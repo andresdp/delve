@@ -1,0 +1,314 @@
+{
+  "decisions": [
+    {
+      "decision": "Embed the model as a module in the camera application",
+      "context": "Cameras need to inspect images without network access. A model module keeps inference in the application on each device.",
+      "drivers": [
+        "offline inference",
+        "small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "local inference",
+            "clear module boundary"
+          ],
+          "cons": [
+            "app and model deploy together"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "separate model service",
+            "independent interface"
+          ],
+          "cons": [
+            "distributed service overhead",
+            "network dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as module in modular monolith",
+        "value_id": "v:1.3"
+      },
+      "rationale": "A local module supports inference when cameras have no network access and keeps the deployment model manageable for a small team.",
+      "consequences": [
+        "Package the model with the camera application.",
+        "Update application and model together."
+      ]
+    },
+    {
+      "decision": "Serve predictions through a local API",
+      "context": "The inspection application needs timely predictions while cameras may be disconnected. A local service provides real-time predictions without relying on a remote endpoint.",
+      "drivers": [
+        "offline operation",
+        "real-time inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "local real-time predictions",
+            "works offline"
+          ],
+          "cons": [
+            "local service to operate"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "service boundary",
+            "centralized serving"
+          ],
+          "cons": [
+            "network dependent",
+            "distributed operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "Local serving matches on-device inspection and avoids requiring network access for predictions.",
+      "consequences": [
+        "Run and monitor a prediction endpoint on each device.",
+        "Keep the model available locally."
+      ]
+    },
+    {
+      "decision": "Automate model delivery with a CI/CD pipeline",
+      "context": "A retrained model must reach production devices every week. Automating delivery reduces repeated manual work for the small team.",
+      "drivers": [
+        "weekly model updates",
+        "small team",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "repeatable deployments",
+            "less manual effort"
+          ],
+          "cons": [
+            "pipeline upkeep"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "simple automation",
+            "limited infrastructure"
+          ],
+          "cons": [
+            "manual execution",
+            "operator dependent"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "A repeatable pipeline suits the weekly release cadence and can reduce the effort of delivering updates across devices.",
+      "consequences": [
+        "Maintain pipeline configuration and credentials.",
+        "Define checks before deployment to devices."
+      ]
+    },
+    {
+      "decision": "Keep rollback to the previous model version",
+      "context": "Weekly model updates change the software running on production cameras. Retaining a known prior version gives the team a recovery path if an update performs poorly.",
+      "drivers": [
+        "weekly updates",
+        "production reliability"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "recovery path",
+            "limits impact of bad updates"
+          ],
+          "cons": [
+            "retain prior model",
+            "rollback mechanism needed"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "simple active version",
+            "less storage"
+          ],
+          "cons": [
+            "no defined rollback path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Rollback supports recovery from a problematic weekly update; the model catalog must preserve the previous release for redeployment.",
+      "consequences": [
+        "Keep the prior model artifact available.",
+        "Test rollback on the device fleet."
+      ]
+    },
+    {
+      "decision": "Version training data in a data version repository",
+      "context": "Newly labelled images feed weekly retraining. Versioning the data helps connect a released model to the training inputs used to build it.",
+      "drivers": [
+        "weekly retraining",
+        "traceability"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "explicit data versions",
+            "reproducible training inputs"
+          ],
+          "cons": [
+            "repository overhead",
+            "storage needs"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "less tooling",
+            "lower setup effort"
+          ],
+          "cons": [
+            "harder to reproduce training",
+            "weak traceability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Versioned training inputs make weekly model releases easier to trace and reproduce, which supports safe delivery and rollback.",
+      "consequences": [
+        "Store references to data versions with each model release.",
+        "Budget for data storage and repository upkeep."
+      ]
+    },
+    {
+      "decision": "Retrain on a weekly schedule using batch learning",
+      "context": "The brief specifies weekly retraining from newly labelled images. Batch learning and a scheduled trigger fit that cadence without requiring incremental training infrastructure.",
+      "drivers": [
+        "weekly retraining",
+        "newly labelled images",
+        "tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "matches weekly cadence",
+            "offline training"
+          ],
+          "cons": [
+            "updates arrive on schedule",
+            "batch compute needed"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "updates as data arrives",
+            "may reduce full retraining"
+          ],
+          "cons": [
+            "more complex update flow",
+            "not required by brief"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "The brief calls for weekly retraining, so batch learning is a direct fit. Schedule the pipeline weekly to use the newest labelled data available.",
+      "consequences": [
+        "New labels wait for the next scheduled run.",
+        "Provide batch compute for training."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to transfer and stage model artifacts across intermittently connected devices, including fleet rollout and update recovery.",
+    "What image retention, privacy, and security controls apply to production and training data.",
+    "What quality gates and tests should block a model release.",
+    "What production monitoring and alerting should operate when devices are offline."
+  ]
+}

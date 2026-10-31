@@ -1,0 +1,197 @@
+{
+  "decisions": [
+    {
+      "decision": "How should weekly forecasts be produced?",
+      "context": "Demand is forecast weekly for each store and product. The pipeline needs a repeatable path from input data to forecasts.",
+      "drivers": [
+        "Weekly cadence",
+        "Store-product forecasts",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fits weekly cadence",
+            "Clear run boundaries"
+          ],
+          "cons": [
+            "Results arrive on schedule",
+            "Requires orchestration"
+          ]
+        },
+        {
+          "label": "Online prediction service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "On-demand forecasts",
+            "Always available"
+          ],
+          "cons": [
+            "Unneeded serving complexity",
+            "Harder to reproduce runs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch pipeline",
+        "value_id": null
+      },
+      "rationale": "A scheduled batch run matches the weekly forecast cadence and gives each forecast period a defined run that can be reproduced.",
+      "consequences": [
+        "Forecasts update on the weekly schedule.",
+        "A failed run needs detection and rerun handling."
+      ]
+    },
+    {
+      "decision": "How should data and pipeline steps be organized?",
+      "context": "A team of three data scientists owns the pipeline end to end. Its steps need to be understandable and maintainable by that team.",
+      "drivers": [
+        "Small owning team",
+        "End-to-end ownership",
+        "Weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Modular pipeline in one codebase",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Shared conventions",
+            "Simple coordination"
+          ],
+          "cons": [
+            "Shared release boundary",
+            "Modules need clear ownership"
+          ]
+        },
+        {
+          "label": "Independent services",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Separate deployments",
+            "Independent scaling"
+          ],
+          "cons": [
+            "More operational overhead",
+            "Cross-service coordination"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Modular pipeline in one codebase",
+        "value_id": null
+      },
+      "rationale": "A modular codebase keeps the pipeline cohesive for a small team while allowing data preparation, training, and forecasting logic to evolve separately.",
+      "consequences": [
+        "Modules share a release process.",
+        "Interfaces between pipeline stages need to be maintained."
+      ]
+    },
+    {
+      "decision": "How should past forecasts be reproduced?",
+      "context": "The brief requires forecasts to be reproducible for any past week. Reproduction depends on retaining the inputs and implementation used for each run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Weekly runs"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned inputs, code, and run metadata",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Traceable run lineage",
+            "Supports reruns"
+          ],
+          "cons": [
+            "Storage and retention costs",
+            "Requires version discipline"
+          ]
+        },
+        {
+          "label": "Latest data and code only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Less storage",
+            "Simple operations"
+          ],
+          "cons": [
+            "Past runs may change",
+            "Weak audit trail"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned inputs, code, and run metadata",
+        "value_id": null
+      },
+      "rationale": "Recording the input snapshot, code version, configuration, and model version for each run provides the information needed to reproduce a past week's forecasts.",
+      "consequences": [
+        "Run artifacts and metadata must be retained.",
+        "Pipeline changes must record versions consistently."
+      ]
+    },
+    {
+      "decision": "How should new model ideas reach production?",
+      "context": "The team wants to move new model ideas to production quickly without breaking the weekly run. Experimental work therefore needs a separate path from the production forecast run.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Isolated experiments with explicit promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Protects scheduled run",
+            "Supports quick trials"
+          ],
+          "cons": [
+            "Needs promotion checks",
+            "Duplicates some compute"
+          ]
+        },
+        {
+          "label": "Edit production pipeline directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few deployment steps",
+            "Immediate changes"
+          ],
+          "cons": [
+            "Can disrupt weekly run",
+            "Harder experiment comparison"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Isolated experiments with explicit promotion",
+        "value_id": null
+      },
+      "rationale": "Isolated experiments let the team try model ideas independently; explicit promotion gives production a controlled change point that protects the weekly run.",
+      "consequences": [
+        "Experiments need a separate execution path.",
+        "Promotion criteria and ownership must be defined."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Demand data sources, schemas, and availability guarantees",
+    "Forecast horizon and required accuracy measures",
+    "Model selection, training cadence, and fallback behavior",
+    "Execution platform, orchestration tooling, and deployment environment",
+    "Access controls, privacy requirements, and data retention period",
+    "Monitoring, alerting, and recovery expectations",
+    "Forecast consumers, output format, and delivery interface",
+    "Promotion criteria and approval process"
+  ]
+}

@@ -1,0 +1,450 @@
+{
+  "decisions": [
+    {
+      "decision": "Embed the inspection model in a modular application",
+      "context": "Each camera must inspect images without network access. The brief does not require independently scaling inference services.",
+      "drivers": [
+        "Offline inference",
+        "Tight infrastructure budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as module in modular monolith",
+          "value_id": "v:1.3",
+          "citations": [
+            "d:1",
+            "v:1.3"
+          ],
+          "pros": [
+            "Local inference",
+            "Simple deployment"
+          ],
+          "cons": [
+            "Coupled release"
+          ]
+        },
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Independent model service"
+          ],
+          "cons": [
+            "Service operations",
+            "Network dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as module in modular monolith",
+        "value_id": "v:1.3"
+      },
+      "rationale": "A local model module supports disconnected inference and keeps the runtime footprint small (d:1, v:1.3).",
+      "consequences": [
+        "Package the model with the camera application.",
+        "Update the application when deploying a model."
+      ]
+    },
+    {
+      "decision": "Store training images in a shared data store",
+      "context": "Weekly retraining needs access to newly labelled images. A shared store provides a straightforward source for the training pipeline.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Budget constraints"
+      ],
+      "alternatives": [
+        {
+          "label": "Shared data store",
+          "value_id": "v:2.1",
+          "citations": [
+            "d:2",
+            "v:2.1"
+          ],
+          "pros": [
+            "Central training source",
+            "Simple access"
+          ],
+          "cons": [
+            "Storage needs management"
+          ]
+        },
+        {
+          "label": "Data service",
+          "value_id": "v:2.2",
+          "citations": [
+            "d:2",
+            "v:2.2"
+          ],
+          "pros": [
+            "Encapsulated access"
+          ],
+          "cons": [
+            "Service to operate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Shared data store",
+        "value_id": "v:2.1"
+      },
+      "rationale": "A shared store gives the weekly training workflow a common image source with modest operational overhead (d:2, v:2.1).",
+      "consequences": [
+        "Training infrastructure needs store access.",
+        "Retention and capacity policies remain to be set."
+      ]
+    },
+    {
+      "decision": "Ingest labelled images in batches",
+      "context": "The brief describes newly labelled images used for weekly retraining, rather than a requirement to train continuously as images arrive.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Fits weekly cadence",
+            "Simple processing"
+          ],
+          "cons": [
+            "Updates wait for batch"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous arrival"
+          ],
+          "cons": [
+            "More operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion matches the stated retraining cadence and avoids adding streaming operations without a stated need (d:7, v:7.3).",
+      "consequences": [
+        "Images become available to training at batch boundaries.",
+        "Define a reliable batch handoff from labelling."
+      ]
+    },
+    {
+      "decision": "Automate model delivery with a CI/CD pipeline",
+      "context": "Models are retrained weekly and pushed to devices. Automating the build and delivery steps can reduce recurring manual work for a small team.",
+      "drivers": [
+        "Weekly model releases",
+        "Small team",
+        "Disconnected devices"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Repeatable delivery",
+            "Less manual effort"
+          ],
+          "cons": [
+            "Pipeline upkeep"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Low initial setup"
+          ],
+          "cons": [
+            "Manual execution",
+            "Less integrated checks"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "A pipeline can make weekly releases repeatable; delivery to disconnected devices requires a separate offline distribution mechanism (d:8, v:8.1).",
+      "consequences": [
+        "Maintain pipeline credentials and release configuration.",
+        "Prepare signed or otherwise verified model packages for device delivery."
+      ]
+    },
+    {
+      "decision": "Keep a rollback path for deployed model versions",
+      "context": "A new model is pushed to cameras that may be offline. The deployment choice should allow recovery when a release causes problems.",
+      "drivers": [
+        "Device deployments",
+        "Offline operation",
+        "Weekly updates"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Recovery path",
+            "Supports staged device updates"
+          ],
+          "cons": [
+            "Retain prior artifact",
+            "Rollback procedure needed"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple active state"
+          ],
+          "cons": [
+            "No explicit prior-version path"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Keeping the prior model available gives operators a recovery option if a pushed version performs poorly (d:10, v:10.2).",
+      "consequences": [
+        "Store the previous package on devices or in the distribution channel.",
+        "Define how offline cameras receive rollback instructions."
+      ]
+    },
+    {
+      "decision": "Version training data in a data version repository",
+      "context": "The team retrains from newly labelled images each week. Linking each model release to the data used for training supports repeatable builds and investigation.",
+      "drivers": [
+        "Weekly training",
+        "Traceable model releases"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Explicit data versions",
+            "Reproducible training inputs"
+          ],
+          "cons": [
+            "Repository upkeep",
+            "Storage overhead"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Less setup"
+          ],
+          "cons": [
+            "Harder to reproduce runs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "Versioning the weekly training inputs helps relate a deployed model to its labelled data, despite the added repository maintenance (d:11, v:11.1).",
+      "consequences": [
+        "Record the data version alongside each model artifact.",
+        "Manage storage for retained image versions."
+      ]
+    },
+    {
+      "decision": "Trigger retraining on a weekly schedule",
+      "context": "The brief specifies weekly retraining, so a scheduled trigger directly matches the requested operating cadence.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "On-schedule trigger",
+          "value_id": "v:12.3",
+          "citations": [
+            "d:12",
+            "v:12.3"
+          ],
+          "pros": [
+            "Matches cadence",
+            "Predictable operations"
+          ],
+          "cons": [
+            "May run without new data"
+          ]
+        },
+        {
+          "label": "On availability of new training data trigger",
+          "value_id": "v:12.4",
+          "citations": [
+            "d:12",
+            "v:12.4"
+          ],
+          "pros": [
+            "Runs when data arrives"
+          ],
+          "cons": [
+            "Does not enforce weekly cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-schedule trigger",
+        "value_id": "v:12.3"
+      },
+      "rationale": "A weekly schedule follows the explicit requirement and keeps retraining behavior predictable (d:12, v:12.3).",
+      "consequences": [
+        "Handle weeks when new labels are missing or incomplete.",
+        "Keep training execution separate from device connectivity."
+      ]
+    },
+    {
+      "decision": "Build and validate models in an automated pipeline",
+      "context": "Weekly retraining repeats model building, evaluation, and validation. Automating these steps reduces routine work and creates a consistent release input.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Model pushed to devices"
+      ],
+      "alternatives": [
+        {
+          "label": "Model building pipeline",
+          "value_id": "v:18.1",
+          "citations": [
+            "d:18",
+            "v:18.1"
+          ],
+          "pros": [
+            "Repeatable validation",
+            "Automates recurring work"
+          ],
+          "cons": [
+            "Pipeline maintenance"
+          ]
+        },
+        {
+          "label": "Model building in development tool",
+          "value_id": "v:18.3",
+          "citations": [
+            "d:18",
+            "v:18.3"
+          ],
+          "pros": [
+            "Simple experimentation"
+          ],
+          "cons": [
+            "Manual repeatability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model building pipeline",
+        "value_id": "v:18.1"
+      },
+      "rationale": "An automated pipeline can train, evaluate, and validate each weekly candidate before packaging it for delivery (d:18, v:18.1).",
+      "consequences": [
+        "Define acceptance criteria before deployment.",
+        "Maintain the training pipeline and its execution environment."
+      ]
+    },
+    {
+      "decision": "Use batch-based model learning",
+      "context": "New labels are collected for weekly retraining, and inference must continue on devices without network access. The brief does not call for online updates.",
+      "drivers": [
+        "Weekly retraining",
+        "Offline inference"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Matches weekly cadence",
+            "Training can run offline"
+          ],
+          "cons": [
+            "Improvements arrive between runs"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Can incorporate updates continuously"
+          ],
+          "cons": [
+            "More complex update behavior"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Batch learning aligns with weekly labelled data and avoids requiring continuous connectivity or online model updates (d:19, v:19.1).",
+      "consequences": [
+        "Model improvements wait for the next training and delivery cycle.",
+        "Training must validate each candidate before device release."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to distribute model packages to disconnected cameras and synchronize updates when they reconnect.",
+    "How to handle camera connectivity, package integrity, staged rollout, and fleet-level deployment status.",
+    "Which image-quality and defect metrics determine model acceptance and rollback.",
+    "How to secure and retain production images and labelled data."
+  ]
+}

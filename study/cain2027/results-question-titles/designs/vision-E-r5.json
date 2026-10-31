@@ -1,0 +1,380 @@
+{
+  "decisions": [
+    {
+      "decision": "How should the model serve predictions?",
+      "context": "Cameras need local defect predictions on production lines that often lack network access.",
+      "drivers": [
+        "Intermittent connectivity",
+        "On-device inference",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Runs locally",
+            "Real-time predictions"
+          ],
+          "cons": [
+            "Requires local service operation"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Distributed service boundary"
+          ],
+          "cons": [
+            "Depends on network access"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled processing"
+          ],
+          "cons": [
+            "Predictions are not immediate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Local service/API based model serving",
+        "value_id": "v:5.2"
+      },
+      "rationale": "A local service can make predictions on-device without requiring a network connection, matching the deployment setting.",
+      "consequences": [
+        "Each device must run and expose the local prediction service."
+      ]
+    },
+    {
+      "decision": "When and how should the model be trained?",
+      "context": "The model is retrained every week from newly labelled images.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Fits scheduled retraining",
+            "Can train offline"
+          ],
+          "cons": [
+            "Updates arrive in batches"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Can incorporate data incrementally"
+          ],
+          "cons": [
+            "Not required by weekly cadence"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Combines batch and incremental updates"
+          ],
+          "cons": [
+            "More moving parts"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "A weekly batch training cycle matches the brief’s retraining cadence and avoids introducing incremental training complexity.",
+      "consequences": [
+        "Training runs on a weekly schedule using newly labelled images."
+      ]
+    },
+    {
+      "decision": "How should training data be versioned?",
+      "context": "Weekly retraining uses changing labelled images, so the team needs to identify the data used for each model build.",
+      "drivers": [
+        "Changing training data",
+        "Reproducible builds",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Dedicated data versioning"
+          ],
+          "cons": [
+            "Additional repository tooling"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Keeps versioning with code"
+          ],
+          "cons": [
+            "May constrain data handling"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Lowest setup effort"
+          ],
+          "cons": [
+            "Harder to reproduce training inputs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "A dedicated data version repository makes the weekly training inputs identifiable and supports repeatable model builds.",
+      "consequences": [
+        "The team must maintain versioned references to labelled image sets."
+      ]
+    },
+    {
+      "decision": "How should model integration and delivery be automated?",
+      "context": "A newly retrained model must be pushed to devices, while the team has limited capacity for manual release work.",
+      "drivers": [
+        "Weekly model releases",
+        "Small team",
+        "Device delivery"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Automates release steps",
+            "Supports repeatable delivery"
+          ],
+          "cons": [
+            "Requires pipeline setup"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Direct, lightweight automation"
+          ],
+          "cons": [
+            "More manual coordination"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [
+            "No automation setup"
+          ],
+          "cons": [
+            "Manual release burden"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "A CI/CD pipeline can automate recurring model delivery; the checked point had no warnings, though the design space attests no sources to this combination.",
+      "consequences": [
+        "Pipeline setup and maintenance add work for the small team."
+      ]
+    },
+    {
+      "decision": "How should deployed model versions be handled?",
+      "context": "New weekly models are pushed to production devices, so a faulty update needs a recovery path.",
+      "drivers": [
+        "Weekly updates",
+        "Production reliability",
+        "On-device deployment"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Recovery from a bad update",
+            "Uses a prior known version"
+          ],
+          "cons": [
+            "Requires retaining prior model"
+          ]
+        },
+        {
+          "label": "N versions in production",
+          "value_id": "v:10.1",
+          "citations": [
+            "d:10",
+            "v:10.1"
+          ],
+          "pros": [
+            "Multiple versions can coexist"
+          ],
+          "cons": [
+            "More deployment complexity"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple active model state"
+          ],
+          "cons": [
+            "No explicit fallback strategy"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Rollback provides a recovery path for weekly device updates without requiring multiple active versions.",
+      "consequences": [
+        "Devices or the delivery process must retain and restore a previous model."
+      ]
+    },
+    {
+      "decision": "How should model performance be monitored?",
+      "context": "The model runs in production on cameras, and its quality needs to remain visible after updates.",
+      "drivers": [
+        "Production defect detection",
+        "Weekly model updates",
+        "Limited operational capacity"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks model performance parameters"
+          ],
+          "cons": [
+            "Requires performance signals"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Captures inputs and outputs"
+          ],
+          "cons": [
+            "Requires log storage and review"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "No monitoring infrastructure"
+          ],
+          "cons": [
+            "Production issues may go unnoticed"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Monitoring model performance provides a way to assess deployed quality across recurring updates; the design space point was warning-free but unattested.",
+      "consequences": [
+        "The team must define performance signals and review them."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to distribute model packages to intermittently connected devices and manage deferred updates.",
+    "How to collect labels and images from devices when network access is unavailable.",
+    "What device-side hardware, model format, and resource limits to target.",
+    "How to test model quality against defect-specific acceptance thresholds."
+  ]
+}

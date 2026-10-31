@@ -1,0 +1,193 @@
+{
+  "decisions": [
+    {
+      "decision": "How should transactions receive fraud scores?",
+      "context": "Authorization needs a score before it proceeds, with response times in the tens of milliseconds. The service must handle peaks without making scoring depend on slow asynchronous processing.",
+      "drivers": [
+        "Pre-authorization scoring",
+        "Tens-of-milliseconds latency",
+        "Peak traffic"
+      ],
+      "alternatives": [
+        {
+          "label": "Synchronous scoring API",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fits authorization flow",
+            "Returns score immediately"
+          ],
+          "cons": [
+            "Adds authorization-path dependency"
+          ]
+        },
+        {
+          "label": "Asynchronous scoring queue",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers traffic spikes",
+            "Decouples callers"
+          ],
+          "cons": [
+            "Score may arrive too late"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Synchronous scoring API",
+        "value_id": null
+      },
+      "rationale": "A synchronous API provides the score within the authorization flow and suits the stated latency need. Its request path must be designed for low overhead.",
+      "consequences": [
+        "Authorization depends on scoring availability.",
+        "Queueing and feature retrieval must avoid long waits."
+      ]
+    },
+    {
+      "decision": "How should scoring stay available during peaks?",
+      "context": "Every transaction needs scoring, and the service is expected to keep working during peaks. The brief does not specify traffic shape or deployment platform.",
+      "drivers": [
+        "Continuous scoring",
+        "Peak resilience",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Replicated stateless scoring instances",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Scale out with demand",
+            "Instance failures tolerated"
+          ],
+          "cons": [
+            "Requires capacity management"
+          ]
+        },
+        {
+          "label": "Single scoring instance",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple deployment",
+            "No coordination"
+          ],
+          "cons": [
+            "Single failure point",
+            "Limited peak capacity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Replicated stateless scoring instances",
+        "value_id": null
+      },
+      "rationale": "Replicated instances can serve requests in parallel and keep scoring available when an instance fails. Statelessness supports scaling without coordinating request state.",
+      "consequences": [
+        "Model and configuration must be available to each instance.",
+        "Capacity and health monitoring are required."
+      ]
+    },
+    {
+      "decision": "How should model versions be served?",
+      "context": "Auditors must be able to identify which model produced each score. Replacing models therefore needs to preserve a clear version boundary for serving and records.",
+      "drivers": [
+        "Model version traceability",
+        "Low latency",
+        "Auditability"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model artifacts loaded by scoring service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Explicit model identity",
+            "Avoids per-request model lookup"
+          ],
+          "cons": [
+            "Artifact rollout required"
+          ]
+        },
+        {
+          "label": "Remote model service lookup per request",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Central model management",
+            "Independent deployment"
+          ],
+          "cons": [
+            "Network latency",
+            "Additional dependency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model artifacts loaded by scoring service",
+        "value_id": null
+      },
+      "rationale": "Loading a specific versioned artifact keeps model identity explicit while avoiding a remote lookup on the latency-sensitive request path.",
+      "consequences": [
+        "Deployments must record the artifact version.",
+        "Rollout and rollback need version controls."
+      ]
+    },
+    {
+      "decision": "How should score inputs and model identity be auditable?",
+      "context": "The brief requires later identification of the model version and features that produced each score. That requires a durable record linking each scoring event to its inputs and result.",
+      "drivers": [
+        "Feature traceability",
+        "Model version traceability",
+        "Auditor review"
+      ],
+      "alternatives": [
+        {
+          "label": "Persist per-score audit record",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct event-to-input linkage",
+            "Supports later review"
+          ],
+          "cons": [
+            "Storage and retention cost",
+            "Write-path overhead"
+          ]
+        },
+        {
+          "label": "Keep aggregate service logs only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Lower storage volume",
+            "Simpler logging"
+          ],
+          "cons": [
+            "Cannot reliably reconstruct inputs",
+            "Weak score-level traceability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Persist per-score audit record",
+        "value_id": null
+      },
+      "rationale": "A per-score record can associate the model version, features, and score for each transaction, matching the auditor requirement.",
+      "consequences": [
+        "Audit writes must fit latency and availability needs.",
+        "Feature representation and retention need definition."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Target latency percentile and numeric service-level objective.",
+    "Peak throughput, traffic shape, and scaling limits.",
+    "Behavior when scoring or required features are unavailable.",
+    "Feature definitions, sources, freshness, and point-in-time reconstruction method.",
+    "Audit record format, retention, access controls, and sensitive-data handling.",
+    "Model training, validation, approval, rollout, and rollback process.",
+    "Required explanation format and whether scores need human-readable reasons."
+  ]
+}

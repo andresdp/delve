@@ -1,0 +1,228 @@
+{
+  "decisions": [
+    {
+      "decision": "How to ingest incoming documents",
+      "context": "The classifier receives millions of documents daily, so ingestion must handle sustained high volume. The brief gives no latency requirement.",
+      "drivers": [
+        "Millions daily",
+        "Variable volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Groups high volume",
+            "Fits batch processing"
+          ],
+          "cons": [
+            "Results arrive later"
+          ]
+        },
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous intake"
+          ],
+          "cons": [
+            "Needs stream operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data ingestion in batches",
+        "value_id": "v:7.3"
+      },
+      "rationale": "Batch ingestion suits the stated volume, and the brief does not require immediate results (d:7, v:7.3). The batch design point had no warnings; it was unattested, as was the streaming rival.",
+      "consequences": [
+        "Process documents on a schedule.",
+        "Tune batch size and cadence to volume."
+      ]
+    },
+    {
+      "decision": "How to process documents",
+      "context": "Document volume varies strongly over the year, requiring a processing approach that can manage large workloads. The brief does not specify real-time classification.",
+      "drivers": [
+        "Millions daily",
+        "Seasonal volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Fits grouped workloads"
+          ],
+          "cons": [
+            "Results may be delayed"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Processes continuously"
+          ],
+          "cons": [
+            "More operational complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "Batch processing matches the high, variable volume without assuming a latency need absent from the brief (d:15, v:15.1). The batch design point had no warnings; it was unattested, as was the streaming rival.",
+      "consequences": [
+        "Scale workers with batch load.",
+        "Classification results are not immediate."
+      ]
+    },
+    {
+      "decision": "How to serve classification results",
+      "context": "Several teams consume predictions, and the brief does not require synchronous responses. A shared result store can support scheduled batch delivery.",
+      "drivers": [
+        "Multiple consumers",
+        "High volume"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Writes results to storage",
+            "Supports batch delivery"
+          ],
+          "cons": [
+            "Not real time"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time access"
+          ],
+          "cons": [
+            "Distributed service operations"
+          ]
+        },
+        {
+          "label": "Hybrid online/offline model serving",
+          "value_id": "v:5.5",
+          "citations": [
+            "d:5",
+            "v:5.5"
+          ],
+          "pros": [
+            "Supports both access patterns"
+          ],
+          "cons": [
+            "More components"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Scheduled batch predictions stored for access fit the stated consumers and volume without introducing an unstated real-time requirement (d:5, v:5.3). The batch design point had no warnings; it was unattested, as was the real-time rival.",
+      "consequences": [
+        "Consumers read results from shared storage.",
+        "Define result ownership and freshness expectations."
+      ]
+    },
+    {
+      "decision": "How to monitor classification quality",
+      "context": "Operators need to see when classification quality drifts. That calls for monitoring model performance in production.",
+      "drivers": [
+        "Detect quality drift",
+        "Operator visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model performance monitoring",
+          "value_id": "v:22.1",
+          "citations": [
+            "d:22",
+            "v:22.1"
+          ],
+          "pros": [
+            "Tracks performance measures"
+          ],
+          "cons": [
+            "Requires quality signals"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Records inputs and outputs"
+          ],
+          "cons": [
+            "Logs alone may not show quality"
+          ]
+        },
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks usage and outputs"
+          ],
+          "cons": [
+            "Broader tracking scope"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model performance monitoring",
+        "value_id": "v:22.1"
+      },
+      "rationale": "Performance monitoring directly addresses the brief’s requirement to expose quality drift (d:22, v:22.1). The chosen batch design point had no warnings and was unattested; the streaming rival was also unattested.",
+      "consequences": [
+        "Choose quality measures and alert thresholds.",
+        "Monitoring depends on timely quality signals."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Autoscaling and capacity planning for seasonal volume.",
+    "Access control and result contracts for consuming teams.",
+    "How to obtain quality labels and set drift thresholds.",
+    "Model update, review, and rollback policy."
+  ]
+}

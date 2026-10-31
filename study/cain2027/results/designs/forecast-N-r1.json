@@ -1,0 +1,195 @@
+{
+  "decisions": [
+    {
+      "decision": "Forecast weekly demand per store and product",
+      "context": "The system must produce retailer demand forecasts, and the brief specifies the forecast grain and cadence.",
+      "drivers": [
+        "Weekly forecasts",
+        "Store and product grain"
+      ],
+      "alternatives": [
+        {
+          "label": "Weekly forecasts per store and product",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches stated grain",
+            "Supports weekly planning"
+          ],
+          "cons": [
+            "Requires store-product inputs",
+            "May yield sparse series"
+          ]
+        },
+        {
+          "label": "Weekly forecasts per product across all stores",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fewer forecast series",
+            "Simpler aggregation"
+          ],
+          "cons": [
+            "Loses store variation",
+            "Does not match brief"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Weekly forecasts per store and product",
+        "value_id": null
+      },
+      "rationale": "This directly matches the required forecast unit and cadence.",
+      "consequences": [
+        "Outputs need store and product identifiers.",
+        "The forecast horizon remains unspecified."
+      ]
+    },
+    {
+      "decision": "Make past-week forecasts reproducible from versioned inputs and code",
+      "context": "The brief requires forecasts to be reproducible for any past week, which requires retaining enough information to reconstruct a run.",
+      "drivers": [
+        "Past-week reproducibility",
+        "End-to-end pipeline ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Version inputs, code, and run configuration",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports historical replay",
+            "Makes run provenance explicit"
+          ],
+          "cons": [
+            "Requires artifact retention",
+            "Adds versioning work"
+          ]
+        },
+        {
+          "label": "Record forecast outputs only",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple storage",
+            "Easy to inspect past outputs"
+          ],
+          "cons": [
+            "Cannot reconstruct runs",
+            "Weak debugging evidence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Version inputs, code, and run configuration",
+        "value_id": null
+      },
+      "rationale": "A saved output alone cannot reproduce a forecast; versioned run dependencies give the team a basis for replay.",
+      "consequences": [
+        "Historical data and code references must remain available.",
+        "Retention duration and storage mechanism need definition."
+      ]
+    },
+    {
+      "decision": "Validate candidate models before production promotion",
+      "context": "The team wants to move new model ideas to production quickly without breaking the weekly run, so experimentation needs a controlled path to production.",
+      "drivers": [
+        "Fast model iteration",
+        "Protect weekly run",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Validate candidates in an isolated promotion path",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Limits weekly-run disruption",
+            "Enables candidate comparison"
+          ],
+          "cons": [
+            "Requires validation workflow",
+            "Adds promotion steps"
+          ]
+        },
+        {
+          "label": "Replace the production model directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few process steps",
+            "Fastest initial switch"
+          ],
+          "cons": [
+            "Can disrupt weekly run",
+            "Harder to compare safely"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Validate candidates in an isolated promotion path",
+        "value_id": null
+      },
+      "rationale": "A separate candidate validation and promotion path balances iteration speed with protection of the scheduled run.",
+      "consequences": [
+        "The promotion gate and rollback procedure need definition.",
+        "Candidate evaluation adds work to the pipeline."
+      ]
+    },
+    {
+      "decision": "Have the three-person data science team own the pipeline end to end",
+      "context": "The brief explicitly assigns end-to-end pipeline ownership to a team of three data scientists.",
+      "drivers": [
+        "Team of three",
+        "End-to-end ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Data science team owns the pipeline end to end",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Matches stated ownership",
+            "Keeps pipeline knowledge close"
+          ],
+          "cons": [
+            "Concentrates operational load",
+            "Requires maintainable automation"
+          ]
+        },
+        {
+          "label": "Split ownership across specialist teams",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Shares operational duties",
+            "Allows specialist support"
+          ],
+          "cons": [
+            "Adds coordination overhead",
+            "Ownership is unspecified"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data science team owns the pipeline end to end",
+        "value_id": null
+      },
+      "rationale": "This follows the stated ownership model; automation and simple operations are important given the team size.",
+      "consequences": [
+        "Operational procedures should suit a small team.",
+        "Support and on-call expectations remain to be decided."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Source systems, input schemas, and data quality rules",
+    "Forecast horizon and whether forecasts are updated within the week",
+    "Model family, feature design, and retraining schedule",
+    "Evaluation metrics and candidate promotion thresholds",
+    "Weekly run schedule, orchestration platform, and failure recovery",
+    "Production runtime, forecast consumers, and output interface",
+    "Artifact storage, versioning mechanism, and retention period",
+    "Monitoring, alerting, access controls, and privacy requirements"
+  ]
+}

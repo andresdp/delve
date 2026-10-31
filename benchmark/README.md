@@ -306,3 +306,16 @@ Both are scored on their selected view.
     Evidence and replays: `docs/plans/2026-10-15-feat-value-exclusivity-plan.md` and
     `docs/plans/2026-10-15-feat-value-recoding-plan.md` (C1 option F1 0.50 off, 0.47 and 0.54 on; C2 0.25 off,
     0.29 and 0.30 on; paper view, judge `gpt-5.4-mini`).
+- **2026-10-25 — CAIN agent study scoring pinned** (before any study session ran or was scored). The C1 agent
+  study (`study/cain2027/`) matches the alternatives each agent design considers against the C1 replication
+  model (`gt_model.json` only, not the union with the paper view) with the frame as it stands: judge
+  `openai/gpt-5.4-mini`, the frozen distance thresholds and candidate cap, and its own verdict cache
+  (`study/cain2027/results/judge_cache.json`). The Codex session model must differ from the judge, and both are
+  recorded per session. Before the full scoring run, the judge's labels on the three pilot designs are checked
+  by hand (`score.py --export-labels`) and the agreement is added here; the thresholds are not retuned on study
+  scores.
+- **2026-10-28 — CAIN agent study: matcher precision checked by hand.** Instead of the three pilot designs, one
+  author checked the best matches of all 40 N and M sessions of the primary run (`study/cain2027/results/labels/
+  *.checked.csv`): 155 of 244 correct, precision 0.64 (95% Wilson 0.57-0.69); N 0.66, M 0.62; 11 of 255 best
+  matches left unlabelled. Condition E was not checked (its options use the expert model's names). Thresholds
+  were not changed.

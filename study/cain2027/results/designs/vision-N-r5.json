@@ -1,0 +1,194 @@
+{
+  "decisions": [
+    {
+      "decision": "Run defect detection on the production-line devices",
+      "context": "Cameras need defect decisions even when network access is unavailable. The brief places the model at the cameras but does not specify where inference runs.",
+      "drivers": [
+        "Offline operation",
+        "Line-side inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Low response latency"
+          ],
+          "cons": [
+            "Limited device resources",
+            "Requires device deployment"
+          ]
+        },
+        {
+          "label": "Centralized inference",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Central compute capacity",
+            "Simpler model updates"
+          ],
+          "cons": [
+            "Requires network access",
+            "Adds response latency"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device inference",
+        "value_id": null
+      },
+      "rationale": "Local inference meets the offline requirement and keeps inspection close to the cameras.",
+      "consequences": [
+        "Devices need a compatible inference runtime.",
+        "Model size and compute use constrain deployment."
+      ]
+    },
+    {
+      "decision": "Retrain the model weekly from newly labelled images",
+      "context": "The model must incorporate newly labelled images on a weekly cadence. The brief does not identify the training infrastructure or where those images are stored.",
+      "drivers": [
+        "Weekly retraining",
+        "New labelled images",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Central batch training",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Shared compute",
+            "Centralized training process"
+          ],
+          "cons": [
+            "Images must reach training site",
+            "Requires training infrastructure"
+          ]
+        },
+        {
+          "label": "Train on each device",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Images stay local",
+            "No central image transfer"
+          ],
+          "cons": [
+            "Consumes device resources",
+            "Harder to coordinate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Central batch training",
+        "value_id": null
+      },
+      "rationale": "A shared weekly training process is a practical fit for a small team and tight infrastructure budget, provided labelled images can be collected centrally.",
+      "consequences": [
+        "Training requires access to the labelled images.",
+        "Training capacity and cadence must support weekly runs."
+      ]
+    },
+    {
+      "decision": "Package and distribute versioned model releases to devices",
+      "context": "Retrained models must reach cameras that may not have network access. A release package provides a unit that can be transferred and installed when a device is reachable.",
+      "drivers": [
+        "Weekly model push",
+        "Intermittent connectivity",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned model packages",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports offline transfer",
+            "Identifiable releases"
+          ],
+          "cons": [
+            "Requires installation process",
+            "Package compatibility matters"
+          ]
+        },
+        {
+          "label": "Live model delivery",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Automated when connected",
+            "Centralized delivery"
+          ],
+          "cons": [
+            "Needs network access",
+            "Unreachable devices lag"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned model packages",
+        "value_id": null
+      },
+      "rationale": "Versioned packages allow models to be transferred and installed despite intermittent connectivity, while making releases identifiable.",
+      "consequences": [
+        "Devices need a package installation mechanism.",
+        "Release versions must be tracked across devices."
+      ]
+    },
+    {
+      "decision": "Validate models before promoting them to production",
+      "context": "Weekly retraining produces candidate models, and pushing every candidate directly to production risks degrading defect detection. The brief gives no acceptance criteria, so validation can be chosen without specifying thresholds.",
+      "drivers": [
+        "Weekly model changes",
+        "Defect detection"
+      ],
+      "alternatives": [
+        {
+          "label": "Validate before promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Screens candidate regressions",
+            "Separates training from release"
+          ],
+          "cons": [
+            "Adds release work",
+            "Needs validation data"
+          ]
+        },
+        {
+          "label": "Deploy each training output",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fastest release path",
+            "Minimal process"
+          ],
+          "cons": [
+            "Regressions reach devices",
+            "No promotion gate"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Validate before promotion",
+        "value_id": null
+      },
+      "rationale": "A validation gate reduces the chance that an unreviewed weekly model change reaches production devices.",
+      "consequences": [
+        "The team must define validation data and acceptance criteria.",
+        "Promotion adds a step to each weekly release."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How labelled images are collected, stored, and transferred from offline lines.",
+    "Device hardware, operating system, inference runtime, and model format.",
+    "Model validation metrics and promotion thresholds.",
+    "How devices receive and install packages when disconnected.",
+    "Deployment rollout, rollback, and device health reporting.",
+    "Image retention, access control, and privacy requirements."
+  ]
+}

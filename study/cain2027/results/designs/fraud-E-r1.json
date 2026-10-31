@@ -1,0 +1,344 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a model service for transaction scoring",
+      "context": "Each transaction needs a fraud score before authorization, within tens of milliseconds.",
+      "drivers": [
+        "Online scoring",
+        "Low latency",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Model as a service",
+          "value_id": "v:1.1",
+          "citations": [
+            "d:1",
+            "v:1.1"
+          ],
+          "pros": [
+            "Separate model service",
+            "Supports online integration"
+          ],
+          "cons": [
+            "Adds a service boundary"
+          ]
+        },
+        {
+          "label": "Model in monolith",
+          "value_id": "v:1.2",
+          "citations": [
+            "d:1",
+            "v:1.2"
+          ],
+          "pros": [
+            "Direct application integration"
+          ],
+          "cons": [
+            "Tighter application coupling"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model as a service",
+        "value_id": "v:1.1"
+      },
+      "rationale": "A dedicated service fits online scoring and isolates the model behind a serving boundary (d:1, v:1.1).",
+      "consequences": [
+        "The scoring service needs capacity for traffic peaks.",
+        "Service latency must fit the authorization path."
+      ]
+    },
+    {
+      "decision": "Serve scores through a real-time microservice",
+      "context": "The payment flow needs a score for each transaction before authorization, so scheduled batch scoring does not fit.",
+      "drivers": [
+        "Tens of milliseconds",
+        "Per-transaction scores",
+        "Peak availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Real-time scoring",
+            "Distributed service"
+          ],
+          "cons": [
+            "Network call in scoring path"
+          ]
+        },
+        {
+          "label": "Local service/API based model serving",
+          "value_id": "v:5.2",
+          "citations": [
+            "d:5",
+            "v:5.2"
+          ],
+          "pros": [
+            "Local access",
+            "Avoids remote service hop"
+          ],
+          "cons": [
+            "Less deployment separation"
+          ]
+        },
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Scheduled processing",
+            "Writes scores to storage"
+          ],
+          "cons": [
+            "Does not meet per-transaction timing"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Microservice based model serving",
+        "value_id": "v:5.1"
+      },
+      "rationale": "Real-time service delivery matches the authorization deadline; the batch alternative cannot return scores in that flow (d:5, v:5.1, v:5.3).",
+      "consequences": [
+        "The authorization path depends on the scoring service.",
+        "Peak capacity and response time need operational attention."
+      ]
+    },
+    {
+      "decision": "Ingest and process transaction data as streams",
+      "context": "Scoring is required for each transaction as it arrives, leaving little time for scheduled or manual data handling.",
+      "drivers": [
+        "Per-transaction scoring",
+        "Real-time data",
+        "Low latency"
+      ],
+      "alternatives": [
+        {
+          "label": "Streamed data ingestion",
+          "value_id": "v:7.1",
+          "citations": [
+            "d:7",
+            "v:7.1"
+          ],
+          "pros": [
+            "Continuous data flow",
+            "Fits incoming transactions"
+          ],
+          "cons": [
+            "Requires stream handling"
+          ]
+        },
+        {
+          "label": "Data ingestion in batches",
+          "value_id": "v:7.3",
+          "citations": [
+            "d:7",
+            "v:7.3"
+          ],
+          "pros": [
+            "Processes grouped data",
+            "Can be partly automated"
+          ],
+          "cons": [
+            "Delayed availability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Streamed data ingestion",
+        "value_id": "v:7.1"
+      },
+      "rationale": "Continuous ingestion aligns with scoring transactions as they arrive; batch ingestion would delay them (d:7, v:7.1, v:7.3).",
+      "consequences": [
+        "The ingestion path must handle continuous traffic.",
+        "Stream processing needs to fit the scoring latency budget."
+      ]
+    },
+    {
+      "decision": "Persist and provide features through a feature store",
+      "context": "The system must identify the features used for each score later; the brief does not specify a feature persistence mechanism.",
+      "drivers": [
+        "Feature traceability",
+        "Auditor review",
+        "Score reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Feature store",
+          "value_id": "v:4.1",
+          "citations": [
+            "d:4",
+            "v:4.1"
+          ],
+          "pros": [
+            "Dedicated feature access"
+          ],
+          "cons": [
+            "Feature-store operation required"
+          ]
+        },
+        {
+          "label": "Store features in data stores without specific support",
+          "value_id": "v:4.2",
+          "citations": [
+            "d:4",
+            "v:4.2"
+          ],
+          "pros": [
+            "Uses general data stores"
+          ],
+          "cons": [
+            "Feature access is not specialized"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Feature store",
+        "value_id": "v:4.1"
+      },
+      "rationale": "A dedicated feature store is the closer fit for consistently identifying the features behind each score, though the design space gives no source evidence for this choice (d:4, v:4.1).",
+      "consequences": [
+        "Feature values must be associated with scored transactions.",
+        "This choice does not itself define audit retention or access controls."
+      ]
+    },
+    {
+      "decision": "Track model use, inputs, and outputs in production",
+      "context": "Auditors need to determine which model version and features produced each score after the transaction is authorized.",
+      "drivers": [
+        "Audit traceability",
+        "Model version",
+        "Feature record"
+      ],
+      "alternatives": [
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks inputs and outputs",
+            "Tracks model usage"
+          ],
+          "cons": [
+            "Tracking data must be retained"
+          ]
+        },
+        {
+          "label": "Monitoring or logging data and predictions",
+          "value_id": "v:22.2",
+          "citations": [
+            "d:22",
+            "v:22.2"
+          ],
+          "pros": [
+            "Logs system data and predictions"
+          ],
+          "cons": [
+            "Does not specify model usage tracking"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [],
+          "cons": [
+            "Weak audit traceability"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model in-production tracking",
+        "value_id": "v:22.4"
+      },
+      "rationale": "Tracking model usage, inputs, and outputs most directly supports later audit review (d:22, v:22.4).",
+      "consequences": [
+        "Records must link each score to its model version and feature inputs.",
+        "Retention and access policies remain to be defined."
+      ]
+    },
+    {
+      "decision": "Test prediction service performance before deployment",
+      "context": "The scoring service must meet a tens-of-milliseconds budget and continue working during peaks.",
+      "drivers": [
+        "Latency target",
+        "Peak traffic",
+        "Scoring availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Prediction service performance testing",
+          "value_id": "v:26.13",
+          "citations": [
+            "d:26",
+            "v:26.13"
+          ],
+          "pros": [
+            "Checks service performance"
+          ],
+          "cons": [
+            "Requires representative test loads"
+          ]
+        },
+        {
+          "label": "Prediction service API testing",
+          "value_id": "v:26.12",
+          "citations": [
+            "d:26",
+            "v:26.12"
+          ],
+          "pros": [
+            "Checks service API"
+          ],
+          "cons": [
+            "Does not establish peak performance"
+          ]
+        },
+        {
+          "label": "No testing",
+          "value_id": "v:26.14",
+          "citations": [
+            "d:26",
+            "v:26.14"
+          ],
+          "pros": [],
+          "cons": [
+            "Latency and peak behavior remain unchecked"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Prediction service performance testing",
+        "value_id": "v:26.13"
+      },
+      "rationale": "Performance testing directly addresses the stated response-time and peak-load constraints; API testing alone does not establish either (d:26, v:26.13, v:26.12).",
+      "consequences": [
+        "Tests need workloads representative of peak traffic.",
+        "Passing tests does not guarantee production capacity."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Fraud-model choice, training data, and retraining cadence.",
+    "Specific latency budget, peak throughput, scaling, and availability targets.",
+    "Audit record schema, retention period, access controls, and tamper resistance.",
+    "Feature definitions, point-in-time consistency, and score reproducibility requirements.",
+    "Model release approval and rollout policy. The design space includes version deployment choices (d:10), but the selected point was not checked with that decision."
+  ]
+}

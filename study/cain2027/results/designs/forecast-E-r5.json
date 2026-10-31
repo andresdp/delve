@@ -1,0 +1,368 @@
+{
+  "decisions": [
+    {
+      "decision": "Use a data version repository to reproduce historical forecasts",
+      "context": "Forecasts must be reproducible for any past week, so each run needs a recoverable data version. The design space offers repository-based versioning, code-repository versioning, or no data versioning (d:11).",
+      "drivers": [
+        "Past-week reproducibility",
+        "Traceable inputs"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Dedicated data versioning",
+            "Supports input recovery"
+          ],
+          "cons": [
+            "Adds repository overhead"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Keeps versions with code"
+          ],
+          "cons": [
+            "May complicate large data handling"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Least setup"
+          ],
+          "cons": [
+            "Cannot reliably reproduce past inputs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "A dedicated data version repository best supports retrieving the data used for a given historical forecast. The checked design point had no warnings, though it was unattested in this source-free design space.",
+      "consequences": [
+        "Record the data version with each forecast run.",
+        "Maintain storage and retention for historical data versions."
+      ]
+    },
+    {
+      "decision": "Use scheduled batch processing and training for weekly forecasts",
+      "context": "The system produces weekly store and product forecasts, making a scheduled batch workflow a direct fit. The design space distinguishes batch from stream processing and batch from incremental learning (d:15, d:19).",
+      "drivers": [
+        "Weekly forecast cadence",
+        "Small team ownership"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Fits scheduled weekly work",
+            "Straightforward historical reruns"
+          ],
+          "cons": [
+            "Results arrive on a schedule"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Processes incoming data promptly"
+          ],
+          "cons": [
+            "Adds streaming complexity"
+          ]
+        },
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Repeatable offline training",
+            "Fits periodic refresh"
+          ],
+          "cons": [
+            "Model updates await next training run"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Can update as data arrives"
+          ],
+          "cons": [
+            "Adds online training complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "Weekly forecasts do not require real-time processing in the brief, so scheduled batches keep the workflow aligned with the delivery cadence. Choose batch-based learning as well for repeatable retraining; these are separate design dimensions (d:15, d:19).",
+      "consequences": [
+        "Run forecast generation on a weekly schedule.",
+        "Reruns need the original data and model inputs."
+      ]
+    },
+    {
+      "decision": "Serve forecasts as scheduled batch outputs",
+      "context": "The required output is a weekly forecast per store and product; the brief specifies no real-time prediction interface. The design space includes scheduled batch serving and precomputed forecast delivery (d:5).",
+      "drivers": [
+        "Weekly output cadence",
+        "Past-week forecast availability"
+      ],
+      "alternatives": [
+        {
+          "label": "Data batch based model serving",
+          "value_id": "v:5.3",
+          "citations": [
+            "d:5",
+            "v:5.3"
+          ],
+          "pros": [
+            "Writes scheduled forecasts to storage",
+            "Matches weekly cadence"
+          ],
+          "cons": [
+            "No immediate on-demand result"
+          ]
+        },
+        {
+          "label": "Precompute serving",
+          "value_id": "v:5.4",
+          "citations": [
+            "d:5",
+            "v:5.4"
+          ],
+          "pros": [
+            "Delivers forecasts as reports"
+          ],
+          "cons": [
+            "Requires report delivery details"
+          ]
+        },
+        {
+          "label": "Microservice based model serving",
+          "value_id": "v:5.1",
+          "citations": [
+            "d:5",
+            "v:5.1"
+          ],
+          "pros": [
+            "Supports real-time requests"
+          ],
+          "cons": [
+            "Unneeded service operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data batch based model serving",
+        "value_id": "v:5.3"
+      },
+      "rationale": "Scheduled batch serving directly represents processing forecasts on schedule and writing them to storage. It fits weekly outputs and allows the system to retain forecast results for prior weeks.",
+      "consequences": [
+        "Persist each week's forecast outputs.",
+        "Define storage and lookup conventions for consumers."
+      ]
+    },
+    {
+      "decision": "Use CI/CD to test and release model components",
+      "context": "A three-person team owns the pipeline, and new model ideas should reach production quickly without breaking the weekly run. The design space covers CI/CD automation and what it builds and deploys (d:8, d:25).",
+      "drivers": [
+        "Small team",
+        "Fast model iteration",
+        "Protect weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Automates integration and delivery",
+            "Supports repeatable releases"
+          ],
+          "cons": [
+            "Requires pipeline maintenance"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Simple to start"
+          ],
+          "cons": [
+            "Manual release coordination"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [
+            "No automation setup"
+          ],
+          "cons": [
+            "Slows safe iteration"
+          ]
+        },
+        {
+          "label": "Build, test, and deploy models to be served and other system components",
+          "value_id": "v:25.1",
+          "citations": [
+            "d:25",
+            "v:25.1"
+          ],
+          "pros": [
+            "Automates model and component checks",
+            "Supports consistent releases"
+          ],
+          "cons": [
+            "Needs deployment configuration"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "CI/CD supports frequent, repeatable releases for a small team; configure it to build and test served models and related components (d:25, v:25.1). Testing trained model quality is also a relevant pipeline test (d:26, v:26.9). The selected combination was checked with no warnings, but the design point is unattested.",
+      "consequences": [
+        "Automate quality checks before promotion.",
+        "Keep release configuration and pipeline definitions maintained."
+      ]
+    },
+    {
+      "decision": "Keep rollback available and track deployed models",
+      "context": "New model ideas must reach production without disrupting the weekly run, so releases need a recovery path and production tracking. The design space includes rollback and tracking choices (d:10, d:22).",
+      "drivers": [
+        "Protect weekly run",
+        "Reversible releases",
+        "Operational visibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Rollback to previous model version",
+          "value_id": "v:10.2",
+          "citations": [
+            "d:10",
+            "v:10.2"
+          ],
+          "pros": [
+            "Provides recovery path",
+            "Limits impact of a poor release"
+          ],
+          "cons": [
+            "Requires retaining prior model"
+          ]
+        },
+        {
+          "label": "Single model in production",
+          "value_id": "v:10.3",
+          "citations": [
+            "d:10",
+            "v:10.3"
+          ],
+          "pros": [
+            "Simple active deployment"
+          ],
+          "cons": [
+            "Needs explicit rollback procedure"
+          ]
+        },
+        {
+          "label": "Model in-production tracking",
+          "value_id": "v:22.4",
+          "citations": [
+            "d:22",
+            "v:22.4"
+          ],
+          "pros": [
+            "Tracks model inputs and outputs",
+            "Improves production visibility"
+          ],
+          "cons": [
+            "Adds tracking and retention work"
+          ]
+        },
+        {
+          "label": "No in-production monitoring",
+          "value_id": "v:22.3",
+          "citations": [
+            "d:22",
+            "v:22.3"
+          ],
+          "pros": [
+            "Least operational setup"
+          ],
+          "cons": [
+            "Limited visibility into failures"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Rollback to previous model version",
+        "value_id": "v:10.2"
+      },
+      "rationale": "Rollback gives the team a direct response when a new model threatens the weekly run. Pair it with model in-production tracking (d:22, v:22.4) to record usage, inputs, and outputs; these are separate dimensions in the checked point.",
+      "consequences": [
+        "Retain the previous deployable model version.",
+        "Record model identity and run inputs alongside forecasts."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How to define forecast quality thresholds and promotion criteria for this retailer.",
+    "How to store and retain forecast outputs and model artifacts across past weeks.",
+    "How to handle missing data, late-arriving data, and corrections to historical inputs.",
+    "How to schedule retries, alert owners, and recover from a failed weekly run.",
+    "How to govern access to retail data and forecast outputs."
+  ]
+}

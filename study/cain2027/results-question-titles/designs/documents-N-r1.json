@@ -1,0 +1,193 @@
+{
+  "decisions": [
+    {
+      "decision": "How should documents reach the classifier?",
+      "context": "The system must classify millions of incoming documents per day, with strongly seasonal volume. A decoupled queue can absorb bursts and separate intake from model capacity.",
+      "drivers": [
+        "High daily volume",
+        "Seasonal peaks"
+      ],
+      "alternatives": [
+        {
+          "label": "Queued asynchronous pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Buffers bursts",
+            "Scales workers independently"
+          ],
+          "cons": [
+            "Adds processing delay",
+            "Needs retry handling"
+          ]
+        },
+        {
+          "label": "Synchronous classification at intake",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Immediate result",
+            "Simple flow"
+          ],
+          "cons": [
+            "Couples intake to model capacity",
+            "Peak traffic can overwhelm service"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Queued asynchronous pipeline",
+        "value_id": null
+      },
+      "rationale": "A queue absorbs seasonal spikes and lets classification capacity scale independently from document intake. Asynchronous processing trades immediate results for resilience under variable load.",
+      "consequences": [
+        "Results arrive after intake.",
+        "Queue depth and processing delay need monitoring."
+      ]
+    },
+    {
+      "decision": "How should LLM classification be served?",
+      "context": "Classification volume is high and varies seasonally. The brief requires an LLM-based classifier but does not specify whether it must run on a managed API or self-hosted infrastructure.",
+      "drivers": [
+        "LLM-based classification",
+        "Variable volume",
+        "High throughput"
+      ],
+      "alternatives": [
+        {
+          "label": "Managed LLM endpoint",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Operationally simpler",
+            "Elastic capacity may be available"
+          ],
+          "cons": [
+            "Provider dependency",
+            "Usage costs vary"
+          ]
+        },
+        {
+          "label": "Self-hosted model serving",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "More control",
+            "Potential cost predictability"
+          ],
+          "cons": [
+            "Capacity operations burden",
+            "Scaling requires planning"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Managed LLM endpoint",
+        "value_id": null
+      },
+      "rationale": "A managed endpoint is a reasonable default for variable demand because it can reduce the effort of operating model capacity. Provider capacity, latency, data terms, and cost must be validated before implementation.",
+      "consequences": [
+        "The service depends on provider availability and limits.",
+        "Usage-based costs need tracking."
+      ]
+    },
+    {
+      "decision": "How should classification results reach consuming teams?",
+      "context": "Several teams consume the classification results, so delivery should avoid coupling the classifier to each team's integration and availability.",
+      "drivers": [
+        "Several consumers",
+        "Independent team needs"
+      ],
+      "alternatives": [
+        {
+          "label": "Publish results to a shared event stream",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports multiple consumers",
+            "Consumers progress independently"
+          ],
+          "cons": [
+            "Requires event operations",
+            "Consumers must handle duplicates"
+          ]
+        },
+        {
+          "label": "Call each consumer directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Direct delivery",
+            "Simple for few consumers"
+          ],
+          "cons": [
+            "Couples classifier to consumers",
+            "Consumer outages affect delivery"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Publish results to a shared event stream",
+        "value_id": null
+      },
+      "rationale": "A shared stream lets several teams receive results without making classification dependent on their individual services. It also provides a buffer for consumers to process results at their own pace.",
+      "consequences": [
+        "Consumers need schemas and delivery guarantees.",
+        "Stream retention and access need management."
+      ]
+    },
+    {
+      "decision": "How should classification quality drift be detected?",
+      "context": "Operators need to see when classification quality drifts. Detection requires comparing current behavior with a reference or quality signal over time.",
+      "drivers": [
+        "Quality drift visibility",
+        "Operator awareness"
+      ],
+      "alternatives": [
+        {
+          "label": "Monitor labeled outcomes against a quality baseline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Measures classification quality",
+            "Supports trend detection"
+          ],
+          "cons": [
+            "Needs reliable labels",
+            "Feedback may be delayed"
+          ]
+        },
+        {
+          "label": "Monitor input and prediction distributions",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Can detect shifts quickly",
+            "Does not require immediate labels"
+          ],
+          "cons": [
+            "Indirect quality signal",
+            "May produce false alarms"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Monitor labeled outcomes against a quality baseline",
+        "value_id": null
+      },
+      "rationale": "Labeled outcomes provide a direct quality signal for detecting drift. Distribution monitoring can complement this, but alone it cannot establish that classification quality has worsened.",
+      "consequences": [
+        "A labeling or outcome feedback path is required.",
+        "Operators need thresholds and alert handling."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Classification taxonomy, confidence thresholds, and handling of ambiguous or unsupported documents.",
+    "Latency and freshness targets for classification and consumer delivery.",
+    "Data sensitivity, retention, residency, and approved LLM provider constraints.",
+    "Label source, volume, and delay for quality measurement.",
+    "Model evaluation, release, rollback, and retraining ownership.",
+    "Availability, recovery, and delivery guarantees expected of the system."
+  ]
+}

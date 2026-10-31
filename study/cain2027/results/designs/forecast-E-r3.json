@@ -1,0 +1,388 @@
+{
+  "decisions": [
+    {
+      "decision": "Version forecasting data in a dedicated repository",
+      "context": "Forecasts must be reproducible for any past week, so the training data used for each run needs a versioned reference. The design space compares dedicated data versioning with storing versioning alongside code and no data versioning (d:11).",
+      "drivers": [
+        "Past-week reproducibility",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Data version repository",
+          "value_id": "v:11.1",
+          "citations": [
+            "d:11",
+            "v:11.1"
+          ],
+          "pros": [
+            "Dedicated data history",
+            "Supports repeatable inputs"
+          ],
+          "cons": [
+            "Additional repository workflow"
+          ]
+        },
+        {
+          "label": "Data versioning in code repository",
+          "value_id": "v:11.2",
+          "citations": [
+            "d:11",
+            "v:11.2"
+          ],
+          "pros": [
+            "Co-locates code and data references"
+          ],
+          "cons": [
+            "May couple data workflow to code"
+          ]
+        },
+        {
+          "label": "No data versioning",
+          "value_id": "v:11.3",
+          "citations": [
+            "d:11",
+            "v:11.3"
+          ],
+          "pros": [
+            "Least setup"
+          ],
+          "cons": [
+            "Past runs hard to reproduce"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data version repository",
+        "value_id": "v:11.1"
+      },
+      "rationale": "A dedicated data version repository directly supports recovering the inputs for historical weekly runs (d:11, v:11.1). The design-point check returned no warnings, but no attesting sources; the combination is novel in this workspace.",
+      "consequences": [
+        "Record the data version with each forecast run.",
+        "Maintain and operate data versioning alongside code."
+      ]
+    },
+    {
+      "decision": "Process weekly demand data in batches",
+      "context": "The retailer produces forecasts per store and product on a weekly cadence. The design space offers batch and real-time stream processing (d:15).",
+      "drivers": [
+        "Weekly forecast cadence",
+        "Per-store and product outputs"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based data processing",
+          "value_id": "v:15.1",
+          "citations": [
+            "d:15",
+            "v:15.1"
+          ],
+          "pros": [
+            "Fits scheduled weekly work",
+            "Processes historical slices"
+          ],
+          "cons": [
+            "Results wait for batch completion"
+          ]
+        },
+        {
+          "label": "Real-time, stream-based data processing",
+          "value_id": "v:15.2",
+          "citations": [
+            "d:15",
+            "v:15.2"
+          ],
+          "pros": [
+            "Processes events continuously"
+          ],
+          "cons": [
+            "Adds streaming operations"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based data processing",
+        "value_id": "v:15.1"
+      },
+      "rationale": "A weekly batch aligns processing with the stated forecast cadence without introducing a real-time requirement (d:15, v:15.1). The design-point check returned no warnings, but no attesting sources; the combination is novel in this workspace.",
+      "consequences": [
+        "Schedule processing around the weekly run.",
+        "Late-arriving data needs a rerun or correction policy."
+      ]
+    },
+    {
+      "decision": "Automate data preparation in a pipeline",
+      "context": "Weekly runs need repeatable processing, while the three-person team needs a workflow that can be rerun as model ideas change. The design space compares a data pipeline with ETL, a dedicated component, and no automation (d:14).",
+      "drivers": [
+        "Repeatable weekly runs",
+        "Three-person team",
+        "Fast iteration"
+      ],
+      "alternatives": [
+        {
+          "label": "Data pipeline",
+          "value_id": "v:14.1",
+          "citations": [
+            "d:14",
+            "v:14.1"
+          ],
+          "pros": [
+            "Dedicated repeatable workflow",
+            "Flexible processing stages"
+          ],
+          "cons": [
+            "Requires pipeline upkeep"
+          ]
+        },
+        {
+          "label": "ETL pipeline",
+          "value_id": "v:14.2",
+          "citations": [
+            "d:14",
+            "v:14.2"
+          ],
+          "pros": [
+            "Clear extract-transform-load stages"
+          ],
+          "cons": [
+            "May constrain other processing steps"
+          ]
+        },
+        {
+          "label": "Data processing component",
+          "value_id": "v:14.3",
+          "citations": [
+            "d:14",
+            "v:14.3"
+          ],
+          "pros": [
+            "Encapsulates processing logic"
+          ],
+          "cons": [
+            "Orchestration remains separate"
+          ]
+        },
+        {
+          "label": "No data processing automation",
+          "value_id": "v:14.4",
+          "citations": [
+            "d:14",
+            "v:14.4"
+          ],
+          "pros": [
+            "Low initial setup"
+          ],
+          "cons": [
+            "Manual repetition and drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Data pipeline",
+        "value_id": "v:14.1"
+      },
+      "rationale": "A dedicated flexible pipeline makes recurring data preparation repeatable and supports rapid model iteration (d:14, v:14.1). The design-point check returned no warnings, but no attesting sources; the combination is novel in this workspace.",
+      "consequences": [
+        "Keep transformations under version control.",
+        "Pipeline changes need review and maintenance."
+      ]
+    },
+    {
+      "decision": "Build and evaluate models in an automated pipeline",
+      "context": "New model ideas should reach production quickly without disrupting the weekly run. The design space contrasts an automated model-building pipeline with a dedicated component and development-tool-only model building (d:18).",
+      "drivers": [
+        "Fast model iteration",
+        "Protected weekly run",
+        "Reproducibility"
+      ],
+      "alternatives": [
+        {
+          "label": "Model building pipeline",
+          "value_id": "v:18.1",
+          "citations": [
+            "d:18",
+            "v:18.1"
+          ],
+          "pros": [
+            "Automates training and evaluation",
+            "Repeatable model workflow"
+          ],
+          "cons": [
+            "Pipeline requires maintenance"
+          ]
+        },
+        {
+          "label": "Model builder component",
+          "value_id": "v:18.2",
+          "citations": [
+            "d:18",
+            "v:18.2"
+          ],
+          "pros": [
+            "Reusable training component"
+          ],
+          "cons": [
+            "Workflow orchestration remains separate"
+          ]
+        },
+        {
+          "label": "Model building in development tool",
+          "value_id": "v:18.3",
+          "citations": [
+            "d:18",
+            "v:18.3"
+          ],
+          "pros": [
+            "Convenient experimentation"
+          ],
+          "cons": [
+            "Harder to reproduce production runs"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Model building pipeline",
+        "value_id": "v:18.1"
+      },
+      "rationale": "Automating training, evaluation, and validation provides a repeatable path from an experiment to a production candidate (d:18, v:18.1). The design-point check returned no warnings, but no attesting sources; the combination is novel in this workspace.",
+      "consequences": [
+        "Promote candidates through a controlled release step.",
+        "Maintain pipeline definitions as model workflows evolve."
+      ]
+    },
+    {
+      "decision": "Use batch-based model learning",
+      "context": "The system forecasts weekly demand and must reproduce past forecasts. The design space compares batch, incremental, and hybrid learning (d:19).",
+      "drivers": [
+        "Weekly forecast cadence",
+        "Historical reproducibility",
+        "Fast model changes"
+      ],
+      "alternatives": [
+        {
+          "label": "Batch-based learning",
+          "value_id": "v:19.1",
+          "citations": [
+            "d:19",
+            "v:19.1"
+          ],
+          "pros": [
+            "Repeatable training snapshots",
+            "Fits scheduled retraining"
+          ],
+          "cons": [
+            "Model updates wait for retraining"
+          ]
+        },
+        {
+          "label": "Incremental learning",
+          "value_id": "v:19.2",
+          "citations": [
+            "d:19",
+            "v:19.2"
+          ],
+          "pros": [
+            "Updates as data arrives"
+          ],
+          "cons": [
+            "Harder to recreate prior model state"
+          ]
+        },
+        {
+          "label": "Hybrid batch-based and incremental learning",
+          "value_id": "v:19.3",
+          "citations": [
+            "d:19",
+            "v:19.3"
+          ],
+          "pros": [
+            "Combines scheduled and ongoing updates"
+          ],
+          "cons": [
+            "More complex state and validation"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Batch-based learning",
+        "value_id": "v:19.1"
+      },
+      "rationale": "Scheduled batch training matches the weekly cadence and provides a clear training run to associate with each model version (d:19, v:19.1). The design-point check returned no warnings, but no attesting sources; the combination is novel in this workspace.",
+      "consequences": [
+        "Retrain on a defined schedule or approved data update.",
+        "Record the training data version with each model."
+      ]
+    },
+    {
+      "decision": "Use CI/CD to deliver pipeline changes",
+      "context": "The team wants model ideas to reach production quickly while protecting the weekly run. The design space distinguishes CI/CD from deployment scripts and no delivery automation (d:8), and identifies pipeline components as deployable artifacts (d:25).",
+      "drivers": [
+        "Fast delivery",
+        "Weekly run stability",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "CI/CD pipeline",
+          "value_id": "v:8.1",
+          "citations": [
+            "d:8",
+            "v:8.1"
+          ],
+          "pros": [
+            "Automates delivery",
+            "Supports frequent changes"
+          ],
+          "cons": [
+            "Requires pipeline maintenance"
+          ]
+        },
+        {
+          "label": "Build and Deployment scripts",
+          "value_id": "v:8.2",
+          "citations": [
+            "d:8",
+            "v:8.2"
+          ],
+          "pros": [
+            "Simple automation"
+          ],
+          "cons": [
+            "More manual coordination"
+          ]
+        },
+        {
+          "label": "No integration or delivery automation",
+          "value_id": "v:8.4",
+          "citations": [
+            "d:8",
+            "v:8.4"
+          ],
+          "pros": [
+            "No automation setup"
+          ],
+          "cons": [
+            "Slower, error-prone releases"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "CI/CD pipeline",
+        "value_id": "v:8.1"
+      },
+      "rationale": "Use CI/CD to build, test, and deploy the ML pipelines and components needed for pipeline runs (d:8, v:8.1; d:25, v:25.2). The checked design point produced no warnings, but no attesting sources; the combination is novel in this workspace.",
+      "consequences": [
+        "Automate checks before delivery.",
+        "Keep production promotion controlled to protect the weekly run."
+      ]
+    }
+  ],
+  "uncovered": [
+    "How forecasts are served to users or downstream systems, including batch file delivery versus an API.",
+    "How candidate models are compared and approved, including demand-forecast error measures and acceptance thresholds.",
+    "How production forecasts and model performance are monitored, and what actions follow a regression.",
+    "How historical forecast runs are reconstructed end to end, including code, configuration, dependencies, and model artifact retention.",
+    "How weekly runs are scheduled, retried, and handled when input data is late or incomplete.",
+    "How to isolate experiments from the production weekly run and release model candidates safely."
+  ]
+}

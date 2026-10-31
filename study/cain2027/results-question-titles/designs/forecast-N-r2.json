@@ -1,0 +1,148 @@
+{
+  "decisions": [
+    {
+      "decision": "How should forecasting run?",
+      "context": "The system must produce weekly forecasts for each store and product. The brief does not specify whether the run is scheduled or event-driven.",
+      "drivers": [
+        "Weekly forecasts",
+        "Three-person team"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fits weekly cadence",
+            "Simple operations"
+          ],
+          "cons": [
+            "Waits for schedule",
+            "Needs run monitoring"
+          ]
+        },
+        {
+          "label": "Event-driven pipeline",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Runs on new data",
+            "Flexible timing"
+          ],
+          "cons": [
+            "More moving parts",
+            "Unneeded trigger complexity"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch pipeline",
+        "value_id": null
+      },
+      "rationale": "A scheduled batch run matches the weekly forecast cadence and keeps operational overhead low for a small team.",
+      "consequences": [
+        "Requires a reliable scheduler.",
+        "Late inputs need a defined handling policy."
+      ]
+    },
+    {
+      "decision": "How should past forecasts be reproduced?",
+      "context": "The brief requires reproducibility for any past week, so inputs, code, configuration, and model artifacts must be traceable over time.",
+      "drivers": [
+        "Past-week reproducibility",
+        "Weekly run"
+      ],
+      "alternatives": [
+        {
+          "label": "Versioned data and model artifacts",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Supports reruns",
+            "Clear lineage"
+          ],
+          "cons": [
+            "Requires artifact storage",
+            "Needs version discipline"
+          ]
+        },
+        {
+          "label": "Recompute from current state",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple storage",
+            "Few components"
+          ],
+          "cons": [
+            "Past inputs may change",
+            "Results can drift"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Versioned data and model artifacts",
+        "value_id": null
+      },
+      "rationale": "Versioning the inputs, code, configuration, and model artifact gives reruns the historical state needed to reproduce past forecasts.",
+      "consequences": [
+        "Historical inputs and artifacts must be retained.",
+        "Pipeline changes need version tracking."
+      ]
+    },
+    {
+      "decision": "How should model ideas reach production?",
+      "context": "New model ideas should reach production quickly without breaking the weekly run. Candidate models therefore need a separate evaluation path before replacing the production model.",
+      "drivers": [
+        "Rapid model iteration",
+        "Protect weekly run",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Separate candidate evaluation and promotion",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Isolates experiments",
+            "Controlled rollout"
+          ],
+          "cons": [
+            "Adds evaluation workflow",
+            "Requires promotion criteria"
+          ]
+        },
+        {
+          "label": "Edit production pipeline directly",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Few components",
+            "Fast initial changes"
+          ],
+          "cons": [
+            "Experiments affect run",
+            "Harder to recover"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Separate candidate evaluation and promotion",
+        "value_id": null
+      },
+      "rationale": "Evaluating candidates separately lets the team iterate while keeping the weekly production path stable until a candidate is ready.",
+      "consequences": [
+        "Candidate and production paths must share documented inputs.",
+        "Promotion criteria and rollback need implementation."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Forecast horizon and required output format.",
+    "Source systems, input schema, and late or corrected data policy.",
+    "Forecast accuracy targets and model evaluation metrics.",
+    "Serving or downstream delivery requirements.",
+    "Runtime, deployment environment, and operational ownership beyond the three data scientists.",
+    "Retention duration and exact reproducibility guarantees."
+  ]
+}

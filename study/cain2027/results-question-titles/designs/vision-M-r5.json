@@ -1,0 +1,220 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras often lack network access, so inspection must continue locally. The model still needs a repeatable deployment path to the production devices.",
+      "drivers": [
+        "Offline operation",
+        "Production-line inference",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s07_p01",
+            "s19_p11"
+          ],
+          "pros": [
+            "Runs at the camera",
+            "Works without network"
+          ],
+          "cons": [
+            "Device deployment effort",
+            "Hardware constraints"
+          ]
+        },
+        {
+          "label": "Model-as-a-service deployment",
+          "value_id": "v:30.3",
+          "citations": [
+            "s06_p13",
+            "s19_p08"
+          ],
+          "pros": [
+            "Centralized serving",
+            "Simpler model updates"
+          ],
+          "cons": [
+            "Requires connectivity",
+            "Adds service infrastructure"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "Local inference directly meets the offline requirement. Sources including “Composing Deep-Learning Microservices for the Hybrid Internet of Things” describe edge inference; the checked combination is novel in the design space, with no warnings or attesting sources.",
+      "consequences": [
+        "Package and deploy models to each device.",
+        "Plan for local storage and device-specific compatibility."
+      ]
+    },
+    {
+      "decision": "How should retraining be triggered and run?",
+      "context": "The model is retrained every week from newly labelled images. A small team and limited infrastructure favor a repeatable process with little manual effort.",
+      "drivers": [
+        "Weekly retraining",
+        "Newly labelled images",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Automated retraining pipeline with a weekly schedule",
+          "value_id": "v:6.5",
+          "citations": [
+            "s06_p07",
+            "s06_p11",
+            "s22_p08"
+          ],
+          "pros": [
+            "Reduces manual effort",
+            "Fits recurring cadence"
+          ],
+          "cons": [
+            "Requires pipeline setup",
+            "Needs validation safeguards"
+          ]
+        },
+        {
+          "label": "Manual retraining trigger",
+          "value_id": "v:6.14",
+          "citations": [
+            "s19_p08",
+            "s22_p15"
+          ],
+          "pros": [
+            "Human control",
+            "Low initial automation effort"
+          ],
+          "cons": [
+            "Recurring operator work",
+            "May delay updates"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Automated retraining pipeline with a weekly schedule",
+        "value_id": "v:6.5"
+      },
+      "rationale": "Automation suits the small team, and the weekly schedule follows the stated cadence. The design space treats automation and schedule as values of the same low-exclusivity dimension; the point check selected automation as its single value and returned no warnings or attesting sources.",
+      "consequences": [
+        "Build a weekly training and validation workflow.",
+        "Retain a review gate before deployment."
+      ]
+    },
+    {
+      "decision": "How should model updates be released?",
+      "context": "Trained models must reach devices that may be disconnected, so release needs to tolerate interrupted or problematic updates. The team has limited capacity for manual recovery.",
+      "drivers": [
+        "Device updates",
+        "Offline devices",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p10",
+            "s25_p01"
+          ],
+          "pros": [
+            "Incremental rollout",
+            "Supports rollback"
+          ],
+          "cons": [
+            "Requires release coordination",
+            "Devices may update at different times"
+          ]
+        },
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s25_p06"
+          ],
+          "pros": [
+            "Automates build and promotion",
+            "Staged validation"
+          ],
+          "cons": [
+            "Commit-driven cadence",
+            "Does not itself ensure device rollback"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Progressive rollout and rollback limit the impact of a faulty model release while reducing recovery work. “Productionizing Machine Learning with a Microservices Architecture” and the Azure ML deployment guidance support this approach; the checked combination was novel and produced no warnings or attesting sources.",
+      "consequences": [
+        "Keep a known-good model available on devices.",
+        "Account for delayed or interrupted updates."
+      ]
+    },
+    {
+      "decision": "How much model lifecycle metadata should be governed?",
+      "context": "Weekly training creates successive model artifacts that must be distinguished when distributing updates and recovering from failures. The brief gives no requirement for broad experiment or dataset governance.",
+      "drivers": [
+        "Repeated model versions",
+        "Reproducible deployment",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Artifact version control",
+          "value_id": "v:20.1",
+          "citations": [
+            "s12_p05",
+            "s19_p05"
+          ],
+          "pros": [
+            "Tracks deployable models",
+            "Supports reuse"
+          ],
+          "cons": [
+            "Requires artifact storage",
+            "Limited lifecycle context"
+          ]
+        },
+        {
+          "label": "Comprehensive ML lifecycle traceability",
+          "value_id": "v:20.3",
+          "citations": [
+            "s08_p01",
+            "s22_p06"
+          ],
+          "pros": [
+            "Links data, runs, and models",
+            "Supports auditability"
+          ],
+          "cons": [
+            "More metadata to manage",
+            "Higher setup effort"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Artifact version control",
+        "value_id": "v:20.1"
+      },
+      "rationale": "Versioning each deployable model supports device updates and rollback while keeping governance effort proportionate to a small team. Sources including “Three Levels of ML Software” support artifact versioning; the checked combination was novel and returned no warnings or attesting sources.",
+      "consequences": [
+        "Assign each released model an immutable version.",
+        "Retain enough metadata to identify the deployed version."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device enrollment, update transport, and offline synchronization policy.",
+    "Camera hardware constraints and model compatibility requirements.",
+    "Image retention, labeling workflow, and dataset access controls.",
+    "Model acceptance thresholds and validation criteria before release.",
+    "Production monitoring and alerting for device health, data quality, and inspection accuracy."
+  ]
+}

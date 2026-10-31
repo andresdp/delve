@@ -1,0 +1,308 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should inference run?",
+      "context": "Cameras must inspect products while production lines may have no network access. The brief also limits the team and infrastructure budget.",
+      "drivers": [
+        "Offline operation",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "On-device edge inference",
+          "value_id": "v:30.4",
+          "citations": [
+            "s01_p06",
+            "s07_p01",
+            "s19_p11",
+            "s24_p01",
+            "s25_p07"
+          ],
+          "pros": [
+            "Works without network",
+            "Local predictions"
+          ],
+          "cons": [
+            "Device deployment effort",
+            "Hardware constraints"
+          ]
+        },
+        {
+          "label": "Containerized inference deployment",
+          "value_id": "v:30.19",
+          "citations": [
+            "s04_p02",
+            "s06_p07",
+            "s07_p03",
+            "s19_p17"
+          ],
+          "pros": [
+            "Packages dependencies",
+            "Portable runtime"
+          ],
+          "cons": [
+            "Container support needed",
+            "Deployment upkeep"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "On-device edge inference",
+        "value_id": "v:30.4"
+      },
+      "rationale": "On-device inference keeps inspection available during network outages and directly fits the cameras on the production lines. The design point is unattested in the workspace, so this is a brief-driven choice rather than a source-backed combination.",
+      "consequences": [
+        "Deploy model updates to line devices.",
+        "Plan for device resource limits.",
+        "Use local operation when disconnected."
+      ]
+    },
+    {
+      "decision": "How should weekly model updates be released?",
+      "context": "Newly labelled images produce a retrained model every week, which must reach devices running offline. A failed update should not leave a line without a usable model.",
+      "drivers": [
+        "Weekly retraining",
+        "Offline devices",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Progressive release automation with rollback",
+          "value_id": "v:19.5",
+          "citations": [
+            "s04_p02",
+            "s04_p03",
+            "s04_p10",
+            "s04_p12",
+            "s04_p18",
+            "s25_p01",
+            "s25_p06",
+            "s25_p09"
+          ],
+          "pros": [
+            "Incremental rollout",
+            "Previous version recovery"
+          ],
+          "cons": [
+            "Release machinery to maintain",
+            "Device rollout coordination"
+          ]
+        },
+        {
+          "label": "Commit-triggered staged release automation",
+          "value_id": "v:19.2",
+          "citations": [
+            "s06_p07",
+            "s06_p11",
+            "s20_p06",
+            "s20_p12",
+            "s22_p08",
+            "s24_p07"
+          ],
+          "pros": [
+            "Automates build and promotion",
+            "Stage-specific checks"
+          ],
+          "cons": [
+            "Needs connected release path",
+            "May not roll out gradually"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Progressive release automation with rollback",
+        "value_id": "v:19.5"
+      },
+      "rationale": "Progressive rollout with rollback limits the impact of a bad weekly model and provides a recovery path for deployed devices. The checked combination with on-device inference and automated hyperparameter optimization was novel and had no warnings; the alternative staged-release point was also novel.",
+      "consequences": [
+        "Keep a known-good model on each device.",
+        "Track rollout and model versions.",
+        "Allow devices to receive updates when connected."
+      ]
+    },
+    {
+      "decision": "How should weekly retraining be tuned?",
+      "context": "The brief specifies weekly retraining from newly labelled images but gives no tuning process or need for rapid online updates. The team’s size and budget favor limiting repeated manual work.",
+      "drivers": [
+        "Weekly retraining",
+        "Small team",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Automated hyperparameter optimization",
+          "value_id": "v:28.4",
+          "citations": [
+            "s02_p09",
+            "s04_p01",
+            "s09_p07",
+            "s17_p01",
+            "s17_p03",
+            "s17_p05",
+            "s17_p06",
+            "s18_p01",
+            "s18_p02",
+            "s18_p04",
+            "s19_p05",
+            "s22_p13",
+            "s24_p05"
+          ],
+          "pros": [
+            "Reduces manual search",
+            "Repeatable tuning"
+          ],
+          "cons": [
+            "Search compute cost",
+            "Needs bounded search space"
+          ]
+        },
+        {
+          "label": "Manual hyperparameter tuning",
+          "value_id": "v:28.5",
+          "citations": [
+            "s06_p07",
+            "s06_p11"
+          ],
+          "pros": [
+            "Direct team control",
+            "No search service"
+          ],
+          "cons": [
+            "Recurring staff effort",
+            "Slower iteration"
+          ]
+        },
+        {
+          "label": "Incremental online training",
+          "value_id": "v:28.3",
+          "citations": [
+            "s09_p03",
+            "s10_p09",
+            "s11_p01",
+            "s11_p02",
+            "s11_p06",
+            "s11_p09",
+            "s12_p02",
+            "s12_p04",
+            "s12_p05",
+            "s19_p06",
+            "s19_p08",
+            "s19_p16",
+            "s20_p02",
+            "s22_p09"
+          ],
+          "pros": [
+            "Updates as data arrives",
+            "Avoids full retraining"
+          ],
+          "cons": [
+            "More complex operations",
+            "Not required by weekly cadence"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Automated hyperparameter optimization",
+        "value_id": "v:28.4"
+      },
+      "rationale": "Automated tuning can reduce recurring manual search for a small team, while weekly batch retraining does not require online learning. The chosen point was novel but warning-free; the rival using incremental online training was likewise novel and warning-free.",
+      "consequences": [
+        "Bound the search to control compute.",
+        "Validate each weekly candidate before release.",
+        "Record tuning settings with model versions."
+      ]
+    },
+    {
+      "decision": "How should production behavior be monitored?",
+      "context": "Models run on disconnected devices, so quality and input changes may not be visible centrally in real time. The workspace supports combining monitoring practices because this dimension’s alternatives are not strongly exclusive.",
+      "drivers": [
+        "Offline devices",
+        "Defect quality",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Input and feature-drift monitoring",
+          "value_id": "v:6.2",
+          "citations": [
+            "s04_p03",
+            "s04_p05",
+            "s04_p12",
+            "s06_p02",
+            "s06_p08",
+            "s20_p03",
+            "s21_p10",
+            "s22_p11",
+            "s23_p03",
+            "s23_p04",
+            "s23_p05",
+            "s24_p01",
+            "s24_p07",
+            "s24_p08",
+            "s24_p11",
+            "s25_p01"
+          ],
+          "pros": [
+            "Flags changing inputs",
+            "Supports investigation"
+          ],
+          "cons": [
+            "Requires baseline data",
+            "May need delayed upload"
+          ]
+        },
+        {
+          "label": "Schedule-based retraining trigger",
+          "value_id": "v:6.6",
+          "citations": [
+            "s06_p07",
+            "s06_p11",
+            "s20_p06",
+            "s20_p12",
+            "s22_p08",
+            "s24_p07"
+          ],
+          "pros": [
+            "Fits weekly cadence",
+            "Simple trigger"
+          ],
+          "cons": [
+            "Misses sudden drift",
+            "Does not prove quality"
+          ]
+        },
+        {
+          "label": "Passive production operation",
+          "value_id": "v:6.4",
+          "citations": [],
+          "pros": [
+            "Little monitoring infrastructure",
+            "Low operating effort"
+          ],
+          "cons": [
+            "Failures may go unseen",
+            "No quality feedback"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Input and feature-drift monitoring",
+        "value_id": "v:6.2"
+      },
+      "rationale": "Monitor input and feature distributions on-device and upload summaries when connectivity returns; combine that with the brief’s weekly retraining schedule. This gives the small team a signal for investigation without assuming always-on connectivity.",
+      "consequences": [
+        "Buffer monitoring summaries offline.",
+        "Define drift thresholds and review steps.",
+        "Schedule retraining weekly."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Device fleet update protocol and connectivity handling",
+    "Model format and hardware compatibility",
+    "Defect-quality acceptance thresholds and human review",
+    "Image retention, privacy, and security controls",
+    "Training infrastructure and compute sizing"
+  ]
+}

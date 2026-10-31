@@ -1,0 +1,195 @@
+{
+  "decisions": [
+    {
+      "decision": "Where should defect inference run?",
+      "context": "Production cameras need defect detection, often without network access. The model must be available where images are captured.",
+      "drivers": [
+        "Offline operation",
+        "Production-line inspection"
+      ],
+      "alternatives": [
+        {
+          "label": "Run inference on each device",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Works offline",
+            "Local response"
+          ],
+          "cons": [
+            "Device resource limits",
+            "Fleet deployment effort"
+          ]
+        },
+        {
+          "label": "Run inference in a central service",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Centralized compute",
+            "Simpler model hosting"
+          ],
+          "cons": [
+            "Needs connectivity",
+            "Network adds delay"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Run inference on each device",
+        "value_id": null
+      },
+      "rationale": "Local inference keeps inspection available without network access and avoids depending on a central service for each image.",
+      "consequences": [
+        "Devices need compatible inference runtimes and compute.",
+        "Model deployment must cover the device fleet."
+      ]
+    },
+    {
+      "decision": "How should weekly models reach devices?",
+      "context": "The model is retrained weekly and needs to reach cameras that may be offline when an update is published.",
+      "drivers": [
+        "Weekly retraining",
+        "Intermittent connectivity",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Devices pull versioned releases when connected",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Fits intermittent access",
+            "Central release point"
+          ],
+          "cons": [
+            "Update timing varies",
+            "Requires device updater"
+          ]
+        },
+        {
+          "label": "Push each release to all devices",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Coordinated rollout",
+            "Central control"
+          ],
+          "cons": [
+            "Needs connectivity",
+            "Offline devices miss updates"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Devices pull versioned releases when connected",
+        "value_id": null
+      },
+      "rationale": "A versioned pull model accommodates devices that reconnect at different times while keeping releases centrally managed.",
+      "consequences": [
+        "Devices need to track installed and available versions.",
+        "Some devices may remain on older models while offline."
+      ]
+    },
+    {
+      "decision": "How should training consume newly labeled images?",
+      "context": "Newly labeled images feed a weekly retraining cycle. The brief does not specify a data store or training platform, so the design should keep these concerns modest and separable.",
+      "drivers": [
+        "Weekly retraining",
+        "New labeled images",
+        "Tight budget"
+      ],
+      "alternatives": [
+        {
+          "label": "Scheduled batch training from a shared image and label store",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple weekly workflow",
+            "Auditable inputs"
+          ],
+          "cons": [
+            "Needs shared storage",
+            "Batch feedback cycle"
+          ]
+        },
+        {
+          "label": "Continuous training on each new label",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Faster feedback",
+            "Frequent model updates"
+          ],
+          "cons": [
+            "More operational complexity",
+            "Harder release control"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Scheduled batch training from a shared image and label store",
+        "value_id": null
+      },
+      "rationale": "A weekly batch aligns with the stated retraining cadence and limits operational overhead for a small team.",
+      "consequences": [
+        "Training inputs and labels need versioning.",
+        "Model releases follow the weekly training schedule."
+      ]
+    },
+    {
+      "decision": "How should model releases be checked and reversed?",
+      "context": "Weekly model updates can change inspection outcomes across production devices. A release process needs a way to limit the impact of a poor model.",
+      "drivers": [
+        "Weekly model changes",
+        "Production inspection",
+        "Small team"
+      ],
+      "alternatives": [
+        {
+          "label": "Stage rollout with a prior-version fallback",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Limits rollout impact",
+            "Enables rollback"
+          ],
+          "cons": [
+            "Needs release coordination",
+            "Fallback uses older model"
+          ]
+        },
+        {
+          "label": "Replace the model fleet-wide immediately",
+          "value_id": null,
+          "citations": [],
+          "pros": [
+            "Simple release flow",
+            "Fast fleet coverage"
+          ],
+          "cons": [
+            "Broad failure impact",
+            "Rollback is harder"
+          ]
+        }
+      ],
+      "chosen": {
+        "label": "Stage rollout with a prior-version fallback",
+        "value_id": null
+      },
+      "rationale": "Staged deployment and a retained previous version give the team a practical way to contain and reverse regressions.",
+      "consequences": [
+        "Devices need to retain a known prior model.",
+        "Rollout progress and failures need tracking."
+      ]
+    }
+  ],
+  "uncovered": [
+    "Target device hardware, operating system, and inference runtime",
+    "Required detection accuracy, latency, and inspection throughput",
+    "How devices receive releases when they have no network access",
+    "Image retention, labeling workflow, and data governance",
+    "Security and authenticity requirements for models and updates",
+    "Acceptance criteria and operational process for detecting model regressions"
+  ]
+}
