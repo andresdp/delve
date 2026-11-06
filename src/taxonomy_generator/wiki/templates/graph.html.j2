@@ -60,6 +60,7 @@
     <fieldset><legend>Layout</legend>
       <label class="row"><input type="radio" name="layout" value="force" checked> Force</label>
       <label class="row"><input type="radio" name="layout" value="radial"> Radial</label>
+      <label class="row" id="rotate-row">Rotate <input type="range" id="rotate" min="0" max="359" step="1" value="0" aria-label="Rotate the rings (degrees)"></label>
     </fieldset>
     <fieldset><legend>Show</legend>
       <label class="row"><input type="checkbox" data-kind="domain" checked><svg class="shape" viewBox="-7 -7 14 14"><circle r="6" fill="var(--fg)"/></svg>Domain</label>
@@ -180,6 +181,7 @@
   svg.call(zoom);
   const linkLayer = g.append("g"), nodeLayer = g.append("g");
   let selected = null, sim = null, scale = 1, userMoved = false;
+  let radialTarget = null, draw = () => {};  // the radial layout's targets, and the redraw of the current layout
   function fit(duration) {
     const shown = nodeLayer.selectAll("g.node").data().filter((d) => d.x != null);
     if (!shown.length) return;
@@ -278,10 +280,38 @@
     const saved = localStorage.getItem(LAYOUT_KEY);
     if (saved === "force" || saved === "radial") document.querySelector('input[name="layout"][value="' + saved + '"]').checked = true;
   } catch (e) {}
+  const rotateRow = document.getElementById("rotate-row"), rotate = document.getElementById("rotate");
+  const showRotate = () => { rotateRow.style.display = layout() === "radial" ? "" : "none"; };
+  showRotate();
   document.querySelectorAll('input[name="layout"]').forEach((el) => el.addEventListener("change", () => {
     try { localStorage.setItem(LAYOUT_KEY, layout()); } catch (e) {}
+    showRotate();
     userMoved = false; render(true);  // keeps the filters, the selection and its #node= link
   }));
+
+  // Rotate (radial only): turns every ring about the domain, kept in this browser. The slider turns the drawn
+  // nodes and their targets at once, without re-running the layout, so it follows the pointer.
+  const ROTATE_KEY = "delve-wiki-rotate";
+  try {
+    const saved = Number(localStorage.getItem(ROTATE_KEY));
+    if (Number.isFinite(saved) && saved >= 0 && saved < 360) rotate.value = String(saved);
+  } catch (e) {}
+  const rotation = () => Number(rotate.value) * Math.PI / 180;
+  let rotated = rotation();  // the rotation the current layout was drawn at
+  rotate.addEventListener("input", () => {
+    try { localStorage.setItem(ROTATE_KEY, rotate.value); } catch (e) {}
+    if (layout() !== "radial" || !sim || !radialTarget) { rotated = rotation(); return; }
+    const delta = rotation() - rotated, cos = Math.cos(delta), sin = Math.sin(delta);
+    const cx = width() / 2, cy = height() / 2;
+    const turn = (p) => { const x = p.x - cx, y = p.y - cy; p.x = cx + x * cos - y * sin; p.y = cy + x * sin + y * cos; };
+    sim.nodes().forEach((n) => { if (n.kind !== "domain") { turn(n); n.vx = n.vy = 0; } });
+    radialTarget.forEach(turn);
+    sim.force("x").x((d) => radialTarget.get(d.id).x);  // re-read the turned targets
+    sim.force("y").y((d) => radialTarget.get(d.id).y);
+    rotated = rotation();
+    draw();
+    orientLabels(cx, cy);
+  });
 
   // Rings from the centre: domain, dimensions, values, then sources and systems, then design points. Hidden kinds
   // leave no empty ring. A ring's radius grows with the nodes on it (SPACING: arc length per node).
@@ -329,7 +359,7 @@
     });
     const target = new Map();
     nodes.forEach((n) => {
-      const rr = radiusOf[ringOf(n.kind)] || 0, a = angle.get(n.id) || 0;
+      const rr = radiusOf[ringOf(n.kind)] || 0, a = (angle.get(n.id) || 0) + rotation();
       target.set(n.id, { r: rr, x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
     });
     return target;
@@ -377,16 +407,18 @@
     const cx = width() / 2, cy = height() / 2;
     nodes.filter((n) => n.kind === "domain").forEach((n) => { n.fx = cx; n.fy = cy; });  // the domain stays central
     if (layout() === "radial") {
-      const target = radialTargets(nodes, links, cx, cy);
+      const target = radialTarget = radialTargets(nodes, links, cx, cy);
+      rotated = rotation();
       nodes.forEach((n) => { const t = target.get(n.id); n.x = t.x; n.y = t.y; n.vx = n.vy = 0; });  // start on the rings
       sim = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(links).id((d) => d.id).strength(0))  // drawn, but the rings place the nodes
         .force("radial", d3.forceRadial((d) => target.get(d.id).r, cx, cy).strength(0.8))
-        .force("x", d3.forceX((d) => target.get(d.id).x).strength(0.3))
-        .force("y", d3.forceY((d) => target.get(d.id).y).strength(0.3))
+        .force("x", d3.forceX((d) => radialTarget.get(d.id).x).strength(0.3))
+        .force("y", d3.forceY((d) => radialTarget.get(d.id).y).strength(0.3))
         .force("collide", d3.forceCollide().radius((d) => radius(d) + (d.kind === "dimension" ? 8 : 2)))
         .stop();
     } else {
+      radialTarget = null;
       sim = d3.forceSimulation(nodes)
         .force("link", d3.forceLink(relaxRelations ? links.filter((l) => l.type !== "relation" || !relationHidden(l, relF)) : links)
           .id((d) => d.id)
@@ -402,26 +434,29 @@
         .force("collide", d3.forceCollide().radius((d) => radius(d) + (d.kind === "dimension" || d.kind === "domain" ? 26 : 3)))
         .stop();
     }
-    const ticked = () => {
+    const ticked = draw = () => {
       linkAll.attr("x1", (d) => d.source.x).attr("y1", (d) => d.source.y).attr("x2", (d) => d.target.x).attr("y2", (d) => d.target.y);
       nodeAll.attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
     };
     sim.tick(Math.ceil(Math.log(sim.alphaMin()) / Math.log(1 - sim.alphaDecay())));  // settle before drawing
     ticked();
-    // Radial labels point outwards along their node's radius (read left to right on both halves); the force
-    // layout keeps them centred above the node.
+    orientLabels(cx, cy);
+    sim.on("tick", ticked);
+    if (refit || (!userMoved && !selected)) fit(0);
+    updateLabels(scale);
+    if (selected && !ids.has(selected)) clearSelection(); else if (selected) highlight(selected);
+  }
+  // Radial labels point outwards along their node's radius (read left to right on both halves); the force layout
+  // keeps them centred above the node.
+  function orientLabels(cx, cy) {
     const outward = layout() === "radial";
-    nodeAll.select("text").each(function (d) {
+    nodeLayer.selectAll("g.node text").each(function (d) {
       const t = d3.select(this);
       if (!outward || d.kind === "domain") { t.attr("transform", null).attr("text-anchor", "middle").attr("dx", 0).attr("dy", "-0.9em"); return; }
       const deg = Math.atan2(d.y - cy, d.x - cx) * 180 / Math.PI, left = Math.abs(deg) > 90;
       t.attr("transform", "rotate(" + (left ? deg + 180 : deg) + ")").attr("text-anchor", left ? "end" : "start")
         .attr("dx", (left ? -1 : 1) * (radius(d) + 4)).attr("dy", "0.35em");
     });
-    sim.on("tick", ticked);
-    if (refit || (!userMoved && !selected)) fit(0);
-    updateLabels(scale);
-    if (selected && !ids.has(selected)) clearSelection(); else if (selected) highlight(selected);
   }
   const width = () => document.getElementById("canvas").clientWidth;
   const height = () => document.getElementById("canvas").clientHeight;

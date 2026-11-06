@@ -51,6 +51,15 @@ addEventListener("load", () => setTimeout(() => {
     out.off_screen = nodes().filter((e) => { const r = e.getBoundingClientRect();
       return r.right < box.left || r.left > box.right || r.bottom < box.top || r.top > box.bottom; }).length;
 
+    // Rotate the rings by 90 degrees: every dimension turns about the domain, staying on its ring.
+    const angleOf = (e) => Math.atan2(e.__data__.y - d.y, e.__data__.x - d.x) * 180 / Math.PI;
+    const first = find("dimension", "Source of truth"), a0 = angleOf(first);
+    out.rotate_shown = getComputedStyle(document.getElementById("rotate-row")).display !== "none";
+    const slider = document.getElementById("rotate");
+    slider.value = String((Number(slider.value) + 90) % 360); slider.dispatchEvent(new Event("input"));
+    out.turned = ((angleOf(first) - a0) % 360 + 360) % 360;
+    out.ring_after_turn = nodes().filter((e) => e.__data__.kind === "dimension").map((e) => Math.hypot(e.__data__.x - d.x, e.__data__.y - d.y));
+
     // Drag the domain away and drop it: it goes back to the centre.
     const el = find("domain"), r0 = el.getBoundingClientRect();
     const at = (type, x, y, target) => target.dispatchEvent(new MouseEvent(type,
@@ -104,5 +113,9 @@ def test_graph_page_selection_radial_layout_and_domain_in_a_browser(tmp_path):
     assert max(ring) - min(ring) < 0.15 * max(ring), ring
     # Switching the layout with a node selected re-fits the view, so nothing is left off screen.
     assert out["refitted"] and out["off_screen"] == 0
+    # The rotation slider (shown for the radial layout) turns the rings about the domain.
+    assert out["rotate_shown"]
+    assert abs(out["turned"] - 90) < 1, out["turned"]
+    assert out["ring_after_turn"] == pytest.approx(ring, abs=1)
     # A dragged domain goes back to the centre when dropped.
     assert out["dropped_offset"] < 1

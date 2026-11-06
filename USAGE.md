@@ -239,9 +239,9 @@ committing them.
 - **Layouts:** the graph view has two.
   - *Force:* related nodes pull together.
   - *Radial:* rings outwards from the domain, through dimensions and values, to sources and systems, then design
-    points. Each dimension's values sit in its own arc.
+    points. Each dimension's values sit in its own arc. The *Rotate* slider turns the rings about the domain.
 
-  The browser remembers which layout you chose.
+  The browser remembers which layout you chose, and the rotation.
 
 The export makes no LLM calls: everything is rendered from the run data.
 
