@@ -560,6 +560,8 @@ def test_graph_page_can_filter_and_hide_relations_and_links_the_reference(tmp_pa
 def test_domain_labels_the_tree_root_and_the_graph_centre(tmp_path):
     plain = build(_inputs())
     assert plain.tree["label"] == "toy" and plain.tree["domain"] == "toy" and plain.graph["domain"] == "toy"
+    blank = build(_inputs(domain="   "))  # a blank domain counts as unset
+    assert blank.tree["label"] == "toy" and blank.graph["domain"] == "toy"
     export = build(_inputs(domain="Git hosting"))
     assert export.tree["label"] == "Git hosting" and export.graph["domain"] == "Git hosting"
     # The domain node is drawn by the views: the graph data keeps the same nodes and edges.

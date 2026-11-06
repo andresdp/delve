@@ -280,7 +280,7 @@
   } catch (e) {}
   document.querySelectorAll('input[name="layout"]').forEach((el) => el.addEventListener("change", () => {
     try { localStorage.setItem(LAYOUT_KEY, layout()); } catch (e) {}
-    userMoved = false; render();  // keeps the filters, the selection and its #node= link
+    userMoved = false; render(true);  // keeps the filters, the selection and its #node= link
   }));
 
   // Rings from the centre: domain, dimensions, values, then sources and systems, then design points. Hidden kinds
@@ -335,7 +335,8 @@
     return target;
   }
 
-  function render() {
+  // refit: fit the view even while a node is selected (the layout or the canvas changed, so the old view is stale).
+  function render(refit = false) {
     const s = state();
     const nodes = data.nodes.filter((n) => visible(n, s));
     const ids = new Set(nodes.map((n) => n.id));
@@ -357,7 +358,11 @@
       .on("click", (ev, d) => { ev.stopPropagation(); select(d.id); })
       .call(d3.drag().on("start", (ev, d) => { if (!ev.active) sim.alphaTarget(0.2).restart(); d.fx = d.x; d.fy = d.y; })
         .on("drag", (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
-        .on("end", (ev, d) => { if (!ev.active) sim.alphaTarget(0); if (d.kind !== "domain") { d.fx = null; d.fy = null; } }));
+        .on("end", (ev, d) => {
+          if (!ev.active) sim.alphaTarget(0);
+          // A dragged node is released, except the domain, which goes back to the centre the rings are drawn around.
+          if (d.kind === "domain") { d.fx = width() / 2; d.fy = height() / 2; } else { d.fx = null; d.fy = null; }
+        }));
     enter.append("path").attr("class", "shape");
     enter.append("text").attr("dy", "-0.9em").attr("text-anchor", "middle");
     enter.append("title");
@@ -414,7 +419,7 @@
         .attr("dx", (left ? -1 : 1) * (radius(d) + 4)).attr("dy", "0.35em");
     });
     sim.on("tick", ticked);
-    if (!userMoved && !selected) fit(0);
+    if (refit || (!userMoved && !selected)) fit(0);
     updateLabels(scale);
     if (selected && !ids.has(selected)) clearSelection(); else if (selected) highlight(selected);
   }
@@ -523,7 +528,7 @@
     resizeTimer = setTimeout(() => {
       const size = width() + "x" + height();
       if (size === lastSize) return;
-      lastSize = size; userMoved = false; render();
+      lastSize = size; userMoved = false; render(true);
     }, 200);
   });
 

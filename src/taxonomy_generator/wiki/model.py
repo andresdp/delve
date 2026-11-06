@@ -972,7 +972,7 @@ class _Builder:
     # tree ----------------------------------------------------------------
     def domain(self) -> str:
         """Return the central node's label in the tree and graph views: the configured domain, else the name."""
-        return self.inp.domain or self.inp.taxonomy_name
+        return self.inp.domain.strip() or self.inp.taxonomy_name  # blank counts as unset
 
     def tree_data(self) -> Dict[str, Any]:
         """Dimensions → values → supporting sources, as a nested tree (the CLI tree's shape)."""
