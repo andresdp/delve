@@ -81,6 +81,24 @@ def test_build_writes_an_okf_wiki_site_and_query_data(ws):
     assert _invoke("query", "dims").exit_code == 0
 
 
+def test_domain_is_the_workspace_name_unless_set(ws):
+    def built():
+        assert _invoke("wiki", "build", "--yes").exit_code == 0
+        return (json.loads((ws.root / "raw" / name).read_text()) for name in ("graph.json", "tree.json"))
+
+    graph, tree = built()
+    assert graph["domain"] == "toy" and tree["label"] == "toy"
+    ws.set("taxonomy.domain", "Git hosting")
+    graph, tree = built()
+    assert graph["domain"] == "Git hosting" and tree["label"] == "Git hosting"
+    # A workspace made before the setting existed has no `taxonomy.domain` key: the name is used.
+    text = ws.config_path.read_text(encoding="utf-8")
+    ws.config_path.write_text(re.sub(r"\n[^\n]*\n  domain: [^\n]*", "", text), encoding="utf-8")
+    assert "domain:" not in ws.config_path.read_text(encoding="utf-8")
+    graph, _ = built()
+    assert graph["domain"] == "toy"
+
+
 def test_saved_answers_are_reused(ws):
     ws.set("wiki.quotes", False)
     ws.set("wiki.design_points", "none")

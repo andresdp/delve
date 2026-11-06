@@ -112,10 +112,11 @@ def main(argv=None) -> int:
     m = re.search(r"_taxonomy_(\d{8}_\d{6})", path.name)
     run_label = m.group(1) if m else path.stem
     name = taxonomy.get("taxonomy_name") or path.stem.split("_taxonomy_")[0]
-    use_case, models, settings = "", {}, {}
+    use_case, domain, models, settings = "", "", {}, {}
     if args.config:
         cfg = yaml.safe_load(Path(args.config).read_text(encoding="utf-8")) or {}
         use_case = ((cfg.get("taxonomy") or {}).get("use_case") or "").strip()
+        domain = str((cfg.get("taxonomy") or {}).get("domain") or "")
         models = {k: str(v) for k, v in (cfg.get("models") or {}).items()
                   if k in ("generation_llm", "evaluation_llm", "embedding") and v}
         tx, pl = cfg.get("taxonomy") or {}, cfg.get("pipeline") or {}
@@ -166,7 +167,7 @@ def main(argv=None) -> int:
                                        if descriptions_path and design_points is not None else ({}, ""))
 
     inp = Inputs(
-        taxonomy=taxonomy, taxonomy_name=name, run_label=run_label,
+        taxonomy=taxonomy, taxonomy_name=name, run_label=run_label, domain=domain,
         corpus=load_corpus(Path(args.corpus)) if args.corpus else {},
         sources=load_sources(Path(args.sources)) if args.sources else {},
         systems=load_system_map(Path(args.systems)) if args.systems else {},

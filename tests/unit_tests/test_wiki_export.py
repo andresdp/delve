@@ -557,6 +557,29 @@ def test_graph_page_can_filter_and_hide_relations_and_links_the_reference(tmp_pa
     assert (tmp_path / "html" / "relations.html").exists()
 
 
+def test_domain_labels_the_tree_root_and_the_graph_centre(tmp_path):
+    plain = build(_inputs())
+    assert plain.tree["label"] == "toy" and plain.tree["domain"] == "toy" and plain.graph["domain"] == "toy"
+    export = build(_inputs(domain="Git hosting"))
+    assert export.tree["label"] == "Git hosting" and export.graph["domain"] == "Git hosting"
+    # The domain node is drawn by the views: the graph data keeps the same nodes and edges.
+    assert export.graph["nodes"] == plain.graph["nodes"] and export.graph["edges"] == plain.graph["edges"]
+    write(export, tmp_path, "toy")
+    page = (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+    data = json.loads(re.search(r'<script type="application/json" id="graph-data">(.*?)</script>', page, re.S).group(1))
+    assert data["domain"] == "Git hosting" and "domain" not in {n["kind"] for n in data["nodes"]}
+    raw = json.loads((tmp_path / "raw" / "graph.json").read_text(encoding="utf-8"))
+    assert raw["domain"] == "Git hosting" and raw["schema_version"] == 1
+
+
+def test_graph_page_switches_between_force_and_radial_layouts(tmp_path):
+    write(build(_inputs()), tmp_path, "toy")
+    page = (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+    for marker in ('name="layout" value="force"', 'name="layout" value="radial"', 'data-kind="domain"',
+                   "d3.forceRadial", "delve-wiki-layout"):
+        assert marker in page, marker
+
+
 def test_reexport_keeps_user_files_in_wiki(tmp_path):
     write(build(_inputs(design_points=POINTS)), tmp_path, "toy")
     (tmp_path / "wiki" / ".obsidian").mkdir()

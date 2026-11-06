@@ -230,6 +230,19 @@ committing them.
 - an interactive graph view and an expandable tree view;
 - an Approach page that explains the pipeline.
 
+**Graph and tree views:**
+- **Central node:** both views have a domain node at their centre, linked to every dimension. Its label is
+  `taxonomy.domain` from the configuration (`--config` here, `ddspace.yaml` in a workspace), or the taxonomy's name
+  when that is null.
+- **Not in the data:** the domain node is drawn by the views only. `raw/graph.json` records its label as `domain`
+  but has no such node.
+- **Layouts:** the graph view has two.
+  - *Force:* related nodes pull together.
+  - *Radial:* rings outwards from the domain, through dimensions and values, to sources and systems, then design
+    points. Each dimension's values sit in its own arc.
+
+  The browser remembers which layout you chose.
+
 The export makes no LLM calls: everything is rendered from the run data.
 
 The HTML works offline. Open `html/index.html` in a browser, or copy the whole `html/` folder to share it.

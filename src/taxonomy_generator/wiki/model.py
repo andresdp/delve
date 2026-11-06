@@ -65,6 +65,7 @@ class Inputs:
     taxonomy: Dict[str, Any]
     taxonomy_name: str
     run_label: str
+    domain: str = ""  # label of the central node in the graph and tree views ("" = taxonomy_name)
     corpus: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     sources: Dict[str, Dict[str, str]] = field(default_factory=dict)
     systems: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -357,7 +358,8 @@ class _Builder:
         self.graph_data(points)
         self.pages.sort(key=lambda p: (p.path != "index", p.path))
         identity = {"schema_version": GRAPH_SCHEMA_VERSION, "run": self.inp.run_label, "name": self.inp.taxonomy_name,
-                    "view": self.inp.view, "use_case": self.inp.use_case, "core_rule": self.core_rule_short()}
+                    "domain": self.domain(), "view": self.inp.view, "use_case": self.inp.use_case,
+                    "core_rule": self.core_rule_short()}
         return Export(pages=self.pages, graph={**identity, "nodes": self.nodes, "edges": self.edges}, manifest={},
                       tree={**identity, **self.tree_data()})
 
@@ -968,6 +970,10 @@ class _Builder:
         self.add("approach", "Approach", "reference", {"tags": ["reference"]}, "\n".join(lines))
 
     # tree ----------------------------------------------------------------
+    def domain(self) -> str:
+        """The central node's label in the tree and graph views: the configured domain, else the taxonomy name."""
+        return self.inp.domain or self.inp.taxonomy_name
+
     def tree_data(self) -> Dict[str, Any]:
         """Dimensions → values → supporting sources, as a nested tree (the CLI tree's shape)."""
         dims = []
@@ -1003,7 +1009,7 @@ class _Builder:
                          "core": self.is_core(d),
                          "description": d.get("description") or "", "meta": meta, "children": values})
         values = sum(len(d["children"]) for d in dims)
-        return {"id": "root", "kind": "root", "label": self.inp.taxonomy_name, "href": "index",
+        return {"id": "root", "kind": "root", "label": self.domain(), "href": "index",
                 "meta": f"{len(dims)} dimensions, {values} values, {len(self.source_ids)} sources", "children": dims}
 
     # graph ---------------------------------------------------------------

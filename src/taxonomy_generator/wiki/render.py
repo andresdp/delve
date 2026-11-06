@@ -257,7 +257,8 @@ def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str,
         has_case_icon=bool(case_icon), core_rule=export.tree.get("core_rule", "")), encoding="utf-8")
 
     graph = {"nodes": [{**n, "href": html_file(n["href"])} for n in export.graph["nodes"]],
-             "edges": export.graph["edges"], "core_rule": export.graph.get("core_rule", "")}
+             "edges": export.graph["edges"], "core_rule": export.graph.get("core_rule", ""),
+             "domain": export.graph.get("domain") or name}
     kinds = sorted({n["kind"] for n in graph["nodes"]})
     (root / "graph.html").write_text(env.get_template("graph.html.j2").render(
         name=name, data=json.dumps(graph, ensure_ascii=False, sort_keys=True).replace("</", "<\\/"),

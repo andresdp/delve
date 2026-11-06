@@ -406,7 +406,8 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
                 "min_candidate_decisions": tx.get("min_candidate_decisions"),
                 "relevance_selection": tx.get("relevance_selection"),
                 "open_coding_input": (cfg.get("open_coding") or {}).get("input")}
-    inp = Inputs(taxonomy=taxonomy, taxonomy_name=name, run_label=run_label, corpus=corpus,
+    inp = Inputs(taxonomy=taxonomy, taxonomy_name=name, run_label=run_label, domain=str(tx.get("domain") or ""),
+                 corpus=corpus,
                  sources=load_sources(ws.sources_csv) if ws.sources_csv.is_file() else {},
                  design_points=points, use_case=use_case, narrative=narrative, models=models,
                  source_summaries=summaries, summary_model=summary_model,

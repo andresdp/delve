@@ -99,6 +99,7 @@ critic on the evaluation LLM.
 | YAML Key | Type | Default | Description |
 |---|---|---|---|
 | `taxonomy.name` | `str` | `"taxonomy"` | Optional name to identify this taxonomy. Shown in CLI output and included in all generated JSON files. Override via `--name` CLI flag. |
+| `taxonomy.domain` | `str` | `null` | Label of the central node in the wiki's graph and tree views (`benchmark/export_wiki.py --config`, `ddspace wiki build`). `null` uses `taxonomy.name`. |
 | `taxonomy.use_case` | `str` | `"Generate the taxonomy that can be used to label the user intent in the conversation."` | The use case description sent to the LLM for taxonomy generation and refinement. |
 | `taxonomy.max_num_clusters` | `int` | `25` | Maximum number of taxonomy categories the LLM may produce. |
 | `taxonomy.cluster_name_length` | `int` | `10` | Max words for cluster/category names. |
