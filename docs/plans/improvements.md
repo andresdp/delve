@@ -7,19 +7,20 @@ date: 2026-10-31
 
 # Improvements
 
-Five planned developments, recorded after the SANER and CAIN submissions. Each has its own plan. This page
+Planned developments, recorded after the SANER and CAIN submissions. Each has its own plan. This page
 gives their status, how they depend on each other, and a suggested order. Update it when a plan changes status.
 
-## The five improvements
+## The improvements
 
 | # | Improvement | Plan | Feasibility | Effort | Status |
 |---|---|---|---|---|---|
 | 1 | **Taxonomy data layer.** The design space as a data structure with a defined interface (model, operations, store), so that the LangGraph pipeline is one construction procedure among others | [2026-10-15-refactor-taxonomy-data-layer-plan.md](2026-10-15-refactor-taxonomy-data-layer-plan.md) (refreshed 2026-10-31) | High; already designed | U0–U4: about 1–2 weeks; U5 (moving the post-mining passes) is the risky part | `ddspace import` built (part of U7); U0–U6 not started |
 | 2 | **Forces and trade-offs (2a).** Forces, impacts (`++` to `--`), forces per decision and typed option links, as in the C1/C2 expert models; imported, shown in the wiki, `query` and `point`. Not mined yet | [2026-10-31-feat-forces-and-trade-offs-plan.md](2026-10-31-feat-forces-and-trade-offs-plan.md) | High for 2a; mining (2b) and evaluation (2c) are research, deferred | about 1 week | Proposed |
-| 3 | **Wiki radial layout and domain node.** A force / radial switch in the graph view (rings from the domain outwards) and a central domain node, also the tree's root. Label from the workspace name, overridable with `taxonomy.domain` | [2026-10-31-feat-wiki-radial-layout-domain-node-plan.md](2026-10-31-feat-wiki-radial-layout-domain-node-plan.md) | High; small and independent | 1–2 days | Proposed |
+| 3 | **Wiki radial layout and domain node.** A force / radial switch in the graph view (rings from the domain outwards) and a central domain node, also the tree's root. Label from the workspace name, overridable with `taxonomy.domain` | [2026-10-31-feat-wiki-radial-layout-domain-node-plan.md](2026-10-31-feat-wiki-radial-layout-domain-node-plan.md) | High; small and independent | 1–2 days | Built on `feat/wiki-radial-layout` (local, not pushed, 2026-11-06), with a rotation slider and status-grouped values |
 | 4 | **Model profiles.** Several providers and models in one run: named profiles, per-node overrides, per-model settings, capability checks, cost per model | [2026-10-31-feat-model-profiles-plan.md](2026-10-31-feat-model-profiles-plan.md) | High; partly there (any LangChain provider, three roles) | about 1 week | Proposed |
 | 5 | **Multi-persona coding.** Several analyst personas, each with the same or a different LLM, in open, axial and selective coding, closer to a grounded-theory team | [../DESIGN_SPACE_ROADMAP.md](../DESIGN_SPACE_ROADMAP.md) (refreshed 2026-10-31; units M0–M4) | Medium; must first pass the Phase 0 gate (persona differences larger than rerun noise) | M0: runs only; M1: days; M2–M3: weeks | Phase 0 not run |
-| 6 | **Hybrid construction (extend).** An expert supplies the dimensions and some values; mining adds values with evidence. A constrained seeded train mode: `taxonomy.freeze_dimensions` plus protected expert values (`origin: expert`); `ddspace update --extend`. Not a case of test mode, which labels each passage once and skips open coding, stances and evidence for the seed | Section 4 of the Designing 2027 paper plan (`docs/paper/designing2027/DESIGNING2027_PAPER_PLAN.md`, local); split into a feature plan if it outlives the paper | High; seeded train and test mode exist | 2–3 days | Planned for the Designing 2027 paper (due 2026-11-13) |
+| 6 | **Hybrid construction (extend).** An expert supplies the dimensions and some values; mining adds values with evidence. A constrained seeded train mode: `taxonomy.freeze_dimensions` plus protected expert values (`origin: expert`); `ddspace update --extend`. Not a case of test mode, which labels each passage once and skips open coding, stances and evidence for the seed | Section 4 of the Designing 2027 paper plan (`docs/paper/designing2027/DESIGNING2027_PAPER_PLAN.md`, local); split into a feature plan if it outlives the paper | High; seeded train and test mode exist | 2–3 days | Deferred (2026-11-06): the Designing 2027 paper takes improvement 7 instead; plan kept in `docs/paper/designing2027/DESIGNING2027_PAPER_PLAN-extend-deferred.md` (local) |
+| 7 | **Rationale: search and explain.** Coding-agent skills over a design space: *search* turns a context and requirements into alternatives; *explain* deconstructs a given solution. Both write a rationale file (`ddspace rationale check/build`) rendered as an explainer page in the wiki: the rationale as a subgraph of the space. Also runs without a space | [2026-11-06-feat-rationale-search-explain-plan.md](2026-11-06-feat-rationale-search-explain-plan.md) | High; builds on `query`, `point`, the agent setup and the wiki | about 3 days | Planned for the Designing 2027 paper (due 2026-11-13) |
 
 ## Scope: the approach and the tool alike
 
@@ -40,6 +41,7 @@ therefore goes into the shared schema whenever both sides need it, and the tool 
 | 4 | `models.profiles` and `models.nodes` in `config.yaml`; usage and cost per model in the run file | The same keys in `ddspace.yaml`; `ask` and `point` take a profile; `check` shows each node's model |
 | 5 | `personas:` in `config.yaml`; per-persona open coding, drafts and selection | The same key in `ddspace.yaml` (commented in the template); `check` lists personas; wiki pages show persona provenance |
 | 6 | `taxonomy.freeze_dimensions` in `config.yaml`; seeds (`--taxonomy`) mark their values `origin: expert`; the editor, linker and consolidation protect them | `ddspace update --extend` after `ddspace import --kind decision-model`; the wiki marks expert and mined values |
+| 7 | `benchmark/export_wiki.py --rationale DIR` renders explainers with the approach's wiki export | `ddspace rationale check/build/list`, `ddspace agent setup --skills`; `wiki build` re-renders explainers and flags stale ones |
 
 ## Dependencies
 
@@ -72,6 +74,9 @@ therefore goes into the shared schema whenever both sides need it, and the tool 
 | 5 | **2** forces and trade-offs (2a) | On the model layer from step 3 |
 | 6 | **5 M1, then M2–M4** if the gate passes | M2 needs U3 from step 3 |
 | 7 | **1 U5–U7** the remaining data-layer units, one pipeline pass per PR | The risky part, each pass behind the equivalence gate |
+
+Improvement 7 (rationale) runs ahead of this order, for the Designing 2027 deadline. It depends on none of the
+others, and reuses the radial layout of step 1.
 
 ## Conventions for these plans
 
