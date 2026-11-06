@@ -86,7 +86,7 @@ def test_imported_run_answers_queries_and_points(ws, run_files):
     assert _invoke("import", str(taxonomy), "--kind", "run", "--corpus", str(corpus), "--sources", str(sources),
                    "--yes").exit_code == 0
     assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
-    dims = json.loads(_invoke("query", "dims").output)
+    dims = json.loads(_invoke("query", "dimension").output)
     assert {d["label"] for d in dims} >= {"Source of truth", "Replication"}
     point = json.loads(_invoke("point", "Disk quorum", "Three-phase commit", "--no-llm").output)
     assert [s["id"] for s in point["attested_by"]] == ["s:s1"]
@@ -231,7 +231,7 @@ def test_import_model_builds_an_expert_wiki(ws, tmp_path):
     assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
     graph = read_json(ws.root / "raw" / "graph.json")
     assert not [n for n in graph["nodes"] if n["id"].startswith("s:")]
-    dims = json.loads(_invoke("query", "dims").output)
+    dims = json.loads(_invoke("query", "dimension").output)
     assert len(dims) == 2 and all(d["core"] for d in dims)
     point = json.loads(_invoke("point", "Data lake", "Direct access", "--no-llm").output)
     assert point["attested_by"] == []

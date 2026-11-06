@@ -78,7 +78,7 @@ def test_build_writes_an_okf_wiki_site_and_query_data(ws):
     saved = ws.config()["wiki"]
     assert saved["quotes"] is True and saved["design_points"] == "sample" and saved["source_summaries"] is False
     assert saved["core_min_sources"] == 2  # 2 sources in the run: a third, but at least 2
-    assert _invoke("query", "dims").exit_code == 0
+    assert _invoke("query", "dimension").exit_code == 0
 
 
 def test_domain_is_the_workspace_name_unless_set(ws):

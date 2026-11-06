@@ -32,9 +32,16 @@ def ws(tmp_path, monkeypatch):
 
 
 def test_query_prints_json_by_default(ws):
-    result = _invoke("query", "dims")
+    result = _invoke("query", "dimension")
     assert result.exit_code == 0, result.output
     assert {d["label"] for d in json.loads(result.output)} == {"Source of truth", "Replication"}
+
+
+def test_query_dims_still_runs_but_is_hidden(ws):
+    old = _invoke("query", "dims")  # the former name, used by older agent guides and recorded sessions
+    assert old.exit_code == 0 and old.output == _invoke("query", "dimension").output
+    listing = _invoke("query", "--help").output
+    assert "dimension" in listing and not re.search(r"\bdims\b", listing)
 
 
 def test_query_table_for_people(ws):
@@ -72,7 +79,7 @@ def test_evidence_quotes_refused_when_the_wiki_has_none(ws):
 
 
 @pytest.mark.parametrize("command", [["info"], ["relations", "--table"], ["show", "WAL in S3", "--table"],
-                                     ["search", "replica"], ["dims", "--core", "--table"], ["info", "--table"],
+                                     ["search", "replica"], ["dimension", "--core", "--table"], ["info", "--table"],
                                      ["evidence", "Disk quorum", "--table"]])
 def test_every_subcommand_runs(ws, command):
     result = _invoke("query", *command)
@@ -247,13 +254,16 @@ def test_guide_tells_agents_to_use_the_commands_not_the_raw_graph(ws):
 
 
 def test_usage_md_describes_every_command():
-    """USAGE.md is the command reference: a command added to the CLI must be described there."""
+    """USAGE.md is the command reference: a command added to the CLI must be described there (hidden ones aside)."""
     import typer.main
 
     usage = (Path(__file__).resolve().parents[2] / "USAGE.md").read_text(encoding="utf-8")
     root = typer.main.get_command(cli.app)
     names = []
     for name, command in root.commands.items():
-        names += [f"ddspace {name} {sub}" for sub in getattr(command, "commands", {})] or [f"ddspace {name}"]
+        if command.hidden:
+            continue
+        names += [f"ddspace {name} {sub}" for sub, c in getattr(command, "commands", {}).items() if not c.hidden] \
+            or [f"ddspace {name}"]
     missing = [n for n in names if f"`{n}" not in usage]
     assert not missing, f"not described in USAGE.md: {missing}"

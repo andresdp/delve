@@ -98,7 +98,7 @@ descriptions (no extra LLM calls). Without `--yes` it asks; the answers are save
 From the command line (read-only, no LLM):
 
 ```bash
-ddspace query dims --table
+ddspace query dimension --table
 ddspace query values "<a dimension name>" --table
 ddspace query evidence "<a value name>" --quotes --table
 ddspace query relations --table

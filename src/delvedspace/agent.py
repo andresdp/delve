@@ -116,7 +116,7 @@ def _sketching(dim: str, value: str, where: str, expert: bool) -> str:
 
 When asked to design a system (a brief with requirements):
 
-1. Find the dimensions relevant to the brief (`ddspace query dims{where}`, `ddspace query search`).
+1. Find the dimensions relevant to the brief (`ddspace query dimension{where}`, `ddspace query search`).
 2. For each, compare at least two alternatives: {compare}. Note outcomes and rejected values.
 3. Check your design as a design point. This step is required: do not write the ADRs before it.
    - Run `ddspace point "{value}" "<another value>" ...{where}` with the values you intend to choose, one per
@@ -201,7 +201,7 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
 - **Values** are the alternatives for a decision, or outcomes (effects of decisions). Each value has a status:
   `accepted`, `rejected`, `mixed` (sources disagree) or `outcome`.
 - **Exclusivity**: the alternatives of a decision are meant to exclude each other (a system takes one).
-  `ddspace query dims` gives each decision's `exclusivity`: the share of adopting sources (or systems) that adopt
+  `ddspace query dimension` gives each decision's `exclusivity`: the share of adopting sources (or systems) that adopt
   exactly one of its values. Near 1: real alternatives. Low: sources often combine several values, so present
   them as options that can be combined, not as a choice of one. `null`: no source adopts a value.
 - **Includes**: a value may bundle finer practices that sources adopt together. `ddspace query values` lists them
@@ -217,7 +217,7 @@ Files: `{prefix}wiki/` (Markdown pages: `index.md` first; `concepts/` dimensions
 
 ```bash
 ddspace query info{where}                              # run, use case, counts
-ddspace query dims{where}                              # dimensions (decisions): core flag, support, exclusivity
+ddspace query dimension{where}                         # dimensions (decisions): core flag, support, exclusivity
 ddspace query values "{dim}"{where}          # alternatives and outcomes of one decision, with includes
 {evidence_cmd}ddspace query relations{where}                         # relations between decisions, as sentences
 ddspace query show "{dim}"{where}            # one node and its neighbors
