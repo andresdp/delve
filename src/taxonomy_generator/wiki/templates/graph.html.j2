@@ -317,20 +317,11 @@
   // leave no empty ring. A ring's radius grows with the nodes on it (SPACING: arc length per node).
   const RINGS = ["domain", "dimension", "value", "source", "design"];
   const ringOf = (kind) => kind === "system" ? "source" : kind;
-  const SPACING = { dimension: 90, value: 26, source: 26, design: 18 };
+  const SPACING = { dimension: 90, value: 24, source: 26, design: 18 };
   function radialTargets(nodes, links, cx, cy) {
-    const count = {};
-    nodes.forEach((n) => { const r = ringOf(n.kind); count[r] = (count[r] || 0) + 1; });
-    const radiusOf = {};
-    let r = 0;
-    RINGS.filter((k) => count[k]).forEach((k) => {
-      if (k === "domain") { radiusOf[k] = 0; return; }
-      r = Math.max(r + 110, count[k] * SPACING[k] / (2 * Math.PI));
-      radiusOf[k] = r;
-    });
     // Each dimension gets an angular sector centred on it, holding its shown values. A sector's size is its value
-    // count plus the mean count: a dimension with two values still gets room on the ring, and the padding leaves a
-    // gap between neighbouring dimensions' values (about half of the value ring is padding: SPACING.value allows for it).
+    // count plus a padding of half the mean count: a dimension with two values still gets room on the ring, and the
+    // padding leaves a gap between neighbouring dimensions' values.
     const angle = new Map(), values = new Map();
     links.filter((l) => l.type === "has_value").forEach((l) => {
       if (!values.has(l.source)) values.set(l.source, []);
@@ -338,8 +329,19 @@
     });
     const dims = nodes.filter((n) => n.kind === "dimension");
     const own = (d) => values.get(d.id) || [];
-    const pad = Math.max(1, d3.sum(dims, (d) => own(d).length) / (dims.length || 1));
+    const pad = Math.max(1, d3.sum(dims, (d) => own(d).length) / (dims.length || 1) / 2);
     const total = d3.sum(dims, (d) => own(d).length + pad) || 1;
+    // The value ring counts the padding as slots, so neighbouring values sit SPACING.value apart along the ring.
+    const count = {};
+    nodes.forEach((n) => { const r = ringOf(n.kind); count[r] = (count[r] || 0) + 1; });
+    const slots = { ...count, value: Math.max(count.value || 0, total) };
+    const radiusOf = {};
+    let r = 0;
+    RINGS.filter((k) => count[k]).forEach((k) => {
+      if (k === "domain") { radiusOf[k] = 0; return; }
+      r = Math.max(r + 110, slots[k] * SPACING[k] / (2 * Math.PI));
+      radiusOf[k] = r;
+    });
     let start = -Math.PI / 2;
     dims.forEach((d) => {
       const vs = own(d), span = 2 * Math.PI * (vs.length + pad) / total, used = span * vs.length / (vs.length + pad);
@@ -393,10 +395,12 @@
           // A dragged node is released, except the domain, which goes back to the centre the rings are drawn around.
           if (d.kind === "domain") { d.fx = width() / 2; d.fy = height() / 2; } else { d.fx = null; d.fy = null; }
         }));
+    enter.append("circle").attr("class", "hit").attr("fill", "transparent");  // a larger click target than the shape
     enter.append("path").attr("class", "shape");
     enter.append("text").attr("dy", "-0.9em").attr("text-anchor", "middle");
     enter.append("title");
     const nodeAll = enter.merge(node);
+    nodeAll.select("circle.hit").attr("r", (d) => Math.max(radius(d), 10));
     nodeAll.select("path.shape").attr("d", shapePath).attr("fill", nodeColor)
       .attr("stroke", (d) => d.kind === "dimension" ? "#fff" : "none").attr("stroke-width", 1.5);
     nodeAll.select("text").text((d) => d.label);
