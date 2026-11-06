@@ -318,6 +318,7 @@
   const RINGS = ["domain", "dimension", "value", "source", "design"];
   const ringOf = (kind) => kind === "system" ? "source" : kind;
   const SPACING = { dimension: 90, value: 24, source: 26, design: 18 };
+  const STATUS_ORDER = ["accepted", "mixed", "rejected", "outcome"];
   const STAGGER = 24;  // every other value of a dimension sits this far further out: twice the room between neighbours
   function radialTargets(nodes, links, cx, cy) {
     // Each dimension gets an angular sector centred on it, holding its shown values. A sector's size is its value
@@ -329,6 +330,10 @@
       values.get(l.source).push(l.target);
     });
     const dims = nodes.filter((n) => n.kind === "dimension");
+    // Within a dimension, values of the same status sit together, in the legend's order (stable within a status).
+    const statusOf = new Map(nodes.map((n) => [n.id, n.status]));
+    const rank = (id) => { const i = STATUS_ORDER.indexOf(statusOf.get(id)); return i < 0 ? STATUS_ORDER.length : i; };
+    values.forEach((vs) => vs.sort((a, b) => rank(a) - rank(b)));
     const own = (d) => values.get(d.id) || [];
     const pad = Math.max(1, d3.sum(dims, (d) => own(d).length) / (dims.length || 1) / 2);
     const total = d3.sum(dims, (d) => own(d).length + pad) || 1;

@@ -46,6 +46,12 @@ addEventListener("load", () => setTimeout(() => {
     out.domain_offset = Math.hypot(d.x - cx, d.y - cy);
     out.ring = nodes().filter((e) => e.__data__.kind === "dimension").map((e) => Math.hypot(e.__data__.x - d.x, e.__data__.y - d.y));
     out.lit_after_switch = lit("dimension");
+    // The storage dimension's values in ring order (by angle about the dimension), as statuses.
+    const st = find("dimension", "Storage engine").__data__, base = Math.atan2(st.y - d.y, st.x - d.x);
+    const rel = (v) => { let a = Math.atan2(v.y - d.y, v.x - d.x) - base; while (a > Math.PI) a -= 2 * Math.PI;
+      while (a <= -Math.PI) a += 2 * Math.PI; return a; };
+    out.storage_statuses = nodes().map((e) => e.__data__).filter((v) => v.kind === "value" && /^(Faster reads|Local SSD|Tape|Object store)$/.test(v.label))
+      .sort((a, b) => rel(a) - rel(b)).map((v) => v.status);
     out.refitted = view() !== before;
     const box = canvas.getBoundingClientRect();
     out.off_screen = nodes().filter((e) => { const r = e.getBoundingClientRect();
@@ -78,7 +84,10 @@ def _three_dimensions():
     tax = _taxonomy()
     extra = {"id": "3", "name": "Storage engine", "description": "Where are bytes written?", "relations": [],
              "evidence": {"codes": 2, "documents": 1, "sources": 1},
-             "values": [_value("3.1", "Local SSD", "accepted", ["s02_p01"])]}
+             "values": [_value("3.1", "Faster reads", "outcome", ["s02_p01"]),
+                        _value("3.2", "Local SSD", "accepted", ["s02_p01"]),
+                        _value("3.3", "Tape", "rejected", ["s02_p01"]),
+                        _value("3.4", "Object store", "accepted", ["s02_p01"])]}
     tax["selected_clusters"].append(extra)
     tax["iterations"][0]["clusters"].insert(2, extra)
     return tax
@@ -111,6 +120,8 @@ def test_graph_page_selection_radial_layout_and_domain_in_a_browser(tmp_path):
     assert out["domain_offset"] < 1
     ring = out["ring"]
     assert max(ring) - min(ring) < 0.15 * max(ring), ring
+    # A dimension's values are grouped by status on the ring, in the legend's order.
+    assert out["storage_statuses"] == ["accepted", "accepted", "rejected", "outcome"]
     # Switching the layout with a node selected re-fits the view, so nothing is left off screen.
     assert out["refitted"] and out["off_screen"] == 0
     # The rotation slider (shown for the radial layout) turns the rings about the domain.
