@@ -32,16 +32,16 @@ def ws(tmp_path, monkeypatch):
 
 
 def test_query_prints_json_by_default(ws):
-    result = _invoke("query", "dimension")
+    result = _invoke("query", "dimensions")
     assert result.exit_code == 0, result.output
     assert {d["label"] for d in json.loads(result.output)} == {"Source of truth", "Replication"}
 
 
 def test_query_dims_still_runs_but_is_hidden(ws):
     old = _invoke("query", "dims")  # the former name, used by older agent guides and recorded sessions
-    assert old.exit_code == 0 and old.output == _invoke("query", "dimension").output
+    assert old.exit_code == 0 and old.output == _invoke("query", "dimensions").output
     listing = _invoke("query", "--help").output
-    assert "dimension" in listing and not re.search(r"\bdims\b", listing)
+    assert "dimensions" in listing and not re.search(r"\bdims\b", listing)
 
 
 def test_query_table_for_people(ws):
@@ -79,7 +79,7 @@ def test_evidence_quotes_refused_when_the_wiki_has_none(ws):
 
 
 @pytest.mark.parametrize("command", [["info"], ["relations", "--table"], ["show", "WAL in S3", "--table"],
-                                     ["search", "replica"], ["dimension", "--core", "--table"], ["info", "--table"],
+                                     ["search", "replica"], ["dimensions", "--core", "--table"], ["info", "--table"],
                                      ["evidence", "Disk quorum", "--table"]])
 def test_every_subcommand_runs(ws, command):
     result = _invoke("query", *command)

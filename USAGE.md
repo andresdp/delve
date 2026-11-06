@@ -63,7 +63,7 @@ Every subcommand takes `--table` (a table instead of JSON) and `--graph DIR` (an
 | Command | What it returns |
 |---|---|
 | `ddspace query info` | The run, the view, the use case, the core rule, and the counts of dimensions (and core ones), values, sources, systems, design points and relations. |
-| `ddspace query dimension` | The dimensions, with value counts, evidence, exclusivity, relations and the core flag. `--core`: core dimensions only. |
+| `ddspace query dimensions` | The dimensions, with value counts, evidence, exclusivity, relations and the core flag. `--core`: core dimensions only. |
 | `ddspace query values DIMENSION` | A dimension's values (alternatives and outcomes), with their support and status. `--status accepted\|rejected\|mixed\|outcome` filters them. |
 | `ddspace query evidence VALUE` | The passages that support a value, by source, with each passage's stance. `--stance accepts\|rejects\|supports` filters them; `--quotes` adds the passage text from the corpus (`--corpus FILE` for another one; refused when the wiki was built without quotes). |
 | `ddspace query relations` | The typed relations between dimensions, each as a sentence. `--from DIMENSION` and `--type requires\|affects\|constrains\|co_occurs_with` filter them. |

@@ -74,8 +74,8 @@ def info(graph: Optional[Path] = GraphOpt, table: bool = TableOpt) -> None:
     _run(graph, table, q.info, render)
 
 
-@app.command("dimension")
-def dimension_cmd(core: bool = typer.Option(False, "--core", help="Only core dimensions."),
+@app.command("dimensions")
+def dimensions_cmd(core: bool = typer.Option(False, "--core", help="Only core dimensions."),
                   graph: Optional[Path] = GraphOpt, table: bool = TableOpt) -> None:
     """List the dimensions with value counts, evidence, exclusivity, relations and the core flag."""
     _run(graph, table, lambda g: q.dims(g, core_only=core), lambda rows: _table(
@@ -85,7 +85,7 @@ def dimension_cmd(core: bool = typer.Option(False, "--core", help="Only core dim
 
 
 # The command's former name, hidden: existing workspaces' agent guides and the CAIN study's recorded sessions use it.
-app.command("dims", hidden=True)(dimension_cmd)
+app.command("dims", hidden=True)(dimensions_cmd)
 
 
 @app.command()
