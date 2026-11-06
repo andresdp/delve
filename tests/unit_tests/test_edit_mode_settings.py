@@ -40,3 +40,14 @@ def test_unknown_edit_mode_is_rejected(tmp_path):
 def test_edit_max_steps_must_be_positive(tmp_path):
     with pytest.raises(ValueError, match="edit_max_steps"):
         load_settings(_yaml(tmp_path, "taxonomy:\n  edit_max_steps: 0\n"))
+
+
+def test_taxonomy_domain_defaults_to_none_and_reaches_the_configuration(tmp_path):
+    assert load_settings(_yaml(tmp_path, "taxonomy:\n  name: t\n")).taxonomy.domain is None
+    path = _yaml(tmp_path, "taxonomy:\n  name: t\n  domain: X\n")
+    assert load_settings(path).taxonomy.domain == "X"
+    try:
+        init_settings(path)
+        assert Configuration.from_runnable_config({"configurable": {}}).domain == "X"
+    finally:
+        init_settings(None)

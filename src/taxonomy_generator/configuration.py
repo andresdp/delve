@@ -123,6 +123,11 @@ class Configuration:
         metadata={"description": "Name identifying this taxonomy."},
     )
 
+    domain: str | None = field(
+        default=None,
+        metadata={"description": "Label of the central node in the wiki's graph and tree views. None = use name."},
+    )
+
     max_num_clusters: int | None = field(
         default=None,
         metadata={"description": "Maximum number of taxonomy dimensions. None = LLM determines the count from the data."},
@@ -495,6 +500,7 @@ class Configuration:
             "taxonomy_input_view": s.pipeline.taxonomy_input_view,
             # Taxonomy
             "name": s.taxonomy.name,
+            "domain": s.taxonomy.domain,
             "max_num_clusters": s.taxonomy.max_num_clusters,
             "cluster_name_length": s.taxonomy.cluster_name_length,
             "cluster_description_length": s.taxonomy.cluster_description_length,

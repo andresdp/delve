@@ -433,13 +433,15 @@
   function neighborhood(id) {
     // The selection, its neighbours, and the shown elements connected to those neighbours. A neighbouring
     // dimension is expanded only when the selection is one of its values (to show the alternatives); otherwise
-    // expanding a dimension to all its values would light up most of the graph.
+    // expanding a dimension to all its values would light up most of the graph. The domain node is never
+    // expanded: it links to every dimension, so a selected dimension would light up all the others.
     const shown = new Set(nodeLayer.selectAll("g.node").data().map((d) => d.id));
     const selKind = byId.get(id)?.kind;
     const keep = new Set([id]);
     [...(adj.get(id) || [])].filter((x) => shown.has(x)).forEach((x) => {
       keep.add(x);
-      if (byId.get(x)?.kind === "dimension" && selKind !== "value") return;
+      const xKind = byId.get(x)?.kind;
+      if (xKind === "domain" || (xKind === "dimension" && selKind !== "value")) return;
       (adj.get(x) || []).forEach((y) => { if (shown.has(y)) keep.add(y); });
     });
     return keep;

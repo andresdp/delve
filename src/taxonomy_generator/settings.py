@@ -102,6 +102,8 @@ class TaxonomySettings:
     """Taxonomy generation constraints."""
 
     name: str = "taxonomy"
+    # Label of the central node in the wiki's graph and tree views; None = use name.
+    domain: Optional[str] = None
     max_num_clusters: Optional[int] = None
     cluster_name_length: int = 10
     cluster_description_length: int = 30
@@ -485,6 +487,7 @@ def _build_taxonomy(raw: dict) -> TaxonomySettings:
         edit_max_steps=edit_max_steps,
         relevance_selection=relevance_selection,
         name=raw.get("name", TaxonomySettings.name),
+        domain=raw.get("domain", TaxonomySettings.domain),
         max_num_clusters=raw.get("max_num_clusters", TaxonomySettings.max_num_clusters),
         cluster_name_length=raw.get("cluster_name_length", TaxonomySettings.cluster_name_length),
         cluster_description_length=raw.get("cluster_description_length", TaxonomySettings.cluster_description_length),
