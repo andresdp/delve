@@ -14,7 +14,16 @@ from typing import List, NoReturn, Optional
 import typer
 from rich.markup import escape
 
-from delvedspace import __version__, agent, chat, importer, query_cli, runs, ui
+from delvedspace import (
+    __version__,
+    agent,
+    chat,
+    importer,
+    query_cli,
+    rationale_cli,
+    runs,
+    ui,
+)
 from delvedspace import sources as src
 from delvedspace import wiki_build as wb
 from delvedspace import workspace as wsmod
@@ -36,6 +45,7 @@ agent_app = typer.Typer(help="Connect a coding agent (Claude Code, GitHub Copilo
 app.add_typer(agent_app, name="agent")
 wiki_app = typer.Typer(help="Build, check and open the wiki of the current design space.", no_args_is_help=True)
 app.add_typer(wiki_app, name="wiki")
+app.add_typer(rationale_cli.app, name="rationale")
 
 DEFAULT_USE_CASE = ("Identify the design decisions practitioners face, the alternatives they consider for each, "
                     "and the outcomes they report.")
