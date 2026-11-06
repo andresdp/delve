@@ -971,7 +971,7 @@ class _Builder:
 
     # tree ----------------------------------------------------------------
     def domain(self) -> str:
-        """The central node's label in the tree and graph views: the configured domain, else the taxonomy name."""
+        """Return the central node's label in the tree and graph views: the configured domain, else the name."""
         return self.inp.domain or self.inp.taxonomy_name
 
     def tree_data(self) -> Dict[str, Any]:

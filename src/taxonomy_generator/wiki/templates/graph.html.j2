@@ -287,7 +287,7 @@
   // leave no empty ring. A ring's radius grows with the nodes on it (SPACING: arc length per node).
   const RINGS = ["domain", "dimension", "value", "source", "design"];
   const ringOf = (kind) => kind === "system" ? "source" : kind;
-  const SPACING = { dimension: 90, value: 26, source: 26, design: 18 };  // values: about half of each sector is padding
+  const SPACING = { dimension: 90, value: 26, source: 26, design: 18 };
   function radialTargets(nodes, links, cx, cy) {
     const count = {};
     nodes.forEach((n) => { const r = ringOf(n.kind); count[r] = (count[r] || 0) + 1; });
@@ -300,7 +300,7 @@
     });
     // Each dimension gets an angular sector centred on it, holding its shown values. A sector's size is its value
     // count plus the mean count: a dimension with two values still gets room on the ring, and the padding leaves a
-    // gap between neighbouring dimensions' values.
+    // gap between neighbouring dimensions' values (about half of the value ring is padding: SPACING.value allows for it).
     const angle = new Map(), values = new Map();
     links.filter((l) => l.type === "has_value").forEach((l) => {
       if (!values.has(l.source)) values.set(l.source, []);
@@ -513,10 +513,16 @@
       li.addEventListener("click", () => select(n.id, true)); matches.appendChild(li);
     });
   });
-  let resizeTimer = null;
+  // Re-lay out (re-centring the domain and the rings) only when the canvas size changed: phone browsers fire resize
+  // events while the URL bar scrolls.
+  let resizeTimer = null, lastSize = width() + "x" + height();
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { userMoved = false; render(); }, 200);  // re-centre the domain and the rings
+    resizeTimer = setTimeout(() => {
+      const size = width() + "x" + height();
+      if (size === lastSize) return;
+      lastSize = size; userMoved = false; render();
+    }, 200);
   });
 
   render();
