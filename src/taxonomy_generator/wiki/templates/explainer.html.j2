@@ -1,0 +1,471 @@
+{% macro value_ref(vid) -%}
+{%- set v = d["values"].get(vid) if vid else none -%}
+{%- if v -%}
+<span class="vref" data-node="{{ v.id }}">{% if v.status %}<span class="dot {{ v.status }}"></span>{% endif %}{% if v.href %}<a href="{{ v.href }}">{{ v.label }}</a>{% else %}{{ v.label }}{% endif %}</span>
+{%- else -%}<span class="muted">—</span>{%- endif -%}
+{%- endmacro %}
+{% macro dim_ref(did) -%}
+{%- set x = d.dimensions.get(did) if did else none -%}
+{%- if x -%}
+<span class="dref" data-node="{{ x.id }}">{% if x.href %}<a href="{{ x.href }}">{{ x.label }}</a>{% else %}{{ x.label }}{% endif %}</span>
+{%- else -%}<span class="muted">—</span>{%- endif -%}
+{%- endmacro %}
+{% macro drivers(ids) -%}
+{% for r in ids %}<span class="chip small" data-node="r:{{ r }}">{{ r }}</span>{% endfor %}
+{%- endmacro %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ d.title }} · Explainer</title>
+<link rel="stylesheet" href="{{ assets }}/style.css">
+<link rel="icon" href="{{ assets }}/delvedspace-icon.svg" type="image/svg+xml">
+<script>
+  // Theme: the reader's choice (kept in this browser) or the system setting.
+  (function () { try { var t = localStorage.getItem("delve-wiki-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {} })();
+</script>
+<style>
+  body { background: var(--bg); }
+  .ex-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; min-height: calc(100vh - 50px); }
+  .ex-text { padding: 22px 28px 60px; overflow-wrap: anywhere; }
+  .ex-side { border-left: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh; }
+  #canvas { position: relative; flex: 1 1 60%; min-height: 300px; overflow: hidden; }
+  #svg { width: 100%; height: 100%; display: block; cursor: grab; }
+  #info { flex: 1 1 40%; overflow-y: auto; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13.5px; }
+  #info h2 { margin: 4px 0; font-size: 17px; border: none; }
+  #info ul { padding-left: 16px; margin: 4px 0 10px; }
+  .muted, .hint { color: var(--muted); font-size: 12.5px; }
+  h1 { margin: 6px 0 4px; font-size: 24px; }
+  h2.sec { font-size: 16px; margin: 22px 0 8px; border: none; }
+  .banner { background: var(--mixed); color: #fff; padding: 9px 14px; border-radius: 8px; margin: 0 0 14px; font-size: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 6px 0; list-style: none; }
+  .chip { display: inline-flex; gap: 6px; align-items: baseline; border: 1px solid var(--border); background: var(--panel);
+    color: var(--fg); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
+  .chip strong { color: var(--accent); }
+  .chip.small { padding: 0 7px; font-size: 11.5px; margin-right: 3px; }
+  .chip:hover, .chip.sel { border-color: var(--accent); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); margin: 18px 0 0; }
+  .tab { font: inherit; font-size: 14px; padding: 7px 14px; border: 1px solid transparent; border-bottom: none;
+    border-radius: 8px 8px 0 0; background: none; color: var(--muted); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--panel); border-color: var(--border); color: var(--fg); font-weight: 600;
+    margin-bottom: -1px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-top: none; padding: 12px 16px 16px;
+    border-radius: 0 0 8px 8px; }
+  .panel[hidden] { display: none; }
+  .choice { border-top: 1px solid var(--border); padding: 9px 0; }
+  .choice:first-of-type { border-top: none; }
+  .choice .head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+  .choice .arrow { color: var(--muted); }
+  .choice p { margin: 4px 0; line-height: 1.45; font-size: 14px; }
+  .quote { border-left: 3px solid var(--accent); padding: 2px 10px; margin: 6px 0; font-style: italic; }
+  .ev { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .vref, .dref { cursor: pointer; display: inline-flex; gap: 5px; align-items: center; }
+  .others { font-size: 12.5px; color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  table.compare td.open { color: var(--muted); font-style: italic; }
+  tr.differs th { border-left: 3px solid var(--accent); }
+  .node text { font-size: 11px; fill: var(--fg); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
+  .node.greyed path.shape { opacity: .35; }
+  .node.dim-out, .link.dim-out { opacity: .1; }
+  .link.off { display: none; }
+  @media (max-width: 900px) {
+    .ex-wrap { grid-template-columns: 1fr; }
+    .ex-text { padding: 16px 16px 30px; }
+    .ex-side { position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
+    #canvas { height: 420px; flex: none; }
+  }
+</style>
+</head>
+<body class="page-explainer">
+<header class="top">
+  {% if d.links.index %}<a class="brand" href="{{ d.links.index }}">{% else %}<span class="brand">{% endif %}<img src="{{ assets }}/delvedspace-icon.svg" alt="" class="brand-icon" width="32" height="32">{{ d.space.domain if d.space else "Design rationale" }}{% if d.links.index %}</a>{% else %}</span>{% endif %}
+  <nav>{% if d.links.index %}<a href="{{ d.links.index }}">Wiki index</a>{% endif %}{% if d.links.graph %}<a href="{{ d.links.graph }}">Graph</a>{% endif %}</nav>
+  <button class="theme-btn" id="theme-toggle" type="button" title="Switch light / dark mode" aria-label="Switch light / dark mode" style="margin-left:auto">◐</button>
+</header>
+<div class="ex-wrap">
+<main class="ex-text">
+  {% if d.graph_changed %}<div class="banner" role="status">The graph changed since this rationale was written: its ids were checked against the current graph, but labels, values and evidence may differ from what the agent saw.</div>{% endif %}
+  <div class="kind">{{ "Explain" if d.mode == "explain" else "Search" }} · design rationale{% if d.space %} · run {{ d.space.run }}{% else %} · no design space{% endif %}</div>
+  <h1>{{ d.title }}</h1>
+  {% if d.context %}<p>{{ d.context }}</p>{% endif %}
+
+  <h2 class="sec">Requirements</h2>
+  <ul class="chips" id="requirements">
+    {% for r in d.requirements %}
+    <li><button class="chip" type="button" data-requirement="{{ r.id }}" data-node="r:{{ r.id }}"><strong>{{ r.id }}</strong> {{ r.text }}{% if r.kind %} <span class="muted">{{ r.kind }}{% if r.attribute %}: {{ r.attribute }}{% endif %}</span>{% endif %}</button></li>
+    {% endfor %}
+  </ul>
+
+  <div class="tabs" role="tablist">
+    {% for a in d.alternatives %}
+    <button class="tab" type="button" role="tab" data-tab="{{ a.id }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ a.id }} · {{ a.name }}</button>
+    {% endfor %}
+    {% if d.alternatives|length > 1 %}
+    <button class="tab" type="button" role="tab" data-tab="compare" aria-selected="false">Compare</button>
+    {% endif %}
+  </div>
+  {% for a in d.alternatives %}
+  <section class="panel" data-panel="{{ a.id }}"{% if not loop.first %} hidden{% endif %}>
+    {% if a.summary %}<p>{{ a.summary }}</p>{% endif %}
+    {% if a.point %}<p class="muted">Design point: {{ a.point }}</p>{% endif %}
+    {% for c in a.choices %}
+    <div class="choice">
+      <div class="head">{{ dim_ref(c.dimension) }} <span class="arrow">→</span> {{ value_ref(c.value) }} {{ drivers(c.drivers) }}</div>
+      {% if c.quote %}<div class="quote">“{{ c.quote }}”</div>{% endif %}
+      {% if c.reason %}<p>{{ c.reason }}</p>{% endif %}
+      {% if c.evidence %}<p class="ev">Evidence: {% for e in c.evidence %}{{ e.doc }}{% if e.stance %} ({{ e.stance }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% set dim = d.dimensions.get(c.dimension) if c.dimension else none %}
+      {% if dim %}
+      {% set others = [] %}{% for vid in dim["values"] %}{% if vid != c.value %}{% set _ = others.append(vid) %}{% endif %}{% endfor %}
+      {% if others %}<p class="others">{% for vid in others %}{% set role = d["values"][vid].roles.get(a.id) %}{{ value_ref(vid) }} <em>{{ role if role else ("offered by the space" if d.with_space else "in another alternative") }}</em>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if a.considered %}
+    <h2 class="sec">Considered</h2>
+    {% for c in a.considered %}
+    <div class="choice"><div class="head">{{ dim_ref(c.dimension) }} <span class="arrow">→</span> {{ value_ref(c.value) }} {{ drivers(c.drivers) }}</div>{% if c.reason %}<p>{{ c.reason }}</p>{% endif %}</div>
+    {% endfor %}
+    {% endif %}
+    {% if a.open %}
+    <h2 class="sec">Left open</h2>
+    {% for o in a.open %}
+    <div class="choice"><div class="head">{{ dim_ref(o.dimension) }}</div>{% if o.reason %}<p>{{ o.reason }}</p>{% endif %}</div>
+    {% endfor %}
+    {% endif %}
+    {% if a.relations %}
+    <h2 class="sec">Relations</h2>
+    <ul>
+      {% for r in a.relations %}
+      <li>{% if r.source %}{{ dim_ref(r.source) }}{% else %}{{ r.source_label }}{% endif %} <em>{{ r.type }}</em> {% if r.target %}{{ dim_ref(r.target) }}{% else %}{{ r.target_label }}{% endif %}{% if not r.holds %} <span class="muted">(does not hold here)</span>{% endif %}{% if r.note %}: {{ r.note }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endfor %}
+  {% if d.alternatives|length > 1 %}
+  <section class="panel" data-panel="compare" hidden>
+    <p class="hint">One row per dimension involved; the rows where the alternatives differ come first.</p>
+    <div class="scroll"><table class="compare">
+      <thead><tr><th>{{ "Dimension" if d.with_space else "Decision" }}</th>{% for a in d.alternatives %}<th>{{ a.id }} · {{ a.name }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in d.rows %}
+        <tr class="row{% if row.differs %} differs{% endif %}" data-dimension="{{ row.dimension }}">
+          <th>{{ dim_ref(row.dimension) }}{% if row.note %}<div class="muted">{{ row.note }}</div>{% endif %}</th>
+          {% for c in row.cells %}
+          {% if c.kind == "choice" %}<td>{{ value_ref(c.value) }}</td>{% elif c.kind == "open" %}<td class="open" title="{{ c.reason }}">open</td>{% else %}<td class="open">—</td>{% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+  {% endif %}
+
+  {% if d.mode == "explain" or d.uncovered %}
+  <h2 class="sec">Uncovered decisions</h2>
+  {% if d.uncovered %}
+  <p class="hint">Decisions in the solution that the agent could not map onto a dimension of the space.</p>
+  {% for u in d.uncovered %}
+  <div class="choice"><div class="head"><strong>{{ u.decision }}</strong>{% if u.nearest %} <span class="muted">nearest:</span> {% if u.nearest.href %}<a href="{{ u.nearest.href }}">{{ u.nearest.label }}</a>{% else %}{{ u.nearest.label }}{% endif %}{% endif %}</div>
+    <div class="quote">“{{ u.quote }}”</div></div>
+  {% endfor %}
+  {% else %}
+  <p>None: every decision mapped.</p>
+  {% endif %}
+  {% endif %}
+</main>
+<aside class="ex-side">
+  <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg></div>
+  <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
+</aside>
+</div>
+<script type="application/json" id="explainer-data">{{ data|safe }}</script>
+<script>
+  (function () {
+    var root = document.documentElement, btn = document.getElementById("theme-toggle");
+    function current() {
+      return root.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    }
+    function label() { btn.textContent = current() === "dark" ? "☀" : "☾"; }
+    btn.addEventListener("click", function () {
+      var next = current() === "dark" ? "light" : "dark";
+      root.dataset.theme = next;
+      try { localStorage.setItem("delve-wiki-theme", next); } catch (e) {}
+      label();
+      document.dispatchEvent(new CustomEvent("themechange"));
+    });
+    label();
+  })();
+</script>
+<script src="{{ assets }}/d3.min.js"></script>
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById("explainer-data").textContent);
+  const COLOR = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement), get = (name) => cs.getPropertyValue(name).trim();
+    ["dimension", "source", "accepted", "mixed", "rejected", "outcome", "muted", "fg", "accent", "novel"]
+      .forEach((k) => { COLOR[k] = get("--" + k); });
+  }
+  readColors();
+  const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const alts = data.alternatives;
+  const altName = (a) => a.id + " · " + a.name;
+
+  // The subgraph: the domain at the centre, the involved dimensions, their values, then the requirements on the
+  // outer ring, linked to the values they drive.
+  const nodes = [{ id: "domain", kind: "domain", label: data.space ? (data.space.domain || "") : data.title }];
+  const edges = [];
+  Object.values(data.dimensions).forEach((dm) => {
+    nodes.push({ ...dm, kind: "dimension" });
+    edges.push({ source: "domain", target: dm.id, type: "domain" });
+    dm.values.forEach((vid) => edges.push({ source: dm.id, target: vid, type: "has_value" }));
+  });
+  Object.values(data.values).forEach((v) => nodes.push({ ...v, kind: "value" }));
+  data.relations.forEach((r) => edges.push({ source: r.source, target: r.target, type: "relation", relation: r.type,
+    directed: r.directed, reading: r.reading }));
+  data.requirements.forEach((r) => nodes.push({ ...r, id: "r:" + r.id, req: r.id, kind: "requirement", label: r.id }));
+  alts.forEach((a) => a.choices.forEach((c) => c.value && c.drivers.forEach((r) =>
+    edges.push({ source: "r:" + r, target: c.value, type: "drives", alt: a.id }))));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const links = edges.filter((e) => byId.has(e.source) && byId.has(e.target));
+  const adj = new Map(nodes.map((n) => [n.id, new Set()]));
+  links.forEach((e) => { adj.get(e.source).add(e.target); adj.get(e.target).add(e.source); });
+
+  const SYMBOL = { domain: d3.symbolCircle, dimension: d3.symbolCircle, value: d3.symbolDiamond, requirement: d3.symbolSquare };
+  const radius = (n) => n.kind === "domain" ? 14 : n.kind === "dimension" ? 10 : n.kind === "value" ? 6 : 7;
+  const shapePath = (n) => d3.symbol().type(SYMBOL[n.kind] || d3.symbolCircle)
+    .size(Math.PI * radius(n) * radius(n) * (n.kind === "value" ? 1.25 : 1))();
+  const nodeColor = (n) => n.kind === "value" ? (COLOR[n.status] || COLOR.accent) : n.kind === "domain" ? COLOR.fg
+    : n.kind === "requirement" ? COLOR.novel : COLOR.dimension;
+
+  // Radial layout, copied from graph.html (until the shared layout script lands): one ring per kind, each
+  // dimension an angular sector holding its values, a ring's radius growing with the nodes on it.
+  const RINGS = ["domain", "dimension", "value", "requirement"];
+  const SPACING = { dimension: 90, value: 30, requirement: 40 };
+  const STATUS_ORDER = ["accepted", "mixed", "rejected", "outcome"];
+  const STAGGER = 24;
+  function radialTargets(nodes, links, cx, cy) {
+    const angle = new Map(), values = new Map(), outset = new Map();
+    links.filter((l) => l.type === "has_value").forEach((l) => {
+      if (!values.has(l.source)) values.set(l.source, []);
+      values.get(l.source).push(l.target);
+    });
+    const dims = nodes.filter((n) => n.kind === "dimension");
+    const statusOf = new Map(nodes.map((n) => [n.id, n.status]));
+    const rank = (id) => { const i = STATUS_ORDER.indexOf(statusOf.get(id)); return i < 0 ? STATUS_ORDER.length : i; };
+    values.forEach((vs) => vs.sort((a, b) => rank(a) - rank(b)));
+    const own = (d) => values.get(d.id) || [];
+    const pad = Math.max(1, d3.sum(dims, (d) => own(d).length) / (dims.length || 1) / 2);
+    const total = d3.sum(dims, (d) => own(d).length + pad) || 1;
+    const count = {};
+    nodes.forEach((n) => { count[n.kind] = (count[n.kind] || 0) + 1; });
+    const slots = { ...count, value: Math.max(count.value || 0, total) };
+    const radiusOf = {};
+    let r = 0;
+    RINGS.filter((k) => count[k]).forEach((k) => {
+      if (k === "domain") { radiusOf[k] = 0; return; }
+      r = Math.max(r + 110, slots[k] * SPACING[k] / (2 * Math.PI));
+      radiusOf[k] = r;
+    });
+    let start = -Math.PI / 2;
+    dims.forEach((d) => {
+      const vs = own(d), span = 2 * Math.PI * (vs.length + pad) / total, used = span * vs.length / (vs.length + pad);
+      angle.set(d.id, start + span / 2);
+      vs.forEach((v, i) => {
+        angle.set(v, start + (span - used) / 2 + used * (i + 0.5) / vs.length);
+        if (i % 2) outset.set(v, STAGGER);
+      });
+      start += span;
+    });
+    // Requirements: the mean angle of the values they drive, or evenly spaced when they drive none.
+    const near = new Map(nodes.map((n) => [n.id, []]));
+    links.forEach((l) => { near.get(l.source)?.push(l.target); near.get(l.target)?.push(l.source); });
+    const rest = nodes.filter((n) => n.kind !== "domain" && !angle.has(n.id));
+    rest.forEach((n, i) => {
+      const as = near.get(n.id).filter((x) => angle.has(x) && byId.get(x).kind !== "domain").map((x) => angle.get(x));
+      angle.set(n.id, as.length ? Math.atan2(d3.sum(as, Math.sin), d3.sum(as, Math.cos)) + (i % 2 ? 0.08 : -0.08)
+        : -Math.PI / 2 + 2 * Math.PI * i / rest.length);
+    });
+    const target = new Map();
+    nodes.forEach((n) => {
+      const rr = (radiusOf[n.kind] || 0) + (outset.get(n.id) || 0), a = angle.get(n.id) || 0;
+      target.set(n.id, { r: rr, x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
+    });
+    return target;
+  }
+
+  const svg = d3.select("#svg"), g = svg.append("g");
+  svg.append("defs").append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 20).attr("refY", 0)
+    .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+    .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", COLOR.dimension);
+  const zoom = d3.zoom().scaleExtent([0.2, 6]).on("zoom", (ev) => g.attr("transform", ev.transform));
+  svg.call(zoom);
+  const linkLayer = g.append("g"), nodeLayer = g.append("g");
+  const REL_DASH = { requires: null, affects: "7,3", constrains: "2,3", co_occurs_with: "1,5", refines: "9,3,2,3" };
+  function edgeStyle(e) {
+    if (e.type === "relation") return { stroke: COLOR.dimension, width: 2, dash: REL_DASH[e.relation] || null, op: 0.85, arrow: e.directed !== false };
+    if (e.type === "drives") return { stroke: COLOR.novel, width: 1.3, dash: "4,3", op: 0.8 };
+    if (e.type === "domain") return { stroke: COLOR.muted, width: 0.8, dash: null, op: 0.3 };
+    return { stroke: COLOR.muted, width: 1, dash: null, op: 0.5 };
+  }
+  const width = () => document.getElementById("canvas").clientWidth;
+  const height = () => document.getElementById("canvas").clientHeight;
+  const cx = 0, cy = 0;  // the layout's own frame; fit() maps it onto the canvas
+  const target = radialTargets(nodes, links, cx, cy);
+  nodes.forEach((n) => { const t = target.get(n.id); n.x = t.x; n.y = t.y; });
+  const pos = (id) => byId.get(id);
+  const linkSel = linkLayer.selectAll("line").data(links).enter().append("line").attr("class", "link")
+    .attr("x1", (d) => pos(d.source).x).attr("y1", (d) => pos(d.source).y)
+    .attr("x2", (d) => pos(d.target).x).attr("y2", (d) => pos(d.target).y);
+  function styleLinks() {
+    linkSel.each(function (d) { const st = edgeStyle(d); d3.select(this).attr("stroke", st.stroke).attr("stroke-width", st.width)
+      .attr("stroke-dasharray", st.dash).attr("stroke-opacity", st.op).attr("marker-end", st.arrow ? "url(#arrow)" : null); });
+  }
+  styleLinks();
+  linkSel.filter((d) => d.reading).append("title").text((d) => d.reading);
+  const nodeSel = nodeLayer.selectAll("g.node").data(nodes).enter().append("g").attr("class", "node")
+    .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")").style("cursor", "pointer")
+    .on("click", (ev, d) => { ev.stopPropagation(); select(d.id); });
+  nodeSel.append("circle").attr("r", (d) => Math.max(radius(d), 10)).attr("fill", "transparent");
+  nodeSel.append("path").attr("class", "shape").attr("d", shapePath);
+  nodeSel.append("text").text((d) => d.label);
+  nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text : d.label + (d.status ? " (" + d.status + ")" : ""));
+  function orientLabels() {
+    nodeSel.select("text").each(function (d) {
+      const t = d3.select(this);
+      if (d.kind === "domain") { t.attr("transform", null).attr("text-anchor", "middle").attr("dx", 0).attr("dy", "-1.4em"); return; }
+      const deg = Math.atan2(d.y - cy, d.x - cx) * 180 / Math.PI, left = Math.abs(deg) > 90;
+      t.attr("transform", "rotate(" + (left ? deg + 180 : deg) + ")").attr("text-anchor", left ? "end" : "start")
+        .attr("dx", (left ? -1 : 1) * (radius(d) + 4)).attr("dy", "0.35em");
+    });
+  }
+  orientLabels();
+  function fit() {
+    const xs = nodes.map((d) => d.x), ys = nodes.map((d) => d.y), pad = 120;
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const k = Math.min(2.5, 0.95 / Math.max((x1 - x0 + 2 * pad) / (width() || 1), (y1 - y0 + 2 * pad) / (height() || 1)));
+    svg.call(zoom.transform, d3.zoomIdentity.translate(width() / 2, height() / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
+  }
+  fit();
+
+  // The active view: one alternative (its choices lit, every other value greyed, its driver links shown) or the
+  // compare view (every alternative's choices lit).
+  let view = alts.length ? alts[0].id : "compare", selected = null;
+  const chosenIn = (vid) => alts.filter((a) => a.choices.some((c) => c.value === vid));
+  function applyView() {
+    const lit = new Set();
+    alts.filter((a) => view === "compare" || a.id === view).forEach((a) => a.choices.forEach((c) => c.value && lit.add(c.value)));
+    nodeSel.classed("greyed", (d) => d.kind === "value" && !lit.has(d.id))
+      .select("path.shape").attr("fill", (d) => d.kind === "value" && !lit.has(d.id) ? COLOR.muted : nodeColor(d))
+      .attr("stroke", (d) => d.id === selected ? COLOR.fg : d.kind === "value" && lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")
+      .attr("stroke-width", (d) => d.id === selected ? 3 : 1.5);
+    linkSel.classed("off", (d) => d.type === "drives" && view !== "compare" && d.alt !== view);
+  }
+  function neighborhood(id) {
+    const keep = new Set([id]);
+    (adj.get(id) || new Set()).forEach((x) => { if (x !== "domain") keep.add(x); });
+    const n = byId.get(id);
+    if (n && n.kind === "value") (adj.get(n.dimension) || new Set()).forEach((x) => keep.add(x));
+    keep.add("domain");
+    return keep;
+  }
+  function highlight(id) {
+    const keep = neighborhood(id);
+    nodeSel.classed("dim-out", (d) => !keep.has(d.id));
+    linkSel.classed("dim-out", (d) => !(keep.has(d.source) && keep.has(d.target)));
+  }
+  const HINT = '<p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p>';
+  function clearSelection() {
+    selected = null;
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false);
+    document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
+    document.getElementById("info").innerHTML = HINT;
+    applyView();
+  }
+  const link = (n) => n.href ? '<p><a class="open-page" href="' + esc(n.href) + '">Open wiki page →</a></p>' : "";
+  const vlabel = (vid) => { const v = data.values[vid]; return v ? '<span data-id="' + esc(v.id) + '" class="vref">' + esc(v.label) + "</span>" : "—"; };
+  const dlabel = (did) => { const x = data.dimensions[did]; return x ? '<span data-id="' + esc(x.id) + '" class="dref">' + esc(x.label) + "</span>" : "—"; };
+  const ev = (list) => list.map((e) => esc(e.doc) + (e.stance ? " (" + esc(e.stance) + ")" : "")).join(", ");
+  function details(n) {
+    let h = '<div class="kind">' + esc(n.kind) + "</div><h2>" + esc(n.kind === "requirement" ? n.req : n.label) + "</h2>";
+    if (n.kind === "dimension") {
+      if (n.question) h += "<p>" + esc(n.question) + "</p>";
+      h += "<strong>In each alternative</strong><ul>" + alts.map((a) => {
+        const c = a.choices.find((x) => x.dimension === n.id), o = a.open.find((x) => x.dimension === n.id);
+        return "<li>" + esc(altName(a)) + ": " + (c ? vlabel(c.value) : o ? "<em>open</em> " + esc(o.reason) : "—") + "</li>";
+      }).join("") + "</ul>";
+      const rels = data.relations.filter((r) => r.source === n.id || r.target === n.id)
+        .map((r) => "<li>" + dlabel(r.source) + " <em>" + esc(r.type) + "</em> " + dlabel(r.target) + " <span class=\"muted\">(space)</span></li>");
+      alts.forEach((a) => a.relations.filter((r) => r.source === n.id || r.target === n.id).forEach((r) =>
+        rels.push("<li>" + (r.source ? dlabel(r.source) : esc(r.source_label)) + " <em>" + esc(r.type) + "</em> "
+          + (r.target ? dlabel(r.target) : esc(r.target_label)) + ' <span class="muted">(' + esc(a.id) + (r.holds ? ", holds" : ", does not hold") + ")</span></li>")));
+      if (rels.length) h += "<strong>Relations</strong><ul>" + rels.join("") + "</ul>";
+    } else if (n.kind === "value") {
+      if (n.status) h += '<span class="badge ' + esc(n.status) + '">' + esc(n.status) + "</span> ";
+      h += '<p class="muted">in ' + dlabel(n.dimension) + "</p>";
+      if (n.description) h += "<p>" + esc(n.description) + "</p>";
+      let roles = "";
+      alts.forEach((a) => {
+        const c = a.choices.find((x) => x.value === n.id), k = a.considered.find((x) => x.value === n.id);
+        if (c) {
+          roles += "<li><strong>Chosen in " + esc(altName(a)) + "</strong>"
+            + (c.drivers.length ? "<br>drivers: " + c.drivers.map(esc).join(", ") : "")
+            + (c.reason ? "<br>" + esc(c.reason) : "")
+            + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
+            + (c.evidence.length ? '<br><span class="ev">evidence: ' + ev(c.evidence) + "</span>" : "") + "</li>";
+        } else if (k) {
+          roles += "<li><strong>Considered in " + esc(altName(a)) + "</strong>"
+            + (k.drivers.length ? "<br>drivers: " + k.drivers.map(esc).join(", ") : "") + (k.reason ? "<br>" + esc(k.reason) : "") + "</li>";
+        }
+      });
+      h += roles ? "<ul>" + roles + "</ul>" : '<p class="muted">' + (data.with_space ? "Offered by the space" : "An option in another alternative") + ": no alternative chose or considered it.</p>";
+      if (n.passages.length) h += '<p class="ev">Passages in the space: ' + ev(n.passages) + "</p>";
+      if (n.sources.length) h += "<strong>Sources</strong><ul>" + n.sources.map((s) =>
+        "<li>" + (s.href ? '<a href="' + esc(s.href) + '">' + esc(s.label) + "</a>" : esc(s.label)) + (s.stance ? " (" + esc(s.stance) + ")" : "") + "</li>").join("") + "</ul>";
+    } else if (n.kind === "requirement") {
+      h += "<p>" + esc(n.text) + "</p>";
+      const rq = data.requirements.find((r) => r.id === n.req);  // n.kind is the node kind; the file's kind is here
+      if (rq && rq.kind) h += '<p class="muted">' + esc(rq.kind) + (rq.attribute ? ": " + esc(rq.attribute) : "") + "</p>";
+      const drives = [];
+      alts.forEach((a) => a.choices.filter((c) => c.drivers.includes(n.req)).forEach((c) =>
+        drives.push("<li>" + esc(a.id) + ": " + dlabel(c.dimension) + " → " + vlabel(c.value) + "</li>")));
+      h += drives.length ? "<strong>Choices it drives</strong><ul>" + drives.join("") + "</ul>" : '<p class="muted">No choice names it as a driver.</p>';
+    } else {
+      h += '<p class="muted">' + (data.space ? "The domain of the design space; every dimension here is a decision in it." : "The problem; every decision here is one the agent named.") + "</p>";
+    }
+    return h + link(n);
+  }
+  function select(id) {
+    const n = byId.get(id); if (!n) return;
+    selected = id; applyView(); highlight(id);
+    document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
+    if (n.kind === "requirement") document.querySelectorAll('[data-requirement="' + n.req + '"]').forEach((c) => c.classList.add("sel"));
+    const info = document.getElementById("info"); info.innerHTML = details(n);
+    info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
+  }
+  svg.on("click", () => clearSelection());
+  document.querySelectorAll("main [data-node]").forEach((el) => el.addEventListener("click", (e) => {
+    if (e.target.closest("a")) return;  // a wiki link opens its page
+    e.preventDefault(); select(el.dataset.node);
+  }));
+
+  // Tabs: switching shows the tab's panel, re-lights the graph and drops the selection fade.
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+    view = t.dataset.tab;
+    document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t ? "true" : "false"));
+    document.querySelectorAll(".panel").forEach((p) => { p.hidden = p.dataset.panel !== view; });
+    clearSelection();
+  }));
+  applyView();
+  let lastSize = width() + "x" + height(), timer = null;
+  window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => {
+    const size = width() + "x" + height(); if (size !== lastSize) { lastSize = size; fit(); } }, 200); });
+  document.addEventListener("themechange", () => { readColors(); styleLinks(); applyView(); });
+})();
+</script>
+</body>
+</html>
