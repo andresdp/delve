@@ -298,21 +298,27 @@ def write_standalone(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]],
 # ── the index's list of explainers ───────────────────────────────────────
 
 INDEX_REGION = re.compile(r"<!-- explainers -->.*?<!-- /explainers -->", re.S)
+# where page.html.j2 puts the region: after the body, before the tags, the footer or the end of <main>
+INDEX_ANCHOR = re.compile(r'<div class="tags">|<footer>|</main>')
 
 
 def write_index(html_root: Path, entries: Sequence[Mapping[str, Any]]) -> bool:
     """Write the "Explainers" list into ``<html_root>/index.html`` (empty when there are none).
 
     ``entries`` are ``{id, title, mode, changed}`` of the rendered pages. The list sits in a marked region of the
-    HTML index only (``wiki/index.md`` is left alone). Returns False when the index has no such region.
+    HTML index only (``wiki/index.md`` is left alone). An index exported before the region existed gets one,
+    after the page body, where the template puts it. Returns False when there is no index or no place for it.
     """
     index = Path(html_root) / "index.html"
     try:
-        text = index.read_text(encoding="utf-8")
+        original = text = index.read_text(encoding="utf-8")
     except OSError:
         return False
     if not INDEX_REGION.search(text):
-        return False
+        anchor = INDEX_ANCHOR.search(text)
+        if anchor is None:
+            return False
+        text = text[:anchor.start()] + "<!-- explainers --><!-- /explainers -->" + text[anchor.start():]
     block = ""
     if entries:
         items = "".join(
@@ -324,6 +330,6 @@ def write_index(html_root: Path, entries: Sequence[Mapping[str, Any]]) -> bool:
         block = ('<section class="explainers"><h2>Explainers</h2><p>Design rationale that coding agents wrote '
                  f'against this space.</p><ul>{items}</ul></section>')
     new = INDEX_REGION.sub(lambda _: f"<!-- explainers -->{block}<!-- /explainers -->", text, count=1)
-    if new != text:
+    if new != original:
         index.write_text(new, encoding="utf-8")
     return True

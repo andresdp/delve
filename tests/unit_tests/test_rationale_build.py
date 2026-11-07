@@ -512,3 +512,17 @@ def test_build_into_a_wiki_exported_before_the_layout_script_adds_it(ws, tmp_pat
     _built(_invoke("rationale", "build", str(_file(tmp_path, _search_with_a_shared_dimension()))))
     assert layout.is_file()
     assert style.read_text(encoding="utf-8") == "/* the export's own stylesheet */"  # other assets left to the export
+
+
+def test_build_into_a_wiki_exported_before_the_explainers_region_lists_the_page(ws, tmp_path):
+    """An index exported before the Explainers region existed: the region is added and the page listed once."""
+    index = ws / "site" / "index.html"
+    index.write_text(index.read_text(encoding="utf-8").replace("<!-- explainers --><!-- /explainers -->", ""),
+                     encoding="utf-8")
+    doc = _search_with_a_shared_dimension()
+    for _ in range(2):  # a second build replaces the region it added, it does not add another
+        _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
+    text = index.read_text(encoding="utf-8")
+    assert text.count("<!-- explainers -->") == 1
+    assert text.count(f'href="explainers/{doc["id"]}.html"') == 1
+    assert text.index("<!-- explainers -->") < text.index("<footer>")
