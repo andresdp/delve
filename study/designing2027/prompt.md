@@ -30,7 +30,8 @@ install packages or call external services. Finish with a short summary of the s
 
 ## space
 
-The working folder is a design space: `ddspace query` and `ddspace point --no-llm` read it.
+The working folder is a design space: `ddspace query` reads it, and `ddspace point` checks a combination of its
+values and describes it.
 
 ## no space
 

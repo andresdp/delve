@@ -12,9 +12,10 @@ file, ``./rationale/<case>.json``, in one of three conditions:
 | N | an empty folder; ``ddspace`` is on the PATH, so only the structural check runs (KTD3) | no space |
 
 The CAIN runner's controls are reused as they are (private ``CODEX_HOME``, pinned model, web search off, the
-workspace manifest, the event parsing and redaction; ``study/cain2027/`` is not changed). No condition gets
-network access or an API key: the skills call ``ddspace point --no-llm``. After each session the runner keeps,
-under ``--results``:
+workspace manifest, the event parsing and redaction; ``study/cain2027/`` is not changed). As in CAIN, only M and
+E sessions get sandbox network access and the study key (``STUDY_OPENAI_API_KEY``, passed as ``OPENAI_API_KEY``)
+for the description ``ddspace point`` generates; N gets neither. The summary counts any other network use, and
+web search is disabled in every session. After each session the runner keeps, under ``--results``:
 
 - ``rationale/<session>.json``: the agent's final rationale file (the home folder and keys redacted);
 - ``summaries/<session>.json``: an allow-listed summary of the event log, the final ``ddspace rationale check``
@@ -32,8 +33,9 @@ before the study (plan U5).
 
 Usage::
 
-    python study/designing2027/run_sessions.py --workspaces <folder with M and E> --scratch <folder> \\
-        --model <codex model> [--cases kv-store,feed] [--conditions M,E,N] [--reps 2] [--skills-via files]
+    STUDY_OPENAI_API_KEY=... python study/designing2027/run_sessions.py --workspaces <folder with M and E> \\
+        --scratch <folder> --model <codex model> [--cases kv-store,feed] [--conditions M,E,N] [--reps 2] \\
+        [--skills-via files]
 """
 
 from __future__ import annotations
@@ -241,13 +243,18 @@ def prepare_workdir(session: Session, case: Mapping[str, Any], workspaces: Path,
 
 
 def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Optional[str] = None) -> List[str]:
-    """Return the ``codex exec`` argv for one session: CAIN's, without ``--output-schema`` or network access."""
+    """Return the ``codex exec`` argv for one session: CAIN's, without ``--output-schema``.
+
+    As in CAIN, M and E get sandbox network access (for ``ddspace point`` descriptions); N does not.
+    """
     argv = ["codex", "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
             "-s", "workspace-write", "-m", model, "-o", str(last), "-C", str(workdir), "-c", cain.WEB_SEARCH_OFF]
     if oss:
         argv += ["--oss", "--local-provider", oss]
     for feature in cain.DISABLED_FEATURES:
         argv += ["--disable", feature]
+    if session.condition in SPACE_CONDITIONS:
+        argv += ["-c", cain.NETWORK_ON, "-c", "shell_environment_policy.ignore_default_excludes=true"]
     return argv + ["-"]   # the prompt comes on stdin
 
 
@@ -255,25 +262,25 @@ def preflight(session: Session, argv: List[str], workdir: Path, manifest: Path =
               matching_model: str = "", skill: Optional[str] = None) -> List[str]:
     """Return why the session must not start (empty when every control holds).
 
-    CAIN's checks run as they are, for a session without network access in every condition (CAIN's N): the
-    pinned model, web search off, no network. No matcher judges this study, so ``matching_model`` is empty by
-    default. M and E also need the study manifest in the work copy; ``skill`` (with ``--skills-via files``)
-    needs its ``SKILL.md`` there.
+    CAIN's checks run as they are, for the session's condition: the pinned model, web search off, network
+    access that matches the condition (on for M and E, off for N) and, for M and E, the study manifest in the
+    work copy. No matcher judges this study, so ``matching_model`` is empty by default. ``skill`` (with
+    ``--skills-via files``) needs its ``SKILL.md`` there.
     """
-    problems = cain.preflight(cain.Session(session.case, "N", session.rep), argv, workdir, manifest, model=model,
-                              matching_model=matching_model)
-    if session.condition in SPACE_CONDITIONS:
-        copy = workdir / cain.MANIFEST_COPY
-        if not copy.is_file() or json.loads(copy.read_text()) != json.loads(Path(manifest).read_text()):
-            problems.append("the workspace manifest does not match the study inputs")
+    problems = cain.preflight(cain.Session(session.case, session.condition, session.rep), argv, workdir, manifest,
+                              model=model, matching_model=matching_model)
     if skill and not (workdir / ".agents" / "skills" / skill / "SKILL.md").is_file():
         problems.append(f"the skill file .agents/skills/{skill}/SKILL.md is missing")
     return problems
 
 
-def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path],
+def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path], key: Optional[str] = None,
                  oss: Optional[str] = None) -> Dict[str, str]:
-    """Return the session's environment: CAIN's allow-list, ``ddspace`` on the PATH in every condition, no key."""
+    """Return the session's environment: CAIN's allow-list, ``ddspace`` on the PATH in every condition.
+
+    M and E also get the study key ``key`` as ``OPENAI_API_KEY`` (for ``ddspace point`` descriptions); N never
+    gets a key, and the operator's own ``OPENAI_API_KEY`` is never passed on.
+    """
     path = [p for p in os.environ.get("PATH", "").split(os.pathsep) if not (Path(p) / "ddspace").exists()]
     env = {k: os.environ[k] for k in cain.SAFE_ENV if k in os.environ}
     if oss:
@@ -281,6 +288,8 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
     if ddspace_bin is not None:
         path.insert(0, str(ddspace_bin.parent))
     env.update(CODEX_HOME=str(codex_home), PATH=os.pathsep.join(path))
+    if key and session.condition in SPACE_CONDITIONS:
+        env["OPENAI_API_KEY"] = key
     return env
 
 
@@ -624,15 +633,18 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
 def run(session: Session, case: Mapping[str, Any], workspaces: Path, scratch: Path, *, model: str,
         results: Path = RESULTS, prompt: Path = PROMPT, skills_via: str = "files", keep_raw: bool = False,
         ddspace_bin: Optional[Path] = None, ddspace: Optional[Sequence[str]] = None, timeout: int = TIMEOUT,
-        oss: Optional[str] = None, version: Optional[str] = None) -> Dict[str, Any]:
-    """Run one session; keep its rationale file and summary; return the summary."""
+        oss: Optional[str] = None, version: Optional[str] = None, key: Optional[str] = None) -> Dict[str, Any]:
+    """Run one session; keep its rationale file and summary; return the summary.
+
+    ``key`` is the study key M and E sessions get as ``OPENAI_API_KEY``; it is redacted from what is kept.
+    """
     root = scratch / session.id
     shutil.rmtree(root, ignore_errors=True)
     try:
         return _run(session, case, workspaces, root, model=model, results=results, prompt=prompt,
                     skills_via=skills_via, keep_raw=keep_raw, ddspace_bin=ddspace_bin,
                     ddspace=list(ddspace) if ddspace else ddspace_command(ddspace_bin), timeout=timeout, oss=oss,
-                    version=version)
+                    version=version, key=key)
     finally:
         shutil.rmtree(root / "codex-home", ignore_errors=True)     # the copied login never outlives the session
         if not keep_raw:
@@ -641,7 +653,7 @@ def run(session: Session, case: Mapping[str, Any], workspaces: Path, scratch: Pa
 
 def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path, *, model: str, results: Path,
          prompt: Path, skills_via: str, keep_raw: bool, ddspace_bin: Optional[Path], ddspace: List[str],
-         timeout: int, oss: Optional[str], version: Optional[str]) -> Dict[str, Any]:
+         timeout: int, oss: Optional[str], version: Optional[str], key: Optional[str]) -> Dict[str, Any]:
     workdir = root / "ws"
     prepare_workdir(session, case, workspaces, workdir)
     extra = deliver_skill(workdir, case["mode"], session.condition, skills_via)
@@ -657,7 +669,7 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
     problems = preflight(session, argv, workdir, model=model,
                          skill=SKILL[case["mode"]] if skills_via == "files" else None)
     if not problems:
-        env = _environment(session, cain._codex_home(root), ddspace_bin, oss)
+        env = _environment(session, cain._codex_home(root), ddspace_bin, key, oss)
         start = time.monotonic()
         timed_out = False
         try:
@@ -677,9 +689,10 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
             (raw / f"{session.id}.stderr.txt").write_text(stderr, encoding="utf-8")
         events = cain._events(stdout)
         home = str(Path.home())
-        summary = summarize(events, home=home, secrets=[])
-        after = postflight(summary, session, case, workdir, events, results, ddspace=ddspace, home=home, secrets=[],
-                           workspaces=workspaces)
+        secrets = [key] if key else []
+        summary = summarize(events, home=home, secrets=secrets)
+        after = postflight(summary, session, case, workdir, events, results, ddspace=ddspace, home=home,
+                           secrets=secrets, workspaces=workspaces)
         problems = ([f"timed out after {timeout} s"] if timed_out else []) + after.pop("problems")
         record.update(summary, **after)
     record.update(status="failed" if problems else "ok", problems=problems)
@@ -741,6 +754,10 @@ def main() -> None:
                                                              else None)
     if ddspace_bin is None:
         sys.exit("No ddspace command next to this Python or on the PATH: every condition needs it.")
+    key = os.environ.get("STUDY_OPENAI_API_KEY")
+    if not key and set(conditions) & set(SPACE_CONDITIONS):
+        print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail "  # noqa: T201
+              "(the skills then fall back to --no-llm)")
     version = cain.codex_version()
     print(f"{version or 'codex version unknown'}; model {args.model}"  # noqa: T201
           f"{f' via {args.oss}' if args.oss else ''}; skills via {args.skills_via}; results in {results.name}/")
@@ -749,7 +766,7 @@ def main() -> None:
         try:
             rec = run(s, case, args.workspaces.resolve(), args.scratch.resolve(), model=args.model, results=results,
                       skills_via=args.skills_via, keep_raw=args.keep_raw, ddspace_bin=ddspace_bin,
-                      timeout=args.timeout, oss=args.oss, version=version)
+                      timeout=args.timeout, oss=args.oss, version=version, key=key)
         except Exception as exc:                          # one broken session must not stop the batch
             print(f"{s.id}: error {type(exc).__name__}: {exc}")  # noqa: T201
             continue

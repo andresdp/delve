@@ -51,10 +51,13 @@ There is no design space: name each decision and option in your own words (`deci
    requirement settles.
 {% if space %}
 {% set ns.n = ns.n + 1 %}
-{{ ns.n }}. **Check each alternative as a design point.** Run `ddspace point "<v:id>" "<v:id>" ... --no-llm{{ where }}` with the
-   values that alternative chooses (leave its open dimensions out). Act on the warnings (two values of one
-   dimension, a rejected value, a required dimension left out), and copy `attested_by` into the alternative's
-   `point`.
+{{ ns.n }}. **Check each alternative as a design point.** Run `ddspace point "<v:id>" "<v:id>" ...{{ where }}` with the
+   values that alternative chooses (leave its open dimensions out). The command also returns a short
+   `description` of the point (one LLM call, or the wiki's existing description when the point is already in the
+   wiki). Act on the warnings (two values of one dimension, a rejected value, a required dimension left out),
+   and record the `description` and `attested_by` in the alternative's `point`. Only if the description call
+   fails (for example, no API key), run it again with `--no-llm` and record the description as missing
+   (`null`).
 {% endif %}
 {% set ns.n = ns.n + 1 %}
 {{ ns.n }}. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
@@ -133,7 +136,7 @@ There is no design space: name each decision and option in your own words (`deci
       "relations": [
         {"source": "d:1", "target": "d:2", "type": "constrains", "holds": true, "note": "<what it means here>"}
       ],
-      "point": {"attested_by": ["s:s1"]}
+      "point": {"description": "<the description ddspace point printed>", "attested_by": ["s:s1"]}
 {% else %}
       "relations": []
 {% endif %}

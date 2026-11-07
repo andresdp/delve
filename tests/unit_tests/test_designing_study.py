@@ -236,12 +236,23 @@ def test_n_session_has_ddspace_on_path_and_no_workspace(tmp_path, monkeypatch, c
     argv = runner.command(s, workdir, tmp_path / "last.txt", model="gpt-test")
     assert argv[argv.index("-C") + 1] == str(workdir) and "--output-schema" not in argv
     assert cain.NETWORK_ON not in argv and cain.WEB_SEARCH_OFF in argv and argv[-1] == "-"
-    env = runner._environment(s, tmp_path / "home", bin_dir / "ddspace")
-    assert env["PATH"].split(":")[0] == str(bin_dir) and "OPENAI_API_KEY" not in env
+    env = runner._environment(s, tmp_path / "home", bin_dir / "ddspace", "sk-study-key-000000000")
+    assert env["PATH"].split(":")[0] == str(bin_dir) and "OPENAI_API_KEY" not in env   # N: no key, not even the study's
     assert env["CODEX_HOME"] == str(tmp_path / "home")
 
 
-def test_space_sessions_get_a_copy_of_their_workspace_and_no_network(tmp_path, cases):
+@pytest.mark.parametrize("condition", ["M", "E"])
+def test_space_sessions_get_network_and_the_study_key(tmp_path, monkeypatch, condition):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-operator-key-000000000")
+    s = runner.Session("kv-store", condition, 1)
+    argv = runner.command(s, tmp_path / "ws", tmp_path / "last.txt", model="gpt-test")
+    assert cain.NETWORK_ON in argv and cain.WEB_SEARCH_OFF in argv and argv[-1] == "-"   # for point descriptions
+    env = runner._environment(s, tmp_path / "home", None, "sk-study-key-000000000")
+    assert env["OPENAI_API_KEY"] == "sk-study-key-000000000"          # the study key, never the operator's
+    assert "OPENAI_API_KEY" not in runner._environment(s, tmp_path / "home", None, None)
+
+
+def test_space_sessions_get_a_copy_of_their_workspace(tmp_path, cases):
     workspaces = tmp_path / "workspaces"
     (workspaces / "M" / "raw").mkdir(parents=True)
     (workspaces / "M" / "raw" / "graph.json").write_text("{}")
@@ -252,8 +263,6 @@ def test_space_sessions_get_a_copy_of_their_workspace_and_no_network(tmp_path, c
     runner.prepare_workdir(s, explain, workspaces, workdir)
     assert (workdir / "raw" / "graph.json").is_file() and (workdir / "SOLUTION.md").is_file()
     assert not (workdir / ".agents" / "skills" / "old").exists()     # only the runner's skills reach a session
-    argv = runner.command(s, workdir, tmp_path / "last.txt", model="gpt-test")
-    assert cain.NETWORK_ON not in argv                                # point --no-llm needs no network
 
 
 def test_preflight_checks_network_the_manifest_and_the_skill_file(tmp_path):
@@ -265,8 +274,14 @@ def test_preflight_checks_network_the_manifest_and_the_skill_file(tmp_path):
     s = runner.Session("kv-store", "M", 1)
     argv = runner.command(s, ws, tmp_path / "last.txt", model="gpt-test")
     assert runner.preflight(s, argv, ws, manifest, model="gpt-test") == []
-    assert any("network" in p for p in runner.preflight(s, argv + ["-c", cain.NETWORK_ON], ws, manifest,
-                                                         model="gpt-test"))
+    at = argv.index(cain.NETWORK_ON)
+    no_network = argv[:at - 1] + argv[at + 1:]                          # drop "-c", NETWORK_ON
+    assert any("network" in p for p in runner.preflight(s, no_network, ws, manifest, model="gpt-test"))
+    n = runner.Session("kv-store", "N", 1)
+    n_argv = runner.command(n, tmp_path / "n", tmp_path / "last.txt", model="gpt-test")
+    assert runner.preflight(n, n_argv, tmp_path / "n", manifest, model="gpt-test") == []
+    assert any("network" in p for p in runner.preflight(n, n_argv[:-1] + ["-c", cain.NETWORK_ON, "-"],
+                                                         tmp_path / "n", manifest, model="gpt-test"))
     assert any("skill" in p for p in runner.preflight(s, argv, ws, manifest, model="gpt-test",
                                                       skill="ddspace-search"))
     (ws / cain.MANIFEST_COPY).write_text("{}")
@@ -422,9 +437,19 @@ def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(t
         return subprocess.CompletedProcess(argv, 0, "{}", "")
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
     case = next(c for c in cases if c["id"] == "kv-store")
+    seen = []
+    real = fake_run
+
+    def spy(argv, **kwargs):
+        if "exec" in argv and "--json" in argv:
+            seen.append((argv, kwargs.get("env") or {}))
+        return real(argv, **kwargs)
+    monkeypatch.setattr(runner.subprocess, "run", spy)
     rec = runner.run(runner.Session("kv-store", "M", 1), case, workspaces, tmp_path / "scratch", model="gpt-test",
-                     results=tmp_path / "results", ddspace=["ddspace"])
+                     results=tmp_path / "results", ddspace=["ddspace"], key="sk-study-key-000000000")
     assert rec["status"] == "ok", rec["problems"]
+    (argv, env), = seen
+    assert cain.NETWORK_ON in argv and env["OPENAI_API_KEY"] == "sk-study-key-000000000"
     assert len(builds) == 1 and "--graph" in builds[0]
     graph = Path(builds[0][builds[0].index("--graph") + 1])
     assert not (tmp_path / "scratch" / "kv-store-M-r1").exists()   # the work copy is gone, the link target is not

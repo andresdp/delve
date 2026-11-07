@@ -58,7 +58,7 @@ def test_no_space_needs_skills(ws):
 def test_skill_text_teaches_the_workflow(name):
     text = agent.skill_text(name, space=True)
     for needle in ("R1", "Q1", "C1", "single keyword", "ddspace query search", "ddspace query values",
-                   "ddspace query evidence", "ddspace query relations", "ddspace point", "--no-llm",
+                   "ddspace query evidence", "ddspace query relations", "ddspace point",
                    "./rationale/<id>.json", "exactly as `ddspace query` prints them", "ddspace rationale check",
                    "candidates", "ddspace rationale build", "ddspace-rationale/1"):
         assert needle in text, needle
@@ -67,6 +67,19 @@ def test_skill_text_teaches_the_workflow(name):
     assert steps.rfind("ddspace rationale build") > steps.rfind("ddspace rationale check")  # build comes last
     last = " ".join(re.split(r"\n\d+\. ", steps)[-1].split())
     assert "In interactive use (not in a study session), finish with `ddspace rationale build" in last
+
+
+@pytest.mark.parametrize("name", SKILLS)
+def test_point_step_asks_for_the_description_and_keeps_no_llm_as_a_fallback(name):
+    text = agent.skill_text(name, space=True, where=" --graph space")
+    step = " ".join(next(s for s in re.split(r"\n\d+\. ", text) if "as a design point" in s).split())
+    assert '`ddspace point "<v:id>" "<v:id>" ... --graph space`' in step  # the run itself has no --no-llm
+    assert "one LLM call" in step and "the wiki's existing description" in step
+    target = "alternative's" if name == "ddspace-search" else "solution's"
+    assert f"record the `description` and `attested_by` in the {target} `point`" in step
+    before, fallback = step.split("--no-llm", 1)  # --no-llm only once, as the fallback
+    assert "--no-llm" not in fallback and "fails" in before and "no API key" in before
+    assert "missing" in fallback
 
 
 def _build_step(text):
@@ -193,5 +206,8 @@ def test_the_skill_skeleton_passes_the_structural_check(name, space):
     doc = json.loads(block)
     assert doc["schema"] == "ddspace-rationale/1" and (doc["space"] is None) == (not space)
     assert doc["mode"] == ("search" if name == "ddspace-search" else "explain")
+    if space:
+        points = [a["point"] for a in doc["alternatives"] if "point" in a]
+        assert points and all(set(p) == {"description", "attested_by"} for p in points), points
     result = rationale.check(doc)
     assert result["ok"], result["problems"]

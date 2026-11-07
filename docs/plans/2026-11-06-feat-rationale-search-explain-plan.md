@@ -91,7 +91,7 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 
 - No scoring or ranking of alternatives.
 - No judging of the space.
-- No LLM call in `ddspace rationale`. The only LLM call in the feature stays in `ddspace point` without `--no-llm`, and the skills use `--no-llm`.
+- No LLM call in `ddspace rationale`. The only LLM call in the feature is `ddspace point`'s description, which the skills request (KTD9).
 - No passage quotes in the explainer (KTD6).
 
 #### Deferred to Follow-Up Work
@@ -157,7 +157,7 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 - KTD6. **Evidence without quotes.** `raw/graph.json` holds no passage text. Choices show passage ids and stances. Each value links to its wiki page, which shows quotes when the wiki allows them. (Governs R6, R7.)
 - KTD7. **Changed graph versus broken file.** A hash mismatch only means the graph changed: the explainer shows a banner and `check` warns. The id checks decide whether the file is broken, and `rationale list` reports `ok`, `changed` or `broken`. (Governs R8.)
 - KTD8. **Relations are checked as far as the graph allows.** A claimed relation must exist with the claimed type and direction. Unmet `requires` comes from `q.point`. The checker does not verify a claim that a relation "holds" beyond that. (Governs R4.)
-- KTD9. **Partial design points use `q.point`.** It accepts any subset of values and needs no LLM. Skills call `ddspace point --no-llm`. Open dimensions are left out of the point. (Governs R10, R11.)
+- KTD9. **Design points are generated as the agent requests them** (session-settled: user-directed — chosen over forcing `ddspace point --no-llm`: the point's description is part of the rationale the agent records). Skills call `ddspace point` with its LLM description (or the wiki's own description when the point exists) and record `description` and `attested_by`; `--no-llm` is only a fallback when the call fails. The checks behind it (`q.point`) accept any subset of values, so open dimensions are left out of the point. In the study, M and E sessions get network access and the study key for this call, as in CAIN; N gets neither. (Governs R10, R11, R14.)
 - KTD10. **The radial layout becomes a shared script.**
   - `radialTargets`, `orientLabels` and the ring constants move to `src/taxonomy_generator/wiki/templates/graph-layout.js`.
   - The file sits in the templates folder because the current package-data glob already ships that folder. `write_html` copies it to `assets/`.
@@ -186,7 +186,7 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 ```mermaid
 flowchart TB
   P[problem file + solution for explain] --> A[coding agent with ddspace-search or ddspace-explain]
-  A -->|query, point --no-llm| G[(raw/graph.json)]
+  A -->|query, point| G[(raw/graph.json)]
   A --> F[rationale/case.json]
   F --> C{ddspace rationale check}
   C -->|errors, with candidates| A
@@ -326,7 +326,7 @@ flowchart TB
 - **Files:** `src/delvedspace/templates/skills/ddspace-search/SKILL.md.j2` (new), `src/delvedspace/templates/skills/ddspace-explain/SKILL.md.j2` (new), `src/delvedspace/agent.py`, `src/delvedspace/cli.py` (`agent setup --skills`, purge cleanup), `pyproject.toml`, `tests/unit_tests/test_ddspace_skills.py` (new), `tests/unit_tests/test_ddspace_query_agent.py`.
 - **Approach:**
   - Each skill's front matter has `name` and `description`.
-  - The steps follow the earlier draft: requirement ids, keyword search, values and evidence, relations, `point --no-llm`, writing the file, `check` until clean, and `build` in interactive use.
+  - The steps follow the earlier draft: requirement ids, keyword search, values and evidence, relations, `point` (with its description, KTD9), writing the file, `check` until clean, and `build` in interactive use.
   - The fixed output path is `./rationale/<id>.json`.
   - `--skills --no-space` renders the no-space variant.
   - Setup prints the paths it wrote. Purge removes the skill folders it wrote.
