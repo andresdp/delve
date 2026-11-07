@@ -24,6 +24,7 @@ related: >-
 - **Stop conditions:**
   - Stop and ask if Codex cannot load the skills and also cannot take them through the prompt (U5 smoke test).
   - Stop and ask if the explainer cannot survive `ddspace wiki build` without changing the OKF bundle.
+- **Revision 2026-11-07 (U7–U10):** after reading the hand-written examples and the skills, the user redirected the design: one skill per mode with a space reference file, design points as the decisions, a capped and recorded agent trajectory, regions in explain, and the trajectory shown on the page. It supersedes R1, R12, KTD1 and KTD11 where they conflict; see the revision blocks below.
 - **Execution profile:** U1 first. Then U2 and U4 in parallel. U3 needs U1 and U2. U5 needs U1, U3 and U4. U6 last.
 
 ---
@@ -50,6 +51,10 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 - **Search and explain for the paper, not the extend mode** (session-settled: user-directed — chosen over the hybrid extend mode: the paper is about rationale artifacts, and explain is the new reverse direction). Governs R10, R11.
 - **The space is not judged.** The skills and the explainer behave the same on a mined space and an expert space. `uncovered` lists the decisions the agent could not map with the available commands: an upper bound on what the space lacks, not a measure of its quality. Governs R2, R6, R14.
 - **Without a space, the same artifact and the same page.** This makes the no-space condition comparable. Governs R3, R9.
+
+- **Design points are the decisions** (session-settled: user-directed, 2026-11-07 — chosen over treating each dimension as a decision: a dimension is a design concern, a value one option for it, and a decision is a combination of values, a design point). The skills survey dimensions and values first, then build, compare and propose design points. Governs R15, R16.
+- **A capped, recorded trajectory in both modes** (session-settled: user-directed, 2026-11-07). Search follows an exploration/exploitation heuristic; explain looks for the regions of the space (partial design points) that best justify the given solution. Each mode records its steps, and the page shows them, each mode in its own way. Search may investigate at most 20 design points (12 by default); explain at most 12, and fewer when the solution is simple or already grounded. Move distances are not checked. Governs R16–R19.
+- **One skill per mode, with a space reference** (session-settled: user-directed, 2026-11-07 — chosen over a with-space and a no-space variant of each skill). The skill text is the same in every condition; a reference file in the skill folder maps its general terms onto the space. Governs R20.
 
 ### Requirements
 
@@ -82,6 +87,15 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 - R11. The `ddspace-explain` skill guides an agent from a problem file and a solution description to a clean rationale file.
 - R12. `ddspace agent setup --skills` installs both skills for Claude Code and Codex. Each skill comes in a with-space and a no-space variant.
 - R13. The agent guide and the allow rules stay consistent with the new commands.
+
+**Revision 2026-11-07**
+
+- R15. The file shape is `ddspace-rationale/2`. Every alternative is a design point: it names the trajectory step it comes from, and its choices are exactly that step's values.
+- R16. Both modes record a `trajectory`: numbered steps, each a design point (or a partial one) that the agent investigated with a `move`, an optional `parent` step, its `why`, its `verdict` and what `ddspace point` reported. Search moves are `seed`, `exploit` and `explore`; explain moves are `solution`, `region` and `contrast`.
+- R17. The file states its `budget` (`max_points`). The checker reports a `budget` error when the trajectory has more steps than the budget, or the budget exceeds the mode's maximum (search 20, explain 12).
+- R18. An explain file names 1–3 `regions`: partial design points of the solution's values, each with the requirements that drive it and the step that probed it.
+- R19. The explainer shows the trajectory as text and as a chart. Search: a lineage grid (one column per step, one row per dimension, changed cells marked, parent links, kept points marked). Explain: the solution's dimensions against the probing steps, with the regions as bands. Selecting a step highlights its point in the subgraph.
+- R20. Each skill is one `SKILL.md` for every condition. With a space, `agent setup --skills` also writes `references/design-space.md` in the skill folder; `--no-space` leaves it out (and removes one it wrote before).
 
 **Study support**
 
@@ -180,6 +194,10 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
   - The agent writes `./rationale/<case>.json`. The runner then runs `ddspace rationale check` and builds the explainer from the kept file, after the session.
   - The skill text goes to Codex either through `.agents/skills` in the work copy or, if the runner flags block discovery, through the prompt on stdin. A smoke test decides which, before any session.
   - N sessions get `ddspace` on PATH with no workspace, so only the structural check is available. (Governs R14.)
+
+- KTD14. **Schema 2 replaces schema 1** (the feature is unshipped; the only schema-1 files are the fixture and the examples, which are rewritten). A step's `values` are value ids with a space, `{decision, option}` pairs without one. The `point` record (`description`, `attested_by`) moves from the alternative to each step. The checker runs the existing value rules on every step (`unknown_id`, `not_canonical`, `two_values_one_dimension`, `unmet_requires` as a warning) and adds: `bad_step` (step numbers not 1..n in order, a parent that is not an earlier step, a move not allowed in the mode), `step_mismatch` (an alternative or a region names a missing step, a step of the wrong move or verdict, or a step with other values), `region_not_in_solution` (a region value the solution does not choose), and `budget`. `attested_by` stays recorded as reported; the runner's audit checks it. (Governs R15–R18.)
+- KTD15. **Trajectory views are page data, not new graph data.** `explainer.page_data` adds `trajectory` (steps with their values resolved to dimensions, the changed dimensions against the parent, verdicts) and, in explain, `regions`. The template draws search and explain differently but from the same structure. No LLM, no new CLI command. (Governs R19.)
+- KTD16. **Skill layout.** Templates: `templates/skills/<name>/SKILL.md.j2` (rendered without a space switch: only the graph option text varies) and `templates/skills/<name>/references/design-space.md.j2`. The installer marks both with the setup marker; a no-space install removes a marked reference left by a with-space install. The runner's prompt fallback inlines the reference when the condition has a space. (Governs R20; supersedes KTD11's variants.)
 
 ### High-Level Technical Design
 
@@ -375,6 +393,39 @@ flowchart TB
 - **Verification:** the docs describe every new option.
 
 ---
+
+### U7. Schema 2: design points, trajectory, regions and budget
+
+- **Goal:** the file records design points and the trajectory; the checker validates them.
+- **Requirements:** R15–R18. KTD14.
+- **Dependencies:** U1.
+- **Files:** `src/delvedspace/rationale.py`, `tests/unit_tests/test_ddspace_rationale.py`, `tests/unit_tests/fixtures/rationale_search.json`, `tests/unit_tests/test_rationale_build.py` (sample builders).
+- **Test scenarios:** the schema-2 fixture is clean; each new code fires with its path (`bad_step` for a gap, a later parent, an explain move in search; `step_mismatch`; `region_not_in_solution`; `budget` over the file budget and over the mode maximum); value rules fire inside a step; a no-space file with `{decision, option}` steps is clean; explain with zero or four regions is a `schema` error.
+
+### U8. Skills: one per mode, with a space reference
+
+- **Goal:** rewrite both skills around design points and the trajectory; move the space mapping to the reference file.
+- **Requirements:** R16, R17, R20. KTD9, KTD16.
+- **Dependencies:** U7.
+- **Files:** `src/delvedspace/templates/skills/*/SKILL.md.j2`, `src/delvedspace/templates/skills/*/references/design-space.md.j2` (new), `src/delvedspace/agent.py`, `pyproject.toml`, `study/designing2027/run_sessions.py`, `tests/unit_tests/test_ddspace_skills.py`, `tests/unit_tests/test_designing_study.py`.
+- **Approach:** search: survey concerns and options, seed points from the most constraining requirements, then alternate exploit (vary one or two values of the best point) and explore (a point unlike any visited), at least one explore in three moves, stop at the budget or when two more steps change nothing; propose 2–4 kept points. Explain: map the solution to its point, then probe partial points (regions) of its values with `ddspace point` to find the ones requirements and sources support best, and contrast a value or two to separate forced from free choices; stop early when grounded.
+- **Test scenarios:** the installed `SKILL.md` is identical with and without a space; the reference exists only with a space and names `ddspace query` and `ddspace point`; a no-space reinstall removes a marked reference and keeps a user's own file; the runner's prompt fallback includes the reference for M and E, not N; the wheel contains the reference templates.
+
+### U9. Trajectory on the explainer page
+
+- **Goal:** show the agent's trajectory as a chart and as text, per mode.
+- **Requirements:** R19. KTD15.
+- **Dependencies:** U7.
+- **Files:** `src/taxonomy_generator/wiki/explainer.py`, `src/taxonomy_generator/wiki/templates/explainer.html.j2`, `tests/unit_tests/test_rationale_build.py`, `tests/unit_tests/test_explainer_browser.py`.
+- **Test scenarios:** search page data marks changed dimensions against the parent and the kept steps; explain page data lists regions with their rows; the page renders the grid and the numbered step list; selecting a step lights its values in the subgraph (browser); a no-space file renders its trajectory with the agent's decision labels.
+
+### U10. Examples and docs
+
+- **Goal:** rewrite the hand-written fraud examples in schema 2 and update the docs.
+- **Requirements:** R15–R20.
+- **Dependencies:** U7–U9.
+- **Files:** `tmp/rationale_examples/` (local, not committed), `USAGE.md`, `study/designing2027/cases/README.md`.
+- **Verification:** both examples check clean against the C1 graph and render with their trajectories; the user reads them before any pilot.
 
 ## Verification Contract
 
