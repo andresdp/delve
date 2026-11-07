@@ -25,14 +25,13 @@ SCHEMA = "ddspace-rationale/1"
 MODES = ("search", "explain")
 SEARCH_ALTERNATIVES = (2, 4)
 EXPLAIN_ID = "S"
-CODES = ("schema", "unknown_id", "not_canonical", "value_not_in_dimension", "two_values_one_dimension",
-         "unknown_requirement", "evidence_not_on_value", "relation_mismatch", "unmet_requires", "graph_changed")
 WARNINGS = ("unmet_requires", "graph_changed")
 _REQUIRES_SUFFIX = "is not in the point."  # how q.point words an unmet ``requires`` relation
 
 # Field specs: name -> (kind, required). Kinds: "text" (a non-empty string), "string", "string|null", "list",
 # "object", "object|null", "boolean".
 _Spec = Dict[str, Tuple[str, bool]]
+_TYPES = {"text": str, "string": str, "list": list, "object": dict, "boolean": bool}
 _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", True),
                "space": ("object|null", True), "problem": ("object", True), "alternatives": ("list", True),
                "comparison": ("list", False), "uncovered": ("list", False)}
@@ -58,7 +57,6 @@ def _decision(names: _Spec) -> _Spec:
     """Return the field that names the decision alone (``open``, ``comparison``): the dimension id, or the label."""
     key = next(iter(names))
     return {key: names[key]}
-_TYPES = {"text": str, "string": str, "list": list, "object": dict, "boolean": bool}
 
 
 class RationaleError(Exception):
@@ -118,6 +116,7 @@ class _Checker:
         self.graph = graph
         self.problems: List[Dict[str, Any]] = []
         self.resolved: Dict[str, str] = {}
+        self._relations: Optional[Dict[frozenset, List[Dict[str, Any]]]] = None  # {source, target} -> edges
 
     def add(self, code: str, path: str, message: str, candidates: Sequence[Any] = ()) -> None:
         self.problems.append({"code": code, "severity": "warning" if code in WARNINGS else "error",
@@ -184,8 +183,12 @@ class _Checker:
         if src is None or tgt is None or not self.good(rel, "type"):
             return
         a, b = src["id"], tgt["id"]
-        between = [e for e in self.graph.get("edges") or [] if e.get("type") == "relation"
-                   and {e.get("source"), e.get("target")} == {a, b}]
+        if self._relations is None:
+            self._relations = {}
+            for e in self.graph.get("edges") or []:
+                if e.get("type") == "relation":
+                    self._relations.setdefault(frozenset((e.get("source"), e.get("target"))), []).append(e)
+        between = self._relations.get(frozenset((a, b)), [])
 
         def matches(e: Mapping[str, Any]) -> bool:
             same_way = e.get("source") == a and e.get("target") == b
@@ -212,10 +215,6 @@ class _Checker:
         for w in warnings:
             if w.endswith(_REQUIRES_SUFFIX):
                 self.add("unmet_requires", pointer(*parts), w)
-
-
-def _norm(text: Any) -> str:
-    return " ".join(str(text or "").split()).casefold()
 
 
 def check(doc: Any, graph: Optional[q.Graph] = None, graph_sha256: Optional[str] = None) -> Dict[str, Any]:
@@ -340,7 +339,7 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
             d, v = c.choice_ids(choice, parts) if with_space else (None, None)
             if v is not None:
                 value_ids.append(v["id"])
-            key = d["id"] if d is not None else (_norm(choice[key_field]) if c.good(choice, key_field) else None)
+            key = d["id"] if d is not None else (q.norm(choice[key_field]) if c.good(choice, key_field) else None)
             if key is not None and key in first:
                 what = f"'{d.get('label')}' ({d['id']})" if d is not None else f"'{choice[key_field]}'"
                 c.add("two_values_one_dimension", pointer(*parts),
@@ -378,7 +377,7 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # an id that can name a file
 RATIONALE_DIR = "rationale"
-STATUSES = ("ok", "changed", "broken")
+OK, CHANGED, BROKEN = "ok", "changed", "broken"  # a rationale file's status (``scan``)
 
 
 def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path) -> Dict[str, Any]:
@@ -388,7 +387,7 @@ def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path
     against. ``changed``: clean, but written against an earlier graph (KTD7). ``ok`` otherwise.
     """
     entry: Dict[str, Any] = {"file": str(path), "id": path.stem, "mode": None, "title": None, "alternatives": 0,
-                             "status": "broken", "page": None, "problems": [], "doc": None}
+                             "status": BROKEN, "page": None, "problems": [], "doc": None}
     try:
         doc = load(path)
     except RationaleError as exc:
@@ -397,7 +396,8 @@ def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path
     if isinstance(doc, dict):
         entry["id"] = str(doc.get("id") or path.stem)
         entry["mode"] = doc.get("mode")
-        entry["title"] = (doc.get("problem") or {}).get("title") if isinstance(doc.get("problem"), dict) else None
+        problem = doc.get("problem")
+        entry["title"] = problem.get("title") if isinstance(problem, dict) else None
         alts = doc.get("alternatives")
         entry["alternatives"] = len(alts) if isinstance(alts, list) else 0
     page = html / "explainers" / f"{entry['id']}.html"
@@ -412,7 +412,7 @@ def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path
         entry["problems"].append({"code": "schema", "severity": "error", "path": "/id",
                                   "message": f"the id '{entry['id']}' cannot name a file"})
     elif result["ok"]:
-        entry["status"] = "changed" if any(p["code"] == "graph_changed" for p in result["problems"]) else "ok"
+        entry["status"] = CHANGED if any(p["code"] == "graph_changed" for p in result["problems"]) else OK
         entry["doc"] = doc
     return entry
 
@@ -425,22 +425,31 @@ def _graph(root: Path) -> Tuple[Optional[q.Graph], Optional[str]]:
         return None, None
 
 
-def scan(root: Path, html: Path) -> List[Dict[str, Any]]:
-    """Return the status of every ``<root>/rationale/*.json`` against ``<root>/raw/graph.json`` (no ``doc`` key)."""
-    return [{k: v for k, v in e.items() if k != "doc"} for e in _scan(root, html)[1]]
+def _public(entry: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a scan entry without its ``doc`` key."""
+    return {k: v for k, v in entry.items() if k != "doc"}
 
 
-def _scan(root: Path, html: Path):
+def scan(root: Path, html: Path, graph: Optional[q.Graph] = None, sha: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Return the status of every ``<root>/rationale/*.json`` against ``<root>/raw/graph.json`` (no ``doc`` key).
+
+    ``graph`` and ``sha``, when given, are that graph already loaded and its file's SHA-256.
+    """
+    return [_public(e) for e in _scan(root, html, graph, sha)[1]]
+
+
+def _scan(root: Path, html: Path, graph: Optional[q.Graph] = None, sha: Optional[str] = None):
     folder = Path(root) / RATIONALE_DIR
     files = sorted(folder.glob("*.json")) if folder.is_dir() else []
-    graph, sha = _graph(root) if files else (None, None)
+    if graph is None:
+        graph, sha = _graph(root) if files else (None, None)
     return graph, [_status(f, graph, sha, Path(html)) for f in files]
 
 
 def index_entries(entries: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     """Return the rendered pages among ``entries`` (scan results), as the HTML index lists them."""
-    return [{"id": e["id"], "title": e.get("title"), "mode": e.get("mode"), "changed": e["status"] == "changed"}
-            for e in entries if e["status"] != "broken" and e.get("page")]
+    return [{"id": e["id"], "title": e.get("title"), "mode": e.get("mode"), "changed": e["status"] == CHANGED}
+            for e in entries if e["status"] != BROKEN and e.get("page")]
 
 
 def render_workspace(root: Path, html: Path) -> List[Dict[str, Any]]:
@@ -453,10 +462,10 @@ def render_workspace(root: Path, html: Path) -> List[Dict[str, Any]]:
 
     graph, entries = _scan(root, html)
     for e in entries:
-        if e["status"] == "broken":
+        if e["status"] == BROKEN:
             e["page"] = None  # not rendered again: the export removes the old page
         else:
             e["page"] = str(explainer.write_page(e["doc"], graph, Path(html), wiki_html=Path(html),
-                                                 graph_changed=e["status"] == "changed"))
+                                                 graph_changed=e["status"] == CHANGED))
     explainer.write_index(Path(html), index_entries(entries))
-    return [{k: v for k, v in e.items() if k != "doc"} for e in entries]
+    return [_public(e) for e in entries]

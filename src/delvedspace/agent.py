@@ -48,29 +48,31 @@ def install_info() -> Dict[str, Optional[str]]:
     return {"path": path, "activate": activate}
 
 
+def _rules(install: Optional[Dict[str, Optional[str]]], *subcommands: str) -> List[str]:
+    """Allow rules for ``ddspace <subcommand>``: every bare one, then every one by full path when it is known."""
+    path = (install or {}).get("path")
+    return ([f"Bash(ddspace {c}:*)" for c in subcommands]
+            + ([f"Bash({path} {c}:*)" for c in subcommands] if path else []))
+
+
 def query_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
     """Claude Code allow rules for ``ddspace query``: bare, and by full path when it is known."""
-    path = (install or {}).get("path")
-    return [QUERY_PERMISSION] + ([f"Bash({path} query:*)"] if path else [])
+    return _rules(install, "query")
 
 
 def point_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
     """Claude Code allow rules for ``ddspace point`` (one LLM call per combination unless ``--no-llm``)."""
-    path = (install or {}).get("path")
-    return [POINT_PERMISSION] + ([f"Bash({path} point:*)"] if path else [])
+    return _rules(install, "point")
 
 
 def rationale_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
     """Claude Code allow rules for the read-only ``ddspace rationale check`` and ``list``."""
-    path = (install or {}).get("path")
-    return ([f"Bash(ddspace {c}:*)" for c in RATIONALE_READ]
-            + ([f"Bash({path} {c}:*)" for c in RATIONALE_READ] if path else []))
+    return _rules(install, *RATIONALE_READ)
 
 
 def build_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
     """Claude Code allow rules for ``ddspace rationale build`` (writes explainer pages, no LLM)."""
-    path = (install or {}).get("path")
-    return [f"Bash(ddspace {RATIONALE_BUILD}:*)"] + ([f"Bash({path} {RATIONALE_BUILD}:*)"] if path else [])
+    return _rules(install, RATIONALE_BUILD)
 
 
 def graph_option(ws: Workspace, target: Path) -> str:
@@ -95,12 +97,16 @@ def skill_text(name: str, space: bool = True, where: str = "") -> str:
 def install_skills(target: Path, space: bool = True, where: str = "") -> List[Tuple[Path, str]]:
     """Write both skills under ``.claude/skills/`` and ``.agents/skills/`` of ``target``; return (path, action)."""
     done = []
+    texts = {name: skill_text(name, space, where) for name in SKILLS}
     for folder in SKILL_DIRS:
         for name in SKILLS:
             path = target / folder / name / "SKILL.md"
-            text = skill_text(name, space, where)
-            existed = path.is_file()
-            if existed and path.read_text(encoding="utf-8") == text:
+            text = texts[name]
+            try:
+                existed, old = True, path.read_text(encoding="utf-8")
+            except (FileNotFoundError, NotADirectoryError):  # NotADirectoryError: a file where a folder goes
+                existed, old = False, None
+            if old == text:
                 done.append((path, "unchanged"))
                 continue
             path.parent.mkdir(parents=True, exist_ok=True)

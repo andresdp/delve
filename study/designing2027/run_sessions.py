@@ -67,7 +67,7 @@ def _import(name: str, path: Path):
 cain = sys.modules.get("cain2027_run_sessions") or _import("cain2027_run_sessions", CAIN / "run_sessions.py")
 design = cain.design                         # redact, sha256, results-folder names
 
-from delvedspace import agent  # noqa: E402
+from delvedspace import agent, rationale  # noqa: E402
 from taxonomy_generator.wiki import query as q  # noqa: E402
 
 RESULTS = HERE / "results"
@@ -75,8 +75,8 @@ CASES = HERE / "cases"
 PROMPT = HERE / "prompt.md"
 CONDITIONS = ("M", "E", "N")
 SPACE_CONDITIONS = cain.SPACE_CONDITIONS      # M and E
-MODES = ("search", "explain")
-SKILL = {"search": "ddspace-search", "explain": "ddspace-explain"}
+MODES = rationale.MODES
+SKILL = {name.removeprefix("ddspace-"): name for name in agent.SKILLS}  # mode -> skill
 SKILLS_VIA = ("files", "prompt")
 TIMEOUT = cain.TIMEOUT
 DDSPACE_TIMEOUT = 300                         # seconds for the runner's own check and build

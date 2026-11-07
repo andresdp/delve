@@ -149,7 +149,9 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
         page = explainer.write_page(doc, loaded, site, wiki_html=site, graph_changed=changed)
         # `ddspace wiki build` re-renders every file in rationale/, so the page is listed in raw/exported.json as
         # the build would list it (a later build that cannot render it, a broken file, then removes it).
-        explainer.write_index(site, rationale.index_entries(rationale.scan(root, site)))
+        same = graph_file.resolve() == (root / "raw" / "graph.json").resolve()  # the graph scan would load
+        entries = rationale.scan(root, site, loaded, sha) if same else rationale.scan(root, site)
+        explainer.write_index(site, rationale.index_entries(entries))
         render.add_to_manifest(root, [page])
     typer.echo(json.dumps({"page": str(page), "rationale": str(copied) if copied else None,
                            "problems": result["problems"]}, indent=2, ensure_ascii=False))

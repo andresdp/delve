@@ -18,28 +18,28 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
+from taxonomy_generator.wiki.query import norm
 from taxonomy_generator.wiki.render import _env, copy_images, copy_page_assets
 
 EXPLAINERS = "explainers"
 Link = Callable[[str], Optional[str]]  # a wiki page path (``concepts/x``) or file (``index.html``) -> href or None
 
 
-def _norm(text: Any) -> str:
-    return " ".join(str(text or "").split()).casefold()
-
-
 def wiki_links(wiki_html: Optional[Path], page_dir: Path) -> Link:
     """Return a function giving the href from ``page_dir`` to a wiki page, or None when it has no page."""
+    cache: Dict[str, Optional[str]] = {}
+
     def link(target: str) -> Optional[str]:
         if wiki_html is None or not target:
             return None
-        name = target if target.endswith(".html") else f"{target}.html"
-        path = Path(wiki_html) / name
-        if not path.is_file():
-            return None
-        return Path(os.path.relpath(path.resolve(), Path(page_dir).resolve())).as_posix()
+        if target not in cache:
+            name = target if target.endswith(".html") else f"{target}.html"
+            path = Path(wiki_html) / name
+            cache[target] = (Path(os.path.relpath(path.resolve(), Path(page_dir).resolve())).as_posix()
+                             if path.is_file() else None)
+        return cache[target]
     return link
 
 
@@ -55,6 +55,19 @@ class _Space:
         self.values: Dict[str, Dict[str, Any]] = {}
         self._by_id = {n["id"]: n for n in (graph or {}).get("nodes") or []} if self.with_space else {}
         self._keys: Dict[str, str] = {}  # without a space: normalized label -> made-up id
+        self._dim_values: Dict[Any, List[Dict[str, Any]]] = {}  # dimension id -> its value nodes, in node order
+        self._evidence: Dict[Any, List[Dict[str, Any]]] = {}    # value id -> evidence edges, in edge order
+        if self.with_space:
+            for n in self._by_id.values():
+                if n.get("kind") == "value":
+                    self._dim_values.setdefault(n.get("dimension_id"), []).append(n)
+            for e in graph.get("edges") or []:
+                if e.get("type") == "evidence":
+                    self._evidence.setdefault(e.get("target"), []).append(e)
+
+    def node(self, ref: Any) -> Optional[Dict[str, Any]]:
+        """Return the graph node with id ``ref`` (None without a space or when there is none)."""
+        return self._by_id.get(ref)
 
     def dim(self, ref: Any) -> Optional[str]:
         """Register and return the id of the dimension a choice names (a graph id, or the agent's decision)."""
@@ -67,10 +80,10 @@ class _Space:
             if ref not in self.dims:
                 self.dims[ref] = {"id": ref, "label": n.get("label", ref), "question": n.get("description") or "",
                                   "href": self.link(n.get("href") or ""), "core": bool(n.get("core")), "values": []}
-                for v in (x for x in self._by_id.values() if x.get("kind") == "value" and x.get("dimension_id") == ref):
+                for v in self._dim_values.get(ref, []):
                     self._value_node(v)
             return ref
-        key = _norm(ref)
+        key = norm(ref)
         if key not in self._keys:
             self._keys[key] = f"x:{len(self._keys) + 1}"
             self.dims[self._keys[key]] = {"id": self._keys[key], "label": str(ref).strip(), "question": "",
@@ -79,8 +92,8 @@ class _Space:
 
     def _value_node(self, v: Mapping[str, Any]) -> None:
         sources = []
-        for e in (self.graph or {}).get("edges") or []:
-            if e.get("type") == "evidence" and e.get("target") == v["id"] and e.get("source") in self._by_id:
+        for e in self._evidence.get(v["id"], []):
+            if e.get("source") in self._by_id:
                 s = self._by_id[e["source"]]
                 sources.append({"id": s["id"], "label": s.get("label", s["id"]), "stance": e.get("stance", ""),
                                 "href": self.link(s.get("href") or "")})
@@ -97,7 +110,7 @@ class _Space:
             return None
         if self.with_space:
             return ref if ref in self.values else None
-        key = f"{dim}::{_norm(ref)}"
+        key = f"{dim}::{norm(ref)}"
         if key not in self._keys:
             self._keys[key] = f"o:{len(self.values) + 1}"
             vid = self._keys[key]
@@ -197,7 +210,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     uncovered = []
     for u in doc.get("uncovered") or []:
         near = u.get("nearest_dimension_id")
-        n = space._by_id.get(near) if with_space and near else None
+        n = space.node(near) if with_space and near else None
         uncovered.append({"decision": u.get("decision") or "", "quote": u.get("solution_quote") or "",
                           "nearest": ({"id": near, "label": n.get("label", near), "href": link(n.get("href") or "")}
                                       if n else None)})

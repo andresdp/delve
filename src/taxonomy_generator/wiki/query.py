@@ -73,8 +73,12 @@ def _brief(n: Mapping[str, Any]) -> Dict[str, Any]:
     return {"id": n.get("id"), "kind": n.get("kind"), "label": n.get("label"), "href": n.get("href")}
 
 
-def _norm(text: Any) -> str:
+def norm(text: Any) -> str:
+    """Return ``text`` as compared by its words: case and spacing ignored (punctuation kept)."""
     return " ".join(str(text or "").split()).casefold()
+
+
+_norm = norm
 
 
 def _name_key(text: Any) -> str:

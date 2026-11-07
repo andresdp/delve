@@ -11,12 +11,13 @@
   //   rings:       ring kinds from the centre ("domain" sits at the centre); a ring with no node leaves no gap
   //   ringOf:      kind -> ring (default: the kind itself)
   //   spacing:     ring -> arc length per node; a ring's radius grows with the nodes on it
-  //   statusOrder: within a dimension, values of the same status sit together, in this order
-  //   stagger:     every other value of a dimension sits this far further out
-  //   ringGap:     the least distance between neighbouring rings
+  //   statusOrder: within a dimension, values of the same status sit together, in this order (default STATUS_ORDER)
+  //   stagger:     every other value of a dimension sits this far further out (default 24: twice the room between
+  //                neighbouring values)
+  //   ringGap:     the least distance between neighbouring rings (default 110)
   //   rotation:    radians; turns every ring about the centre
   //   labelReach:  optional (ringNodes) -> how far past its node a ring's outward labels reach; the next ring then
-  //                starts at least labelGap beyond them
+  //                starts at least labelGap (default 26) beyond them
   //   restJitter:  nodes placed by their neighbours' mean angle alternate this many radians either side of it
   function radialTargets(nodes, links, cx, cy, opts) {
     const o = opts || {};

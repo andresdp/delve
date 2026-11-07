@@ -20,6 +20,7 @@ from delvedspace import (
     chat,
     importer,
     query_cli,
+    rationale,
     rationale_cli,
     runs,
     ui,
@@ -590,31 +591,30 @@ def agent_setup(
     ui.header("agent setup", "Let a coding agent use the wiki")
     install = agent.install_info()
     done = [f"{agent.upsert_block(target / 'AGENTS.md', agent.guide(ws, target, install))} AGENTS.md"]
+
+    def allow_rules(rules: List[str]) -> None:
+        done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
+                    f"({', '.join(rules)})")
+
     if claude:
         done.append(f"{agent.upsert_block(target / 'CLAUDE.md', agent.pointer_claude())} CLAUDE.md")
         if allow is None:
             allow = not interactive(yes) or ui.ask_yes(
                 "Let Claude Code run ddspace query (read-only) without a permission prompt each time?", default=True)
         if allow:
-            rules = agent.query_permissions(install) + agent.rationale_permissions(install)
-            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
-                        f"({', '.join(rules)})")
+            allow_rules(agent.query_permissions(install) + agent.rationale_permissions(install))
         if allow_point is None:              # without an answer, follow the query answer (scripts) or ask
             allow_point = allow if not interactive(yes) else ui.ask_yes(
                 "Also let Claude Code run ddspace point without a prompt? It makes one LLM call per combination "
                 "(with the workspace's API key) unless --no-llm is passed.", default=True)
         if allow_point:
-            rules = agent.point_permissions(install)
-            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
-                        f"({', '.join(rules)})")
+            allow_rules(agent.point_permissions(install))
         if allow_build is None:
             allow_build = allow if not interactive(yes) else ui.ask_yes(
                 "Also let Claude Code run ddspace rationale build without a prompt? It writes explainer pages to "
                 "rationale/ and site/explainers/ (no LLM).", default=True)
         if allow_build:
-            rules = agent.build_permissions(install)
-            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
-                        f"({', '.join(rules)})")
+            allow_rules(agent.build_permissions(install))
     if copilot:
         done.append(f"{agent.upsert_block(target / '.github' / 'copilot-instructions.md', agent.pointer_copilot())} "
                     ".github/copilot-instructions.md")
@@ -734,12 +734,12 @@ def wiki_build_cmd(
             ui.warn(f"{n_failed} of {total} {what} failed (first error: {escape(result.first_llm_error)}); "
                     "run ddspace wiki build again to retry.")
     for e in result.explainers or []:
-        if e["status"] == "broken":
+        if e["status"] == rationale.BROKEN:
             codes = ", ".join(sorted({p["code"] for p in e["problems"] if p.get("severity") == "error"}))
             ui.warn(f"rationale/{escape(Path(e['file']).name)} ({escape(e['id'])}) is broken ({escape(codes)}): "
                     "its explainer page was not rendered. Fix it with ddspace rationale check, then build again.")
-    rendered = [e for e in result.explainers or [] if e["status"] != "broken"]
-    changed = sum(e["status"] == "changed" for e in rendered)
+    rendered = [e for e in result.explainers or [] if e["status"] != rationale.BROKEN]
+    changed = sum(e["status"] == rationale.CHANGED for e in rendered)
     extras = [f"{result.summaries_written} source summaries" if result.summaries_written else "",
               f"{result.descriptions_written} design-point descriptions" if result.descriptions_written else ""]
     check = ("[green]passed[/green]" if not result.okf_errors
