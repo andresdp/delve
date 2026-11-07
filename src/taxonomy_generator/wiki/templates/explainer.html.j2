@@ -243,11 +243,21 @@
     : n.kind === "requirement" ? COLOR.novel : COLOR.dimension;
 
   // Radial layout, copied from graph.html (until the shared layout script lands): one ring per kind, each
-  // dimension an angular sector holding its values, a ring's radius growing with the nodes on it.
+  // dimension an angular sector holding its values, a ring's radius growing with the nodes on it. Labels point
+  // outward along the radius, so each ring also starts beyond the longest label of the ring inside it: a value
+  // never sits on its dimension's label, nor a requirement on a value's.
   const RINGS = ["domain", "dimension", "value", "requirement"];
   const SPACING = { dimension: 90, value: 30, requirement: 40 };
   const STATUS_ORDER = ["accepted", "mixed", "rejected", "outcome"];
-  const STAGGER = 24;
+  const STAGGER = 24, RING_GAP = 110, LABEL_GAP = 26, LABEL_MAX = 36;
+  const shortLabel = (s) => { s = String(s ?? ""); return s.length > LABEL_MAX ? s.slice(0, LABEL_MAX - 1).trimEnd() + "…" : s; };
+  const measure = (() => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+    return (s) => ctx ? ctx.measureText(s).width : s.length * 6.5;
+  })();
+  // How far past its node a ring's labels reach: the node, the label's offset and its text, plus the halo.
+  const labelReach = (ns) => d3.max(ns, (n) => radius(n) + 4 + measure(shortLabel(n.label)) + 3) || 0;
   function radialTargets(nodes, links, cx, cy) {
     const angle = new Map(), values = new Map(), outset = new Map();
     links.filter((l) => l.type === "has_value").forEach((l) => {
@@ -265,11 +275,12 @@
     nodes.forEach((n) => { count[n.kind] = (count[n.kind] || 0) + 1; });
     const slots = { ...count, value: Math.max(count.value || 0, total) };
     const radiusOf = {};
-    let r = 0;
+    let r = 0, reach = 0;
     RINGS.filter((k) => count[k]).forEach((k) => {
       if (k === "domain") { radiusOf[k] = 0; return; }
-      r = Math.max(r + 110, slots[k] * SPACING[k] / (2 * Math.PI));
+      r = Math.max(r + RING_GAP, reach + LABEL_GAP, slots[k] * SPACING[k] / (2 * Math.PI));
       radiusOf[k] = r;
+      reach = r + (k === "value" ? STAGGER : 0) + labelReach(nodes.filter((n) => n.kind === k));
     });
     let start = -Math.PI / 2;
     dims.forEach((d) => {
@@ -332,7 +343,7 @@
     .on("click", (ev, d) => { ev.stopPropagation(); select(d.id); });
   nodeSel.append("circle").attr("r", (d) => Math.max(radius(d), 10)).attr("fill", "transparent");
   nodeSel.append("path").attr("class", "shape").attr("d", shapePath);
-  nodeSel.append("text").text((d) => d.label);
+  nodeSel.append("text").text((d) => d.kind === "domain" ? d.label : shortLabel(d.label));
   nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text : d.label + (d.status ? " (" + d.status + ")" : ""));
   function orientLabels() {
     nodeSel.select("text").each(function (d) {

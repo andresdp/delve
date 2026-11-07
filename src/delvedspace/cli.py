@@ -733,6 +733,13 @@ def wiki_build_cmd(
         if n_failed:
             ui.warn(f"{n_failed} of {total} {what} failed (first error: {escape(result.first_llm_error)}); "
                     "run ddspace wiki build again to retry.")
+    for e in result.explainers or []:
+        if e["status"] == "broken":
+            codes = ", ".join(sorted({p["code"] for p in e["problems"] if p.get("severity") == "error"}))
+            ui.warn(f"rationale/{escape(Path(e['file']).name)} ({escape(e['id'])}) is broken ({escape(codes)}): "
+                    "its explainer page was not rendered. Fix it with ddspace rationale check, then build again.")
+    rendered = [e for e in result.explainers or [] if e["status"] != "broken"]
+    changed = sum(e["status"] == "changed" for e in rendered)
     extras = [f"{result.summaries_written} source summaries" if result.summaries_written else "",
               f"{result.descriptions_written} design-point descriptions" if result.descriptions_written else ""]
     check = ("[green]passed[/green]" if not result.okf_errors
@@ -743,6 +750,8 @@ def wiki_build_cmd(
         ("Written by the LLM", ", ".join(e for e in extras if e)),
         ("OKF v0.2 check", check),
         ("Chat index", result.chat),
+        ("Explainers", f"{len(rendered)} in site/explainers/" + (f" ({changed} written against an earlier graph)"
+                                                                   if changed else "") if rendered else ""),
         ("wiki/", f"Markdown for agents and Obsidian {ui.path('(start at wiki/index.md)')}"),
         ("site/", f"HTML for people {ui.path('(site/index.html; graph: site/graph.html)')}"),
         ("raw/", "data for ddspace query"),

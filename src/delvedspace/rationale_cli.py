@@ -6,7 +6,6 @@ JSON by default (for agents); ``check --table`` for people.
 from __future__ import annotations
 
 import json
-import re
 import shutil
 from pathlib import Path
 from typing import Any, Dict, NoReturn, Optional, Tuple
@@ -18,7 +17,7 @@ from rich.markup import escape
 from delvedspace import query_cli, rationale
 from delvedspace.wiki_build import HTML_DIR
 from delvedspace.workspace import CONFIG_NAME, Workspace, WorkspaceError
-from taxonomy_generator.wiki import explainer
+from taxonomy_generator.wiki import explainer, render
 from taxonomy_generator.wiki import query as q
 
 app = typer.Typer(
@@ -99,9 +98,6 @@ def check(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
     raise typer.Exit(0 if result["ok"] else 1)
 
 
-_SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-
-
 def html_dir(root: Path) -> Path:
     """The HTML folder of the wiki in ``root``: ``site/`` (``ddspace wiki build``) or ``html/`` (an export)."""
     for name in (HTML_DIR, "html"):
@@ -119,7 +115,8 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
     """Check a rationale file, then render it as an explainer page; print the page path as JSON.
 
     In a workspace, the file is copied to rationale/<id>.json and the page is written to
-    site/explainers/<id>.html, next to the wiki pages it links to. With --out DIR, a standalone folder is written
+    site/explainers/<id>.html, next to the wiki pages it links to, and listed on the HTML index; every
+    `ddspace wiki build` re-renders it. With --out DIR, a standalone folder is written
     (with a space, its links point into the wiki the file was checked against). A file with errors writes
     nothing: exit code 1 with the check result. Exit code 2 for an unreadable file, a graph that cannot be
     loaded, or a missing --out.
@@ -133,7 +130,7 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
         typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
         raise typer.Exit(1)
     rid = str(doc["id"])
-    if not _SAFE_ID.match(rid):
+    if not rationale.SAFE_ID.match(rid):
         _fail(f"The id '{rid}' cannot name a file: use letters, digits, '.', '_' and '-'.", False)
     changed = any(p["code"] == "graph_changed" for p in result["problems"])
     root = graph_file.resolve().parent.parent if graph_file is not None else None
@@ -149,8 +146,34 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
         if not (copied.exists() and copied.samefile(file)):
             shutil.copyfile(file, copied)
         site = html_dir(root)
-        # raw/exported.json is left alone: listing the page there would make the next `ddspace wiki build`
-        # remove it as stale (the build does not render explainers yet), while an unlisted file is kept.
         page = explainer.write_page(doc, loaded, site, wiki_html=site, graph_changed=changed)
+        # `ddspace wiki build` re-renders every file in rationale/, so the page is listed in raw/exported.json as
+        # the build would list it (a later build that cannot render it, a broken file, then removes it).
+        explainer.write_index(site, rationale.index_entries(rationale.scan(root, site)))
+        render.add_to_manifest(root, [page])
     typer.echo(json.dumps({"page": str(page), "rationale": str(copied) if copied else None,
                            "problems": result["problems"]}, indent=2, ensure_ascii=False))
+
+
+@app.command("list")
+def list_cmd(table: bool = query_cli.TableOpt) -> None:
+    """List the workspace's rationale files (rationale/*.json): id, mode, alternatives, status and page.
+
+    Status: ok; changed (clean, but written against an earlier graph: its page shows a banner); broken (errors
+    in `ddspace rationale check`: `ddspace wiki build` skips it). The page is null until the file is rendered.
+    """
+    try:
+        ws = Workspace.find()
+    except WorkspaceError as exc:
+        _fail(str(exc), table)
+    entries = rationale.scan(ws.root, html_dir(ws.root))
+    if not table:
+        typer.echo(json.dumps([{k: e[k] for k in ("id", "mode", "alternatives", "status", "page", "file", "problems")}
+                               for e in entries], indent=2, ensure_ascii=False))
+        return
+    if not entries:
+        console.print(f"No rationale files in {escape(str(ws.root / rationale.RATIONALE_DIR))}.")
+        return
+    query_cli._table("Rationale files", ["id", "mode", "alternatives", "status", "page"],
+                     [[e["id"], e["mode"] or "", str(e["alternatives"]), e["status"],
+                       str(Path(e["page"]).relative_to(ws.root)) if e["page"] else ""] for e in entries])

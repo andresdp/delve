@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from delvedspace import __version__, runs
+from delvedspace import __version__, rationale, runs
 from delvedspace import sources as src
 from delvedspace.workspace import Workspace, read_json, write_json
 from taxonomy_generator.evaluation.design_points import point_signature, sample_points
@@ -360,6 +360,7 @@ class Result:
     first_llm_error: str = ""
     okf_errors: Optional[List[str]] = None
     chat: str = ""                      # what happened to the chat index (built, or why not)
+    explainers: Optional[List[Dict[str, Any]]] = None  # rationale/*.json as rendered (rationale.scan entries)
 
 
 def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True) -> Result:
@@ -424,7 +425,9 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
     old_run = read_json(ws.root / "raw" / "run.json", {}).get("run")
     period = parse_period(opts.stale_after)
     stale = (dt.datetime.now().astimezone() + period).isoformat(timespec="seconds") if period else None
-    write(export, ws.root, name, html_dir=HTML_DIR, okf_by=producer(), okf_stale_after=stale)
+    # Explainers are rendered inside the export, so raw/exported.json lists them; a broken file's page goes.
+    explainers = write(export, ws.root, name, html_dir=HTML_DIR, okf_by=producer(), okf_stale_after=stale,
+                       explainers=lambda html: rationale.render_workspace(ws.root, html))
     entry = log_entry(run, run_dir, diff(old, export.graph), export.graph, same_run=old_run == run_dir.name)
     append_log(ws.root / "wiki" / "log.md", entry)
     errors, _warnings = okf.check(ws.root / "wiki")
@@ -433,7 +436,7 @@ def build_wiki(ws: Workspace, run_dir: Path, opts: Options, *, llm: bool = True)
                   core=core_count(dims, opts.core_min_sources), log=entry, summaries_written=sum_out.written,
                   descriptions_written=desc_out.written, summaries_failed=sum_out.failed,
                   descriptions_failed=desc_out.failed, first_llm_error=sum_out.first_error or desc_out.first_error,
-                  okf_errors=errors, chat=chat_note)
+                  okf_errors=errors, chat=chat_note, explainers=explainers)
 
 
 def _rebuild_chat_index(ws: Workspace) -> str:

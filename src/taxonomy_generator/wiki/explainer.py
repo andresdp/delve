@@ -13,12 +13,14 @@ The caller checks the file first (``delvedspace.rationale.check``): this module 
 
 from __future__ import annotations
 
+import html
 import importlib.resources
 import json
 import os
+import re
 import shutil
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 from taxonomy_generator.wiki.render import TEMPLATES, _env, copy_images
 
@@ -254,3 +256,37 @@ def write_standalone(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]],
     """Write ``<out>/explainers/<id>.html`` and ``<out>/assets/``; links (if any) point into ``wiki_html``."""
     copy_assets(out)
     return write_page(doc, graph, out, wiki_html=wiki_html, graph_changed=graph_changed)
+
+
+# ── the index's list of explainers ───────────────────────────────────────
+
+INDEX_REGION = re.compile(r"<!-- explainers -->.*?<!-- /explainers -->", re.S)
+
+
+def write_index(html_root: Path, entries: Sequence[Mapping[str, Any]]) -> bool:
+    """Write the "Explainers" list into ``<html_root>/index.html`` (empty when there are none).
+
+    ``entries`` are ``{id, title, mode, changed}`` of the rendered pages. The list sits in a marked region of the
+    HTML index only (``wiki/index.md`` is left alone). Returns False when the index has no such region.
+    """
+    index = Path(html_root) / "index.html"
+    try:
+        text = index.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    if not INDEX_REGION.search(text):
+        return False
+    block = ""
+    if entries:
+        items = "".join(
+            f'<li><a href="{EXPLAINERS}/{html.escape(str(e["id"]), quote=True)}.html">'
+            f'{html.escape(str(e.get("title") or e["id"]))}</a> <span style="color: var(--muted)">'
+            f'{"explain" if e.get("mode") == "explain" else "search"}'
+            f'{" · written against an earlier graph" if e.get("changed") else ""}</span></li>'
+            for e in sorted(entries, key=lambda e: str(e["id"])))
+        block = ('<section class="explainers"><h2>Explainers</h2><p>Design rationale that coding agents wrote '
+                 f'against this space.</p><ul>{items}</ul></section>')
+    new = INDEX_REGION.sub(lambda _: f"<!-- explainers -->{block}<!-- /explainers -->", text, count=1)
+    if new != text:
+        index.write_text(new, encoding="utf-8")
+    return True

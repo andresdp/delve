@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -371,3 +372,91 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
             if c.fields(rel, parts, _RELATION) and c.graph is not None:
                 c.relation(rel, parts)
         c.unmet_requires(value_ids, ("alternatives", i))
+
+
+# ---------------------------------------------------------------- the workspace's rationale/ folder
+
+SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # an id that can name a file
+RATIONALE_DIR = "rationale"
+STATUSES = ("ok", "changed", "broken")
+
+
+def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path) -> Dict[str, Any]:
+    """One ``rationale/*.json`` file: ``{file, id, mode, title, alternatives, status, page, problems, doc}``.
+
+    ``broken``: unreadable, check errors, an id that cannot name a page, or a space but no graph to check it
+    against. ``changed``: clean, but written against an earlier graph (KTD7). ``ok`` otherwise.
+    """
+    entry: Dict[str, Any] = {"file": str(path), "id": path.stem, "mode": None, "title": None, "alternatives": 0,
+                             "status": "broken", "page": None, "problems": [], "doc": None}
+    try:
+        doc = load(path)
+    except RationaleError as exc:
+        entry["problems"] = [{"code": "unreadable", "severity": "error", "path": "", "message": str(exc)}]
+        return entry
+    if isinstance(doc, dict):
+        entry["id"] = str(doc.get("id") or path.stem)
+        entry["mode"] = doc.get("mode")
+        entry["title"] = (doc.get("problem") or {}).get("title") if isinstance(doc.get("problem"), dict) else None
+        alts = doc.get("alternatives")
+        entry["alternatives"] = len(alts) if isinstance(alts, list) else 0
+    page = html / "explainers" / f"{entry['id']}.html"
+    entry["page"] = str(page) if SAFE_ID.match(entry["id"]) and page.is_file() else None
+    if names_space(doc) and graph is None:
+        entry["problems"] = [{"code": "no_graph", "severity": "error", "path": "/space",
+                              "message": "the file names a space, but the workspace has no raw/graph.json"}]
+        return entry
+    result = check(doc, graph, sha)
+    entry["problems"] = result["problems"]
+    if not SAFE_ID.match(entry["id"]):
+        entry["problems"].append({"code": "schema", "severity": "error", "path": "/id",
+                                  "message": f"the id '{entry['id']}' cannot name a file"})
+    elif result["ok"]:
+        entry["status"] = "changed" if any(p["code"] == "graph_changed" for p in result["problems"]) else "ok"
+        entry["doc"] = doc
+    return entry
+
+
+def _graph(root: Path) -> Tuple[Optional[q.Graph], Optional[str]]:
+    path = Path(root) / "raw" / "graph.json"
+    try:
+        return q.load(path), file_sha256(path)
+    except (q.QueryError, OSError, ValueError):
+        return None, None
+
+
+def scan(root: Path, html: Path) -> List[Dict[str, Any]]:
+    """The status of every ``<root>/rationale/*.json`` against ``<root>/raw/graph.json`` (no ``doc`` key)."""
+    return [{k: v for k, v in e.items() if k != "doc"} for e in _scan(root, html)[1]]
+
+
+def _scan(root: Path, html: Path):
+    folder = Path(root) / RATIONALE_DIR
+    files = sorted(folder.glob("*.json")) if folder.is_dir() else []
+    graph, sha = _graph(root) if files else (None, None)
+    return graph, [_status(f, graph, sha, Path(html)) for f in files]
+
+
+def index_entries(entries: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """The rendered pages among ``entries`` (scan results), as the HTML index lists them."""
+    return [{"id": e["id"], "title": e.get("title"), "mode": e.get("mode"), "changed": e["status"] == "changed"}
+            for e in entries if e["status"] != "broken" and e.get("page")]
+
+
+def render_workspace(root: Path, html: Path) -> List[Dict[str, Any]]:
+    """Check, then re-render, every ``<root>/rationale/*.json`` into ``<html>/explainers/`` (``wiki build``).
+
+    A broken file is skipped (its old page is then removed as stale by the export); a changed one renders with
+    the graph-changed banner. The HTML index lists the rendered pages. Returns the scan results.
+    """
+    from taxonomy_generator.wiki import explainer
+
+    graph, entries = _scan(root, html)
+    for e in entries:
+        if e["status"] == "broken":
+            e["page"] = None  # not rendered again: the export removes the old page
+        else:
+            e["page"] = str(explainer.write_page(e["doc"], graph, Path(html), wiki_html=Path(html),
+                                                 graph_changed=e["status"] == "changed"))
+    explainer.write_index(Path(html), index_entries(entries))
+    return [{k: v for k, v in e.items() if k != "doc"} for e in entries]

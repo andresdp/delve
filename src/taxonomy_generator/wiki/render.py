@@ -21,7 +21,7 @@ import posixpath
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
 
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -315,14 +315,33 @@ def _remove_stale(before: Mapping[Path, int], roots: Sequence[Path], out: Path) 
     manifest.write_text(json.dumps(kept, indent=1) + "\n", encoding="utf-8")
 
 
+def add_to_manifest(out: Path, paths: Iterable[Path]) -> None:
+    """List files written outside an export (an explainer page) in ``raw/exported.json``, if there is one.
+
+    A listed file that the next export does not rewrite is removed by it: list only what the export renders.
+    """
+    manifest = Path(out) / EXPORTED_MANIFEST
+    try:
+        listed = set(json.loads(manifest.read_text(encoding="utf-8")))
+    except (OSError, ValueError, TypeError):
+        return
+    listed |= {Path(p).resolve().relative_to(Path(out).resolve()).as_posix() for p in paths}
+    manifest.write_text(json.dumps(sorted(listed), indent=1) + "\n", encoding="utf-8")
+
+
 def write(export: Export, out: Path, name: str, case_icon: Path | None = None, *, html_dir: str = "html",
-          okf_by: str | None = None, okf_stale_after: str | None = None) -> None:
+          okf_by: str | None = None, okf_stale_after: str | None = None,
+          explainers: Optional[Callable[[Path], Any]] = None) -> Any:
     """Write the whole export (replacing ``wiki/`` and the HTML folder from a previous export of the same run).
 
     ``case_icon`` (an SVG) is shown on the index and next to the wiki name; the
     DelveDSpace logo and icon are always included. With ``okf_by`` (the producer, e.g.
     ``delvedspace/0.1.0``) ``wiki/`` is written as an Open Knowledge Format bundle (see ``okf.py``)
     instead of the wikilink layout with ``.llmwiki.yaml`` and ``SCHEMA.md``; a ``log.md`` in it is kept.
+
+    ``explainers`` is called with the HTML folder once the pages and ``raw/graph.json`` are written and before
+    stale files are removed, so the explainer pages it renders are listed in ``raw/exported.json`` and kept;
+    a page it does not render again is removed. Its result is returned.
     """
     out = Path(out)
     roots = [out / "wiki", out / html_dir]
@@ -337,7 +356,9 @@ def write(export: Export, out: Path, name: str, case_icon: Path | None = None, *
     graph_node_of = {n["href"]: n["id"] for n in export.graph["nodes"]}
     write_html(export, out, name, graph_node_of, case_icon, html_dir)
     write_raw(export, out)
+    rendered = explainers(out / html_dir) if explainers is not None else None
     _remove_stale(before, roots, out)
+    return rendered
 
 
 def write_raw(export: Export, out: Path) -> None:
