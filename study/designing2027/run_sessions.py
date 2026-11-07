@@ -403,9 +403,17 @@ def file_ids(doc: Any) -> List[str]:
             if isinstance(r, dict):
                 add(r.get("source"))
                 add(r.get("target"))
-        point = alt.get("point")
+    for step in doc.get("trajectory") or []:          # the design points investigated, with what point reported
+        if not isinstance(step, dict):
+            continue
+        for v in step.get("values") or []:
+            add(v)
+        point = step.get("point")
         for s in (point.get("attested_by") or []) if isinstance(point, dict) else []:
             add(s.get("id") if isinstance(s, dict) else s)    # a source id, or a source object with its id
+    for region in doc.get("regions") or []:
+        for v in (region.get("values") or []) if isinstance(region, dict) else []:
+            add(v)
     for key, field in (("comparison", "dimension_id"), ("uncovered", "nearest_dimension_id")):
         for item in doc.get(key) or []:
             add(item.get(field) if isinstance(item, dict) else None)

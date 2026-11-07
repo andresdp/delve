@@ -61,6 +61,7 @@ def _search_with_a_shared_dimension():
     doc["alternatives"][1]["choices"] = [
         {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "Disks survive one failure.",
          "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": None}]
+    doc["trajectory"][2]["values"] = ["v:1.1"]
     doc["comparison"] = [{"dimension_id": "d:2", "note": "A1 commits in three phases; A2 leaves it open."}]
     return doc
 

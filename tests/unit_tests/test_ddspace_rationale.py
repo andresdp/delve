@@ -1,4 +1,4 @@
-"""ddspace rationale check: the ddspace-rationale/1 file, its structural rules and its rules against a space."""
+"""ddspace rationale check: the ddspace-rationale/2 file, its structural rules and its rules against a space."""
 
 import copy
 import hashlib
@@ -58,7 +58,19 @@ def _explain(uncovered=2):
     alt["id"] = "S"
     for choice, quote in zip(alt["choices"], ["data stays on each node's disk", "a three-phase commit"]):
         choice["solution_quote"] = quote
+    alt["step"] = 1
     doc["alternatives"] = [alt]
+    doc["budget"] = {"max_points": 8}
+    doc["trajectory"] = [
+        {"step": 1, "move": "solution", "parent": None, "values": ["v:1.1", "v:2.1"], "drivers": ["Q1", "R1"],
+         "why": "The solution as one design point.", "verdict": "grounded",
+         "point": {"description": "Local disks with a quorum and a commit protocol.", "attested_by": ["s:s1"]}},
+        {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"], "drivers": ["Q1"],
+         "why": "Is the disk quorum alone attested?", "verdict": "grounded",
+         "point": {"description": "Local disks with a quorum.", "attested_by": ["s:s1"]}},
+    ]
+    doc["regions"] = [{"id": "G1", "name": "Disk quorum", "values": ["v:1.1"], "step": 2, "drivers": ["Q1"],
+                       "reason": "Durability on one node failure forces a quorum of local disks."}]
     doc["uncovered"] = [
         {"decision": "Backup schedule", "solution_quote": "nightly snapshots", "nearest_dimension_id": "d:1"},
         {"decision": "Client library", "solution_quote": "a Go client", "nearest_dimension_id": None},
@@ -76,8 +88,13 @@ def _no_space(mode="search"):
         "relations": [{"source": "Store", "target": "Replication", "type": "constrains", "holds": True,
                        "note": ""}],
     }
+    step = lambda n, move, opts: {  # noqa: E731
+        "step": n, "move": move, "parent": None, "values": [{"decision": d, "option": o} for d, o in opts],
+        "why": "w", "verdict": "kept"}
     doc = _sample()
-    doc.update(space=None, alternatives=[alt("A1", [("Store", "Local disks")]), alt("A2", [("Store", "S3")])],
+    doc.update(space=None, alternatives=[dict(alt("A1", [("Store", "Local disks")]), step=1),
+                                         dict(alt("A2", [("Store", "S3")]), step=2)],
+               trajectory=[step(1, "seed", [("Store", "Local disks")]), step(2, "explore", [("Store", "S3")])],
                comparison=[{"decision": "Store", "note": "disks versus S3"}])
     return doc
 
@@ -168,6 +185,9 @@ def test_no_space_explain_with_uncovered_items_is_a_schema_error():
     alt["id"] = "S"
     alt["choices"][0]["solution_quote"] = "local disks"
     doc["alternatives"], doc["comparison"] = [alt], []
+    doc["trajectory"] = [dict(doc["trajectory"][0], move="solution", verdict="grounded")]
+    doc["regions"] = [{"id": "G1", "name": "Local disks", "values": [{"decision": "Store", "option": "Local disks"}],
+                       "step": 1, "drivers": ["Q1"], "reason": "r"}]
     doc["uncovered"] = [{"decision": "Backups", "solution_quote": "nightly", "nearest_dimension_id": None}]
     assert ("schema", "/uncovered") in _codes(rationale.check(doc))
     doc["uncovered"] = []
@@ -451,3 +471,104 @@ def test_the_checker_reads_unmet_requires_from_the_data_not_the_wording(ws, tmp_
 def test_safe_id_rejects_a_trailing_newline():
     assert rationale.SAFE_ID.fullmatch("toy-store") and not rationale.safe_id("toy-store\n")
     assert not rationale.safe_id("../evil") and not rationale.safe_id("a/b")
+
+
+# ---------------------------------------------------------------- schema 2: trajectory, budget, regions
+
+
+def test_the_trajectory_steps_are_numbered_in_order_with_earlier_parents(graph):
+    doc = _sample()
+    doc["trajectory"][1]["step"] = 5
+    doc["trajectory"][2]["parent"] = 3
+    doc["trajectory"][0]["parent"] = 1
+    codes = _codes(_check(doc, graph))
+    assert ("bad_step", "/trajectory/1/step") in codes
+    assert ("bad_step", "/trajectory/2/parent") in codes  # not an earlier step
+    assert ("bad_step", "/trajectory/0/parent") in codes  # the first step has none
+
+
+def test_moves_and_verdicts_belong_to_the_mode(graph):
+    doc = _sample()
+    doc["trajectory"][0]["move"] = "region"
+    doc["trajectory"][2]["verdict"] = "grounded"
+    del doc["trajectory"][1]["parent"]
+    codes = _codes(_check(doc, graph))
+    assert ("bad_step", "/trajectory/0/move") in codes
+    assert ("schema", "/trajectory/2/verdict") in codes
+    assert ("bad_step", "/trajectory/1/parent") in codes  # an exploit step names the step it refines
+
+
+def test_an_alternative_is_a_kept_step_with_the_same_values(graph):
+    doc = _sample()
+    doc["alternatives"][1]["step"] = 2           # a dropped step
+    assert ("step_mismatch", "/alternatives/1/step") in _codes(_check(doc, graph))
+    doc = _sample()
+    doc["trajectory"][0]["values"] = ["v:1.1"]  # step 1 no longer the point A1 takes
+    result = _check(doc, graph)
+    assert ("step_mismatch", "/alternatives/0/step") in _codes(result)
+    doc = _sample()
+    doc["alternatives"][0]["step"] = 9
+    assert ("step_mismatch", "/alternatives/0/step") in _codes(_check(doc, graph))
+
+
+def test_step_values_get_the_value_rules(graph):
+    doc = _sample()
+    doc["trajectory"][0]["values"] = ["1.1", "v:9.9", "v:1.2"]
+    codes = _codes(_check(doc, graph))
+    assert ("not_canonical", "/trajectory/0/values/0") in codes
+    assert ("unknown_id", "/trajectory/0/values/1") in codes
+    assert ("two_values_one_dimension", "/trajectory/0/values/2") in codes
+    doc["trajectory"][0]["values"] = []
+    assert ("schema", "/trajectory/0/values") in _codes(_check(doc, graph))
+
+
+def test_the_budget_caps_the_trajectory_and_the_mode_caps_the_budget(graph):
+    doc = _sample()
+    doc["budget"]["max_points"] = 2
+    assert ("budget", "/trajectory") in _codes(_check(doc, graph))
+    doc["budget"]["max_points"] = 21
+    assert ("budget", "/budget/max_points") in _codes(_check(doc, graph))
+    doc["budget"]["max_points"] = 20
+    assert _check(doc, graph)["ok"]
+    ex = _explain()
+    ex["budget"]["max_points"] = 13
+    assert ("budget", "/budget/max_points") in _codes(_check(ex, graph))
+    del doc["budget"]
+    assert ("schema", "/budget") in _codes(_check(doc, graph))
+
+
+def test_explain_has_one_solution_step_and_one_to_three_regions(graph):
+    doc = _explain()
+    doc["trajectory"][1]["move"] = "solution"
+    doc["trajectory"][1]["parent"] = None
+    assert ("bad_step", "/trajectory") in _codes(_check(doc, graph))
+    doc = _explain()
+    doc["regions"] = []
+    assert ("schema", "/regions") in _codes(_check(doc, graph))
+    doc["regions"] = [dict(_explain()["regions"][0], id=f"G{i}") for i in range(4)]
+    assert ("schema", "/regions") in _codes(_check(doc, graph))
+
+
+def test_a_region_is_a_partial_point_of_the_solution_probed_by_its_step(graph):
+    doc = _explain()
+    doc["regions"][0]["values"] = ["v:1.2"]
+    codes = _codes(_check(doc, graph))
+    assert ("region_not_in_solution", "/regions/0/values") in codes
+    assert ("step_mismatch", "/regions/0/step") in codes  # step 2 probed v:1.1, not v:1.2
+    doc = _explain()
+    doc["alternatives"][0]["step"] = 2               # the solution is the solution step
+    assert ("step_mismatch", "/alternatives/0/step") in _codes(_check(doc, graph))
+
+
+def test_search_has_no_regions(graph):
+    doc = _sample()
+    doc["regions"] = _explain()["regions"]
+    assert ("schema", "/regions") in _codes(_check(doc, graph))
+
+
+def test_no_space_steps_name_decisions_and_options():
+    doc = _no_space()
+    doc["trajectory"][0]["values"].append({"decision": "store", "option": "Postgres"})
+    codes = _codes(rationale.check(doc))
+    assert ("two_values_one_dimension", "/trajectory/0/values/1") in codes  # labels compare normalized
+    assert ("step_mismatch", "/alternatives/0/step") in codes

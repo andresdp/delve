@@ -1,5 +1,5 @@
 {
-  "schema": "ddspace-rationale/1",
+  "schema": "ddspace-rationale/2",
   "id": "toy-store-search",
   "mode": "search",
   "space": {
@@ -11,55 +11,188 @@
     "title": "A durable key-value store for a small cluster",
     "context": "Three nodes in one region keep configuration data that every service reads at start-up.",
     "requirements": [
-      {"id": "R1", "kind": "functional", "text": "Every committed write is visible on all nodes."},
-      {"id": "Q1", "kind": "quality", "attribute": "durability", "text": "No committed write is lost when one node fails."},
-      {"id": "C1", "kind": "constraint", "text": "The team already runs everything on S3."}
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Every committed write is visible on all nodes."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "durability",
+        "text": "No committed write is lost when one node fails."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The team already runs everything on S3."
+      }
     ]
   },
+  "budget": {
+    "max_points": 12
+  },
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:2.1"
+      ],
+      "drivers": [
+        "Q1",
+        "R1"
+      ],
+      "why": "Start from the most constraining requirement: no committed write may be lost when a node fails.",
+      "verdict": "kept",
+      "point": {
+        "description": "Local disks with a quorum and an explicit commit protocol.",
+        "attested_by": [
+          "s:s1"
+        ]
+      }
+    },
+    {
+      "step": 2,
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:1.1"
+      ],
+      "drivers": [
+        "Q1"
+      ],
+      "why": "Keep the disk quorum and drop the commit protocol, to see whether durability alone is attested.",
+      "verdict": "dropped",
+      "point": {
+        "description": "Local disks with a quorum.",
+        "attested_by": []
+      }
+    },
+    {
+      "step": 3,
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:1.2"
+      ],
+      "drivers": [
+        "C1",
+        "Q1"
+      ],
+      "why": "Move to the unvisited part of the space the S3 constraint points at.",
+      "verdict": "kept",
+      "point": {
+        "description": "A shared log in S3 as the source of truth.",
+        "attested_by": [
+          "s:s2"
+        ]
+      }
+    }
+  ],
   "alternatives": [
     {
       "id": "A1",
       "name": "Disk quorum with three-phase commit",
       "summary": "Each node keeps the data on its own disk; writes commit on a quorum.",
       "choices": [
-        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"],
-         "reason": "A quorum of disks survives one node failure.",
-         "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": null},
-        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"],
-         "reason": "Three-phase commit makes a write visible on every node before it is acknowledged.",
-         "evidence": [{"doc": "s01_p01", "stance": "supports"}], "solution_quote": null}
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A quorum of disks survives one node failure.",
+          "evidence": [
+            {
+              "doc": "s01_p01",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": null
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Three-phase commit makes a write visible on every node before it is acknowledged.",
+          "evidence": [
+            {
+              "doc": "s01_p01",
+              "stance": "supports"
+            }
+          ],
+          "solution_quote": null
+        }
       ],
       "considered": [
-        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["C1"],
-         "reason": "A WAL in S3 fits the platform, but adds a dependency on S3 for every write."}
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.2",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "A WAL in S3 fits the platform, but adds a dependency on S3 for every write."
+        }
       ],
       "open": [],
       "relations": [
-        {"source": "d:1", "target": "d:2", "type": "constrains", "holds": true,
-         "note": "Keeping the truth on local disks is what makes a commit protocol between nodes necessary."}
+        {
+          "source": "d:1",
+          "target": "d:2",
+          "type": "constrains",
+          "holds": true,
+          "note": "Keeping the truth on local disks is what makes a commit protocol between nodes necessary."
+        }
       ],
-      "point": {"description": "Local disks with a quorum and an explicit commit protocol.", "attested_by": ["s:s1"]}
+      "step": 1
     },
     {
       "id": "A2",
       "name": "WAL in S3",
       "summary": "The nodes write a log to S3 and rebuild their state from it.",
       "choices": [
-        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["C1", "Q1"],
-         "reason": "S3 is already the team's durable store.",
-         "evidence": [{"doc": "s02_p01", "stance": "accepts"}], "solution_quote": null}
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.2",
+          "drivers": [
+            "C1",
+            "Q1"
+          ],
+          "reason": "S3 is already the team's durable store.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": null
+        }
       ],
       "considered": [],
       "open": [
-        {"dimension_id": "d:2", "reason": "With the log in S3, no requirement decides how the nodes replicate."}
+        {
+          "dimension_id": "d:2",
+          "reason": "With the log in S3, no requirement decides how the nodes replicate."
+        }
       ],
       "relations": [],
-      "point": {"description": "A shared log in S3 as the source of truth.", "attested_by": ["s:s2"]}
+      "step": 3
     }
   ],
   "comparison": [
-    {"dimension_id": "d:1", "note": "A1 keeps the truth on the nodes' disks; A2 keeps it in S3."},
-    {"dimension_id": "d:2", "note": "A1 needs three-phase commit; A2 leaves replication open."}
+    {
+      "dimension_id": "d:1",
+      "note": "A1 keeps the truth on the nodes' disks; A2 keeps it in S3."
+    },
+    {
+      "dimension_id": "d:2",
+      "note": "A1 needs three-phase commit; A2 leaves replication open."
+    }
   ],
   "uncovered": []
 }
