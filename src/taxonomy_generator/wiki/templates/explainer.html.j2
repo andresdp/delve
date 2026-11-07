@@ -77,11 +77,11 @@
   .node.dim-out, .link.dim-out { opacity: .1; }
   .traj-wrap { position: relative; }
   svg.lineage { display: block; width: 100%; height: 46px; overflow: visible; }
-  table.traj { border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+  table.traj { border-collapse: separate; border-spacing: 0; font-size: 12.5px; overflow-wrap: normal; word-break: normal; hyphens: none; }
   table.traj th, table.traj td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
   table.traj thead th { position: sticky; top: 0; background: var(--panel); }
   table.traj th.row-h { text-align: left; font-weight: 500; min-width: 140px; max-width: 220px; }
-  table.traj .step-h { cursor: pointer; text-align: center; min-width: 86px; border-top: 3px solid var(--muted); }
+  table.traj .step-h { cursor: pointer; text-align: center; min-width: 112px; border-top: 3px solid var(--muted); }
   table.traj .step-h b { display: block; font-size: 14px; }
   table.traj .step-h .mv, table.traj .step-h .vd, table.traj .step-h .alt { display: block; font-size: 11px; }
   .mv-seed, .mv-solution { border-top-color: var(--dimension) !important; } .mv-seed .mv, .mv-solution .mv { color: var(--dimension); }
@@ -90,7 +90,7 @@
   .vd-kept, .vd-grounded { color: var(--accepted); } .vd-refined, .vd-partial { color: var(--mixed); }
   .vd-dropped, .vd-ungrounded { color: var(--rejected); }
   table.traj .alt { font-weight: 700; color: var(--fg); }
-  table.traj td.c { text-align: center; }
+  table.traj td.c { text-align: left; min-width: 112px; max-width: 150px; }
   table.traj td.changed { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 4px; }
   table.traj td.novel .cell-v { font-weight: 700; }
   table.traj td.contrast { box-shadow: inset 0 0 0 2px var(--novel); border-radius: 4px; }
@@ -148,21 +148,22 @@
   {% set search = d.mode != "explain" %}
   {% set solution = (d.trajectory|selectattr("move", "equalto", "solution")|first) if not search else none %}
   <section class="panel" data-panel="trajectory">
-    <p class="hint">{% if search %}How the agent searched the space: {{ d.budget.used }} design point{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. Each column is a step, each row a {{ "dimension" if d.with_space else "decision" }}; an arc links a step to the one it started from.{% else %}How the agent grounded the solution: {{ d.budget.used }} point{{ "s" if d.budget.used != 1 }} or region{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. The first column is the solution; each later column probes a part of it (a region) or changes one of its options (a contrast). The bands on the right are the regions that justify the solution.{% endif %}</p>
+    <p class="hint">{% if search %}How the agent searched the space: {{ d.budget.used }} design point{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. Each column is a step, each row a {{ "dimension" if d.with_space else "decision" }}; an arc links a step to the one it started from.{% else %}How the agent grounded the solution: {{ d.budget.used }} point{{ "s" if d.budget.used != 1 }} or region{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. The first column is the solution; each later column probes a part of it (a region) or changes one of its options (a contrast). The bands next to the {{ 'dimensions' if d.with_space else 'decisions' }} are the regions that justify the solution.{% endif %}</p>
     <div class="legend">
-      {% if search %}<span><b class="mv-seed" style="color:var(--dimension)">seed</b> a starting point</span><span><b style="color:var(--accent)">exploit</b> one or two options changed (outlined)</span><span><b style="color:var(--novel)">explore</b> a new part of the space (new options in bold)</span>
+      {% if search %}<span><b class="mv-seed" style="color:var(--dimension)">seed</b> a starting point</span><span><b style="color:var(--accent)">exploit</b> options added or changed against the step it starts from (outlined)</span><span><b style="color:var(--novel)">explore</b> a new part of the space (new options in bold)</span>
       {% else %}<span><b style="color:var(--dimension)">solution</b> the solution as a point</span><span><b style="color:var(--accent)">region</b> a part of it</span><span><b style="color:var(--novel)">contrast</b> an option changed (outlined)</span>{% endif %}
     </div>
     <div class="scroll traj-wrap">
       <svg class="lineage" aria-hidden="true"></svg>
       <table class="traj">
         <thead><tr><th class="row-h">{{ "Dimension" if d.with_space else "Decision" }}</th>
-          {% for s in d.trajectory %}<th class="step-h mv-{{ s.move }}" data-step="{{ s.step }}" title="{{ s.why }}"><b>{{ s.step }}</b><span class="mv">{{ s.move }}</span><span class="vd vd-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %}<span class="alt">→ {{ s.alternative }}</span>{% endif %}</th>{% endfor %}
           {% for r in d.regions %}<th class="band-h" title="{{ r.name }}">{{ r.id }}</th>{% endfor %}
+          {% for s in d.trajectory %}<th class="step-h mv-{{ s.move }}" data-step="{{ s.step }}" title="{{ s.why }}"><b>{{ s.step }}</b><span class="mv">{{ s.move }}</span><span class="vd vd-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %}<span class="alt">→ {{ s.alternative }}</span>{% endif %}</th>{% endfor %}
         </tr></thead>
         <tbody>
           {% for did in d.trajectory_dimensions %}
           <tr><th class="row-h">{{ dim_ref(did) }}</th>
+            {% for r in d.regions %}<td class="band" title="{{ r.name }}">{% if did in r.point %}<span></span>{% endif %}</td>{% endfor %}
             {% for s in d.trajectory %}
             {% set vid = s.point.get(did) %}
             {% if search %}
@@ -172,7 +173,6 @@
             <td class="c{% if vid and sol and vid != sol %} contrast{% endif %}" data-step="{{ s.step }}">{{ value_short(vid) }}</td>
             {% endif %}
             {% endfor %}
-            {% for r in d.regions %}<td class="band" title="{{ r.name }}">{% if did in r.point %}<span></span>{% endif %}</td>{% endfor %}
           </tr>
           {% endfor %}
         </tbody>
