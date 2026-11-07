@@ -134,6 +134,57 @@ class _Space:
     def decision(self, obj: Mapping[str, Any], key: str = "") -> Optional[str]:
         return self.dim(obj.get(key or ("dimension_id" if self.with_space else "decision")))
 
+    def point(self, values: Any) -> Dict[str, str]:
+        """Return ``{dimension id: value id}`` of a step's or region's ``values`` (ids, or ``{decision, option}``)."""
+        out: Dict[str, str] = {}
+        for item in values if isinstance(values, list) else []:
+            if self.with_space:
+                n = self._by_id.get(item) if isinstance(item, str) else None
+                d = self.dim(n.get("dimension_id")) if n is not None and n.get("kind") == "value" else None
+                v = self.value(d, item)
+            elif isinstance(item, dict):
+                d, v = self.names(item)
+            else:
+                d = v = None
+            if d is not None and v is not None and d not in out:
+                out[d] = v
+        return out
+
+
+def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """The steps the agent took, each with its point and what changed against its parent (or what was new)."""
+    steps: List[Dict[str, Any]] = []
+    by_number: Dict[Any, Dict[str, Any]] = {}
+    seen: set = set()
+    proposed = {a["step"]: a["id"] for a in alternatives if a.get("step") is not None}
+    for s in doc.get("trajectory") or []:
+        if not isinstance(s, dict):
+            continue
+        point = space.point(s.get("values"))
+        parent = by_number.get(s.get("parent"))
+        if parent is not None:
+            before = parent["point"]
+            changed = sorted(d for d in set(point) | set(before) if point.get(d) != before.get(d))
+        else:
+            changed = []
+        novel = [d for d, v in point.items() if v not in seen]
+        seen.update(point.values())
+        record = s.get("point") if isinstance(s.get("point"), dict) else {}
+        attested = []
+        for ref in record.get("attested_by") or []:
+            sid = ref.get("id") if isinstance(ref, dict) else ref
+            n = space.node(sid) if isinstance(sid, str) else None
+            attested.append({"id": str(sid), "label": (n or {}).get("label") or str(sid),
+                             "href": space.link((n or {}).get("href") or "") if n else None})
+        step = {"step": s.get("step"), "move": s.get("move") or "", "parent": s.get("parent"),
+                "why": s.get("why") or "", "verdict": s.get("verdict") or "", "drivers": list(s.get("drivers") or []),
+                "point": point, "changed": changed, "novel": novel,
+                "description": record.get("description") or "", "attested_by": attested,
+                "alternative": proposed.get(s.get("step"))}
+        steps.append(step)
+        by_number[s.get("step")] = step
+    return steps
+
 
 def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: Link,
               graph_changed: bool = False) -> Dict[str, Any]:
@@ -164,8 +215,23 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
                               "holds": bool(r.get("holds")), "note": r.get("note") or ""})
         alternatives.append({"id": str(alt.get("id")), "name": alt.get("name") or str(alt.get("id")),
                              "summary": alt.get("summary") or "", "choices": choices, "considered": considered,
-                             "open": open_, "relations": relations,
-                             "point": (alt.get("point") or {}).get("description") or ""})
+                             "open": open_, "relations": relations, "step": alt.get("step")})
+
+    trajectory = _trajectory(doc, space, alternatives)
+    by_step = {s["step"]: s for s in trajectory}
+    for alt in alternatives:
+        alt["point"] = (by_step.get(alt["step"]) or {}).get("description") or ""
+    regions = []
+    for r in doc.get("regions") or []:
+        if isinstance(r, dict):
+            regions.append({"id": str(r.get("id")), "name": r.get("name") or str(r.get("id")),
+                            "point": space.point(r.get("values")), "step": r.get("step"),
+                            "drivers": list(r.get("drivers") or []), "reason": r.get("reason") or ""})
+    # The grid's rows: every dimension a step investigated, in the order the steps first name them.
+    trajectory_dims: List[str] = []
+    for s in trajectory:
+        trajectory_dims += [d for d in s["point"] if d not in trajectory_dims]
+    budget = doc.get("budget") if isinstance(doc.get("budget"), dict) else {}
 
     notes = {}
     for item in doc.get("comparison") or []:
@@ -176,6 +242,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     # Which values each alternative chose or considered; every other value is "offered by the space".
     for v in space.values.values():
         v["roles"] = {}
+        v["steps"] = [s["step"] for s in trajectory if v["id"] in s["point"].values()]
     for alt in alternatives:
         for c in alt["choices"]:
             if c["value"]:
@@ -230,7 +297,9 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         "requirements": [{"id": r.get("id"), "text": r.get("text") or "", "kind": r.get("kind") or "",
                           "attribute": r.get("attribute") or ""} for r in problem.get("requirements") or []],
         "alternatives": alternatives, "dimensions": space.dims, "values": space.values, "rows": rows,
-        "relations": relations, "uncovered": uncovered,
+        "relations": relations, "uncovered": uncovered, "trajectory": trajectory,
+        "trajectory_dimensions": trajectory_dims, "regions": regions,
+        "budget": {"max_points": budget.get("max_points"), "used": len(trajectory)},
         "links": {"index": link("index.html"), "graph": link("graph.html")},
     }
 

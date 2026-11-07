@@ -10,6 +10,12 @@
 <span class="dref" data-node="{{ x.id }}">{% if x.href %}<a href="{{ x.href }}">{{ x.label }}</a>{% else %}{{ x.label }}{% endif %}</span>
 {%- else -%}<span class="muted">—</span>{%- endif -%}
 {%- endmacro %}
+{% macro value_short(vid, cls="") -%}
+{%- set v = d["values"].get(vid) if vid else none -%}
+{%- if v -%}
+<span class="vref cell-v {{ cls }}" data-node="{{ v.id }}" title="{{ v.label }}">{% if v.status %}<span class="dot {{ v.status }}"></span>{% endif %}{{ v.label|truncate(26, true, "…") }}</span>
+{%- endif -%}
+{%- endmacro %}
 {% macro drivers(ids) -%}
 {% for r in ids %}<span class="chip small" data-node="r:{{ r }}">{{ r }}</span>{% endfor %}
 {%- endmacro %}
@@ -69,6 +75,36 @@
   .node text { font-size: 11px; fill: var(--fg); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
   .node.greyed path.shape { opacity: .35; }
   .node.dim-out, .link.dim-out { opacity: .1; }
+  .traj-wrap { position: relative; }
+  svg.lineage { display: block; width: 100%; height: 46px; overflow: visible; }
+  table.traj { border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+  table.traj th, table.traj td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.traj thead th { position: sticky; top: 0; background: var(--panel); }
+  table.traj th.row-h { text-align: left; font-weight: 500; min-width: 140px; max-width: 220px; }
+  table.traj .step-h { cursor: pointer; text-align: center; min-width: 86px; border-top: 3px solid var(--muted); }
+  table.traj .step-h b { display: block; font-size: 14px; }
+  table.traj .step-h .mv, table.traj .step-h .vd, table.traj .step-h .alt { display: block; font-size: 11px; }
+  .mv-seed, .mv-solution { border-top-color: var(--dimension) !important; } .mv-seed .mv, .mv-solution .mv { color: var(--dimension); }
+  .mv-exploit, .mv-region { border-top-color: var(--accent) !important; } .mv-exploit .mv, .mv-region .mv { color: var(--accent); }
+  .mv-explore, .mv-contrast { border-top-color: var(--novel) !important; } .mv-explore .mv, .mv-contrast .mv { color: var(--novel); }
+  .vd-kept, .vd-grounded { color: var(--accepted); } .vd-refined, .vd-partial { color: var(--mixed); }
+  .vd-dropped, .vd-ungrounded { color: var(--rejected); }
+  table.traj .alt { font-weight: 700; color: var(--fg); }
+  table.traj td.c { text-align: center; }
+  table.traj td.changed { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 4px; }
+  table.traj td.novel .cell-v { font-weight: 700; }
+  table.traj td.contrast { box-shadow: inset 0 0 0 2px var(--novel); border-radius: 4px; }
+  table.traj td.dropped { opacity: .55; }
+  table.traj .sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  table.traj .band-h { text-align: center; font-size: 12px; min-width: 40px; }
+  table.traj td.band span { display: block; height: 18px; border-radius: 3px; background: var(--accepted); opacity: .75; }
+  .cell-v { font-size: 12px; }
+  ol.steps { padding-left: 0; list-style: none; margin: 14px 0 0; }
+  ol.steps li { border-left: 3px solid var(--border); padding: 6px 10px; margin: 0 0 6px; cursor: pointer; font-size: 13.5px; }
+  ol.steps li.sel { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  ol.steps .why { margin: 3px 0; line-height: 1.45; }
+  .legend { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; }
+  .region { border: 1px solid var(--border); border-left: 4px solid var(--accepted); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
   .link.off { display: none; }
   @media (max-width: 900px) {
     .ex-wrap { grid-template-columns: 1fr; }
@@ -99,15 +135,71 @@
   </ul>
 
   <div class="tabs" role="tablist">
+    {% if d.trajectory %}<button class="tab" type="button" role="tab" data-tab="trajectory" aria-selected="true">Trajectory</button>{% endif %}
     {% for a in d.alternatives %}
-    <button class="tab" type="button" role="tab" data-tab="{{ a.id }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ a.id }} · {{ a.name }}</button>
+    <button class="tab" type="button" role="tab" data-tab="{{ a.id }}" aria-selected="{{ 'true' if loop.first and not d.trajectory else 'false' }}">{{ a.id }} · {{ a.name }}</button>
     {% endfor %}
     {% if d.alternatives|length > 1 %}
     <button class="tab" type="button" role="tab" data-tab="compare" aria-selected="false">Compare</button>
     {% endif %}
   </div>
+
+  {% if d.trajectory %}
+  {% set search = d.mode != "explain" %}
+  {% set solution = (d.trajectory|selectattr("move", "equalto", "solution")|first) if not search else none %}
+  <section class="panel" data-panel="trajectory">
+    <p class="hint">{% if search %}How the agent searched the space: {{ d.budget.used }} design point{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. Each column is a step, each row a {{ "dimension" if d.with_space else "decision" }}; an arc links a step to the one it started from.{% else %}How the agent grounded the solution: {{ d.budget.used }} point{{ "s" if d.budget.used != 1 }} or region{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. The first column is the solution; each later column probes a part of it (a region) or changes one of its options (a contrast). The bands on the right are the regions that justify the solution.{% endif %}</p>
+    <div class="legend">
+      {% if search %}<span><b class="mv-seed" style="color:var(--dimension)">seed</b> a starting point</span><span><b style="color:var(--accent)">exploit</b> one or two options changed (outlined)</span><span><b style="color:var(--novel)">explore</b> a new part of the space (new options in bold)</span>
+      {% else %}<span><b style="color:var(--dimension)">solution</b> the solution as a point</span><span><b style="color:var(--accent)">region</b> a part of it</span><span><b style="color:var(--novel)">contrast</b> an option changed (outlined)</span>{% endif %}
+    </div>
+    <div class="scroll traj-wrap">
+      <svg class="lineage" aria-hidden="true"></svg>
+      <table class="traj">
+        <thead><tr><th class="row-h">{{ "Dimension" if d.with_space else "Decision" }}</th>
+          {% for s in d.trajectory %}<th class="step-h mv-{{ s.move }}" data-step="{{ s.step }}" title="{{ s.why }}"><b>{{ s.step }}</b><span class="mv">{{ s.move }}</span><span class="vd vd-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %}<span class="alt">→ {{ s.alternative }}</span>{% endif %}</th>{% endfor %}
+          {% for r in d.regions %}<th class="band-h" title="{{ r.name }}">{{ r.id }}</th>{% endfor %}
+        </tr></thead>
+        <tbody>
+          {% for did in d.trajectory_dimensions %}
+          <tr><th class="row-h">{{ dim_ref(did) }}</th>
+            {% for s in d.trajectory %}
+            {% set vid = s.point.get(did) %}
+            {% if search %}
+            <td class="c{% if did in s.changed %} changed{% endif %}{% if did in s.novel and s.move == 'explore' %} novel{% endif %}{% if s.verdict == 'dropped' %} dropped{% endif %}" data-step="{{ s.step }}">{{ value_short(vid) }}</td>
+            {% else %}
+            {% set sol = solution.point.get(did) if solution else none %}
+            <td class="c{% if vid and sol and vid != sol %} contrast{% endif %}" data-step="{{ s.step }}">{{ value_short(vid) }}</td>
+            {% endif %}
+            {% endfor %}
+            {% for r in d.regions %}<td class="band" title="{{ r.name }}">{% if did in r.point %}<span></span>{% endif %}</td>{% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <ol class="steps">
+      {% for s in d.trajectory %}
+      <li data-step="{{ s.step }}"><strong>Step {{ s.step }}</strong> · <span class="mv-{{ s.move }}"><span class="mv">{{ s.move }}</span></span>{% if s.parent %} from step {{ s.parent }}{% endif %} · <span class="vd-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %} · <strong>{{ "the solution" if not search else "proposed as " ~ s.alternative }}</strong>{% endif %} {{ drivers(s.drivers) }}
+        {% if s.why %}<p class="why">{{ s.why }}</p>{% endif %}
+        {% if s.description %}<p class="muted">{{ s.description }}</p>{% endif %}
+        {% if d.with_space %}<p class="muted">{% if s.attested_by %}Attested by {% for a in s.attested_by %}{% if a.href %}<a href="{{ a.href }}">{{ a.label }}</a>{% else %}{{ a.label }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No source attests this combination.{% endif %}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% if d.regions %}
+    <h2 class="sec">Regions that justify the solution</h2>
+    {% for r in d.regions %}
+    <div class="region" data-step="{{ r.step }}"><strong>{{ r.id }} · {{ r.name }}</strong> {{ drivers(r.drivers) }} <span class="muted">investigated at step {{ r.step }}</span>
+      <p>{% for did, vid in r.point.items() %}{{ dim_ref(did) }} → {{ value_ref(vid) }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+      {% if r.reason %}<p>{{ r.reason }}</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </section>
+  {% endif %}
   {% for a in d.alternatives %}
-  <section class="panel" data-panel="{{ a.id }}"{% if not loop.first %} hidden{% endif %}>
+  <section class="panel" data-panel="{{ a.id }}"{% if not loop.first or d.trajectory %} hidden{% endif %}>
     {% if a.summary %}<p>{{ a.summary }}</p>{% endif %}
     {% if a.point %}<p class="muted">Design point: {{ a.point }}</p>{% endif %}
     {% for c in a.choices %}
@@ -307,16 +399,23 @@
 
   // The active view: one alternative (its choices lit, every other value greyed, its driver links shown) or the
   // compare view (every alternative's choices lit).
-  let view = alts.length ? alts[0].id : "compare", selected = null;
+  const steps = data.trajectory || [];
+  let view = steps.length ? "trajectory" : alts.length ? alts[0].id : "compare", selected = null, selectedStep = null;
   const chosenIn = (vid) => alts.filter((a) => a.choices.some((c) => c.value === vid));
   function applyView() {
     const lit = new Set();
+    if (view === "trajectory") {
+      steps.filter((s) => selectedStep === null || s.step === selectedStep)
+        .forEach((s) => Object.values(s.point).forEach((v) => lit.add(v)));
+    }
     alts.filter((a) => view === "compare" || a.id === view).forEach((a) => a.choices.forEach((c) => c.value && lit.add(c.value)));
     nodeSel.classed("greyed", (d) => d.kind === "value" && !lit.has(d.id))
       .select("path.shape").attr("fill", (d) => d.kind === "value" && !lit.has(d.id) ? COLOR.muted : nodeColor(d))
       .attr("stroke", (d) => d.id === selected ? COLOR.fg : d.kind === "value" && lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")
       .attr("stroke-width", (d) => d.id === selected ? 3 : 1.5);
     linkSel.classed("off", (d) => d.type === "drives" && view !== "compare" && d.alt !== view);
+    document.querySelectorAll("[data-step]").forEach((el) =>
+      el.classList.toggle("sel", view === "trajectory" && selectedStep !== null && Number(el.dataset.step) === selectedStep));
   }
   function neighborhood(id) {
     const keep = new Set([id]);
@@ -333,7 +432,7 @@
   }
   const HINT = '<p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p>';
   function clearSelection() {
-    selected = null;
+    selected = null; selectedStep = null;
     nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false);
     document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
     document.getElementById("info").innerHTML = HINT;
@@ -375,6 +474,7 @@
             + (k.drivers.length ? "<br>drivers: " + k.drivers.map(esc).join(", ") : "") + (k.reason ? "<br>" + esc(k.reason) : "") + "</li>";
         }
       });
+      if (n.steps && n.steps.length) roles += "<li>Investigated in step" + (n.steps.length > 1 ? "s " : " ") + n.steps.join(", ") + "</li>";
       h += roles ? "<ul>" + roles + "</ul>" : '<p class="muted">' + (data.with_space ? "Offered by the space" : "An option in another alternative") + ": no alternative chose or considered it.</p>";
       if (n.passages.length) h += '<p class="ev">Passages in the space: ' + ev(n.passages) + "</p>";
       if (n.sources.length) h += "<strong>Sources</strong><ul>" + n.sources.map((s) =>
@@ -401,6 +501,43 @@
     info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
   }
   svg.on("click", () => clearSelection());
+
+  // The trajectory: selecting a step (its column or its entry) lights its point in the graph.
+  function selectStep(n) {
+    const s = steps.find((x) => x.step === n); if (!s) return;
+    selected = null; selectedStep = n;
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false);
+    applyView();
+    const pts = Object.entries(s.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
+    const info = document.getElementById("info");
+    info.innerHTML = '<div class="kind">step ' + esc(s.step) + " · " + esc(s.move) + "</div><h2>" + esc(s.verdict)
+      + (s.alternative ? " · " + esc(s.alternative) : "") + "</h2>" + (s.why ? "<p>" + esc(s.why) + "</p>" : "")
+      + "<ul>" + pts + "</ul>" + (s.description ? '<p class="muted">' + esc(s.description) + "</p>" : "");
+    info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
+  }
+  document.querySelectorAll(".step-h, ol.steps li, .region").forEach((el) => el.addEventListener("click", (e) => {
+    if (e.target.closest("a") || e.target.closest("[data-node]")) return;
+    selectStep(Number(el.dataset.step));
+  }));
+  // The lineage: an arc from each step's parent column to its own, above the grid.
+  function drawLineage() {
+    const svgL = document.querySelector("svg.lineage"); if (!svgL) return;
+    const box = svgL.getBoundingClientRect(), table = document.querySelector("table.traj");
+    svgL.style.width = table.scrollWidth + "px";
+    const x = (n) => { const th = document.querySelector('.step-h[data-step="' + n + '"]'); if (!th) return null;
+      const r = th.getBoundingClientRect(); return r.left - box.left + r.width / 2; };
+    const colorOf = (m) => m === "explore" || m === "contrast" ? COLOR.novel : m === "exploit" || m === "region" ? COLOR.accent : COLOR.dimension;
+    let html = "";
+    steps.forEach((s) => {
+      const x1 = x(s.step); if (x1 === null) return;
+      html += '<circle cx="' + x1 + '" cy="40" r="3" fill="' + colorOf(s.move) + '"></circle>';
+      const x0 = s.parent ? x(s.parent) : null; if (x0 === null) return;
+      const h = Math.min(36, 10 + Math.abs(x1 - x0) / 8);
+      html += '<path d="M' + x0 + ",40 C" + x0 + "," + (40 - h) + " " + x1 + "," + (40 - h) + " " + x1 + ',40" fill="none" stroke="'
+        + colorOf(s.move) + '" stroke-width="1.6"></path>';
+    });
+    svgL.innerHTML = html;
+  }
   document.querySelectorAll("main [data-node]").forEach((el) => el.addEventListener("click", (e) => {
     if (e.target.closest("a")) return;  // a wiki link opens its page
     e.preventDefault(); select(el.dataset.node);
@@ -412,12 +549,14 @@
     document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", x === t ? "true" : "false"));
     document.querySelectorAll(".panel").forEach((p) => { p.hidden = p.dataset.panel !== view; });
     clearSelection();
+    if (view === "trajectory") drawLineage();
   }));
   applyView();
+  drawLineage();
   let lastSize = width() + "x" + height(), timer = null;
   window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => {
-    const size = width() + "x" + height(); if (size !== lastSize) { lastSize = size; fit(); } }, 200); });
-  document.addEventListener("themechange", () => { readColors(); styleLinks(); applyView(); });
+    const size = width() + "x" + height(); if (size !== lastSize) { lastSize = size; fit(); drawLineage(); } }, 200); });
+  document.addEventListener("themechange", () => { readColors(); styleLinks(); applyView(); drawLineage(); });
 })();
 </script>
 </body>

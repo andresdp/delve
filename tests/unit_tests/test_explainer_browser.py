@@ -37,6 +37,16 @@ addEventListener("load", () => setTimeout(() => {
   try {
     out.nodes = nodes().length;
     out.before = positions();
+    // The trajectory tab opens first: every investigated value is lit, and an arc links each step to its parent.
+    out.first_tab = document.querySelector('.tab[aria-selected="true"]').dataset.tab;
+    out.greyed_trajectory = greyed();
+    out.arcs = document.querySelectorAll("svg.lineage path").length;
+    // Selecting step 3 (its column) lights its point only, and marks its column and its entry.
+    click(document.querySelector('.step-h[data-step="3"]'));
+    out.greyed_step3 = greyed();
+    out.step_info = document.getElementById("info").textContent;
+    out.step_marked = document.querySelectorAll('.sel[data-step="3"]').length;
+    click(document.querySelector('.tab[data-tab="A1"]'));
     // Select A1's choice of Disk quorum in the text.
     click(document.querySelector('[data-panel="A1"] .choice .vref[data-node="v:1.1"]'));
     out.selected_lit = lit();
@@ -86,6 +96,13 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     out = _probe(tmp_path)
     assert out["errors"] == []
     assert out["nodes"] > 0
+    # The trajectory opens first; the fixture's steps visit v:1.1, v:2.1 and v:1.2; step 2 refines step 1.
+    assert out["first_tab"] == "trajectory"
+    assert not {"v:1.1", "v:2.1", "v:1.2"} & set(out["greyed_trajectory"])
+    assert out["arcs"] == 1
+    assert "v:1.2" not in out["greyed_step3"] and {"v:1.1", "v:2.1"} <= set(out["greyed_step3"])
+    assert "step 3" in out["step_info"] and "explore" in out["step_info"]
+    assert out["step_marked"] >= 3  # its column header, its cells and its entry in the list
     # Selecting A1's choice lights its value, its dimension and the requirement that drives it (Q1).
     assert {"v:1.1", "d:1", "r:Q1"} <= set(out["selected_lit"])
     assert "r:R1" not in out["selected_lit"]  # drives the other choice, not this one

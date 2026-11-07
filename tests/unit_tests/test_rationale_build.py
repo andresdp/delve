@@ -79,7 +79,7 @@ def test_search_with_two_alternatives_renders_tabs_compare_and_wiki_links(ws, tm
     assert json.loads((ws / "rationale" / "toy-store-search.json").read_text(encoding="utf-8"))["id"] == \
         "toy-store-search"
     html = page.read_text(encoding="utf-8")
-    assert html.count('class="tab"') == 3  # A1, A2 and the compare view
+    assert html.count('class="tab"') == 4  # the trajectory, A1, A2 and the compare view
     assert 'data-tab="A1"' in html and 'data-tab="A2"' in html and 'data-tab="compare"' in html
     rows = re.findall(r'<tr class="row(?: differs)?" data-dimension="([^"]+)"', html)
     assert rows == ["d:2", "d:1"]  # the differing dimension first
@@ -527,3 +527,47 @@ def test_build_into_a_wiki_exported_before_the_explainers_region_lists_the_page(
     assert text.count("<!-- explainers -->") == 1
     assert text.count(f'href="explainers/{doc["id"]}.html"') == 1
     assert text.index("<!-- explainers -->") < text.index("<footer>")
+
+
+# ---------------------------------------------------------------- the trajectory on the page
+
+
+def _data(doc, root):
+    from taxonomy_generator.wiki import explainer
+    from taxonomy_generator.wiki import query as q
+
+    graph = q.load(root / "raw" / "graph.json") if doc.get("space") else None
+    return explainer.page_data(doc, graph, explainer.wiki_links(None, root))
+
+
+def test_search_trajectory_marks_what_each_step_changed_and_what_was_proposed(ws):
+    data = _data(_sample(), ws)
+    steps = data["trajectory"]
+    assert [s["move"] for s in steps] == ["seed", "exploit", "explore"]
+    assert steps[0]["point"] == {"d:1": "v:1.1", "d:2": "v:2.1"} and steps[0]["alternative"] == "A1"
+    assert steps[1]["changed"] == ["d:2"]                      # the exploit step dropped the commit protocol
+    assert steps[2]["novel"] == ["d:1"] and steps[2]["alternative"] == "A2"  # WAL in S3: never seen before
+    assert steps[0]["description"] and steps[0]["attested_by"][0]["id"] == "s:s1"
+    assert data["trajectory_dimensions"] == ["d:1", "d:2"]
+    assert data["budget"] == {"max_points": 12, "used": 3}
+    assert data["values"]["v:1.1"]["steps"] == [1, 2]
+    assert data["alternatives"][0]["point"] == steps[0]["description"]  # the alternative shows its step's point
+
+
+def test_explain_page_shows_the_regions_as_bands(ws, tmp_path):
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _explain()))))
+    html = Path(payload["page"]).read_text(encoding="utf-8")
+    assert "Regions that justify the solution" in html and 'class="band-h"' in html
+    assert html.count('<td class="band"') == 2 and html.count('<td class="band" title="Disk quorum"><span>') == 1
+    data = _data(_explain(), ws)
+    assert data["regions"][0]["point"] == {"d:1": "v:1.1"} and data["trajectory"][0]["alternative"] == "S"
+
+
+def test_no_space_trajectory_uses_the_agents_labels(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _no_space())), "--out", "out"))
+    html = Path(payload["page"]).read_text(encoding="utf-8")
+    assert 'data-panel="trajectory"' in html and "Local disks" in html and "Attested by" not in html
+    data = _data(_no_space(), tmp_path)
+    assert [list(s["point"]) for s in data["trajectory"]] == [["x:1"], ["x:1"]]
+    assert data["dimensions"]["x:1"]["label"] == "Store"
