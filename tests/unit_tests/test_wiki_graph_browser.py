@@ -13,7 +13,6 @@ from pathlib import Path
 import pytest
 
 from taxonomy_generator.wiki import build, write
-
 from tests.unit_tests.test_wiki_export import _inputs, _taxonomy, _value
 
 _CANDIDATES = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome",

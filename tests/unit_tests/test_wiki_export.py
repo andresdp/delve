@@ -313,7 +313,10 @@ def _cli_run(tmp_path):
 
 
 def test_cli_can_sample_design_points_at_export(tmp_path):
-    from taxonomy_generator.evaluation.design_points import load_system_map, sample_points
+    from taxonomy_generator.evaluation.design_points import (
+        load_system_map,
+        sample_points,
+    )
     run, sysmap = _cli_run(tmp_path)
     assert cli.main([str(run), "--systems", str(sysmap), "--sample-design-points", "--dp-k", "2", "--dp-n", "3"]) == 0
     out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
@@ -358,7 +361,9 @@ def test_cli_picks_up_source_summaries_next_to_sources(tmp_path):
 
 
 def test_design_point_descriptions_are_rendered_by_combination():
-    from taxonomy_generator.evaluation.design_points import point_signature as sampler_signature
+    from taxonomy_generator.evaluation.design_points import (
+        point_signature as sampler_signature,
+    )
     from taxonomy_generator.wiki.model import point_signature
     p1 = POINTS["samples"][0]["groups"]["attested"][0]
     assert point_signature(p1) == sampler_signature(p1) == "1=1.1|2=2.1"

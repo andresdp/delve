@@ -99,7 +99,7 @@ def check(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
 
 
 def html_dir(root: Path) -> Path:
-    """The HTML folder of the wiki in ``root``: ``site/`` (``ddspace wiki build``) or ``html/`` (an export)."""
+    """Return the HTML folder of the wiki in ``root``: ``site/`` (``ddspace wiki build``) or ``html/`` (an export)."""
     for name in (HTML_DIR, "html"):
         if (root / name / "index.html").is_file() or (root / name / "graph.html").is_file():
             return root / name

@@ -13,7 +13,12 @@ import pytest
 import yaml
 
 from delvedspace import agent
-from tests.unit_tests.test_ddspace_query_agent import INSTALL, _installed, _invoke, ws  # noqa: F401  (fixtures)
+from tests.unit_tests.test_ddspace_query_agent import (  # noqa: F401  (fixtures)
+    INSTALL,
+    _installed,
+    _invoke,
+    ws,
+)
 
 SKILLS = ("ddspace-search", "ddspace-explain")
 DIRS = (".claude/skills", ".agents/skills")

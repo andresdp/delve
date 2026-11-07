@@ -426,7 +426,7 @@ def _graph(root: Path) -> Tuple[Optional[q.Graph], Optional[str]]:
 
 
 def scan(root: Path, html: Path) -> List[Dict[str, Any]]:
-    """The status of every ``<root>/rationale/*.json`` against ``<root>/raw/graph.json`` (no ``doc`` key)."""
+    """Return the status of every ``<root>/rationale/*.json`` against ``<root>/raw/graph.json`` (no ``doc`` key)."""
     return [{k: v for k, v in e.items() if k != "doc"} for e in _scan(root, html)[1]]
 
 
@@ -438,7 +438,7 @@ def _scan(root: Path, html: Path):
 
 
 def index_entries(entries: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
-    """The rendered pages among ``entries`` (scan results), as the HTML index lists them."""
+    """Return the rendered pages among ``entries`` (scan results), as the HTML index lists them."""
     return [{"id": e["id"], "title": e.get("title"), "mode": e.get("mode"), "changed": e["status"] == "changed"}
             for e in entries if e["status"] != "broken" and e.get("page")]
 
