@@ -21,7 +21,7 @@ from taxonomy_generator.wiki import explainer, render
 from taxonomy_generator.wiki import query as q
 
 app = typer.Typer(
-    help="Check design rationale files (ddspace-rationale/1) and render them as explainer pages. "
+    help="Check design rationale files (ddspace-rationale/2) and render them as explainer pages. "
          "JSON by default (for agents); --table for people.",
     no_args_is_help=True,
     rich_markup_mode="rich",
@@ -82,7 +82,7 @@ def _render(result: Dict[str, Any], doc: Any) -> None:
 
 
 @app.command()
-def check(file: Path = typer.Argument(..., help="The rationale file (ddspace-rationale/1 JSON)."),
+def check(file: Path = typer.Argument(..., help="The rationale file (ddspace-rationale/2 JSON)."),
           graph: Optional[Path] = query_cli.GraphOpt, table: bool = query_cli.TableOpt) -> None:
     """Check a rationale file: its structure, and with a space its ids, relations, evidence and graph hash.
 
@@ -118,7 +118,7 @@ def html_dir(root: Path) -> Path:
 
 
 @app.command()
-def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rationale/1 JSON)."),
+def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rationale/2 JSON)."),
           out: Optional[Path] = typer.Option(None, "--out", help="Write a standalone folder (DIR/explainers/<id>.html "
                                              "and DIR/assets/) instead of into the workspace's wiki. Required "
                                              "for a file without a space and outside a workspace. DIR must be "

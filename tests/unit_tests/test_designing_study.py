@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from delvedspace import agent
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -318,22 +320,31 @@ def test_guards_refuse_another_prompt_model_or_skill_delivery(tmp_path):
 # ---------------------------------------------------------------- skill delivery and the prompt
 
 
-def test_skills_via_files_writes_the_variant_of_the_condition(tmp_path):
-    for condition, has_query in (("M", True), ("N", False)):
+def test_skills_via_files_writes_the_reference_only_with_a_space(tmp_path):
+    texts = {}
+    for condition, has_reference in (("M", True), ("N", False)):
         ws = tmp_path / condition
         ws.mkdir()
         extra = runner.deliver_skill(ws, "search", condition, "files")
-        text = (ws / ".agents" / "skills" / "ddspace-search" / "SKILL.md").read_text()
-        assert extra == "" and ("ddspace query" in text) == has_query and "ddspace rationale check" in text
+        folder = ws / ".agents" / "skills" / "ddspace-search"
+        texts[condition] = (folder / "SKILL.md").read_text()
+        reference = folder / agent.REFERENCE
+        assert extra == "" and reference.is_file() == has_reference
+        assert not has_reference or "ddspace query" in reference.read_text()
         assert not (ws / ".agents" / "skills" / "ddspace-explain").exists()
+    assert texts["M"] == texts["N"] and "ddspace rationale check" in texts["N"]  # one SKILL.md for every condition
 
 
 def test_skills_via_prompt_appends_the_skill_and_writes_no_file(tmp_path):
     extra = runner.deliver_skill(tmp_path, "explain", "N", "prompt")
     assert not (tmp_path / ".agents").exists()
     assert "name: ddspace-explain" in extra and "ddspace query" not in extra
+    assert f"Its {agent.REFERENCE} follows." not in extra                    # N gets no reference
     text = runner.prompt_text(runner.PROMPT, {"id": "kv-explain", "mode": "explain"}, "N", extra)
     assert text.endswith(extra) and "SOLUTION.md" in text and "rationale/kv-explain.json" in text
+    with_space = runner.deliver_skill(tmp_path, "explain", "M", "prompt")
+    assert with_space.startswith(extra.rstrip("\n")) and f"Its {agent.REFERENCE} follows." in with_space
+    assert "ddspace query values" in with_space
 
 
 def test_the_prompt_differs_across_conditions_only_in_the_space_note():

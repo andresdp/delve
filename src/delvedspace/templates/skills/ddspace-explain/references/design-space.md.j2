@@ -1,0 +1,112 @@
+<!-- {{ marker }} -->
+
+# The design space: how explain maps onto ddspace
+
+A DelveDSpace design space is available. Use it for every step of the skill: name concerns and options by the
+space's ids, investigate points and regions with `ddspace point`, list what the space does not cover, and write
+the file in the shape at the end of this page (not the one in `SKILL.md`).
+
+## Terms in the space
+
+| Skill term | In the space | Ids |
+|---|---|---|
+| design concern | a dimension | `d:…` |
+| option | a value of a dimension | `v:…` |
+| design point, region | a set of value ids, at most one per dimension (a region: a subset of the solution's) | `["v:1.2", "v:4.1"]` |
+| investigating a point or region | `ddspace point "<v:id>" "<v:id>" ...{{ where }}` | |
+| what is known about it | the sources that attest it (`attested_by`), the evidence passages of each value | `s:…`, passage ids |
+
+Write every id exactly as `ddspace query` prints it (`d:1`, `v:1.2`, `s01_p01`), never a label or slug.
+
+## Commands for each step
+
+- **The space (before step 3).** Run `ddspace query info{{ where }}`: its `name` and `run` go in the file's `space`.
+- **Concerns and options (step 3).** Run `ddspace query dimensions{{ where }}`, then for each candidate dimension
+  `ddspace query values "<d:id>"{{ where }}`, and pick the value the quote describes. `ddspace query search "<keyword>"{{ where }}`
+  matches the whole query as one substring, so a phrase rarely matches: search one single keyword per call
+  (`replication`, not `data replication strategy`), and try synonyms.
+- **Uncovered decisions.** A decision with no dimension, or no value that matches its quote, goes in `uncovered`
+  with its `solution_quote` and the `nearest_dimension_id` (or `null`). Do not force a mapping: it is not part
+  of the solution's point.
+- **Evidence for a choice.** Run `ddspace query evidence "<v:id>"{{ where }}` and cite the passage ids (`doc`) it lists,
+  with their stance.
+- **Dependencies.** Run `ddspace query relations --from "<d:id>"{{ where }}` for the mapped dimensions. Record a relation
+  you rely on with its `source`, `target` and `type` as printed, and `holds` (whether it holds in the solution).
+- **Investigate a point or a region (every step).** Run `ddspace point "<v:id>" "<v:id>" ...{{ where }}` with the step's
+  values. It returns warnings (two values of one dimension, a rejected value, a required dimension left out), the
+  sources that attest that combination (`attested_by`) and a short `description` (one LLM call, or the wiki's own
+  description when the point is already in the wiki). Record the `description` and `attested_by` in the step's
+  `point`. Only if the description call fails (for example, no API key), run it again with `--no-llm` and record
+  the description as `null`. Each call is one point of the budget.
+- **Grounded, in the space.** A region is `grounded` when the requirements call for its values and sources attest
+  the combination (`attested_by` is not empty) or the values' evidence accepts them; `partial` when only some
+  of that holds; `ungrounded` otherwise. A region the sources attest but no requirement calls for is a free
+  choice the space shows to be common, not a justification.
+- **Contrasts in the space.** Change one value of a region to a sibling value of the same dimension
+  (`ddspace query values`). The other values of a mapped dimension are options the space offers, not options the
+  designers considered: say so when you mention them.
+
+## After writing the file
+
+Run the check as `ddspace rationale check rationale/<id>.json{{ where }}`: it also checks the ids against the
+space. Set `space.graph_sha256` to the `graph_sha256` the check prints. Warnings: `unmet_requires` (say which required
+dimension the solution leaves out), `graph_changed` (the space changed since you wrote the file: check the ids
+again).
+
+To render the page in interactive use, run `ddspace rationale build rationale/<id>.json{{ where }}` (not `--out`):
+it writes the explainer into the wiki, next to the pages it links to.
+
+## File shape with a space
+
+```json
+{
+  "schema": "ddspace-rationale/2",
+  "id": "<id>",
+  "mode": "explain",
+  "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+  "problem": {
+    "title": "<problem title>",
+    "context": "<problem context>",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "<requirement>"},
+      {"id": "Q1", "kind": "quality", "attribute": "<quality attribute>", "text": "<requirement>"}
+    ]
+  },
+  "budget": {"max_points": {{ default_points }}},
+  "trajectory": [
+    {"step": 1, "move": "solution", "parent": null, "drivers": ["R1", "Q1"], "values": ["v:1.1", "v:2.1"],
+     "why": "the solution as one design point", "verdict": "partial",
+     "point": {"description": "<the description ddspace point printed>", "attested_by": []}},
+    {"step": 2, "move": "region", "parent": 1, "drivers": ["Q1"], "values": ["v:1.1"],
+     "why": "<which requirements call for these values>", "verdict": "grounded",
+     "point": {"description": "<…>", "attested_by": ["s:s1"]}},
+    {"step": 3, "move": "contrast", "parent": 2, "drivers": ["Q1"], "values": ["v:1.2"],
+     "why": "<does the requirement force the value?>", "verdict": "ungrounded",
+     "point": {"description": "<…>", "attested_by": []}}
+  ],
+  "regions": [
+    {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"], "values": ["v:1.1"],
+     "reason": "<why this region justifies the solution>"}
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "<the solution's name>",
+      "summary": "<one or two sentences>",
+      "step": 1,
+      "choices": [
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "<forced or free, and why>",
+         "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": "<the solution's own words>"},
+        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "reason": "<forced or free, and why>",
+         "solution_quote": "<the solution's own words>"}
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "uncovered": [
+    {"decision": "<a decision the space has no dimension or value for>", "solution_quote": "<the solution's own words>", "nearest_dimension_id": "d:3"}
+  ]
+}
+```

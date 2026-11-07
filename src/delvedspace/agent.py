@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 
 import jinja2
 
-from delvedspace import runs
+from delvedspace import rationale, runs
 from delvedspace.workspace import Workspace, WorkspaceError
 from taxonomy_generator.wiki import query as q
 
@@ -81,54 +81,101 @@ def graph_option(ws: Workspace, target: Path) -> str:
     return "" if rel == "." else f" --graph {rel}"
 
 
-def skill_text(name: str, space: bool = True, where: str = "") -> str:
-    """Render the ``name`` skill (``SKILL.md``): the with-space variant, or the no-space one (``space=False``).
+REFERENCE = "references/design-space.md"  # in a skill folder: how the skill maps onto the space (with a space only)
 
-    ``where`` is the ``--graph`` option the with-space commands carry (see ``graph_option``).
-    """
+
+def _skill_template(name: str, file: str, where: str) -> str:
     if name not in SKILLS:
         raise ValueError(f"unknown skill {name!r} (expected one of {', '.join(SKILLS)})")
-    source = resources.files("delvedspace").joinpath(f"templates/skills/{name}/SKILL.md.j2").read_text(encoding="utf-8")
+    mode = "search" if name == "ddspace-search" else "explain"
+    source = resources.files("delvedspace").joinpath(f"templates/skills/{name}/{file}.j2").read_text(encoding="utf-8")
     env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True,
                              undefined=jinja2.StrictUndefined, autoescape=False)
-    return env.from_string(source).render(space=space, where=where if space else "", marker=SKILL_MARKER)
+    return env.from_string(source).render(where=where, marker=SKILL_MARKER,
+                                          default_points=rationale.DEFAULT_POINTS[mode],
+                                          max_points=rationale.MAX_POINTS[mode])
+
+
+def skill_text(name: str) -> str:
+    """Render the ``name`` skill's ``SKILL.md``: one text for every condition, with or without a space."""
+    return _skill_template(name, "SKILL.md", "")
+
+
+def reference_text(name: str, where: str = "") -> str:
+    """Render the ``name`` skill's ``references/design-space.md``: the mapping onto a space and its commands.
+
+    ``where`` is the ``--graph`` option the commands carry (see ``graph_option``).
+    """
+    return _skill_template(name, REFERENCE, where)
+
+
+def skill_files(name: str, space: bool = True, where: str = "") -> Dict[str, str]:
+    """Return the files of the ``name`` skill folder, ``{relative path: text}``: the reference only with a space."""
+    files = {"SKILL.md": skill_text(name)}
+    if space:
+        files[REFERENCE] = reference_text(name, where)
+    return files
+
+
+def _marked(path: Path) -> bool:
+    try:
+        return SKILL_MARKER in path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def _drop(path: Path) -> bool:
+    """Remove ``path`` when ``install_skills`` wrote it (the marker), and its folder when left empty."""
+    if not (path.is_file() and _marked(path)):
+        return False
+    path.unlink()
+    if path.parent.is_dir() and not any(path.parent.iterdir()):
+        path.parent.rmdir()
+    return True
 
 
 def install_skills(target: Path, space: bool = True, where: str = "") -> List[Tuple[Path, str]]:
-    """Write both skills under ``.claude/skills/`` and ``.agents/skills/`` of ``target``; return (path, action)."""
+    """Write both skills under ``.claude/skills/`` and ``.agents/skills/`` of ``target``; return (path, action).
+
+    With a space, each skill folder also gets ``references/design-space.md``; without one (``space=False``), a
+    reference an earlier setup wrote is removed (a file of the user's own stays).
+    """
     done = []
-    texts = {name: skill_text(name, space, where) for name in SKILLS}
+    files = {name: skill_files(name, space, where) for name in SKILLS}
     for folder in SKILL_DIRS:
         for name in SKILLS:
-            path = target / folder / name / "SKILL.md"
-            text = texts[name]
-            try:
-                existed, old = True, path.read_text(encoding="utf-8")
-            except (FileNotFoundError, NotADirectoryError):  # NotADirectoryError: a file where a folder goes
-                existed, old = False, None
-            if old == text:
-                done.append((path, "unchanged"))
-                continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8")
-            done.append((path, "updated" if existed else "created"))
+            for rel, text in files[name].items():
+                path = target / folder / name / rel
+                try:
+                    existed, old = True, path.read_text(encoding="utf-8")
+                except (FileNotFoundError, NotADirectoryError):  # NotADirectoryError: a file where a folder goes
+                    existed, old = False, None
+                if old == text:
+                    done.append((path, "unchanged"))
+                    continue
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+                done.append((path, "updated" if existed else "created"))
+            if not space and _drop(target / folder / name / REFERENCE):
+                done.append((target / folder / name / REFERENCE, "removed"))
     return done
 
 
 def remove_skills(root: Path) -> List[str]:
-    """Remove the skill folders ``install_skills`` wrote (recognized by the marker), and skill folders left empty.
+    """Remove the skill files ``install_skills`` wrote (recognized by the marker), and skill folders left empty.
 
     Return the removed paths, relative to ``root``. A user's own skills and files stay.
     """
     removed = []
     for folder in SKILL_DIRS:
         for name in SKILLS:
-            path = root / folder / name / "SKILL.md"
-            if path.is_file() and SKILL_MARKER in path.read_text(encoding="utf-8"):
-                path.unlink()
-                removed.append(path.relative_to(root).as_posix())
-                if not any(path.parent.iterdir()):
-                    path.parent.rmdir()
+            for rel in (REFERENCE, "SKILL.md"):
+                path = root / folder / name / rel
+                if _drop(path):
+                    removed.append(path.relative_to(root).as_posix())
+            skill = root / folder / name
+            if skill.is_dir() and not any(skill.iterdir()):
+                skill.rmdir()
         skills = root / folder
         for empty in (skills, skills.parent):  # skills/, then .agents/ (.claude/ goes when empty, with the rest)
             if empty.is_dir() and not any(empty.iterdir()):
@@ -330,7 +377,7 @@ change the design space; like other generated text it is not evidence. Add `--no
 ## Rationale files
 
 The `ddspace-search` and `ddspace-explain` skills (if installed) write a design rationale file
-(`ddspace-rationale/1`) to `rationale/<id>.json`. Check it with `ddspace rationale check rationale/<id>.json{where}`
+(`ddspace-rationale/2`) to `rationale/<id>.json`. Check it with `ddspace rationale check rationale/<id>.json{where}`
 (read-only, JSON) until it is clean; `ddspace rationale build` renders it as an explainer page.
 
 ## Rules

@@ -1,4 +1,4 @@
-"""Render a checked design rationale file (``ddspace-rationale/1``) as an explainer page.
+"""Render a checked design rationale file (``ddspace-rationale/2``) as an explainer page.
 
 The page sits at ``<html dir>/explainers/<id>.html``, next to the wiki's HTML, or in a standalone folder
 (``<out>/explainers/<id>.html`` with its own ``assets/``). It shows the requirements, one tab per alternative

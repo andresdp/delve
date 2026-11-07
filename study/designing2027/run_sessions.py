@@ -196,29 +196,34 @@ def prompt_text(prompt: Path, case: Mapping[str, Any], condition: str, extra: st
 
 
 def skills_sha256() -> str:
-    """SHA-256 over every skill text a session can receive (both skills, both variants)."""
+    """SHA-256 over every skill file a session can receive (both skills, each SKILL.md and space reference)."""
     digest = hashlib.sha256()
     for name in agent.SKILLS:
-        for space in (True, False):
-            digest.update(agent.skill_text(name, space).encode("utf-8"))
+        for rel, text in agent.skill_files(name, space=True).items():
+            digest.update(f"{name}/{rel}\n".encode("utf-8") + text.encode("utf-8"))
     return digest.hexdigest()
 
 
 def deliver_skill(workdir: Path, mode: str, condition: str, via: str) -> str:
     """Give the session its skill; return the text to append to the prompt (empty with ``via="files"``).
 
-    The variant follows the condition: with a space for M and E, the no-space one for N. ``files`` writes it
-    where Codex reads repository skills (``.agents/skills/<name>/SKILL.md``); ``prompt`` returns it instead.
+    Every condition gets the same ``SKILL.md``; M and E also get the space reference
+    (``references/design-space.md``), N does not. ``files`` writes them where Codex reads repository skills
+    (``.agents/skills/<name>/``); ``prompt`` returns them instead, the reference after the skill.
     """
     if via not in SKILLS_VIA:
         raise ValueError(f"skills via {via!r}: use one of {', '.join(SKILLS_VIA)}")
     name = SKILL[mode]
-    text = agent.skill_text(name, condition in SPACE_CONDITIONS)
+    files = agent.skill_files(name, space=condition in SPACE_CONDITIONS)
     if via == "prompt":
-        return f"The `{name}` skill follows (its SKILL.md).\n\n{text}"
-    path = workdir / ".agents" / "skills" / name / "SKILL.md"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+        parts = [f"The `{name}` skill follows (its SKILL.md).\n\n{files['SKILL.md']}"]
+        if agent.REFERENCE in files:
+            parts.append(f"Its {agent.REFERENCE} follows.\n\n{files[agent.REFERENCE]}")
+        return "\n".join(parts)
+    for rel, text in files.items():
+        path = workdir / ".agents" / "skills" / name / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
     return ""
 
 

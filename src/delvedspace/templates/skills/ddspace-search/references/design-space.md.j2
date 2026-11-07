@@ -1,0 +1,122 @@
+<!-- {{ marker }} -->
+
+# The design space: how search maps onto ddspace
+
+A DelveDSpace design space is available. Use it for every step of the skill: name concerns and options by the
+space's ids, investigate points with `ddspace point`, and write the file in the shape at the end of this page
+(not the one in `SKILL.md`).
+
+## Terms in the space
+
+| Skill term | In the space | Ids |
+|---|---|---|
+| design concern | a dimension | `d:…` |
+| option | a value of a dimension | `v:…` |
+| design point | a set of value ids, at most one per dimension | `["v:1.2", "v:4.1"]` |
+| investigating a point | `ddspace point "<v:id>" "<v:id>" ...{{ where }}` | |
+| what is known about a point | the sources that attest it (`attested_by`), the evidence passages of each value | `s:…`, passage ids |
+
+Write every id exactly as `ddspace query` prints it (`d:1`, `v:1.2`, `s01_p01`), never a label or slug.
+
+## Commands for each step
+
+- **The space (before step 2).** Run `ddspace query info{{ where }}`: its `name` and `run` go in the file's `space`.
+- **Survey concerns and options (step 2).** Run `ddspace query dimensions{{ where }}` for the concerns, and
+  `ddspace query values "<d:id>"{{ where }}` for the options of each relevant one. `ddspace query search "<keyword>"{{ where }}`
+  matches the whole query as one substring, so a phrase rarely matches: search one single keyword per call
+  (`replication`, not `data replication strategy`), and try synonyms.
+- **Dependencies.** Run `ddspace query relations --from "<d:id>"{{ where }}` for the dimensions you decide. Record a
+  relation you rely on with its `source`, `target` and `type` as printed, and `holds` (whether it holds in the
+  alternative). A `requires` relation tells you which dimension a point must also settle.
+- **Investigate a point (every step).** Run `ddspace point "<v:id>" "<v:id>" ...{{ where }}` with the step's values
+  (leave unsettled dimensions out). It returns warnings (two values of one dimension, a rejected value, a
+  required dimension left out), the sources that attest that combination (`attested_by`) and a short
+  `description` (one LLM call, or the wiki's own description when the point is already in the wiki). Record the
+  `description` and `attested_by` in the step's `point`. Only if the description call fails (for example, no API
+  key), run it again with `--no-llm` and record the description as `null`. Each call is one point of the budget.
+- **Evidence for a choice.** For the values of an alternative, run `ddspace query evidence "<v:id>"{{ where }}` and cite
+  the passage ids (`doc`) it lists, with their stance.
+- **Exploit and explore in the space.** Exploit: change one or two values of a kept step, often to a sibling value
+  of the same dimension (`ddspace query values`). Explore: take values of dimensions no step has touched yet, or
+  values a source attests that no step has used: `ddspace query show "<s:id>"{{ where }}` on a source of an
+  earlier step's `attested_by` lists the values it accepts.
+
+## After writing the file
+
+Run the check as `ddspace rationale check rationale/<id>.json{{ where }}`: it also checks the ids against the
+space. Set `space.graph_sha256` to the `graph_sha256` the check prints. Warnings: `unmet_requires` (add the required
+dimension or say in `open` why it stays open), `graph_changed` (the space changed since you wrote the file: check
+the ids again).
+
+To render the page in interactive use, run `ddspace rationale build rationale/<id>.json{{ where }}` (not `--out`):
+it writes the explainer into the wiki, next to the pages it links to.
+
+## File shape with a space
+
+```json
+{
+  "schema": "ddspace-rationale/2",
+  "id": "<id>",
+  "mode": "search",
+  "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+  "problem": {
+    "title": "<problem title>",
+    "context": "<problem context>",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "<requirement>"},
+      {"id": "Q1", "kind": "quality", "attribute": "<quality attribute>", "text": "<requirement>"},
+      {"id": "C1", "kind": "constraint", "text": "<requirement>"}
+    ]
+  },
+  "budget": {"max_points": {{ default_points }}},
+  "trajectory": [
+    {"step": 1, "move": "seed", "parent": null, "drivers": ["Q1"], "values": ["v:1.1", "v:2.1"],
+     "why": "<what you expected to learn>", "verdict": "kept",
+     "point": {"description": "<the description ddspace point printed>", "attested_by": ["s:s1"]}},
+    {"step": 2, "move": "exploit", "parent": 1, "drivers": ["C1"], "values": ["v:1.2", "v:2.1"],
+     "why": "<why change this value>", "verdict": "dropped",
+     "point": {"description": "<…>", "attested_by": []}},
+    {"step": 3, "move": "explore", "parent": null, "drivers": ["R1"], "values": ["v:3.2"],
+     "why": "<which unvisited part of the space>", "verdict": "kept",
+     "point": {"description": "<…>", "attested_by": ["s:s2"]}}
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "<short name>",
+      "summary": "<one or two sentences>",
+      "step": 1,
+      "choices": [
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "<why>",
+         "evidence": [{"doc": "s01_p01", "stance": "accepts"}]},
+        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["Q1"], "reason": "<why>"}
+      ],
+      "considered": [
+        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["C1"], "reason": "<why not>"}
+      ],
+      "open": [],
+      "relations": [
+        {"source": "d:1", "target": "d:2", "type": "constrains", "holds": true, "note": "<what it means here>"}
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "<short name>",
+      "summary": "<one or two sentences>",
+      "step": 3,
+      "choices": [
+        {"dimension_id": "d:3", "value_id": "v:3.2", "drivers": ["R1"], "reason": "<why>"}
+      ],
+      "considered": [],
+      "open": [
+        {"dimension_id": "d:1", "reason": "<why no requirement settles it>"}
+      ],
+      "relations": []
+    }
+  ],
+  "comparison": [
+    {"dimension_id": "d:1", "note": "<how the alternatives differ on it>"}
+  ],
+  "uncovered": []
+}
+```

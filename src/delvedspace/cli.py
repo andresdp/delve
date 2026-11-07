@@ -575,8 +575,8 @@ def agent_setup(
                                                     "without asking (it writes explainer pages)."),
     skills: bool = typer.Option(False, "--skills", help="Also install the ddspace-search and ddspace-explain skills "
                                 "for Claude Code (.claude/skills/) and Codex (.agents/skills/)."),
-    no_space: bool = typer.Option(False, "--no-space", help="With --skills: the variant without a design space "
-                                  "(the agent names its own decisions; no ddspace query or point steps)."),
+    no_space: bool = typer.Option(False, "--no-space", help="With --skills: leave out the skills' space reference "
+                                  "(references/design-space.md), so the agent names its own concerns and options."),
     directory: Optional[Path] = typer.Option(None, "--dir", help="Where the agent works: the workspace (default) "
                                              "or a project folder that contains it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
