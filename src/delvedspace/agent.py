@@ -1,7 +1,8 @@
 """``ddspace agent setup``: the files that let a coding agent (Claude Code, Copilot) use the wiki.
 
-Writes a guide (``AGENTS.md``) and, on request, the agent-specific pointers to it. Files that already exist
-are not overwritten: the generated text goes between ``ddspace`` markers, replaced on the next setup.
+Writes a guide (``AGENTS.md``) and, on request, the agent-specific pointers to it and the ``ddspace-search`` and
+``ddspace-explain`` skills. Files that already exist are not overwritten: the generated text goes between
+``ddspace`` markers, replaced on the next setup. The skill files are ddspace's own and are rewritten whole.
 """
 
 from __future__ import annotations
@@ -12,8 +13,11 @@ import re
 import shlex
 import shutil
 import sys
+from importlib import resources
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+
+import jinja2
 
 from delvedspace import runs
 from delvedspace.workspace import Workspace, WorkspaceError
@@ -22,7 +26,13 @@ from taxonomy_generator.wiki import query as q
 START, END = "<!-- ddspace:start -->", "<!-- ddspace:end -->"
 QUERY_PERMISSION = "Bash(ddspace query:*)"
 POINT_PERMISSION = "Bash(ddspace point:*)"
-_ANY_QUERY_PERMISSION = re.compile(r"^Bash\((?:\S*[/\\])?ddspace (?:query|point):\*\)$")  # bare or by full path
+RATIONALE_READ = ("rationale check", "rationale list")   # read-only, like query
+RATIONALE_BUILD = "rationale build"                        # writes rationale/ and site/explainers/
+_ANY_QUERY_PERMISSION = re.compile(  # ours, bare or by full path
+    r"^Bash\((?:\S*[/\\])?ddspace (?:query|point|rationale (?:check|list|build)):\*\)$")
+SKILLS = ("ddspace-search", "ddspace-explain")
+SKILL_DIRS = (".claude/skills", ".agents/skills")         # Claude Code, Codex
+SKILL_MARKER = "Written by `ddspace agent setup --skills`; rerunning it replaces this file."
 
 
 def install_info() -> Dict[str, Optional[str]]:
@@ -48,6 +58,76 @@ def point_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> Lis
     """Claude Code allow rules for ``ddspace point`` (one LLM call per combination unless ``--no-llm``)."""
     path = (install or {}).get("path")
     return [POINT_PERMISSION] + ([f"Bash({path} point:*)"] if path else [])
+
+
+def rationale_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Claude Code allow rules for the read-only ``ddspace rationale check`` and ``list``."""
+    path = (install or {}).get("path")
+    return ([f"Bash(ddspace {c}:*)" for c in RATIONALE_READ]
+            + ([f"Bash({path} {c}:*)" for c in RATIONALE_READ] if path else []))
+
+
+def build_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Claude Code allow rules for ``ddspace rationale build`` (writes explainer pages, no LLM)."""
+    path = (install or {}).get("path")
+    return [f"Bash(ddspace {RATIONALE_BUILD}:*)"] + ([f"Bash({path} {RATIONALE_BUILD}:*)"] if path else [])
+
+
+def graph_option(ws: Workspace, target: Path) -> str:
+    """Return the ``--graph`` option commands run from ``target`` need to reach the workspace ("" from its root)."""
+    rel = Path(os.path.relpath(ws.root, target)).as_posix()
+    return "" if rel == "." else f" --graph {rel}"
+
+
+def skill_text(name: str, space: bool = True, where: str = "") -> str:
+    """Render the ``name`` skill (``SKILL.md``): the with-space variant, or the no-space one (``space=False``).
+
+    ``where`` is the ``--graph`` option the with-space commands carry (see ``graph_option``).
+    """
+    if name not in SKILLS:
+        raise ValueError(f"unknown skill {name!r} (expected one of {', '.join(SKILLS)})")
+    source = resources.files("delvedspace").joinpath(f"templates/skills/{name}/SKILL.md.j2").read_text(encoding="utf-8")
+    env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True,
+                             undefined=jinja2.StrictUndefined, autoescape=False)
+    return env.from_string(source).render(space=space, where=where if space else "", marker=SKILL_MARKER)
+
+
+def install_skills(target: Path, space: bool = True, where: str = "") -> List[Tuple[Path, str]]:
+    """Write both skills under ``.claude/skills/`` and ``.agents/skills/`` of ``target``; return (path, action)."""
+    done = []
+    for folder in SKILL_DIRS:
+        for name in SKILLS:
+            path = target / folder / name / "SKILL.md"
+            text = skill_text(name, space, where)
+            existed = path.is_file()
+            if existed and path.read_text(encoding="utf-8") == text:
+                done.append((path, "unchanged"))
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+            done.append((path, "updated" if existed else "created"))
+    return done
+
+
+def remove_skills(root: Path) -> List[str]:
+    """Remove the skill folders ``install_skills`` wrote (recognized by the marker), and skill folders left empty.
+
+    Return the removed paths, relative to ``root``. A user's own skills and files stay.
+    """
+    removed = []
+    for folder in SKILL_DIRS:
+        for name in SKILLS:
+            path = root / folder / name / "SKILL.md"
+            if path.is_file() and SKILL_MARKER in path.read_text(encoding="utf-8"):
+                path.unlink()
+                removed.append(path.relative_to(root).as_posix())
+                if not any(path.parent.iterdir()):
+                    path.parent.rmdir()
+        skills = root / folder
+        for empty in (skills, skills.parent):  # skills/, then .agents/ (.claude/ goes when empty, with the rest)
+            if empty.is_dir() and not any(empty.iterdir()):
+                empty.rmdir()
+    return removed
 
 
 def upsert_block(path: Path, block: str) -> str:
@@ -165,7 +245,7 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
     """
     install = install_info() if install is None else install
     rel = Path(os.path.relpath(ws.root, target)).as_posix()
-    where = "" if rel == "." else f" --graph {rel}"
+    where = graph_option(ws, target)
     prefix = "" if rel == "." else f"{rel}/"
     ex = _examples(ws)
     dim, value, word = ex["dimension"] or "<dimension>", ex["value"] or "<value>", ex["word"] or "replication"
@@ -241,10 +321,18 @@ it is generated now with one LLM call (`description_source: generated`). It is n
 change the design space; like other generated text it is not evidence. Add `--no-llm` for the checks only.
 
 {_sketching(dim, value, where, expert)}
+## Rationale files
+
+The `ddspace-search` and `ddspace-explain` skills (if installed) write a design rationale file
+(`ddspace-rationale/1`) to `rationale/<id>.json`. Check it with `ddspace rationale check rationale/<id>.json{where}`
+(read-only, JSON) until it is clean; `ddspace rationale build` renders it as an explainer page.
+
 ## Rules
 
-1. Read-only: never edit `wiki/`, `raw/` or `runs/`; they are regenerated. To change the design space, suggest
-   the user run `ddspace update --feedback "..."`.
+1. Read-only: never edit `wiki/`, `site/`, `raw/` or `runs/`; they are regenerated. To change the design space,
+   suggest the user run `ddspace update --feedback "..."`. One exception: `ddspace rationale build` may write
+   `rationale/` and `site/explainers/`, and `ddspace rationale build --out` may write an `explainers/` folder in
+   the working directory. Nothing else may write to `wiki/`, `site/`, `raw/` or `runs/`.
 {rule}
 3. Generated text is not evidence: source summaries, design-point descriptions and narrative text are
    summaries written by an LLM.
@@ -284,7 +372,7 @@ def remove_block(path: Path) -> str:
 
 
 def disallow_query(settings_path: Path) -> str:
-    """Remove the ``ddspace query`` and ``ddspace point`` allow rules; delete the settings file when it held nothing else."""
+    """Remove the ``ddspace query``, ``point`` and ``rationale`` allow rules (the file goes when nothing else is left)."""
     if not settings_path.is_file():
         return ""
     data = json.loads(settings_path.read_text(encoding="utf-8"))

@@ -1,0 +1,148 @@
+---
+name: ddspace-explain
+{% if space %}
+description: Explain a given solution to a problem by mapping each of its design decisions onto the DelveDSpace design space, and record the explanation as a checked rationale file (ddspace-rationale/1) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+{% else %}
+description: Explain a given solution to a problem by naming each of its design decisions and options in your own words, and record the explanation as a checked rationale file (ddspace-rationale/1) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+{% endif %}
+---
+<!-- {{ marker }} -->
+
+# Explain: the design rationale of a given solution
+
+You turn a problem (a context and its requirements) and a description of its solution into one rationale
+file that `ddspace rationale check` accepts: the solution is a single alternative, `"S"`, whose choices quote the
+solution text.
+{% if space %}
+The design space gives you the decisions (dimensions, `d:…`) and their alternatives (values, `v:…`). Name them
+by id exactly as `ddspace query` prints them.
+{% else %}
+There is no design space: name each decision and option in your own words (`decision`, `option`).
+{% endif %}
+{% set ns = namespace(n=0) %}
+
+## Steps
+
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
+   requirements, `Q1`, … for quality requirements (with the quality `attribute`, e.g. `durability`), `C1`, … for
+   constraints. Keep the problem's own wording in `text`. Choose a short file id (lowercase, hyphens), `<id>`.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **The solution's decisions.** Read the solution and list each design decision it makes. For each, copy the
+   sentence or phrase of the solution that states it, word for word: that is its `solution_quote`.
+{% if space %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **The space.** Run `ddspace query info{{ where }}` (its `name` and `run` go in the file's `space`) and
+   `ddspace query dimensions{{ where }}` to see the decisions.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Search with single keywords.** `ddspace query search "<keyword>"{{ where }}` matches the whole query as one
+   substring, so a phrase rarely matches: search one single keyword per call (`replication`, not
+   `data replication strategy`), and try synonyms.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Values and evidence.** For each candidate dimension run `ddspace query values "<d:id>"{{ where }}` and pick the
+   value the quote describes; run `ddspace query evidence "<v:id>"{{ where }}` and cite the passage ids (`doc`) it
+   lists, with their stance.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Uncovered decisions.** A decision with no dimension, or no value that matches its quote, goes in `uncovered`
+   with its `solution_quote` and the `nearest_dimension_id` (or `null`). Do not force a mapping.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Relations.** Run `ddspace query relations --from "<d:id>"{{ where }}` for the mapped dimensions. Record a
+   relation you rely on with its `source`, `target` and `type` as printed, and `holds` (whether it holds in the
+   solution).
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **The solution as one alternative.** Write one choice per decision the solution makes{% if space %} and the space
+   covers{% endif %}, with its `solution_quote`, the requirement ids it serves (`drivers`) and a `reason`. Put in `considered` only the options the solution text
+   says the designers weighed.
+{% if space %}
+   The other values of a mapped dimension are options the space offers, not options the designers considered:
+   say so when you mention them.
+{% endif %}
+{% if space %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Check the solution as a design point.** Run `ddspace point "<v:id>" "<v:id>" ... --no-llm{{ where }}` with the
+   solution's values. Report the warnings (two values of one dimension, a rejected value, a required dimension
+   left out), and copy `attested_by` into the alternative's `point`.
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
+{% if space %}
+   Write every id exactly as `ddspace query` prints them (`d:1`, `v:1.2`, `s01_p01`), never a label or slug.
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Check until clean.** Run `ddspace rationale check rationale/<id>.json{{ where }}` and fix every error, then run
+   it again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
+   `candidates`: read them, they list what would fit (ids, passages, relations).
+{% if space %}
+   Set `space.graph_sha256` to the `graph_sha256` the check prints. Warnings: `unmet_requires` (say which
+   required decision the solution leaves out), `graph_changed` (the space changed since you wrote the file:
+   check the ids again).
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Present the explanation.** Summarize the solution's decisions and their reasons for the user. In interactive
+   use (not in a study session), finish with `ddspace rationale build rationale/<id>.json`, which renders the file
+   as a browsable explainer page.
+
+## Rules
+
+- Never name a dimension, value or relation in prose that the file does not reference: what you say about the
+  design must be in the file the check accepted.
+- Every choice quotes the solution (`solution_quote`); do not explain decisions the solution does not make.
+- Requirement ids in `drivers` must be ids of `problem.requirements`.
+- Do not change the file after the last clean check without checking it again.
+
+## File shape
+
+```json
+{
+  "schema": "ddspace-rationale/1",
+  "id": "<id>",
+  "mode": "explain",
+{% if space %}
+  "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+{% else %}
+  "space": null,
+{% endif %}
+  "problem": {
+    "title": "<problem title>",
+    "context": "<problem context>",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "<requirement>"},
+      {"id": "Q1", "kind": "quality", "attribute": "<quality attribute>", "text": "<requirement>"},
+      {"id": "C1", "kind": "constraint", "text": "<requirement>"}
+    ]
+  },
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "<the solution's name>",
+      "summary": "<one or two sentences>",
+      "choices": [
+{% if space %}
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "<why>",
+         "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": "<the solution's words>"}
+{% else %}
+        {"decision": "<decision>", "option": "<option>", "drivers": ["Q1"], "reason": "<why>",
+         "solution_quote": "<the solution's words>"}
+{% endif %}
+      ],
+      "considered": [],
+      "open": [],
+{% if space %}
+      "relations": [],
+      "point": {"attested_by": ["s:s1"]}
+{% else %}
+      "relations": []
+{% endif %}
+    }
+  ],
+{% if space %}
+  "uncovered": [
+    {"decision": "<a decision the space has no dimension or value for>", "solution_quote": "<the solution's words>",
+     "nearest_dimension_id": null}
+  ]
+{% else %}
+  "uncovered": []
+{% endif %}
+}
+```

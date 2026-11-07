@@ -1,0 +1,167 @@
+---
+name: ddspace-search
+{% if space %}
+description: Design two to four alternative solutions for a problem with requirements by searching the DelveDSpace design space, and record them as a checked rationale file (ddspace-rationale/1) in ./rationale/. Use when asked to design, compare or propose solutions for a problem file.
+{% else %}
+description: Design two to four alternative solutions for a problem with requirements, naming your own decisions and options, and record them as a checked rationale file (ddspace-rationale/1) in ./rationale/. Use when asked to design, compare or propose solutions for a problem file.
+{% endif %}
+---
+<!-- {{ marker }} -->
+
+# Search: alternative designs for a problem
+
+You turn a problem (a context and its requirements) into two to four alternative designs, each a set of
+choices for the decisions the problem raises, and write them as one rationale file that
+`ddspace rationale check` accepts.
+{% if space %}
+The design space gives you the decisions (dimensions, `d:…`) and their alternatives (values, `v:…`). Name them
+by id exactly as `ddspace query` prints them.
+{% else %}
+There is no design space: name each decision and option in your own words (`decision`, `option`).
+{% endif %}
+{% set ns = namespace(n=0) %}
+
+## Steps
+
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
+   requirements, `Q1`, … for quality requirements (with the quality `attribute`, e.g. `durability`), `C1`, … for
+   constraints. Keep the problem's own wording in `text`. Choose a short file id (lowercase, hyphens), `<id>`.
+{% if space %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **The space.** Run `ddspace query info{{ where }}` (its `name` and `run` go in the file's `space`) and
+   `ddspace query dimensions{{ where }}` to see the decisions.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Search with single keywords.** `ddspace query search "<keyword>"{{ where }}` matches the whole query as one
+   substring, so a phrase rarely matches: search one single keyword per call (`replication`, not
+   `data replication strategy`), and try synonyms.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Values and evidence.** For each relevant dimension run `ddspace query values "<d:id>"{{ where }}`, and for the
+   values you may choose `ddspace query evidence "<v:id>"{{ where }}`: cite the passage ids (`doc`) it lists, with
+   their stance.
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Relations.** Run `ddspace query relations --from "<d:id>"{{ where }}` for the dimensions you decide. Record a
+   relation you rely on with its `source`, `target` and `type` as printed, and `holds` (whether it holds in this
+   alternative).
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Alternatives.** Build two to four alternatives that differ in the decisions that matter most for the
+   requirements. Each alternative makes one choice per decision, with the requirement ids it serves (`drivers`)
+   and a `reason`; lists in `considered` the options it weighed and set aside, and in `open` the decisions no
+   requirement settles.
+{% if space %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Check each alternative as a design point.** Run `ddspace point "<v:id>" "<v:id>" ... --no-llm{{ where }}` with the
+   values that alternative chooses (leave its open dimensions out). Act on the warnings (two values of one
+   dimension, a rejected value, a required dimension left out), and copy `attested_by` into the alternative's
+   `point`.
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
+{% if space %}
+   Write every id exactly as `ddspace query` prints them (`d:1`, `v:1.2`, `s01_p01`), never a label or slug.
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Check until clean.** Run `ddspace rationale check rationale/<id>.json{{ where }}` and fix every error, then run
+   it again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
+   `candidates`: read them, they list what would fit (ids, passages, relations).
+{% if space %}
+   Set `space.graph_sha256` to the `graph_sha256` the check prints. Warnings: `unmet_requires` (add the
+   required decision or say in `open` why it stays open), `graph_changed` (the space changed since you wrote
+   the file: check the ids again).
+{% endif %}
+{% set ns.n = ns.n + 1 %}
+{{ ns.n }}. **Present the alternatives.** Summarize them and the comparison for the user. In interactive use (not in a
+   study session), finish with `ddspace rationale build rationale/<id>.json`, which renders the file as a
+   browsable explainer page.
+
+## Rules
+
+- Never name a dimension, value or relation in prose that the file does not reference: what you say about the
+  design must be in the file the check accepted.
+- Requirement ids in `drivers` must be ids of `problem.requirements`.
+- Do not change the file after the last clean check without checking it again.
+
+## File shape
+
+```json
+{
+  "schema": "ddspace-rationale/1",
+  "id": "<id>",
+  "mode": "search",
+{% if space %}
+  "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+{% else %}
+  "space": null,
+{% endif %}
+  "problem": {
+    "title": "<problem title>",
+    "context": "<problem context>",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "<requirement>"},
+      {"id": "Q1", "kind": "quality", "attribute": "<quality attribute>", "text": "<requirement>"},
+      {"id": "C1", "kind": "constraint", "text": "<requirement>"}
+    ]
+  },
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "<short name>",
+      "summary": "<one or two sentences>",
+      "choices": [
+{% if space %}
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "<why>",
+         "evidence": [{"doc": "s01_p01", "stance": "accepts"}]}
+{% else %}
+        {"decision": "<decision>", "option": "<option>", "drivers": ["Q1"], "reason": "<why>"}
+{% endif %}
+      ],
+      "considered": [
+{% if space %}
+        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["C1"], "reason": "<why not>"}
+{% else %}
+        {"decision": "<decision>", "option": "<another option>", "drivers": ["C1"], "reason": "<why not>"}
+{% endif %}
+      ],
+      "open": [],
+{% if space %}
+      "relations": [
+        {"source": "d:1", "target": "d:2", "type": "constrains", "holds": true, "note": "<what it means here>"}
+      ],
+      "point": {"attested_by": ["s:s1"]}
+{% else %}
+      "relations": []
+{% endif %}
+    },
+    {
+      "id": "A2",
+      "name": "<short name>",
+      "summary": "<one or two sentences>",
+      "choices": [
+{% if space %}
+        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["C1"], "reason": "<why>"}
+{% else %}
+        {"decision": "<decision>", "option": "<another option>", "drivers": ["C1"], "reason": "<why>"}
+{% endif %}
+      ],
+      "considered": [],
+      "open": [
+{% if space %}
+        {"dimension_id": "d:2", "reason": "<why no requirement settles it>"}
+{% else %}
+        {"decision": "<another decision>", "reason": "<why no requirement settles it>"}
+{% endif %}
+      ],
+      "relations": []
+    }
+  ],
+  "comparison": [
+{% if space %}
+    {"dimension_id": "d:1", "note": "<how the alternatives differ on it>"}
+{% else %}
+    {"decision": "<decision>", "note": "<how the alternatives differ on it>"}
+{% endif %}
+  ],
+  "uncovered": []
+}
+```

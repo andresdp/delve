@@ -569,6 +569,13 @@ def agent_setup(
     allow_point: Optional[bool] = typer.Option(None, "--allow-point/--no-allow-point",
                                                help="With --claude: let Claude Code run `ddspace point` without asking "
                                                     "(one LLM call per combination unless --no-llm)."),
+    allow_build: Optional[bool] = typer.Option(None, "--allow-build/--no-allow-build",
+                                               help="With --claude: let Claude Code run `ddspace rationale build` "
+                                                    "without asking (it writes explainer pages)."),
+    skills: bool = typer.Option(False, "--skills", help="Also install the ddspace-search and ddspace-explain skills "
+                                "for Claude Code (.claude/skills/) and Codex (.agents/skills/)."),
+    no_space: bool = typer.Option(False, "--no-space", help="With --skills: the variant without a design space "
+                                  "(the agent names its own decisions; no ddspace query or point steps)."),
     directory: Optional[Path] = typer.Option(None, "--dir", help="Where the agent works: the workspace (default) "
                                              "or a project folder that contains it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
@@ -578,6 +585,8 @@ def agent_setup(
     target = (directory or ws.root).resolve()
     if ws.root != target and target not in ws.root.parents:
         fail(f"{target} does not contain the workspace {ws.root}.")
+    if no_space and not skills:
+        fail("--no-space only applies to --skills.")
     ui.header("agent setup", "Let a coding agent use the wiki")
     install = agent.install_info()
     done = [f"{agent.upsert_block(target / 'AGENTS.md', agent.guide(ws, target, install))} AGENTS.md"]
@@ -587,7 +596,7 @@ def agent_setup(
             allow = not interactive(yes) or ui.ask_yes(
                 "Let Claude Code run ddspace query (read-only) without a permission prompt each time?", default=True)
         if allow:
-            rules = agent.query_permissions(install)
+            rules = agent.query_permissions(install) + agent.rationale_permissions(install)
             done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
                         f"({', '.join(rules)})")
         if allow_point is None:              # without an answer, follow the query answer (scripts) or ask
@@ -598,9 +607,20 @@ def agent_setup(
             rules = agent.point_permissions(install)
             done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
                         f"({', '.join(rules)})")
+        if allow_build is None:
+            allow_build = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace rationale build without a prompt? It writes explainer pages to "
+                "rationale/ and site/explainers/ (no LLM).", default=True)
+        if allow_build:
+            rules = agent.build_permissions(install)
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
+                        f"({', '.join(rules)})")
     if copilot:
         done.append(f"{agent.upsert_block(target / '.github' / 'copilot-instructions.md', agent.pointer_copilot())} "
                     ".github/copilot-instructions.md")
+    if skills:
+        for path, action in agent.install_skills(target, space=not no_space, where=agent.graph_option(ws, target)):
+            done.append(f"{action} {path.relative_to(target).as_posix()}")
     if not (ws.root / "raw" / "graph.json").is_file():
         ui.warn("No wiki yet: run ddspace wiki build, then this command again for examples with real names.")
     for line in done:
@@ -859,7 +879,11 @@ def _purge(ws: Workspace, yes: bool) -> None:
     present = [t for t in managed if (ws.root / t).exists()]
     agent_files = [t for t in ("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md", ".claude/settings.json")
                    if (ws.root / t).is_file()]
-    known = set(managed) | set(PURGE_KEEPS) | {".github", ".claude", "AGENTS.md", "CLAUDE.md"}
+    skill_files = [f"{d}/{n}/SKILL.md" for d in agent.SKILL_DIRS for n in agent.SKILLS
+                   if (ws.root / d / n / "SKILL.md").is_file()]
+    agent_files += skill_files
+    known = set(managed) | set(PURGE_KEEPS) | {".github", ".claude", "AGENTS.md", "CLAUDE.md"} \
+        | ({".agents"} if skill_files else set())
     others = sorted(p.name for p in ws.root.iterdir() if p.name not in known)
     if not present and not agent_files:
         ui.note("Nothing to delete.")
@@ -880,7 +904,10 @@ def _purge(ws: Workspace, yes: bool) -> None:
         path = ws.root / t
         shutil.rmtree(path) if path.is_dir() else path.unlink()
     cleaned: List[str] = []
+    cleaned += [f"{t} (deleted)" for t in agent.remove_skills(ws.root)]
     for t in agent_files:
+        if t in skill_files:
+            continue
         action = agent.disallow_query(ws.root / t) if t.endswith(".json") else agent.remove_block(ws.root / t)
         if action:
             cleaned.append(f"{t} ({action})")
