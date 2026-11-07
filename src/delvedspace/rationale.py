@@ -26,7 +26,6 @@ MODES = ("search", "explain")
 SEARCH_ALTERNATIVES = (2, 4)
 EXPLAIN_ID = "S"
 WARNINGS = ("unmet_requires", "graph_changed")
-_REQUIRES_SUFFIX = "is not in the point."  # how q.point words an unmet ``requires`` relation
 
 # Field specs: name -> (kind, required). Kinds: "text" (a non-empty string), "string", "string|null", "list",
 # "object", "object|null", "boolean".
@@ -209,12 +208,42 @@ class _Checker:
         if self.graph is None or not value_ids:
             return
         try:
-            warnings = q.point(self.graph, value_ids)["warnings"]
+            unmet = q.point(self.graph, value_ids).get("unmet_requires") or []
         except q.QueryError:  # the values were resolved above; nothing more to report
             return
-        for w in warnings:
-            if w.endswith(_REQUIRES_SUFFIX):
-                self.add("unmet_requires", pointer(*parts), w)
+        by_id = self.graph["_by_id"]
+        for u in unmet:
+            src, tgt = (by_id.get(u["dimension_id"], {}), by_id.get(u["requires_id"], {}))
+            self.add("unmet_requires", pointer(*parts),
+                     f"'{src.get('label', u['dimension_id'])}' ({u['dimension_id']}) requires a choice on "
+                     f"'{tgt.get('label', u['requires_id'])}' ({u['requires_id']}), which the alternative leaves out",
+                     [_brief(tgt)] if tgt else [])
+
+    def stance(self, ev: Mapping[str, Any], parts: Tuple[Any, ...], v: Optional[Mapping[str, Any]]) -> None:
+        """Check a cited passage's stance: one of ``q.STANCES`` and, with a space, the one the graph records.
+
+        A passage the graph records as ``both`` (it accepts and rejects the value) backs a claim of ``accepts``,
+        ``rejects`` or ``both``; any other recorded stance backs only itself. No stance: nothing to check.
+        """
+        if "stance" not in ev or not isinstance(ev["stance"], str):
+            return  # absent, or the wrong type (``fields`` reported it)
+        claim = ev["stance"]
+        if claim not in q.STANCES:
+            self.add("schema", pointer(*parts, "stance"),
+                     f"stance: expected one of {', '.join(q.STANCES)}, got {json.dumps(claim)}")
+            return
+        if v is None or not self.good(ev, "doc"):
+            return
+        recorded = [p for p in v.get("passages") or [] if p.get("doc") == ev["doc"]]
+        if not recorded:
+            return  # evidence_not_on_value reports it
+        if any(p.get("stance") == claim or (p.get("stance") == "both" and claim in ("accepts", "rejects"))
+               for p in recorded):
+            return
+        self.add("evidence_stance_mismatch", pointer(*parts),
+                 f"passage '{ev['doc']}' {' or '.join(str(p.get('stance')) for p in recorded)} "
+                 f"'{v.get('label')}' ({v['id']}), not '{claim}' (cite the stance `ddspace query evidence` prints)",
+                 [{"doc": p.get("doc"), "stance": p.get("stance")} for p in recorded])
 
 
 def check(doc: Any, graph: Optional[q.Graph] = None, graph_sha256: Optional[str] = None) -> Dict[str, Any]:
@@ -349,12 +378,15 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
                 first[key] = pointer(*parts)
             for k, ev in enumerate(c.items(choice, "evidence")):
                 ev_parts = (*parts, "evidence", k)
-                if c.fields(ev, ev_parts, _EVIDENCE) and v is not None and c.good(ev, "doc"):
+                if not c.fields(ev, ev_parts, _EVIDENCE):
+                    continue
+                if v is not None and c.good(ev, "doc"):
                     passages = v.get("passages") or []
                     if ev["doc"] not in {p.get("doc") for p in passages}:
                         c.add("evidence_not_on_value", pointer(*ev_parts),
                               f"passage '{ev['doc']}' is not among the passages of '{v.get('label')}' ({v['id']})",
                               [{"doc": p.get("doc"), "stance": p.get("stance")} for p in passages])
+                c.stance(ev, ev_parts, v)
 
         for j, item in enumerate(c.items(alt, "considered")):
             parts = ("alternatives", i, "considered", j)
@@ -375,9 +407,21 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
 
 # ---------------------------------------------------------------- the workspace's rationale/ folder
 
-SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # an id that can name a file
+SAFE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")  # an id that can name a file (use ``safe_id``: fullmatch)
 RATIONALE_DIR = "rationale"
 OK, CHANGED, BROKEN = "ok", "changed", "broken"  # a rationale file's status (``scan``)
+
+
+def safe_id(rid: Any) -> bool:
+    """Whether ``rid`` can name a page file: letters, digits, '.', '_' and '-', not starting with a symbol."""
+    return isinstance(rid, str) and SAFE_ID.fullmatch(rid) is not None
+
+
+def _broken(entry: Dict[str, Any], code: str, message: str, path: str = "", candidates: Sequence[Any] = ()) -> None:
+    """Mark a scan entry broken (not rendered) with one more error."""
+    entry["problems"].append({"code": code, "severity": "error", "path": path, "message": message,
+                              "candidates": list(candidates)})
+    entry["status"], entry["doc"], entry["page"] = BROKEN, None, None
 
 
 def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path) -> Dict[str, Any]:
@@ -394,6 +438,7 @@ def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path
         entry["problems"] = [{"code": "unreadable", "severity": "error", "path": "", "message": str(exc)}]
         return entry
     if isinstance(doc, dict):
+        entry["_declares"] = True  # the id is the file's own (``_scan`` compares them), not the stem fallback
         entry["id"] = str(doc.get("id") or path.stem)
         entry["mode"] = doc.get("mode")
         problem = doc.get("problem")
@@ -401,14 +446,14 @@ def _status(path: Path, graph: Optional[q.Graph], sha: Optional[str], html: Path
         alts = doc.get("alternatives")
         entry["alternatives"] = len(alts) if isinstance(alts, list) else 0
     page = html / "explainers" / f"{entry['id']}.html"
-    entry["page"] = str(page) if SAFE_ID.match(entry["id"]) and page.is_file() else None
+    entry["page"] = str(page) if safe_id(entry["id"]) and page.is_file() else None
     if names_space(doc) and graph is None:
         entry["problems"] = [{"code": "no_graph", "severity": "error", "path": "/space",
                               "message": "the file names a space, but the workspace has no raw/graph.json"}]
         return entry
     result = check(doc, graph, sha)
     entry["problems"] = result["problems"]
-    if not SAFE_ID.match(entry["id"]):
+    if not safe_id(entry["id"]):
         entry["problems"].append({"code": "schema", "severity": "error", "path": "/id",
                                   "message": f"the id '{entry['id']}' cannot name a file"})
     elif result["ok"]:
@@ -426,8 +471,8 @@ def _graph(root: Path) -> Tuple[Optional[q.Graph], Optional[str]]:
 
 
 def _public(entry: Mapping[str, Any]) -> Dict[str, Any]:
-    """Return a scan entry without its ``doc`` key."""
-    return {k: v for k, v in entry.items() if k != "doc"}
+    """Return a scan entry without its ``doc`` key and private (``_``) keys."""
+    return {k: v for k, v in entry.items() if k != "doc" and not k.startswith("_")}
 
 
 def scan(root: Path, html: Path, graph: Optional[q.Graph] = None, sha: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -443,7 +488,34 @@ def _scan(root: Path, html: Path, graph: Optional[q.Graph] = None, sha: Optional
     files = sorted(folder.glob("*.json")) if folder.is_dir() else []
     if graph is None:
         graph, sha = _graph(root) if files else (None, None)
-    return graph, [_status(f, graph, sha, Path(html)) for f in files]
+    entries = [_status(f, graph, sha, Path(html)) for f in files]
+    by_id: Dict[str, List[Dict[str, Any]]] = {}
+    for e in entries:
+        if e.get("_declares"):
+            by_id.setdefault(e["id"], []).append(e)
+    for rid, same in by_id.items():
+        if len(same) > 1:  # one page per id: none of them is rendered until the ids differ
+            for e in same:
+                others = [Path(o["file"]).name for o in same if o is not e]
+                _broken(e, "duplicate_id", f"the id '{rid}' is also declared by {', '.join(others)}: "
+                        "each file in rationale/ needs its own id", "/id", others)
+    return graph, entries
+
+
+def declared_by(root: Path, rid: str, skip: Optional[Path] = None) -> List[Path]:
+    """Return the ``<root>/rationale/*.json`` files (other than ``skip``) whose declared id is ``rid``."""
+    folder = Path(root) / RATIONALE_DIR
+    found = []
+    for f in sorted(folder.glob("*.json")) if folder.is_dir() else []:
+        if skip is not None and f.resolve() == Path(skip).resolve():
+            continue
+        try:
+            doc = load(f)
+        except RationaleError:
+            continue
+        if isinstance(doc, dict) and str(doc.get("id") or f.stem) == rid:
+            found.append(f)
+    return found
 
 
 def index_entries(entries: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
@@ -464,8 +536,11 @@ def render_workspace(root: Path, html: Path) -> List[Dict[str, Any]]:
     for e in entries:
         if e["status"] == BROKEN:
             e["page"] = None  # not rendered again: the export removes the old page
-        else:
+            continue
+        try:
             e["page"] = str(explainer.write_page(e["doc"], graph, Path(html), wiki_html=Path(html),
                                                  graph_changed=e["status"] == CHANGED))
+        except Exception as exc:  # noqa: BLE001 -- one page that cannot render must not stop the wiki build
+            _broken(e, "render_failed", f"the explainer page could not be rendered: {type(exc).__name__}: {exc}")
     explainer.write_index(Path(html), index_entries(entries))
     return [_public(e) for e in entries]

@@ -222,13 +222,39 @@ def test_rationale_rules_are_ours_only_for_known_subcommands():
     assert not ours("Bash(ddspace rationale:*)") and not ours("Bash(ddspace wiki build:*)")
 
 
+def test_purge_removes_allow_rules_for_an_install_path_with_spaces(ws, monkeypatch):
+    spaced = {"path": "/Users/A User/My Envs/toy/bin/ddspace", "activate": None}
+    monkeypatch.setattr(agent, "install_info", lambda: dict(spaced))
+    settings = ws.root / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(json.dumps({"permissions": {"allow": ["Bash(ls:*)"]}}))
+    assert _invoke("agent", "setup", "--claude", "--yes").exit_code == 0
+    allow = json.loads(settings.read_text())["permissions"]["allow"]
+    assert f"Bash({spaced['path']} rationale build:*)" in allow
+    result = _invoke("reset", "--purge", "--yes")
+    assert result.exit_code == 0, result.output
+    assert json.loads(settings.read_text())["permissions"]["allow"] == ["Bash(ls:*)"]
+
+
+def test_disallow_removes_rules_of_an_earlier_install_with_spaces(tmp_path):
+    settings = tmp_path / "settings.json"
+    old = "C:\\Program Files\\toy env\\Scripts\\ddspace.exe"
+    settings.write_text(json.dumps({"permissions": {"allow": [
+        "Bash(ls:*)", f"Bash({old} query:*)", "Bash(/a b/bin/ddspace rationale build:*)",
+        "Bash(/a b/bin/ddspace point:*)", "Bash(/a b/bin/ddspace wiki build:*)"]}}))
+    assert agent.disallow_query(settings, {"path": None, "activate": None}) == "cleaned"
+    assert json.loads(settings.read_text())["permissions"]["allow"] == [
+        "Bash(ls:*)", "Bash(/a b/bin/ddspace wiki build:*)"]
+
+
 def test_guide_lets_rationale_build_write_its_folders_only(ws):
     assert _invoke("agent", "setup", "--yes").exit_code == 0
     text = (ws.root / "AGENTS.md").read_text()
     rule = " ".join(re.search(r"\n1\. (.*?)\n2\. ", text.split("## Rules", 1)[1], re.S).group(1).split())
     assert "never edit `wiki/`, `site/`, `raw/` or `runs/`" in rule
     assert "`ddspace rationale build` may write `rationale/` and `site/explainers/`" in rule
-    assert "`ddspace rationale build --out` may write an `explainers/` folder in the working directory" in rule
+    assert ("`ddspace rationale build --out` may write an `explainers/` folder (and its assets) only inside the "
+            "working directory") in rule
     assert "Nothing else" in rule
     assert "ddspace rationale check" in text
 

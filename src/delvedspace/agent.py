@@ -28,8 +28,8 @@ QUERY_PERMISSION = "Bash(ddspace query:*)"
 POINT_PERMISSION = "Bash(ddspace point:*)"
 RATIONALE_READ = ("rationale check", "rationale list")   # read-only, like query
 RATIONALE_BUILD = "rationale build"                        # writes rationale/ and site/explainers/
-_ANY_QUERY_PERMISSION = re.compile(  # ours, bare or by full path
-    r"^Bash\((?:\S*[/\\])?ddspace (?:query|point|rationale (?:check|list|build)):\*\)$")
+_ANY_QUERY_PERMISSION = re.compile(  # ours, bare or by full path (which may contain spaces)
+    r"^Bash\((?:[^()]*[/\\])?ddspace(?:\.exe)? (?:query|point|rationale (?:check|list|build)):\*\)$")
 SKILLS = ("ddspace-search", "ddspace-explain")
 SKILL_DIRS = (".claude/skills", ".agents/skills")         # Claude Code, Codex
 SKILL_MARKER = "Written by `ddspace agent setup --skills`; rerunning it replaces this file."
@@ -337,8 +337,8 @@ The `ddspace-search` and `ddspace-explain` skills (if installed) write a design 
 
 1. Read-only: never edit `wiki/`, `site/`, `raw/` or `runs/`; they are regenerated. To change the design space,
    suggest the user run `ddspace update --feedback "..."`. One exception: `ddspace rationale build` may write
-   `rationale/` and `site/explainers/`, and `ddspace rationale build --out` may write an `explainers/` folder in
-   the working directory. Nothing else may write to `wiki/`, `site/`, `raw/` or `runs/`.
+   `rationale/` and `site/explainers/`, and `ddspace rationale build --out` may write an `explainers/` folder
+   (and its assets) only inside the working directory. Nothing else may write to `wiki/`, `site/`, `raw/` or `runs/`.
 {rule}
 3. Generated text is not evidence: source summaries, design-point descriptions and narrative text are
    summaries written by an LLM.
@@ -377,13 +377,24 @@ def remove_block(path: Path) -> str:
     return "deleted"
 
 
-def disallow_query(settings_path: Path) -> str:
-    """Remove the ``ddspace query``, ``point`` and ``rationale`` allow rules (the file goes when nothing else is left)."""
+def our_rules(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Every allow rule setup writes for ``install``: query, point, rationale check/list and build."""
+    return (query_permissions(install) + point_permissions(install) + rationale_permissions(install)
+            + build_permissions(install))
+
+
+def disallow_query(settings_path: Path, install: Optional[Dict[str, Optional[str]]] = None) -> str:
+    """Remove the ``ddspace query``, ``point`` and ``rationale`` allow rules (the file goes when nothing else is left).
+
+    A rule is ours when it is one setup writes for ``install`` (``install_info()`` by default), or when it has the
+    shape of one for any install path (an earlier install, or a path with spaces).
+    """
     if not settings_path.is_file():
         return ""
+    exact = set(our_rules(install_info() if install is None else install))
     data = json.loads(settings_path.read_text(encoding="utf-8"))
     allow = (data.get("permissions") or {}).get("allow") or []
-    ours = [r for r in allow if isinstance(r, str) and _ANY_QUERY_PERMISSION.match(r)]
+    ours = [r for r in allow if isinstance(r, str) and (r in exact or _ANY_QUERY_PERMISSION.match(r))]
     if not ours:
         return ""
     for rule in ours:

@@ -96,9 +96,34 @@ def test_plan_is_case_by_condition_by_repetition_and_resume_skips_finished(cases
     (results / "rationale").mkdir(parents=True)
     (results / "rationale" / "kv-store-M-r1.json").write_text("{}")
     (results / "summaries").mkdir()
+    (results / "summaries" / "kv-store-M-r1.json").write_text(json.dumps({"status": "ok"}))
     (results / "summaries" / "kv-store-E-r1.json").write_text("{}")   # a summary alone: the session failed
     left = runner.pending(planned, results)
     assert len(left) == 23 and "kv-store-M-r1" not in {s.id for s in left}
+
+
+def test_a_kept_file_counts_as_done_only_with_an_ok_summary(tmp_path):
+    results = tmp_path / "results"
+    (results / "rationale").mkdir(parents=True)
+    (results / "summaries").mkdir()
+    failed, ok, broken, none = (runner.Session("kv-store", c, 1) for c in ("M", "E", "N", "X"))
+    for s in (failed, ok, broken, none):
+        (results / "rationale" / f"{s.id}.json").write_text("{}")
+    (results / "summaries" / f"{failed.id}.json").write_text(json.dumps({"status": "failed", "problems": ["x"]}))
+    (results / "summaries" / f"{ok.id}.json").write_text(json.dumps({"status": "ok"}))
+    (results / "summaries" / f"{broken.id}.json").write_text('{"status": "ok", "model"')   # truncated
+    assert runner.pending([failed, ok, broken, none], results) == [failed, broken, none]
+
+
+def test_guards_tolerate_an_unreadable_summary(tmp_path):
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("## search\nnew\n")
+    results = tmp_path / "results"
+    (results / "summaries").mkdir(parents=True)
+    (results / "summaries" / "a-N-r1.json").write_text('{"model": "gpt-te')
+    (results / "summaries" / "a-M-r1.json").write_bytes(b"\xff\xfe")
+    (results / "summaries" / "a-E-r1.json").write_text("[1, 2]")
+    assert runner.guards(results, model="gpt-test", prompt=prompt, skills_via="files") == []
 
 
 def test_cases_need_a_mode_and_explain_cases_a_solution(tmp_path):
@@ -161,6 +186,15 @@ def test_fabrication_audit_separates_ids_seen_only_outside_ddspace():
                      _cmd("grep attested raw/graph.json", '"attested_by": ["s:s1"]'))
     audit = runner.fabrication_audit(_with_space(), events)
     assert audit["missing"] == [] and audit["other_output_only"] == ["s:s1"]
+
+
+def test_fabrication_audit_reads_attested_by_entries_that_are_objects():
+    doc = _with_space()
+    doc["alternatives"][0]["point"]["attested_by"] = [{"id": "s:s2", "label": "A source"}, "s:s1", {"label": "x"}]
+    events = _events(_cmd("ddspace query values d:1", "d:1 v:1.1 d:2 v:2.10 s01_p01 s:s1"))
+    assert "s:s2" in runner.file_ids(doc) and "s:s1" in runner.file_ids(doc)
+    audit = runner.fabrication_audit(doc, events)
+    assert audit["missing"] == ["s:s2"] and audit["ids"] == 7
 
 
 # ---------------------------------------------------------------- retrieval misses
@@ -348,3 +382,51 @@ def test_a_failing_check_is_recorded_with_its_codes(tmp_path, monkeypatch, cases
     assert rec["check"]["ok"] is False and rec["check"]["exit_code"] == 1
     assert {"code": "schema", "severity": "error", "path": "/alternatives"} in rec["check"]["problems"]
     assert rec["explainer"]["skipped"] and (tmp_path / "results" / "rationale" / "kv-store-N-r1.json").is_file()
+
+
+def test_a_rationale_file_that_is_not_utf8_fails_the_session(tmp_path, monkeypatch, cases):
+    def fake_run(argv, **kwargs):
+        if "exec" in argv and "--json" in argv:
+            workdir = Path(argv[argv.index("-C") + 1])
+            (workdir / "rationale").mkdir(exist_ok=True)
+            (workdir / "rationale" / "kv-store.json").write_bytes(b'{"id": "\xff\xfe"}')
+            return subprocess.CompletedProcess(argv, 0, _jsonl(*_events()), "")
+        return REAL_RUN(argv, **kwargs)
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    case = next(c for c in cases if c["id"] == "kv-store")
+    s = runner.Session("kv-store", "N", 1)
+    rec = runner.run(s, case, tmp_path / "workspaces", tmp_path / "scratch", model="gpt-test",
+                     results=tmp_path / "results", ddspace=[sys.executable, "-m", "delvedspace"])
+    assert rec["status"] == "failed" and any("UTF-8" in p for p in rec["problems"])
+    assert runner.pending([s], tmp_path / "results") == [s]
+
+
+def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(tmp_path, monkeypatch, cases):
+    workspaces = tmp_path / "workspaces"
+    (workspaces / "M" / "raw").mkdir(parents=True)
+    (workspaces / "M" / "raw" / "graph.json").write_text("{}")
+    (workspaces / "M" / cain.MANIFEST_COPY).parent.mkdir(parents=True, exist_ok=True)
+    (workspaces / "M" / cain.MANIFEST_COPY).write_text(cain.MANIFEST.read_text())
+    doc = dict(_no_space(), space={"workspace": "c1", "run": "r", "graph_sha256": "abc"})
+    builds = []
+
+    def fake_run(argv, **kwargs):
+        if "exec" in argv and "--json" in argv:                    # the codex session
+            workdir = Path(argv[argv.index("-C") + 1])
+            (workdir / "rationale").mkdir(exist_ok=True)
+            (workdir / "rationale" / "kv-store.json").write_text(json.dumps(doc))
+            return subprocess.CompletedProcess(argv, 0, _jsonl(*_events()), "")
+        if "check" in argv:                                        # ddspace rationale check: clean
+            return subprocess.CompletedProcess(argv, 0, json.dumps({"ok": True, "problems": []}), "")
+        builds.append(argv)                                        # ddspace rationale build
+        return subprocess.CompletedProcess(argv, 0, "{}", "")
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    case = next(c for c in cases if c["id"] == "kv-store")
+    rec = runner.run(runner.Session("kv-store", "M", 1), case, workspaces, tmp_path / "scratch", model="gpt-test",
+                     results=tmp_path / "results", ddspace=["ddspace"])
+    assert rec["status"] == "ok", rec["problems"]
+    assert len(builds) == 1 and "--graph" in builds[0]
+    graph = Path(builds[0][builds[0].index("--graph") + 1])
+    assert not (tmp_path / "scratch" / "kv-store-M-r1").exists()   # the work copy is gone, the link target is not
+    assert graph.is_file() and graph.resolve() == (workspaces / "M" / "raw" / "graph.json").resolve()
+    assert rec["explainer"]["links_into"] == "--workspaces/M"

@@ -266,7 +266,8 @@ def point(graph: Graph, refs: Sequence[str]) -> Dict[str, Any]:
     Returns the chosen values, the wiki's design point with exactly these values when there is one (with its
     stored description), the sources whose passages adopt every value, the relations among the chosen
     dimensions, and warnings: two values of one dimension, an outcome or a rejected value as a choice, a
-    required dimension left out. Nothing is written: the design space and the wiki stay as they are.
+    required dimension left out. ``unmet_requires`` lists that last case as data (``{dimension_id, requires_id}``),
+    next to its warning. Nothing is written: the design space and the wiki stay as they are.
     """
     if not refs:
         raise QueryError("Name at least one value, e.g. ddspace point \"Dimension=Value\" \"Other value\".")
@@ -289,12 +290,14 @@ def point(graph: Graph, refs: Sequence[str]) -> Dict[str, Any]:
                             f"({', '.join(x['label'] for x in vals)}): a system takes one value per dimension.")
     dims = set(by_dim)
     rels = []
+    unmet: List[Dict[str, str]] = []
     for e in _edges(graph, "relation"):
         if e["source"] in dims and e["target"] in dims:
             rels.append({"type": e.get("relation"), "reading": e.get("reading", "")})
         elif e.get("relation") == "requires" and e["source"] in dims:
             target = graph["_by_id"].get(e["target"], {}).get("label", e["target"])
             warnings.append(f"{e.get('reading', '')}; '{target}' is not in the point.")
+            unmet.append({"dimension_id": e["source"], "requires_id": e["target"]})
     adopters = [{source_of(p["doc"]) for p in v.get("passages") or [] if p.get("stance") in ADOPTS} for v in chosen]
     attested = [_brief(graph["_by_id"].get("s:" + s) or {"id": "s:" + s, "kind": "source", "label": s})
                 for s in sorted(set.intersection(*adopters),
@@ -316,4 +319,5 @@ def point(graph: Graph, refs: Sequence[str]) -> Dict[str, Any]:
         "attested_by": attested,
         "relations": rels,
         "warnings": warnings,
+        "unmet_requires": unmet,
     }

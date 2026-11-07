@@ -170,7 +170,7 @@ def test_a_workspace_whose_html_is_in_html_renders_there(tmp_path, monkeypatch):
 
 
 def test_a_space_file_with_out_links_to_the_wiki_it_was_checked_against(ws, tmp_path):
-    out = tmp_path / "share"
+    out = ws / "share"  # --out stays inside the current folder
     _built(_invoke("rationale", "build", str(_file(tmp_path, _sample())), "--out", str(out)))
     page = out / "explainers" / "toy-store-search.html"
     assert (out / "assets" / "d3.min.js").is_file()
@@ -325,3 +325,179 @@ def test_the_html_index_lists_explainers_only_when_any_exist(built, tmp_path):
     html = index.read_text(encoding="utf-8")
     assert "Explainers" in html and 'href="explainers/toy-store-search.html"' in html
     assert "Explainers" not in (root / "wiki" / "index.md").read_text(encoding="utf-8")  # the OKF bundle is unchanged
+
+
+# ---------------------------------------------------------------- review fixes
+
+from taxonomy_generator.wiki import explainer  # noqa: E402
+
+
+def _put(root, name, doc):
+    folder = root / "rationale"
+    folder.mkdir(exist_ok=True)
+    path = folder / name
+    path.write_text(doc if isinstance(doc, str) else json.dumps(doc), encoding="utf-8")
+    return path
+
+
+def _by_file(stdout):
+    return {Path(e["file"]).name: e for e in json.loads(stdout)}
+
+
+def test_two_files_with_one_id_are_both_broken_and_neither_is_rendered(ws):
+    _put(ws, "toy-store-search.json", _sample())
+    _put(ws, "copy.json", _sample())  # declares the same id
+    entries = _by_file(_list().stdout)
+    assert {n: e["status"] for n, e in entries.items()} == {"toy-store-search.json": "broken", "copy.json": "broken"}
+    for e in entries.values():
+        assert [p["code"] for p in e["problems"]] == ["duplicate_id"] and e["page"] is None
+    rendered = rationale.render_workspace(ws, ws / "site")
+    assert all(e["status"] == "broken" for e in rendered)
+    assert not (ws / "site" / "explainers" / "toy-store-search.html").exists()
+    assert "explainers/toy-store-search.html" not in (ws / "site" / "index.html").read_text(encoding="utf-8")
+
+
+def test_wiki_build_skips_files_with_one_id(built):
+    root = built.root
+    _put(root, "toy-store-search.json", _current(root))
+    _put(root, "copy.json", _current(root))
+    result = _wiki_build()
+    assert "duplicate" in result.output.lower() or "broken" in result.output
+    assert not (root / PAGE).exists() and PAGE not in _manifest(root)
+
+
+def test_rationale_build_refuses_an_id_another_file_declares(ws, tmp_path):
+    _put(ws, "other.json", _sample())
+    result = _invoke("rationale", "build", str(_file(tmp_path, _sample())))
+    assert result.exit_code == 2 and "other.json" in json.loads(result.stdout)["error"]
+    assert not (ws / "rationale" / "toy-store-search.json").exists()
+    assert not (ws / "site" / "explainers").exists()
+
+
+def test_a_render_error_marks_that_file_broken_and_the_others_render(ws, monkeypatch):
+    _put(ws, "toy-store-search.json", _sample())
+    _put(ws, "toy-store-explain.json", _explain())
+    real = explainer.write_page
+
+    def flaky(doc, *args, **kwargs):
+        if doc["id"] == "toy-store-explain":
+            raise RuntimeError("template exploded")
+        return real(doc, *args, **kwargs)
+
+    monkeypatch.setattr(explainer, "write_page", flaky)
+    entries = {e["id"]: e for e in rationale.render_workspace(ws, ws / "site")}
+    assert entries["toy-store-search"]["status"] == "ok" and Path(entries["toy-store-search"]["page"]).is_file()
+    bad = entries["toy-store-explain"]
+    assert bad["status"] == "broken" and bad["page"] is None
+    assert bad["problems"][-1]["code"] == "render_failed" and "template exploded" in bad["problems"][-1]["message"]
+    index = (ws / "site" / "index.html").read_text(encoding="utf-8")
+    assert "explainers/toy-store-search.html" in index and "explainers/toy-store-explain.html" not in index
+
+
+def test_out_outside_the_current_folder_exits_2_and_writes_nothing(tmp_path, monkeypatch):
+    here = tmp_path / "here"
+    here.mkdir()
+    monkeypatch.chdir(here)
+    for out in (tmp_path / "elsewhere", here / ".." / "sneaky"):
+        result = _invoke("rationale", "build", str(_file(tmp_path, _no_space())), "--out", str(out))
+        assert result.exit_code == 2 and "error" in json.loads(result.stdout)
+        assert not out.exists()
+
+
+def test_out_refuses_an_assets_folder_ddspace_did_not_create(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "out"
+    (out / "assets").mkdir(parents=True)
+    (out / "assets" / "style.css").write_text("mine", encoding="utf-8")
+    result = _invoke("rationale", "build", str(_file(tmp_path, _no_space())), "--out", str(out))
+    assert result.exit_code == 2 and "assets" in json.loads(result.stdout)["error"]
+    assert (out / "assets" / "style.css").read_text(encoding="utf-8") == "mine"
+    assert not (out / "explainers").exists()
+
+
+def test_out_writes_a_marker_and_can_build_into_its_own_folder_again(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "out"
+    for _ in range(2):
+        _built(_invoke("rationale", "build", str(_file(tmp_path, _no_space())), "--out", "out"))
+    assert (out / "assets" / explainer.ASSETS_MARKER).is_file()
+    assert (out / "explainers" / "toy-store-search.html").is_file()
+
+
+@pytest.mark.parametrize("rid", ["../evil", "a/b", "toy\n"])
+def test_an_unsafe_id_exits_2_and_writes_nothing(ws, tmp_path, rid):
+    before = (ws / "raw" / "exported.json").read_text(encoding="utf-8")
+    doc = _sample()
+    doc["id"] = rid
+    result = _invoke("rationale", "build", str(_file(tmp_path, doc)))
+    assert result.exit_code == 2 and "error" in json.loads(result.stdout)
+    assert not (ws / "rationale").exists() and not (ws / "site" / "explainers").exists()
+    assert not (ws / "site" / "evil.html").exists() and not (ws / "evil.html").exists()
+    assert (ws / "raw" / "exported.json").read_text(encoding="utf-8") == before
+
+
+@pytest.mark.parametrize("rid", ["../evil", "a/b", "toy\n"])
+def test_an_unsafe_id_in_rationale_is_broken_and_not_rendered(ws, rid):
+    doc = _sample()
+    doc["id"] = rid
+    _put(ws, "evil.json", doc)
+    [entry] = json.loads(_list().stdout)
+    assert entry["status"] == "broken" and any(p["path"] == "/id" for p in entry["problems"])
+    [rendered] = rationale.render_workspace(ws, ws / "site")
+    assert rendered["status"] == "broken" and rendered["page"] is None
+    assert not (ws / "site" / "evil.html").exists() and not (ws / "site" / "explainers").exists()
+
+
+def test_build_with_a_graph_outside_a_workspace_and_no_out_exits_2(tmp_path, monkeypatch):
+    export = tmp_path / "export"
+    _wiki(export)
+    monkeypatch.chdir(tmp_path)
+    result = _invoke("rationale", "build", str(_file(tmp_path, _sample())), "--graph", str(export))
+    assert result.exit_code == 2 and "error" in json.loads(result.stdout)
+    assert not (export / "rationale").exists() and not (export / "site" / "explainers").exists()
+
+
+def test_list_from_a_folder_that_is_not_a_workspace_exits_2(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = _invoke("rationale", "list")
+    assert result.exit_code == 2 and "error" in json.loads(result.stdout)
+
+
+def test_list_takes_a_graph_like_check_and_build(ws, tmp_path, monkeypatch):
+    _put(ws, "toy-store-search.json", _sample())
+    monkeypatch.chdir(tmp_path)
+    for graph in (ws, ws / "raw" / "graph.json"):
+        result = _invoke("rationale", "list", "--graph", str(graph))
+        assert result.exit_code == 0, result.output
+        assert [(e["id"], e["status"]) for e in json.loads(result.stdout)] == [("toy-store-search", "ok")]
+
+
+def test_a_space_file_without_a_graph_is_broken_with_no_graph(tmp_path, monkeypatch):
+    root = tmp_path / "bare"
+    assert _invoke("init", str(root), "--yes").exit_code == 0
+    monkeypatch.chdir(root)
+    _put(root, "toy-store-search.json", _sample())
+    [entry] = json.loads(_list().stdout)
+    assert entry["status"] == "broken" and [p["code"] for p in entry["problems"]] == ["no_graph"]
+
+
+def test_null_free_text_renders_as_nothing(ws):
+    from taxonomy_generator.wiki import query as q
+    doc = _sample()
+    doc["problem"]["context"] = None
+    a1, a2 = doc["alternatives"]
+    a1["summary"] = None
+    a1["choices"][0]["reason"] = None
+    a1["choices"][0]["evidence"][0]["stance"] = None
+    a1["relations"][0]["note"] = None
+    a1["considered"][0]["reason"] = None
+    a2["open"][0]["reason"] = None
+    doc["comparison"][0]["note"] = None
+    graph = q.load(ws / "raw" / "graph.json")
+    data = explainer.page_data(doc, graph, lambda target: None)
+    assert data["context"] == "" and data["alternatives"][0]["summary"] == ""
+    assert data["alternatives"][0]["choices"][0]["evidence"][0]["stance"] == ""
+    assert data["alternatives"][1]["open"][0]["reason"] == ""
+    html = explainer._render(data)
+    visible = re.sub(r"<script.*?</script>", "", html, flags=re.S)
+    assert "None" not in visible and "null" not in visible

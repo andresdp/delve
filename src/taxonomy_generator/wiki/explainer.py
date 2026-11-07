@@ -24,6 +24,7 @@ from taxonomy_generator.wiki.query import norm
 from taxonomy_generator.wiki.render import _env, copy_images, copy_page_assets
 
 EXPLAINERS = "explainers"
+ASSETS_MARKER = ".ddspace-assets"  # in a standalone folder's assets/: ddspace created it and may overwrite it
 Link = Callable[[str], Optional[str]]  # a wiki page path (``concepts/x``) or file (``index.html``) -> href or None
 
 
@@ -78,7 +79,7 @@ class _Space:
             if n is None or n.get("kind") != "dimension":
                 return None
             if ref not in self.dims:
-                self.dims[ref] = {"id": ref, "label": n.get("label", ref), "question": n.get("description") or "",
+                self.dims[ref] = {"id": ref, "label": n.get("label") or ref, "question": n.get("description") or "",
                                   "href": self.link(n.get("href") or ""), "core": bool(n.get("core")), "values": []}
                 for v in self._dim_values.get(ref, []):
                     self._value_node(v)
@@ -95,12 +96,12 @@ class _Space:
         for e in self._evidence.get(v["id"], []):
             if e.get("source") in self._by_id:
                 s = self._by_id[e["source"]]
-                sources.append({"id": s["id"], "label": s.get("label", s["id"]), "stance": e.get("stance", ""),
+                sources.append({"id": s["id"], "label": s.get("label") or s["id"], "stance": e.get("stance") or "",
                                 "href": self.link(s.get("href") or "")})
-        self.values[v["id"]] = {"id": v["id"], "label": v.get("label", v["id"]), "dimension": v["dimension_id"],
-                                "status": v.get("status", ""), "description": v.get("description") or "",
+        self.values[v["id"]] = {"id": v["id"], "label": v.get("label") or v["id"], "dimension": v["dimension_id"],
+                                "status": v.get("status") or "", "description": v.get("description") or "",
                                 "href": self.link(v.get("href") or ""),
-                                "passages": [{"doc": p.get("doc"), "stance": p.get("stance", "")}
+                                "passages": [{"doc": p.get("doc"), "stance": p.get("stance") or ""}
                                              for p in v.get("passages") or []],
                                 "sources": sources}
         self.dims[v["dimension_id"]]["values"].append(v["id"])
@@ -144,7 +145,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
             d, v = space.names(c)
             choices.append({"dimension": d, "value": v, "drivers": list(c.get("drivers") or []),
                             "reason": c.get("reason") or "", "quote": c.get("solution_quote") or "",
-                            "evidence": [{"doc": e.get("doc"), "stance": e.get("stance", "")}
+                            "evidence": [{"doc": e.get("doc"), "stance": e.get("stance") or ""}
                                          for e in c.get("evidence") or []]})
         considered = []
         for c in alt.get("considered") or []:
@@ -204,15 +205,15 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         ids = set(space.dims)
         for e in graph.get("edges") or []:
             if e.get("type") == "relation" and e.get("source") in ids and e.get("target") in ids:
-                relations.append({"source": e["source"], "target": e["target"], "type": e.get("relation", ""),
-                                  "directed": e.get("directed") is not False, "reading": e.get("reading", "")})
+                relations.append({"source": e["source"], "target": e["target"], "type": e.get("relation") or "",
+                                  "directed": e.get("directed") is not False, "reading": e.get("reading") or ""})
 
     uncovered = []
     for u in doc.get("uncovered") or []:
         near = u.get("nearest_dimension_id")
         n = space.node(near) if with_space and near else None
         uncovered.append({"decision": u.get("decision") or "", "quote": u.get("solution_quote") or "",
-                          "nearest": ({"id": near, "label": n.get("label", near), "href": link(n.get("href") or "")}
+                          "nearest": ({"id": near, "label": n.get("label") or near, "href": link(n.get("href") or "")}
                                       if n else None)})
 
     meta = doc.get("space") if isinstance(doc.get("space"), dict) else None
@@ -253,9 +254,28 @@ def write_page(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], root:
     return page
 
 
-def copy_assets(root: Path) -> None:
-    """Copy what the page loads (d3, the layout script, the stylesheet, the icons) into ``<root>/assets``, so it opens offline."""
+class ForeignAssets(Exception):
+    """A standalone folder already has an ``assets/`` folder that ddspace did not create (no ``ASSETS_MARKER``)."""
+
+
+def foreign_assets(root: Path) -> Optional[Path]:
+    """Return ``<root>/assets`` when it exists but ddspace did not create it (so it must not be overwritten)."""
     assets = Path(root) / "assets"
+    return assets if assets.exists() and not (assets / ASSETS_MARKER).is_file() else None
+
+
+def copy_assets(root: Path) -> None:
+    """Copy what the page loads (d3, the layout script, the stylesheet, the icons) into ``<root>/assets``, so it opens offline.
+
+    Raises ``ForeignAssets`` when ``<root>/assets`` exists without ddspace's marker file; writes the marker.
+    """
+    assets = Path(root) / "assets"
+    if foreign_assets(root) is not None:
+        raise ForeignAssets(f"{assets} exists and ddspace did not create it (no {ASSETS_MARKER}): "
+                            "choose another --out folder")
+    assets.mkdir(parents=True, exist_ok=True)
+    (assets / ASSETS_MARKER).write_text("Written by ddspace rationale build; it may overwrite this folder.\n",
+                                        encoding="utf-8")
     copy_images(assets, None)
     copy_page_assets(assets)
 

@@ -20,7 +20,11 @@ under ``--results``:
 - ``summaries/<session>.json``: an allow-listed summary of the event log, the final ``ddspace rationale check``
   (ok and problem codes), the number of check runs, a fabrication audit (ids in the file that no command
   returned), for explain the possible retrieval misses, and the explainer's path;
-- ``explainers/<session>/``: the explainer, from ``ddspace rationale build --out`` (every condition).
+- ``explainers/<session>/``: the explainer, from ``ddspace rationale build --out`` (every condition); for M and
+  E its wiki links point into ``--workspaces/<condition>``, which outlives the session's work copy.
+
+A session is done when its rationale file is kept and its summary says ``status: ok``; any other session
+(failed, or with an unreadable summary) runs again on the next invocation.
 
 ``--skills-via files`` writes the skill to ``.agents/skills/<name>/SKILL.md`` in the work copy (Codex reads
 repository skills there); ``--skills-via prompt`` appends it to the prompt instead. A smoke test decides which,
@@ -140,9 +144,26 @@ def kept_file(results: Path, session: Session) -> Path:
     return results / "rationale" / f"{session.id}.json"
 
 
+def read_summary(path: Path) -> Optional[Dict[str, Any]]:
+    """Return a session summary, or None when it is missing, unreadable or not a JSON object."""
+    try:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):            # UnicodeDecodeError and JSONDecodeError are ValueErrors
+        return None
+    return rec if isinstance(rec, dict) else None
+
+
+def done(results: Path, session: Session) -> bool:
+    """Whether a session is finished: its rationale file is kept and its summary says ``status: ok``."""
+    if not kept_file(results, session).is_file():
+        return False
+    rec = read_summary(results / "summaries" / f"{session.id}.json")
+    return rec is not None and rec.get("status") == "ok"
+
+
 def pending(sessions: List[Session], results: Path = RESULTS) -> List[Session]:
-    """Return the sessions that have no kept rationale file yet (a failed session runs again)."""
-    return [s for s in sessions if not kept_file(results, s).is_file()]
+    """Return the sessions that are not done (a failed session runs again, even if it left a file)."""
+    return [s for s in sessions if not done(results, s)]
 
 
 # ---------------------------------------------------------------- the prompt and the skill
@@ -264,22 +285,31 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
 
 
 def guards(results: Path, *, model: str, prompt: Path, skills_via: str) -> List[str]:
-    """Why ``results`` must not take more sessions now: another model, prompt version or skill delivery."""
+    """Why ``results`` must not take more sessions now: another model, prompt version or skill delivery.
+
+    The checks are CAIN's (``model_mismatch``, ``prompt_mismatch``), done here over :func:`read_summary`, so an
+    unreadable summary (a crash while it was written) is skipped: that session is pending and runs again.
+    """
     out = []
-    other = cain.model_mismatch(results, model)
-    if other:
-        out.append(f"{results.name}/ holds {len(other)} sessions run with another agent model (such as {other[0]}); "
-                   f"use another --results folder.")
-    mixed = cain.prompt_mismatch(results, prompt)
-    if mixed:
-        out.append(f"{results.name}/ holds {len(mixed)} sessions run with another version of {prompt.name} "
-                   f"(such as {mixed[0]}); move that folder aside first.")
-    digest, skills = skills_sha256(), []
+    prompt_digest, digest = design.sha256(prompt), skills_sha256()
+    other, mixed, skills = [], [], []
     for path in sorted((results / "summaries").glob("*.json")):
-        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec = read_summary(path)
+        if rec is None:
+            continue
+        if rec.get("model") and rec["model"] != model:
+            other.append(path.stem)
+        if rec.get("prompt_sha256") and rec["prompt_sha256"] != prompt_digest:
+            mixed.append(path.stem)
         if (rec.get("skills_via") and rec["skills_via"] != skills_via) or (
                 rec.get("skills_sha256") and rec["skills_sha256"] != digest):
             skills.append(path.stem)
+    if other:
+        out.append(f"{results.name}/ holds {len(other)} sessions run with another agent model (such as {other[0]}); "
+                   f"use another --results folder.")
+    if mixed:
+        out.append(f"{results.name}/ holds {len(mixed)} sessions run with another version of {prompt.name} "
+                   f"(such as {mixed[0]}); move that folder aside first.")
     if skills:
         out.append(f"{results.name}/ holds {len(skills)} sessions run with another skill text or skill delivery "
                    f"(such as {skills[0]}); use another --results folder.")
@@ -366,7 +396,7 @@ def file_ids(doc: Any) -> List[str]:
                 add(r.get("target"))
         point = alt.get("point")
         for s in (point.get("attested_by") or []) if isinstance(point, dict) else []:
-            add(s)
+            add(s.get("id") if isinstance(s, dict) else s)    # a source id, or a source object with its id
     for key, field in (("comparison", "dimension_id"), ("uncovered", "nearest_dimension_id")):
         for item in doc.get(key) or []:
             add(item.get(field) if isinstance(item, dict) else None)
@@ -516,17 +546,23 @@ def final_check(ddspace: Sequence[str], workdir: Path, file: Path) -> Dict[str, 
 
 
 def build_explainer(ddspace: Sequence[str], workdir: Path, file: Path, results: Path,
-                    session: Session) -> Dict[str, Any]:
+                    session: Session, workspaces: Optional[Path] = None) -> Dict[str, Any]:
     """Render the explainer with ``ddspace rationale build --out`` under the results folder (every condition).
 
-    Run in the work copy, so an M or E file finds its graph. A missing ``build`` command (or any failure) is
-    recorded, not raised.
+    Run in the work copy. For M and E, ``--graph`` names the condition's workspace under ``workspaces`` (the
+    same graph the work copy was copied from), so the page's wiki links point into a wiki that outlives the work
+    copy, which is deleted after the session; ``links_into`` records it (``--workspaces/<condition>``, no path).
+    A missing ``build`` command (or any failure) is recorded, not raised.
     """
     out_dir = results / "explainers" / session.id
     shutil.rmtree(out_dir, ignore_errors=True)
-    rec: Dict[str, Any] = {"out": out_dir.relative_to(results).as_posix()}
+    rec: Dict[str, Any] = {"out": out_dir.relative_to(results).as_posix(), "links_into": None}
+    args = ["rationale", "build", str(file), "--out", str(out_dir)]
+    if workspaces is not None and session.condition in SPACE_CONDITIONS:
+        args += ["--graph", str(Path(workspaces) / session.condition / "raw" / "graph.json")]
+        rec["links_into"] = f"--workspaces/{session.condition}"
     try:
-        proc = _ddspace(ddspace, ["rationale", "build", str(file), "--out", str(out_dir)], workdir)
+        proc = _ddspace(ddspace, args, workdir)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return dict(rec, exit_code=None, error=f"{type(exc).__name__}: {exc}", pages=[])
     rec["exit_code"] = proc.returncode
@@ -539,11 +575,12 @@ def build_explainer(ddspace: Sequence[str], workdir: Path, file: Path, results: 
 
 def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any], workdir: Path,
                events: List[Dict[str, Any]], results: Path, *, ddspace: Sequence[str], home: str,
-               secrets: Iterable[str]) -> Dict[str, Any]:
+               secrets: Iterable[str], workspaces: Optional[Path] = None) -> Dict[str, Any]:
     """Keep the session's rationale file and check, audit and render it; return the fields for the summary.
 
     ``problems`` lists why the session does not count: an incomplete log, web search, no rationale file or a
-    file that is not JSON. A final check with errors does not fail the session: it is the session's result.
+    file that is not UTF-8 JSON. A final check with errors does not fail the session: it is the session's result.
+    ``workspaces`` (the persistent M and E workspaces) is where the explainer's wiki links point.
     """
     problems = []
     if not summary["complete"]:
@@ -554,7 +591,10 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
     file = workdir / rel
     if not file.is_file():
         return {"problems": [f"no rationale file: the agent wrote no {rel}"] + problems}
-    text = file.read_text(encoding="utf-8")
+    try:
+        text = file.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        return {"problems": [f"{rel} is not UTF-8: {exc.reason} at byte {exc.start}"] + problems}
     try:
         doc = json.loads(text)
     except ValueError as exc:
@@ -572,7 +612,7 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
         except (q.QueryError, OSError, ValueError) as exc:
             rec["retrieval_misses"] = {"error": str(exc)}
     if rec["check"].get("ok"):
-        rec["explainer"] = build_explainer(ddspace, workdir, Path(rel), results, session)
+        rec["explainer"] = build_explainer(ddspace, workdir, Path(rel), results, session, workspaces)
     else:
         rec["explainer"] = {"skipped": "the final check is not clean"}
     return rec
@@ -638,7 +678,8 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
         events = cain._events(stdout)
         home = str(Path.home())
         summary = summarize(events, home=home, secrets=[])
-        after = postflight(summary, session, case, workdir, events, results, ddspace=ddspace, home=home, secrets=[])
+        after = postflight(summary, session, case, workdir, events, results, ddspace=ddspace, home=home, secrets=[],
+                           workspaces=workspaces)
         problems = ([f"timed out after {timeout} s"] if timed_out else []) + after.pop("problems")
         record.update(summary, **after)
     record.update(status="failed" if problems else "ok", problems=problems)

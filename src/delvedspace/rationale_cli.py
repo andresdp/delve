@@ -98,6 +98,17 @@ def check(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
     raise typer.Exit(0 if result["ok"] else 1)
 
 
+def _check_out(out: Path) -> None:
+    """Exit 2 unless ``out`` is inside the current folder and any ``out/assets`` there is ddspace's own."""
+    here, target = Path.cwd().resolve(), out.resolve()
+    if target != here and here not in target.parents:
+        _fail(f"--out {out} is outside the current folder ({here}): pass a folder inside it.", False)
+    foreign = explainer.foreign_assets(target)
+    if foreign is not None:
+        _fail(f"{foreign} exists and ddspace did not create it (no {explainer.ASSETS_MARKER}): "
+              "choose another --out folder.", False)
+
+
 def html_dir(root: Path) -> Path:
     """Return the HTML folder of the wiki in ``root``: ``site/`` (``ddspace wiki build``) or ``html/`` (an export)."""
     for name in (HTML_DIR, "html"):
@@ -110,7 +121,8 @@ def html_dir(root: Path) -> Path:
 def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rationale/1 JSON)."),
           out: Optional[Path] = typer.Option(None, "--out", help="Write a standalone folder (DIR/explainers/<id>.html "
                                              "and DIR/assets/) instead of into the workspace's wiki. Required "
-                                             "for a file without a space and outside a workspace."),
+                                             "for a file without a space and outside a workspace. DIR must be "
+                                             "inside the current folder."),
           graph: Optional[Path] = query_cli.GraphOpt) -> None:
     """Check a rationale file, then render it as an explainer page; print the page path as JSON.
 
@@ -119,18 +131,21 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
     `ddspace wiki build` re-renders it. With --out DIR, a standalone folder is written
     (with a space, its links point into the wiki the file was checked against). A file with errors writes
     nothing: exit code 1 with the check result. Exit code 2 for an unreadable file, a graph that cannot be
-    loaded, or a missing --out.
+    loaded, a missing --out, an --out DIR outside the current folder or whose assets/ ddspace did not create,
+    an id that cannot name a file, or an id another file in rationale/ already declares.
     """
     doc = _load(file, False)
     if not rationale.names_space(doc) and out is None:
         _fail("A file without a space (space: null) renders outside any wiki: pass --out DIR.", False)
+    if out is not None:
+        _check_out(out)
     loaded, sha, graph_file = _space(doc, graph, False)
     result = rationale.check(doc, loaded, sha)
     if not result["ok"]:
         typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
         raise typer.Exit(1)
     rid = str(doc["id"])
-    if not rationale.SAFE_ID.match(rid):
+    if not rationale.safe_id(rid):
         _fail(f"The id '{rid}' cannot name a file: use letters, digits, '.', '_' and '-'.", False)
     changed = any(p["code"] == "graph_changed" for p in result["problems"])
     root = graph_file.resolve().parent.parent if graph_file is not None else None
@@ -142,6 +157,10 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
         if not (root / CONFIG_NAME).is_file():
             _fail(f"{root} is not a workspace (no {CONFIG_NAME}): pass --out DIR to write a standalone page.", False)
         copied = root / "rationale" / f"{rid}.json"
+        others = rationale.declared_by(root, rid, skip=copied)
+        if others:
+            _fail(f"The id '{rid}' is already declared by {', '.join(str(o) for o in others)}: give the file its "
+                  "own id, or remove the other file.", False)
         copied.parent.mkdir(parents=True, exist_ok=True)
         if not (copied.exists() and copied.samefile(file)):
             shutil.copyfile(file, copied)
@@ -158,24 +177,26 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
 
 
 @app.command("list")
-def list_cmd(table: bool = query_cli.TableOpt) -> None:
+def list_cmd(graph: Optional[Path] = query_cli.GraphOpt, table: bool = query_cli.TableOpt) -> None:
     """List the workspace's rationale files (rationale/*.json): id, mode, alternatives, status and page.
 
     Status: ok; changed (clean, but written against an earlier graph: its page shows a banner); broken (errors
-    in `ddspace rationale check`: `ddspace wiki build` skips it). The page is null until the file is rendered.
+    in `ddspace rationale check`, an id another file also declares, or a page that failed to render:
+    `ddspace wiki build` skips it). The page is null until the file is rendered. With --graph, the folder
+    listed is the one that holds that raw/graph.json.
     """
     try:
-        ws = Workspace.find()
+        root = Workspace.find().root if graph is None else query_cli._graph_path(graph).resolve().parent.parent
     except WorkspaceError as exc:
         _fail(str(exc), table)
-    entries = rationale.scan(ws.root, html_dir(ws.root))
+    entries = rationale.scan(root, html_dir(root))
     if not table:
         typer.echo(json.dumps([{k: e[k] for k in ("id", "mode", "alternatives", "status", "page", "file", "problems")}
                                for e in entries], indent=2, ensure_ascii=False))
         return
     if not entries:
-        console.print(f"No rationale files in {escape(str(ws.root / rationale.RATIONALE_DIR))}.")
+        console.print(f"No rationale files in {escape(str(root / rationale.RATIONALE_DIR))}.")
         return
     query_cli._table("Rationale files", ["id", "mode", "alternatives", "status", "page"],
                      [[e["id"], e["mode"] or "", str(e["alternatives"]), e["status"],
-                       str(Path(e["page"]).relative_to(ws.root)) if e["page"] else ""] for e in entries])
+                       str(Path(e["page"]).relative_to(root)) if e["page"] else ""] for e in entries])

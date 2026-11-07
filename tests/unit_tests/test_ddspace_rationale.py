@@ -365,3 +365,89 @@ def test_table_prints_a_readable_problem_table(ws, tmp_path):
     assert "Disk quorum" in result.output and not result.output.lstrip().startswith("{")
     clean = _invoke("rationale", "check", str(SAMPLE), "--table")
     assert clean.exit_code == 0 and "no problems" in clean.output.lower()
+
+
+# ---------------------------------------------------------------- review fixes
+
+
+def test_duplicate_requirement_and_alternative_ids_are_schema_errors(graph):
+    doc = _sample()
+    doc["problem"]["requirements"].append(dict(doc["problem"]["requirements"][0]))
+    doc["alternatives"][1]["id"] = doc["alternatives"][0]["id"]
+    codes = _codes(_check(doc, graph))
+    n = len(doc["problem"]["requirements"]) - 1
+    assert ("schema", f"/problem/requirements/{n}/id") in codes
+    assert ("schema", "/alternatives/1/id") in codes
+
+
+def test_explain_without_uncovered_is_a_schema_error(graph):
+    doc = _explain()
+    del doc["uncovered"]
+    assert ("schema", "/uncovered") in _codes(_check(doc, graph))
+
+
+def test_a_driver_that_is_not_a_string_is_a_schema_error(graph):
+    doc = _sample()
+    doc["alternatives"][0]["choices"][0]["drivers"] = ["Q1", 7]
+    assert ("schema", "/alternatives/0/choices/0/drivers/1") in _codes(_check(doc, graph))
+
+
+def test_a_stance_outside_the_stances_is_a_schema_error(graph):
+    doc = _sample()
+    doc["alternatives"][0]["choices"][0]["evidence"][0]["stance"] = "loves"
+    assert ("schema", "/alternatives/0/choices/0/evidence/0/stance") in _codes(_check(doc, graph))
+    doc = _no_space()
+    doc["alternatives"][0]["choices"][0]["evidence"] = [{"doc": "s01_p01", "stance": "loves"}]
+    assert ("schema", "/alternatives/0/choices/0/evidence/0/stance") in _codes(rationale.check(doc))
+
+
+def test_a_stance_the_graph_does_not_record_is_a_mismatch(graph):
+    doc = _sample()
+    doc["alternatives"][0]["choices"][0]["evidence"][0]["stance"] = "rejects"  # the graph: s01_p01 accepts v:1.1
+    result = _check(doc, graph)
+    problem = next(p for p in result["problems"] if p["code"] == "evidence_stance_mismatch")
+    assert problem["path"] == "/alternatives/0/choices/0/evidence/0" and problem["severity"] == "error"
+    assert problem["candidates"] == [{"doc": "s01_p01", "stance": "accepts"}]
+    assert not result["ok"]
+
+
+@pytest.mark.parametrize("claim, ok", [("accepts", True), ("rejects", True), ("both", True), ("supports", False)])
+def test_a_passage_the_graph_records_as_both_accepts_accepts_or_rejects(graph, claim, ok):
+    graph["_by_id"]["v:1.1"]["passages"][0]["stance"] = "both"
+    doc = _sample()
+    doc["alternatives"][0]["choices"][0]["evidence"][0]["stance"] = claim
+    codes = {p["code"] for p in _check(doc, graph)["problems"]}
+    assert ("evidence_stance_mismatch" not in codes) is ok
+
+
+def test_point_returns_unmet_requires_as_data(ws, tmp_path):
+    path = _graph_with_requires(ws, tmp_path)
+    info = q.point(q.load(path), ["v:1.2"])
+    assert info["unmet_requires"] == [{"dimension_id": "d:1", "requires_id": "d:2"}]
+    assert any("is not in the point" in w for w in info["warnings"])  # the wording is unchanged
+    assert q.point(q.load(path), ["v:1.1", "v:2.1"])["unmet_requires"] == []
+
+
+def test_the_point_command_only_adds_the_unmet_requires_key(ws, tmp_path):
+    path = _graph_with_requires(ws, tmp_path)
+    result = _invoke("point", "v:1.2", "--no-llm", "--graph", str(path.parent.parent))
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert set(payload) == {"values", "existing", "description", "attested_by", "relations", "warnings",
+                            "unmet_requires", "description_source"}
+    assert payload["unmet_requires"] == [{"dimension_id": "d:1", "requires_id": "d:2"}]
+
+
+def test_the_checker_reads_unmet_requires_from_the_data_not_the_wording(ws, tmp_path, monkeypatch):
+    path = _graph_with_requires(ws, tmp_path)
+    real = q.point
+    monkeypatch.setattr(q, "point", lambda g, refs: {**real(g, refs), "warnings": []})
+    doc = _sample()
+    result = rationale.check(doc, q.load(path), doc["space"]["graph_sha256"])
+    assert [(p["code"], p["path"]) for p in result["problems"]] == [("unmet_requires", "/alternatives/1")]
+    assert "Replication" in result["problems"][0]["message"]
+
+
+def test_safe_id_rejects_a_trailing_newline():
+    assert rationale.SAFE_ID.fullmatch("toy-store") and not rationale.safe_id("toy-store\n")
+    assert not rationale.safe_id("../evil") and not rationale.safe_id("a/b")

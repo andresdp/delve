@@ -69,6 +69,25 @@ def test_skill_text_teaches_the_workflow(name):
     assert "In interactive use (not in a study session), finish with `ddspace rationale build" in last
 
 
+def _build_step(text):
+    steps = text.split("## Steps", 1)[1].split("\n## ", 1)[0]
+    return " ".join(re.split(r"\n\d+\. ", steps)[-1].split())
+
+
+@pytest.mark.parametrize("name", SKILLS)
+def test_no_space_build_step_writes_into_the_working_directory(name):
+    last = _build_step(agent.skill_text(name, space=False))
+    assert "`ddspace rationale build rationale/<id>.json --out .`" in last
+    assert "explainers/" in last
+
+
+@pytest.mark.parametrize("name", SKILLS)
+def test_with_space_build_step_carries_the_graph_option(name):
+    last = _build_step(agent.skill_text(name, space=True, where=" --graph space"))
+    assert "`ddspace rationale build rationale/<id>.json --graph space`" in last
+    assert "--out" not in last
+
+
 def test_explain_skill_quotes_the_solution_and_lists_uncovered_decisions():
     text = agent.skill_text("ddspace-explain", space=True)
     assert "solution_quote" in text and "uncovered" in text and '"S"' in text
