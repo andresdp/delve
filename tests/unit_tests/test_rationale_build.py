@@ -501,3 +501,14 @@ def test_null_free_text_renders_as_nothing(ws):
     html = explainer._render(data)
     visible = re.sub(r"<script.*?</script>", "", html, flags=re.S)
     assert "None" not in visible and "null" not in visible
+
+
+def test_build_into_a_wiki_exported_before_the_layout_script_adds_it(ws, tmp_path):
+    """A wiki exported before graph-layout.js existed: the page still draws its graph without a re-export."""
+    layout = ws / "site" / "assets" / "graph-layout.js"
+    layout.unlink()
+    style = ws / "site" / "assets" / "style.css"
+    style.write_text("/* the export's own stylesheet */", encoding="utf-8")
+    _built(_invoke("rationale", "build", str(_file(tmp_path, _search_with_a_shared_dimension()))))
+    assert layout.is_file()
+    assert style.read_text(encoding="utf-8") == "/* the export's own stylesheet */"  # other assets left to the export

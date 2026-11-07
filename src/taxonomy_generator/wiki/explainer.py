@@ -17,11 +17,14 @@ import html
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 from taxonomy_generator.wiki.query import norm
-from taxonomy_generator.wiki.render import _env, copy_images, copy_page_assets
+from taxonomy_generator.wiki.render import TEMPLATES, _env, copy_images, copy_page_assets
+
+LAYOUT_SCRIPT = TEMPLATES / "graph-layout.js"
 
 EXPLAINERS = "explainers"
 ASSETS_MARKER = ".ddspace-assets"  # in a standalone folder's assets/: ddspace created it and may overwrite it
@@ -249,6 +252,11 @@ def write_page(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], root:
     """
     page = Path(root) / EXPLAINERS / f"{doc['id']}.html"
     page.parent.mkdir(parents=True, exist_ok=True)
+    # A wiki exported before the shared layout script existed lacks it: the page would draw no graph until the next
+    # export. Add the script alone; the export owns the other assets.
+    layout = Path(root) / "assets" / "graph-layout.js"
+    if layout.parent.is_dir() and not layout.is_file():
+        shutil.copyfile(LAYOUT_SCRIPT, layout)
     data = page_data(doc, graph, wiki_links(wiki_html, page.parent), graph_changed)
     page.write_text(_render(data), encoding="utf-8")
     return page
