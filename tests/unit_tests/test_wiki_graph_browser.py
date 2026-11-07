@@ -130,3 +130,39 @@ def test_graph_page_selection_radial_layout_and_domain_in_a_browser(tmp_path):
     assert out["ring_after_turn"] == pytest.approx(ring, abs=1)
     # A dragged domain goes back to the centre when dropped.
     assert out["dropped_offset"] < 1
+
+
+# Reports, once the page has loaded: script errors, whether the shared layout script loaded, and the drawn nodes.
+LOADED = r"""<script>
+addEventListener("load", () => setTimeout(() => {
+  const out = { errors: window.__errs, layout: typeof window.DelveLayout,
+    nodes: document.querySelectorAll("g.node").length };
+  document.body.setAttribute("data-probe", JSON.stringify(out));
+}, 0));
+</script>"""
+
+
+def load(page: Path, profile: Path) -> dict:
+    """Open ``page`` in headless Chrome and return what LOADED saw."""
+    text = page.read_text(encoding="utf-8")
+    page.write_text(text.replace("<head>", "<head>" + ERRORS, 1).replace("</body>", LOADED + "</body>", 1),
+                    encoding="utf-8")
+    run = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+                          "--user-data-dir=" + str(profile), "--window-size=1280,900",
+                          "--virtual-time-budget=5000", "--dump-dom", page.as_uri()],
+                         capture_output=True, text=True, timeout=120)
+    m = re.search(r'data-probe="([^"]*)"', run.stdout)
+    assert m, "the probe did not report: " + run.stderr[-2000:]
+    return json.loads(m.group(1).replace("&quot;", '"').replace("&amp;", "&"))
+
+
+def test_reexport_over_a_folder_without_the_layout_script_writes_it_and_the_page_loads(tmp_path):
+    root = tmp_path / "wiki"
+    write(build(_inputs(taxonomy=_three_dimensions(), domain="Git hosting")), root, "toy")
+    script = root / "html" / "assets" / "graph-layout.js"
+    script.unlink()  # an export written before the layout script existed
+    write(build(_inputs(taxonomy=_three_dimensions(), domain="Git hosting")), root, "toy")
+    assert script.is_file()
+    out = load(root / "html" / "graph.html", tmp_path / "profile")
+    assert out["errors"] == []
+    assert out["layout"] == "object" and out["nodes"] > 0

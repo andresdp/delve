@@ -107,6 +107,12 @@ def test_every_html_link_resolves(tmp_path):
             assert (f.parent / href).resolve().exists(), (f, href)
 
 
+def test_export_ships_the_shared_layout_script(tmp_path):
+    write(build(_inputs()), tmp_path, "toy")
+    assert (tmp_path / "html" / "assets" / "graph-layout.js").is_file()
+    assert 'src="assets/graph-layout.js"' in (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+
+
 def test_without_design_points_nothing_refers_to_them(tmp_path):
     export = build(_inputs())
     assert not any(p.path.startswith("designs/") or p.path == "synthesis/design-points" for p in export.pages)

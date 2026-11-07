@@ -211,14 +211,21 @@ def copy_images(assets: Path, case_icon: Path | None) -> None:
     shutil.copyfile(TEMPLATES / "delve-pipeline.svg", assets / "delve-pipeline.svg")
 
 
+def copy_page_assets(assets: Path) -> None:
+    """Copy the stylesheet and the scripts the pages load (d3, the shared radial layout) into ``assets``."""
+    assets.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(TEMPLATES / "style.css", assets / "style.css")
+    shutil.copyfile(TEMPLATES / "graph-layout.js", assets / "graph-layout.js")
+    d3 = importlib.resources.files("taxonomy_generator") / "assets" / "d3.min.js"
+    (assets / "d3.min.js").write_text(d3.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def write_html(export: Export, out: Path, name: str, graph_node_of: Mapping[str, str],
                case_icon: Path | None = None, html_dir: str = "html") -> None:
     root = out / html_dir
     assets = root / "assets"
     copy_images(assets, case_icon)
-    shutil.copyfile(TEMPLATES / "style.css", assets / "style.css")
-    d3 = importlib.resources.files("taxonomy_generator") / "assets" / "d3.min.js"
-    (assets / "d3.min.js").write_text(d3.read_text(encoding="utf-8"), encoding="utf-8")
+    copy_page_assets(assets)
 
     env = _env()
     page_tpl = env.get_template("page.html.j2")

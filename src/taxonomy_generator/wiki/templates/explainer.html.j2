@@ -201,6 +201,7 @@
   })();
 </script>
 <script src="{{ assets }}/d3.min.js"></script>
+<script src="{{ assets }}/graph-layout.js"></script>
 <script>
 (function () {
   const data = JSON.parse(document.getElementById("explainer-data").textContent);
@@ -242,14 +243,10 @@
   const nodeColor = (n) => n.kind === "value" ? (COLOR[n.status] || COLOR.accent) : n.kind === "domain" ? COLOR.fg
     : n.kind === "requirement" ? COLOR.novel : COLOR.dimension;
 
-  // Radial layout, copied from graph.html (until the shared layout script lands): one ring per kind, each
-  // dimension an angular sector holding its values, a ring's radius growing with the nodes on it. Labels point
-  // outward along the radius, so each ring also starts beyond the longest label of the ring inside it: a value
-  // never sits on its dimension's label, nor a requirement on a value's.
-  const RINGS = ["domain", "dimension", "value", "requirement"];
-  const SPACING = { dimension: 90, value: 30, requirement: 40 };
-  const STATUS_ORDER = ["accepted", "mixed", "rejected", "outcome"];
-  const STAGGER = 24, RING_GAP = 110, LABEL_GAP = 26, LABEL_MAX = 36;
+  // The shared radial layout (graph-layout.js) with a requirement ring outside the values. Labels point outward
+  // along the radius, so each ring also starts beyond the longest label of the ring inside it: a value never sits on
+  // its dimension's label, nor a requirement on a value's.
+  const LABEL_MAX = 36;
   const shortLabel = (s) => { s = String(s ?? ""); return s.length > LABEL_MAX ? s.slice(0, LABEL_MAX - 1).trimEnd() + "…" : s; };
   const measure = (() => {
     const ctx = document.createElement("canvas").getContext("2d");
@@ -258,56 +255,9 @@
   })();
   // How far past its node a ring's labels reach: the node, the label's offset and its text, plus the halo.
   const labelReach = (ns) => d3.max(ns, (n) => radius(n) + 4 + measure(shortLabel(n.label)) + 3) || 0;
-  function radialTargets(nodes, links, cx, cy) {
-    const angle = new Map(), values = new Map(), outset = new Map();
-    links.filter((l) => l.type === "has_value").forEach((l) => {
-      if (!values.has(l.source)) values.set(l.source, []);
-      values.get(l.source).push(l.target);
-    });
-    const dims = nodes.filter((n) => n.kind === "dimension");
-    const statusOf = new Map(nodes.map((n) => [n.id, n.status]));
-    const rank = (id) => { const i = STATUS_ORDER.indexOf(statusOf.get(id)); return i < 0 ? STATUS_ORDER.length : i; };
-    values.forEach((vs) => vs.sort((a, b) => rank(a) - rank(b)));
-    const own = (d) => values.get(d.id) || [];
-    const pad = Math.max(1, d3.sum(dims, (d) => own(d).length) / (dims.length || 1) / 2);
-    const total = d3.sum(dims, (d) => own(d).length + pad) || 1;
-    const count = {};
-    nodes.forEach((n) => { count[n.kind] = (count[n.kind] || 0) + 1; });
-    const slots = { ...count, value: Math.max(count.value || 0, total) };
-    const radiusOf = {};
-    let r = 0, reach = 0;
-    RINGS.filter((k) => count[k]).forEach((k) => {
-      if (k === "domain") { radiusOf[k] = 0; return; }
-      r = Math.max(r + RING_GAP, reach + LABEL_GAP, slots[k] * SPACING[k] / (2 * Math.PI));
-      radiusOf[k] = r;
-      reach = r + (k === "value" ? STAGGER : 0) + labelReach(nodes.filter((n) => n.kind === k));
-    });
-    let start = -Math.PI / 2;
-    dims.forEach((d) => {
-      const vs = own(d), span = 2 * Math.PI * (vs.length + pad) / total, used = span * vs.length / (vs.length + pad);
-      angle.set(d.id, start + span / 2);
-      vs.forEach((v, i) => {
-        angle.set(v, start + (span - used) / 2 + used * (i + 0.5) / vs.length);
-        if (i % 2) outset.set(v, STAGGER);
-      });
-      start += span;
-    });
-    // Requirements: the mean angle of the values they drive, or evenly spaced when they drive none.
-    const near = new Map(nodes.map((n) => [n.id, []]));
-    links.forEach((l) => { near.get(l.source)?.push(l.target); near.get(l.target)?.push(l.source); });
-    const rest = nodes.filter((n) => n.kind !== "domain" && !angle.has(n.id));
-    rest.forEach((n, i) => {
-      const as = near.get(n.id).filter((x) => angle.has(x) && byId.get(x).kind !== "domain").map((x) => angle.get(x));
-      angle.set(n.id, as.length ? Math.atan2(d3.sum(as, Math.sin), d3.sum(as, Math.cos)) + (i % 2 ? 0.08 : -0.08)
-        : -Math.PI / 2 + 2 * Math.PI * i / rest.length);
-    });
-    const target = new Map();
-    nodes.forEach((n) => {
-      const rr = (radiusOf[n.kind] || 0) + (outset.get(n.id) || 0), a = angle.get(n.id) || 0;
-      target.set(n.id, { r: rr, x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) });
-    });
-    return target;
-  }
+  const radialTargets = (nodes, links, cx, cy) => DelveLayout.radialTargets(nodes, links, cx, cy, {
+    rings: ["domain", "dimension", "value", "requirement"], spacing: { dimension: 90, value: 30, requirement: 40 },
+    statusOrder: DelveLayout.STATUS_ORDER, stagger: 24, ringGap: 110, labelReach, labelGap: 26, restJitter: 0.08 });
 
   const svg = d3.select("#svg"), g = svg.append("g");
   svg.append("defs").append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 20).attr("refY", 0)
@@ -345,15 +295,7 @@
   nodeSel.append("path").attr("class", "shape").attr("d", shapePath);
   nodeSel.append("text").text((d) => d.kind === "domain" ? d.label : shortLabel(d.label));
   nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text : d.label + (d.status ? " (" + d.status + ")" : ""));
-  function orientLabels() {
-    nodeSel.select("text").each(function (d) {
-      const t = d3.select(this);
-      if (d.kind === "domain") { t.attr("transform", null).attr("text-anchor", "middle").attr("dx", 0).attr("dy", "-1.4em"); return; }
-      const deg = Math.atan2(d.y - cy, d.x - cx) * 180 / Math.PI, left = Math.abs(deg) > 90;
-      t.attr("transform", "rotate(" + (left ? deg + 180 : deg) + ")").attr("text-anchor", left ? "end" : "start")
-        .attr("dx", (left ? -1 : 1) * (radius(d) + 4)).attr("dy", "0.35em");
-    });
-  }
+  const orientLabels = () => DelveLayout.orientLabels(nodeSel.select("text"), cx, cy, { radius, centreDy: "-1.4em" });
   orientLabels();
   function fit() {
     const xs = nodes.map((d) => d.x), ys = nodes.map((d) => d.y), pad = 120;

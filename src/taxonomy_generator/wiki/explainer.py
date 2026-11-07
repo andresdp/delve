@@ -14,15 +14,13 @@ The caller checks the file first (``delvedspace.rationale.check``): this module 
 from __future__ import annotations
 
 import html
-import importlib.resources
 import json
 import os
 import re
-import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
-from taxonomy_generator.wiki.render import TEMPLATES, _env, copy_images
+from taxonomy_generator.wiki.render import _env, copy_images, copy_page_assets
 
 EXPLAINERS = "explainers"
 Link = Callable[[str], Optional[str]]  # a wiki page path (``concepts/x``) or file (``index.html``) -> href or None
@@ -243,12 +241,10 @@ def write_page(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], root:
 
 
 def copy_assets(root: Path) -> None:
-    """Copy what the page loads (d3, the stylesheet, the icons) into ``<root>/assets``, so it opens offline."""
+    """Copy what the page loads (d3, the layout script, the stylesheet, the icons) into ``<root>/assets``, so it opens offline."""
     assets = Path(root) / "assets"
     copy_images(assets, None)
-    shutil.copyfile(TEMPLATES / "style.css", assets / "style.css")
-    d3 = importlib.resources.files("taxonomy_generator") / "assets" / "d3.min.js"
-    (assets / "d3.min.js").write_text(d3.read_text(encoding="utf-8"), encoding="utf-8")
+    copy_page_assets(assets)
 
 
 def write_standalone(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], out: Path, *,

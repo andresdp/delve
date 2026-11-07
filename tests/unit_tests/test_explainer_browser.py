@@ -15,7 +15,7 @@ from taxonomy_generator.wiki import build, explainer, write
 from taxonomy_generator.wiki import query as q
 from tests.unit_tests.test_ddspace_rationale import _sample
 from tests.unit_tests.test_wiki_export import POINTS, _inputs, _taxonomy
-from tests.unit_tests.test_wiki_graph_browser import CHROME, ERRORS
+from tests.unit_tests.test_wiki_graph_browser import CHROME, ERRORS, load
 
 pytestmark = pytest.mark.skipif(CHROME is None, reason="needs Chrome or Chromium")
 
@@ -100,3 +100,15 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     # Each ring sits outside the labels of the ring inside it.
     assert out["dim_value"] == [], out["dim_value"]
     assert out["value_req"] == [], out["value_req"]
+
+
+def test_a_standalone_explainer_folder_carries_the_layout_script_and_loads(tmp_path):
+    root = tmp_path / "wiki"
+    write(build(_inputs(design_points=POINTS)), root, "toy")
+    out = tmp_path / "out"
+    page = explainer.write_standalone(_sample(), q.load(root / "raw" / "graph.json"), out)
+    assert (out / "assets" / "graph-layout.js").is_file()
+    assert 'src="../assets/graph-layout.js"' in page.read_text(encoding="utf-8")
+    seen = load(page, tmp_path / "profile")
+    assert seen["errors"] == []
+    assert seen["layout"] == "object" and seen["nodes"] > 0
