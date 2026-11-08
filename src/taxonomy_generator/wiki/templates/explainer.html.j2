@@ -128,7 +128,6 @@
   ul.pc li::before { font-weight: 700; margin-right: 6px; }
   ul.pc li.pro::before { content: "+"; color: var(--accepted); }
   ul.pc li.con::before { content: "−"; color: var(--rejected); }
-  .step-link { font-size: 12px; margin-left: 6px; }
   ul.parts { margin: 4px 0 6px; padding-left: 18px; font-size: 13px; }
   ul.parts li { margin: 4px 0; }
   .pairs { display: block; margin: 2px 0; }
@@ -178,7 +177,7 @@
     <div class="solution" data-alt="{{ a.id }}" tabindex="0"><strong>{{ a.id }} · {{ a.name }}</strong>
       {% if a.summary %}<p>{{ a.summary }}</p>{% endif %}
       {% if a.parts %}
-      <p class="muted">Composed of {{ a.parts|length }} partial design point{{ "s" if a.parts|length != 1 }}, one per ADR{% if a.step %}, evaluated together as step {{ a.step }}{% endif %}:</p>
+      <p class="muted">Composed of {{ a.parts|length }} partial design point{{ "s" if a.parts|length != 1 }}, one per ADR:</p>
       <ul class="parts">
         {% for part in a.parts %}
         <li><a href="#adr-{{ part.adr }}" class="adr-link">{{ part.adr }}</a> · {{ part.name }} {{ drivers(part.drivers) }}
@@ -198,7 +197,7 @@
       <p><strong>Decision.</strong> {% for o in chosen %}{{ o.name }}{% if search %} <span class="muted">({{ o["in"]|join(", ") }})</span>{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}.</p>
       {% for o in adr.options %}
       <div class="option {{ o.status }}" data-option="{{ o.key }}" tabindex="0">
-        <div class="head"><strong>{{ o.name }}</strong> <span class="badge {{ 'accepted' if o.status == 'chosen' else 'rejected' }}">{{ ("chosen in " ~ o["in"]|join(", ")) if o.status == "chosen" and search else o.status }}</span>{% if o.step %} <a class="step-link" href="#" data-goto-step="{{ o.step }}">step {{ o.step }}</a>{% endif %}</div>
+        <div class="head"><strong>{{ o.name }}</strong> <span class="badge {{ 'accepted' if o.status == 'chosen' else 'rejected' }}">{{ ("chosen in " ~ o["in"]|join(", ")) if o.status == "chosen" and search else o.status }}</span></div>
         <p class="values pairs">{% for did, vid in o.point.items() %}<span class="pair">{{ dim_ref(did) }} → {{ value_ref(vid) }}</span>{% endfor %}</p>
         {% for q in o.quotes %}<div class="quote">“{{ q }}”</div>{% endfor %}
         {% if o.pros or o.cons %}<ul class="pc">{% for x in o.pros %}<li class="pro">{{ x }}</li>{% endfor %}{% for x in o.cons %}<li class="con">{{ x }}</li>{% endfor %}</ul>{% endif %}
@@ -633,7 +632,7 @@
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;
     selectStep(Number(el.dataset.step));
   }));
-  // The ADRs tab: an alternative or an option lights its point in the graph; a step link opens the trajectory.
+  // The ADRs tab: an alternative or an option lights its point in the graph.
   function altInfo(a) {
     const rows = a.choices.map((c) => "<li>" + dlabel(c.dimension) + " → " + vlabel(c.value)
       + (c.drivers.length ? ' <span class="muted">' + c.drivers.map(esc).join(", ") + "</span>" : "")
@@ -664,9 +663,6 @@
     selected = null; selectedAlt = null; selectedOption = o.key;
     nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
     applyView(); showInfo(optionInfo(o));
-  }));
-  document.querySelectorAll("[data-goto-step]").forEach((el) => el.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation(); selectStep(Number(el.dataset.gotoStep));
   }));
   // The lineage: an arc from each step's parent column to its own, above the grid.
   function drawLineage() {
