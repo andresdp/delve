@@ -70,6 +70,16 @@ addEventListener("load", () => setTimeout(() => {
     out.greyed_a2 = greyed();
     out.point_a2 = inPoint();
     out.hint = document.getElementById("info").textContent;
+    // Design points: one node per step; selecting one shows its step.
+    out.points = nodes().filter((e) => e.__data__.kind === "point").map((e) => e.__data__.id).sort();
+    click(nodeOf("p:1"));
+    out.point_lit = lit();
+    out.point_info = document.getElementById("info").textContent;
+    // The toggle shows every value the space offers; by default only the explored and considered ones.
+    const shown = () => nodes().filter((e) => e.style.display !== "none").length;
+    out.shown_default = shown();
+    const box = document.getElementById("show-all"); box.checked = true; box.dispatchEvent(new Event("change"));
+    out.shown_all = shown();
     // Labels on the rings: no dimension label over a value label, no value label over a requirement label.
     const kind = (k) => nodes().filter((e) => e.__data__.kind === k);
     out.dim_value = [], out.value_req = [];
@@ -116,23 +126,27 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert out["point_trajectory"] == []                           # no step selected: no single point outlined
     assert out["arcs"] == 1
     assert out["greyed_step3"] == out["greyed_trajectory"]         # explored stays lit whatever is shown
-    assert out["point_step3"] == ["v:1.2"]                         # step 3's point is outlined
+    assert out["point_step3"] == ["p:3", "v:1.2"]                 # step 3's point and its values are outlined
     assert "step 3" in out["step_info"] and "explore" in out["step_info"]
     assert out["step_marked"] >= 3  # its column header, its cells and its entry in the list
-    # Selecting A1's choice lights its ancestors (its dimension, the centre) and the requirement driving it (Q1).
-    assert {"v:1.1", "d:1", "domain", "r:Q1"} <= set(out["selected_lit"])
-    assert not {"r:R1", "d:2", "v:2.1", "v:1.2"} & set(out["selected_lit"])  # not on its path
-    assert {"domain|d:1", "d:1|v:1.1", "r:Q1|v:1.1"} <= set(out["selected_path"])
+    # Selecting A1's choice lights its ancestors (its dimension, the centre) and the design points that take it.
+    assert {"v:1.1", "d:1", "domain", "p:1", "p:2"} <= set(out["selected_lit"])
+    assert not {"r:Q1", "d:2", "v:2.1", "v:1.2", "p:3"} & set(out["selected_lit"])  # not on its paths
+    assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2"} <= set(out["selected_path"])
     assert "Chosen in A1" in out["info"]
-    assert out["point_a1"] == ["v:1.1", "v:2.1"]
-    # A dimension lights the centre and the paths down to the values design points take, not its other values.
-    assert {"d:1", "domain", "v:1.1", "v:1.2"} <= set(out["dim_lit"])
-    assert not (set(out["dim_lit"]) - {"d:1", "domain", "v:1.1", "v:1.2"})
+    assert out["point_a1"] == ["p:1", "v:1.1", "v:2.1"]
+    # A dimension lights the centre and the paths down to the values design points take, and those points.
+    assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2", "p:1", "p:2", "p:3"}
     assert {"domain|d:1", "d:1|v:1.1", "d:1|v:1.2"} <= set(out["dim_path"])
     # Switching tabs keeps the subgraph (same nodes, same places) and drops the selection fade.
     assert out["after"] == out["before"]
     assert out["faded_after_tab"] == 0
-    assert out["point_a2"] == ["v:1.2"]
+    assert out["point_a2"] == ["p:3", "v:1.2"]
+    # One point per step; a point lights its values, their dimensions and the requirements it is judged against.
+    assert out["points"] == ["p:1", "p:2", "p:3"]
+    assert {"p:1", "v:1.1", "v:2.1", "d:1", "d:2", "domain", "r:R1", "r:Q1", "r:C1"} <= set(out["point_lit"])
+    assert "step 1" in out["point_info"] and "Design point" in out["point_info"]
+    assert out["shown_all"] > out["shown_default"]
     assert "Select a dimension" in out["hint"]
     # Each ring sits outside the labels of the ring inside it.
     assert out["dim_value"] == [], out["dim_value"]

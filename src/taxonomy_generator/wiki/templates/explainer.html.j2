@@ -76,8 +76,12 @@
   .node.greyed path.shape { opacity: .35; }
   .node.greyed text { opacity: .5; }
   .node.in-point text { font-weight: 600; }
-  .link.explored { stroke: var(--accent); stroke-opacity: .55; stroke-width: 1.4px; }
-  .link.on-path { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2.4px; }
+  .link.explored { stroke: var(--accent); stroke-opacity: .7; stroke-width: 3px; }
+  .link.on-path { stroke-opacity: 1; stroke-width: 4px; }
+  .link.on-path.tree { stroke: var(--accent); }
+  .link.shown { stroke-opacity: .95; stroke-width: 2.4px; }
+  .graph-toggle { position: absolute; top: 8px; left: 10px; font-size: 12px; color: var(--muted); background: var(--panel);
+    padding: 2px 6px; border-radius: 6px; display: flex; gap: 5px; align-items: center; cursor: pointer; }
   .node.dim-out, .link.dim-out { opacity: .1; }
   .graph-key { font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 12px;
     border-top: 1px solid var(--border); }
@@ -278,8 +282,9 @@
   {% endif %}
 </main>
 <aside class="ex-side">
-  <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg></div>
-  <div class="graph-key"><span><b>coloured</b>: explored by a step or chosen</span><span><b>outlined, bold</b>: the design point shown</span><span><b>grey</b>: offered by the space, not explored</span><span>select a node: its path to the centre and the paths from it to design points</span></div>
+  <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg>
+    <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value the space offers</label></div>
+  <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, linked by how each point meets them)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and the paths from it to design points and requirements</span></div>
   <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
 </aside>
 </div>
@@ -317,8 +322,16 @@
   const alts = data.alternatives;
   const altName = (a) => a.id + " · " + a.name;
 
-  // The subgraph: the domain at the centre, the involved dimensions, their values, then the requirements on the
-  // outer ring, linked to the values they drive.
+  // The subgraph, as a tree from the centre: the domain, the involved dimensions, their values, then the design
+  // points the agent evaluated (one per step), then the requirements on the outer ring, linked to the points
+  // whose assessment judges them.
+  const steps = data.trajectory || [];
+  const pointValues = new Set();  // explored: every value a design point of the page takes (a step's or a choice's)
+  steps.forEach((s) => Object.values(s.point).forEach((v) => pointValues.add(v)));
+  alts.forEach((a) => a.choices.forEach((c) => c.value && pointValues.add(c.value)));
+  const consideredValues = new Set();
+  alts.forEach((a) => a.considered.forEach((c) => c.value && consideredValues.add(c.value)));
+  const exploredDims = new Set([...pointValues].map((v) => (data.values[v] || {}).dimension).filter(Boolean));
   const nodes = [{ id: "domain", kind: "domain", label: data.space ? (data.space.domain || "") : data.title }];
   const edges = [];
   Object.values(data.dimensions).forEach((dm) => {
@@ -327,26 +340,34 @@
     dm.values.forEach((vid) => edges.push({ source: dm.id, target: vid, type: "has_value" }));
   });
   Object.values(data.values).forEach((v) => nodes.push({ ...v, kind: "value" }));
+  const pid = (n) => "p:" + n;
+  steps.forEach((s) => {
+    nodes.push({ id: pid(s.step), kind: "point", step: s.step, verdict: s.verdict, values: Object.values(s.point),
+      label: (s.alternative ? s.alternative + " · " : "") + "#" + s.step, description: s.description });
+    Object.values(s.point).forEach((v) => edges.push({ source: v, target: pid(s.step), type: "member" }));
+    Object.entries(s.assessment || {}).forEach(([r, judged]) =>
+      edges.push({ source: pid(s.step), target: "r:" + r, type: "assess", judged }));
+  });
   data.relations.forEach((r) => edges.push({ source: r.source, target: r.target, type: "relation", relation: r.type,
     directed: r.directed, reading: r.reading }));
   data.requirements.forEach((r) => nodes.push({ ...r, id: "r:" + r.id, req: r.id, kind: "requirement", label: r.id }));
-  alts.forEach((a) => a.choices.forEach((c) => c.value && c.drivers.forEach((r) =>
-    edges.push({ source: "r:" + r, target: c.value, type: "drives", alt: a.id }))));
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const links = edges.filter((e) => byId.has(e.source) && byId.has(e.target));
-  const adj = new Map(nodes.map((n) => [n.id, new Set()]));
-  links.forEach((e) => { adj.get(e.source).add(e.target); adj.get(e.target).add(e.source); });
+  const TREE = new Set(["domain", "has_value", "member"]);
 
-  const SYMBOL = { domain: d3.symbolCircle, dimension: d3.symbolCircle, value: d3.symbolDiamond, requirement: d3.symbolSquare };
-  const radius = (n) => n.kind === "domain" ? 14 : n.kind === "dimension" ? 10 : n.kind === "value" ? 6 : 7;
+  const SYMBOL = { domain: d3.symbolCircle, dimension: d3.symbolCircle, value: d3.symbolDiamond, point: d3.symbolTriangle,
+    requirement: d3.symbolSquare };
+  const radius = (n) => n.kind === "domain" ? 14 : n.kind === "dimension" ? 10 : n.kind === "value" ? 6 : n.kind === "point" ? 8 : 7;
   const shapePath = (n) => d3.symbol().type(SYMBOL[n.kind] || d3.symbolCircle)
     .size(Math.PI * radius(n) * radius(n) * (n.kind === "value" ? 1.25 : 1))();
+  const JUDGED = { strong: "accepted", grounded: "accepted", mixed: "mixed", partial: "mixed", weak: "rejected",
+    ungrounded: "rejected", meets: "accepted", partly: "mixed", misses: "rejected" };
   const nodeColor = (n) => n.kind === "value" ? (COLOR[n.status] || COLOR.accent) : n.kind === "domain" ? COLOR.fg
-    : n.kind === "requirement" ? COLOR.novel : COLOR.dimension;
+    : n.kind === "requirement" ? COLOR.novel : n.kind === "point" ? (COLOR[JUDGED[n.verdict]] || COLOR.accent) : COLOR.dimension;
 
-  // The shared radial layout (graph-layout.js) with a requirement ring outside the values. Labels point outward
-  // along the radius, so each ring also starts beyond the longest label of the ring inside it: a value never sits on
-  // its dimension's label, nor a requirement on a value's.
+  // The shared radial layout (graph-layout.js). Dimension labels point inwards, so each dimension sits just inside
+  // its values; the other rings start beyond the longest label of the ring inside them. Points (in step order,
+  // clockwise from the top) and requirements sit evenly around their rings.
   const LABEL_MAX = 36;
   const shortLabel = (s) => { s = String(s ?? ""); return s.length > LABEL_MAX ? s.slice(0, LABEL_MAX - 1).trimEnd() + "…" : s; };
   const measure = (() => {
@@ -354,11 +375,11 @@
     ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
     return (s) => ctx ? ctx.measureText(s).width : s.length * 6.5;
   })();
-  // How far past its node a ring's labels reach: the node, the label's offset and its text, plus the halo.
   const labelReach = (ns) => d3.max(ns, (n) => radius(n) + 4 + measure(shortLabel(n.label)) + 3) || 0;
   const radialTargets = (nodes, links, cx, cy) => DelveLayout.radialTargets(nodes, links, cx, cy, {
-    rings: ["domain", "dimension", "value", "requirement"], spacing: { dimension: 90, value: 30, requirement: 40 },
-    labelReach, restJitter: 0.08, inward: ["dimension"], inset: { dimension: 60 } });
+    rings: ["domain", "dimension", "value", "point", "requirement"],
+    spacing: { dimension: 90, value: 30, point: 34, requirement: 40 }, ringGap: 70,
+    labelReach, restJitter: 0.04, inward: ["dimension"], inset: { dimension: 36 }, even: ["point", "requirement"] });
 
   const svg = d3.select("#svg"), g = svg.append("g");
   svg.append("defs").append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 20).attr("refY", 0)
@@ -370,103 +391,110 @@
   const REL_DASH = { requires: null, affects: "7,3", constrains: "2,3", co_occurs_with: "1,5", refines: "9,3,2,3" };
   function edgeStyle(e) {
     if (e.type === "relation") return { stroke: COLOR.dimension, width: 2, dash: REL_DASH[e.relation] || null, op: 0.85, arrow: e.directed !== false };
-    if (e.type === "drives") return { stroke: COLOR.novel, width: 1.3, dash: "4,3", op: 0.8 };
+    if (e.type === "assess") return { stroke: COLOR[JUDGED[e.judged]] || COLOR.muted, width: 1.2, dash: e.judged === "misses" ? "4,3" : null, op: 0.22 };
+    if (e.type === "member") return { stroke: COLOR.muted, width: 1, dash: null, op: 0.12 };
     if (e.type === "domain") return { stroke: COLOR.muted, width: 0.8, dash: null, op: 0.3 };
     return { stroke: COLOR.muted, width: 1, dash: null, op: 0.5 };
   }
   const width = () => document.getElementById("canvas").clientWidth;
   const height = () => document.getElementById("canvas").clientHeight;
   const cx = 0, cy = 0;  // the layout's own frame; fit() maps it onto the canvas
-  const target = radialTargets(nodes, links, cx, cy);
-  nodes.forEach((n) => { const t = target.get(n.id); n.x = t.x; n.y = t.y; });
   const pos = (id) => byId.get(id);
-  const linkSel = linkLayer.selectAll("line").data(links).enter().append("line").attr("class", "link")
-    .attr("x1", (d) => pos(d.source).x).attr("y1", (d) => pos(d.source).y)
-    .attr("x2", (d) => pos(d.target).x).attr("y2", (d) => pos(d.target).y);
+  const linkSel = linkLayer.selectAll("line").data(links).enter().append("line")
+    .attr("class", (d) => "link" + (TREE.has(d.type) ? " tree" : ""));
   function styleLinks() {
     linkSel.each(function (d) { const st = edgeStyle(d); d3.select(this).attr("stroke", st.stroke).attr("stroke-width", st.width)
       .attr("stroke-dasharray", st.dash).attr("stroke-opacity", st.op).attr("marker-end", st.arrow ? "url(#arrow)" : null); });
   }
   styleLinks();
   linkSel.filter((d) => d.reading).append("title").text((d) => d.reading);
+  linkSel.filter((d) => d.type === "assess").append("title").text((d) => byId.get(d.source).label + " " + d.judged + " " + d.target.slice(2));
   const nodeSel = nodeLayer.selectAll("g.node").data(nodes).enter().append("g").attr("class", "node")
-    .attr("transform", (d) => "translate(" + d.x + "," + d.y + ")").style("cursor", "pointer")
-    .on("click", (ev, d) => { ev.stopPropagation(); select(d.id); });
+    .style("cursor", "pointer").on("click", (ev, d) => { ev.stopPropagation(); select(d.id); });
   nodeSel.append("circle").attr("r", (d) => Math.max(radius(d), 10)).attr("fill", "transparent");
   nodeSel.append("path").attr("class", "shape").attr("d", shapePath);
   nodeSel.append("text").text((d) => d.kind === "domain" ? d.label : shortLabel(d.label));
-  nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text : d.label + (d.status ? " (" + d.status + ")" : ""));
+  nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text
+    : d.kind === "point" ? "Step " + d.step + " · " + d.verdict + (d.description ? ": " + d.description : "")
+    : d.label + (d.status ? " (" + d.status + ")" : ""));
   const orientLabels = () => DelveLayout.orientLabels(nodeSel.select("text"), cx, cy, { radius, centreDy: "-1.4em",
     inward: (d) => d.kind === "dimension" });
-  orientLabels();
   function fit() {
-    const xs = nodes.map((d) => d.x), ys = nodes.map((d) => d.y), pad = 120;
+    const shown = nodes.filter(visible);
+    const xs = shown.map((d) => d.x), ys = shown.map((d) => d.y), pad = 120;
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const k = Math.min(2.5, 0.95 / Math.max((x1 - x0 + 2 * pad) / (width() || 1), (y1 - y0 + 2 * pad) / (height() || 1)));
     svg.call(zoom.transform, d3.zoomIdentity.translate(width() / 2, height() / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
   }
-  fit();
+  // Shown: every node but the values no design point takes and no alternative considered, unless the reader asks
+  // for every value the space offers. The layout is computed over the shown nodes only.
+  let showAll = false;
+  const visible = (d) => d.kind !== "value" || showAll || pointValues.has(d.id) || consideredValues.has(d.id);
+  function layout() {
+    const shown = nodes.filter(visible), ids = new Set(shown.map((n) => n.id));
+    const target = radialTargets(shown, links.filter((l) => ids.has(l.source) && ids.has(l.target)), cx, cy);
+    shown.forEach((n) => { const t = target.get(n.id); n.x = t.x; n.y = t.y; });
+    nodeSel.style("display", (d) => ids.has(d.id) ? null : "none").attr("transform", (d) => "translate(" + d.x + "," + d.y + ")");
+    linkSel.style("display", (d) => ids.has(d.source) && ids.has(d.target) ? null : "none")
+      .attr("x1", (d) => pos(d.source).x).attr("y1", (d) => pos(d.source).y)
+      .attr("x2", (d) => pos(d.target).x).attr("y2", (d) => pos(d.target).y);
+    orientLabels();
+    fit();
+  }
+  layout();
+  const toggle = document.getElementById("show-all");
+  if (toggle) toggle.addEventListener("change", () => { showAll = toggle.checked; layout(); });
 
-  // The active view: one alternative (its choices lit, every other value greyed, its driver links shown) or the
-  // compare view (every alternative's choices lit).
-  const steps = data.trajectory || [];
+  // The active view: the trajectory (every step's point, or the selected step's), one alternative, or the compare
+  // view (every alternative). Explored dimensions and values stay coloured in every view; the point shown is outlined.
   let view = steps.length ? "trajectory" : alts.length ? alts[0].id : "compare", selected = null, selectedStep = null;
-  // Explored: every value a design point of the page takes (a step's or an alternative's), and their dimensions.
-  const pointValues = new Set();
-  steps.forEach((s) => Object.values(s.point).forEach((v) => pointValues.add(v)));
-  alts.forEach((a) => a.choices.forEach((c) => c.value && pointValues.add(c.value)));
-  const exploredDims = new Set([...pointValues].map((v) => (data.values[v] || {}).dimension).filter(Boolean));
   const explored = (d) => d.kind === "value" ? pointValues.has(d.id) : d.kind === "dimension" ? exploredDims.has(d.id) : true;
   linkSel.classed("explored", (d) => (d.type === "has_value" && pointValues.has(d.target))
     || (d.type === "domain" && exploredDims.has(d.target)));
-  // The design point shown: the selected step's, the trajectory's (none selected: every step's), an alternative's,
-  // or every alternative's in the compare view.
+  const stepOf = (n) => steps.find((s) => s.step === n);
   function shownPoint() {
     const lit = new Set();
-    if (view === "trajectory") {
-      steps.filter((s) => selectedStep === null || s.step === selectedStep)
-        .forEach((s) => Object.values(s.point).forEach((v) => lit.add(v)));
-      if (selectedStep !== null) return lit;
-    }
-    alts.filter((a) => view === "compare" || view === "trajectory" || a.id === view)
-      .forEach((a) => a.choices.forEach((c) => c.value && lit.add(c.value)));
+    const add = (s) => { if (!s) return; lit.add(pid(s.step)); Object.values(s.point).forEach((v) => lit.add(v)); };
+    if (view === "trajectory") { if (selectedStep !== null) add(stepOf(selectedStep)); return lit; }
+    alts.filter((a) => view === "compare" || a.id === view).forEach((a) => {
+      add(stepOf(a.step)); a.choices.forEach((c) => c.value && lit.add(c.value)); });
     return lit;
   }
-  const linkOff = (d) => d.type === "drives" && view !== "compare" && d.alt !== view;  // drivers of the shown alternative(s)
   function applyView() {
     const lit = shownPoint();
-    const one = view !== "compare" && !(view === "trajectory" && selectedStep === null);  // one point: outline it
-    nodeSel.classed("greyed", (d) => !explored(d)).classed("in-point", (d) => one && lit.has(d.id))
+    nodeSel.classed("greyed", (d) => !explored(d)).classed("in-point", (d) => lit.has(d.id))
       .select("path.shape").attr("fill", (d) => explored(d) ? nodeColor(d) : COLOR.muted)
-      .attr("stroke", (d) => d.id === selected ? COLOR.fg : one && lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")
-      .attr("stroke-width", (d) => d.id === selected ? 3 : one && lit.has(d.id) ? 2.2 : 1.5)
-      .attr("transform", (d) => one && lit.has(d.id) ? "scale(1.45)" : null);
-    linkSel.classed("off", linkOff);
+      .attr("stroke", (d) => d.id === selected || lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")
+      .attr("stroke-width", (d) => d.id === selected ? 3 : lit.has(d.id) ? 2.2 : 1.5)
+      .attr("transform", (d) => lit.has(d.id) ? "scale(1.45)" : null);
+    // The point shown: its links to its values and to the requirements stand out.
+    linkSel.classed("shown", (d) => (d.type === "member" && lit.has(d.target)) || (d.type === "assess" && lit.has(d.source)));
     document.querySelectorAll("[data-step]").forEach((el) =>
       el.classList.toggle("sel", view === "trajectory" && selectedStep !== null && Number(el.dataset.step) === selectedStep));
   }
-  // A selected node's lineage in the tree (domain -> dimension -> value): its ancestors up to the centre, and the
-  // paths down from it that end in a value some design point takes. A requirement lights the values it drives and
-  // their ancestors; a value also keeps the requirements that drive it.
+  // A selected node's lineage in the tree (domain -> dimension -> value -> design point -> requirement): its
+  // ancestors up to the centre, and the paths down from it to design points (and, from a point, to the
+  // requirements it is judged against). A requirement lights the points judged against it and their ancestors.
   function lineage(id) {
     const keep = new Set([id, "domain"]);
     const up = (vid) => { keep.add(vid); const v = data.values[vid]; if (v) keep.add(v.dimension); };
+    const pointUp = (p) => { keep.add(p); (byId.get(p).values || []).forEach(up); };
+    const pointsWith = (vid) => links.filter((e) => e.type === "member" && e.source === vid).forEach((e) => keep.add(e.target));
     const n = byId.get(id);
     if (!n) return keep;
-    if (n.kind === "domain") pointValues.forEach(up);
-    else if (n.kind === "dimension") (data.dimensions[id].values || []).filter((v) => pointValues.has(v)).forEach(up);
-    else if (n.kind === "value") {
-      up(id);
-      links.filter((e) => e.type === "drives" && e.target === id && !linkOff(e)).forEach((e) => keep.add(e.source));
-    } else if (n.kind === "requirement") links.filter((e) => e.type === "drives" && e.source === id).forEach((e) => up(e.target));
+    if (n.kind === "domain") { pointValues.forEach(up); steps.forEach((s) => keep.add(pid(s.step))); }
+    else if (n.kind === "dimension") (data.dimensions[id].values || []).filter((v) => pointValues.has(v))
+      .forEach((v) => { up(v); pointsWith(v); });
+    else if (n.kind === "value") { up(id); pointsWith(id); }
+    else if (n.kind === "point") { pointUp(id); links.filter((e) => e.type === "assess" && e.source === id).forEach((e) => keep.add(e.target)); }
+    else if (n.kind === "requirement") links.filter((e) => e.type === "assess" && e.target === id).forEach((e) => pointUp(e.source));
     return keep;
   }
-  const onTree = (e) => e.type === "domain" || e.type === "has_value" || e.type === "drives";
   function highlight(id) {
     const keep = lineage(id);
     nodeSel.classed("dim-out", (d) => !keep.has(d.id));
     linkSel.classed("dim-out", (d) => !(keep.has(d.source) && keep.has(d.target)))
-      .classed("on-path", (d) => onTree(d) && keep.has(d.source) && keep.has(d.target));
+      .classed("on-path", (d) => d.type !== "relation" && keep.has(d.source) && keep.has(d.target));
   }
   const HINT = '<p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p>';
   function clearSelection() {
@@ -525,6 +553,9 @@
       alts.forEach((a) => a.choices.filter((c) => c.drivers.includes(n.req)).forEach((c) =>
         drives.push("<li>" + esc(a.id) + ": " + dlabel(c.dimension) + " → " + vlabel(c.value) + "</li>")));
       h += drives.length ? "<strong>Choices it drives</strong><ul>" + drives.join("") + "</ul>" : '<p class="muted">No choice names it as a driver.</p>';
+      const judged = steps.filter((s) => s.assessment && s.assessment[n.req]).map((s) => '<li><span data-id="' + pid(s.step)
+        + '" class="vref">step ' + esc(s.step) + (s.alternative ? " · " + esc(s.alternative) : "") + "</span> " + esc(s.assessment[n.req]) + "</li>");
+      if (judged.length) h += "<strong>Design points judged against it</strong><ul>" + judged.join("") + "</ul>";
     } else {
       h += '<p class="muted">' + (data.space ? "The domain of the design space; every dimension here is a decision in it." : "The problem; every decision here is one the agent named.") + "</p>";
     }
@@ -532,6 +563,7 @@
   }
   function select(id) {
     const n = byId.get(id); if (!n) return;
+    if (n.kind === "point") { selectStep(n.step); return; }
     selected = id; applyView(); highlight(id);
     document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
     if (n.kind === "requirement") document.querySelectorAll('[data-requirement="' + n.req + '"]').forEach((c) => c.classList.add("sel"));
@@ -540,17 +572,23 @@
   }
   svg.on("click", () => clearSelection());
 
-  // The trajectory: selecting a step (its column or its entry) lights its point in the graph.
-  function selectStep(n) {
-    const s = steps.find((x) => x.step === n); if (!s) return;
-    selected = null; selectedStep = n;
-    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
-    applyView();
+  // The trajectory: selecting a step (its column, its entry or its point in the graph) lights its point and its lineage.
+  function stepInfo(s) {
     const pts = Object.entries(s.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
-    const info = document.getElementById("info");
-    info.innerHTML = '<div class="kind">step ' + esc(s.step) + " · " + esc(s.move) + "</div><h2>" + esc(s.verdict)
-      + (s.alternative ? " · " + esc(s.alternative) : "") + "</h2>" + (s.why ? "<p>" + esc(s.why) + "</p>" : "") + (s.observation ? "<p>" + esc(s.observation) + "</p>" : "")
-      + "<ul>" + pts + "</ul>" + (s.description ? '<p class="muted">' + esc(s.description) + "</p>" : "");
+    const judged = Object.entries(s.assessment || {}).map(([r, j]) => '<li><span data-id="r:' + esc(r) + '" class="vref">' + esc(r)
+      + "</span> " + esc(j) + "</li>").join("");
+    return '<div class="kind">step ' + esc(s.step) + " · " + esc(s.move) + (s.approach ? " · approach " + esc(s.approach) : "")
+      + "</div><h2>" + esc(s.verdict) + (s.alternative ? " · " + esc(s.alternative) : "") + "</h2>"
+      + (s.why ? "<p>" + esc(s.why) + "</p>" : "") + (s.observation ? "<p>" + esc(s.observation) + "</p>" : "")
+      + "<strong>Design point</strong><ul>" + pts + "</ul>" + (judged ? "<strong>Requirements</strong><ul>" + judged + "</ul>" : "")
+      + (s.description ? '<p class="muted">' + esc(s.description) + "</p>" : "");
+  }
+  function selectStep(n) {
+    const s = stepOf(n); if (!s) return;
+    selected = null; selectedStep = n;
+    if (view !== "trajectory") document.querySelector('.tab[data-tab="trajectory"]')?.click();
+    selectedStep = n; applyView(); highlight(pid(n));
+    const info = document.getElementById("info"); info.innerHTML = stepInfo(s);
     info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
   }
   document.querySelectorAll(".step-h, ol.steps li, .region").forEach((el) => el.addEventListener("click", (e) => {
