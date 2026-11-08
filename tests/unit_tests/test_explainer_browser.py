@@ -136,7 +136,11 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert out["chip_point"] == ["p:2", "v:1.1"]                   # a lane chip selects its point
     assert out["greyed_step3"] == out["greyed_trajectory"]         # explored stays lit whatever is shown
     assert out["point_step3"] == ["p:3", "v:1.2"]                 # step 3's point and its values are outlined
-    assert "step 3" in out["step_info"] and "explore" in out["step_info"]
+    # The details panel reads like the story: what the point is, its rating in words, thought, move, observation.
+    info = out["step_info"]
+    assert "Design point" in info and "#3 · New approach B" in info and "Approach B, round 2" in info
+    assert "it meets every constraint" in info and "Thought" in info and "Observed" in info
+    assert "In the decisions" in info and "A write-ahead log in S3" in info
     assert out["step_marked"] >= 3  # its column header, its cells and its entry in the list
     assert out["point_a1"] == ["p:1", "v:1.1", "v:2.1"] and "Three-phase commit" in out["alt_info"]
     assert out["point_option"] == ["p:3", "v:1.2"]                # ADR1's O2, evaluated at step 3
@@ -145,6 +149,7 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert not {"d:2", "v:2.1", "v:1.2", "p:3"} & set(out["selected_lit"])  # not on its paths
     assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2", "p:1|r:Q1"} <= set(out["selected_path"])
     assert "Chosen in A1" in out["info"]
+    assert "Value · an option for" in out["info"] and "In the trajectory" in out["info"] and "First tried in #1" in out["info"]
     # A dimension: the centre, its explored values, their points and those points' requirements.
     assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2", "p:1", "p:2", "p:3", "r:R1", "r:Q1", "r:C1"}
     assert {"domain|d:1", "d:1|v:1.1", "d:1|v:1.2"} <= set(out["dim_path"])
@@ -154,9 +159,10 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     # One point per step; a point lights its values, their dimensions and the requirements it is judged against.
     assert out["points"] == ["p:1", "p:2", "p:3"]
     assert {"p:1", "v:1.1", "v:2.1", "d:1", "d:2", "domain", "r:R1", "r:Q1", "r:C1"} <= set(out["point_lit"])
-    assert "step 1" in out["point_info"] and "Design point" in out["point_info"]
+    assert "#1 · Seed of approach A" in out["point_info"] and "Design point" in out["point_info"]
+    assert "It became alternative A1" in out["point_info"]
     assert out["shown_all"] > out["shown_default"]
-    assert "Select a dimension" in out["hint"]
+    assert "Select anything in the graph" in out["hint"]
     # Each ring sits outside the labels of the ring inside it.
     assert out["dim_value"] == [], out["dim_value"]
     assert out["value_req"] == [], out["value_req"]

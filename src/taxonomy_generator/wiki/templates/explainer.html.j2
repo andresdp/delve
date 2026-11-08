@@ -42,6 +42,12 @@
   #info { flex: 1 1 40%; overflow-y: auto; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13.5px; }
   #info h2 { margin: 4px 0; font-size: 17px; border: none; }
   #info ul { padding-left: 16px; margin: 4px 0 10px; }
+  #info .info-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 4px; font-weight: 600; }
+  #info .info-sub { color: var(--muted); margin: 2px 0 8px; line-height: 1.45; }
+  #info p { margin: 4px 0; line-height: 1.45; }
+  #info .info-link { margin-top: 14px; }
+  #info .node-chip { padding: 1px 7px; font-size: 11px; margin: 1px 3px 1px 0; }
+  #info .pair-chip { display: inline-block; margin: 0 8px 4px 0; white-space: nowrap; }
   .muted, .hint { color: var(--muted); font-size: 12.5px; }
   h1 { margin: 6px 0 4px; font-size: 24px; }
   h2.sec { font-size: 16px; margin: 22px 0 8px; border: none; }
@@ -676,7 +682,7 @@
     linkSel.classed("dim-out", (d) => !(keep.has(d.source) && keep.has(d.target)))
       .classed("on-path", (d) => d.type !== "relation" && keep.has(d.source) && keep.has(d.target));
   }
-  const HINT = '<p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p>';
+  const HINT = '<p class="hint">Select anything in the graph or the text (a dimension, a value, a design point, a requirement, an alternative or an option) to see what it is and the part it plays in this rationale.</p>';
   function clearSelection() {
     selected = null; selectedStep = null; selectedAlt = null; selectedOption = null;
     nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
@@ -684,62 +690,131 @@
     document.getElementById("info").innerHTML = HINT;
     applyView();
   }
-  const link = (n) => n.href ? '<p><a class="open-page" href="' + esc(n.href) + '">Open wiki page →</a></p>' : "";
+  // The details panel: every kind of element reads the same way: what it is (kind, name, one sentence), then
+  // sections named as on the page (in the decisions, in the alternatives, in the trajectory, requirements, sources).
+  const EXPLAIN = data.mode === "explain";
+  const link = (n) => n.href ? '<p class="info-link"><a class="open-page" href="' + esc(n.href) + '">Open its page in the wiki →</a></p>' : "";
   const vlabel = (vid) => { const v = data.values[vid]; return v ? '<span data-id="' + esc(v.id) + '" class="vref">' + esc(v.label) + "</span>" : "—"; };
   const dlabel = (did) => { const x = data.dimensions[did]; return x ? '<span data-id="' + esc(x.id) + '" class="dref">' + esc(x.label) + "</span>" : "—"; };
+  const rlabel = (rid) => '<span data-id="r:' + esc(rid) + '" class="vref">' + esc(rid) + "</span>";
+  const pair = (did, vid) => dlabel(did) + " → " + vlabel(vid);
+  const head = (kind, title, sub) => '<div class="kind">' + kind + "</div><h2>" + title + "</h2>" + (sub ? '<p class="info-sub">' + sub + "</p>" : "");
+  const sec = (title, body) => body ? '<h3 class="info-h">' + esc(title) + "</h3>" + body : "";
+  const list = (items) => items.length ? "<ul>" + items.map((i) => "<li>" + i + "</li>").join("") + "</ul>" : "";
+  const para = (text) => text ? "<p>" + text + "</p>" : "";
+  const judgedChip = (rid, j) => '<span class="j j-' + esc(j) + '" data-id="r:' + esc(rid) + '">' + esc(rid) + " " + esc(j) + "</span>";
+  const judgedWord = (j) => '<span class="j j-' + esc(j) + '">' + esc(j) + "</span>";  // inside a requirement's own panel
+  const chips = (assessment) => { const e = Object.entries(assessment || {}); return e.length ? '<div class="judged">' + e.map(([r, j]) => judgedChip(r, j)).join("") + "</div>" : ""; };
+  const stepChip = (s) => '<span class="node-chip vb-' + esc(s.verdict) + '" data-step-ref="' + s.step + '" title="' + esc(s.verdict) + '">#' + s.step + "</span>";
+  const MEANS = {
+    strong: "it meets every constraint and serves every requirement at least partly",
+    mixed: "good on some requirements, but it misses one or carries a conflict",
+    weak: "it breaks a constraint or misses a key requirement",
+    grounded: "the requirements call for these values and what is known supports them",
+    partial: "only part of that holds: the requirements or what is known support it, not both",
+    ungrounded: "neither the requirements nor what is known support it" };
+  const STATUS = { accepted: "The sources accept this value.", mixed: "The sources are divided on this value.",
+    rejected: "The sources reject this value.", outcome: "The sources report this as an outcome." };
+  const STANCE = { accepts: "accepts it", rejects: "rejects it", supports: "supports it", both: "both accepts and rejects it" };
+  function phrase(s) {
+    const p = s.parent ? "#" + s.parent : "";
+    return { seed: "Seed of approach " + s.approach, exploit: "Refined " + p + (s.approach ? " (approach " + s.approach + ")" : ""),
+      explore: "New approach " + s.approach + (s.parent ? ", started from " + p : ""), ablate: "Ablation of " + p + ": which value made it work?",
+      solution: "The solution as one design point", region: "A region of " + p + ": part of the solution",
+      contrast: "A contrast on " + p + ": one option changed" }[s.move] || s.move;
+  }
+  function moveItems(s) {
+    if (["seed", "solution", "region"].includes(s.move) || !s.parent || !(s.diff || []).length)
+      return Object.entries(s.point).map(([d, v]) => pair(d, v));
+    return s.diff.map((c) => c.before == null ? "add " + pair(c.dimension, c.after)
+      : c.after == null ? "drop " + dlabel(c.dimension) + ' <span class="muted">(was ' + vlabel(c.before) + ")</span>"
+      : "change " + dlabel(c.dimension) + ": " + vlabel(c.before) + " → " + vlabel(c.after));
+  }
+  const adrOptions = [];  // [{r, o}] over every ADR option
+  (data.adrs || []).forEach((r) => r.options.forEach((o) => adrOptions.push({ r, o })));
+  const statusBadge = (o) => o.status === "chosen"
+    ? '<span class="badge accepted">chosen' + (EXPLAIN ? "" : " in " + esc(o.in.join(", "))) + "</span>"
+    : '<span class="badge rejected">discarded</span>';
+  const adrRef = (id, title) => '<a href="#adr-' + esc(id) + '" class="adr-link">' + esc(id) + "</a> · " + esc(title);
+  const optLine = ({ r, o }) => adrRef(r.id, r.title) + ": <b>" + esc(o.name) + "</b> " + statusBadge(o);
+  const altsTitle = EXPLAIN ? "In the solution" : "In the alternatives";
   const ev = (list) => list.map((e) => esc(e.doc) + (e.stance ? " (" + esc(e.stance) + ")" : "")).join(", ");
+  const taking = (vid) => steps.filter((s) => Object.values(s.point).includes(vid));
+
   function details(n) {
-    let h = '<div class="kind">' + esc(n.kind) + "</div><h2>" + esc(n.kind === "requirement" ? n.req : n.label) + "</h2>";
     if (n.kind === "dimension") {
-      if (n.question) h += "<p>" + esc(n.question) + "</p>";
-      h += "<strong>In each alternative</strong><ul>" + alts.map((a) => {
-        const c = a.choices.find((x) => x.dimension === n.id), o = a.open.find((x) => x.dimension === n.id);
-        return "<li>" + esc(altName(a)) + ": " + (c ? vlabel(c.value) : o ? "<em>open</em> " + esc(o.reason) : "—") + "</li>";
-      }).join("") + "</ul>";
-      const rels = data.relations.filter((r) => r.source === n.id || r.target === n.id)
-        .map((r) => "<li>" + dlabel(r.source) + " <em>" + esc(r.type) + "</em> " + dlabel(r.target) + " <span class=\"muted\">(space)</span></li>");
-      alts.forEach((a) => a.relations.filter((r) => r.source === n.id || r.target === n.id).forEach((r) =>
-        rels.push("<li>" + (r.source ? dlabel(r.source) : esc(r.source_label)) + " <em>" + esc(r.type) + "</em> "
-          + (r.target ? dlabel(r.target) : esc(r.target_label)) + ' <span class="muted">(' + esc(a.id) + (r.holds ? ", holds" : ", does not hold") + ")</span></li>")));
-      if (rels.length) h += "<strong>Relations</strong><ul>" + rels.join("") + "</ul>";
-    } else if (n.kind === "value") {
-      if (n.status) h += '<span class="badge ' + esc(n.status) + '">' + esc(n.status) + "</span> ";
-      h += '<p class="muted">in ' + dlabel(n.dimension) + "</p>";
-      if (n.description) h += "<p>" + esc(n.description) + "</p>";
-      let roles = "";
+      const dm = data.dimensions[n.id];
+      const explored = (dm.values || []).filter((v) => pointValues.has(v));
+      return head("Dimension · a design concern", esc(n.label), esc(n.question || ""))
+        + sec("In the decisions", list(adrOptions.filter(({ o }) => o.point[n.id]).map((x) => optLine(x) + "<br>" + pair(n.id, x.o.point[n.id]))))
+        + sec(altsTitle, list(alts.map((a) => {
+            const c = a.choices.find((x) => x.dimension === n.id), o = a.open.find((x) => x.dimension === n.id);
+            return "<b>" + esc(a.id) + "</b> " + (c ? vlabel(c.value) + (c.reason ? '<br><span class="muted">' + esc(c.reason) + "</span>" : "")
+              : o ? "leaves it open" + (o.reason ? ': <span class="muted">' + esc(o.reason) + "</span>" : "") : '<span class="muted">does not settle it</span>');
+          })))
+        + sec("In the trajectory", explored.length
+            ? para(explored.length + " of the " + dm.values.length + " values the space offers were taken by some design point:")
+              + list(explored.map((v) => vlabel(v) + " " + taking(v).map(stepChip).join("")))
+            : para('<span class="muted">No design point settled this dimension.</span>'))
+        + sec("Relations", list(data.relations.filter((r) => r.source === n.id || r.target === n.id)
+            .map((r) => dlabel(r.source) + " <em>" + esc(r.type) + "</em> " + dlabel(r.target) + ' <span class="muted">(in the space)</span>')
+            .concat(alts.flatMap((a) => a.relations.filter((r) => r.source === n.id || r.target === n.id).map((r) =>
+              (r.source ? dlabel(r.source) : esc(r.source_label)) + " <em>" + esc(r.type) + "</em> " + (r.target ? dlabel(r.target) : esc(r.target_label))
+              + ' <span class="muted">(' + esc(a.id) + (r.holds ? ": holds" : ": does not hold") + (r.note ? ", " + esc(r.note) : "") + ")</span>")))))
+        + link(n);
+    }
+    if (n.kind === "value") {
+      const points = taking(n.id);
+      const roles = [];
       alts.forEach((a) => {
         const c = a.choices.find((x) => x.value === n.id), k = a.considered.find((x) => x.value === n.id);
-        if (c) {
-          roles += "<li><strong>Chosen in " + esc(altName(a)) + "</strong>"
-            + (c.drivers.length ? "<br>drivers: " + c.drivers.map(esc).join(", ") : "")
-            + (c.reason ? "<br>" + esc(c.reason) : "")
-            + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
-            + (c.evidence.length ? '<br><span class="ev">evidence: ' + ev(c.evidence) + "</span>" : "") + "</li>";
-        } else if (k) {
-          roles += "<li><strong>Considered in " + esc(altName(a)) + "</strong>"
-            + (k.drivers.length ? "<br>drivers: " + k.drivers.map(esc).join(", ") : "") + (k.reason ? "<br>" + esc(k.reason) : "") + "</li>";
-        }
+        if (c) roles.push("<b>Chosen in " + esc(a.id) + "</b>" + (c.drivers.length ? " for " + c.drivers.map(rlabel).join(", ") : "")
+          + (c.reason ? "<br>" + esc(c.reason) : "") + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
+          + (c.evidence.length ? '<br><span class="ev">Cited evidence: ' + ev(c.evidence) + "</span>" : ""));
+        else if (k) roles.push("<b>Weighed and set aside in " + esc(a.id) + "</b>" + (k.reason ? "<br>" + esc(k.reason) : ""));
       });
-      if (n.steps && n.steps.length) roles += "<li>Investigated in step" + (n.steps.length > 1 ? "s " : " ") + n.steps.join(", ") + "</li>";
-      h += roles ? "<ul>" + roles + "</ul>" : '<p class="muted">' + (data.with_space ? "Offered by the space" : "An option in another alternative") + ": no alternative chose or considered it.</p>";
-      if (n.passages.length) h += '<p class="ev">Passages in the space: ' + ev(n.passages) + "</p>";
-      if (n.sources.length) h += "<strong>Sources</strong><ul>" + n.sources.map((s) =>
-        "<li>" + (s.href ? '<a href="' + esc(s.href) + '">' + esc(s.label) + "</a>" : esc(s.label)) + (s.stance ? " (" + esc(s.stance) + ")" : "") + "</li>").join("") + "</ul>";
-    } else if (n.kind === "requirement") {
-      h += "<p>" + esc(n.text) + "</p>";
-      const rq = data.requirements.find((r) => r.id === n.req);  // n.kind is the node kind; the file's kind is here
-      if (rq && rq.kind) h += '<p class="muted">' + esc(rq.kind) + (rq.attribute ? ": " + esc(rq.attribute) : "") + "</p>";
+      return head("Value · an option for " + dlabel(n.dimension), esc(n.label), esc(n.description || ""))
+        + (n.status && STATUS[n.status] ? para('<span class="badge ' + esc(n.status) + '">' + esc(n.status) + "</span> " + STATUS[n.status]) : "")
+        + sec("In the decisions", list(adrOptions.filter(({ o }) => Object.values(o.point).includes(n.id)).map(optLine)))
+        + sec(altsTitle, list(roles))
+        + sec("In the trajectory", points.length
+            ? para("Taken by " + points.length + " design point" + (points.length > 1 ? "s" : "") + ": " + points.map(stepChip).join("")
+              + "<br>First tried in #" + points[0].step + ": " + esc(phrase(points[0])) + ".")
+            : para('<span class="muted">No design point took it: the space offers it, but the agent did not try it.</span>'))
+        + sec("What the sources say", list(n.sources.map((s) => (s.href ? '<a href="' + esc(s.href) + '">' + esc(s.label) + "</a>" : esc(s.label))
+            + (s.stance ? " " + esc(STANCE[s.stance] || s.stance) : "")))
+            + (n.passages.length ? '<p class="ev">Passages: ' + ev(n.passages) + "</p>" : ""))
+        + link(n);
+    }
+    if (n.kind === "requirement") {
+      const rq = data.requirements.find((r) => r.id === n.req) || {};
+      const adrsFor = (data.adrs || []).filter((r) => r.drivers.includes(n.req));
+      const judged = steps.filter((s) => s.assessment && s.assessment[n.req]);
       const drives = [];
       alts.forEach((a) => a.choices.filter((c) => c.drivers.includes(n.req)).forEach((c) =>
-        drives.push("<li>" + esc(a.id) + ": " + dlabel(c.dimension) + " → " + vlabel(c.value) + "</li>")));
-      h += drives.length ? "<strong>Choices it drives</strong><ul>" + drives.join("") + "</ul>" : '<p class="muted">No choice names it as a driver.</p>';
-      const judged = steps.filter((s) => s.assessment && s.assessment[n.req]).map((s) => '<li><span data-id="' + pid(s.step)
-        + '" class="vref">step ' + esc(s.step) + (s.alternative ? " · " + esc(s.alternative) : "") + "</span> " + esc(s.assessment[n.req]) + "</li>");
-      if (judged.length) h += "<strong>Design points judged against it</strong><ul>" + judged.join("") + "</ul>";
-    } else {
-      h += '<p class="muted">' + (data.space ? "The domain of the design space; every dimension here is a decision in it." : "The problem; every decision here is one the agent named.") + "</p>";
+        drives.push("<b>" + esc(a.id) + "</b> " + pair(c.dimension, c.value))));
+      return head("Requirement · " + esc(rq.kind || "requirement") + (rq.attribute ? ": " + esc(rq.attribute) : ""), esc(n.req), esc(n.text))
+        + sec("In the decisions", adrsFor.length
+            ? list(adrsFor.map((r) => adrRef(r.id, r.title) + ": "
+                + r.options.filter((o) => o.status === "chosen").map((o) => "<b>" + esc(o.name) + "</b>" + (EXPLAIN ? "" : " (" + esc(o.in.join(", ")) + ")")).join("; ")))
+            : para('<span class="muted">No ADR addresses it.</span>'))
+        + sec(altsTitle, list(alts.map((a) => { const s = stepOf(a.step), j = s && s.assessment ? s.assessment[n.req] : null;
+            return "<b>" + esc(a.id) + "</b> " + (j ? judgedWord(j) : '<span class="muted">not judged</span>'); })))
+        + sec("In the trajectory", judged.length
+            ? para(judged.length + " design point" + (judged.length > 1 ? "s were" : " was") + " judged against it:")
+              + '<div class="judged">' + judged.map((s) => '<span class="pair-chip">' + stepChip(s) + judgedWord(s.assessment[n.req]) + "</span>").join(" ") + "</div>"
+            : para('<span class="muted">No design point was judged against it.</span>'))
+        + sec("Choices that name it as a driver", list(drives));
     }
-    return h + link(n);
+    return head("Design space", esc(n.label || data.title),
+        data.space ? "The centre of the graph. Around it: the dimensions this rationale involves, their values, the design points the agent evaluated and the requirements."
+          : "The problem. Around it: the dimensions the agent named, their values, the design points it evaluated and the requirements.")
+      + sec("At a glance", list([exploredDims.size + " of " + Object.keys(data.dimensions).length + " dimensions settled by some design point",
+          pointValues.size + " values taken by some design point", steps.length + " design points evaluated"
+          + (data.budget && data.budget.max_points ? " (budget " + data.budget.max_points + ")" : ""),
+          alts.length + (EXPLAIN ? " solution explained" : " alternative" + (alts.length > 1 ? "s" : "") + " proposed"),
+          (data.adrs || []).length + " ADRs"]))
+      + link(n);
   }
   function select(id) {
     const n = byId.get(id); if (!n) return;
@@ -747,29 +822,33 @@
     selected = id; applyView(); highlight(id);
     document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
     if (n.kind === "requirement") document.querySelectorAll('[data-requirement="' + n.req + '"]').forEach((c) => c.classList.add("sel"));
-    const info = document.getElementById("info"); info.innerHTML = details(n);
-    info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
+    showInfo(details(n));
   }
   svg.on("click", () => clearSelection());
 
   // The trajectory: selecting a step (its column, its entry or its point in the graph) lights its point and its lineage.
   function stepInfo(s) {
-    const pts = Object.entries(s.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
-    const judged = Object.entries(s.assessment || {}).map(([r, j]) => '<li><span data-id="r:' + esc(r) + '" class="vref">' + esc(r)
-      + "</span> " + esc(j) + "</li>").join("");
-    return '<div class="kind">step ' + esc(s.step) + " · " + esc(s.move) + (s.approach ? " · approach " + esc(s.approach) : "")
-      + "</div><h2>" + esc(s.verdict) + (s.alternative ? " · " + esc(s.alternative) : "") + "</h2>"
-      + (s.why ? "<p>" + esc(s.why) + "</p>" : "") + (s.observation ? "<p>" + esc(s.observation) + "</p>" : "")
-      + "<strong>Design point</strong><ul>" + pts + "</ul>" + (judged ? "<strong>Requirements</strong><ul>" + judged + "</ul>" : "")
-      + (s.description ? '<p class="muted">' + esc(s.description) + "</p>" : "");
+    const sub = (s.approach ? "Approach " + esc(s.approach) + (s.round ? ", round " + esc(s.round) : "") + ". " : "") + esc(s.description || "");
+    const inAdrs = adrOptions.filter(({ o }) => o.step === s.step);
+    return head("Design point", "#" + s.step + " · " + esc(phrase(s)), sub)
+      + para('<span class="vd-chip vb-' + esc(s.verdict) + '">' + esc(s.verdict) + "</span> " + esc(MEANS[s.verdict] || "")
+        + (s.alternative ? '<br><span class="alt-chip">' + (EXPLAIN ? "This is the solution." : "It became alternative " + esc(s.alternative) + ".") + "</span>" : ""))
+      + sec("Thought", para(esc(s.why)))
+      + sec("Move", list(moveItems(s)))
+      + sec("Observed", para(esc(s.observation)))
+      + sec("Requirements", chips(s.assessment))
+      + (["seed", "solution", "region"].includes(s.move) ? "" : sec("The whole point", list(Object.entries(s.point).map(([d, v]) => pair(d, v)))))
+      + sec("In the decisions", list(inAdrs.map(optLine)))
+      + (data.wiki ? sec("What the sources say", s.attested_by.length
+          ? para("Attested by " + s.attested_by.map((a) => a.href ? '<a href="' + esc(a.href) + '">' + esc(a.label) + "</a>" : esc(a.label)).join("; ") + ".")
+          : para('<span class="muted">No source attests this combination.</span>')) : "");
   }
   function selectStep(n) {
     const s = stepOf(n); if (!s) return;
     selected = null; selectedStep = n;
     if (view !== "trajectory") document.querySelector('.tab[data-tab="trajectory"]')?.click();
     selectedStep = n; applyView(); highlight(pid(n));
-    const info = document.getElementById("info"); info.innerHTML = stepInfo(s);
-    info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
+    showInfo(stepInfo(s));
   }
   document.querySelectorAll(".step-h, .region, .node-chip, .heat-h, td.h, .story-step, .opt").forEach((el) => el.addEventListener("click", (e) => {
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;
@@ -777,21 +856,30 @@
   }));
   // The ADRs tab: an alternative or an option lights its point in the graph.
   function altInfo(a) {
-    const rows = a.choices.map((c) => "<li>" + dlabel(c.dimension) + " → " + vlabel(c.value)
-      + (c.drivers.length ? ' <span class="muted">' + c.drivers.map(esc).join(", ") + "</span>" : "")
-      + (c.reason ? "<br>" + esc(c.reason) : "") + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
-      + (c.evidence.length ? '<br><span class="ev">evidence: ' + ev(c.evidence) + "</span>" : "") + "</li>").join("");
-    return '<div class="kind">' + (data.mode === "explain" ? "the solution" : "alternative") + "</div><h2>" + esc(altName(a)) + "</h2>"
-      + (a.summary ? "<p>" + esc(a.summary) + "</p>" : "") + "<ul>" + rows + "</ul>";
+    const s = stepOf(a.step);
+    return head(EXPLAIN ? "The solution" : "Alternative" + (a.approach ? " · from approach " + esc(a.approach) : ""), esc(altName(a)), esc(a.summary || ""))
+      + sec("Composed of", list((a.parts || []).map((p) => adrRef(p.adr, p.name)
+          + "<br>" + Object.entries(p.point).map(([d, v]) => pair(d, v)).join("<br>"))))
+      + sec("Requirements", s ? chips(s.assessment) : "")
+      + sec("Left open", list(a.open.map((o) => dlabel(o.dimension) + (o.reason ? ': <span class="muted">' + esc(o.reason) + "</span>" : ""))))
+      + sec("Each choice", list(a.choices.map((c) => pair(c.dimension, c.value) + (c.drivers.length ? " · for " + c.drivers.map(rlabel).join(", ") : "")
+          + (c.reason ? '<br><span class="muted">' + esc(c.reason) + "</span>" : "") + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
+          + (c.evidence.length ? '<br><span class="ev">Cited evidence: ' + ev(c.evidence) + "</span>" : ""))));
   }
   function optionInfo(o) {
-    const pts = Object.entries(o.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
-    return '<div class="kind">option · ' + esc(o.status) + (o.in.length ? " in " + esc(o.in.join(", ")) : "") + "</div><h2>"
-      + esc(o.name) + "</h2><ul>" + pts + "</ul>" + (o.reason ? "<p>" + esc(o.reason) + "</p>" : "");
+    const { r } = adrOptions.find((x) => x.o === o) || {};
+    return head("Option · " + (r ? esc(r.id) + " " + esc(r.title) : "ADR"), esc(o.name), statusBadge(o) + " " + esc(o.reason || ""))
+      + sec("Values", list(Object.entries(o.point).map(([d, v]) => pair(d, v))))
+      + sec("Pros", list(o.pros.map(esc))) + sec("Cons", list(o.cons.map(esc)))
+      + (o.quotes && o.quotes.length ? sec("In the solution's words", o.quotes.map((q) => '<div class="quote">“' + esc(q) + "”</div>").join("")) : "")
+      + (r ? sec("The decision it answers", para(esc(r.context)) + '<div class="judged">' + r.drivers.map((d) => '<span class="chip-sm">' + rlabel(d) + "</span>").join(" ") + "</div>") : "");
   }
   function showInfo(html) {
-    const info = document.getElementById("info"); info.innerHTML = html;
+    const info = document.getElementById("info"); info.innerHTML = html; info.scrollTop = 0;
     info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
+    info.querySelectorAll("[data-step-ref]").forEach((el) => el.addEventListener("click", () => selectStep(Number(el.dataset.stepRef))));
+    info.querySelectorAll("a.adr-link").forEach((el) => el.addEventListener("click", () => {
+      if (view !== "adrs") document.querySelector('.tab[data-tab="adrs"]')?.click(); }));
   }
   document.querySelectorAll(".solution").forEach((el) => el.addEventListener("click", (e) => {
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;

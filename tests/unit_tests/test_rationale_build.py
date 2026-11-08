@@ -581,7 +581,8 @@ def test_own_space_trajectory_uses_the_agents_own_space(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _own())), "--out", "out"))
     html = Path(payload["page"]).read_text(encoding="utf-8")
-    assert 'data-panel="trajectory"' in html and "Local disks" in html and "Attested by" not in html
+    visible = re.sub(r"<script.*?</script>", "", html, flags=re.S)
+    assert 'data-panel="trajectory"' in html and "Local disks" in html and "Attested by" not in visible
     data = _data(_own(), tmp_path)
     assert [s["point"] for s in data["trajectory"]] == [{"d:1": "v:1.1"}, {"d:1": "v:1.2"}]
     assert data["dimensions"]["d:1"]["label"] == "Store" and not data["wiki"]
@@ -618,7 +619,7 @@ def test_search_trajectory_has_lanes_a_requirement_strip_and_a_story(ws):
     steps = data["trajectory"]
     assert steps[1]["diff"] == [{"dimension": "d:2", "before": "v:2.1", "after": None}]  # step 2 dropped the commit protocol
     html = explainer._render(data)
-    assert 'class="lanes"' in html and html.count('class="node-chip') == 3
+    assert 'class="lanes"' in html and html.count('<button type="button" class="node-chip') == 3
     assert 'class="heat"' in html and 'class="h h-meets' in html and html.count('class="story-step') == 3
     assert "Round 2</b> · 2 points: refine A, new approach B" in html
     assert "drop" in html and 'class="qoc' not in html
