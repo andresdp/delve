@@ -35,4 +35,5 @@ values and describes it.
 
 ## no space
 
-There is no design space: name the decisions and options in your own words, with `space: null`.
+There is no design space: build your own dimensions and values, as the skill says, and write them in
+the file's `space.dimensions`.

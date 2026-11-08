@@ -63,34 +63,40 @@ def cases(tmp_path):
 
 
 def _no_space(case_id="kv-store"):
-    """A clean no-space search file (space: null), as an N session writes it."""
-    choice = {"decision": "Storage", "option": "Local disks", "drivers": ["Q1"], "reason": "Survives a node failure."}
-    other = {"decision": "Storage", "option": "Log in S3", "drivers": ["Q1"], "reason": "S3 is already there."}
-    step = lambda n, move, c: {"step": n, "move": move, "values": [{"decision": c["decision"],  # noqa: E731
-                                                                     "option": c["option"]}],
-                               "why": "w", "verdict": "kept"}
-    return {"schema": "ddspace-rationale/2", "id": case_id, "mode": "search", "space": None,
+    """A clean search file with the agent's own space (space.dimensions), as an N session writes it."""
+    choice = {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "Survives a node failure."}
+    other = {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["Q1"], "reason": "S3 is already there."}
+    step = lambda n, approach, c: {"step": n, "round": 1, "approach": approach, "move": "seed",  # noqa: E731
+                                   "values": [c["value_id"]], "hypothesis": "h", "assessment": {"Q1": "meets"},
+                                   "observation": "o", "rating": "strong"}
+    return {"schema": "ddspace-rationale/3", "id": case_id, "mode": "search",
+            "space": {"dimensions": [{"id": "d:1", "name": "Storage", "values": [
+                {"id": "v:1.1", "name": "Local disks"}, {"id": "v:1.2", "name": "Log in S3"}]}]},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No committed write is lost."}]},
             "budget": {"max_points": 12},
-            "trajectory": [step(1, "seed", choice), step(2, "explore", other)],
-            "alternatives": [{"id": "A1", "name": "Disks", "step": 1, "choices": [choice]},
-                             {"id": "A2", "name": "S3", "step": 2, "choices": [other]}],
+            "approaches": [{"id": "A", "idea": "what if disks?", "status": "live"},
+                           {"id": "B", "idea": "what if S3?", "status": "live"}],
+            "trajectory": [step(1, "A", choice), step(2, "B", other)],
+            "alternatives": [{"id": "A1", "name": "Disks", "approach": "A", "step": 1, "choices": [choice]},
+                             {"id": "A2", "name": "S3", "approach": "B", "step": 2, "choices": [other]}],
             "uncovered": []}
 
 
 def _with_space(uncovered=()):
     """An explain file with ids, a passage, a source and uncovered items (not checked against a graph here)."""
-    return {"schema": "ddspace-rationale/2", "id": "kv-explain", "mode": "explain",
+    return {"schema": "ddspace-rationale/3", "id": "kv-explain", "mode": "explain",
             "space": {"workspace": "c1", "run": "r", "graph_sha256": "abc"},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No write is lost."}]},
             "alternatives": [{"id": "S", "name": "The solution", "choices": [
                 {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "r",
-                 "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": "local disks"},
+                 "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": "local disks",
+                 "forced": True},
                 {"dimension_id": "d:2", "value_id": "v:2.10", "drivers": ["Q1"], "reason": "r",
-                 "solution_quote": "a quorum"}], "step": 1}],
+                 "solution_quote": "a quorum", "forced": None}], "step": 1}],
             "budget": {"max_points": 8},
-            "trajectory": [{"step": 1, "move": "solution", "values": ["v:1.1", "v:2.10"], "why": "w",
-                            "verdict": "grounded", "point": {"attested_by": ["s:s1"]}}],
+            "trajectory": [{"step": 1, "move": "solution", "values": ["v:1.1", "v:2.10"], "hypothesis": "h",
+                            "assessment": {"Q1": "meets"}, "observation": "o", "verdict": "grounded",
+                            "point": {"attested_by": ["s:s1"]}}],
             "regions": [{"id": "G1", "name": "g", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"], "reason": "r"}],
             "uncovered": list(uncovered)}
 
@@ -474,3 +480,9 @@ def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(t
     assert not (tmp_path / "scratch" / "kv-store-M-r1").exists()   # the work copy is gone, the link target is not
     assert graph.is_file() and graph.resolve() == (workspaces / "M" / "raw" / "graph.json").resolve()
     assert rec["explainer"]["links_into"] == "--workspaces/M"
+
+
+def test_file_ids_are_the_wikis_only():
+    """An N file's ids name its own space, not the wiki's: none of them counts as a space id."""
+    assert runner.file_ids(_no_space()) == []
+    assert {"d:1", "v:1.1", "v:2.10", "s01_p01", "s:s1"} <= set(runner.file_ids(_with_space()))

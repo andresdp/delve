@@ -1,91 +1,134 @@
 ---
 name: ddspace-search
-description: Design two to four alternative solutions for a problem with requirements by investigating design points (combinations of options across design concerns) step by step, exploiting good points and exploring new parts of the space, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/2) in ./rationale/. Use when asked to design, compare or propose solutions for a problem file.
+description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/3) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
 ---
 <!-- {{ marker }} -->
 
 # Search: alternative design points for a problem
 
-You turn a problem (a context and its requirements) into two to four alternative designs and write them, with
-the path you took to find them, as one rationale file that `ddspace rationale check` accepts.
+You search a design space for two to four good and different design points that solve a problem, and write
+them, with every point you evaluated on the way, as one rationale file that `ddspace rationale check` accepts.
+The search is a loop: form a hypothesis, choose a point, check it against what you know, evaluate it, record
+what you observed, and let the observation decide the next point.
 
-**If `references/design-space.md` is next to this file, a design space is available: read it before step 1.** It
-says which `ddspace` command does each step, how to name concerns and options by id, and the file shape to use
-instead of the one below. Without it, there is no design space: name concerns and options in your own words.
+## The design space
 
-## Terms
+- A **dimension** is a design concern the solution must settle: where the data lives, how replicas agree.
+- A **value** is one option for a dimension: local disks, a log in object storage. The values of a dimension are
+  alternatives to each other.
+- A **relation** links two dimensions: one requires, constrains or excludes the other.
+- A **design point** is a set of values, at most one per dimension. It settles some dimensions and leaves the
+  others open. A design decision is a design point, never a single value: values are good or bad only together.
+  Every alternative you propose is a design point.
+- An **approach** is one idea about the dimensions that matter most, phrased as a question: "what if all state
+  lived in the event log?". Its points are its **members**, named by the approach letter and a number: `A1`,
+  `A2`, `B1`.
+- **Evaluating** a point means judging it as a whole against the requirements: for each requirement, does the
+  point `meet` it, meet it `partly`, or `miss` it; which of its values conflict; and what supports the
+  combination.
 
-- A **design concern** is something the design must settle (where the data lives, how replicas agree).
-- An **option** is one way to settle a concern (local disks, a log in S3).
-- A **design point** is a combination of options, at most one per concern. A design decision is a design point,
-  not a single option: options are only good or bad together. The alternatives you propose are design points.
-- **Investigating** a point means checking it as a whole: which requirements it serves, what conflicts, what is
-  known about that combination.
+**Where the space comes from.** If `references/design-space.md` is next to this file, a design space exists:
+read the reference before step 1. It says which `ddspace` command does each operation below (list dimensions and
+values, follow relations, find evidence, evaluate a point), how to write ids, and the `space` part of the file.
+Without it, you build the space yourself in step 2 and do every operation yourself, from the problem and what you
+know; then the support for a point is your own knowledge, and you say so.
 
 ## Budget
 
-Investigate at most **{{ default_points }} design points** (the `budget`), unless the user names another number; never more
-than {{ max_points }}. Each investigated point is one step of the `trajectory`. Spend the budget on points that teach you
-something, not on small variations of a point that already works.
+Evaluate at most **{{ default_points }} design points** (the `budget`), unless the user names another number; never more than
+{{ max_points }}. Each evaluated point is one step of the `trajectory`. A point that fails the check before
+evaluation (step 5b) is not evaluated and costs nothing. Spend the budget on points that teach you something, not
+on small variations of a point that already works.
 
 ## Steps
 
 1. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
    requirements, `Q1`, … for quality requirements (with the quality `attribute`, e.g. `durability`), `C1`, … for
-   constraints. Keep the problem's own wording in `text`. Choose a short file id (lowercase, hyphens), `<id>`.
-2. **Survey concerns and options.** List the concerns the problem raises and the options each one has. Note
-   which requirements bear on each concern. Do not choose yet.
-3. **Seed.** Build one seed point (two at most) from the most constraining requirements: one option for each
-   concern they settle. Investigate it. It is step 1 (`move: "seed"`, no `parent`).
-4. **Move, one step at a time.** Each further step investigates one point and is one of two moves:
-   - **exploit** (`parent`: the step you start from): keep a promising point and change one or two options, to
-     serve a requirement better or to remove a conflict;
-   - **explore** (`parent` optional): build a point in a part of the space no step has visited yet: other
-     options on the concerns that matter most, or concerns no point has touched.
-
-   Choose the move with this heuristic:
-   - exploit around the best point so far while each step improves it (a requirement served better, a conflict
-     gone);
-   - explore when two exploit steps in a row improve nothing, after three exploit steps in a row, or when a
-     requirement is not yet served by any point;
-   - explore at least once in the whole trajectory, and try every requirement against at least two points.
-
-   Record each step: its `values`, the `drivers` it targets, `why` you took it (what you expected to learn), and
-   its `verdict`: `kept` (a candidate alternative), `refined` (a later exploit step improves on it) or
-   `dropped`.
-5. **Stop** when the budget is spent, or earlier when the last two steps changed nothing for the requirements
-   and you have explored at least once.
-6. **Alternatives.** Propose two to four `kept` points that differ on the concerns that matter most. Each
-   alternative names its `step`, and its choices are exactly that step's options, each with the requirement ids it
-   serves (`drivers`) and a `reason`. List in `considered` the options it weighed and set aside, in `open` the
-   concerns no requirement settles, and in `relations` the dependencies between concerns you rely on.
-7. **Comparison.** For each concern on which the alternatives differ, say how in `comparison`.
-8. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
-9. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
+   constraints. Keep the problem's own wording in `text`. Mark the most constraining ones: the constraints, and
+   the quality requirements the problem stresses. Choose a short file id (lowercase, hyphens), `<id>`.
+2. **Map the space.** Find the dimensions the requirements bear on, their values and the relations between them.
+   For each dimension, note which requirements bear on it. The **key dimensions** are those the most
+   constraining requirements bear on. Without a space, write your own in the file's `space.dimensions`: four to
+   ten dimensions, each with two to four values, ids `d:1`, `d:2`, … and `v:1.1`, `v:1.2`, … (value `v:1.2` belongs
+   to dimension `d:1`).
+3. **Approaches.** Write four to six approaches, each a "what if …" about the key dimensions. Keep the two to
+   four that diverge most: two approaches diverge when they choose different values on at least two key
+   dimensions, not when they differ only on dimensions no requirement bears on. Include one approach you would not
+   try first. Give each a letter and record it in `approaches` with its `idea`.
+4. **Plan the rounds.** A round evaluates about one point per live approach plus one new point (none in the last
+   round); with the default budget that is three rounds of about four points. Round 1 evaluates one seed point per approach (`move:
+   "seed"`, no `parent`): the approach's values on the key dimensions, plus the values its idea implies elsewhere.
+5. **Evaluate, one point at a time.** For every point of a round:
+   1. **Hypothesis.** Say which values you set or change and what you expect for which requirements, in
+      `hypothesis`.
+   2. **Check before evaluating.** Drop the point without evaluating it if it takes two values of one dimension,
+      breaks a relation you know, or repeats a reason an approach was dropped for (step 6). Fix it and check it
+      again.
+   3. **Evaluate** it: for each requirement, `meets`, `partly` or `misses`, in `assessment`; and what supports the
+      combination.
+   4. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
+   5. **Rate** it: `strong` (meets every constraint and every requirement at least partly, with no conflict),
+      `mixed` (good on some requirements, but misses one or carries a conflict that changing a value could fix)
+      or `weak` (breaks a constraint, or misses a most constraining requirement and no value change in the
+      approach fixes it).
+   6. Update each approach's **best point**: the member with the best assessment so far.
+6. **Plan the next round from the ratings.**
+   - **Strong:** refine it, do not replace it. One `exploit` step (`parent`: the point) changes one or two values
+     to serve the requirement the point meets least.
+   - **Mixed:** keep the values that worked. Fold them into a member of another approach (`exploit`, `parent`: the
+     point you change) or into a new approach.
+   - **Weak:** drop the approach (`status: "dropped"`) and write the reason in its `dropped_because`. The reason
+     binds every later round: no later point may repeat it.
+   - **Explore:** keep one slot in every round but the last for a new approach (`move: "explore"`, `parent`
+     optional), informed by what worked so far but different on at least one key dimension. Add it to
+     `approaches`. The last round only refines: it is the last one when the budget left is about one point per
+     live approach.
+   - **Attribute** (optional, at most once): when a strong point changed several values at once and you cannot
+     tell which one made it work, spend one step undoing one of them (`move: "ablate"`, `parent`: the point).
+     Say in `observation` which value was responsible.
+7. **Stop** when the budget is spent, or earlier, after at least two rounds, when a whole round improved no
+   approach's best point and its new approach was not better than the best so far.
+8. **Alternatives.** Take the best point of each live approach. Keep two to four of them: drop a point that
+   another one beats on some requirement without being worse on any. Each alternative names its `step` and
+   `approach`; its choices are exactly that step's values, each with the requirement ids it serves (`drivers`)
+   and a `reason`. List in `considered` the values it weighed and set aside (from its approach's other members),
+   in `open` the dimensions no requirement settles, and in `relations` the relations you rely on.
+9. **Comparison.** For each dimension on which the alternatives differ, say how in `comparison`.
+10. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
+11. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
    again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
-10. **Present the alternatives.** Summarize the trajectory (where you started, where you exploited, where you
-   explored and why), then the alternatives and the comparison. In interactive use (not in a study session),
-   finish with `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable
-   explainer page with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the
-   command that renders it into the wiki instead).
+12. **Present the alternatives.** Summarize the search (the approaches, which ones you refined, dropped and added,
+   and why), then the alternatives and the comparison. In interactive use (not in a study session), finish with
+   `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
+   with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
+   into the wiki instead).
 
 ## Rules
 
-- Every alternative is a step of the trajectory: do not propose a point you did not investigate.
-- Never name a concern, option or relation in prose that the file does not reference: what you say about the
-  design must be in the file the check accepted.
-- Requirement ids in `drivers` must be ids of `problem.requirements`.
+- Every alternative is a step of the trajectory: do not propose a point you did not evaluate.
+- Every value in the file is a value id of the space: do not name a dimension, value or relation in prose that
+  the file does not reference.
+- Requirement ids in `assessment` and `drivers` must be ids of `problem.requirements`.
 - Do not change the file after the last clean check without checking it again.
 
 ## File shape
 
+Without a space (with one, the reference gives the `space` part):
+
 ```json
 {
-  "schema": "ddspace-rationale/2",
+  "schema": "ddspace-rationale/3",
   "id": "<id>",
   "mode": "search",
-  "space": null,
+  "space": {
+    "dimensions": [
+      {"id": "d:1", "name": "<dimension>", "values": [{"id": "v:1.1", "name": "<value>"}, {"id": "v:1.2", "name": "<value>"}]},
+      {"id": "d:2", "name": "<dimension>", "values": [{"id": "v:2.1", "name": "<value>"}, {"id": "v:2.2", "name": "<value>"}]},
+      {"id": "d:3", "name": "<dimension>", "values": [{"id": "v:3.1", "name": "<value>"}, {"id": "v:3.2", "name": "<value>"}]}
+    ],
+    "relations": [{"source": "d:1", "target": "d:2", "type": "constrains"}]
+  },
   "problem": {
     "title": "<problem title>",
     "context": "<problem context>",
@@ -96,52 +139,65 @@ something, not on small variations of a point that already works.
     ]
   },
   "budget": {"max_points": {{ default_points }}},
+  "approaches": [
+    {"id": "A", "idea": "what if <…>?", "status": "live"},
+    {"id": "B", "idea": "what if <…>?", "status": "live"},
+    {"id": "C", "idea": "what if <…>?", "status": "dropped", "dropped_because": "<the reason later points must avoid>"}
+  ],
   "trajectory": [
-    {"step": 1, "move": "seed", "parent": null, "drivers": ["Q1"],
-     "values": [{"decision": "<concern>", "option": "<option>"}, {"decision": "<concern 2>", "option": "<option>"}],
-     "why": "<what you expected to learn>", "verdict": "kept"},
-    {"step": 2, "move": "exploit", "parent": 1, "drivers": ["C1"],
-     "values": [{"decision": "<concern>", "option": "<another option>"}, {"decision": "<concern 2>", "option": "<option>"}],
-     "why": "<why change this option>", "verdict": "dropped"},
-    {"step": 3, "move": "explore", "parent": null, "drivers": ["R1"],
-     "values": [{"decision": "<concern 3>", "option": "<option>"}],
-     "why": "<which unvisited part of the space>", "verdict": "kept"}
+    {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["v:1.1", "v:2.1"],
+     "hypothesis": "<what you expect, for which requirements>",
+     "assessment": {"R1": "meets", "Q1": "partly", "C1": "meets"},
+     "observation": "<what the evaluation showed>", "rating": "mixed"},
+    {"step": 2, "round": 1, "approach": "B", "move": "seed", "parent": null, "values": ["v:1.2", "v:2.2"],
+     "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "partly"},
+     "observation": "<…>", "rating": "strong"},
+    {"step": 3, "round": 1, "approach": "C", "move": "seed", "parent": null, "values": ["v:1.2", "v:3.1"],
+     "hypothesis": "<…>", "assessment": {"R1": "meets", "C1": "misses"},
+     "observation": "<…>", "rating": "weak"},
+    {"step": 4, "round": 2, "approach": "A", "move": "exploit", "parent": 1, "values": ["v:1.1", "v:2.1", "v:3.2"],
+     "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "meets"},
+     "observation": "<…>", "rating": "strong"}
   ],
   "alternatives": [
     {
       "id": "A1",
       "name": "<short name>",
       "summary": "<one or two sentences>",
-      "step": 1,
+      "approach": "A",
+      "step": 4,
       "choices": [
-        {"decision": "<concern>", "option": "<option>", "drivers": ["Q1"], "reason": "<why>"},
-        {"decision": "<concern 2>", "option": "<option>", "drivers": ["Q1"], "reason": "<why>"}
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["C1"], "reason": "<why>"},
+        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "reason": "<why>"},
+        {"dimension_id": "d:3", "value_id": "v:3.2", "drivers": ["Q1"], "reason": "<why>"}
       ],
       "considered": [
-        {"decision": "<concern>", "option": "<another option>", "drivers": ["C1"], "reason": "<why not>"}
+        {"dimension_id": "d:3", "value_id": "v:3.1", "drivers": ["C1"], "reason": "<why not>"}
       ],
       "open": [],
       "relations": [
-        {"source": "<concern>", "target": "<concern 2>", "type": "constrains", "holds": true, "note": "<what it means here>"}
+        {"source": "d:1", "target": "d:2", "type": "constrains", "holds": true, "note": "<what it means here>"}
       ]
     },
     {
-      "id": "A2",
+      "id": "B1",
       "name": "<short name>",
       "summary": "<one or two sentences>",
-      "step": 3,
+      "approach": "B",
+      "step": 2,
       "choices": [
-        {"decision": "<concern 3>", "option": "<option>", "drivers": ["R1"], "reason": "<why>"}
+        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["Q1"], "reason": "<why>"},
+        {"dimension_id": "d:2", "value_id": "v:2.2", "drivers": ["R1"], "reason": "<why>"}
       ],
       "considered": [],
       "open": [
-        {"decision": "<concern>", "reason": "<why no requirement settles it>"}
+        {"dimension_id": "d:3", "reason": "<why no requirement settles it>"}
       ],
       "relations": []
     }
   ],
   "comparison": [
-    {"decision": "<concern>", "note": "<how the alternatives differ on it>"}
+    {"dimension_id": "d:1", "note": "<how the alternatives differ on it>"}
   ],
   "uncovered": []
 }

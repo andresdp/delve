@@ -87,8 +87,8 @@
   .mv-seed, .mv-solution { border-top-color: var(--dimension) !important; } .mv-seed .mv, .mv-solution .mv { color: var(--dimension); }
   .mv-exploit, .mv-region { border-top-color: var(--accent) !important; } .mv-exploit .mv, .mv-region .mv { color: var(--accent); }
   .mv-explore, .mv-contrast { border-top-color: var(--novel) !important; } .mv-explore .mv, .mv-contrast .mv { color: var(--novel); }
-  .vd-kept, .vd-grounded { color: var(--accepted); } .vd-refined, .vd-partial { color: var(--mixed); }
-  .vd-dropped, .vd-ungrounded { color: var(--rejected); }
+  .vd-strong, .vd-grounded { color: var(--accepted); } .vd-mixed, .vd-partial { color: var(--mixed); }
+  .vd-weak, .vd-ungrounded { color: var(--rejected); }
   table.traj .alt { font-weight: 700; color: var(--fg); }
   table.traj td.c { text-align: left; min-width: 112px; max-width: 150px; }
   table.traj td.changed { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 4px; }
@@ -167,7 +167,7 @@
             {% for s in d.trajectory %}
             {% set vid = s.point.get(did) %}
             {% if search %}
-            <td class="c{% if did in s.changed %} changed{% endif %}{% if did in s.novel and s.move == 'explore' %} novel{% endif %}{% if s.verdict == 'dropped' %} dropped{% endif %}" data-step="{{ s.step }}">{{ value_short(vid) }}</td>
+            <td class="c{% if did in s.changed %} changed{% endif %}{% if did in s.novel and s.move == 'explore' %} novel{% endif %}{% if s.verdict == 'weak' %} dropped{% endif %}" data-step="{{ s.step }}">{{ value_short(vid) }}</td>
             {% else %}
             {% set sol = solution.point.get(did) if solution else none %}
             <td class="c{% if vid and sol and vid != sol %} contrast{% endif %}" data-step="{{ s.step }}">{{ value_short(vid) }}</td>
@@ -180,10 +180,11 @@
     </div>
     <ol class="steps">
       {% for s in d.trajectory %}
-      <li data-step="{{ s.step }}"><strong>Step {{ s.step }}</strong> · <span class="mv-{{ s.move }}"><span class="mv">{{ s.move }}</span></span>{% if s.parent %} from step {{ s.parent }}{% endif %} · <span class="vd-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %} · <strong>{{ "the solution" if not search else "proposed as " ~ s.alternative }}</strong>{% endif %} {{ drivers(s.drivers) }}
-        {% if s.why %}<p class="why">{{ s.why }}</p>{% endif %}
+      <li data-step="{{ s.step }}"><strong>Step {{ s.step }}</strong> · <span class="mv-{{ s.move }}"><span class="mv">{{ s.move }}</span></span>{% if s.approach %} · approach {{ s.approach }}, round {{ s.round }}{% endif %}{% if s.parent %} from step {{ s.parent }}{% endif %} · <span class="vd-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %} · <strong>{{ "the solution" if not search else "proposed as " ~ s.alternative }}</strong>{% endif %} {{ drivers(s.drivers) }}
+        {% if s.why %}<p class="why"><em>Hypothesis.</em> {{ s.why }}</p>{% endif %}
+        {% if s.observation %}<p class="why"><em>Observed.</em> {{ s.observation }}</p>{% endif %}
         {% if s.description %}<p class="muted">{{ s.description }}</p>{% endif %}
-        {% if d.with_space %}<p class="muted">{% if s.attested_by %}Attested by {% for a in s.attested_by %}{% if a.href %}<a href="{{ a.href }}">{{ a.label }}</a>{% else %}{{ a.label }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No source attests this combination.{% endif %}</p>{% endif %}
+        {% if d.wiki %}<p class="muted">{% if s.attested_by %}Attested by {% for a in s.attested_by %}{% if a.href %}<a href="{{ a.href }}">{{ a.label }}</a>{% else %}{{ a.label }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No source attests this combination.{% endif %}</p>{% endif %}
       </li>
       {% endfor %}
     </ol>
@@ -511,7 +512,7 @@
     const pts = Object.entries(s.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
     const info = document.getElementById("info");
     info.innerHTML = '<div class="kind">step ' + esc(s.step) + " · " + esc(s.move) + "</div><h2>" + esc(s.verdict)
-      + (s.alternative ? " · " + esc(s.alternative) : "") + "</h2>" + (s.why ? "<p>" + esc(s.why) + "</p>" : "")
+      + (s.alternative ? " · " + esc(s.alternative) : "") + "</h2>" + (s.why ? "<p>" + esc(s.why) + "</p>" : "") + (s.observation ? "<p>" + esc(s.observation) + "</p>" : "")
       + "<ul>" + pts + "</ul>" + (s.description ? '<p class="muted">' + esc(s.description) + "</p>" : "");
     info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
   }

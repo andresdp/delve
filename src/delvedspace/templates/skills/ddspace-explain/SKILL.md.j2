@@ -1,34 +1,43 @@
 ---
 name: ddspace-explain
-description: Explain a given solution to a problem by mapping it onto a design point (a combination of options across design concerns) and finding the regions of the design space that best justify it, step by step, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/2) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/3) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
 ---
 <!-- {{ marker }} -->
 
 # Explain: the design rationale of a given solution
 
-You turn a problem (a context and its requirements) and a description of its solution into one rationale file
-that `ddspace rationale check` accepts: the solution as one design point, the regions that justify it, and the
-path you took to find them.
+You explain a solution to a problem in terms of a design space: which parts of it the requirements call for, what
+supports them, and which choices the requirements force and which the designers made freely. You write the
+explanation, with every point you evaluated on the way, as one rationale file that `ddspace rationale check`
+accepts. The work is a loop: form a hypothesis about why part of the solution is there, evaluate it, record what
+you observed, and let the observation decide what to test next.
 
-**If `references/design-space.md` is next to this file, a design space is available: read it before step 1.** It
-says which `ddspace` command does each step, how to name concerns and options by id, and the file shape to use
-instead of the one below. Without it, there is no design space: name concerns and options in your own words.
+## The design space
 
-## Terms
+- A **dimension** is a design concern the solution must settle: where the data lives, how replicas agree.
+- A **value** is one option for a dimension: local disks, a log in object storage. The values of a dimension are
+  alternatives to each other.
+- A **relation** links two dimensions: one requires, constrains or excludes the other.
+- A **design point** is a set of values, at most one per dimension. The solution is one design point.
+- A **region** is a partial design point: some of the solution's values. Every design with those values falls in
+  the region. A region **justifies** the solution when the requirements call for its values and what is known
+  supports that combination.
+- A **contrast** is a region with one value changed to another value of the same dimension. If the change breaks
+  a requirement or loses the support, the requirements **force** the solution's value; if not, the designers chose
+  it **freely**.
+- **Evaluating** a point or region means judging it as a whole: for each requirement it bears on, does it `meet`
+  it, meet it `partly`, or `miss` it; which of its values conflict; and what supports the combination.
 
-- A **design concern** is something the design must settle (where the data lives, how replicas agree).
-- An **option** is one way to settle a concern (local disks, a log in S3).
-- A **design point** is a combination of options, at most one per concern. The solution is one design point.
-- A **region** is a partial design point: options for some of the solution's concerns. Every design with
-  those options falls in the region. A region **justifies** the solution when the requirements call for its
-  options and what is known about that combination supports it.
-- **Investigating** a point or a region means checking it as a whole: which requirements it serves, what
-  conflicts, what is known about that combination.
+**Where the space comes from.** If `references/design-space.md` is next to this file, a design space exists:
+read the reference before step 1. It says which `ddspace` command does each operation below (list dimensions and
+values, find evidence, evaluate a point), how to write ids, what to do with decisions the space does not cover,
+and the `space` part of the file. Without it, you build the space yourself in step 3 and do every operation
+yourself, from the problem and what you know; then the support is your own knowledge, and you say so.
 
 ## Budget
 
-Investigate at most **{{ default_points }} points or regions** (the `budget`), unless the user names another number; never
-more than {{ max_points }}. Each one is a step of the `trajectory`. Stop as soon as the solution is grounded: a simple
+Evaluate at most **{{ default_points }} points or regions** (the `budget`), unless the user names another number; never
+more than {{ max_points }}. Each one is a step of the `trajectory`. Stop as soon as the solution is explained: a simple
 solution may need only two or three steps.
 
 ## Steps
@@ -38,51 +47,71 @@ solution may need only two or three steps.
    constraints. Keep the problem's own wording in `text`. Choose a short file id (lowercase, hyphens), `<id>`.
 2. **The solution's decisions.** Read the solution and list each design decision it makes. For each, copy the
    sentence or phrase of the solution that states it, word for word: that is its `solution_quote`.
-3. **Concerns and options.** Name the concern and the option each decision settles.
-4. **The solution as a point.** Investigate the solution's options together. This is step 1
-   (`move: "solution"`, no `parent`).
-5. **Regions.** Group the solution's options that the same requirements call for, and investigate each group as
-   a region (`move: "region"`, `parent`: the step it narrows, at first the solution step). Start with the group
-   behind the most constraining requirements.
-6. **Contrasts.** Where it is unclear whether a requirement forces an option, investigate the region with that
-   option changed (`move: "contrast"`, `parent`: the region). If the change breaks a requirement or loses
-   support, the option is forced; if not, the solution chose it freely. Say which in `why`.
-7. Record each step: its `values`, the `drivers` it tests, `why` you took it, and its `verdict`: `grounded` (the
-   requirements call for these options and what is known supports them), `partial` or `ungrounded`.
-8. **Stop** when grounded regions cover the solution's main options, or when the budget is spent.
-9. **Name the regions** that best justify the solution: one to three, each with the step that investigated it,
-   its options (`values`, a subset of the solution's), the requirements that call for it (`drivers`) and a
-   `reason`.
-10. **The solution as one alternative.** Write one choice per decision, with its `solution_quote`, the
-   requirement ids it serves (`drivers`) and a `reason` (forced by a requirement, or chosen freely). Its `step` is
-   the solution step. Put in `considered` only the options the solution text says the designers weighed.
-11. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
-12. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
+3. **Map the solution onto the space.** For each decision, find its dimension and the value the quote describes.
+   Without a space, write your own in the file's `space.dimensions`: one dimension per decision, with the
+   solution's value and one to three other values a designer could have chosen (the contrasts need them), ids
+   `d:1`, … and `v:1.1`, … (value `v:1.2` belongs to dimension `d:1`).
+4. **The solution as a point.** Evaluate the solution's values together (`move: "solution"`, no `parent`): this
+   is step 1.
+5. **Hypotheses.** Group the solution's values by the requirements that call for them: each group is a candidate
+   region, and the hypothesis is that those requirements explain it. Order the groups by how constraining their
+   requirements are.
+6. **Evaluate, one step at a time,** starting with the first group. For every step:
+   1. **Hypothesis.** Say which requirements you expect to explain the values, in `hypothesis`.
+   2. **Evaluate** it: for each requirement it bears on, `meets`, `partly` or `misses`, in `assessment`; and what
+      supports the combination.
+   3. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
+   4. **Verdict:** `grounded` (the requirements call for these values and what is known supports them),
+      `partial` (only some of that holds) or `ungrounded`.
+   5. **Choose the next step:**
+      - a `region` (`parent`: the step it narrows, at first the solution step) for the next group, or a smaller
+        region when a region is `partial` and you suspect one value does not belong to it;
+      - a `contrast` (`parent`: the region) when a region is grounded but you cannot tell whether a requirement
+        forces one of its values: change that value to another value of its dimension, evaluate, and say in
+        `observation` whether the value is forced or free. Contrast the values whose reason is least clear
+        first; a value no requirement bears on is free without a contrast.
+7. **Stop** when grounded regions cover the solution's main values and each of their values is known to be
+   forced or free, or when the budget is spent.
+8. **The regions.** Name the one to three regions that best justify the solution: grounded, covering the most of
+   its values, and overlapping little. Each names the step that evaluated it, its values (a subset of the
+   solution's), the requirements that call for it (`drivers`) and a `reason`.
+9. **The solution as one alternative.** Write one choice per mapped decision, with its `solution_quote`, the
+   requirement ids it serves (`drivers`), `forced` (`true`, `false`, or `null` when no step settled it) and a
+   `reason`. Its `step` is the solution step. Put in `considered` only the values the solution text says the
+   designers weighed.
+10. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
+11. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
    again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
-13. **Present the explanation.** Summarize the regions that justify the solution, which options are forced and
-   which are free, and the path you took. In interactive use (not in a study session), finish with
+12. **Present the explanation.** Summarize the regions that justify the solution, which values are forced and
+   which free, and the path you took. In interactive use (not in a study session), finish with
    `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
-   with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders
-   it into the wiki instead).
+   with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
+   into the wiki instead).
 
 ## Rules
 
-- Do not force a mapping: a decision you cannot name as a concern and option of the space goes in `uncovered`
-  (the reference says how); without a space, every decision is yours to name and `uncovered` stays empty.
-- Never name a concern, option or relation in prose that the file does not reference: what you say about the
-  design must be in the file the check accepted.
-- Requirement ids in `drivers` must be ids of `problem.requirements`.
+- Every value in the file is a value id of the space: do not name a dimension, value or relation in prose that
+  the file does not reference.
+- Requirement ids in `assessment` and `drivers` must be ids of `problem.requirements`.
 - Do not change the file after the last clean check without checking it again.
 
 ## File shape
 
+Without a space (with one, the reference gives the `space` part and the `uncovered` decisions):
+
 ```json
 {
-  "schema": "ddspace-rationale/2",
+  "schema": "ddspace-rationale/3",
   "id": "<id>",
   "mode": "explain",
-  "space": null,
+  "space": {
+    "dimensions": [
+      {"id": "d:1", "name": "<dimension>", "values": [{"id": "v:1.1", "name": "<the solution's value>"}, {"id": "v:1.2", "name": "<another value>"}]},
+      {"id": "d:2", "name": "<dimension>", "values": [{"id": "v:2.1", "name": "<the solution's value>"}, {"id": "v:2.2", "name": "<another value>"}]}
+    ],
+    "relations": []
+  },
   "problem": {
     "title": "<problem title>",
     "context": "<problem context>",
@@ -93,19 +122,18 @@ solution may need only two or three steps.
   },
   "budget": {"max_points": {{ default_points }}},
   "trajectory": [
-    {"step": 1, "move": "solution", "parent": null, "drivers": ["R1", "Q1"],
-     "values": [{"decision": "<concern>", "option": "<option>"}, {"decision": "<concern 2>", "option": "<option>"}],
-     "why": "the solution as one design point", "verdict": "partial"},
-    {"step": 2, "move": "region", "parent": 1, "drivers": ["Q1"],
-     "values": [{"decision": "<concern>", "option": "<option>"}],
-     "why": "<which requirements call for these options>", "verdict": "grounded"},
-    {"step": 3, "move": "contrast", "parent": 2, "drivers": ["Q1"],
-     "values": [{"decision": "<concern>", "option": "<another option>"}],
-     "why": "<does the requirement force the option?>", "verdict": "ungrounded"}
+    {"step": 1, "move": "solution", "parent": null, "values": ["v:1.1", "v:2.1"],
+     "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"},
+     "observation": "<what the evaluation showed>", "verdict": "partial"},
+    {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"],
+     "hypothesis": "<which requirements explain these values>", "assessment": {"Q1": "meets"},
+     "observation": "<…>", "verdict": "grounded"},
+    {"step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"],
+     "hypothesis": "<does the requirement force v:1.1?>", "assessment": {"Q1": "misses"},
+     "observation": "<…: forced>", "verdict": "ungrounded"}
   ],
   "regions": [
-    {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"],
-     "values": [{"decision": "<concern>", "option": "<option>"}],
+    {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"], "values": ["v:1.1"],
      "reason": "<why this region justifies the solution>"}
   ],
   "alternatives": [
@@ -115,10 +143,10 @@ solution may need only two or three steps.
       "summary": "<one or two sentences>",
       "step": 1,
       "choices": [
-        {"decision": "<concern>", "option": "<option>", "drivers": ["Q1"], "reason": "<forced or free, and why>",
-         "solution_quote": "<the solution's own words>"},
-        {"decision": "<concern 2>", "option": "<option>", "drivers": ["R1"], "reason": "<forced or free, and why>",
-         "solution_quote": "<the solution's own words>"}
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "forced": true,
+         "reason": "<why>", "solution_quote": "<the solution's own words>"},
+        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "forced": null,
+         "reason": "<why>", "solution_quote": "<the solution's own words>"}
       ],
       "considered": [],
       "open": [],

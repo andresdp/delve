@@ -1,12 +1,12 @@
-"""Render a checked design rationale file (``ddspace-rationale/2``) as an explainer page.
+"""Render a checked design rationale file (``ddspace-rationale/3``) as an explainer page.
 
 The page sits at ``<html dir>/explainers/<id>.html``, next to the wiki's HTML, or in a standalone folder
 (``<out>/explainers/<id>.html`` with its own ``assets/``). It shows the requirements, one tab per alternative
 plus a compare view, a radial subgraph of the dimensions involved, a details panel and, for explain, the
 uncovered decisions. With a space, dimensions, values and sources link to their wiki pages (a page that does
 not exist is shown without a link); evidence is passage ids with stances, never quotes (``raw/graph.json``
-holds no passage text). Without a space (``space: null``), the page draws the agent's own decisions and
-options and has no wiki links.
+holds no passage text). A file with its own space (``space.dimensions``) is drawn from those dimensions and
+values, with no wiki links and no sources.
 
 The caller checks the file first (``delvedspace.rationale.check``): this module assumes a clean file.
 """
@@ -49,12 +49,36 @@ def wiki_links(wiki_html: Optional[Path], page_dir: Path) -> Link:
 
 # ── page data ────────────────────────────────────────────────────────────
 
+def own_graph(space: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return the agent's own space (``space.dimensions``, ``space.relations``) shaped like a wiki graph."""
+    nodes: List[Dict[str, Any]] = []
+    for dim in space.get("dimensions") or []:
+        if not isinstance(dim, dict):
+            continue
+        nodes.append({"id": dim.get("id"), "kind": "dimension", "label": dim.get("name") or dim.get("id")})
+        for v in dim.get("values") or []:
+            if isinstance(v, dict):
+                nodes.append({"id": v.get("id"), "kind": "value", "label": v.get("name") or v.get("id"),
+                              "dimension_id": dim.get("id")})
+    edges = [{"source": r.get("source"), "target": r.get("target"), "type": "relation", "relation": r.get("type"),
+              "directed": True} for r in space.get("relations") or [] if isinstance(r, dict)]
+    return {"nodes": nodes, "edges": edges}
+
+
 class _Space:
-    """The dimensions and values the file touches, from the graph (with a space) or from the file (without)."""
+    """The dimensions and values the file touches, from the wiki's graph or from the file's own space.
+
+    ``wiki`` says whether they come from a wiki (with links and sources). Files of an older schema without any
+    space (``space: null``, choices naming ``decision`` and ``option``) are still drawn from the file.
+    """
 
     def __init__(self, doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: Link):
+        meta = doc.get("space")
+        self.wiki = isinstance(meta, dict) and "dimensions" not in meta and graph is not None
+        if isinstance(meta, dict) and "dimensions" in meta:
+            graph, link = own_graph(meta), (lambda _target: None)
         self.graph, self.link = graph, link
-        self.with_space = isinstance(doc.get("space"), dict) and graph is not None
+        self.with_space = isinstance(meta, dict) and graph is not None
         self.dims: Dict[str, Dict[str, Any]] = {}
         self.values: Dict[str, Dict[str, Any]] = {}
         self._by_id = {n["id"]: n for n in (graph or {}).get("nodes") or []} if self.with_space else {}
@@ -176,8 +200,12 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
             n = space.node(sid) if isinstance(sid, str) else None
             attested.append({"id": str(sid), "label": (n or {}).get("label") or str(sid),
                              "href": space.link((n or {}).get("href") or "") if n else None})
+        assessment = s.get("assessment") if isinstance(s.get("assessment"), dict) else {}
         step = {"step": s.get("step"), "move": s.get("move") or "", "parent": s.get("parent"),
-                "why": s.get("why") or "", "verdict": s.get("verdict") or "", "drivers": list(s.get("drivers") or []),
+                "round": s.get("round"), "approach": s.get("approach"),
+                "why": s.get("hypothesis") or s.get("why") or "", "observation": s.get("observation") or "",
+                "verdict": s.get("rating") or s.get("verdict") or "", "assessment": dict(assessment),
+                "drivers": list(assessment) or list(s.get("drivers") or []),
                 "point": point, "changed": changed, "novel": novel,
                 "description": record.get("description") or "", "attested_by": attested,
                 "alternative": proposed.get(s.get("step"))}
@@ -199,6 +227,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
             d, v = space.names(c)
             choices.append({"dimension": d, "value": v, "drivers": list(c.get("drivers") or []),
                             "reason": c.get("reason") or "", "quote": c.get("solution_quote") or "",
+                            "forced": c.get("forced"),
                             "evidence": [{"doc": e.get("doc"), "stance": e.get("stance") or ""}
                                          for e in c.get("evidence") or []]})
         considered = []
@@ -215,7 +244,8 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
                               "holds": bool(r.get("holds")), "note": r.get("note") or ""})
         alternatives.append({"id": str(alt.get("id")), "name": alt.get("name") or str(alt.get("id")),
                              "summary": alt.get("summary") or "", "choices": choices, "considered": considered,
-                             "open": open_, "relations": relations, "step": alt.get("step")})
+                             "open": open_, "relations": relations, "step": alt.get("step"),
+                             "approach": alt.get("approach")})
 
     trajectory = _trajectory(doc, space, alternatives)
     by_step = {s["step"]: s for s in trajectory}
@@ -273,7 +303,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     relations = []
     if with_space:
         ids = set(space.dims)
-        for e in graph.get("edges") or []:
+        for e in space.graph.get("edges") or []:
             if e.get("type") == "relation" and e.get("source") in ids and e.get("target") in ids:
                 relations.append({"source": e["source"], "target": e["target"], "type": e.get("relation") or "",
                                   "directed": e.get("directed") is not False, "reading": e.get("reading") or ""})
@@ -281,18 +311,21 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     uncovered = []
     for u in doc.get("uncovered") or []:
         near = u.get("nearest_dimension_id")
-        n = space.node(near) if with_space and near else None
+        n = space.node(near) if space.wiki and near else None
         uncovered.append({"decision": u.get("decision") or "", "quote": u.get("solution_quote") or "",
                           "nearest": ({"id": near, "label": n.get("label") or near, "href": link(n.get("href") or "")}
                                       if n else None)})
 
     meta = doc.get("space") if isinstance(doc.get("space"), dict) else None
     return {
-        "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space,
+        "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space, "wiki": space.wiki,
         "title": problem.get("title") or str(doc.get("id")), "context": problem.get("context") or "",
         "space": {"workspace": meta.get("workspace"), "run": meta.get("run"),
                   "domain": (graph or {}).get("domain") or (graph or {}).get("name") or meta.get("workspace")}
-        if meta else None,
+        if space.wiki else None,
+        "approaches": [{"id": a.get("id"), "idea": a.get("idea") or "", "status": a.get("status") or "",
+                        "dropped_because": a.get("dropped_because") or ""}
+                       for a in doc.get("approaches") or [] if isinstance(a, dict)],
         "graph_changed": graph_changed,
         "requirements": [{"id": r.get("id"), "text": r.get("text") or "", "kind": r.get("kind") or "",
                           "attribute": r.get("attribute") or ""} for r in problem.get("requirements") or []],

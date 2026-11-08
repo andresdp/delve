@@ -58,66 +58,64 @@ def _steps(text):
 
 
 @pytest.mark.parametrize("name", SKILLS)
-def test_skill_text_teaches_design_points_and_the_trajectory(name):
+def test_skill_text_works_in_design_space_terms(name):
     text = agent.skill_text(name)
-    for needle in ("R1", "Q1", "design concern", "option", "design point", "trajectory", "budget",
-                   "references/design-space.md", "./rationale/<id>.json", "ddspace rationale check", "candidates",
-                   "ddspace rationale build", "ddspace-rationale/2", '"step"', '"verdict"'):
-        assert needle in text, needle
-    assert "never name a concern, option or relation" in text.lower()
+    flat = " ".join(text.split())
+    for needle in ("R1", "Q1", "**dimension**", "**value**", "**relation**", "**design point**", "trajectory",
+                   "budget", "references/design-space.md", "./rationale/<id>.json", "ddspace rationale check",
+                   "candidates", "ddspace rationale build", "ddspace-rationale/3", '"step"', '"hypothesis"',
+                   '"assessment"', '"observation"', "space.dimensions", "your own knowledge"):
+        assert needle in flat, needle
+    assert "every value in the file is a value id of the space" in flat.lower()
     steps = _steps(text)
     assert steps.rfind("ddspace rationale build") > steps.rfind("ddspace rationale check")  # build comes last
     last = " ".join(re.split(r"\n\d+\. ", steps)[-1].split())
     assert "In interactive use (not in a study session), finish with `ddspace rationale build" in last
 
 
-def test_search_skill_alternates_exploitation_and_exploration_within_the_budget():
+def test_search_skill_runs_rounds_over_approaches_within_the_budget():
     text = " ".join(agent.skill_text("ddspace-search").split())
-    for needle in ('"seed"', "exploit", "explore", "at most **12 design points**", "never more than 20",
-                   "explore at least once", "two to four `kept` points",
-                   "do not propose a point you did not investigate"):
+    for needle in ('"seed"', '"exploit"', '"explore"', '"ablate"', "at most **12 design points**",
+                   "never more than 20", "what if", "diverge", "three rounds", "**Strong:** refine it",
+                   "**Mixed:** keep the values that worked", "**Weak:** drop the approach",
+                   "every round but the last", "after at least two rounds",
+                   "beats on some requirement without being worse on any", "costs nothing",
+                   "do not propose a point you did not evaluate"):
         assert needle in text, needle
 
 
-def test_explain_skill_finds_regions_and_stops_when_grounded():
+def test_explain_skill_finds_regions_and_forced_values():
     text = " ".join(agent.skill_text("ddspace-explain").split())
     for needle in ('"solution"', '"region"', '"contrast"', "partial design point", "one to three", "grounded",
                    "at most **8 points or regions**", "never more than 12", "two or three steps", "solution_quote",
-                   "forced", "freely"):
+                   "**force**", "**freely**", '"forced"'):
         assert needle in text, needle
     assert '"uncovered": []' in text and "nearest_dimension_id" not in text
 
 
 @pytest.mark.parametrize("name", SKILLS)
 def test_the_skill_text_names_no_space_command(name):
-    """SKILL.md is the same in every condition: the space's commands and ids live in the reference only."""
+    """SKILL.md is the same in every condition: the space's commands live in the reference only."""
     text = agent.skill_text(name)
     assert "ddspace query" not in text and "ddspace point" not in text
-    assert "dimension_id" not in text and "v:" not in text
     assert "`ddspace rationale build rationale/<id>.json --out .`" in " ".join(text.split())
 
 
 @pytest.mark.parametrize("name", SKILLS)
-def test_the_reference_maps_the_skill_onto_the_space(name):
+def test_the_reference_maps_the_operations_onto_commands(name):
     text = agent.reference_text(name, where=" --graph space")
     flat = " ".join(text.split())
     assert agent.SKILL_MARKER in text
-    for needle in ("a dimension", "a value of a dimension", "single keyword", "ddspace query search",
-                   '`ddspace query values "<d:id>" --graph space`', "ddspace query evidence", "ddspace query relations",
+    for needle in ("| Operation in the skill | Command |", "one keyword per call",
+                   '`ddspace query dimensions --graph space`', '`ddspace query values "<d:id>" --graph space`',
+                   "ddspace query evidence", "ddspace query relations", "ddspace query search",
                    '`ddspace point "<v:id>" "<v:id>" ... --graph space`', "attested_by", "graph_sha256",
                    "`ddspace rationale build rationale/<id>.json --graph space` (not `--out`)",
-                   "exactly as `ddspace query` prints it"):
+                   "exactly as `ddspace query` prints it", "Do not write `space.dimensions`"):
         assert needle in flat, needle
-    point = " ".join(next(s for s in text.split("\n- ") if s.startswith("**Investigate")).split())
-    assert "one LLM call" in point and "the wiki's own description" in point
-    before, fallback = point.split("--no-llm", 1)  # --no-llm only once, as the fallback
-    assert "--no-llm" not in fallback and "fails" in before and "no API key" in before
-
-
-def test_the_explain_reference_lists_uncovered_decisions_and_offered_options():
-    text = " ".join(agent.reference_text("ddspace-explain").split())
-    assert "uncovered" in text and "nearest_dimension_id" in text
-    assert "options the space offers" in text and "not options the designers considered" in text
+    assert "one LLM call" in flat and "the wiki's own description" in flat
+    before, fallback = flat.split("--no-llm", 1)  # --no-llm only once, as the fallback
+    assert "--no-llm" not in fallback and "fails" in before[-400:] and "no API key" in before[-400:]
 
 
 def test_skills_from_a_parent_folder_point_commands_at_the_workspace(ws):
@@ -203,16 +201,23 @@ def test_skill_templates_ship_in_the_wheel(tmp_path):
 
 @pytest.mark.parametrize("space", [True, False])
 @pytest.mark.parametrize("name", SKILLS)
-def test_the_skill_skeleton_passes_the_structural_check(name, space):
-    """The JSON skeleton of SKILL.md (no space) and of the reference (with one) is a valid ddspace-rationale/2 file."""
+def test_the_skill_skeleton_passes_the_check(name, space):
+    """SKILL.md's JSON skeleton is a valid ddspace-rationale/3 file with its own space; with the reference's
+    ``space`` and step ``point`` it is a valid file that names a wiki."""
     from delvedspace import rationale
 
-    text = agent.reference_text(name) if space else agent.skill_text(name)
-    doc = json.loads(re.search(r"```json\n(.*?)```", text, re.S).group(1))
-    assert doc["schema"] == rationale.SCHEMA and (doc["space"] is None) == (not space)
+    doc = json.loads(re.search(r"```json\n(.*?)```", agent.skill_text(name), re.S).group(1))
+    assert doc["schema"] == rationale.SCHEMA and rationale.own_space(doc)
     assert doc["mode"] == ("search" if name == "ddspace-search" else "explain")
     if space:
-        points = [s["point"] for s in doc["trajectory"]]
+        ref = json.loads(re.search(r"```json\n(.*?)```", agent.reference_text(name), re.S).group(1))
+        points = [s["point"] for s in ref["trajectory"]]
         assert points and all(set(p) == {"description", "attested_by"} for p in points), points
+        assert ref["trajectory"][0]["values"] == doc["trajectory"][0]["values"]
+        assert ref["alternatives"][0]["step"] == doc["alternatives"][0]["step"]
+        doc["space"] = ref["space"]
+        for step in doc["trajectory"]:
+            step["point"] = points[0]
+        assert rationale.names_space(doc)
     result = rationale.check(doc)
     assert result["ok"], result["problems"]

@@ -1,5 +1,5 @@
 {
-  "schema": "ddspace-rationale/2",
+  "schema": "ddspace-rationale/3",
   "id": "toy-store-search",
   "mode": "search",
   "space": {
@@ -32,21 +32,37 @@
   "budget": {
     "max_points": 12
   },
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if each node kept the truth on its own disk?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if the truth lived in S3, where the team already is?",
+      "status": "live"
+    }
+  ],
   "trajectory": [
     {
       "step": 1,
+      "round": 1,
+      "approach": "A",
       "move": "seed",
       "parent": null,
       "values": [
         "v:1.1",
         "v:2.1"
       ],
-      "drivers": [
-        "Q1",
-        "R1"
-      ],
-      "why": "Start from the most constraining requirement: no committed write may be lost when a node fails.",
-      "verdict": "kept",
+      "hypothesis": "A quorum of local disks with a commit protocol should keep every committed write when a node fails.",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "meets",
+        "C1": "partly"
+      },
+      "observation": "Durable and consistent, and a source attests the combination; it adds disks the S3 platform does not need.",
+      "rating": "strong",
       "point": {
         "description": "Local disks with a quorum and an explicit commit protocol.",
         "attested_by": [
@@ -56,16 +72,20 @@
     },
     {
       "step": 2,
+      "round": 2,
+      "approach": "A",
       "move": "exploit",
       "parent": 1,
       "values": [
         "v:1.1"
       ],
-      "drivers": [
-        "Q1"
-      ],
-      "why": "Keep the disk quorum and drop the commit protocol, to see whether durability alone is attested.",
-      "verdict": "dropped",
+      "hypothesis": "Without the commit protocol, the disk quorum alone may still be durable.",
+      "assessment": {
+        "R1": "misses",
+        "Q1": "meets"
+      },
+      "observation": "Durable, but a write is no longer visible on every node when acknowledged; nothing attests it.",
+      "rating": "weak",
       "point": {
         "description": "Local disks with a quorum.",
         "attested_by": []
@@ -73,17 +93,21 @@
     },
     {
       "step": 3,
+      "round": 2,
+      "approach": "B",
       "move": "explore",
       "parent": null,
       "values": [
         "v:1.2"
       ],
-      "drivers": [
-        "C1",
-        "Q1"
-      ],
-      "why": "Move to the unvisited part of the space the S3 constraint points at.",
-      "verdict": "kept",
+      "hypothesis": "A log in S3 should be durable and fit the constraint.",
+      "assessment": {
+        "R1": "partly",
+        "Q1": "meets",
+        "C1": "meets"
+      },
+      "observation": "Fits the platform and a source attests it; replication stays open.",
+      "rating": "strong",
       "point": {
         "description": "A shared log in S3 as the source of truth.",
         "attested_by": [
@@ -110,8 +134,7 @@
               "doc": "s01_p01",
               "stance": "accepts"
             }
-          ],
-          "solution_quote": null
+          ]
         },
         {
           "dimension_id": "d:2",
@@ -125,8 +148,7 @@
               "doc": "s01_p01",
               "stance": "supports"
             }
-          ],
-          "solution_quote": null
+          ]
         }
       ],
       "considered": [
@@ -149,7 +171,8 @@
           "note": "Keeping the truth on local disks is what makes a commit protocol between nodes necessary."
         }
       ],
-      "step": 1
+      "step": 1,
+      "approach": "A"
     },
     {
       "id": "A2",
@@ -169,8 +192,7 @@
               "doc": "s02_p01",
               "stance": "accepts"
             }
-          ],
-          "solution_quote": null
+          ]
         }
       ],
       "considered": [],
@@ -181,7 +203,8 @@
         }
       ],
       "relations": [],
-      "step": 3
+      "step": 3,
+      "approach": "B"
     }
   ],
   "comparison": [

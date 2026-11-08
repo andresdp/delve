@@ -1,22 +1,28 @@
-"""The design rationale file (``ddspace-rationale/2``) and its checker, with no ``jsonschema`` dependency.
+"""The design rationale file (``ddspace-rationale/3``) and its checker, with no ``jsonschema`` dependency.
 
-A dimension is a design concern, a value one option for it, and a decision is a design point: a combination of
-values. A coding agent writes one rationale file per problem, with the ``trajectory`` of design points it
-investigated (at most ``budget.max_points``). *Search* moves through the space (``seed``, ``exploit``,
-``explore``) and proposes two to four kept points as ``alternatives``, with what each one ``considered``, left
-``open`` and claims about ``relations``, plus a ``comparison``. *Explain* maps the given solution to one point
-(the ``solution`` step and the alternative ``id: "S"``, whose choices quote the solution), probes partial points
-of it (``region``, ``contrast``) and names the 1-3 ``regions`` that best justify it, plus the ``uncovered``
-decisions the space has no dimension for.
+A dimension is a design concern, a value one option for it, and a design point a set of values, at most one per
+dimension. A coding agent writes one rationale file per problem, with the ``trajectory`` of design points it
+evaluated (at most ``budget.max_points``). Each step records its ``hypothesis``, its ``assessment`` (``meets``,
+``partly`` or ``misses`` per requirement) and its ``observation``.
 
-With a space (``space: {workspace, run, graph_sha256}``), choices name dimension and value ids exactly as
-``ddspace query`` prints them (``d:1``, ``v:1.2``), and ``check`` also tests them against ``raw/graph.json``.
-Without one (``space: null``), choices name the agent's own ``decision`` and ``option`` and only the
-structural rules run. Every problem has a stable ``code`` and a JSON Pointer ``path`` into the file.
+*Search* works in rounds over ``approaches`` (each a "what if" idea, ``live`` or ``dropped``): its steps
+(``seed``, ``exploit``, ``explore``, ``ablate``) carry a ``round``, an ``approach`` and a ``rating`` (``strong``,
+``mixed``, ``weak``), and it proposes the best point of two to four live approaches as ``alternatives``, with what
+each one ``considered``, left ``open`` and claims about ``relations``, plus a ``comparison``. *Explain* maps the
+given solution to one point (the ``solution`` step and the alternative ``id: "S"``, whose choices quote the
+solution and say whether the requirements ``force`` them), evaluates partial points of it (``region``,
+``contrast``) with a ``verdict``, and names the 1-3 ``regions`` that best justify it, plus the ``uncovered``
+decisions a wiki has no dimension for.
+
+Every file names its values by id (``d:1``, ``v:1.2``) against a space. Either the space is a DelveDSpace wiki
+(``space: {workspace, run, graph_sha256}``), and ``check`` tests the ids against ``raw/graph.json`` when it is
+given the graph; or the agent built its own (``space: {dimensions, relations}``), and ``check`` tests the ids
+against those. Every problem has a stable ``code`` and a JSON Pointer ``path`` into the file.
 """
 
 from __future__ import annotations
 
+import difflib
 import hashlib
 import json
 import re
@@ -25,55 +31,63 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from taxonomy_generator.wiki import query as q
 
-SCHEMA = "ddspace-rationale/2"
+SCHEMA = "ddspace-rationale/3"
 MODES = ("search", "explain")
 SEARCH_ALTERNATIVES = (2, 4)
 EXPLAIN_ID = "S"
-MOVES = {"search": ("seed", "exploit", "explore"), "explain": ("solution", "region", "contrast")}
-VERDICTS = {"search": ("kept", "refined", "dropped"), "explain": ("grounded", "partial", "ungrounded")}
-ROOT_MOVES = ("seed", "solution")              # a step without a parent
-PARENT_MOVES = ("exploit", "region", "contrast")  # a step that needs one (explore may name one or not)
-MAX_POINTS = {"search": 20, "explain": 12}     # the most design points a mode may investigate
+MOVES = {"search": ("seed", "exploit", "explore", "ablate"), "explain": ("solution", "region", "contrast")}
+RATINGS = ("strong", "mixed", "weak")                 # a search step's rating
+VERDICTS = ("grounded", "partial", "ungrounded")      # an explain step's verdict
+ASSESSMENTS = ("meets", "partly", "misses")           # a step's judgment of one requirement
+STATUSES = ("live", "dropped")                        # a search approach
+ROOT_MOVES = ("seed", "solution")                     # a step without a parent
+PARENT_MOVES = ("exploit", "ablate", "region", "contrast")  # a step that needs one (explore may name one or not)
+SAME_APPROACH_MOVES = ("exploit", "ablate")           # a search step that stays in its parent's approach
+MAX_POINTS = {"search": 20, "explain": 12}     # the most design points a mode may evaluate
 DEFAULT_POINTS = {"search": 12, "explain": 8}  # what the skills set when the user names no budget
 REGIONS = (1, 3)
 WARNINGS = ("unmet_requires", "graph_changed")
 
 # Field specs: name -> (kind, required). Kinds: "text" (a non-empty string), "string", "string|null", "list",
-# "object", "object|null", "boolean", "integer", "integer|null".
+# "object", "object|null", "boolean", "boolean|null", "integer", "integer|null".
 _Spec = Dict[str, Tuple[str, bool]]
 _TYPES = {"text": str, "string": str, "list": list, "object": dict, "boolean": bool, "integer": int}
 _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", True),
-               "space": ("object|null", True), "problem": ("object", True), "budget": ("object", True),
-               "trajectory": ("list", True), "alternatives": ("list", True), "comparison": ("list", False),
-               "regions": ("list", False), "uncovered": ("list", False)}
+               "space": ("object", True), "problem": ("object", True), "budget": ("object", True),
+               "trajectory": ("list", True), "alternatives": ("list", True), "approaches": ("list", False),
+               "comparison": ("list", False), "regions": ("list", False), "uncovered": ("list", False)}
 _BUDGET: _Spec = {"max_points": ("integer", True)}
 _STEP: _Spec = {"step": ("integer", True), "move": ("text", True), "parent": ("integer|null", False),
-                "values": ("list", True), "why": ("string", True), "verdict": ("text", True),
-                "drivers": ("list", False), "point": ("object|null", False)}
+                "values": ("list", True), "hypothesis": ("string", True), "assessment": ("object", True),
+                "observation": ("string", True), "point": ("object|null", False)}
+_SEARCH_STEP: _Spec = {"round": ("integer", True), "approach": ("text", True), "rating": ("text", True)}
+_EXPLAIN_STEP: _Spec = {"verdict": ("text", True)}
+_APPROACH: _Spec = {"id": ("text", True), "idea": ("text", True), "status": ("text", True),
+                    "dropped_because": ("string|null", False)}
 _REGION: _Spec = {"id": ("text", True), "name": ("string", True), "values": ("list", True),
                   "step": ("integer", True), "drivers": ("list", True), "reason": ("string", True)}
-_SPACE: _Spec = {"workspace": ("string", True), "run": ("string", True), "graph_sha256": ("text", True)}
+_WIKI: _Spec = {"workspace": ("string", True), "run": ("string", True), "graph_sha256": ("text", True)}
+_OWN: _Spec = {"dimensions": ("list", True), "relations": ("list", False)}
+_OWN_DIMENSION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list", True)}
+_OWN_VALUE: _Spec = {"id": ("text", True), "name": ("text", True)}
+_OWN_RELATION: _Spec = {"source": ("text", True), "target": ("text", True), "type": ("text", True)}
 _PROBLEM: _Spec = {"title": ("text", True), "context": ("string", False), "requirements": ("list", True)}
 _REQUIREMENT: _Spec = {"id": ("text", True), "text": ("text", True), "kind": ("string", False),
                        "attribute": ("string|null", False)}
 _ALTERNATIVE: _Spec = {"id": ("text", True), "name": ("string", True), "summary": ("string", False),
                        "step": ("integer", True), "choices": ("list", True), "considered": ("list", False),
                        "open": ("list", False), "relations": ("list", False)}
+_IDS: _Spec = {"dimension_id": ("text", True), "value_id": ("text", True)}
+_CHOICE: _Spec = {**_IDS, "drivers": ("list", True), "reason": ("string", True), "evidence": ("list", False)}
+_CONSIDERED: _Spec = {**_IDS, "reason": ("string", True), "drivers": ("list", False)}
+_OPEN: _Spec = {"dimension_id": ("text", True), "reason": ("string", True)}
+_COMPARISON: _Spec = {"dimension_id": ("text", True), "note": ("string", True)}
 _EVIDENCE: _Spec = {"doc": ("text", True), "stance": ("string", False)}
 _RELATION: _Spec = {"source": ("text", True), "target": ("text", True), "type": ("text", True),
                     "holds": ("boolean", True), "note": ("string", False)}
 _UNCOVERED: _Spec = {"decision": ("text", True), "solution_quote": ("text", True),
                      "nearest_dimension_id": ("string|null", False)}
 _POINT: _Spec = {"description": ("string|null", False), "attested_by": ("list", False)}
-# What a choice names: ids with a space, the agent's own labels without one.
-_WITH_SPACE: _Spec = {"dimension_id": ("text", True), "value_id": ("text", True)}
-_NO_SPACE: _Spec = {"decision": ("text", True), "option": ("text", True)}
-
-
-def _decision(names: _Spec) -> _Spec:
-    """Return the field that names the decision alone (``open``, ``comparison``): the dimension id, or the label."""
-    key = next(iter(names))
-    return {key: names[key]}
 
 
 class RationaleError(Exception):
@@ -93,9 +107,14 @@ def load(path: Path) -> Any:
         raise RationaleError(f"{path} is not JSON: {exc}") from None
 
 
+def own_space(doc: Any) -> bool:
+    """Whether the file carries the agent's own space (``space.dimensions``) instead of naming a wiki."""
+    return isinstance(doc, dict) and isinstance(doc.get("space"), dict) and "dimensions" in doc["space"]
+
+
 def names_space(doc: Any) -> bool:
-    """Whether the file was written against a space (``space`` is an object), so it needs the graph."""
-    return isinstance(doc, dict) and isinstance(doc.get("space"), dict)
+    """Whether the file names a wiki's space (``space`` is ``{workspace, run, graph_sha256}``), so it needs the graph."""
+    return isinstance(doc, dict) and isinstance(doc.get("space"), dict) and not own_space(doc)
 
 
 def file_sha256(path: Path) -> str:
@@ -126,14 +145,34 @@ def _what(value: Any) -> str:
         type(value), type(value).__name__)
 
 
+def _integer(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 class _Checker:
-    """Collects problems and resolved labels while walking one rationale file."""
+    """Collects problems and resolved labels while walking one rationale file.
+
+    Ids resolve against the wiki's ``graph`` or, for a file with its own space, against ``own`` (``{id: node}``,
+    nodes shaped like the graph's: ``id``, ``kind``, ``label``, ``dimension_id`` for a value). With neither,
+    ids are not resolved and only the structural rules run.
+    """
 
     def __init__(self, graph: Optional[q.Graph]):
         self.graph = graph
+        self.own: Optional[Dict[str, Dict[str, Any]]] = None
+        self.own_edges: List[Dict[str, Any]] = []
         self.problems: List[Dict[str, Any]] = []
         self.resolved: Dict[str, str] = {}
         self._relations: Optional[Dict[frozenset, List[Dict[str, Any]]]] = None  # {source, target} -> edges
+
+    @property
+    def resolves(self) -> bool:
+        """Whether ids can be resolved (a wiki graph or the file's own space)."""
+        return self.graph is not None or self.own is not None
+
+    def node(self, ident: Any) -> Dict[str, Any]:
+        table = self.own if self.own is not None else (self.graph or {}).get("_by_id", {})
+        return table.get(ident) or {}
 
     def add(self, code: str, path: str, message: str, candidates: Sequence[Any] = ()) -> None:
         self.problems.append({"code": code, "severity": "warning" if code in WARNINGS else "error",
@@ -163,17 +202,33 @@ class _Checker:
     def good(self, obj: Mapping[str, Any], key: str, kind: str = "text") -> bool:
         return key in obj and obj[key] is not None and _kind_ok(obj[key], kind)
 
+    def one_of(self, obj: Mapping[str, Any], key: str, parts: Tuple[Any, ...], allowed: Sequence[str],
+               what: str) -> None:
+        if self.good(obj, key) and obj[key] not in allowed:
+            self.add("schema", pointer(*parts, key), f"{what} are {', '.join(allowed)}, got {json.dumps(obj[key])}")
+
     # ------------------------------------------------------------ the space
 
     def ref(self, obj: Mapping[str, Any], key: str, parts: Tuple[Any, ...],
             kinds: Sequence[str]) -> Optional[Dict[str, Any]]:
-        """Resolve ``obj[key]`` against the graph; report unknown or non-canonical ids."""
-        if self.graph is None or not self.good(obj, key):
+        """Resolve ``obj[key]`` against the space; report unknown or non-canonical ids."""
+        if not self.resolves or not self.good(obj, key):
             return None
         return self.resolve(obj[key], pointer(*parts, key), kinds)
 
     def resolve(self, ref: str, path: str, kinds: Sequence[str]) -> Optional[Dict[str, Any]]:
-        """Resolve one id against the graph; report it when unknown or not canonical."""
+        """Resolve one id against the space; report it when unknown or not canonical."""
+        if self.own is not None:
+            n = self.own.get(ref)
+            if n is None or n["kind"] not in kinds:
+                same_kind = [x for x in self.own.values() if x["kind"] in kinds]
+                close = difflib.get_close_matches(ref, [x["id"] for x in same_kind], n=5, cutoff=0.5)
+                shown = [_brief(self.own[i]) for i in close] or [_brief(x) for x in same_kind[:5]]
+                self.add("unknown_id", path, f"'{ref}' is not a {' or '.join(kinds)} id of the file's space "
+                                             f"(space.dimensions)", shown)
+                return None
+            self.resolved.setdefault(n["id"], n.get("label", ""))
+            return n
         try:
             n = q.resolve(self.graph, ref, kinds)
         except q.NotFound as exc:
@@ -190,7 +245,7 @@ class _Checker:
         d = self.ref(obj, "dimension_id", parts, ["dimension"])
         v = self.ref(obj, "value_id", parts, ["value"])
         if d is not None and v is not None and v.get("dimension_id") != d["id"]:
-            owner = self.graph["_by_id"].get(v.get("dimension_id"), {})
+            owner = self.node(v.get("dimension_id"))
             self.add("value_not_in_dimension", pointer(*parts, "value_id"),
                      f"'{v.get('label')}' ({v['id']}) is a value of '{owner.get('label', v.get('dimension'))}' "
                      f"({v.get('dimension_id')}), not of '{d.get('label')}' ({d['id']})",
@@ -204,10 +259,11 @@ class _Checker:
             return
         a, b = src["id"], tgt["id"]
         if self._relations is None:
+            edges = self.own_edges if self.own is not None else [
+                e for e in (self.graph or {}).get("edges") or [] if e.get("type") == "relation"]
             self._relations = {}
-            for e in self.graph.get("edges") or []:
-                if e.get("type") == "relation":
-                    self._relations.setdefault(frozenset((e.get("source"), e.get("target"))), []).append(e)
+            for e in edges:
+                self._relations.setdefault(frozenset((e.get("source"), e.get("target"))), []).append(e)
         between = self._relations.get(frozenset((a, b)), [])
 
         def matches(e: Mapping[str, Any]) -> bool:
@@ -218,9 +274,10 @@ class _Checker:
             return
         found = [{"source": e.get("source"), "target": e.get("target"), "type": e.get("relation"),
                   "directed": bool(e.get("directed"))} for e in between]
-        what = ("; the graph has " + ", ".join(
+        where = "the graph" if self.own is None else "the file's space (space.relations)"
+        what = (f"; {where} has " + ", ".join(
             f"{f['source']} {f['type']} {f['target']}" + ("" if f["directed"] else " (undirected)") for f in found)
-            if found else "; the graph has no relation between them")
+            if found else f"; {where} has no relation between them")
         self.add("relation_mismatch", pointer(*parts),
                  f"no '{rel['type']}' relation from {a} ({src.get('label')}) to {b} ({tgt.get('label')}){what}",
                  found)
@@ -241,7 +298,7 @@ class _Checker:
                      [_brief(tgt)] if tgt else [])
 
     def stance(self, ev: Mapping[str, Any], parts: Tuple[Any, ...], v: Optional[Mapping[str, Any]]) -> None:
-        """Check a cited passage's stance: one of ``q.STANCES`` and, with a space, the one the graph records.
+        """Check a cited passage's stance: one of ``q.STANCES`` and, with a wiki, the one the graph records.
 
         A passage the graph records as ``both`` (it accepts and rejects the value) backs a claim of ``accepts``,
         ``rejects`` or ``both``; any other recorded stance backs only itself. No stance: nothing to check.
@@ -270,9 +327,10 @@ class _Checker:
 def check(doc: Any, graph: Optional[q.Graph] = None, graph_sha256: Optional[str] = None) -> Dict[str, Any]:
     """Check a parsed rationale file; return ``{ok, graph_sha256, problems, resolved}``.
 
-    ``graph`` (from ``q.load``) enables the rules against the space; pass it only for a file that names a
-    space (``names_space``). ``graph_sha256`` is the hash of that graph's file. Without a graph, only the
-    structural rules run. ``ok`` is false when any problem is an error; warnings are allowed.
+    ``graph`` (from ``q.load``) enables the rules against a wiki's space; it is used only for a file that names
+    one (``names_space``). ``graph_sha256`` is the hash of that graph's file. A file with its own space is
+    checked against it; a file that names a wiki, checked without its graph, gets the structural rules only.
+    ``ok`` is false when any problem is an error; warnings are allowed.
     """
     c = _Checker(graph if names_space(doc) else None)
     _check(c, doc, graph_sha256 if c.graph is not None else None)
@@ -291,36 +349,72 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
     if mode is not None and mode not in MODES:
         c.add("schema", "/mode", f"expected one of {', '.join(MODES)}, got {json.dumps(mode)}")
     space = doc.get("space")
-    with_space = isinstance(space, dict)
-    if with_space and c.fields(space, ("space",), _SPACE):
+    if own_space(doc):
+        _own_space(c, space)
+    elif isinstance(space, dict) and c.fields(space, ("space",), _WIKI):
         sha = space.get("graph_sha256")
         if graph_sha256 and isinstance(sha, str) and sha and sha != graph_sha256:
             c.add("graph_changed", "/space/graph_sha256",
                   f"the graph changed since the file was written (file {sha[:12]}…, graph {graph_sha256[:12]}…); "
                   "ids that still resolve are checked against the current graph")
-    names = _WITH_SPACE if with_space else _NO_SPACE
 
     requirements = _requirements(c, doc.get("problem"))
-    steps = _trajectory(c, doc, mode, with_space, requirements)
-    _alternatives(c, doc, mode, names, with_space, requirements, steps)
-    _regions(c, doc, mode, with_space, requirements, steps)
+    approaches = _approaches(c, doc, mode)
+    steps = _trajectory(c, doc, mode, requirements, approaches)
+    _alternatives(c, doc, mode, requirements, steps, approaches)
+    _regions(c, doc, mode, requirements, steps)
 
     for i, item in enumerate(c.items(doc, "comparison")):
         parts = ("comparison", i)
-        if c.fields(item, parts, {**_decision(names), "note": ("string", True)}):
+        if c.fields(item, parts, _COMPARISON):
             c.ref(item, "dimension_id", parts, ["dimension"])
 
     if mode == "explain" and "uncovered" not in doc:
         c.add("schema", "/uncovered", "missing uncovered (explain lists the decisions the space does not cover; "
                                       "use [] when every decision is mapped)")
     uncovered = c.items(doc, "uncovered")
-    if uncovered and "space" in doc and space is None:
-        c.add("schema", "/uncovered", "without a space (space: null) there is nothing to be uncovered by; "
+    if uncovered and own_space(doc):
+        c.add("schema", "/uncovered", "a file with its own space (space.dimensions) maps every decision onto it; "
                                       "leave uncovered empty")
     for i, item in enumerate(uncovered):
         parts = ("uncovered", i)
         if c.fields(item, parts, _UNCOVERED) and item.get("nearest_dimension_id") is not None:
             c.ref(item, "nearest_dimension_id", parts, ["dimension"])
+
+
+def _own_space(c: _Checker, space: Mapping[str, Any]) -> None:
+    """Check the agent's own space and make it the table ids resolve against."""
+    c.own = {}
+    if not c.fields(space, ("space",), _OWN):
+        return
+    for i, dim in enumerate(c.items(space, "dimensions")):
+        parts = ("space", "dimensions", i)
+        if not c.fields(dim, parts, _OWN_DIMENSION) or not c.good(dim, "id"):
+            continue
+        if dim["id"] in c.own:
+            c.add("schema", pointer(*parts, "id"), f"duplicate id '{dim['id']}' in the space")
+            continue
+        c.own[dim["id"]] = {"id": dim["id"], "kind": "dimension", "label": dim.get("name") or dim["id"]}
+        values = c.items(dim, "values")
+        if not values:
+            c.add("schema", pointer(*parts, "values"), "a dimension has at least one value")
+        for j, value in enumerate(values):
+            vparts = (*parts, "values", j)
+            if not c.fields(value, vparts, _OWN_VALUE) or not c.good(value, "id"):
+                continue
+            if value["id"] in c.own:
+                c.add("schema", pointer(*vparts, "id"), f"duplicate id '{value['id']}' in the space")
+                continue
+            c.own[value["id"]] = {"id": value["id"], "kind": "value", "label": value.get("name") or value["id"],
+                                  "dimension_id": dim["id"], "dimension": dim.get("name")}
+    for i, rel in enumerate(c.items(space, "relations")):
+        parts = ("space", "relations", i)
+        if not c.fields(rel, parts, _OWN_RELATION):
+            continue
+        src = c.ref(rel, "source", parts, ["dimension"])
+        tgt = c.ref(rel, "target", parts, ["dimension"])
+        if src is not None and tgt is not None and c.good(rel, "type"):
+            c.own_edges.append({"source": src["id"], "target": tgt["id"], "relation": rel["type"], "directed": True})
 
 
 def _requirements(c: _Checker, problem: Any) -> set:
@@ -336,22 +430,37 @@ def _requirements(c: _Checker, problem: Any) -> set:
     return ids
 
 
+def _unknown_requirement(c: _Checker, rid: Any, path: str, requirements: set) -> None:
+    if not isinstance(rid, str):
+        c.add("schema", path, f"expected a requirement id, got {_what(rid)}")
+    elif rid not in requirements:
+        known = ", ".join(sorted(requirements)) or "none"
+        c.add("unknown_requirement", path, f"'{rid}' names no requirement (the requirements: {known})")
+
+
 def _drivers(c: _Checker, obj: Mapping[str, Any], parts: Tuple[Any, ...], requirements: set) -> None:
     for k, driver in enumerate(c.items(obj, "drivers")):
-        path = pointer(*parts, "drivers", k)
-        if not isinstance(driver, str):
-            c.add("schema", path, f"expected a requirement id, got {_what(driver)}")
-        elif driver not in requirements:
-            known = ", ".join(sorted(requirements)) or "none"
-            c.add("unknown_requirement", path, f"'{driver}' names no requirement (the requirements: {known})")
+        _unknown_requirement(c, driver, pointer(*parts, "drivers", k), requirements)
 
 
-def _point_values(c: _Checker, values: List[Any], parts: Tuple[Any, ...], with_space: bool,
-                  owner: str) -> Optional[frozenset]:
-    """Check a design point's ``values`` (value ids, or ``{decision, option}`` without a space); return its key.
+def _assessment(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], requirements: set) -> None:
+    assessment = step.get("assessment")
+    if not isinstance(assessment, dict):
+        return  # ``fields`` reported it
+    if not assessment:
+        c.add("schema", pointer(*parts, "assessment"), "the assessment judges at least one requirement")
+    for rid, judged in assessment.items():
+        path = pointer(*parts, "assessment", rid)
+        _unknown_requirement(c, rid, path, requirements)
+        if judged not in ASSESSMENTS:
+            c.add("schema", path, f"a requirement is judged {', '.join(ASSESSMENTS)}, got {json.dumps(judged)}")
 
-    The key is the set of canonical value ids (or normalized ``(decision, option)`` pairs) to compare points
-    with, or None when a value could not be resolved. One value per dimension, as in an alternative.
+
+def _point_values(c: _Checker, values: List[Any], parts: Tuple[Any, ...], owner: str) -> Optional[frozenset]:
+    """Check a design point's ``values`` (value ids); return its key, the set of canonical value ids.
+
+    The key is None when a value could not be resolved against a space that resolves ids. One value per
+    dimension, as in an alternative.
     """
     if not values:
         c.add("schema", pointer(*parts), f"{owner}: a design point names at least one value")
@@ -361,35 +470,53 @@ def _point_values(c: _Checker, values: List[Any], parts: Tuple[Any, ...], with_s
     complete = True
     for k, item in enumerate(values):
         path = pointer(*parts, k)
-        if with_space:
-            if not isinstance(item, str) or not item.strip():
-                c.add("schema", path, f"expected a value id (v:…), got {_what(item)}")
-                complete = False
-                continue
-            v = c.resolve(item, path, ["value"]) if c.graph is not None else None
-            if v is None:
-                complete = c.graph is None and complete
-                key.add(item)
-                continue
-            dim, label, item_key = v.get("dimension_id"), f"'{v.get('label')}' ({v['id']})", v["id"]
-        else:
-            if not c.fields(item, parts + (k,), _NO_SPACE) or not (c.good(item, "decision") and c.good(item, "option")):
-                complete = False
-                continue
-            dim, label, item_key = q.norm(item["decision"]), f"'{item['option']}'", (q.norm(item["decision"]),
-                                                                                    q.norm(item["option"]))
+        if not isinstance(item, str) or not item.strip():
+            c.add("schema", path, f"expected a value id (v:…), got {_what(item)}")
+            complete = False
+            continue
+        v = c.resolve(item, path, ["value"]) if c.resolves else None
+        if v is None:
+            complete = complete and not c.resolves
+            key.add(item)
+            continue
+        dim = v.get("dimension_id")
         if dim in first:
             c.add("two_values_one_dimension", path,
-                  f"{label} is a second value for one dimension in {owner} (the first is at {first[dim]}): "
-                  "a design point takes one value per dimension")
+                  f"'{v.get('label')}' ({v['id']}) is a second value for one dimension in {owner} (the first is at "
+                  f"{first[dim]}): a design point takes one value per dimension")
         else:
             first[dim] = path
-        key.add(item_key)
+        key.add(v["id"])
     return frozenset(key) if complete else None
 
 
-def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, with_space: bool,
-                requirements: set) -> Dict[int, Dict[str, Any]]:
+def _approaches(c: _Checker, doc: Mapping[str, Any], mode: Any) -> Dict[str, Dict[str, Any]]:
+    """Check search's approaches; return ``{id: approach}``."""
+    found: Dict[str, Dict[str, Any]] = {}
+    approaches = c.items(doc, "approaches")
+    if mode == "explain":
+        if approaches:
+            c.add("schema", "/approaches", "approaches belong to search; explain starts from the given solution")
+        return found
+    if mode == "search" and "approaches" not in doc:
+        c.add("schema", "/approaches", "missing approaches (search works out two or more \"what if\" approaches)")
+    for i, item in enumerate(approaches):
+        parts = ("approaches", i)
+        if not c.fields(item, parts, _APPROACH):
+            continue
+        c.one_of(item, "status", parts, STATUSES, "approach statuses")
+        if item.get("status") == "dropped" and not c.good(item, "dropped_because"):
+            c.add("schema", pointer(*parts, "dropped_because"),
+                  "a dropped approach says why (dropped_because): later rounds must not repeat the reason")
+        if c.good(item, "id"):
+            if item["id"] in found:
+                c.add("schema", pointer(*parts, "id"), f"duplicate approach id '{item['id']}'")
+            found[item["id"]] = item
+    return found
+
+
+def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set,
+                approaches: Mapping[str, Dict[str, Any]]) -> Dict[int, Dict[str, Any]]:
     """Check the budget and the trajectory; return ``{step number: {step, key}}`` for the well-formed steps."""
     steps: Dict[int, Dict[str, Any]] = {}
     known = mode in MODES
@@ -399,20 +526,22 @@ def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, with_space: bool
         limit = budget["max_points"]
         if limit < 1 or (known and limit > MAX_POINTS[mode]):
             c.add("budget", "/budget/max_points",
-                  f"max_points is {limit}: {mode} investigates 1 to {MAX_POINTS.get(mode)} design points"
+                  f"max_points is {limit}: {mode} evaluates 1 to {MAX_POINTS.get(mode)} design points"
                   if known else f"max_points is {limit}: expected at least 1")
     trajectory = doc.get("trajectory")
     if not isinstance(trajectory, list):
         return steps
     if not trajectory:
-        c.add("schema", "/trajectory", "the trajectory lists at least one step (the design points investigated)")
+        c.add("schema", "/trajectory", "the trajectory lists at least one step (the design points evaluated)")
     if limit is not None and len(trajectory) > limit:
         c.add("budget", "/trajectory",
               f"the trajectory has {len(trajectory)} steps, over the budget of {limit} design points")
+    spec = {**_STEP, **(_SEARCH_STEP if mode == "search" else _EXPLAIN_STEP if mode == "explain" else {})}
     solutions = 0
+    last_round = 1
     for i, step in enumerate(trajectory):
         parts = ("trajectory", i)
-        if not c.fields(step, parts, _STEP):
+        if not c.fields(step, parts, spec):
             continue
         if step.get("point") is not None:
             c.fields(step["point"], (*parts, "point"), _POINT)
@@ -424,67 +553,85 @@ def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, with_space: bool
         if known and c.good(step, "move") and move not in MOVES[mode]:
             c.add("bad_step", pointer(*parts, "move"),
                   f"{mode} moves are {', '.join(MOVES[mode])}, got {json.dumps(move)}")
-        if known and c.good(step, "verdict") and step["verdict"] not in VERDICTS[mode]:
-            c.add("schema", pointer(*parts, "verdict"),
-                  f"{mode} verdicts are {', '.join(VERDICTS[mode])}, got {json.dumps(step['verdict'])}")
+        if mode == "search":
+            c.one_of(step, "rating", parts, RATINGS, "search ratings")
+        elif mode == "explain":
+            c.one_of(step, "verdict", parts, VERDICTS, "explain verdicts")
         solutions += move == "solution"
         parent = step.get("parent")
-        if parent is not None and isinstance(parent, int) and not isinstance(parent, bool):
+        parent_entry = None
+        if _integer(parent):
             if not 1 <= parent <= i:
                 c.add("bad_step", pointer(*parts, "parent"),
                       f"the parent {parent} is not an earlier step (steps before this one: 1 to {i})"
                       if i else "the first step has no earlier step to name as its parent")
             elif move in ROOT_MOVES:
                 c.add("bad_step", pointer(*parts, "parent"), f"a {move} step starts the trajectory: it has no parent")
+            else:
+                parent_entry = steps.get(parent)
         elif move in PARENT_MOVES:
             c.add("bad_step", pointer(*parts, "parent"), f"a {move} step names the step it starts from (parent)")
-        _drivers(c, step, parts, requirements)
-        key = _point_values(c, c.items(step, "values"), (*parts, "values"), with_space, f"step {i + 1}")
+        if mode == "search":
+            last_round = _search_step(c, step, parts, approaches, parent_entry, last_round)
+        _assessment(c, step, parts, requirements)
+        key = _point_values(c, c.items(step, "values"), (*parts, "values"), f"step {i + 1}")
         if c.good(step, "step", "integer") and number == i + 1:
             steps[number] = {"step": step, "key": key}
-    if mode == "explain" and isinstance(trajectory, list) and trajectory and solutions != 1:
+    if mode == "explain" and trajectory and solutions != 1:
         c.add("bad_step", "/trajectory", f"explain has exactly one solution step (the given solution as a design "
                                          f"point), got {solutions}")
     return steps
 
 
-def _choice_key(c: _Checker, choice: Mapping[str, Any], with_space: bool) -> Any:
-    if with_space:
-        v = c.graph["_by_id"].get(choice.get("value_id")) if c.graph is not None else None
-        return v["id"] if v is not None else choice.get("value_id")
-    if c.good(choice, "decision") and c.good(choice, "option"):
-        return (q.norm(choice["decision"]), q.norm(choice["option"]))
-    return None
+def _search_step(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...],
+                 approaches: Mapping[str, Dict[str, Any]], parent: Optional[Mapping[str, Any]], last_round: int) -> int:
+    """Check a search step's round and approach; return the round reached so far."""
+    rnd = step.get("round")
+    if _integer(rnd):
+        if rnd < last_round or rnd > last_round + 1 or rnd < 1:
+            c.add("bad_step", pointer(*parts, "round"),
+                  f"rounds start at 1 and go up one at a time: after round {last_round}, expected {last_round} or "
+                  f"{last_round + 1}, got {rnd}")
+        else:
+            last_round = rnd
+        if step.get("move") == "seed" and rnd != 1:
+            c.add("bad_step", pointer(*parts, "round"), "seed steps are round 1; a new approach later is an explore step")
+    approach = step.get("approach")
+    if c.good(step, "approach") and approaches and approach not in approaches:
+        c.add("step_mismatch", pointer(*parts, "approach"),
+              f"the approach '{approach}' is not in approaches (they are {', '.join(approaches)})", list(approaches))
+    if parent is not None and step.get("move") in SAME_APPROACH_MOVES and c.good(step, "approach"):
+        theirs = parent["step"].get("approach")
+        if theirs != approach:
+            c.add("bad_step", pointer(*parts, "approach"),
+                  f"an {step.get('move')} step stays in its parent's approach: step {parent['step'].get('step')} is "
+                  f"approach '{theirs}', this step says '{approach}'")
+    return last_round
 
 
 def _same_point(c: _Checker, owner: Mapping[str, Any], key: Optional[frozenset], parts: Tuple[Any, ...],
-                steps: Mapping[int, Dict[str, Any]], what: str, moves: Sequence[str] = (),
-                verdict: Optional[str] = None) -> None:
-    """Check ``owner.step`` names a step whose values are ``key`` (and, optionally, its move and verdict)."""
+                steps: Mapping[int, Dict[str, Any]], what: str, moves: Sequence[str] = ()) -> Optional[Mapping]:
+    """Check ``owner.step`` names a step whose values are ``key`` (and, optionally, its move); return the step."""
     number = owner.get("step")
-    if not isinstance(number, int) or isinstance(number, bool):
-        return  # ``fields`` reported it
+    if not _integer(number):
+        return None  # ``fields`` reported it
     entry = steps.get(number)
     path = pointer(*parts, "step")
     if entry is None:
         c.add("step_mismatch", path, f"{what} names step {number}, which the trajectory does not have")
-        return
+        return None
     step = entry["step"]
     if moves and step.get("move") not in moves:
         c.add("step_mismatch", path, f"{what} names step {number}, a {step.get('move')} step: expected a "
                                      f"{' or '.join(moves)} step")
-    if verdict and step.get("verdict") != verdict:
-        c.add("step_mismatch", path, f"{what} names step {number}, whose verdict is "
-                                     f"{json.dumps(step.get('verdict'))}: propose only {verdict} points")
     if key is not None and entry["key"] is not None and key != entry["key"]:
-        def show(items: frozenset) -> str:
-            return ", ".join(sorted(i if isinstance(i, str) else f"{i[0]}={i[1]}" for i in items)) or "none"
-        c.add("step_mismatch", path, f"{what} takes {show(key)}, but step {number} investigated "
-                                     f"{show(entry['key'])}: they must be the same design point",
-              sorted(i if isinstance(i, str) else list(i) for i in entry["key"]))
+        c.add("step_mismatch", path, f"{what} takes {', '.join(sorted(key)) or 'none'}, but step {number} evaluated "
+                                     f"{', '.join(sorted(entry['key'])) or 'none'}: they must be the same design point",
+              sorted(entry["key"]))
+    return step
 
 
-def _regions(c: _Checker, doc: Mapping[str, Any], mode: Any, with_space: bool, requirements: set,
+def _regions(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set,
              steps: Mapping[int, Dict[str, Any]]) -> None:
     regions = c.items(doc, "regions")
     if mode == "search" and regions:
@@ -506,17 +653,16 @@ def _regions(c: _Checker, doc: Mapping[str, Any], mode: Any, with_space: bool, r
                 c.add("schema", pointer(*parts, "id"), f"duplicate region id '{region['id']}'")
             seen.add(region["id"])
         _drivers(c, region, parts, requirements)
-        key = _point_values(c, c.items(region, "values"), (*parts, "values"), with_space, f"region {i + 1}")
+        key = _point_values(c, c.items(region, "values"), (*parts, "values"), f"region {i + 1}")
         if key is not None and solution is not None and not key <= solution:
-            extra = sorted(str(k) if isinstance(k, str) else f"{k[0]}={k[1]}" for k in key - solution)
             c.add("region_not_in_solution", pointer(*parts, "values"),
                   f"a region is a partial design point of the solution's values; the solution does not take "
-                  f"{', '.join(extra)}")
+                  f"{', '.join(sorted(key - solution))}")
         _same_point(c, region, key, parts, steps, f"region '{region.get('id')}'", ("region", "solution"))
 
 
-def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, with_space: bool,
-                  requirements: set, steps: Mapping[int, Dict[str, Any]]) -> None:
+def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set,
+                  steps: Mapping[int, Dict[str, Any]], approaches: Mapping[str, Dict[str, Any]]) -> None:
     alts = doc.get("alternatives")
     if not isinstance(alts, list):
         return
@@ -529,14 +675,13 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
                   f"explain has exactly one alternative (the solution, id '{EXPLAIN_ID}'), got {len(alts)}")
         elif isinstance(alts[0], dict) and c.good(alts[0], "id") and alts[0]["id"] != EXPLAIN_ID:
             c.add("schema", "/alternatives/0/id", f"the explained solution has id '{EXPLAIN_ID}', got '{alts[0]['id']}'")
+    alt_spec = {**_ALTERNATIVE, "approach": ("text", True)} if mode == "search" else _ALTERNATIVE
+    choice_spec = ({**_CHOICE, "solution_quote": ("text", True), "forced": ("boolean|null", True)}
+                   if mode == "explain" else _CHOICE)
     seen_ids: set = set()
-    choice_spec: _Spec = {**names, "drivers": ("list", True), "reason": ("string", True),
-                          "evidence": ("list", False), "solution_quote": ("string|null", False)}
-    considered_spec: _Spec = {**names, "reason": ("string", True), "drivers": ("list", False)}
-    open_spec: _Spec = {**_decision(names), "reason": ("string", True)}
-    key_field = next(iter(names))
+    seen_approaches: Dict[str, int] = {}
     for i, alt in enumerate(alts):
-        if not c.fields(alt, ("alternatives", i), _ALTERNATIVE):
+        if not c.fields(alt, ("alternatives", i), alt_spec):
             continue
         if c.good(alt, "id"):
             if alt["id"] in seen_ids:
@@ -545,61 +690,90 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, names: _Spec, 
         first: Dict[str, str] = {}
         value_ids: List[str] = []
         point_key: set = set()
+        complete = True
         for j, choice in enumerate(c.items(alt, "choices")):
             parts = ("alternatives", i, "choices", j)
             if not c.fields(choice, parts, choice_spec):
+                complete = False
                 continue
-            if mode == "explain" and "solution_quote" in choice and not c.good(choice, "solution_quote"):
-                c.add("schema", pointer(*parts, "solution_quote"),
-                      "explain quotes the solution on each choice: expected a non-empty string")
-            elif mode == "explain" and "solution_quote" not in choice:
-                c.add("schema", pointer(*parts, "solution_quote"), "missing solution_quote")
             _drivers(c, choice, parts, requirements)
-            d, v = c.choice_ids(choice, parts) if with_space else (None, None)
+            d, v = c.choice_ids(choice, parts)
             if v is not None:
                 value_ids.append(v["id"])
-            point_key.add(_choice_key(c, choice, with_space))
-            key = d["id"] if d is not None else (q.norm(choice[key_field]) if c.good(choice, key_field) else None)
-            if key is not None and key in first:
-                what = f"'{d.get('label')}' ({d['id']})" if d is not None else f"'{choice[key_field]}'"
+                point_key.add(v["id"])
+            elif c.resolves or not c.good(choice, "value_id"):
+                complete = False
+            else:
+                point_key.add(choice["value_id"])
+            dim = d["id"] if d is not None else (choice["dimension_id"] if c.good(choice, "dimension_id") else None)
+            if dim is not None and dim in first:
+                what = f"'{d.get('label')}' ({d['id']})" if d is not None else f"'{dim}'"
                 c.add("two_values_one_dimension", pointer(*parts),
                       f"a second choice for {what} in alternative '{alt.get('id')}' (the first is at "
-                      f"{first[key]}): an alternative takes one value per dimension")
-            elif key is not None:
-                first[key] = pointer(*parts)
+                      f"{first[dim]}): an alternative takes one value per dimension")
+            elif dim is not None:
+                first[dim] = pointer(*parts)
             for k, ev in enumerate(c.items(choice, "evidence")):
                 ev_parts = (*parts, "evidence", k)
                 if not c.fields(ev, ev_parts, _EVIDENCE):
                     continue
-                if v is not None and c.good(ev, "doc"):
-                    passages = v.get("passages") or []
+                wiki_value = v if c.graph is not None else None
+                if wiki_value is not None and c.good(ev, "doc"):
+                    passages = wiki_value.get("passages") or []
                     if ev["doc"] not in {p.get("doc") for p in passages}:
                         c.add("evidence_not_on_value", pointer(*ev_parts),
                               f"passage '{ev['doc']}' is not among the passages of '{v.get('label')}' ({v['id']})",
                               [{"doc": p.get("doc"), "stance": p.get("stance")} for p in passages])
-                c.stance(ev, ev_parts, v)
+                c.stance(ev, ev_parts, wiki_value)
 
         for j, item in enumerate(c.items(alt, "considered")):
             parts = ("alternatives", i, "considered", j)
-            if c.fields(item, parts, considered_spec):
+            if c.fields(item, parts, _CONSIDERED):
                 _drivers(c, item, parts, requirements)
-                if with_space:
-                    c.choice_ids(item, parts)
+                c.choice_ids(item, parts)
         for j, item in enumerate(c.items(alt, "open")):
             parts = ("alternatives", i, "open", j)
-            if c.fields(item, parts, open_spec):
+            if c.fields(item, parts, _OPEN):
                 c.ref(item, "dimension_id", parts, ["dimension"])
         for j, rel in enumerate(c.items(alt, "relations")):
             parts = ("alternatives", i, "relations", j)
-            if c.fields(rel, parts, _RELATION) and c.graph is not None:
+            if c.fields(rel, parts, _RELATION) and c.resolves:
                 c.relation(rel, parts)
         c.unmet_requires(value_ids, ("alternatives", i))
-        resolved = None if None in point_key else frozenset(point_key)
+        resolved = frozenset(point_key) if complete else None
         if mode == "explain":
             _same_point(c, alt, resolved, ("alternatives", i), steps, f"the solution '{alt.get('id')}'", ("solution",))
-        else:
-            _same_point(c, alt, resolved, ("alternatives", i), steps, f"alternative '{alt.get('id')}'",
-                        verdict="kept")
+            continue
+        step = _same_point(c, alt, resolved, ("alternatives", i), steps, f"alternative '{alt.get('id')}'")
+        if mode == "search":
+            _alternative_approach(c, alt, i, step, approaches, seen_approaches)
+
+
+def _alternative_approach(c: _Checker, alt: Mapping[str, Any], i: int, step: Optional[Mapping[str, Any]],
+                          approaches: Mapping[str, Dict[str, Any]], seen: Dict[str, int]) -> None:
+    """Check a search alternative is the point of one live approach, one alternative per approach, never weak."""
+    path = pointer("alternatives", i, "approach")
+    approach = alt.get("approach")
+    if not c.good(alt, "approach"):
+        return
+    if approach in seen:
+        c.add("step_mismatch", path, f"alternatives {seen[approach] + 1} and {i + 1} both come from approach "
+                                     f"'{approach}': propose the best point of each approach")
+    seen.setdefault(approach, i)
+    known = approaches.get(approach)
+    if approaches and known is None:
+        c.add("step_mismatch", path, f"the approach '{approach}' is not in approaches", list(approaches))
+    elif known is not None and known.get("status") == "dropped":
+        c.add("step_mismatch", path, f"the approach '{approach}' was dropped; propose points of live approaches")
+    if step is None:
+        return
+    if step.get("approach") != approach:
+        c.add("step_mismatch", pointer("alternatives", i, "step"),
+              f"alternative '{alt.get('id')}' says approach '{approach}', but step {step.get('step')} is approach "
+              f"'{step.get('approach')}'")
+    if step.get("rating") == "weak":
+        c.add("step_mismatch", pointer("alternatives", i, "step"),
+              f"step {step.get('step')} is rated weak: propose only strong or mixed points")
 
 
 # ---------------------------------------------------------------- the workspace's rationale/ folder

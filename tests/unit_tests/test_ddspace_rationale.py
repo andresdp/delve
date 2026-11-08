@@ -1,4 +1,4 @@
-"""ddspace rationale check: the ddspace-rationale/2 file, its structural rules and its rules against a space."""
+"""ddspace rationale check: the ddspace-rationale/3 file, its structural rules and its rules against a space."""
 
 import copy
 import hashlib
@@ -54,19 +54,24 @@ def _codes(result):
 def _explain(uncovered=2):
     doc = _sample()
     doc.update(id="toy-store-explain", mode="explain", comparison=[])
+    del doc["approaches"]
     alt = doc["alternatives"][0]
+    del alt["approach"]
     alt["id"] = "S"
-    for choice, quote in zip(alt["choices"], ["data stays on each node's disk", "a three-phase commit"]):
-        choice["solution_quote"] = quote
+    for choice, quote, forced in zip(alt["choices"], ["data stays on each node's disk", "a three-phase commit"],
+                                     [True, None]):
+        choice["solution_quote"], choice["forced"] = quote, forced
     alt["step"] = 1
     doc["alternatives"] = [alt]
     doc["budget"] = {"max_points": 8}
     doc["trajectory"] = [
-        {"step": 1, "move": "solution", "parent": None, "values": ["v:1.1", "v:2.1"], "drivers": ["Q1", "R1"],
-         "why": "The solution as one design point.", "verdict": "grounded",
+        {"step": 1, "move": "solution", "parent": None, "values": ["v:1.1", "v:2.1"],
+         "hypothesis": "The solution as one design point.", "assessment": {"R1": "meets", "Q1": "meets"},
+         "observation": "A source attests the whole point.", "verdict": "grounded",
          "point": {"description": "Local disks with a quorum and a commit protocol.", "attested_by": ["s:s1"]}},
-        {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"], "drivers": ["Q1"],
-         "why": "Is the disk quorum alone attested?", "verdict": "grounded",
+        {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"],
+         "hypothesis": "Durability alone calls for the disk quorum.", "assessment": {"Q1": "meets"},
+         "observation": "Attested on its own.", "verdict": "grounded",
          "point": {"description": "Local disks with a quorum.", "attested_by": ["s:s1"]}},
     ]
     doc["regions"] = [{"id": "G1", "name": "Disk quorum", "values": ["v:1.1"], "step": 2, "drivers": ["Q1"],
@@ -78,24 +83,36 @@ def _explain(uncovered=2):
     return doc
 
 
-def _no_space(mode="search"):
-    alt = lambda i, opts: {  # noqa: E731
-        "id": i, "name": i, "summary": "",
-        "choices": [{"decision": d, "option": o, "drivers": ["Q1"], "reason": "r", "solution_quote": None}
-                    for d, o in opts],
-        "considered": [{"decision": "Store", "option": "Postgres", "drivers": ["C1"], "reason": "too heavy"}],
-        "open": [{"decision": "Replication", "reason": "no requirement decides it"}],
-        "relations": [{"source": "Store", "target": "Replication", "type": "constrains", "holds": True,
-                       "note": ""}],
+OWN_SPACE = {
+    "dimensions": [
+        {"id": "d:1", "name": "Store", "values": [{"id": "v:1.1", "name": "Local disks"}, {"id": "v:1.2", "name": "S3"},
+                                                  {"id": "v:1.3", "name": "Postgres"}]},
+        {"id": "d:2", "name": "Replication", "values": [{"id": "v:2.1", "name": "Quorum"},
+                                                        {"id": "v:2.2", "name": "None"}]},
+    ],
+    "relations": [{"source": "d:1", "target": "d:2", "type": "constrains"}],
+}
+
+
+def _own():
+    """A search file with the agent's own space (no wiki)."""
+    alt = lambda i, approach, step, value: {  # noqa: E731
+        "id": i, "name": i, "summary": "", "approach": approach, "step": step,
+        "choices": [{"dimension_id": "d:1", "value_id": value, "drivers": ["Q1"], "reason": "r"}],
+        "considered": [{"dimension_id": "d:1", "value_id": "v:1.3", "drivers": ["C1"], "reason": "too heavy"}],
+        "open": [{"dimension_id": "d:2", "reason": "no requirement decides it"}],
+        "relations": [{"source": "d:1", "target": "d:2", "type": "constrains", "holds": True, "note": ""}],
     }
-    step = lambda n, move, opts: {  # noqa: E731
-        "step": n, "move": move, "parent": None, "values": [{"decision": d, "option": o} for d, o in opts],
-        "why": "w", "verdict": "kept"}
+    step = lambda n, move, approach, value: {  # noqa: E731
+        "step": n, "round": 1, "approach": approach, "move": move, "parent": None, "values": [value],
+        "hypothesis": "h", "assessment": {"Q1": "meets"}, "observation": "o", "rating": "strong"}
     doc = _sample()
-    doc.update(space=None, alternatives=[dict(alt("A1", [("Store", "Local disks")]), step=1),
-                                         dict(alt("A2", [("Store", "S3")]), step=2)],
-               trajectory=[step(1, "seed", [("Store", "Local disks")]), step(2, "explore", [("Store", "S3")])],
-               comparison=[{"decision": "Store", "note": "disks versus S3"}])
+    doc.update(space=copy.deepcopy(OWN_SPACE),
+               approaches=[{"id": "A", "idea": "what if disks?", "status": "live"},
+                           {"id": "B", "idea": "what if S3?", "status": "live"}],
+               alternatives=[alt("A1", "A", 1, "v:1.1"), alt("A2", "B", 2, "v:1.2")],
+               trajectory=[step(1, "seed", "A", "v:1.1"), step(2, "seed", "B", "v:1.2")],
+               comparison=[{"dimension_id": "d:1", "note": "disks versus S3"}])
     return doc
 
 
@@ -161,41 +178,78 @@ def test_a_missing_field_is_a_schema_error(graph):
 
 
 def test_a_wrong_schema_tag_or_mode_is_a_schema_error():
-    doc = _no_space()
-    doc["schema"], doc["mode"] = "ddspace-rationale/0", "browse"
+    doc = _own()
+    doc["schema"], doc["mode"] = "ddspace-rationale/2", "browse"
     assert {("schema", "/schema"), ("schema", "/mode")} <= _codes(rationale.check(doc))
 
 
-def test_no_space_file_runs_the_structural_rules_only():
-    result = rationale.check(_no_space())
-    assert result == {"ok": True, "graph_sha256": None, "problems": [], "resolved": []}
+def test_an_own_space_file_is_checked_against_its_own_space():
+    result = rationale.check(_own())
+    assert result["ok"] and result["problems"] == [] and result["graph_sha256"] is None, result["problems"]
+    labels = {r["id"]: r["label"] for r in result["resolved"]}
+    assert labels["d:1"] == "Store" and labels["v:1.2"] == "S3"
 
 
-def test_no_space_two_options_for_one_decision(graph):
-    doc = _no_space()
+def test_an_own_space_needs_its_ids(graph):
+    doc = _own()
+    doc["trajectory"][0]["values"] = ["v:1.9"]
+    doc["alternatives"][0]["choices"][0]["value_id"] = "v:2.1"   # a value of Replication, not of Store
+    doc["alternatives"][1]["open"][0]["dimension_id"] = "d:3"
+    codes = _codes(rationale.check(doc))
+    assert ("unknown_id", "/trajectory/0/values/0") in codes
+    assert ("value_not_in_dimension", "/alternatives/0/choices/0/value_id") in codes
+    assert ("unknown_id", "/alternatives/1/open/0/dimension_id") in codes
+    problem = next(p for p in rationale.check(doc)["problems"] if p["path"] == "/trajectory/0/values/0")
+    assert "v:1.1" in [c["id"] for c in problem["candidates"]]
+
+
+def test_an_own_space_is_well_formed():
+    doc = _own()
+    doc["space"]["dimensions"][1]["values"][0]["id"] = "v:1.1"   # the same id twice
+    doc["space"]["dimensions"].append({"id": "d:3", "name": "Empty", "values": []})
+    doc["space"]["relations"].append({"source": "d:1", "target": "d:7", "type": "requires"})
+    codes = _codes(rationale.check(doc))
+    assert ("schema", "/space/dimensions/1/values/0/id") in codes
+    assert ("schema", "/space/dimensions/2/values") in codes
+    assert ("unknown_id", "/space/relations/1/target") in codes
+
+
+def test_an_own_space_relation_claim_must_be_in_its_relations():
+    doc = _own()
+    doc["alternatives"][0]["relations"][0]["type"] = "requires"
+    assert ("relation_mismatch", "/alternatives/0/relations/0") in _codes(rationale.check(doc))
+
+
+def test_own_space_two_values_for_one_dimension():
+    doc = _own()
     doc["alternatives"][0]["choices"].append(
-        {"decision": " store", "option": "Both", "drivers": [], "reason": "", "solution_quote": None})
+        {"dimension_id": "d:1", "value_id": "v:1.3", "drivers": [], "reason": ""})
     assert ("two_values_one_dimension", "/alternatives/0/choices/1") in _codes(rationale.check(doc))
 
 
-def test_no_space_explain_with_uncovered_items_is_a_schema_error():
-    doc = _no_space()
+def test_own_space_explain_with_uncovered_items_is_a_schema_error():
+    doc = _own()
     doc["mode"] = "explain"
+    del doc["approaches"]
     alt = doc["alternatives"][0]
+    del alt["approach"]
     alt["id"] = "S"
-    alt["choices"][0]["solution_quote"] = "local disks"
+    alt["choices"][0].update(solution_quote="local disks", forced=None)
     doc["alternatives"], doc["comparison"] = [alt], []
-    doc["trajectory"] = [dict(doc["trajectory"][0], move="solution", verdict="grounded")]
-    doc["regions"] = [{"id": "G1", "name": "Local disks", "values": [{"decision": "Store", "option": "Local disks"}],
-                       "step": 1, "drivers": ["Q1"], "reason": "r"}]
+    step = doc["trajectory"][0]
+    for key in ("round", "approach", "rating"):
+        del step[key]
+    doc["trajectory"] = [dict(step, move="solution", verdict="grounded")]
+    doc["regions"] = [{"id": "G1", "name": "Local disks", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"],
+                       "reason": "r"}]
     doc["uncovered"] = [{"decision": "Backups", "solution_quote": "nightly", "nearest_dimension_id": None}]
     assert ("schema", "/uncovered") in _codes(rationale.check(doc))
     doc["uncovered"] = []
     assert rationale.check(doc)["problems"] == []
 
 
-def test_no_space_still_checks_requirement_links():
-    doc = _no_space()
+def test_own_space_still_checks_requirement_links():
+    doc = _own()
     doc["alternatives"][1]["choices"][0]["drivers"] = ["Q1", "X9"]
     assert ("unknown_requirement", "/alternatives/1/choices/0/drivers/1") in _codes(rationale.check(doc))
 
@@ -330,15 +384,16 @@ def test_errors_exit_1_with_the_problems(ws, tmp_path):
     assert not payload["ok"] and payload["problems"][0]["code"] == "not_canonical"
 
 
-def test_no_space_file_outside_a_workspace(tmp_path, monkeypatch):
+def test_an_own_space_file_outside_a_workspace(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     file = tmp_path / "r.json"
-    file.write_text(json.dumps(_no_space()), encoding="utf-8")
+    file.write_text(json.dumps(_own()), encoding="utf-8")
     result = _invoke("rationale", "check", str(file))
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout) == {"ok": True, "graph_sha256": None, "problems": [], "resolved": []}
-    doc = _no_space()
-    doc["alternatives"][0]["choices"].append(dict(doc["alternatives"][0]["choices"][0], option="S3"))
+    payload = json.loads(result.stdout)
+    assert payload["ok"] and payload["graph_sha256"] is None and payload["problems"] == []
+    doc = _own()
+    doc["alternatives"][0]["choices"].append(dict(doc["alternatives"][0]["choices"][0], value_id="v:1.2"))
     file.write_text(json.dumps(doc), encoding="utf-8")
     result = _invoke("rationale", "check", str(file))
     assert result.exit_code == 1
@@ -416,7 +471,7 @@ def test_a_stance_outside_the_stances_is_a_schema_error(graph):
     doc = _sample()
     doc["alternatives"][0]["choices"][0]["evidence"][0]["stance"] = "loves"
     assert ("schema", "/alternatives/0/choices/0/evidence/0/stance") in _codes(_check(doc, graph))
-    doc = _no_space()
+    doc = _own()
     doc["alternatives"][0]["choices"][0]["evidence"] = [{"doc": "s01_p01", "stance": "loves"}]
     assert ("schema", "/alternatives/0/choices/0/evidence/0/stance") in _codes(rationale.check(doc))
 
@@ -473,7 +528,7 @@ def test_safe_id_rejects_a_trailing_newline():
     assert not rationale.safe_id("../evil") and not rationale.safe_id("a/b")
 
 
-# ---------------------------------------------------------------- schema 2: trajectory, budget, regions
+# ---------------------------------------------------------------- schema 3: trajectory, budget, rounds, approaches, regions
 
 
 def test_the_trajectory_steps_are_numbered_in_order_with_earlier_parents(graph):
@@ -490,17 +545,17 @@ def test_the_trajectory_steps_are_numbered_in_order_with_earlier_parents(graph):
 def test_moves_and_verdicts_belong_to_the_mode(graph):
     doc = _sample()
     doc["trajectory"][0]["move"] = "region"
-    doc["trajectory"][2]["verdict"] = "grounded"
+    doc["trajectory"][2]["rating"] = "grounded"
     del doc["trajectory"][1]["parent"]
     codes = _codes(_check(doc, graph))
     assert ("bad_step", "/trajectory/0/move") in codes
-    assert ("schema", "/trajectory/2/verdict") in codes
+    assert ("schema", "/trajectory/2/rating") in codes
     assert ("bad_step", "/trajectory/1/parent") in codes  # an exploit step names the step it refines
 
 
-def test_an_alternative_is_a_kept_step_with_the_same_values(graph):
+def test_an_alternative_is_a_step_of_its_approach_with_the_same_values(graph):
     doc = _sample()
-    doc["alternatives"][1]["step"] = 2           # a dropped step
+    doc["alternatives"][1]["step"] = 2           # a weak step of approach A
     assert ("step_mismatch", "/alternatives/1/step") in _codes(_check(doc, graph))
     doc = _sample()
     doc["trajectory"][0]["values"] = ["v:1.1"]  # step 1 no longer the point A1 takes
@@ -566,9 +621,78 @@ def test_search_has_no_regions(graph):
     assert ("schema", "/regions") in _codes(_check(doc, graph))
 
 
-def test_no_space_steps_name_decisions_and_options():
-    doc = _no_space()
-    doc["trajectory"][0]["values"].append({"decision": "store", "option": "Postgres"})
-    codes = _codes(rationale.check(doc))
-    assert ("two_values_one_dimension", "/trajectory/0/values/1") in codes  # labels compare normalized
-    assert ("step_mismatch", "/alternatives/0/step") in codes
+def test_search_steps_go_up_one_round_at_a_time(graph):
+    doc = _sample()
+    doc["trajectory"][1]["round"] = 3
+    codes = _codes(_check(doc, graph))
+    assert ("bad_step", "/trajectory/1/round") in codes
+    doc = _sample()
+    doc["trajectory"][2]["round"] = 1                 # back to round 1 after round 2
+    assert ("bad_step", "/trajectory/2/round") in _codes(_check(doc, graph))
+    doc = _sample()
+    doc["trajectory"][2].update(move="seed", parent=None)  # a seed in round 2
+    assert ("bad_step", "/trajectory/2/round") in _codes(_check(doc, graph))
+
+
+def test_exploit_and_ablate_stay_in_the_parents_approach(graph):
+    doc = _sample()
+    doc["trajectory"][1]["approach"] = "B"
+    assert ("bad_step", "/trajectory/1/approach") in _codes(_check(doc, graph))
+    doc["trajectory"][1]["move"] = "ablate"
+    assert ("bad_step", "/trajectory/1/approach") in _codes(_check(doc, graph))
+    doc["trajectory"][1]["move"] = "explore"          # a new approach may start from any step
+    assert ("bad_step", "/trajectory/1/approach") not in _codes(_check(doc, graph))
+
+
+def test_steps_name_a_known_approach(graph):
+    doc = _sample()
+    doc["trajectory"][2]["approach"] = "Z"
+    assert ("step_mismatch", "/trajectory/2/approach") in _codes(_check(doc, graph))
+
+
+def test_search_needs_approaches_and_a_reason_to_drop_one(graph):
+    doc = _sample()
+    del doc["approaches"]
+    assert ("schema", "/approaches") in _codes(_check(doc, graph))
+    doc = _sample()
+    doc["approaches"][1]["status"] = "dropped"
+    codes = _codes(_check(doc, graph))
+    assert ("schema", "/approaches/1/dropped_because") in codes
+    assert ("step_mismatch", "/alternatives/1/approach") in codes   # A2 comes from a dropped approach
+    doc["approaches"][1]["status"] = "paused"
+    assert ("schema", "/approaches/1/status") in _codes(_check(doc, graph))
+
+
+def test_one_alternative_per_approach(graph):
+    doc = _sample()
+    doc["alternatives"][1]["approach"] = "A"
+    codes = _codes(_check(doc, graph))
+    assert ("step_mismatch", "/alternatives/1/approach") in codes
+    assert ("step_mismatch", "/alternatives/1/step") in codes       # step 3 is approach B
+
+
+def test_the_assessment_judges_known_requirements(graph):
+    doc = _sample()
+    doc["trajectory"][0]["assessment"] = {"Q9": "meets", "R1": "great"}
+    codes = _codes(_check(doc, graph))
+    assert ("unknown_requirement", "/trajectory/0/assessment/Q9") in codes
+    assert ("schema", "/trajectory/0/assessment/R1") in codes
+    doc["trajectory"][0]["assessment"] = {}
+    assert ("schema", "/trajectory/0/assessment") in _codes(_check(doc, graph))
+    del doc["trajectory"][0]["hypothesis"]
+    assert ("schema", "/trajectory/0/hypothesis") in _codes(_check(doc, graph))
+
+
+def test_explain_choices_say_whether_they_are_forced(graph):
+    doc = _explain()
+    del doc["alternatives"][0]["choices"][0]["forced"]
+    doc["alternatives"][0]["choices"][1]["forced"] = "yes"
+    codes = _codes(_check(doc, graph))
+    assert ("schema", "/alternatives/0/choices/0/forced") in codes
+    assert ("schema", "/alternatives/0/choices/1/forced") in codes
+
+
+def test_explain_has_no_approaches(graph):
+    doc = _explain()
+    doc["approaches"] = _sample()["approaches"]
+    assert ("schema", "/approaches") in _codes(_check(doc, graph))
