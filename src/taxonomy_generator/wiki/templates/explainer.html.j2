@@ -129,6 +129,10 @@
   ul.pc li.pro::before { content: "+"; color: var(--accepted); }
   ul.pc li.con::before { content: "−"; color: var(--rejected); }
   .step-link { font-size: 12px; margin-left: 6px; }
+  ul.parts { margin: 4px 0 6px; padding-left: 18px; font-size: 13px; }
+  ul.parts li { margin: 4px 0; }
+  .pairs { display: block; margin: 2px 0; }
+  .pairs .pair { display: block; padding-left: 10px; font-size: 13px; }
   .node.unjudged path.shape { fill: var(--panel); stroke: var(--rejected); stroke-dasharray: 2,2; stroke-width: 1.5px; }
   @media (max-width: 900px) {
     .ex-wrap { grid-template-columns: 1fr; }
@@ -161,10 +165,10 @@
   {% set search = d.mode != "explain" %}
   <div class="tabs" role="tablist">
     <button class="tab" type="button" role="tab" data-tab="adrs" aria-selected="true">{{ "Decisions (ADRs)" }}</button>
-    {% if d.trajectory %}<button class="tab" type="button" role="tab" data-tab="trajectory" aria-selected="false">Trajectory</button>{% endif %}
     {% if d.alternatives|length > 1 %}
-    <button class="tab" type="button" role="tab" data-tab="compare" aria-selected="false">Compare</button>
+    <button class="tab" type="button" role="tab" data-tab="compare" aria-selected="false">Comparison</button>
     {% endif %}
+    {% if d.trajectory %}<button class="tab" type="button" role="tab" data-tab="trajectory" aria-selected="false">Trajectory</button>{% endif %}
   </div>
 
   <section class="panel" data-panel="adrs">
@@ -173,7 +177,16 @@
     {% for a in d.alternatives %}
     <div class="solution" data-alt="{{ a.id }}" tabindex="0"><strong>{{ a.id }} · {{ a.name }}</strong>
       {% if a.summary %}<p>{{ a.summary }}</p>{% endif %}
-      {% if a.point %}<p class="muted">Design point: {{ a.point }}</p>{% endif %}
+      {% if a.parts %}
+      <p class="muted">Composed of {{ a.parts|length }} partial design point{{ "s" if a.parts|length != 1 }}, one per ADR{% if a.step %}, evaluated together as step {{ a.step }}{% endif %}:</p>
+      <ul class="parts">
+        {% for part in a.parts %}
+        <li><a href="#adr-{{ part.adr }}" class="adr-link">{{ part.adr }}</a> · {{ part.name }} {{ drivers(part.drivers) }}
+          <span class="pairs">{% for did, vid in part.point.items() %}<span class="pair">{{ dim_ref(did) }} → {{ value_ref(vid) }}</span>{% endfor %}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if a.point %}<p class="muted">As a whole: {{ a.point }}</p>{% endif %}
       {% if a.open %}<p class="muted">Left open: {% for o in a.open %}{{ dim_ref(o.dimension) }}{% if o.reason %} ({{ o.reason }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
     </div>
     {% endfor %}
@@ -186,7 +199,7 @@
       {% for o in adr.options %}
       <div class="option {{ o.status }}" data-option="{{ o.key }}" tabindex="0">
         <div class="head"><strong>{{ o.name }}</strong> <span class="badge {{ 'accepted' if o.status == 'chosen' else 'rejected' }}">{{ ("chosen in " ~ o["in"]|join(", ")) if o.status == "chosen" and search else o.status }}</span>{% if o.step %} <a class="step-link" href="#" data-goto-step="{{ o.step }}">step {{ o.step }}</a>{% endif %}</div>
-        <p class="values">{% for did, vid in o.point.items() %}{{ dim_ref(did) }} → {{ value_ref(vid) }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+        <p class="values pairs">{% for did, vid in o.point.items() %}<span class="pair">{{ dim_ref(did) }} → {{ value_ref(vid) }}</span>{% endfor %}</p>
         {% for q in o.quotes %}<div class="quote">“{{ q }}”</div>{% endfor %}
         {% if o.pros or o.cons %}<ul class="pc">{% for x in o.pros %}<li class="pro">{{ x }}</li>{% endfor %}{% for x in o.cons %}<li class="con">{{ x }}</li>{% endfor %}</ul>{% endif %}
         {% if o.reason %}<p>{{ o.reason }}</p>{% endif %}

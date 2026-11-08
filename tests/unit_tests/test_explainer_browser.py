@@ -124,7 +124,7 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert out["nodes"] > 0
     # The ADRs tab opens first; the fixture's steps visit v:1.1, v:2.1 and v:1.2; step 2 refines step 1.
     explored = {"v:1.1", "v:2.1", "v:1.2", "d:1", "d:2"}
-    assert out["tabs"] == ["adrs", "trajectory", "compare"] and out["first_tab"] == "adrs"
+    assert out["tabs"] == ["adrs", "compare", "trajectory"] and out["first_tab"] == "adrs"
     assert not explored & set(out["greyed_trajectory"])          # explored: every value a step or choice takes
     assert set(out["greyed_trajectory"]) and all(i.startswith(("v:", "d:")) for i in out["greyed_trajectory"])
     assert out["point_trajectory"] == []                           # nothing selected: no point outlined

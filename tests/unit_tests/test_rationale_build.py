@@ -84,8 +84,9 @@ def test_search_with_two_alternatives_renders_tabs_compare_and_wiki_links(ws, tm
     assert json.loads((ws / "rationale" / "toy-store-search.json").read_text(encoding="utf-8"))["id"] == \
         "toy-store-search"
     html = page.read_text(encoding="utf-8")
-    assert html.count('class="tab"') == 3  # the ADRs, the trajectory and the compare view
-    assert html.index('data-tab="adrs"') < html.index('data-tab="trajectory"') < html.index('data-tab="compare"')
+    assert html.count('class="tab"') == 3  # the ADRs, the comparison and the trajectory
+    assert html.index('data-tab="adrs"') < html.index('data-tab="compare"') < html.index('data-tab="trajectory"')
+    assert ">Comparison</button>" in html and "Composed of 2 partial design points" in html
     assert 'data-alt="A1"' in html and 'data-alt="A2"' in html
     assert 'data-option="ADR1:O1"' in html and "chosen in A1, A2" in html and 'class="option discarded"' in html
     assert '<li class="pro">' in html and '<li class="con">' in html
@@ -598,6 +599,10 @@ def test_the_adrs_tab_lists_requirements_no_adr_or_decision_addresses(ws):
     assert data["unaddressed"] == ["Q9"]
     assert [a["id"] for a in data["adrs"]] == ["ADR1", "ADR2"]
     assert data["adrs"][0]["options"][0]["point"] == {"d:1": "v:1.1"} and data["adrs"][0]["options"][0]["key"] == "ADR1:O1"
+    a1, a2 = data["alternatives"]   # each alternative is composed of the partial points its ADRs choose for it
+    assert [(p["adr"], p["option"], p["point"]) for p in a1["parts"]] == [("ADR1", "O1", {"d:1": "v:1.1"}),
+                                                                          ("ADR2", "O1", {"d:2": "v:2.1"})]
+    assert [(p["adr"], p["option"]) for p in a2["parts"]] == [("ADR1", "O2")]
     html = explainer._render(data)
     assert "Requirements not addressed" in html and 'data-requirement="Q9"' in html
     assert "Every requirement is addressed" in explainer._render(_data(_sample(), ws))

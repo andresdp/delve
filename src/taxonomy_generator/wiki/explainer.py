@@ -275,6 +275,11 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         for o in r["options"]:
             o["quotes"] = list(dict.fromkeys(quotes[v] for v in o["point"].values()
                                              if o["status"] == "chosen" and v in quotes))  # each quote once
+    # Each alternative is composed of the partial design points its ADRs choose for it: one part per chosen option.
+    for alt in alternatives:
+        alt["parts"] = [{"adr": r["id"], "title": r["title"], "option": o["id"], "name": o["name"], "point": o["point"],
+                         "drivers": r["drivers"]}
+                        for r in adrs for o in r["options"] if o["status"] == "chosen" and alt["id"] in o["in"]]
     addressed = {d for r in adrs for d in r["drivers"]} | {d for a in alternatives for c in a["choices"]
                                                           for d in c["drivers"]}
     unaddressed = [r.get("id") for r in problem.get("requirements") or [] if r.get("id") not in addressed]
