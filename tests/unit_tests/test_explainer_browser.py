@@ -87,6 +87,16 @@ addEventListener("load", () => setTimeout(() => {
     out.shown_default = shown();
     const box = document.getElementById("show-all"); box.checked = true; box.dispatchEvent(new Event("change"));
     out.shown_all = shown();
+    // The dividers: arrow keys move them (the graph column and the graph grow), a double-click resets them.
+    const canvasBox = () => document.getElementById("canvas").getBoundingClientRect();
+    const key = (el, k) => el.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
+    const v = document.querySelector(".splitter-v"), h = document.querySelector(".splitter-h");
+    out.split_before = [Math.round(canvasBox().width), Math.round(canvasBox().height)];
+    key(v, "ArrowLeft"); key(v, "ArrowLeft"); key(h, "ArrowDown"); key(h, "ArrowDown");
+    out.split_after = [Math.round(canvasBox().width), Math.round(canvasBox().height)];
+    out.split_var = document.documentElement.style.getPropertyValue("--split-left");
+    v.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    out.split_reset = document.documentElement.style.getPropertyValue("--split-left");
     // Labels on the rings: no dimension label over a value label, no value label over a requirement label.
     const kind = (k) => nodes().filter((e) => e.__data__.kind === k);
     out.dim_value = [], out.value_req = [];
@@ -162,6 +172,8 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert "#1 · Seed of approach A" in out["point_info"] and "Design point" in out["point_info"]
     assert "It became alternative A1" in out["point_info"]
     assert out["shown_all"] > out["shown_default"]
+    assert out["split_after"][0] > out["split_before"][0] and out["split_after"][1] > out["split_before"][1]
+    assert out["split_var"] == "46%" and out["split_reset"] == "50%"
     assert "Select anything in the graph" in out["hint"]
     # Each ring sits outside the labels of the ring inside it.
     assert out["dim_value"] == [], out["dim_value"]

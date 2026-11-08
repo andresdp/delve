@@ -33,13 +33,21 @@
 </script>
 <style>
   body { background: var(--bg); }
-  .ex-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; min-height: calc(100vh - 50px); }
+  .ex-wrap { display: grid; grid-template-columns: minmax(0, var(--split-left, 1fr)) 8px minmax(0, 1fr); gap: 0; min-height: calc(100vh - 50px); }
   .ex-text { padding: 22px 28px 60px; overflow-wrap: anywhere; }
-  .ex-side { border-left: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column;
+  .ex-side { background: var(--panel); display: flex; flex-direction: column;
     position: sticky; top: 0; height: 100vh; }
-  #canvas { position: relative; flex: 1 1 60%; min-height: 300px; overflow: hidden; }
+  #canvas { position: relative; flex: 0 0 var(--split-canvas, 60%); min-height: 160px; overflow: hidden; }
+  .splitter-v { position: sticky; top: 0; height: 100vh; cursor: col-resize; background: var(--border);
+    border-left: 3px solid var(--bg); border-right: 3px solid var(--panel); touch-action: none; }
+  .splitter-h { flex: none; height: 8px; cursor: row-resize; background: var(--border);
+    border-top: 3px solid var(--panel); border-bottom: 3px solid var(--panel); touch-action: none; }
+  .splitter-v:hover, .splitter-h:hover, .splitter-v:focus-visible, .splitter-h:focus-visible, .splitter-v.dragging,
+  .splitter-h.dragging { background: var(--accent); outline: none; }
+  body.resizing { user-select: none; }
+  body.resizing.col { cursor: col-resize; } body.resizing.row { cursor: row-resize; }
   #svg { width: 100%; height: 100%; display: block; cursor: grab; }
-  #info { flex: 1 1 40%; overflow-y: auto; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13.5px; }
+  #info { flex: 1 1 0; min-height: 80px; overflow-y: auto; padding: 12px 16px; border-top: 1px solid var(--border); font-size: 13.5px; }
   #info h2 { margin: 4px 0; font-size: 17px; border: none; }
   #info ul { padding-left: 16px; margin: 4px 0 10px; }
   #info .info-h { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 4px; font-weight: 600; }
@@ -78,13 +86,18 @@
   .scroll { overflow-x: auto; }
   table.compare td.open { color: var(--muted); font-style: italic; }
   tr.differs th { border-left: 3px solid var(--accent); }
-  .node text { font-size: 11px; fill: var(--fg); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
+  .node text { font-size: 15px; fill: var(--fg); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
   .node.greyed path.shape { opacity: .35; }
   .node.greyed text { opacity: .5; }
   .node.in-point text { font-weight: 600; }
   .link.explored { stroke: var(--accent); stroke-opacity: .7; stroke-width: 3px; }
   .link.on-path { stroke-opacity: 1; stroke-width: 4px; }
   .link.on-path.tree { stroke: var(--accent); }
+  .link.on-path:not(.tree) { stroke-width: 1.8px; stroke-opacity: .85; }
+  .zoom-ctl { position: absolute; top: 8px; right: 10px; display: flex; gap: 4px; z-index: 2; }
+  .zoom-ctl button { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--fg); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+  .zoom-ctl button:hover { border-color: var(--accent); }
   .link.shown { stroke-opacity: .95; stroke-width: 2.4px; }
   .graph-toggle { position: absolute; top: 8px; left: 10px; font-size: 12px; color: var(--muted); background: var(--panel);
     padding: 2px 6px; border-radius: 6px; display: flex; gap: 5px; align-items: center; cursor: pointer; }
@@ -192,9 +205,11 @@
   .node.unjudged path.shape { fill: var(--panel); stroke: var(--rejected); stroke-dasharray: 2,2; stroke-width: 1.5px; }
   @media (max-width: 900px) {
     .ex-wrap { grid-template-columns: 1fr; }
+    .splitter-v, .splitter-h { display: none; }
     .ex-text { padding: 16px 16px 30px; }
     .ex-side { position: static; height: auto; border-left: none; border-top: 1px solid var(--border); }
     #canvas { height: 420px; flex: none; }
+    #info { flex: none; }
   }
 </style>
 </head>
@@ -458,9 +473,12 @@
   {% endif %}
   {% endif %}
 </main>
+<div class="splitter-v" role="separator" aria-orientation="vertical" aria-label="Resize the text and the graph" tabindex="0" title="Drag to resize (double-click to reset)"></div>
 <aside class="ex-side">
   <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg>
-    <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value the space offers</label></div>
+    <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value the space offers</label>
+    <div class="zoom-ctl"><button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button><button type="button" data-zoom="fit" title="Fit the graph" aria-label="Fit the graph">⤢</button></div></div>
+  <div class="splitter-h" role="separator" aria-orientation="horizontal" aria-label="Resize the graph and its details" tabindex="0" title="Drag to resize (double-click to reset)"></div>
   <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, linked by how each point meets them)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and the paths from it to design points and requirements</span></div>
   <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
 </aside>
@@ -548,11 +566,11 @@
   // The shared radial layout (graph-layout.js). Dimension labels point inwards, so each dimension sits just inside
   // its values; the other rings start beyond the longest label of the ring inside them. Points (in step order,
   // clockwise from the top) and requirements sit evenly around their rings.
-  const LABEL_MAX = 36;
+  const LABEL_MAX = 22;  // short labels keep the rings tight, so the graph (and its text) is drawn larger
   const shortLabel = (s) => { s = String(s ?? ""); return s.length > LABEL_MAX ? s.slice(0, LABEL_MAX - 1).trimEnd() + "…" : s; };
   const measure = (() => {
     const ctx = document.createElement("canvas").getContext("2d");
-    ctx.font = "11px " + getComputedStyle(document.body).fontFamily;
+    ctx.font = "15px " + getComputedStyle(document.body).fontFamily;
     return (s) => ctx ? ctx.measureText(s).width : s.length * 6.5;
   })();
   const labelReach = (ns) => d3.max(ns, (n) => radius(n) + 4 + measure(shortLabel(n.label)) + 3) || 0;
@@ -594,6 +612,10 @@
   nodeSel.append("circle").attr("r", (d) => Math.max(radius(d), 10)).attr("fill", "transparent");
   nodeSel.append("path").attr("class", "shape").attr("d", shapePath);
   nodeSel.append("text").text((d) => d.kind === "domain" ? d.label : shortLabel(d.label));
+  // A selected path shows its nodes' full labels (the rest of the graph is faded); otherwise labels are short.
+  function labels(keep) {
+    nodeSel.select("text").text((d) => d.kind === "domain" || (keep && keep.has(d.id)) ? d.label : shortLabel(d.label));
+  }
   nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text
     : d.kind === "point" ? "Step " + d.step + " · " + d.verdict + (d.description ? ": " + d.description : "")
     : d.label + (d.status ? " (" + d.status + ")" : ""));
@@ -601,7 +623,7 @@
     inward: (d) => d.kind === "dimension" });
   function fit() {
     const shown = nodes.filter(visible);
-    const xs = shown.map((d) => d.x), ys = shown.map((d) => d.y), pad = 120;
+    const xs = shown.map((d) => d.x), ys = shown.map((d) => d.y), pad = 70;
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const k = Math.min(2.5, 0.95 / Math.max((x1 - x0 + 2 * pad) / (width() || 1), (y1 - y0 + 2 * pad) / (height() || 1)));
     svg.call(zoom.transform, d3.zoomIdentity.translate(width() / 2, height() / 2).scale(k).translate(-(x0 + x1) / 2, -(y0 + y1) / 2));
@@ -622,6 +644,10 @@
     fit();
   }
   layout();
+  document.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (b.dataset.zoom === "fit") fit(); else svg.transition().duration(200).call(zoom.scaleBy, b.dataset.zoom === "in" ? 1.4 : 1 / 1.4);
+  }));
   // A requirement no design point is judged against: drawn hollow, with a dashed outline.
   const judgedReqs = new Set(links.filter((e) => e.type === "assess").map((e) => e.target));
   nodeSel.classed("unjudged", (d) => d.kind === "requirement" && !judgedReqs.has(d.id));
@@ -685,6 +711,7 @@
   }
   function highlight(id) {
     const keep = lineage(id);
+    labels(keep);
     nodeSel.classed("dim-out", (d) => !keep.has(d.id));
     linkSel.classed("dim-out", (d) => !(keep.has(d.source) && keep.has(d.target)))
       .classed("on-path", (d) => d.type !== "relation" && keep.has(d.source) && keep.has(d.target));
@@ -692,7 +719,7 @@
   const HINT = '<p class="hint">Select anything in the graph or the text (a dimension, a value, a design point, a requirement, an alternative or an option) to see what it is and the part it plays in this rationale.</p>';
   function clearSelection() {
     selected = null; selectedStep = null; selectedAlt = null; selectedOption = null;
-    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false); labels(null);
     document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
     document.getElementById("info").innerHTML = HINT;
     applyView();
@@ -893,14 +920,14 @@
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;
     const a = alts.find((x) => x.id === el.dataset.alt); if (!a) return;
     selected = null; selectedOption = null; selectedAlt = a.id;
-    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false); labels(null);
     applyView(); showInfo(altInfo(a));
   }));
   document.querySelectorAll(".option").forEach((el) => el.addEventListener("click", (e) => {
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;
     const o = options.get(el.dataset.option); if (!o) return;
     selected = null; selectedAlt = null; selectedOption = o.key;
-    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false); labels(null);
     applyView(); showInfo(optionInfo(o));
   }));
   // The lanes: an arrow from each point's parent to it (refine along a lane, a new approach across lanes,
@@ -991,6 +1018,50 @@
   }));
   applyView();
   drawTrajectory();
+  // The dividers: drag (or use the arrow keys on) the vertical one to share the width between the text and the
+  // graph, the horizontal one to share the height between the graph and its details. Double-click resets. The
+  // split is kept in this browser only (a convenience; the page works without storage).
+  (function splitters() {
+    const KEY = "delve-explainer-split", root = document.documentElement, wrap = document.querySelector(".ex-wrap");
+    const side = document.querySelector(".ex-side");
+    const LIMITS = { left: [20, 80], canvas: [20, 85] }, DEFAULT = { left: 50, canvas: 60 };
+    let split = { ...DEFAULT };
+    try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s) split = { ...split, ...s }; } catch (e) { /* no storage */ }
+    const clamp = (k, v) => Math.min(LIMITS[k][1], Math.max(LIMITS[k][0], v));
+    let pending = null;
+    function apply(save) {
+      root.style.setProperty("--split-left", clamp("left", split.left) + "%");
+      root.style.setProperty("--split-canvas", clamp("canvas", split.canvas) + "%");
+      if (!pending) pending = requestAnimationFrame(() => { pending = null; fit(); drawTrajectory(); });
+      if (save) { try { localStorage.setItem(KEY, JSON.stringify(split)); } catch (e) { /* no storage */ } }
+    }
+    function drag(handle, key, axis) {
+      if (!handle) return;
+      handle.addEventListener("pointerdown", (e) => {
+        e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add("dragging");
+        document.body.classList.add("resizing", axis === "x" ? "col" : "row");
+        const move = (ev) => {
+          if (axis === "x") { const r = wrap.getBoundingClientRect(); split.left = clamp("left", (ev.clientX - r.left) / r.width * 100); }
+          else { const r = side.getBoundingClientRect(); split.canvas = clamp("canvas", (ev.clientY - r.top) / r.height * 100); }
+          apply(false);
+        };
+        const up = () => { handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up);
+          handle.classList.remove("dragging"); document.body.classList.remove("resizing", "col", "row"); apply(true); };
+        handle.addEventListener("pointermove", move); handle.addEventListener("pointerup", up);
+      });
+      handle.addEventListener("keydown", (e) => {
+        const step = e.shiftKey ? 10 : 2;
+        const delta = { ArrowLeft: -step, ArrowUp: -step, ArrowRight: step, ArrowDown: step }[e.key];
+        if (delta === undefined) return;
+        e.preventDefault(); split[key] = clamp(key, split[key] + delta); apply(true);
+      });
+      handle.addEventListener("dblclick", () => { split[key] = DEFAULT[key]; apply(true); });
+    }
+    drag(document.querySelector(".splitter-v"), "left", "x");
+    drag(document.querySelector(".splitter-h"), "canvas", "y");
+    apply(false);
+  })();
+
   let lastSize = width() + "x" + height(), timer = null;
   window.addEventListener("resize", () => { clearTimeout(timer); timer = setTimeout(() => {
     const size = width() + "x" + height(); if (size !== lastSize) { lastSize = size; fit(); drawTrajectory(); } }, 200); });
