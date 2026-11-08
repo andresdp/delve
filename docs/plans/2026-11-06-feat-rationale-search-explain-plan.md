@@ -464,6 +464,11 @@ flowchart TB
 - **Goal:** the user asked (2026-11-08) that the agent keep the design points it generates in one list, reused instead of generated again, and updated in one place; and for an icon that tells search from explain.
 - **Requirements:** R25. The file records every evaluated point once in `points` (`P1`, …: values, description, `attested_by`); a step names its point by id. The checker reports `unknown_point`, `point_mismatch`, `duplicate_point` (naming the point to reuse) and warns `unused_point`. The skills look a point up before evaluating it and change a description only in the list. The page shows a reused point as "same point as #N" and a search or explain icon atop.
 
+### U15. Gaps in the space, recorded and never closed by changing the space
+
+- **Goal:** the user asked (2026-11-08) what happens when requirements (search) or parts of a solution (explain) fit no dimension or value, as with an incomplete space. The space is used as provided: the agent never changes a wiki, never adds its own dimensions to it (no hybrid), and without a wiki its own space is fixed once written. Gaps are recorded instead of forced, and shown at the bottom of the page.
+- **Requirements:** R26. Every requirement is a driver of some ADR or listed in `unaddressed` (`reason`: `no_dimension`, `traded_off`, `budget`, or `not_in_solution` in explain; optional `nearest_dimension_id`; `note`), never both: the checker reports `unaccounted_requirement` and `unaddressed_mismatch`. A choice or ADR option whose value only roughly matches carries `fit: "approximate"` and a `fit_note`. The skills say the space is fixed and how to record each gap. The page ends with "Gaps in the space": counts, the uncovered decisions (explain), the unaddressed requirements with reason and nearest dimension, and the approximate fits, each selecting its option; ADR options carry an "approximate fit" badge.
+
 ## Verification Contract
 
 | Gate | Command or check | Applies to |

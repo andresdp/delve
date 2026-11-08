@@ -27,6 +27,10 @@ from taxonomy_generator.wiki.render import TEMPLATES, _env, copy_images, copy_pa
 LAYOUT_SCRIPT = TEMPLATES / "graph-layout.js"
 
 EXPLAINERS = "explainers"
+GAP_REASONS = {"no_dimension": "the space has no dimension for it",
+               "traded_off": "traded off for a stronger requirement",
+               "budget": "the budget ran out before a point addressed it",
+               "not_in_solution": "the solution does not address it"}
 ASSETS_MARKER = ".ddspace-assets"  # in a standalone folder's assets/: ddspace created it and may overwrite it
 Link = Callable[[str], Optional[str]]  # a wiki page path (``concepts/x``) or file (``index.html``) -> href or None
 
@@ -282,7 +286,8 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
             d, v = space.names(c)
             choices.append({"dimension": d, "value": v, "drivers": list(c.get("drivers") or []),
                             "reason": c.get("reason") or "", "quote": c.get("solution_quote") or "",
-                            "forced": c.get("forced"),
+                            "forced": c.get("forced"), "fit": c.get("fit") or "exact",
+                            "fit_note": c.get("fit_note") or "",
                             "evidence": [{"doc": e.get("doc"), "stance": e.get("stance") or ""}
                                          for e in c.get("evidence") or []]})
         considered = []
@@ -324,7 +329,8 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
                     "point": space.point(o.get("values")), "status": o.get("status") or "",
                     "in": [str(x) for x in o.get("in") or []], "pros": [str(x) for x in o.get("pros") or []],
                     "cons": [str(x) for x in o.get("cons") or []], "reason": o.get("reason") or "",
-                    "step": o.get("step")} for o in r.get("options") or [] if isinstance(o, dict)]
+                    "step": o.get("step"), "fit": o.get("fit") or "exact", "fit_note": o.get("fit_note") or ""}
+                   for o in r.get("options") or [] if isinstance(o, dict)]
         adrs.append({"id": str(r.get("id")), "title": r.get("title") or "", "drivers": list(r.get("drivers") or []),
                      "context": r.get("context") or "", "consequences": r.get("consequences") or "",
                      "options": options})
@@ -338,9 +344,37 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         alt["parts"] = [{"adr": r["id"], "title": r["title"], "option": o["id"], "name": o["name"], "point": o["point"],
                          "drivers": r["drivers"]}
                         for r in adrs for o in r["options"] if o["status"] == "chosen" and alt["id"] in o["in"]]
-    addressed = {d for r in adrs for d in r["drivers"]} | {d for a in alternatives for c in a["choices"]
-                                                          for d in c["drivers"]}
-    unaddressed = [r.get("id") for r in problem.get("requirements") or [] if r.get("id") not in addressed]
+    # The gaps in the space: requirements no ADR addresses (with the file's reason), and approximate fits.
+    def nearest(near: Any) -> Optional[Dict[str, Any]]:
+        n = space.node(near) if near else None
+        if not n:
+            return None
+        return {"id": near, "label": n.get("label") or near,
+                "href": link(n.get("href") or "") if space.wiki else ""}
+
+    listed = {u.get("requirement"): u for u in doc.get("unaddressed") or [] if isinstance(u, dict)}
+    addressed = {d for r in adrs for d in r["drivers"]}
+    unaddressed = []
+    for r in problem.get("requirements") or []:
+        rid = r.get("id")
+        if rid in addressed and rid not in listed:
+            continue
+        u = listed.get(rid) or {}
+        unaddressed.append({"id": rid, "text": r.get("text") or "", "reason": u.get("reason") or "",
+                            "reason_text": GAP_REASONS.get(u.get("reason") or "", "no reason given"),
+                            "nearest": nearest(u.get("nearest_dimension_id")), "note": u.get("note") or ""})
+    loose = {c["value"] for a in alternatives for c in a["choices"] if c["fit"] == "approximate"}
+
+    def narrowed(point: Mapping[str, str]) -> Dict[str, str]:
+        """The values of an approximate option that the choices mark approximate too (all of them when none)."""
+        return {d: v for d, v in point.items() if v in loose} or dict(point)
+
+    fits = [{"where": f"{r['id']} · {o['name']}", "option": o["key"], "alt": None, "point": narrowed(o["point"]),
+             "note": o["fit_note"]} for r in adrs for o in r["options"] if o["fit"] == "approximate"]
+    in_options = {v for f in fits for v in f["point"].values()}
+    fits += [{"where": f"{a['id']} · {a['name']}", "option": None, "alt": a["id"], "point": {c["dimension"]: c["value"]},
+              "note": c["fit_note"]} for a in alternatives for c in a["choices"]
+             if c["fit"] == "approximate" and c["dimension"] and c["value"] not in in_options]
     # The grid's rows: every dimension a step investigated, in the order the steps first name them.
     trajectory_dims: List[str] = []
     for s in trajectory:
@@ -392,13 +426,9 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
                 relations.append({"source": e["source"], "target": e["target"], "type": e.get("relation") or "",
                                   "directed": e.get("directed") is not False, "reading": e.get("reading") or ""})
 
-    uncovered = []
-    for u in doc.get("uncovered") or []:
-        near = u.get("nearest_dimension_id")
-        n = space.node(near) if space.wiki and near else None
-        uncovered.append({"decision": u.get("decision") or "", "quote": u.get("solution_quote") or "",
-                          "nearest": ({"id": near, "label": n.get("label") or near, "href": link(n.get("href") or "")}
-                                      if n else None)})
+    uncovered = [{"decision": u.get("decision") or "", "quote": u.get("solution_quote") or "",
+                  "nearest": nearest(u.get("nearest_dimension_id"))}
+                 for u in doc.get("uncovered") or [] if isinstance(u, dict)]
 
     meta = doc.get("space") if isinstance(doc.get("space"), dict) else None
     return {
@@ -416,7 +446,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         "alternatives": alternatives, "dimensions": space.dims, "values": space.values, "rows": rows,
         "relations": relations, "uncovered": uncovered, "trajectory": trajectory,
         "trajectory_dimensions": trajectory_dims, "regions": regions,
-        "adrs": adrs, "unaddressed": unaddressed,
+        "adrs": adrs, "unaddressed": unaddressed, "fits": fits,
         "lanes": _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None,
         "qoc": _qoc(trajectory, alternatives) if doc.get("mode") == "explain" else [],
         "budget": {"max_points": budget.get("max_points"), "used": len(trajectory)},

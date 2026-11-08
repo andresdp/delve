@@ -49,6 +49,22 @@ id and you do not evaluate or describe it again. If a description must change (r
 only: every step that names the point shows the new one. Without a space, the description is your own one sentence
 and `attested_by` stays empty.
 
+## Gaps in the space
+
+The space is fixed. Never add, rename or remove a dimension, value or relation to make a requirement fit: a wiki
+is read only, and the space you write yourself in step 2 does not change after that step. Where the space falls
+short, record the gap instead of forcing a fit:
+
+- **A requirement no dimension bears on.** Do not map it onto the nearest dimension. List it in `unaddressed`
+  with `reason: "no_dimension"`, the `nearest_dimension_id` (or `null`) and a `note` saying what the space lacks.
+- **A requirement the alternatives give up** for a stronger one (`traded_off`), or one the budget left no point
+  for (`budget`): list it in `unaddressed` with that reason and a `note`.
+- **A value that only roughly matches** what a choice or an ADR option stands for: keep the value, and mark the
+  choice or the option `"fit": "approximate"` with a `fit_note` saying what the value leaves out or stretches.
+
+Every requirement is either a driver of some ADR or listed in `unaddressed`, never both. Write
+`"unaddressed": []` when every requirement is addressed.
+
 ## Steps
 
 1. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
@@ -109,14 +125,15 @@ and `attested_by` stays empty.
    when one did. An option an alternative takes is `chosen`, with the alternatives that take it in `in` (two
    alternatives with the same values share one option); an option you evaluated or weighed and set aside is
    `discarded`. Every value of every alternative belongs to a chosen option of some ADR. Write the ADRs for a reader who
-   has not seen the trajectory: their text never refers to steps (the `step` field links them). A requirement no ADR
-   addresses is left unaddressed on purpose: say so in your summary.
+   has not seen the trajectory: their text never refers to steps (the `step` field links them). List every
+   requirement no ADR addresses in `unaddressed`, with its reason (see "Gaps in the space").
 10. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
 11. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
    again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
 12. **Present the alternatives.** Summarize the search (the approaches, which ones you refined, dropped and added,
-   and why), then the alternatives and the ADRs. In interactive use (not in a study session), finish with
+   and why), then the alternatives, the ADRs and the gaps: the requirements left unaddressed and why, and the
+   approximate fits. In interactive use (not in a study session), finish with
    `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
    with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
    into the wiki instead).
@@ -237,6 +254,6 @@ Without a space (with one, the reference gives the `space` part):
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<why it was set aside>"}
      ]}
   ],
-  "uncovered": []
+  "unaddressed": []
 }
 ```

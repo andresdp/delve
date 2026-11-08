@@ -23,6 +23,12 @@ requirements (``drivers``) with ``options``, partial design points that are ``ch
 that take them) or ``discarded``, each with its ``pros`` and ``cons``. Every value an alternative takes is in a
 chosen option of some ADR.
 
+Where the space falls short, the file says so instead of forcing a fit. Every requirement is either a driver of some
+ADR or listed in ``unaddressed`` with a ``reason`` (``no_dimension``: the space has no dimension for it;
+``traded_off``; ``budget``; ``not_in_solution``, in explain). A choice or an ADR option whose value only roughly
+matches what it stands for carries ``fit: "approximate"`` and a ``fit_note``. The agent never changes the space to
+close a gap: a wiki is read only, and the agent's own space is fixed once written.
+
 Every file names its values by id (``d:1``, ``v:1.2``) against a space. Either the space is a DelveDSpace wiki
 (``space: {workspace, run, graph_sha256}``), and ``check`` tests the ids against ``raw/graph.json`` when it is
 given the graph; or the agent built its own (``space: {dimensions, relations}``), and ``check`` tests the ids
@@ -50,6 +56,8 @@ VERDICTS = ("grounded", "partial", "ungrounded")      # an explain step's verdic
 ASSESSMENTS = ("meets", "partly", "misses")           # a step's judgment of one requirement
 STATUSES = ("live", "dropped")                        # a search approach
 OPTION_STATUSES = ("chosen", "discarded")             # an ADR option
+UNADDRESSED_REASONS = ("no_dimension", "traded_off", "budget", "not_in_solution")  # why no ADR addresses a requirement
+FITS = ("exact", "approximate")                       # how well a choice's or option's values match it
 ROOT_MOVES = ("seed", "solution")                     # a step without a parent
 PARENT_MOVES = ("exploit", "ablate", "region", "contrast")  # a step that needs one (explore may name one or not)
 SAME_APPROACH_MOVES = ("exploit", "ablate")           # a search step that stays in its parent's approach
@@ -66,7 +74,8 @@ _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", 
                "space": ("object", True), "problem": ("object", True), "budget": ("object", True),
                "trajectory": ("list", True), "alternatives": ("list", True), "adrs": ("list", True),
                "points": ("list", True), "approaches": ("list", False),
-               "comparison": ("list", False), "regions": ("list", False), "uncovered": ("list", False)}
+               "comparison": ("list", False), "regions": ("list", False), "uncovered": ("list", False),
+               "unaddressed": ("list", True)}
 _BUDGET: _Spec = {"max_points": ("integer", True)}
 _STEP: _Spec = {"step": ("integer", True), "move": ("text", True), "parent": ("integer|null", False),
                 "values": ("list", True), "hypothesis": ("string", True), "assessment": ("object", True),
@@ -81,7 +90,7 @@ _ADR: _Spec = {"id": ("text", True), "title": ("text", True), "drivers": ("list"
                "options": ("list", True), "consequences": ("string", False)}
 _OPTION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list", True), "status": ("text", True),
                   "in": ("list", False), "pros": ("list", True), "cons": ("list", True), "reason": ("string", True),
-                  "step": ("integer|null", False)}
+                  "step": ("integer|null", False), "fit": ("text", False), "fit_note": ("string", False)}
 _WIKI: _Spec = {"workspace": ("string", True), "run": ("string", True), "graph_sha256": ("text", True)}
 _OWN: _Spec = {"dimensions": ("list", True), "relations": ("list", False)}
 _OWN_DIMENSION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list", True)}
@@ -94,7 +103,8 @@ _ALTERNATIVE: _Spec = {"id": ("text", True), "name": ("string", True), "summary"
                        "step": ("integer", True), "choices": ("list", True), "considered": ("list", False),
                        "open": ("list", False), "relations": ("list", False)}
 _IDS: _Spec = {"dimension_id": ("text", True), "value_id": ("text", True)}
-_CHOICE: _Spec = {**_IDS, "drivers": ("list", True), "reason": ("string", True), "evidence": ("list", False)}
+_CHOICE: _Spec = {**_IDS, "drivers": ("list", True), "reason": ("string", True), "evidence": ("list", False),
+                  "fit": ("text", False), "fit_note": ("string", False)}
 _CONSIDERED: _Spec = {**_IDS, "reason": ("string", True), "drivers": ("list", False)}
 _OPEN: _Spec = {"dimension_id": ("text", True), "reason": ("string", True)}
 _COMPARISON: _Spec = {"dimension_id": ("text", True), "note": ("string", True)}
@@ -103,6 +113,8 @@ _RELATION: _Spec = {"source": ("text", True), "target": ("text", True), "type": 
                     "holds": ("boolean", True), "note": ("string", False)}
 _UNCOVERED: _Spec = {"decision": ("text", True), "solution_quote": ("text", True),
                      "nearest_dimension_id": ("string|null", False)}
+_UNADDRESSED: _Spec = {"requirement": ("text", True), "reason": ("text", True),
+                       "nearest_dimension_id": ("string|null", False), "note": ("string", True)}
 _POINT: _Spec = {"id": ("text", True), "values": ("list", True), "description": ("string|null", True),
                  "attested_by": ("list", False)}
 
@@ -383,6 +395,7 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
     _alternatives(c, doc, mode, requirements, steps, approaches)
     _regions(c, doc, mode, requirements, steps)
     _adrs(c, doc, mode, requirements, steps)
+    _unaddressed(c, doc, mode, requirements)
 
     for i, item in enumerate(c.items(doc, "comparison")):
         parts = ("comparison", i)
@@ -715,6 +728,7 @@ def _alternatives(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: 
                 complete = False
                 continue
             _drivers(c, choice, parts, requirements)
+            _fit(c, choice, parts)
             d, v = c.choice_ids(choice, parts)
             if v is not None:
                 value_ids.append(v["id"])
@@ -890,6 +904,7 @@ def _adrs(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set,
                     c.add("schema", pointer(*oparts, "id"), f"duplicate option id '{option['id']}' in the ADR")
                 option_ids.add(option["id"])
             c.one_of(option, "status", oparts, OPTION_STATUSES, "option statuses")
+            _fit(c, option, oparts)
             for key in ("pros", "cons"):
                 for k, item in enumerate(c.items(option, key)):
                     if not isinstance(item, str) or not item.strip():
@@ -940,6 +955,51 @@ def _adrs(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set,
                 c.add("not_in_adr", pointer("alternatives", i, "choices", j),
                       f"alternative '{name}' takes {v}, but no ADR has a chosen option with it in '{name}': "
                       "describe every decision in an ADR")
+
+
+def _fit(c: _Checker, obj: Mapping[str, Any], parts: Tuple[Any, ...]) -> None:
+    """Check a choice's or option's ``fit``: an approximate fit says why (``fit_note``)."""
+    c.one_of(obj, "fit", parts, FITS, "fits")
+    if obj.get("fit") != "approximate":
+        return
+    if not c.good(obj, "fit_note"):
+        c.add("schema", pointer(*parts, "fit_note"),
+              "an approximate fit says in fit_note what the value leaves out or stretches")
+
+
+def _unaddressed(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set) -> None:
+    """Every requirement is a driver of some ADR or listed in ``unaddressed`` with a reason, never both."""
+    driven = {d for adr in c.items(doc, "adrs") if isinstance(adr, dict)
+              for d in c.items(adr, "drivers") if isinstance(d, str)}
+    listed: Dict[str, int] = {}
+    for i, item in enumerate(c.items(doc, "unaddressed")):
+        parts = ("unaddressed", i)
+        if not c.fields(item, parts, _UNADDRESSED):
+            continue
+        c.one_of(item, "reason", parts, UNADDRESSED_REASONS, "reasons")
+        if item.get("reason") == "not_in_solution" and mode == "search":
+            c.add("schema", pointer(*parts, "reason"), "not_in_solution belongs to explain: search designs the "
+                                                       "solution (no_dimension, traded_off or budget)")
+        if item.get("nearest_dimension_id") is not None:
+            c.ref(item, "nearest_dimension_id", parts, ["dimension"])
+        rid = item.get("requirement")
+        if not c.good(item, "requirement"):
+            continue
+        _unknown_requirement(c, rid, pointer(*parts, "requirement"), requirements)
+        if rid in listed:
+            c.add("schema", pointer(*parts, "requirement"), f"'{rid}' is listed twice in unaddressed")
+        listed.setdefault(rid, i)
+        if rid in driven:
+            c.add("unaddressed_mismatch", pointer(*parts, "requirement"),
+                  f"'{rid}' is a driver of an ADR, so it is addressed: remove it from unaddressed")
+    problem = doc.get("problem") if isinstance(doc.get("problem"), dict) else {}
+    for i, req in enumerate(c.items(problem, "requirements")):
+        rid = req.get("id") if isinstance(req, dict) else None
+        if isinstance(rid, str) and rid not in driven and rid not in listed:
+            c.add("unaccounted_requirement", pointer("problem", "requirements", i),
+                  f"no ADR has '{rid}' among its drivers and unaddressed does not list it: address it in an ADR, "
+                  "or list it in unaddressed with a reason (no_dimension when the space has no dimension for it; "
+                  "do not force it onto one)")
 
 
 # ---------------------------------------------------------------- the workspace's rationale/ folder

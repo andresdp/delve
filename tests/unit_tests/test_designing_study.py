@@ -86,7 +86,7 @@ def _no_space(case_id="kv-store"):
                  "cons": [], "reason": "r"},
                 {"id": "O2", "name": "S3", "values": ["v:1.2"], "status": "chosen", "in": ["A2"], "pros": [],
                  "cons": [], "reason": "r"}]}],
-            "uncovered": []}
+            "uncovered": [], "unaddressed": []}
 
 
 def _with_space(uncovered=()):
@@ -109,7 +109,7 @@ def _with_space(uncovered=()):
             "adrs": [{"id": "ADR1", "title": "Storage", "drivers": ["Q1"], "context": "c", "options": [
                 {"id": "O1", "name": "Disks and quorum", "values": ["v:1.1", "v:2.10"], "status": "chosen", "in": ["S"],
                  "pros": [], "cons": [], "reason": "r"}]}],
-            "uncovered": list(uncovered)}
+            "uncovered": list(uncovered), "unaddressed": []}
 
 
 # ---------------------------------------------------------------- plan, resume and cases

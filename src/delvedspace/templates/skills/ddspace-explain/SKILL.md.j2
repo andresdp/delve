@@ -49,6 +49,23 @@ id and you do not evaluate or describe it again. If a description must change (r
 only: every step that names the point shows the new one. Without a space, the description is your own one sentence
 and `attested_by` stays empty.
 
+## Gaps in the space
+
+The space is fixed. Never add, rename or remove a dimension, value or relation to make the solution fit: a wiki
+is read only, and the space you write yourself in step 3 does not change after that step. Where the space falls
+short, record the gap instead of forcing a fit:
+
+- **A decision the space has no dimension or value for** (with a wiki): list it in `uncovered` (the reference
+  says how).
+- **A requirement** no dimension bears on (`no_dimension`, with the `nearest_dimension_id` or `null`), or one the
+  solution does not address (`not_in_solution`), or gives up for a stronger one (`traded_off`): list it in
+  `unaddressed` with that reason and a `note`.
+- **A value that only roughly matches** the solution's decision: keep the value, and mark the choice and the
+  ADR option `"fit": "approximate"` with a `fit_note` saying what the value leaves out or stretches.
+
+Every requirement is either a driver of some ADR or listed in `unaddressed`, never both. Write
+`"unaddressed": []` when every requirement is addressed.
+
 ## Steps
 
 1. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
@@ -96,13 +113,15 @@ and `attested_by` stays empty.
    group are the one `chosen` option (`in: ["S"]`; say in `reason` whether the requirements force it). The
    contrasts you evaluated and the options the solution says the designers weighed are `discarded` options.
    Every value of the solution belongs to the chosen option of some ADR. Write the ADRs for a reader who
-   has not seen the trajectory: their text never refers to steps (the `step` field links them).
+   has not seen the trajectory: their text never refers to steps (the `step` field links them). List every
+   requirement no ADR addresses in `unaddressed`, with its reason (see "Gaps in the space").
 11. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
 12. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
    again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
 13. **Present the explanation.** Summarize the ADRs and the regions that justify the solution, which values are
-   forced and which free, and the path you took. In interactive use (not in a study session), finish with
+   forced and which free, the path you took, and the gaps: uncovered decisions, unaddressed requirements and
+   approximate fits. In interactive use (not in a study session), finish with
    `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
    with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
    into the wiki instead).
@@ -190,6 +209,7 @@ Without a space (with one, the reference gives the `space` part and the `uncover
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"}
      ]}
   ],
-  "uncovered": []
+  "uncovered": [],
+  "unaddressed": []
 }
 ```

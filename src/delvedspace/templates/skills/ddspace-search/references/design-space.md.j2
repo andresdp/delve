@@ -29,7 +29,11 @@ per call (`replication`, not `data replication strategy`), and try synonyms.
 - **Map the space (step 2).** List the dimensions, and the values of each one a requirement bears on. Follow the
   relations of the key dimensions: a `requires` relation names a dimension a point must also settle, an
   `excludes` or `constrains` relation is something the check before evaluation (step 5b) must respect. Do not write
-  `space.dimensions`: the wiki is the space.
+  `space.dimensions`: the wiki is the space, and no command changes it.
+- **A requirement no dimension bears on.** Search for it with a keyword or two and its synonyms before you decide.
+  If nothing fits, list it in `unaddressed` with `reason: "no_dimension"` and, as `nearest_dimension_id`, the
+  closest dimension `ddspace query dimensions` printed (or `null`). A value that only roughly matches gets
+  `"fit": "approximate"` and a `fit_note`. These are the gaps the page reports for whoever maintains the wiki.
 - **Check before evaluating (step 5b).** `ddspace point` warns about two values of one dimension, a value the
   evidence rejects, and a required dimension left out. Those warnings are part of the check: fix the point and
   run it again. A run that only produced warnings you then fixed is not a step of the trajectory.
@@ -57,8 +61,8 @@ it writes the explainer into the wiki, next to the pages it links to.
 
 ## The file with a space
 
-Everything is as in `SKILL.md`, except `space`, which names the wiki instead of listing dimensions, and each point's
-`description` and `attested_by`, as `ddspace point` printed them:
+Everything is as in `SKILL.md`, except `space`, which names the wiki instead of listing dimensions, each point's
+`description` and `attested_by`, as `ddspace point` printed them, and the gaps (`unaddressed`, `fit`):
 
 ```json
 {
@@ -76,8 +80,13 @@ Everything is as in `SKILL.md`, except `space`, which names the wiki instead of 
     {"id": "A1", "approach": "A", "step": 4,
      "choices": [
        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["C1"], "reason": "<why>",
-        "evidence": [{"doc": "s01_p01", "stance": "accepts"}]}
+        "evidence": [{"doc": "s01_p01", "stance": "accepts"}]},
+       {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "reason": "<why>",
+        "fit": "approximate", "fit_note": "<what the value leaves out or stretches>"}
      ]}
+  ],
+  "unaddressed": [
+    {"requirement": "Q2", "reason": "no_dimension", "nearest_dimension_id": "d:3", "note": "<what the space lacks>"}
   ]
 }
 ```

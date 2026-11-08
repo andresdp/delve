@@ -104,6 +104,8 @@ def _explain(uncovered=2):
         {"decision": "Backup schedule", "solution_quote": "nightly snapshots", "nearest_dimension_id": "d:1"},
         {"decision": "Client library", "solution_quote": "a Go client", "nearest_dimension_id": None},
     ][:uncovered]
+    doc["unaddressed"] = [{"requirement": "C1", "reason": "not_in_solution", "nearest_dimension_id": None,
+                           "note": "The solution says nothing about cost."}]
     return _with_points(doc)
 
 
@@ -143,7 +145,9 @@ def _own():
                     "pros": ["p"], "cons": ["c"], "reason": "r"},
                    {"id": "O3", "name": "Postgres", "values": ["v:1.3"], "status": "discarded",
                     "pros": [], "cons": ["too heavy"], "reason": "r"}]}],
-               comparison=[{"dimension_id": "d:1", "note": "disks versus S3"}])
+               comparison=[{"dimension_id": "d:1", "note": "disks versus S3"}],
+               unaddressed=[{"requirement": "R1", "reason": "traded_off", "note": "n"},
+                            {"requirement": "C1", "reason": "budget", "note": "n"}])
     return _with_points(doc)
 
 
@@ -825,3 +829,39 @@ def test_point_entries_have_an_id_values_and_a_description(graph):
     codes = _codes(_check(doc, graph))
     assert ("schema", "/points/0/description") in codes
     assert ("unknown_id", "/points/1/values/0") in codes
+
+
+# ---------------------------------------------------------------- gaps in the space
+
+
+def test_every_requirement_is_a_driver_or_listed_in_unaddressed(graph):
+    doc = _sample()
+    doc["problem"]["requirements"].append({"id": "Q9", "kind": "quality", "text": "Audit every read."})
+    assert ("unaccounted_requirement", "/problem/requirements/3") in _codes(_check(doc, graph))
+    doc["unaddressed"] = [{"requirement": "Q9", "reason": "no_dimension", "nearest_dimension_id": "d:1",
+                           "note": "The space has no dimension for auditing."}]
+    assert _check(doc, graph)["problems"] == []
+
+
+def test_unaddressed_rejects_a_driven_requirement_a_bad_reason_and_an_unknown_nearest_dimension(graph):
+    doc = _sample()
+    doc["unaddressed"] = [{"requirement": "R1", "reason": "not_in_solution", "nearest_dimension_id": "d:99",
+                           "note": "n"}]
+    codes = _codes(_check(doc, graph))
+    assert ("unaddressed_mismatch", "/unaddressed/0/requirement") in codes
+    assert ("schema", "/unaddressed/0/reason") in codes   # not_in_solution belongs to explain
+    assert ("unknown_id", "/unaddressed/0/nearest_dimension_id") in codes
+    del doc["unaddressed"]
+    assert ("schema", "/unaddressed") in _codes(_check(doc, graph))
+
+
+def test_an_approximate_fit_says_why_and_is_allowed_in_an_own_space():
+    doc = _own()
+    doc["adrs"][0]["options"][0]["fit"] = "approximate"
+    doc["alternatives"][0]["choices"][0]["fit"] = "close"
+    codes = _codes(rationale.check(doc))
+    assert ("schema", "/adrs/0/options/0/fit_note") in codes and ("schema", "/alternatives/0/choices/0/fit") in codes
+    doc["adrs"][0]["options"][0]["fit_note"] = "Local disks stand in for any block storage."
+    doc["alternatives"][0]["choices"][0].update(fit="approximate", fit_note="n")
+    doc["unaddressed"][0]["reason"] = "no_dimension"   # the agent's own space is fixed once written
+    assert rationale.check(doc)["problems"] == []

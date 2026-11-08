@@ -163,6 +163,15 @@
   .h-none { background: var(--border); opacity: .5; }
   .sw { display: inline-block; width: 12px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 3px; }
   .chip-sm { cursor: pointer; }
+  .gaps { margin-top: 28px; border-top: 2px solid var(--border); padding-top: 6px; }
+  .gap-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  .gap-count strong { color: var(--accent); font-size: 1.1em; }
+  .gap-h { font-size: 14px; margin: 16px 0 6px; }
+  .choice.gap .head .chip { margin: 0; }
+  .choice.fit { cursor: pointer; }
+  .choice.fit:hover, .choice.fit:focus { border-color: var(--accent); }
+  .badge.neutral { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .fit-note { font-size: 13px; color: var(--muted); }
   .round-head { margin: 18px 0 6px; font-size: 14px; border-bottom: 2px solid var(--border); padding-bottom: 4px; }
   .round-end { color: var(--muted); font-size: 13px; margin-top: 12px; }
   .story-step { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 8px 0; cursor: pointer; }
@@ -273,11 +282,12 @@
       <p><strong>Decision.</strong> {% for o in chosen %}{{ o.name }}{% if search %} <span class="muted">({{ o["in"]|join(", ") }})</span>{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}.</p>
       {% for o in adr.options %}
       <div class="option {{ o.status }}" data-option="{{ o.key }}" tabindex="0">
-        <div class="head"><strong>{{ o.name }}</strong> <span class="badge {{ 'accepted' if o.status == 'chosen' else 'rejected' }}">{{ ("chosen in " ~ o["in"]|join(", ")) if o.status == "chosen" and search else o.status }}</span></div>
+        <div class="head"><strong>{{ o.name }}</strong> <span class="badge {{ 'accepted' if o.status == 'chosen' else 'rejected' }}">{{ ("chosen in " ~ o["in"]|join(", ")) if o.status == "chosen" and search else o.status }}</span>{% if o.fit == "approximate" %} <span class="badge mixed approx" title="{{ o.fit_note }}">approximate fit</span>{% endif %}</div>
         <p class="values pairs">{% for did, vid in o.point.items() %}<span class="pair">{{ dim_ref(did) }} → {{ value_ref(vid) }}</span>{% endfor %}</p>
         {% for q in o.quotes %}<div class="quote">“{{ q }}”</div>{% endfor %}
         {% if o.pros or o.cons %}<ul class="pc">{% for x in o.pros %}<li class="pro">{{ x }}</li>{% endfor %}{% for x in o.cons %}<li class="con">{{ x }}</li>{% endfor %}</ul>{% endif %}
         {% if o.reason %}<p>{{ o.reason }}</p>{% endif %}
+        {% if o.fit == "approximate" and o.fit_note %}<p class="fit-note"><strong>Approximate fit.</strong> {{ o.fit_note }}</p>{% endif %}
       </div>
       {% endfor %}
       {% if adr.consequences %}<p><strong>Consequences.</strong> {{ adr.consequences }}</p>{% endif %}
@@ -285,10 +295,10 @@
     {% endfor %}
     <h2 class="sec">Requirements not addressed</h2>
     {% if d.unaddressed %}
-    <p class="hint">No ADR and no decision names these requirements as drivers.</p>
-    <ul class="chips">{% for rid in d.unaddressed %}{% set r = d.requirements|selectattr("id", "equalto", rid)|first %}<li><button class="chip" type="button" data-requirement="{{ rid }}" data-node="r:{{ rid }}"><strong>{{ rid }}</strong> {{ r.text }}</button></li>{% endfor %}</ul>
+    <p class="hint">No ADR names these requirements as drivers. Why each one is left out is under <a href="#gaps">Gaps in the space</a>.</p>
+    <ul class="chips">{% for u in d.unaddressed %}<li><button class="chip" type="button" data-requirement="{{ u.id }}" data-node="r:{{ u.id }}"><strong>{{ u.id }}</strong> {{ u.text }} <span class="muted">· {{ u.reason_text }}</span></button></li>{% endfor %}</ul>
     {% else %}
-    <p>Every requirement is addressed by an ADR or a decision.</p>
+    <p>Every requirement is addressed by an ADR.</p>
     {% endif %}
   </section>
 
@@ -460,18 +470,49 @@
   </section>
   {% endif %}
 
-  {% if d.mode == "explain" or d.uncovered %}
-  <h2 class="sec">Uncovered decisions</h2>
+  {% set no_dim = d.unaddressed|selectattr("reason", "equalto", "no_dimension")|list %}
+  {% set gap_count = d.uncovered|length + d.unaddressed|length + d.fits|length %}
+  <section class="gaps" id="gaps">
+  <h2 class="sec">Gaps in the space</h2>
+  <p class="hint">Where the space fell short of the problem{{ "" if search else " or the solution" }}. The agent does not change the space: it records each gap here instead of forcing a fit.</p>
+  {% if not gap_count %}
+  <p>No gaps: {% if not search %}every decision of the solution maps onto the space, {% endif %}every requirement is addressed by an ADR, and every value fits what it stands for.</p>
+  {% else %}
+  <p class="gap-summary">
+    {% if not search %}<span class="gap-count"><strong>{{ d.uncovered|length }}</strong> decision{{ "s" if d.uncovered|length != 1 }} not covered</span>{% endif %}
+    <span class="gap-count"><strong>{{ d.unaddressed|length }}</strong> requirement{{ "s" if d.unaddressed|length != 1 }} not addressed{% if no_dim %} ({{ no_dim|length }} with no dimension){% endif %}</span>
+    <span class="gap-count"><strong>{{ d.fits|length }}</strong> approximate fit{{ "s" if d.fits|length != 1 }}</span>
+  </p>
+  {% if not search %}
+  <h3 class="gap-h">Decisions the space does not cover</h3>
   {% if d.uncovered %}
-  <p class="hint">Decisions in the solution that the agent could not map onto a dimension of the space.</p>
+  <p class="hint">Decisions in the solution that no dimension or value of the space describes.</p>
   {% for u in d.uncovered %}
-  <div class="choice"><div class="head"><strong>{{ u.decision }}</strong>{% if u.nearest %} <span class="muted">nearest:</span> {% if u.nearest.href %}<a href="{{ u.nearest.href }}">{{ u.nearest.label }}</a>{% else %}{{ u.nearest.label }}{% endif %}{% endif %}</div>
+  <div class="choice gap"><div class="head"><strong>{{ u.decision }}</strong>{% if u.nearest %} <span class="muted">nearest dimension:</span> {% if u.nearest.href %}<a href="{{ u.nearest.href }}">{{ u.nearest.label }}</a>{% else %}{{ u.nearest.label }}{% endif %}{% endif %}</div>
     <div class="quote">“{{ u.quote }}”</div></div>
   {% endfor %}
-  {% else %}
-  <p>None: every decision mapped.</p>
+  {% else %}<p class="muted">Every decision maps onto the space.</p>{% endif %}
   {% endif %}
+  <h3 class="gap-h">Requirements no ADR addresses</h3>
+  {% if d.unaddressed %}
+  {% for u in d.unaddressed %}
+  <div class="choice gap"><div class="head"><button class="chip" type="button" data-requirement="{{ u.id }}" data-node="r:{{ u.id }}"><strong>{{ u.id }}</strong> {{ u.text }}</button></div>
+    <p><span class="badge {{ 'rejected' if u.reason == 'no_dimension' else 'neutral' }}">{{ u.reason_text }}</span>{% if u.nearest %} <span class="muted">nearest dimension:</span> {% if u.nearest.href %}<a href="{{ u.nearest.href }}">{{ u.nearest.label }}</a>{% else %}{{ u.nearest.label }}{% endif %}{% endif %}</p>
+    {% if u.note %}<p>{{ u.note }}</p>{% endif %}</div>
+  {% endfor %}
+  {% else %}<p class="muted">Every requirement is a driver of some ADR.</p>{% endif %}
+  <h3 class="gap-h">Approximate fits</h3>
+  {% if d.fits %}
+  <p class="hint">Values the agent kept although they only roughly match what they stand for. Select one to see it.</p>
+  {% for f in d.fits %}
+  <div class="choice gap fit" tabindex="0" {% if f.option %}data-gap-option="{{ f.option }}"{% else %}data-gap-alt="{{ f.alt }}"{% endif %}>
+    <div class="head"><strong>{{ f.where }}</strong></div>
+    <p class="pairs">{% for did, vid in f.point.items() %}<span class="pair">{{ dim_ref(did) }} → {{ value_ref(vid) }}</span>{% endfor %}</p>
+    {% if f.note %}<p>{{ f.note }}</p>{% endif %}</div>
+  {% endfor %}
+  {% else %}<p class="muted">Every value fits what it stands for.</p>{% endif %}
   {% endif %}
+  </section>
 </main>
 <div class="splitter-v" role="separator" aria-orientation="vertical" aria-label="Resize the text and the graph" tabindex="0" title="Drag to resize (double-click to reset)"></div>
 <aside class="ex-side">
@@ -898,13 +939,15 @@
       + sec("Requirements", s ? chips(s.assessment) : "")
       + sec("Left open", list(a.open.map((o) => dlabel(o.dimension) + (o.reason ? ': <span class="muted">' + esc(o.reason) + "</span>" : ""))))
       + sec("Each choice", list(a.choices.map((c) => pair(c.dimension, c.value) + (c.drivers.length ? " · for " + c.drivers.map(rlabel).join(", ") : "")
-          + (c.reason ? '<br><span class="muted">' + esc(c.reason) + "</span>" : "") + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
+          + (c.reason ? '<br><span class="muted">' + esc(c.reason) + "</span>" : "")
+          + (c.fit === "approximate" ? '<br><span class="badge mixed approx">approximate fit</span> ' + esc(c.fit_note || "") : "") + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
           + (c.evidence.length ? '<br><span class="ev">Cited evidence: ' + ev(c.evidence) + "</span>" : ""))));
   }
   function optionInfo(o) {
     const { r } = adrOptions.find((x) => x.o === o) || {};
     return head("Option · " + (r ? esc(r.id) + " " + esc(r.title) : "ADR"), esc(o.name), statusBadge(o) + " " + esc(o.reason || ""))
       + sec("Values", list(Object.entries(o.point).map(([d, v]) => pair(d, v))))
+      + (o.fit === "approximate" ? sec("Approximate fit", para(esc(o.fit_note || "The values only roughly match this option."))) : "")
       + sec("Pros", list(o.pros.map(esc))) + sec("Cons", list(o.cons.map(esc)))
       + (o.quotes && o.quotes.length ? sec("In the solution's words", o.quotes.map((q) => '<div class="quote">“' + esc(q) + "”</div>").join("")) : "")
       + (r ? sec("The decision it answers", para(esc(r.context)) + '<div class="judged">' + r.drivers.map((d) => '<span class="chip-sm">' + rlabel(d) + "</span>").join(" ") + "</div>") : "");
@@ -930,6 +973,17 @@
     nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false); labels(null);
     applyView(); showInfo(optionInfo(o));
   }));
+  // A gap's approximate fit selects its ADR option (or its alternative) in the ADRs tab.
+  document.querySelectorAll("[data-gap-option], [data-gap-alt]").forEach((el) => {
+    const go = () => {
+      if (view !== "adrs") document.querySelector('.tab[data-tab="adrs"]')?.click();
+      const target = el.dataset.gapOption ? document.querySelector('.option[data-option="' + CSS.escape(el.dataset.gapOption) + '"]')
+        : document.querySelector('.solution[data-alt="' + CSS.escape(el.dataset.gapAlt) + '"]');
+      if (target) { target.click(); target.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    };
+    el.addEventListener("click", (e) => { if (!e.target.closest("a") && !e.target.closest("[data-node]")) go(); });
+    el.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  });
   // The lanes: an arrow from each point's parent to it (refine along a lane, a new approach across lanes,
   // an ablation dotted).
   function overlay(wrapSel, svgSel) {

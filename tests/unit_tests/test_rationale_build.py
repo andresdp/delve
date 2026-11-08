@@ -132,13 +132,14 @@ def test_explain_shows_uncovered_quotes_and_values_offered_by_the_space(ws, tmp_
     assert "Backup schedule" in html and "nightly snapshots" in html and "Client library" in html
     assert "data stays on each node&#39;s disk" in html and "a three-phase commit" in html
     assert 'class="option chosen"' in html and 'class="option discarded"' in html
-    assert "every decision mapped" not in html
+    assert "Every decision maps onto the space" not in html and "Gaps in the space" in html
+    assert "2</strong> decisions not covered" in html and "the solution does not address it" in html
 
 
 def test_explain_with_nothing_uncovered_says_every_decision_mapped(ws, tmp_path):
     _built(_invoke("rationale", "build", str(_file(tmp_path, _explain(uncovered=0)))))
     html = (ws / "site" / "explainers" / "toy-store-explain.html").read_text(encoding="utf-8")
-    assert "every decision mapped" in html
+    assert "Every decision maps onto the space" in html
 
 
 def test_own_space_with_out_writes_a_standalone_folder_without_wiki_links(tmp_path, monkeypatch):
@@ -599,7 +600,7 @@ def test_the_adrs_tab_lists_requirements_no_adr_or_decision_addresses(ws):
     doc = _sample()
     doc["problem"]["requirements"].append({"id": "Q9", "kind": "quality", "text": "Nobody addresses this."})
     data = _data(doc, ws)
-    assert data["unaddressed"] == ["Q9"]
+    assert [(u["id"], u["reason"], u["reason_text"]) for u in data["unaddressed"]] == [("Q9", "", "no reason given")]
     assert [a["id"] for a in data["adrs"]] == ["ADR1", "ADR2"]
     assert data["adrs"][0]["options"][0]["point"] == {"d:1": "v:1.1"} and data["adrs"][0]["options"][0]["key"] == "ADR1:O1"
     a1, a2 = data["alternatives"]   # each alternative is composed of the partial points its ADRs choose for it
@@ -608,7 +609,8 @@ def test_the_adrs_tab_lists_requirements_no_adr_or_decision_addresses(ws):
     assert [(p["adr"], p["option"]) for p in a2["parts"]] == [("ADR1", "O2")]
     html = explainer._render(data)
     assert "Requirements not addressed" in html and 'data-requirement="Q9"' in html
-    assert "Every requirement is addressed" in explainer._render(_data(_sample(), ws))
+    clean = explainer._render(_data(_sample(), ws))
+    assert "Every requirement is addressed" in clean and "No gaps:" in clean
 
 
 
@@ -649,3 +651,32 @@ def test_a_reused_point_says_so_on_the_page(ws):
     data = _data(_search_with_a_shared_dimension(), ws)   # step 3 names P2, which step 2 evaluated
     assert [(s["point_id"], s["reuses"]) for s in data["trajectory"]] == [("P1", None), ("P2", None), ("P2", 2)]
     assert "same point as #2, reused" in explainer._render(data)
+
+
+def test_the_gaps_section_at_the_bottom_lists_reasons_nearest_dimensions_and_approximate_fits(ws):
+    doc = _sample()
+    doc["problem"]["requirements"].append({"id": "Q9", "kind": "quality", "text": "Audit every read."})
+    doc["unaddressed"] = [{"requirement": "Q9", "reason": "no_dimension", "nearest_dimension_id": "d:1",
+                           "note": "The space has no dimension for auditing."}]
+    doc["adrs"][0]["options"][0].update(fit="approximate", fit_note="Disk quorum stands in for any local store.")
+    data = _data(doc, ws)
+    [u] = data["unaddressed"]
+    assert (u["id"], u["reason_text"], u["nearest"]["label"]) == ("Q9", "the space has no dimension for it",
+                                                                  "Source of truth")
+    assert [(f["where"], f["option"], f["point"]) for f in data["fits"]] == [
+        ("ADR1 · " + doc["adrs"][0]["options"][0]["name"], "ADR1:O1", {"d:1": "v:1.1"})]
+    html = explainer._render(data)
+    main = html[:html.index("</main>")]
+    assert main.rindex('id="gaps"') > main.rindex('data-panel=')   # below every tab
+    assert "1</strong> requirement not addressed (1 with no dimension)" in html
+    assert 'data-gap-option="ADR1:O1"' in html and "approximate fit" in html
+    assert "The space has no dimension for auditing." in html
+
+
+def test_an_approximate_option_lists_only_the_values_its_choices_mark_approximate(ws):
+    doc = _sample()
+    doc["adrs"][0]["options"][0].update(values=["v:1.1", "v:2.1"], fit="approximate", fit_note="n")
+    assert _data(doc, ws)["fits"][0]["point"] == {"d:1": "v:1.1", "d:2": "v:2.1"}   # no choice marked: all
+    doc["alternatives"][0]["choices"][1].update(fit="approximate", fit_note="n")   # A1's v:2.1
+    fits = _data(doc, ws)["fits"]
+    assert [(f["option"], f["point"]) for f in fits] == [("ADR1:O1", {"d:2": "v:2.1"})]   # the choice is not listed twice

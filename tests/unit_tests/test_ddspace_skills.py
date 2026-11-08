@@ -90,7 +90,8 @@ def test_explain_skill_finds_regions_and_forced_values():
                    "at most **8 points or regions**", "never more than 12", "two or three steps", "solution_quote",
                    "**force**", "**freely**", '"forced"'):
         assert needle in text, needle
-    assert '"uncovered": []' in text and "nearest_dimension_id" not in text
+    assert '"uncovered": []' in text and '"unaddressed": []' in text and "Gaps in the space" in text
+    assert "The space is fixed" in text and '"fit": "approximate"' in text
 
 
 @pytest.mark.parametrize("name", SKILLS)
