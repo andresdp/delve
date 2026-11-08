@@ -391,6 +391,11 @@ flowchart TB
   - The prompt or model guard refuses a session whose prompt hash differs from the recorded one.
 - **Verification:** the smoke test result is recorded. The pilots in the Success Criteria run end to end and pass the human read.
 
+- **Study setup, decided 2026-11-08** (branch `study/designing2027-sessions`, from `feat/rationale-search-explain`, created with `--no-track`):
+  - Cases: the four CAIN briefs (fraud, vision, forecast, documents), extended into problem files with R/Q/C requirements, as four search cases; fraud and documents also as explain cases, with the same problem file and a solution drafted for the paper (composite, attributed to no real organization, outside the C1 corpus), reviewed by the user. 6 cases × M, E, N × 2 repetitions = 36 sessions; the paper may report two search and two explain cases.
+  - Model `gpt-6-luna`, as in CAIN. C3 (Git at scale) is left out for now; it would need a C3 workspace builder and its own cases, with M and N only.
+  - The user runs the sessions in the sandbox (`~/Documents/GitHub/ddspace-sandboxes/designing2027`) following `study/designing2027/RUNNING.md`: workspaces, smoke test, four pilots (fraud-search under M, E, N; fraud-explain under M), then the full run. Skill fixes found in the pilots go on the feature branch and are merged into the study branch; the skills are frozen before the full run.
+
 ### U6. Documentation
 
 - **Goal:** document the new commands and options.
