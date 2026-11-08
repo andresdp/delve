@@ -63,7 +63,7 @@ def test_skill_text_works_in_design_space_terms(name):
     flat = " ".join(text.split())
     for needle in ("R1", "Q1", "**dimension**", "**value**", "**relation**", "**design point**", "trajectory",
                    "budget", "references/design-space.md", "./rationale/<id>.json", "ddspace rationale check",
-                   "candidates", "ddspace rationale build", "ddspace-rationale/3", '"step"', '"hypothesis"',
+                   "candidates", "ddspace rationale build", "ddspace-rationale/4", "`adrs`", "`pros`", "`cons`", "`discarded`", '"step"', '"hypothesis"',
                    '"assessment"', '"observation"', "space.dimensions", "your own knowledge"):
         assert needle in flat, needle
     assert "every value in the file is a value id of the space" in flat.lower()

@@ -377,7 +377,7 @@ change the design space; like other generated text it is not evidence. Add `--no
 ## Rationale files
 
 The `ddspace-search` and `ddspace-explain` skills (if installed) write a design rationale file
-(`ddspace-rationale/3`) to `rationale/<id>.json`. Check it with `ddspace rationale check rationale/<id>.json{where}`
+(`ddspace-rationale/4`) to `rationale/<id>.json`. Check it with `ddspace rationale check rationale/<id>.json{where}`
 (read-only, JSON) until it is clean; `ddspace rationale build` renders it as an explainer page.
 
 ## Rules

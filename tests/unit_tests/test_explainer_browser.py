@@ -40,35 +40,39 @@ addEventListener("load", () => setTimeout(() => {
   try {
     out.nodes = nodes().length;
     out.before = positions();
-    // The trajectory tab opens first: every investigated value is lit, and an arc links each step to its parent.
+    // The ADRs tab opens first; explored dimensions and values are coloured, no point outlined.
     out.first_tab = document.querySelector('.tab[aria-selected="true"]').dataset.tab;
+    out.tabs = [...document.querySelectorAll(".tab")].map((e) => e.dataset.tab);
     out.greyed_trajectory = greyed();
     out.point_trajectory = inPoint();
+    // The trajectory tab: an arc links each step to its parent; selecting step 3 outlines its point.
+    click(document.querySelector('.tab[data-tab="trajectory"]'));
     out.arcs = document.querySelectorAll("svg.lineage path").length;
-    // Selecting step 3 (its column) lights its point only, and marks its column and its entry.
     click(document.querySelector('.step-h[data-step="3"]'));
     out.greyed_step3 = greyed();
     out.point_step3 = inPoint();
     out.step_info = document.getElementById("info").textContent;
     out.step_marked = document.querySelectorAll('.sel[data-step="3"]').length;
-    click(document.querySelector('.tab[data-tab="A1"]'));
-    // Select A1's choice of Disk quorum in the text.
-    click(document.querySelector('[data-panel="A1"] .choice .vref[data-node="v:1.1"]'));
+    click(document.querySelector('.tab[data-tab="adrs"]'));
+    // An alternative outlines its point; an option outlines its values and the step that evaluated it.
+    click(document.querySelector('.solution[data-alt="A1"]'));
+    out.point_a1 = inPoint();
+    out.alt_info = document.getElementById("info").textContent;
+    click(document.querySelector('.option[data-option="ADR1:O2"]'));
+    out.point_option = inPoint();
+    // A value in an option: its lineage, up to the centre and down through points to requirements.
+    click(document.querySelector('.option[data-option="ADR1:O1"] .vref[data-node="v:1.1"]'));
     out.selected_lit = lit();
     out.selected_path = onPath();
     out.info = document.getElementById("info").textContent;
-    out.greyed_a1 = greyed();
-    out.point_a1 = inPoint();
-    // A dimension: its path to the centre and the values of it that design points take.
     click(nodeOf("d:1"));
     out.dim_lit = lit();
     out.dim_path = onPath();
-    // Switch to A2: the same subgraph, A2's choices lit, the selection fade cleared.
-    click(document.querySelector('.tab[data-tab="A2"]'));
+    // The compare view: the same subgraph, every alternative outlined, the selection fade cleared.
+    click(document.querySelector('.tab[data-tab="compare"]'));
     out.after = positions();
     out.faded_after_tab = nodes().filter((e) => e.classList.contains("dim-out")).length;
-    out.greyed_a2 = greyed();
-    out.point_a2 = inPoint();
+    out.point_compare = inPoint();
     out.hint = document.getElementById("info").textContent;
     // Design points: one node per step; selecting one shows its step.
     out.points = nodes().filter((e) => e.__data__.kind === "point").map((e) => e.__data__.id).sort();
@@ -118,30 +122,30 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     out = _probe(tmp_path)
     assert out["errors"] == []
     assert out["nodes"] > 0
-    # The trajectory opens first; the fixture's steps visit v:1.1, v:2.1 and v:1.2; step 2 refines step 1.
-    assert out["first_tab"] == "trajectory"
+    # The ADRs tab opens first; the fixture's steps visit v:1.1, v:2.1 and v:1.2; step 2 refines step 1.
     explored = {"v:1.1", "v:2.1", "v:1.2", "d:1", "d:2"}
+    assert out["tabs"] == ["adrs", "trajectory", "compare"] and out["first_tab"] == "adrs"
     assert not explored & set(out["greyed_trajectory"])          # explored: every value a step or choice takes
     assert set(out["greyed_trajectory"]) and all(i.startswith(("v:", "d:")) for i in out["greyed_trajectory"])
-    assert out["point_trajectory"] == []                           # no step selected: no single point outlined
+    assert out["point_trajectory"] == []                           # nothing selected: no point outlined
     assert out["arcs"] == 1
     assert out["greyed_step3"] == out["greyed_trajectory"]         # explored stays lit whatever is shown
     assert out["point_step3"] == ["p:3", "v:1.2"]                 # step 3's point and its values are outlined
     assert "step 3" in out["step_info"] and "explore" in out["step_info"]
     assert out["step_marked"] >= 3  # its column header, its cells and its entry in the list
-    # Selecting A1's choice lights its ancestors (its dimension, the centre) and the design points that take it.
-    assert {"v:1.1", "d:1", "domain", "p:1", "p:2"} <= set(out["selected_lit"])
-    assert not {"r:Q1", "d:2", "v:2.1", "v:1.2", "p:3"} & set(out["selected_lit"])  # not on its paths
-    assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2"} <= set(out["selected_path"])
+    assert out["point_a1"] == ["p:1", "v:1.1", "v:2.1"] and "Three-phase commit" in out["alt_info"]
+    assert out["point_option"] == ["p:3", "v:1.2"]                # ADR1's O2, evaluated at step 3
+    # A value: its ancestors, the points that take it and the requirements those points are judged against.
+    assert {"v:1.1", "d:1", "domain", "p:1", "p:2", "r:R1", "r:Q1", "r:C1"} <= set(out["selected_lit"])
+    assert not {"d:2", "v:2.1", "v:1.2", "p:3"} & set(out["selected_lit"])  # not on its paths
+    assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2", "p:1|r:Q1"} <= set(out["selected_path"])
     assert "Chosen in A1" in out["info"]
-    assert out["point_a1"] == ["p:1", "v:1.1", "v:2.1"]
-    # A dimension lights the centre and the paths down to the values design points take, and those points.
-    assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2", "p:1", "p:2", "p:3"}
+    # A dimension: the centre, its explored values, their points and those points' requirements.
+    assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2", "p:1", "p:2", "p:3", "r:R1", "r:Q1", "r:C1"}
     assert {"domain|d:1", "d:1|v:1.1", "d:1|v:1.2"} <= set(out["dim_path"])
-    # Switching tabs keeps the subgraph (same nodes, same places) and drops the selection fade.
     assert out["after"] == out["before"]
     assert out["faded_after_tab"] == 0
-    assert out["point_a2"] == ["p:3", "v:1.2"]
+    assert out["point_compare"] == ["p:1", "p:3", "v:1.1", "v:1.2", "v:2.1"]
     # One point per step; a point lights its values, their dimensions and the requirements it is judged against.
     assert out["points"] == ["p:1", "p:2", "p:3"]
     assert {"p:1", "v:1.1", "v:2.1", "d:1", "d:2", "domain", "r:R1", "r:Q1", "r:C1"} <= set(out["point_lit"])

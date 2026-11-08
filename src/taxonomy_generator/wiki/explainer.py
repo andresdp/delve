@@ -1,4 +1,4 @@
-"""Render a checked design rationale file (``ddspace-rationale/3``) as an explainer page.
+"""Render a checked design rationale file (``ddspace-rationale/4``) as an explainer page.
 
 The page sits at ``<html dir>/explainers/<id>.html``, next to the wiki's HTML, or in a standalone folder
 (``<out>/explainers/<id>.html`` with its own ``assets/``). It shows the requirements, one tab per alternative
@@ -257,6 +257,27 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
             regions.append({"id": str(r.get("id")), "name": r.get("name") or str(r.get("id")),
                             "point": space.point(r.get("values")), "step": r.get("step"),
                             "drivers": list(r.get("drivers") or []), "reason": r.get("reason") or ""})
+    # The ADRs: each with its options as partial points; the requirements no ADR and no choice addresses.
+    adrs = []
+    for r in doc.get("adrs") or []:
+        if not isinstance(r, dict):
+            continue
+        options = [{"id": str(o.get("id")), "key": f"{r.get('id')}:{o.get('id')}", "name": o.get("name") or "",
+                    "point": space.point(o.get("values")), "status": o.get("status") or "",
+                    "in": [str(x) for x in o.get("in") or []], "pros": [str(x) for x in o.get("pros") or []],
+                    "cons": [str(x) for x in o.get("cons") or []], "reason": o.get("reason") or "",
+                    "step": o.get("step")} for o in r.get("options") or [] if isinstance(o, dict)]
+        adrs.append({"id": str(r.get("id")), "title": r.get("title") or "", "drivers": list(r.get("drivers") or []),
+                     "context": r.get("context") or "", "consequences": r.get("consequences") or "",
+                     "options": options})
+    quotes = {c["value"]: c["quote"] for a in alternatives for c in a["choices"] if c["value"] and c["quote"]}
+    for r in adrs:  # explain: a chosen option shows the solution's own words for its values
+        for o in r["options"]:
+            o["quotes"] = list(dict.fromkeys(quotes[v] for v in o["point"].values()
+                                             if o["status"] == "chosen" and v in quotes))  # each quote once
+    addressed = {d for r in adrs for d in r["drivers"]} | {d for a in alternatives for c in a["choices"]
+                                                          for d in c["drivers"]}
+    unaddressed = [r.get("id") for r in problem.get("requirements") or [] if r.get("id") not in addressed]
     # The grid's rows: every dimension a step investigated, in the order the steps first name them.
     trajectory_dims: List[str] = []
     for s in trajectory:
@@ -332,6 +353,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         "alternatives": alternatives, "dimensions": space.dims, "values": space.values, "rows": rows,
         "relations": relations, "uncovered": uncovered, "trajectory": trajectory,
         "trajectory_dimensions": trajectory_dims, "regions": regions,
+        "adrs": adrs, "unaddressed": unaddressed,
         "budget": {"max_points": budget.get("max_points"), "used": len(trajectory)},
         "links": {"index": link("index.html"), "graph": link("graph.html")},
     }

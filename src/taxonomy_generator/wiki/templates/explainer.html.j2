@@ -117,6 +117,19 @@
   .legend { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; }
   .region { border: 1px solid var(--border); border-left: 4px solid var(--accepted); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
   .link.off { display: none; }
+  .solution, .option { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 8px 0; cursor: pointer; }
+  .solution.sel, .option.sel { box-shadow: 0 0 0 2px var(--accent); }
+  .adr { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 8px; }
+  .adr h3 { margin: 6px 0; font-size: 16px; }
+  .option.chosen { border-left: 4px solid var(--accepted); }
+  .option.discarded { border-left: 4px solid var(--rejected); opacity: .9; }
+  .option .values { font-size: 13px; margin: 4px 0; }
+  ul.pc { list-style: none; padding: 0; margin: 4px 0; font-size: 13px; }
+  ul.pc li::before { font-weight: 700; margin-right: 6px; }
+  ul.pc li.pro::before { content: "+"; color: var(--accepted); }
+  ul.pc li.con::before { content: "−"; color: var(--rejected); }
+  .step-link { font-size: 12px; margin-left: 6px; }
+  .node.unjudged path.shape { fill: var(--panel); stroke: var(--rejected); stroke-dasharray: 2,2; stroke-width: 1.5px; }
   @media (max-width: 900px) {
     .ex-wrap { grid-template-columns: 1fr; }
     .ex-text { padding: 16px 16px 30px; }
@@ -145,20 +158,55 @@
     {% endfor %}
   </ul>
 
+  {% set search = d.mode != "explain" %}
   <div class="tabs" role="tablist">
-    {% if d.trajectory %}<button class="tab" type="button" role="tab" data-tab="trajectory" aria-selected="true">Trajectory</button>{% endif %}
-    {% for a in d.alternatives %}
-    <button class="tab" type="button" role="tab" data-tab="{{ a.id }}" aria-selected="{{ 'true' if loop.first and not d.trajectory else 'false' }}">{{ a.id }} · {{ a.name }}</button>
-    {% endfor %}
+    <button class="tab" type="button" role="tab" data-tab="adrs" aria-selected="true">{{ "Decisions (ADRs)" }}</button>
+    {% if d.trajectory %}<button class="tab" type="button" role="tab" data-tab="trajectory" aria-selected="false">Trajectory</button>{% endif %}
     {% if d.alternatives|length > 1 %}
     <button class="tab" type="button" role="tab" data-tab="compare" aria-selected="false">Compare</button>
     {% endif %}
   </div>
 
+  <section class="panel" data-panel="adrs">
+    <p class="hint">{% if search %}The alternatives the agent proposes, then its decisions as architecture decision records: each ADR addresses a few related requirements and weighs options (partial design points), chosen by one or more alternatives or discarded.{% else %}The solution, then its decisions as architecture decision records: each ADR addresses a few related requirements, with the solution's option and the options it was contrasted with.{% endif %} Select an alternative or an option to see it in the graph.</p>
+    <h2 class="sec">{{ "Alternatives" if search else "The solution" }}</h2>
+    {% for a in d.alternatives %}
+    <div class="solution" data-alt="{{ a.id }}" tabindex="0"><strong>{{ a.id }} · {{ a.name }}</strong>
+      {% if a.summary %}<p>{{ a.summary }}</p>{% endif %}
+      {% if a.point %}<p class="muted">Design point: {{ a.point }}</p>{% endif %}
+      {% if a.open %}<p class="muted">Left open: {% for o in a.open %}{{ dim_ref(o.dimension) }}{% if o.reason %} ({{ o.reason }}){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% for adr in d.adrs %}
+    <article class="adr" id="adr-{{ adr.id }}">
+      <h3>{{ adr.id }} · {{ adr.title }} {{ drivers(adr.drivers) }}</h3>
+      {% if adr.context %}<p><strong>Context.</strong> {{ adr.context }}</p>{% endif %}
+      {% set chosen = adr.options|selectattr("status", "equalto", "chosen")|list %}
+      <p><strong>Decision.</strong> {% for o in chosen %}{{ o.name }}{% if search %} <span class="muted">({{ o["in"]|join(", ") }})</span>{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}.</p>
+      {% for o in adr.options %}
+      <div class="option {{ o.status }}" data-option="{{ o.key }}" tabindex="0">
+        <div class="head"><strong>{{ o.name }}</strong> <span class="badge {{ 'accepted' if o.status == 'chosen' else 'rejected' }}">{{ ("chosen in " ~ o["in"]|join(", ")) if o.status == "chosen" and search else o.status }}</span>{% if o.step %} <a class="step-link" href="#" data-goto-step="{{ o.step }}">step {{ o.step }}</a>{% endif %}</div>
+        <p class="values">{% for did, vid in o.point.items() %}{{ dim_ref(did) }} → {{ value_ref(vid) }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+        {% for q in o.quotes %}<div class="quote">“{{ q }}”</div>{% endfor %}
+        {% if o.pros or o.cons %}<ul class="pc">{% for x in o.pros %}<li class="pro">{{ x }}</li>{% endfor %}{% for x in o.cons %}<li class="con">{{ x }}</li>{% endfor %}</ul>{% endif %}
+        {% if o.reason %}<p>{{ o.reason }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      {% if adr.consequences %}<p><strong>Consequences.</strong> {{ adr.consequences }}</p>{% endif %}
+    </article>
+    {% endfor %}
+    <h2 class="sec">Requirements not addressed</h2>
+    {% if d.unaddressed %}
+    <p class="hint">No ADR and no decision names these requirements as drivers.</p>
+    <ul class="chips">{% for rid in d.unaddressed %}{% set r = d.requirements|selectattr("id", "equalto", rid)|first %}<li><button class="chip" type="button" data-requirement="{{ rid }}" data-node="r:{{ rid }}"><strong>{{ rid }}</strong> {{ r.text }}</button></li>{% endfor %}</ul>
+    {% else %}
+    <p>Every requirement is addressed by an ADR or a decision.</p>
+    {% endif %}
+  </section>
+
   {% if d.trajectory %}
-  {% set search = d.mode != "explain" %}
   {% set solution = (d.trajectory|selectattr("move", "equalto", "solution")|first) if not search else none %}
-  <section class="panel" data-panel="trajectory">
+  <section class="panel" data-panel="trajectory" hidden>
     <p class="hint">{% if search %}How the agent searched the space: {{ d.budget.used }} design point{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. Each column is a step, each row a {{ "dimension" if d.with_space else "decision" }}; an arc links a step to the one it started from.{% else %}How the agent grounded the solution: {{ d.budget.used }} point{{ "s" if d.budget.used != 1 }} or region{{ "s" if d.budget.used != 1 }} investigated{% if d.budget.max_points %}, of a budget of {{ d.budget.max_points }}{% endif %}. The first column is the solution; each later column probes a part of it (a region) or changes one of its options (a contrast). The bands next to the {{ 'dimensions' if d.with_space else 'decisions' }} are the regions that justify the solution.{% endif %}</p>
     <div class="legend">
       {% if search %}<span><b class="mv-seed" style="color:var(--dimension)">seed</b> a starting point</span><span><b style="color:var(--accent)">exploit</b> options added or changed against the step it starts from (outlined)</span><span><b style="color:var(--novel)">explore</b> a new part of the space (new options in bold)</span>
@@ -210,45 +258,6 @@
     {% endif %}
   </section>
   {% endif %}
-  {% for a in d.alternatives %}
-  <section class="panel" data-panel="{{ a.id }}"{% if not loop.first or d.trajectory %} hidden{% endif %}>
-    {% if a.summary %}<p>{{ a.summary }}</p>{% endif %}
-    {% if a.point %}<p class="muted">Design point: {{ a.point }}</p>{% endif %}
-    {% for c in a.choices %}
-    <div class="choice">
-      <div class="head">{{ dim_ref(c.dimension) }} <span class="arrow">→</span> {{ value_ref(c.value) }} {{ drivers(c.drivers) }}</div>
-      {% if c.quote %}<div class="quote">“{{ c.quote }}”</div>{% endif %}
-      {% if c.reason %}<p>{{ c.reason }}</p>{% endif %}
-      {% if c.evidence %}<p class="ev">Evidence: {% for e in c.evidence %}{{ e.doc }}{% if e.stance %} ({{ e.stance }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
-      {% set dim = d.dimensions.get(c.dimension) if c.dimension else none %}
-      {% if dim %}
-      {% set others = [] %}{% for vid in dim["values"] %}{% if vid != c.value %}{% set _ = others.append(vid) %}{% endif %}{% endfor %}
-      {% if others %}<p class="others">{% for vid in others %}{% set role = d["values"][vid].roles.get(a.id) %}{{ value_ref(vid) }} <em>{{ role if role else ("offered by the space" if d.with_space else "in another alternative") }}</em>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
-      {% endif %}
-    </div>
-    {% endfor %}
-    {% if a.considered %}
-    <h2 class="sec">Considered</h2>
-    {% for c in a.considered %}
-    <div class="choice"><div class="head">{{ dim_ref(c.dimension) }} <span class="arrow">→</span> {{ value_ref(c.value) }} {{ drivers(c.drivers) }}</div>{% if c.reason %}<p>{{ c.reason }}</p>{% endif %}</div>
-    {% endfor %}
-    {% endif %}
-    {% if a.open %}
-    <h2 class="sec">Left open</h2>
-    {% for o in a.open %}
-    <div class="choice"><div class="head">{{ dim_ref(o.dimension) }}</div>{% if o.reason %}<p>{{ o.reason }}</p>{% endif %}</div>
-    {% endfor %}
-    {% endif %}
-    {% if a.relations %}
-    <h2 class="sec">Relations</h2>
-    <ul>
-      {% for r in a.relations %}
-      <li>{% if r.source %}{{ dim_ref(r.source) }}{% else %}{{ r.source_label }}{% endif %} <em>{{ r.type }}</em> {% if r.target %}{{ dim_ref(r.target) }}{% else %}{{ r.target_label }}{% endif %}{% if not r.holds %} <span class="muted">(does not hold here)</span>{% endif %}{% if r.note %}: {{ r.note }}{% endif %}</li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-  </section>
-  {% endfor %}
   {% if d.alternatives|length > 1 %}
   <section class="panel" data-panel="compare" hidden>
     <p class="hint">One row per dimension involved; the rows where the alternatives differ come first.</p>
@@ -331,6 +340,9 @@
   alts.forEach((a) => a.choices.forEach((c) => c.value && pointValues.add(c.value)));
   const consideredValues = new Set();
   alts.forEach((a) => a.considered.forEach((c) => c.value && consideredValues.add(c.value)));
+  const options = new Map();  // "ADR:option" -> option, from every ADR
+  (data.adrs || []).forEach((r) => r.options.forEach((o) => {
+    options.set(o.key, o); Object.values(o.point).forEach((v) => consideredValues.add(v)); }));
   const exploredDims = new Set([...pointValues].map((v) => (data.values[v] || {}).dimension).filter(Boolean));
   const nodes = [{ id: "domain", kind: "domain", label: data.space ? (data.space.domain || "") : data.title }];
   const edges = [];
@@ -442,12 +454,17 @@
     fit();
   }
   layout();
+  // A requirement no design point is judged against: drawn hollow, with a dashed outline.
+  const judgedReqs = new Set(links.filter((e) => e.type === "assess").map((e) => e.target));
+  nodeSel.classed("unjudged", (d) => d.kind === "requirement" && !judgedReqs.has(d.id));
+  nodeSel.filter((d) => d.kind === "requirement" && !judgedReqs.has(d.id)).select("title")
+    .text((d) => d.req + ": " + d.text + " (no design point is judged against it)");
   const toggle = document.getElementById("show-all");
   if (toggle) toggle.addEventListener("change", () => { showAll = toggle.checked; layout(); });
 
   // The active view: the trajectory (every step's point, or the selected step's), one alternative, or the compare
   // view (every alternative). Explored dimensions and values stay coloured in every view; the point shown is outlined.
-  let view = steps.length ? "trajectory" : alts.length ? alts[0].id : "compare", selected = null, selectedStep = null;
+  let view = "adrs", selected = null, selectedStep = null, selectedAlt = null, selectedOption = null;
   const explored = (d) => d.kind === "value" ? pointValues.has(d.id) : d.kind === "dimension" ? exploredDims.has(d.id) : true;
   linkSel.classed("explored", (d) => (d.type === "has_value" && pointValues.has(d.target))
     || (d.type === "domain" && exploredDims.has(d.target)));
@@ -456,7 +473,11 @@
     const lit = new Set();
     const add = (s) => { if (!s) return; lit.add(pid(s.step)); Object.values(s.point).forEach((v) => lit.add(v)); };
     if (view === "trajectory") { if (selectedStep !== null) add(stepOf(selectedStep)); return lit; }
-    alts.filter((a) => view === "compare" || a.id === view).forEach((a) => {
+    if (view === "adrs" && selectedOption) {
+      const o = options.get(selectedOption); Object.values(o.point).forEach((v) => lit.add(v)); if (o.step) lit.add(pid(o.step));
+      return lit;
+    }
+    alts.filter((a) => view === "compare" || (view === "adrs" && a.id === selectedAlt)).forEach((a) => {
       add(stepOf(a.step)); a.choices.forEach((c) => c.value && lit.add(c.value)); });
     return lit;
   }
@@ -471,10 +492,12 @@
     linkSel.classed("shown", (d) => (d.type === "member" && lit.has(d.target)) || (d.type === "assess" && lit.has(d.source)));
     document.querySelectorAll("[data-step]").forEach((el) =>
       el.classList.toggle("sel", view === "trajectory" && selectedStep !== null && Number(el.dataset.step) === selectedStep));
+    document.querySelectorAll(".solution").forEach((el) => el.classList.toggle("sel", el.dataset.alt === selectedAlt));
+    document.querySelectorAll(".option").forEach((el) => el.classList.toggle("sel", el.dataset.option === selectedOption));
   }
   // A selected node's lineage in the tree (domain -> dimension -> value -> design point -> requirement): its
-  // ancestors up to the centre, and the paths down from it to design points (and, from a point, to the
-  // requirements it is judged against). A requirement lights the points judged against it and their ancestors.
+  // ancestors up to the centre, and the paths down from it through design points to the requirements they are
+  // judged against. A requirement lights the points judged against it and their ancestors.
   function lineage(id) {
     const keep = new Set([id, "domain"]);
     const up = (vid) => { keep.add(vid); const v = data.values[vid]; if (v) keep.add(v.dimension); };
@@ -486,8 +509,10 @@
     else if (n.kind === "dimension") (data.dimensions[id].values || []).filter((v) => pointValues.has(v))
       .forEach((v) => { up(v); pointsWith(v); });
     else if (n.kind === "value") { up(id); pointsWith(id); }
-    else if (n.kind === "point") { pointUp(id); links.filter((e) => e.type === "assess" && e.source === id).forEach((e) => keep.add(e.target)); }
+    else if (n.kind === "point") pointUp(id);
     else if (n.kind === "requirement") links.filter((e) => e.type === "assess" && e.target === id).forEach((e) => pointUp(e.source));
+    if (n.kind !== "requirement")  // down to the requirements the kept points are judged against
+      links.filter((e) => e.type === "assess" && keep.has(e.source)).forEach((e) => keep.add(e.target));
     return keep;
   }
   function highlight(id) {
@@ -498,7 +523,7 @@
   }
   const HINT = '<p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p>';
   function clearSelection() {
-    selected = null; selectedStep = null;
+    selected = null; selectedStep = null; selectedAlt = null; selectedOption = null;
     nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
     document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
     document.getElementById("info").innerHTML = HINT;
@@ -594,6 +619,41 @@
   document.querySelectorAll(".step-h, ol.steps li, .region").forEach((el) => el.addEventListener("click", (e) => {
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;
     selectStep(Number(el.dataset.step));
+  }));
+  // The ADRs tab: an alternative or an option lights its point in the graph; a step link opens the trajectory.
+  function altInfo(a) {
+    const rows = a.choices.map((c) => "<li>" + dlabel(c.dimension) + " → " + vlabel(c.value)
+      + (c.drivers.length ? ' <span class="muted">' + c.drivers.map(esc).join(", ") + "</span>" : "")
+      + (c.reason ? "<br>" + esc(c.reason) : "") + (c.quote ? '<div class="quote">“' + esc(c.quote) + "”</div>" : "")
+      + (c.evidence.length ? '<br><span class="ev">evidence: ' + ev(c.evidence) + "</span>" : "") + "</li>").join("");
+    return '<div class="kind">' + (data.mode === "explain" ? "the solution" : "alternative") + "</div><h2>" + esc(altName(a)) + "</h2>"
+      + (a.summary ? "<p>" + esc(a.summary) + "</p>" : "") + "<ul>" + rows + "</ul>";
+  }
+  function optionInfo(o) {
+    const pts = Object.entries(o.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
+    return '<div class="kind">option · ' + esc(o.status) + (o.in.length ? " in " + esc(o.in.join(", ")) : "") + "</div><h2>"
+      + esc(o.name) + "</h2><ul>" + pts + "</ul>" + (o.reason ? "<p>" + esc(o.reason) + "</p>" : "");
+  }
+  function showInfo(html) {
+    const info = document.getElementById("info"); info.innerHTML = html;
+    info.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => select(el.dataset.id)));
+  }
+  document.querySelectorAll(".solution").forEach((el) => el.addEventListener("click", (e) => {
+    if (e.target.closest("a") || e.target.closest("[data-node]")) return;
+    const a = alts.find((x) => x.id === el.dataset.alt); if (!a) return;
+    selected = null; selectedOption = null; selectedAlt = a.id;
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
+    applyView(); showInfo(altInfo(a));
+  }));
+  document.querySelectorAll(".option").forEach((el) => el.addEventListener("click", (e) => {
+    if (e.target.closest("a") || e.target.closest("[data-node]")) return;
+    const o = options.get(el.dataset.option); if (!o) return;
+    selected = null; selectedAlt = null; selectedOption = o.key;
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
+    applyView(); showInfo(optionInfo(o));
+  }));
+  document.querySelectorAll("[data-goto-step]").forEach((el) => el.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation(); selectStep(Number(el.dataset.gotoStep));
   }));
   // The lineage: an arc from each step's parent column to its own, above the grid.
   function drawLineage() {

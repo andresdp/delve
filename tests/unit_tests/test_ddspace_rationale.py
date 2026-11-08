@@ -1,4 +1,4 @@
-"""ddspace rationale check: the ddspace-rationale/3 file, its structural rules and its rules against a space."""
+"""ddspace rationale check: the ddspace-rationale/4 file, its structural rules and its rules against a space."""
 
 import copy
 import hashlib
@@ -76,6 +76,15 @@ def _explain(uncovered=2):
     ]
     doc["regions"] = [{"id": "G1", "name": "Disk quorum", "values": ["v:1.1"], "step": 2, "drivers": ["Q1"],
                        "reason": "Durability on one node failure forces a quorum of local disks."}]
+    doc["adrs"] = [
+        {"id": "ADR1", "title": "Where the truth lives", "drivers": ["Q1"], "context": "c", "options": [
+            {"id": "O1", "name": "Disk quorum", "values": ["v:1.1"], "status": "chosen", "in": ["S"], "step": 2,
+             "pros": ["survives a node failure"], "cons": [], "reason": "r"},
+            {"id": "O2", "name": "WAL in S3", "values": ["v:1.2"], "status": "discarded", "pros": [], "cons": ["c"],
+             "reason": "r"}]},
+        {"id": "ADR2", "title": "How replicas agree", "drivers": ["R1"], "context": "c", "options": [
+            {"id": "O1", "name": "Three-phase commit", "values": ["v:2.1"], "status": "chosen", "in": ["S"],
+             "pros": [], "cons": [], "reason": "r"}]}]
     doc["uncovered"] = [
         {"decision": "Backup schedule", "solution_quote": "nightly snapshots", "nearest_dimension_id": "d:1"},
         {"decision": "Client library", "solution_quote": "a Go client", "nearest_dimension_id": None},
@@ -112,6 +121,13 @@ def _own():
                            {"id": "B", "idea": "what if S3?", "status": "live"}],
                alternatives=[alt("A1", "A", 1, "v:1.1"), alt("A2", "B", 2, "v:1.2")],
                trajectory=[step(1, "seed", "A", "v:1.1"), step(2, "seed", "B", "v:1.2")],
+               adrs=[{"id": "ADR1", "title": "Store", "drivers": ["Q1"], "context": "c", "options": [
+                   {"id": "O1", "name": "Local disks", "values": ["v:1.1"], "status": "chosen", "in": ["A1"],
+                    "pros": ["p"], "cons": ["c"], "reason": "r"},
+                   {"id": "O2", "name": "S3", "values": ["v:1.2"], "status": "chosen", "in": ["A2"],
+                    "pros": ["p"], "cons": ["c"], "reason": "r"},
+                   {"id": "O3", "name": "Postgres", "values": ["v:1.3"], "status": "discarded",
+                    "pros": [], "cons": ["too heavy"], "reason": "r"}]}],
                comparison=[{"dimension_id": "d:1", "note": "disks versus S3"}])
     return doc
 
@@ -179,7 +195,7 @@ def test_a_missing_field_is_a_schema_error(graph):
 
 def test_a_wrong_schema_tag_or_mode_is_a_schema_error():
     doc = _own()
-    doc["schema"], doc["mode"] = "ddspace-rationale/2", "browse"
+    doc["schema"], doc["mode"] = "ddspace-rationale/3", "browse"
     assert {("schema", "/schema"), ("schema", "/mode")} <= _codes(rationale.check(doc))
 
 
@@ -242,6 +258,7 @@ def test_own_space_explain_with_uncovered_items_is_a_schema_error():
     doc["trajectory"] = [dict(step, move="solution", verdict="grounded")]
     doc["regions"] = [{"id": "G1", "name": "Local disks", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"],
                        "reason": "r"}]
+    doc["adrs"][0]["options"] = [dict(doc["adrs"][0]["options"][0], **{"in": ["S"]}), doc["adrs"][0]["options"][2]]
     doc["uncovered"] = [{"decision": "Backups", "solution_quote": "nightly", "nearest_dimension_id": None}]
     assert ("schema", "/uncovered") in _codes(rationale.check(doc))
     doc["uncovered"] = []
@@ -696,3 +713,59 @@ def test_explain_has_no_approaches(graph):
     doc = _explain()
     doc["approaches"] = _sample()["approaches"]
     assert ("schema", "/approaches") in _codes(_check(doc, graph))
+
+
+
+# ---------------------------------------------------------------- schema 4: ADRs
+
+
+def test_adrs_are_required_and_name_known_requirements(graph):
+    doc = _sample()
+    del doc["adrs"]
+    assert ("schema", "/adrs") in _codes(_check(doc, graph))
+    doc = _sample()
+    doc["adrs"][0]["drivers"] = ["Q1", "Z9"]
+    assert ("unknown_requirement", "/adrs/0/drivers/1") in _codes(_check(doc, graph))
+
+
+def test_every_alternative_value_is_in_a_chosen_option(graph):
+    doc = _sample()
+    doc["adrs"][1]["options"][0]["status"] = "discarded"
+    del doc["adrs"][1]["options"][0]["in"]
+    codes = _codes(_check(doc, graph))
+    assert ("not_in_adr", "/alternatives/0/choices/1") in codes   # A1's v:2.1 is in no chosen option
+    assert ("schema", "/adrs/1/options") in codes                 # and ADR2 then chooses nothing
+
+
+def test_a_chosen_option_is_part_of_the_alternatives_it_names(graph):
+    doc = _sample()
+    doc["adrs"][0]["options"][0]["in"] = ["A1", "A2"]               # A2 does not take v:1.1
+    assert ("adr_mismatch", "/adrs/0/options/0/values") in _codes(_check(doc, graph))
+    doc["adrs"][0]["options"][0]["in"] = ["A9"]
+    assert ("adr_mismatch", "/adrs/0/options/0/in/0") in _codes(_check(doc, graph))
+    doc["adrs"][0]["options"][0]["in"] = []
+    assert ("schema", "/adrs/0/options/0/in") in _codes(_check(doc, graph))
+
+
+def test_option_fields_status_step_and_one_value_per_dimension(graph):
+    doc = _sample()
+    option = doc["adrs"][1]["options"][1]
+    option.update(status="maybe", pros=[""], values=["v:2.2", "v:2.3"], step=1)
+    option["in"] = ["A1"]
+    codes = _codes(_check(doc, graph))
+    assert ("schema", "/adrs/1/options/1/status") in codes
+    assert ("schema", "/adrs/1/options/1/pros/0") in codes
+    assert ("two_values_one_dimension", "/adrs/1/options/1/values/1") in codes
+    assert ("step_mismatch", "/adrs/1/options/1/step") in codes    # step 1 did not evaluate v:2.2
+    doc = _sample()
+    doc["adrs"][1]["options"][1]["in"] = ["A1"]                     # discarded, yet in an alternative
+    assert ("schema", "/adrs/1/options/1/in") in _codes(_check(doc, graph))
+
+
+def test_explain_adrs_choose_the_solutions_option_once(graph):
+    doc = _explain()
+    doc["adrs"][0]["options"][1].update(status="chosen", **{"in": ["S"]})
+    assert ("schema", "/adrs/0/options") in _codes(_check(doc, graph))
+    doc = _explain()
+    doc["adrs"][1]["options"][0]["in"] = ["A1"]
+    assert ("adr_mismatch", "/adrs/1/options/0/in") in _codes(_check(doc, graph))

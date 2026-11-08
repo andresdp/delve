@@ -1,6 +1,6 @@
 ---
 name: ddspace-search
-description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/3) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
+description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/4) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
 ---
 <!-- {{ marker }} -->
 
@@ -93,13 +93,20 @@ on small variations of a point that already works.
    `approach`; its choices are exactly that step's values, each with the requirement ids it serves (`drivers`)
    and a `reason`. List in `considered` the values it weighed and set aside (from its approach's other members),
    in `open` the dimensions no requirement settles, and in `relations` the relations you rely on.
-9. **Comparison.** For each dimension on which the alternatives differ, say how in `comparison`.
+9. **ADRs.** Describe the alternatives as architecture decision records (`adrs`). Group the requirements into
+   small sets of related ones and write one ADR per set: its `drivers`, a `title`, the `context` (what the drivers
+   demand, what pulls against them) and its `options`. An option is a partial design point on the dimensions
+   those drivers bear on (`values`), with its `pros`, its `cons` and a `reason`, and the `step` that evaluated it
+   when one did. An option an alternative takes is `chosen`, with the alternatives that take it in `in` (two
+   alternatives with the same values share one option); an option you evaluated or weighed and set aside is
+   `discarded`. Every value of every alternative belongs to a chosen option of some ADR. A requirement no ADR
+   addresses is left unaddressed on purpose: say so in your summary.
 10. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
 11. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
    again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
 12. **Present the alternatives.** Summarize the search (the approaches, which ones you refined, dropped and added,
-   and why), then the alternatives and the comparison. In interactive use (not in a study session), finish with
+   and why), then the alternatives and the ADRs. In interactive use (not in a study session), finish with
    `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
    with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
    into the wiki instead).
@@ -118,7 +125,7 @@ Without a space (with one, the reference gives the `space` part):
 
 ```json
 {
-  "schema": "ddspace-rationale/3",
+  "schema": "ddspace-rationale/4",
   "id": "<id>",
   "mode": "search",
   "space": {
@@ -196,8 +203,23 @@ Without a space (with one, the reference gives the `space` part):
       "relations": []
     }
   ],
-  "comparison": [
-    {"dimension_id": "d:1", "note": "<how the alternatives differ on it>"}
+  "adrs": [
+    {"id": "ADR1", "title": "<the decision>", "drivers": ["C1"], "context": "<what the drivers demand>",
+     "options": [
+       {"id": "O1", "name": "<short name>", "values": ["v:1.1"], "status": "chosen", "in": ["A1"], "step": 4,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<why A1 takes it>"},
+       {"id": "O2", "name": "<short name>", "values": ["v:1.2"], "status": "chosen", "in": ["B1"], "step": 2,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<why B1 takes it>"}
+     ]},
+    {"id": "ADR2", "title": "<the decision>", "drivers": ["R1", "Q1"], "context": "<…>",
+     "options": [
+       {"id": "O1", "name": "<short name>", "values": ["v:2.1", "v:3.2"], "status": "chosen", "in": ["A1"], "step": 4,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"},
+       {"id": "O2", "name": "<short name>", "values": ["v:2.2"], "status": "chosen", "in": ["B1"], "step": 2,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"},
+       {"id": "O3", "name": "<short name>", "values": ["v:3.1"], "status": "discarded", "step": 3,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<why it was set aside>"}
+     ]}
   ],
   "uncovered": []
 }

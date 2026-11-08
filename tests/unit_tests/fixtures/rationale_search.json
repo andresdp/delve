@@ -1,5 +1,5 @@
 {
-  "schema": "ddspace-rationale/3",
+  "schema": "ddspace-rationale/4",
   "id": "toy-store-search",
   "mode": "search",
   "space": {
@@ -205,6 +205,99 @@
       "relations": [],
       "step": 3,
       "approach": "B"
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where the source of truth lives",
+      "drivers": [
+        "Q1",
+        "C1"
+      ],
+      "context": "No committed write may be lost when a node fails, and the team already runs everything on S3.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "A quorum of local disks",
+          "values": [
+            "v:1.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "Survives one node failure without any external service."
+          ],
+          "cons": [
+            "Adds disks to run next to S3."
+          ],
+          "reason": "Durability without depending on S3 for every write."
+        },
+        {
+          "id": "O2",
+          "name": "A write-ahead log in S3",
+          "values": [
+            "v:1.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 3,
+          "pros": [
+            "Uses the platform the team already runs."
+          ],
+          "cons": [
+            "Every write depends on S3."
+          ],
+          "reason": "Fits the S3 constraint."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How replicas agree on a write",
+      "drivers": [
+        "R1"
+      ],
+      "context": "With the truth on local disks, a write must be visible on every node before it is acknowledged.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three-phase commit",
+          "values": [
+            "v:2.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "A write is visible on every node when acknowledged."
+          ],
+          "cons": [
+            "Slower writes."
+          ],
+          "reason": "R1 asks for every committed write on all nodes."
+        },
+        {
+          "id": "O2",
+          "name": "Another replication scheme",
+          "values": [
+            "v:2.2"
+          ],
+          "status": "discarded",
+          "pros": [],
+          "cons": [
+            "Does not make writes visible everywhere at once."
+          ],
+          "reason": "Misses R1."
+        }
+      ]
     }
   ],
   "comparison": [

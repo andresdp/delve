@@ -1,4 +1,4 @@
-"""The design rationale file (``ddspace-rationale/3``) and its checker, with no ``jsonschema`` dependency.
+"""The design rationale file (``ddspace-rationale/4``) and its checker, with no ``jsonschema`` dependency.
 
 A dimension is a design concern, a value one option for it, and a design point a set of values, at most one per
 dimension. A coding agent writes one rationale file per problem, with the ``trajectory`` of design points it
@@ -13,6 +13,11 @@ given solution to one point (the ``solution`` step and the alternative ``id: "S"
 solution and say whether the requirements ``force`` them), evaluates partial points of it (``region``,
 ``contrast``) with a ``verdict``, and names the 1-3 ``regions`` that best justify it, plus the ``uncovered``
 decisions a wiki has no dimension for.
+
+Both modes describe their solution(s) as ``adrs``: architecture decision records, each addressing a few related
+requirements (``drivers``) with ``options``, partial design points that are ``chosen`` (``in`` the alternatives
+that take them) or ``discarded``, each with its ``pros`` and ``cons``. Every value an alternative takes is in a
+chosen option of some ADR.
 
 Every file names its values by id (``d:1``, ``v:1.2``) against a space. Either the space is a DelveDSpace wiki
 (``space: {workspace, run, graph_sha256}``), and ``check`` tests the ids against ``raw/graph.json`` when it is
@@ -31,7 +36,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from taxonomy_generator.wiki import query as q
 
-SCHEMA = "ddspace-rationale/3"
+SCHEMA = "ddspace-rationale/4"
 MODES = ("search", "explain")
 SEARCH_ALTERNATIVES = (2, 4)
 EXPLAIN_ID = "S"
@@ -40,6 +45,7 @@ RATINGS = ("strong", "mixed", "weak")                 # a search step's rating
 VERDICTS = ("grounded", "partial", "ungrounded")      # an explain step's verdict
 ASSESSMENTS = ("meets", "partly", "misses")           # a step's judgment of one requirement
 STATUSES = ("live", "dropped")                        # a search approach
+OPTION_STATUSES = ("chosen", "discarded")             # an ADR option
 ROOT_MOVES = ("seed", "solution")                     # a step without a parent
 PARENT_MOVES = ("exploit", "ablate", "region", "contrast")  # a step that needs one (explore may name one or not)
 SAME_APPROACH_MOVES = ("exploit", "ablate")           # a search step that stays in its parent's approach
@@ -54,7 +60,8 @@ _Spec = Dict[str, Tuple[str, bool]]
 _TYPES = {"text": str, "string": str, "list": list, "object": dict, "boolean": bool, "integer": int}
 _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", True),
                "space": ("object", True), "problem": ("object", True), "budget": ("object", True),
-               "trajectory": ("list", True), "alternatives": ("list", True), "approaches": ("list", False),
+               "trajectory": ("list", True), "alternatives": ("list", True), "adrs": ("list", True),
+               "approaches": ("list", False),
                "comparison": ("list", False), "regions": ("list", False), "uncovered": ("list", False)}
 _BUDGET: _Spec = {"max_points": ("integer", True)}
 _STEP: _Spec = {"step": ("integer", True), "move": ("text", True), "parent": ("integer|null", False),
@@ -66,6 +73,11 @@ _APPROACH: _Spec = {"id": ("text", True), "idea": ("text", True), "status": ("te
                     "dropped_because": ("string|null", False)}
 _REGION: _Spec = {"id": ("text", True), "name": ("string", True), "values": ("list", True),
                   "step": ("integer", True), "drivers": ("list", True), "reason": ("string", True)}
+_ADR: _Spec = {"id": ("text", True), "title": ("text", True), "drivers": ("list", True), "context": ("string", True),
+               "options": ("list", True), "consequences": ("string", False)}
+_OPTION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list", True), "status": ("text", True),
+                  "in": ("list", False), "pros": ("list", True), "cons": ("list", True), "reason": ("string", True),
+                  "step": ("integer|null", False)}
 _WIKI: _Spec = {"workspace": ("string", True), "run": ("string", True), "graph_sha256": ("text", True)}
 _OWN: _Spec = {"dimensions": ("list", True), "relations": ("list", False)}
 _OWN_DIMENSION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list", True)}
@@ -363,6 +375,7 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
     steps = _trajectory(c, doc, mode, requirements, approaches)
     _alternatives(c, doc, mode, requirements, steps, approaches)
     _regions(c, doc, mode, requirements, steps)
+    _adrs(c, doc, mode, requirements, steps)
 
     for i, item in enumerate(c.items(doc, "comparison")):
         parts = ("comparison", i)
@@ -774,6 +787,106 @@ def _alternative_approach(c: _Checker, alt: Mapping[str, Any], i: int, step: Opt
     if step.get("rating") == "weak":
         c.add("step_mismatch", pointer("alternatives", i, "step"),
               f"step {step.get('step')} is rated weak: propose only strong or mixed points")
+
+
+def _alternative_values(doc: Mapping[str, Any]) -> Dict[str, List[Tuple[int, int, str]]]:
+    """Return ``{alternative id: [(alternative index, choice index, value id)]}`` for the well-formed choices."""
+    found: Dict[str, List[Tuple[int, int, str]]] = {}
+    for i, alt in enumerate(doc.get("alternatives") or []):
+        if not isinstance(alt, dict) or not isinstance(alt.get("id"), str):
+            continue
+        for j, choice in enumerate(alt.get("choices") or []):
+            if isinstance(choice, dict) and isinstance(choice.get("value_id"), str):
+                found.setdefault(alt["id"], []).append((i, j, choice["value_id"]))
+    return found
+
+
+def _adrs(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: set,
+          steps: Mapping[int, Dict[str, Any]]) -> None:
+    """Check the ADRs: drivers, options as partial design points, chosen options inside the alternatives that
+    take them, and every alternative's values in some chosen option (``not_in_adr``)."""
+    adrs = doc.get("adrs")
+    if not isinstance(adrs, list):
+        return
+    if not adrs:
+        c.add("schema", "/adrs", "the solution(s) are described as at least one ADR")
+    alt_values = _alternative_values(doc)
+    taken = {a: {v for _, _, v in vs} for a, vs in alt_values.items()}
+    covered: set = set()  # (alternative id, value id) in some chosen option that names the alternative
+    seen: set = set()
+    for i, adr in enumerate(adrs):
+        parts = ("adrs", i)
+        if not c.fields(adr, parts, _ADR):
+            continue
+        if c.good(adr, "id"):
+            if adr["id"] in seen:
+                c.add("schema", pointer(*parts, "id"), f"duplicate ADR id '{adr['id']}'")
+            seen.add(adr["id"])
+        if not c.items(adr, "drivers") and isinstance(adr.get("drivers"), list):
+            c.add("schema", pointer(*parts, "drivers"), "an ADR addresses at least one requirement")
+        _drivers(c, adr, parts, requirements)
+        options = c.items(adr, "options")
+        chosen = 0
+        option_ids: set = set()
+        for j, option in enumerate(options):
+            oparts = (*parts, "options", j)
+            if not c.fields(option, oparts, _OPTION):
+                continue
+            if c.good(option, "id"):
+                if option["id"] in option_ids:
+                    c.add("schema", pointer(*oparts, "id"), f"duplicate option id '{option['id']}' in the ADR")
+                option_ids.add(option["id"])
+            c.one_of(option, "status", oparts, OPTION_STATUSES, "option statuses")
+            for key in ("pros", "cons"):
+                for k, item in enumerate(c.items(option, key)):
+                    if not isinstance(item, str) or not item.strip():
+                        c.add("schema", pointer(*oparts, key, k), f"expected a non-empty string, got {_what(item)}")
+            key = _point_values(c, c.items(option, "values"), (*oparts, "values"), f"option '{option.get('id')}'")
+            names = [a for a in c.items(option, "in") if isinstance(a, str)]
+            if option.get("status") == "chosen":
+                chosen += 1
+                if not names:
+                    c.add("schema", pointer(*oparts, "in"), "a chosen option names the alternatives that take it (in)")
+                if mode == "explain" and names and names != [EXPLAIN_ID]:
+                    c.add("adr_mismatch", pointer(*oparts, "in"),
+                          f"in explain, the chosen option is the solution's: in is ['{EXPLAIN_ID}']")
+                for k, name in enumerate(names):
+                    if name not in taken:
+                        c.add("adr_mismatch", pointer(*oparts, "in", k),
+                              f"'{name}' is not an alternative (the alternatives: {', '.join(taken) or 'none'})",
+                              list(taken))
+                        continue
+                    for v in c.items(option, "values"):
+                        if isinstance(v, str) and v not in taken[name]:
+                            c.add("adr_mismatch", pointer(*oparts, "values"),
+                                  f"alternative '{name}' does not take {v}: a chosen option is part of the "
+                                  f"alternatives it names", sorted(taken[name]))
+                        elif isinstance(v, str):
+                            covered.add((name, v))
+            elif option.get("status") == "discarded" and names:
+                c.add("schema", pointer(*oparts, "in"), "a discarded option is in no alternative: leave in empty")
+            number = option.get("step")
+            if _integer(number):
+                entry = steps.get(number)
+                if entry is None:
+                    c.add("step_mismatch", pointer(*oparts, "step"),
+                          f"option '{option.get('id')}' names step {number}, which the trajectory does not have")
+                elif key is not None and entry["key"] is not None and not key <= entry["key"]:
+                    c.add("step_mismatch", pointer(*oparts, "step"),
+                          f"step {number} did not evaluate {', '.join(sorted(key - entry['key']))}: an option's "
+                          "step evaluated a point that takes all its values")
+        if not options and isinstance(adr.get("options"), list):
+            c.add("schema", pointer(*parts, "options"), "an ADR weighs at least one option")
+        elif options and not chosen:
+            c.add("schema", pointer(*parts, "options"), "an ADR records a decision: at least one option is chosen")
+        elif mode == "explain" and chosen > 1:
+            c.add("schema", pointer(*parts, "options"), "in explain, an ADR has one chosen option, the solution's")
+    for name, values in alt_values.items():
+        for i, j, v in values:
+            if (name, v) not in covered:
+                c.add("not_in_adr", pointer("alternatives", i, "choices", j),
+                      f"alternative '{name}' takes {v}, but no ADR has a chosen option with it in '{name}': "
+                      "describe every decision in an ADR")
 
 
 # ---------------------------------------------------------------- the workspace's rationale/ folder

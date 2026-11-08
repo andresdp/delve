@@ -69,7 +69,7 @@ def _no_space(case_id="kv-store"):
     step = lambda n, approach, c: {"step": n, "round": 1, "approach": approach, "move": "seed",  # noqa: E731
                                    "values": [c["value_id"]], "hypothesis": "h", "assessment": {"Q1": "meets"},
                                    "observation": "o", "rating": "strong"}
-    return {"schema": "ddspace-rationale/3", "id": case_id, "mode": "search",
+    return {"schema": "ddspace-rationale/4", "id": case_id, "mode": "search",
             "space": {"dimensions": [{"id": "d:1", "name": "Storage", "values": [
                 {"id": "v:1.1", "name": "Local disks"}, {"id": "v:1.2", "name": "Log in S3"}]}]},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No committed write is lost."}]},
@@ -79,12 +79,17 @@ def _no_space(case_id="kv-store"):
             "trajectory": [step(1, "A", choice), step(2, "B", other)],
             "alternatives": [{"id": "A1", "name": "Disks", "approach": "A", "step": 1, "choices": [choice]},
                              {"id": "A2", "name": "S3", "approach": "B", "step": 2, "choices": [other]}],
+            "adrs": [{"id": "ADR1", "title": "Storage", "drivers": ["Q1"], "context": "c", "options": [
+                {"id": "O1", "name": "Disks", "values": ["v:1.1"], "status": "chosen", "in": ["A1"], "pros": [],
+                 "cons": [], "reason": "r"},
+                {"id": "O2", "name": "S3", "values": ["v:1.2"], "status": "chosen", "in": ["A2"], "pros": [],
+                 "cons": [], "reason": "r"}]}],
             "uncovered": []}
 
 
 def _with_space(uncovered=()):
     """An explain file with ids, a passage, a source and uncovered items (not checked against a graph here)."""
-    return {"schema": "ddspace-rationale/3", "id": "kv-explain", "mode": "explain",
+    return {"schema": "ddspace-rationale/4", "id": "kv-explain", "mode": "explain",
             "space": {"workspace": "c1", "run": "r", "graph_sha256": "abc"},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No write is lost."}]},
             "alternatives": [{"id": "S", "name": "The solution", "choices": [
@@ -98,6 +103,9 @@ def _with_space(uncovered=()):
                             "assessment": {"Q1": "meets"}, "observation": "o", "verdict": "grounded",
                             "point": {"attested_by": ["s:s1"]}}],
             "regions": [{"id": "G1", "name": "g", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"], "reason": "r"}],
+            "adrs": [{"id": "ADR1", "title": "Storage", "drivers": ["Q1"], "context": "c", "options": [
+                {"id": "O1", "name": "Disks and quorum", "values": ["v:1.1", "v:2.10"], "status": "chosen", "in": ["S"],
+                 "pros": [], "cons": [], "reason": "r"}]}],
             "uncovered": list(uncovered)}
 
 

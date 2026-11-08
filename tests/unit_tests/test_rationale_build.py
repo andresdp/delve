@@ -63,6 +63,10 @@ def _search_with_a_shared_dimension():
         {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "Disks survive one failure.",
          "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": None}]
     doc["trajectory"][2]["values"] = ["v:1.1"]
+    shared, other = doc["adrs"][0]["options"]
+    shared["in"] = ["A1", "A2"]
+    other.update(status="discarded", **{"in": []})
+    del other["step"]
     doc["comparison"] = [{"dimension_id": "d:2", "note": "A1 commits in three phases; A2 leaves it open."}]
     return doc
 
@@ -80,8 +84,11 @@ def test_search_with_two_alternatives_renders_tabs_compare_and_wiki_links(ws, tm
     assert json.loads((ws / "rationale" / "toy-store-search.json").read_text(encoding="utf-8"))["id"] == \
         "toy-store-search"
     html = page.read_text(encoding="utf-8")
-    assert html.count('class="tab"') == 4  # the trajectory, A1, A2 and the compare view
-    assert 'data-tab="A1"' in html and 'data-tab="A2"' in html and 'data-tab="compare"' in html
+    assert html.count('class="tab"') == 3  # the ADRs, the trajectory and the compare view
+    assert html.index('data-tab="adrs"') < html.index('data-tab="trajectory"') < html.index('data-tab="compare"')
+    assert 'data-alt="A1"' in html and 'data-alt="A2"' in html
+    assert 'data-option="ADR1:O1"' in html and "chosen in A1, A2" in html and 'class="option discarded"' in html
+    assert '<li class="pro">' in html and '<li class="con">' in html
     rows = re.findall(r'<tr class="row(?: differs)?" data-dimension="([^"]+)"', html)
     assert rows == ["d:2", "d:1"]  # the differing dimension first
     assert 'class="row differs" data-dimension="d:2"' in html
@@ -121,7 +128,7 @@ def test_explain_shows_uncovered_quotes_and_values_offered_by_the_space(ws, tmp_
     assert 'data-tab="compare"' not in html  # one alternative: no compare view
     assert "Backup schedule" in html and "nightly snapshots" in html and "Client library" in html
     assert "data stays on each node&#39;s disk" in html and "a three-phase commit" in html
-    assert "offered by the space" in html
+    assert 'class="option chosen"' in html and 'class="option discarded"' in html
     assert "every decision mapped" not in html
 
 
@@ -581,3 +588,16 @@ def test_own_space_trajectory_uses_the_agents_own_space(tmp_path, monkeypatch):
     assert [s["approach"] for s in data["trajectory"]] == ["A", "B"] and data["approaches"][1]["idea"]
     assert data["relations"] == [{"source": "d:1", "target": "d:2", "type": "constrains", "directed": True,
                                   "reading": ""}]
+
+
+
+def test_the_adrs_tab_lists_requirements_no_adr_or_decision_addresses(ws):
+    doc = _sample()
+    doc["problem"]["requirements"].append({"id": "Q9", "kind": "quality", "text": "Nobody addresses this."})
+    data = _data(doc, ws)
+    assert data["unaddressed"] == ["Q9"]
+    assert [a["id"] for a in data["adrs"]] == ["ADR1", "ADR2"]
+    assert data["adrs"][0]["options"][0]["point"] == {"d:1": "v:1.1"} and data["adrs"][0]["options"][0]["key"] == "ADR1:O1"
+    html = explainer._render(data)
+    assert "Requirements not addressed" in html and 'data-requirement="Q9"' in html
+    assert "Every requirement is addressed" in explainer._render(_data(_sample(), ws))

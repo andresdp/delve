@@ -453,6 +453,12 @@ flowchart TB
 - **Files:** `src/delvedspace/rationale.py`, `src/delvedspace/rationale_cli.py`, `src/taxonomy_generator/wiki/explainer.py`, `src/taxonomy_generator/wiki/templates/explainer.html.j2`, `study/designing2027/run_sessions.py`, `study/designing2027/prompt.md`, `USAGE.md`, the rationale, build, skill and study tests and the shared fixture.
 - **Test scenarios:** own-space ids resolve, with candidates for unknown ones; rounds go up one at a time; exploit and ablate stay in the parent's approach; approaches and their drop reasons; one alternative per live approach, never weak; assessments name known requirements; explain choices carry `forced`; the page reads own spaces and the new step fields; an N file's ids are not counted as wiki ids. The page redesign for rounds and assessments is the next step, after the user's review.
 
+### U13. ADRs (schema 4) and the explainer's ADR tab
+
+- **Goal:** the user asked (2026-11-08) for the solution(s) to be described as ADRs, shown first, with the trajectory second, and for the graph to show design points and to light a node's lineage down to the requirements.
+- **Requirements:** R24. The file carries `adrs`: each with `drivers`, `context` and `options` (partial design points, `chosen` in named alternatives or `discarded`, with `pros`, `cons`, `reason` and an optional `step`). The checker requires every alternative value in a chosen option (`not_in_adr`) and chosen options inside the alternatives they name (`adr_mismatch`; in explain, one chosen option per ADR, in `S`). The page opens on an ADRs tab (alternatives, ADRs, requirements no ADR or decision addresses), then the trajectory, then compare; the per-alternative tabs are gone (their choices show when an alternative is selected). The graph has one design-point node per step, linked to its values and to the requirements its assessment judges; requirements no point is judged against are drawn hollow; selecting a node lights its lineage up to the centre and down through points to requirements; unexplored values are hidden behind a toggle.
+- **Files:** `src/delvedspace/rationale.py`, the skill templates, `src/taxonomy_generator/wiki/explainer.py`, `src/taxonomy_generator/wiki/templates/explainer.html.j2`, `src/taxonomy_generator/wiki/templates/graph-layout.js`, `USAGE.md`, the rationale, build, browser, skill and study tests.
+
 ## Verification Contract
 
 | Gate | Command or check | Applies to |

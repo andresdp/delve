@@ -1,6 +1,6 @@
 ---
 name: ddspace-explain
-description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/3) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/4) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
 ---
 <!-- {{ marker }} -->
 
@@ -79,12 +79,19 @@ solution may need only two or three steps.
    requirement ids it serves (`drivers`), `forced` (`true`, `false`, or `null` when no step settled it) and a
    `reason`. Its `step` is the solution step. Put in `considered` only the values the solution text says the
    designers weighed.
-10. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
-11. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
+10. **ADRs.** Describe the solution as architecture decision records (`adrs`). Group its values by the
+   requirements behind them (the regions are a good start) and write one ADR per group: its `drivers`, a `title`,
+   the `context` (what the drivers demand) and its `options`, each a partial design point (`values`) with its
+   `pros`, its `cons`, a `reason` and the `step` that evaluated it when one did. The solution's values for the
+   group are the one `chosen` option (`in: ["S"]`; say in `reason` whether the requirements force it). The
+   contrasts you evaluated and the options the solution says the designers weighed are `discarded` options.
+   Every value of the solution belongs to the chosen option of some ADR.
+11. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
+12. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
    again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
-12. **Present the explanation.** Summarize the regions that justify the solution, which values are forced and
-   which free, and the path you took. In interactive use (not in a study session), finish with
+13. **Present the explanation.** Summarize the ADRs and the regions that justify the solution, which values are
+   forced and which free, and the path you took. In interactive use (not in a study session), finish with
    `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
    with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
    into the wiki instead).
@@ -102,7 +109,7 @@ Without a space (with one, the reference gives the `space` part and the `uncover
 
 ```json
 {
-  "schema": "ddspace-rationale/3",
+  "schema": "ddspace-rationale/4",
   "id": "<id>",
   "mode": "explain",
   "space": {
@@ -152,6 +159,20 @@ Without a space (with one, the reference gives the `space` part and the `uncover
       "open": [],
       "relations": []
     }
+  ],
+  "adrs": [
+    {"id": "ADR1", "title": "<the decision>", "drivers": ["Q1"], "context": "<what the drivers demand>",
+     "options": [
+       {"id": "O1", "name": "<the solution's option>", "values": ["v:1.1"], "status": "chosen", "in": ["S"], "step": 2,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<forced or free, and why>"},
+       {"id": "O2", "name": "<a contrast>", "values": ["v:1.2"], "status": "discarded", "step": 3,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<why not>"}
+     ]},
+    {"id": "ADR2", "title": "<the decision>", "drivers": ["R1"], "context": "<…>",
+     "options": [
+       {"id": "O1", "name": "<the solution's option>", "values": ["v:2.1"], "status": "chosen", "in": ["S"],
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"}
+     ]}
   ],
   "uncovered": []
 }
