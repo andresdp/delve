@@ -49,6 +49,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from collections import Counter
 from dataclasses import dataclass
@@ -86,6 +87,8 @@ SKILL = {name.removeprefix("ddspace-"): name for name in agent.SKILLS}  # mode -
 SKILLS_VIA = ("files", "prompt")
 TIMEOUT = cain.TIMEOUT
 DDSPACE_TIMEOUT = 300                         # seconds for the runner's own check and build
+HEARTBEAT = 120                               # seconds without a progress line before "still running"
+POLL = 5                                      # seconds between checks of a running session
 _CASE_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 _WORD = re.compile(r"[A-Za-z0-9]+")
 # Words too common to be worth a graph search in the retrieval-miss lookup.
@@ -642,6 +645,104 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
     return rec
 
 
+# ---------------------------------------------------------------- progress while Codex runs
+
+
+def _clock(seconds: float) -> str:
+    return f"{int(seconds) // 60:02d}:{int(seconds) % 60:02d}"
+
+
+def progress(event: Mapping[str, Any], seconds: float, *, home: str = "", secrets: Iterable[str] = ()) -> Optional[str]:
+    """Return one console line for an event worth showing while a session runs, else None.
+
+    Shown: each ``ddspace`` command the agent ran (with whether it failed), each file it changed, and the end of a
+    turn. Nothing else (no messages or reasoning); the line is redacted like the summary.
+    """
+    item = event.get("item") or {}
+    stamp = f"    [{_clock(seconds)}] "
+    if event.get("type") == "turn.completed":
+        return stamp + "the agent finished"
+    if event.get("type") != "item.completed":
+        return None
+    if item.get("type") == "command_execution":
+        script = cain._inner(str(item.get("command") or ""))
+        calls = [args for args in cain._ddspace_calls(script) if args]
+        if not calls:
+            writes = "rationale/" in script and any(w in script for w in (">", "apply_patch", "tee "))
+            return stamp + "edited the rationale file" if writes else None
+        failed = "" if item.get("exit_code") in (0, None) else f"  (exit {item.get('exit_code')})"
+        text = "; ".join("ddspace " + " ".join(args) for args in calls)
+        text = design.redact(text, home, list(secrets)) if home else text
+        return stamp + (text if len(text) <= 110 else text[:107] + "...") + failed
+    if item.get("type") == "file_change":
+        names = [Path(str(c.get("path") or "")).name for c in item.get("changes") or [] if isinstance(c, dict)]
+        return stamp + "wrote " + ", ".join(n for n in names if n) if any(names) else None
+    return None
+
+
+def run_codex(argv: Sequence[str], *, input: str, env: Mapping[str, str], timeout: int,
+              show=print, home: str = "", secrets: Iterable[str] = ()) -> tuple:
+    """Run Codex, printing a progress line per event worth showing; return ``(stdout, stderr, exit code, timed out)``.
+
+    The event stream is read as it comes (``--json`` prints one event per line). After ``HEARTBEAT`` seconds with
+    no line shown, a "still running" line is printed. A session over ``timeout`` seconds is killed.
+    """
+    proc = subprocess.Popen(list(argv), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, env=dict(env))
+    out: List[str] = []
+    err: List[str] = []
+    start = time.monotonic()
+    last = [start]
+    commands = [0]
+    secrets = list(secrets)
+
+    def read_out() -> None:
+        for line in proc.stdout:
+            out.append(line)
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            if event.get("type") == "item.completed" and (event.get("item") or {}).get("type") == "command_execution":
+                commands[0] += 1
+            note = progress(event, time.monotonic() - start, home=home, secrets=secrets)
+            if note:
+                show(note)
+                last[0] = time.monotonic()
+
+    def read_err() -> None:
+        err.append(proc.stderr.read())
+
+    readers = [threading.Thread(target=read_out, daemon=True), threading.Thread(target=read_err, daemon=True)]
+    for r in readers:
+        r.start()
+    try:
+        proc.stdin.write(input)
+        proc.stdin.close()
+    except BrokenPipeError:
+        pass
+    timed_out = False
+    while True:
+        try:
+            proc.wait(timeout=POLL)
+            break
+        except subprocess.TimeoutExpired:
+            now = time.monotonic()
+            if now - start > timeout:
+                proc.kill()
+                proc.wait()
+                timed_out = True
+                break
+            if now - last[0] >= HEARTBEAT:
+                show(f"    [{_clock(now - start)}] still running ({commands[0]} commands so far)")
+                last[0] = now
+    for r in readers:
+        r.join(timeout=10)
+    return "".join(out), "".join(err), (None if timed_out else proc.returncode), timed_out
+
+
 # ---------------------------------------------------------------- one session
 
 
@@ -686,16 +787,10 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
     if not problems:
         env = _environment(session, cain._codex_home(root), ddspace_bin, key, oss)
         start = time.monotonic()
-        timed_out = False
-        try:
-            proc = subprocess.run(cain.NATIVE + argv, input=prompt_text(prompt, case, session.condition, extra),
-                                  capture_output=True, text=True, env=env, timeout=timeout)
-            stdout, stderr, record["exit_code"] = proc.stdout, proc.stderr, proc.returncode
-        except subprocess.TimeoutExpired as exc:
-            timed_out = True
-            stdout = exc.stdout.decode(errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
-            stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
-            record["exit_code"] = None
+        print(f"{session.id}: started (stops after {timeout // 60} min)", flush=True)  # noqa: T201
+        stdout, stderr, record["exit_code"], timed_out = run_codex(
+            cain.NATIVE + argv, input=prompt_text(prompt, case, session.condition, extra), env=env, timeout=timeout,
+            show=lambda line: print(line, flush=True), home=str(Path.home()), secrets=[key] if key else [])  # noqa: T201
         record["seconds"] = round(time.monotonic() - start, 1)
         if keep_raw:
             raw = results / "raw"

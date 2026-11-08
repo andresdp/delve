@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -374,6 +375,18 @@ def test_the_prompt_differs_across_conditions_only_in_the_space_note():
 # ---------------------------------------------------------------- a whole session (Codex faked, ddspace real)
 
 
+@pytest.fixture(autouse=True)
+def _codex_through_subprocess_run(monkeypatch):
+    """Route the streamed Codex call through ``subprocess.run``, so the tests' fakes of it stand in for Codex."""
+    def through_run(argv, *, input, env, timeout, show=print, home="", secrets=()):
+        proc = runner.subprocess.run(argv, input=input, capture_output=True, text=True, env=env, timeout=timeout)
+        return proc.stdout, proc.stderr, proc.returncode, False
+    monkeypatch.setattr(runner, "run_codex", through_run)
+
+
+REAL_RUN_CODEX = runner.run_codex
+
+
 def _fake(monkeypatch, stdout, doc=None, seen=None):
     def fake_run(argv, **kwargs):
         if "exec" in argv and "--json" in argv:                                # the codex session
@@ -496,3 +509,41 @@ def test_file_ids_are_the_wikis_only():
     """An N file's ids are the agent's own names, not the wiki's: none of them counts as a space id."""
     assert runner.file_ids(_no_space()) == []
     assert {"d:1", "v:1.1", "v:2.10", "s01_p01", "s:s1"} <= set(runner.file_ids(_with_space()))
+
+
+# ---------------------------------------------------------------- progress while Codex runs
+
+
+def test_progress_shows_ddspace_commands_file_changes_and_the_end_only():
+    cmd = lambda c, code=0: {"type": "item.completed", "item": {  # noqa: E731
+        "type": "command_execution", "command": f"/bin/zsh -lc '{c}'", "exit_code": code, "aggregated_output": ""}}
+    assert runner.progress(cmd("ddspace query values d:21"), 75) == "    [01:15] ddspace query values d:21"
+    assert runner.progress(cmd("ddspace rationale check rationale/x.json", 1), 5).endswith("(exit 1)")
+    assert runner.progress(cmd("ls -la"), 5) is None
+    assert runner.progress(cmd("cat > rationale/x.json <<EOF"), 5) == "    [00:05] edited the rationale file"
+    change = {"type": "item.completed", "item": {"type": "file_change",
+                                                 "changes": [{"path": "/w/rationale/x.json", "kind": "add"}]}}
+    assert runner.progress(change, 61) == "    [01:01] wrote x.json"
+    assert runner.progress({"type": "item.completed", "item": {"type": "agent_message", "text": "hi"}}, 1) is None
+    assert runner.progress({"type": "turn.completed"}, 600) == "    [10:00] the agent finished"
+
+
+def test_run_codex_streams_progress_and_kills_a_session_over_its_timeout(monkeypatch):
+    script = ("import json, sys, time\n"
+              "sys.stdin.read()\n"
+              "print(json.dumps({'type': 'item.completed', 'item': {'type': 'command_execution',"
+              " 'command': 'ddspace query dimensions', 'exit_code': 0}}), flush=True)\n"
+              "time.sleep(float(sys.argv[1]))\n"
+              "print(json.dumps({'type': 'turn.completed'}), flush=True)\n")
+    shown = []
+    out, err, code, timed_out = REAL_RUN_CODEX([sys.executable, "-c", script, "0"], input="prompt",
+                                                 env=dict(os.environ), timeout=30, show=shown.append)
+    assert code == 0 and not timed_out and len(out.splitlines()) == 2
+    assert [s.split("] ", 1)[1] for s in shown] == ["ddspace query dimensions", "the agent finished"]
+    monkeypatch.setattr(runner, "HEARTBEAT", 0)
+    monkeypatch.setattr(runner, "POLL", 0.2)
+    shown = []
+    out, err, code, timed_out = REAL_RUN_CODEX([sys.executable, "-c", script, "30"], input="prompt",
+                                                 env=dict(os.environ), timeout=1, show=shown.append)
+    assert timed_out and code is None and "ddspace query dimensions" in out
+    assert any("still running (1 commands so far)" in s for s in shown)

@@ -98,8 +98,22 @@ python study/designing2027/run_sessions.py \
   --results results-smoke --keep-raw --timeout 3600
 ```
 
-**You should see** a first line with the Codex version, the model and `skills via files`, then, after 5 to 30
-minutes, `fraud-search-M-r1: ok; check ok, N check runs`.
+**You should see** a first line with the Codex version, the model and `skills via files`, then
+`fraud-search-M-r1: started`, and progress lines while the agent works, each with the time since the start:
+
+```
+    [00:42] ddspace query dimensions
+    [01:10] ddspace query values d:21
+    [06:35] ddspace point v:21.7 v:43.2
+    [14:02] wrote fraud-search.json
+    [14:20] ddspace rationale check rationale/fraud-search.json  (exit 1)
+    [15:05] ddspace rationale check rationale/fraud-search.json
+    [15:30] the agent finished
+```
+
+A check that ends with `(exit 1)` found problems, which the agent then fixes: that is normal. When nothing has
+happened for two minutes, a `still running (N commands so far)` line shows the session is alive. The session ends
+with `fraud-search-M-r1: ok; check ok, N check runs`.
 
 **Did the agent use the skill?** It did if all of these hold:
 
