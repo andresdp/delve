@@ -118,7 +118,7 @@ def test_invalid_corpus_changes_nothing(ws, run_files, tmp_path):
     bad.write_text("{not json")
     result = _invoke("import", str(taxonomy), "--kind", "run", "--corpus", str(bad), "--sources", str(sources),
                      "--yes")
-    assert result.exit_code != 0 and "not valid JSON" in result.output
+    assert result.exit_code != 0 and "not valid JSON" in " ".join(result.output.split())  # output is wrapped
     assert ws.config()["workspace"]["current_run"] == before_run and sorted(ws.runs_dir.iterdir()) == before_runs
     assert not ws.sources_csv.exists()
 
