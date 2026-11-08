@@ -74,7 +74,14 @@
   tr.differs th { border-left: 3px solid var(--accent); }
   .node text { font-size: 11px; fill: var(--fg); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
   .node.greyed path.shape { opacity: .35; }
+  .node.greyed text { opacity: .5; }
+  .node.in-point text { font-weight: 600; }
+  .link.explored { stroke: var(--accent); stroke-opacity: .55; stroke-width: 1.4px; }
+  .link.on-path { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2.4px; }
   .node.dim-out, .link.dim-out { opacity: .1; }
+  .graph-key { font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 12px;
+    border-top: 1px solid var(--border); }
+  .graph-key b { color: var(--fg); font-weight: 600; }
   .traj-wrap { position: relative; }
   svg.lineage { display: block; width: 100%; height: 46px; overflow: visible; }
   table.traj { border-collapse: separate; border-spacing: 0; font-size: 12.5px; overflow-wrap: normal; word-break: normal; hyphens: none; }
@@ -272,6 +279,7 @@
 </main>
 <aside class="ex-side">
   <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg></div>
+  <div class="graph-key"><span><b>coloured</b>: explored by a step or chosen</span><span><b>outlined, bold</b>: the design point shown</span><span><b>grey</b>: offered by the space, not explored</span><span>select a node: its path to the centre and the paths from it to design points</span></div>
   <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
 </aside>
 </div>
@@ -350,7 +358,7 @@
   const labelReach = (ns) => d3.max(ns, (n) => radius(n) + 4 + measure(shortLabel(n.label)) + 3) || 0;
   const radialTargets = (nodes, links, cx, cy) => DelveLayout.radialTargets(nodes, links, cx, cy, {
     rings: ["domain", "dimension", "value", "requirement"], spacing: { dimension: 90, value: 30, requirement: 40 },
-    labelReach, restJitter: 0.08 });
+    labelReach, restJitter: 0.08, inward: ["dimension"], inset: { dimension: 60 } });
 
   const svg = d3.select("#svg"), g = svg.append("g");
   svg.append("defs").append("marker").attr("id", "arrow").attr("viewBox", "0 -5 10 10").attr("refX", 20).attr("refY", 0)
@@ -388,7 +396,8 @@
   nodeSel.append("path").attr("class", "shape").attr("d", shapePath);
   nodeSel.append("text").text((d) => d.kind === "domain" ? d.label : shortLabel(d.label));
   nodeSel.append("title").text((d) => d.kind === "requirement" ? d.req + ": " + d.text : d.label + (d.status ? " (" + d.status + ")" : ""));
-  const orientLabels = () => DelveLayout.orientLabels(nodeSel.select("text"), cx, cy, { radius, centreDy: "-1.4em" });
+  const orientLabels = () => DelveLayout.orientLabels(nodeSel.select("text"), cx, cy, { radius, centreDy: "-1.4em",
+    inward: (d) => d.kind === "dimension" });
   orientLabels();
   function fit() {
     const xs = nodes.map((d) => d.x), ys = nodes.map((d) => d.y), pad = 120;
@@ -402,39 +411,67 @@
   // compare view (every alternative's choices lit).
   const steps = data.trajectory || [];
   let view = steps.length ? "trajectory" : alts.length ? alts[0].id : "compare", selected = null, selectedStep = null;
-  const chosenIn = (vid) => alts.filter((a) => a.choices.some((c) => c.value === vid));
-  function applyView() {
+  // Explored: every value a design point of the page takes (a step's or an alternative's), and their dimensions.
+  const pointValues = new Set();
+  steps.forEach((s) => Object.values(s.point).forEach((v) => pointValues.add(v)));
+  alts.forEach((a) => a.choices.forEach((c) => c.value && pointValues.add(c.value)));
+  const exploredDims = new Set([...pointValues].map((v) => (data.values[v] || {}).dimension).filter(Boolean));
+  const explored = (d) => d.kind === "value" ? pointValues.has(d.id) : d.kind === "dimension" ? exploredDims.has(d.id) : true;
+  linkSel.classed("explored", (d) => (d.type === "has_value" && pointValues.has(d.target))
+    || (d.type === "domain" && exploredDims.has(d.target)));
+  // The design point shown: the selected step's, the trajectory's (none selected: every step's), an alternative's,
+  // or every alternative's in the compare view.
+  function shownPoint() {
     const lit = new Set();
     if (view === "trajectory") {
       steps.filter((s) => selectedStep === null || s.step === selectedStep)
         .forEach((s) => Object.values(s.point).forEach((v) => lit.add(v)));
+      if (selectedStep !== null) return lit;
     }
-    alts.filter((a) => view === "compare" || a.id === view).forEach((a) => a.choices.forEach((c) => c.value && lit.add(c.value)));
-    nodeSel.classed("greyed", (d) => d.kind === "value" && !lit.has(d.id))
-      .select("path.shape").attr("fill", (d) => d.kind === "value" && !lit.has(d.id) ? COLOR.muted : nodeColor(d))
-      .attr("stroke", (d) => d.id === selected ? COLOR.fg : d.kind === "value" && lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")
-      .attr("stroke-width", (d) => d.id === selected ? 3 : 1.5);
-    linkSel.classed("off", (d) => d.type === "drives" && view !== "compare" && d.alt !== view);
+    alts.filter((a) => view === "compare" || view === "trajectory" || a.id === view)
+      .forEach((a) => a.choices.forEach((c) => c.value && lit.add(c.value)));
+    return lit;
+  }
+  const linkOff = (d) => d.type === "drives" && view !== "compare" && d.alt !== view;  // drivers of the shown alternative(s)
+  function applyView() {
+    const lit = shownPoint();
+    const one = view !== "compare" && !(view === "trajectory" && selectedStep === null);  // one point: outline it
+    nodeSel.classed("greyed", (d) => !explored(d)).classed("in-point", (d) => one && lit.has(d.id))
+      .select("path.shape").attr("fill", (d) => explored(d) ? nodeColor(d) : COLOR.muted)
+      .attr("stroke", (d) => d.id === selected ? COLOR.fg : one && lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")
+      .attr("stroke-width", (d) => d.id === selected ? 3 : one && lit.has(d.id) ? 2.2 : 1.5)
+      .attr("transform", (d) => one && lit.has(d.id) ? "scale(1.45)" : null);
+    linkSel.classed("off", linkOff);
     document.querySelectorAll("[data-step]").forEach((el) =>
       el.classList.toggle("sel", view === "trajectory" && selectedStep !== null && Number(el.dataset.step) === selectedStep));
   }
-  function neighborhood(id) {
-    const keep = new Set([id]);
-    (adj.get(id) || new Set()).forEach((x) => { if (x !== "domain") keep.add(x); });
+  // A selected node's lineage in the tree (domain -> dimension -> value): its ancestors up to the centre, and the
+  // paths down from it that end in a value some design point takes. A requirement lights the values it drives and
+  // their ancestors; a value also keeps the requirements that drive it.
+  function lineage(id) {
+    const keep = new Set([id, "domain"]);
+    const up = (vid) => { keep.add(vid); const v = data.values[vid]; if (v) keep.add(v.dimension); };
     const n = byId.get(id);
-    if (n && n.kind === "value") (adj.get(n.dimension) || new Set()).forEach((x) => keep.add(x));
-    keep.add("domain");
+    if (!n) return keep;
+    if (n.kind === "domain") pointValues.forEach(up);
+    else if (n.kind === "dimension") (data.dimensions[id].values || []).filter((v) => pointValues.has(v)).forEach(up);
+    else if (n.kind === "value") {
+      up(id);
+      links.filter((e) => e.type === "drives" && e.target === id && !linkOff(e)).forEach((e) => keep.add(e.source));
+    } else if (n.kind === "requirement") links.filter((e) => e.type === "drives" && e.source === id).forEach((e) => up(e.target));
     return keep;
   }
+  const onTree = (e) => e.type === "domain" || e.type === "has_value" || e.type === "drives";
   function highlight(id) {
-    const keep = neighborhood(id);
+    const keep = lineage(id);
     nodeSel.classed("dim-out", (d) => !keep.has(d.id));
-    linkSel.classed("dim-out", (d) => !(keep.has(d.source) && keep.has(d.target)));
+    linkSel.classed("dim-out", (d) => !(keep.has(d.source) && keep.has(d.target)))
+      .classed("on-path", (d) => onTree(d) && keep.has(d.source) && keep.has(d.target));
   }
   const HINT = '<p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p>';
   function clearSelection() {
     selected = null; selectedStep = null;
-    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false);
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
     document.querySelectorAll(".chip.sel").forEach((c) => c.classList.remove("sel"));
     document.getElementById("info").innerHTML = HINT;
     applyView();
@@ -507,7 +544,7 @@
   function selectStep(n) {
     const s = steps.find((x) => x.step === n); if (!s) return;
     selected = null; selectedStep = n;
-    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false);
+    nodeSel.classed("dim-out", false); linkSel.classed("dim-out", false).classed("on-path", false);
     applyView();
     const pts = Object.entries(s.point).map(([did, vid]) => "<li>" + dlabel(did) + " → " + vlabel(vid) + "</li>").join("");
     const info = document.getElementById("info");

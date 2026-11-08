@@ -19,6 +19,10 @@
   //   labelReach:  optional (ringNodes) -> how far past its node a ring's outward labels reach; the next ring then
   //                starts at least labelGap (default 26) beyond them
   //   restJitter:  nodes placed by their neighbours' mean angle alternate this many radians either side of it
+  //   inward:      rings whose labels point inwards (see orientLabels): such a ring starts beyond its own labels'
+  //                reach from the centre, and its labels do not push the next ring out
+  //   inset:       ring -> distance; that ring moves out to sit at most this far inside the next ring (use it for an
+  //                inward ring, whose labels then do not cross the next ring's nodes)
   function radialTargets(nodes, links, cx, cy, opts) {
     const o = opts || {};
     const rings = o.rings, spacing = o.spacing;
@@ -28,6 +32,7 @@
     const ringGap = o.ringGap == null ? 110 : o.ringGap;
     const labelGap = o.labelGap == null ? 26 : o.labelGap;
     const rotation = o.rotation || 0, restJitter = o.restJitter || 0, labelReach = o.labelReach || null;
+    const inward = new Set(o.inward || []), inset = o.inset || {};
 
     // Each dimension gets an angular sector centred on it, holding its shown values. A sector's size is its value
     // count plus a padding of half the mean count: a dimension with two values still gets room on the ring, and the
@@ -51,12 +56,18 @@
     const slots = { ...count, value: Math.max(count.value || 0, total) };
     const radiusOf = {};
     let r = 0, reach = 0;
-    rings.filter((k) => count[k]).forEach((k) => {
+    const present = rings.filter((k) => count[k]);
+    present.forEach((k) => {
       if (k === "domain") { radiusOf[k] = 0; return; }
+      const ringNodes = nodes.filter((n) => ringOf(n.kind) === k);
       r = Math.max(r + ringGap, slots[k] * spacing[k] / (2 * Math.PI));
-      if (labelReach) r = Math.max(r, reach + labelGap);
+      if (labelReach) r = Math.max(r, inward.has(k) ? labelReach(ringNodes) + labelGap : reach + labelGap);
       radiusOf[k] = r;
-      if (labelReach) reach = r + (k === "value" ? stagger : 0) + labelReach(nodes.filter((n) => ringOf(n.kind) === k));
+      if (labelReach) reach = r + (k === "value" ? stagger : 0) + (inward.has(k) ? labelGap : labelReach(ringNodes));
+    });
+    present.forEach((k, i) => {
+      const next = present[i + 1];
+      if (inset[k] != null && next) radiusOf[k] = Math.max(radiusOf[k], radiusOf[next] - inset[k]);
     });
     let start = -Math.PI / 2;
     dims.forEach((d) => {
@@ -89,6 +100,7 @@
   // Labels (a d3 selection of the nodes' <text>) point outwards along their node's radius, read left to right on
   // both halves. The domain's label, and every label when outward is false, sits centred above its node (centreDy).
   //   radius: (node) -> its drawn radius; the label starts 4px past it
+  //   inward: optional (node) -> whether its label points inwards, towards the centre, instead
   function orientLabels(labels, cx, cy, opts) {
     const o = opts || {};
     const outward = o.outward !== false, centreDy = o.centreDy || "-0.9em", radius = o.radius;
@@ -96,8 +108,9 @@
       const t = d3.select(this);
       if (!outward || d.kind === "domain") { t.attr("transform", null).attr("text-anchor", "middle").attr("dx", 0).attr("dy", centreDy); return; }
       const deg = Math.atan2(d.y - cy, d.x - cx) * 180 / Math.PI, left = Math.abs(deg) > 90;
-      t.attr("transform", "rotate(" + (left ? deg + 180 : deg) + ")").attr("text-anchor", left ? "end" : "start")
-        .attr("dx", (left ? -1 : 1) * (radius(d) + 4)).attr("dy", "0.35em");
+      const sign = (left ? -1 : 1) * (o.inward && o.inward(d) ? -1 : 1);
+      t.attr("transform", "rotate(" + (left ? deg + 180 : deg) + ")").attr("text-anchor", sign > 0 ? "start" : "end")
+        .attr("dx", sign * (radius(d) + 4)).attr("dy", "0.35em");
     });
   }
 

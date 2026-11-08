@@ -354,10 +354,11 @@ def write_page(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], root:
     """
     page = Path(root) / EXPLAINERS / f"{doc['id']}.html"
     page.parent.mkdir(parents=True, exist_ok=True)
-    # A wiki exported before the shared layout script existed lacks it: the page would draw no graph until the next
-    # export. Add the script alone; the export owns the other assets.
+    # A wiki exported before the shared layout script existed, or before its current version, lacks what the page
+    # calls: it would draw no graph, or the old layout, until the next export. Refresh the script alone (it stays
+    # compatible with the wiki's graph page); the export owns the other assets.
     layout = Path(root) / "assets" / "graph-layout.js"
-    if layout.parent.is_dir() and not layout.is_file():
+    if layout.parent.is_dir() and (not layout.is_file() or layout.read_bytes() != LAYOUT_SCRIPT.read_bytes()):
         shutil.copyfile(LAYOUT_SCRIPT, layout)
     data = page_data(doc, graph, wiki_links(wiki_html, page.parent), graph_changed)
     page.write_text(_render(data), encoding="utf-8")

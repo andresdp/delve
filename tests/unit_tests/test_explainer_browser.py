@@ -29,6 +29,9 @@ addEventListener("load", () => setTimeout(() => {
   const nodes = () => [...document.querySelectorAll("g.node")];
   const lit = () => nodes().filter((e) => !e.classList.contains("dim-out")).map((e) => e.__data__.id).sort();
   const greyed = () => nodes().filter((e) => e.classList.contains("greyed")).map((e) => e.__data__.id).sort();
+  const inPoint = () => nodes().filter((e) => e.classList.contains("in-point")).map((e) => e.__data__.id).sort();
+  const onPath = () => [...document.querySelectorAll("line.link.on-path")].map((e) => e.__data__.source + "|" + e.__data__.target).sort();
+  const nodeOf = (id) => nodes().find((e) => e.__data__.id === id);
   const positions = () => nodes().map((e) => [e.__data__.id, Math.round(e.__data__.x), Math.round(e.__data__.y)]);
   const click = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
   const overlaps = (a, b) => { const r = a.getBoundingClientRect(), s = b.getBoundingClientRect();
@@ -40,23 +43,32 @@ addEventListener("load", () => setTimeout(() => {
     // The trajectory tab opens first: every investigated value is lit, and an arc links each step to its parent.
     out.first_tab = document.querySelector('.tab[aria-selected="true"]').dataset.tab;
     out.greyed_trajectory = greyed();
+    out.point_trajectory = inPoint();
     out.arcs = document.querySelectorAll("svg.lineage path").length;
     // Selecting step 3 (its column) lights its point only, and marks its column and its entry.
     click(document.querySelector('.step-h[data-step="3"]'));
     out.greyed_step3 = greyed();
+    out.point_step3 = inPoint();
     out.step_info = document.getElementById("info").textContent;
     out.step_marked = document.querySelectorAll('.sel[data-step="3"]').length;
     click(document.querySelector('.tab[data-tab="A1"]'));
     // Select A1's choice of Disk quorum in the text.
     click(document.querySelector('[data-panel="A1"] .choice .vref[data-node="v:1.1"]'));
     out.selected_lit = lit();
+    out.selected_path = onPath();
     out.info = document.getElementById("info").textContent;
     out.greyed_a1 = greyed();
+    out.point_a1 = inPoint();
+    // A dimension: its path to the centre and the values of it that design points take.
+    click(nodeOf("d:1"));
+    out.dim_lit = lit();
+    out.dim_path = onPath();
     // Switch to A2: the same subgraph, A2's choices lit, the selection fade cleared.
     click(document.querySelector('.tab[data-tab="A2"]'));
     out.after = positions();
     out.faded_after_tab = nodes().filter((e) => e.classList.contains("dim-out")).length;
     out.greyed_a2 = greyed();
+    out.point_a2 = inPoint();
     out.hint = document.getElementById("info").textContent;
     // Labels on the rings: no dimension label over a value label, no value label over a requirement label.
     const kind = (k) => nodes().filter((e) => e.__data__.kind === k);
@@ -98,21 +110,29 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert out["nodes"] > 0
     # The trajectory opens first; the fixture's steps visit v:1.1, v:2.1 and v:1.2; step 2 refines step 1.
     assert out["first_tab"] == "trajectory"
-    assert not {"v:1.1", "v:2.1", "v:1.2"} & set(out["greyed_trajectory"])
+    explored = {"v:1.1", "v:2.1", "v:1.2", "d:1", "d:2"}
+    assert not explored & set(out["greyed_trajectory"])          # explored: every value a step or choice takes
+    assert set(out["greyed_trajectory"]) and all(i.startswith(("v:", "d:")) for i in out["greyed_trajectory"])
+    assert out["point_trajectory"] == []                           # no step selected: no single point outlined
     assert out["arcs"] == 1
-    assert "v:1.2" not in out["greyed_step3"] and {"v:1.1", "v:2.1"} <= set(out["greyed_step3"])
+    assert out["greyed_step3"] == out["greyed_trajectory"]         # explored stays lit whatever is shown
+    assert out["point_step3"] == ["v:1.2"]                         # step 3's point is outlined
     assert "step 3" in out["step_info"] and "explore" in out["step_info"]
     assert out["step_marked"] >= 3  # its column header, its cells and its entry in the list
-    # Selecting A1's choice lights its value, its dimension and the requirement that drives it (Q1).
-    assert {"v:1.1", "d:1", "r:Q1"} <= set(out["selected_lit"])
-    assert "r:R1" not in out["selected_lit"]  # drives the other choice, not this one
+    # Selecting A1's choice lights its ancestors (its dimension, the centre) and the requirement driving it (Q1).
+    assert {"v:1.1", "d:1", "domain", "r:Q1"} <= set(out["selected_lit"])
+    assert not {"r:R1", "d:2", "v:2.1", "v:1.2"} & set(out["selected_lit"])  # not on its path
+    assert {"domain|d:1", "d:1|v:1.1", "r:Q1|v:1.1"} <= set(out["selected_path"])
     assert "Chosen in A1" in out["info"]
-    # A1 lights its choices; the others are greyed.
-    assert "v:1.1" not in out["greyed_a1"] and "v:2.1" not in out["greyed_a1"] and "v:1.2" in out["greyed_a1"]
+    assert out["point_a1"] == ["v:1.1", "v:2.1"]
+    # A dimension lights the centre and the paths down to the values design points take, not its other values.
+    assert {"d:1", "domain", "v:1.1", "v:1.2"} <= set(out["dim_lit"])
+    assert not (set(out["dim_lit"]) - {"d:1", "domain", "v:1.1", "v:1.2"})
+    assert {"domain|d:1", "d:1|v:1.1", "d:1|v:1.2"} <= set(out["dim_path"])
     # Switching tabs keeps the subgraph (same nodes, same places) and drops the selection fade.
     assert out["after"] == out["before"]
     assert out["faded_after_tab"] == 0
-    assert "v:1.2" not in out["greyed_a2"] and "v:1.1" in out["greyed_a2"]
+    assert out["point_a2"] == ["v:1.2"]
     assert "Select a dimension" in out["hint"]
     # Each ring sits outside the labels of the ring inside it.
     assert out["dim_value"] == [], out["dim_value"]

@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 
 from delvedspace import cli, rationale
 from taxonomy_generator.wiki import build, write
+from taxonomy_generator.wiki import explainer
 from tests.unit_tests.test_ddspace_rationale import _explain, _own, _sample
 from tests.unit_tests.test_wiki_export import POINTS, _inputs
 
@@ -513,6 +514,9 @@ def test_build_into_a_wiki_exported_before_the_layout_script_adds_it(ws, tmp_pat
     _built(_invoke("rationale", "build", str(_file(tmp_path, _search_with_a_shared_dimension()))))
     assert layout.is_file()
     assert style.read_text(encoding="utf-8") == "/* the export's own stylesheet */"  # other assets left to the export
+    layout.write_text("// an older layout script", encoding="utf-8")  # exported before the current version
+    _built(_invoke("rationale", "build", str(_file(tmp_path, _search_with_a_shared_dimension()))))
+    assert layout.read_bytes() == explainer.LAYOUT_SCRIPT.read_bytes()
 
 
 def test_build_into_a_wiki_exported_before_the_explainers_region_lists_the_page(ws, tmp_path):
