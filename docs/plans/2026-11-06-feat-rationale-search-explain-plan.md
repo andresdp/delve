@@ -25,6 +25,7 @@ related: >-
   - Stop and ask if Codex cannot load the skills and also cannot take them through the prompt (U5 smoke test).
   - Stop and ask if the explainer cannot survive `ddspace wiki build` without changing the OKF bundle.
 - **Revision 2026-11-07 (U7–U10):** after reading the hand-written examples and the skills, the user redirected the design: one skill per mode with a space reference file, design points as the decisions, a capped and recorded agent trajectory, regions in explain, and the trajectory shown on the page. It supersedes R1, R12, KTD1 and KTD11 where they conflict; see the revision blocks below.
+- **Revision 2026-11-08 (U11–U12):** the user had the skills rewritten in design-space terms in every condition (without a wiki the agent builds its own space), with a round-based search loop taken from AgentDSE's Algorithm 1 and the design-exploration skill, and approved them. Schema 3 follows. It supersedes R15 and R16 where they conflict.
 - **Execution profile:** U1 first. Then U2 and U4 in parallel. U3 needs U1 and U2. U5 needs U1, U3 and U4. U6 last.
 
 ---
@@ -55,6 +56,10 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 - **Design points are the decisions** (session-settled: user-directed, 2026-11-07 — chosen over treating each dimension as a decision: a dimension is a design concern, a value one option for it, and a decision is a combination of values, a design point). The skills survey dimensions and values first, then build, compare and propose design points. Governs R15, R16.
 - **A capped, recorded trajectory in both modes** (session-settled: user-directed, 2026-11-07). Search follows an exploration/exploitation heuristic; explain looks for the regions of the space (partial design points) that best justify the given solution. Each mode records its steps, and the page shows them, each mode in its own way. Search may investigate at most 20 design points (12 by default); explain at most 12, and fewer when the solution is simple or already grounded. Move distances are not checked. Governs R16–R19.
 - **One skill per mode, with a space reference** (session-settled: user-directed, 2026-11-07 — chosen over a with-space and a no-space variant of each skill). The skill text is the same in every condition; a reference file in the skill folder maps its general terms onto the space. Governs R20.
+
+- **Design-space terms in every condition** (session-settled: user-directed, 2026-11-08 — chosen over agent-named concerns and options without a space). Both skills speak of dimensions, values, relations and design points. Without a wiki, the agent builds its own space and records it in the file; the reference only maps the operations onto `ddspace` commands. Governs R21.
+- **Search in rounds over approaches** (session-settled: user-approved, 2026-11-08). Each point goes through AgentDSE's loop (hypothesis, check before evaluating, evaluate, observe, rate). Round 1 seeds two to four divergent "what if" approaches; later rounds refine strong points, carry the good values of mixed ones, drop weak approaches with a binding reason, and keep one slot for a new approach in every round but the last. It stops on the budget or after a round with no improvement (at least two rounds). It returns the best point of each live approach that no other point beats on some requirement without being worse on any. Default three rounds of about four points. Governs R22.
+- **Explain as hypothesis and contrast** (session-settled: user-approved, 2026-11-08). Regions are hypotheses about which requirements explain which values; a contrast is an ablation that tells forced values from free ones, and each choice records `forced`. Governs R23.
 
 ### Requirements
 
@@ -96,6 +101,12 @@ A design space gives rationale a shared vocabulary: decisions, options, evidence
 - R18. An explain file names 1–3 `regions`: partial design points of the solution's values, each with the requirements that drive it and the step that probed it.
 - R19. The explainer shows the trajectory as text and as a chart. Search: a lineage grid (one column per step, one row per dimension, changed cells marked, parent links, kept points marked). Explain: the solution's dimensions against the probing steps, with the regions as bands. Selecting a step highlights its point in the subgraph.
 - R20. Each skill is one `SKILL.md` for every condition. With a space, `agent setup --skills` also writes `references/design-space.md` in the skill folder; `--no-space` leaves it out (and removes one it wrote before).
+
+**Revision 2026-11-08**
+
+- R21. The file shape is `ddspace-rationale/3`. Every value is an id. `space` names a wiki (`{workspace, run, graph_sha256}`) or carries the agent's own space (`{dimensions, relations}`); the checker resolves ids against whichever it is.
+- R22. Search steps carry `round`, `approach`, `hypothesis`, `assessment` (meets, partly or misses per requirement), `observation` and `rating` (strong, mixed, weak); moves are `seed`, `exploit`, `explore` and `ablate`. The file lists its `approaches`. Each alternative is the step of its own live approach, one per approach, never a weak step.
+- R23. Explain steps carry `hypothesis`, `assessment`, `observation` and `verdict`; each choice of the solution records `forced` (`true`, `false` or `null`).
 
 **Study support**
 
@@ -426,6 +437,21 @@ flowchart TB
 - **Dependencies:** U7–U9.
 - **Files:** `tmp/rationale_examples/` (local, not committed), `USAGE.md`, `study/designing2027/cases/README.md`.
 - **Verification:** both examples check clean against the C1 graph and render with their trajectories; the user reads them before any pilot.
+
+### U11. Skills in design-space terms, with rounds
+
+- **Goal:** rewrite both skills and their references per the 2026-11-08 decisions.
+- **Requirements:** R21–R23.
+- **Files:** `src/delvedspace/templates/skills/*/SKILL.md.j2`, `src/delvedspace/templates/skills/*/references/design-space.md.j2`, `tests/unit_tests/test_ddspace_skills.py`.
+- **Verification:** the `SKILL.md` skeleton checks clean with its own space, and with the reference's `space` and `point` as a file that names a wiki; the user approved the rendered skills in `tmp/skills`.
+
+### U12. Schema 3 in the checker, the page and the study runner
+
+- **Goal:** check, render and collect schema 3 files.
+- **Requirements:** R21–R23.
+- **Dependencies:** U11.
+- **Files:** `src/delvedspace/rationale.py`, `src/delvedspace/rationale_cli.py`, `src/taxonomy_generator/wiki/explainer.py`, `src/taxonomy_generator/wiki/templates/explainer.html.j2`, `study/designing2027/run_sessions.py`, `study/designing2027/prompt.md`, `USAGE.md`, the rationale, build, skill and study tests and the shared fixture.
+- **Test scenarios:** own-space ids resolve, with candidates for unknown ones; rounds go up one at a time; exploit and ablate stay in the parent's approach; approaches and their drop reasons; one alternative per live approach, never weak; assessments name known requirements; explain choices carry `forced`; the page reads own spaces and the new step fields; an N file's ids are not counted as wiki ids. The page redesign for rounds and assessments is the next step, after the user's review.
 
 ## Verification Contract
 
