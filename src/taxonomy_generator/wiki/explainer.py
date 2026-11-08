@@ -5,8 +5,8 @@ The page sits at ``<html dir>/explainers/<id>.html``, next to the wiki's HTML, o
 plus a compare view, a radial subgraph of the dimensions involved, a details panel and, for explain, the
 uncovered decisions. With a space, dimensions, values and sources link to their wiki pages (a page that does
 not exist is shown without a link); evidence is passage ids with stances, never quotes (``raw/graph.json``
-holds no passage text). A file with its own space (``space.dimensions``) is drawn from those dimensions and
-values, with no wiki links and no sources.
+holds no passage text). A zero-shot file (``space: null``, ids that are the agent's own names: ``Storage``,
+``Storage: Local disks``) is drawn from the names it uses, with no wiki links and no sources.
 
 The caller checks the file first (``delvedspace.rationale.check``): this module assumes a clean file.
 """
@@ -19,9 +19,9 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
-from taxonomy_generator.wiki.query import norm
+from taxonomy_generator.wiki.query import label_node, norm
 from taxonomy_generator.wiki.render import TEMPLATES, _env, copy_images, copy_page_assets
 
 LAYOUT_SCRIPT = TEMPLATES / "graph-layout.js"
@@ -53,24 +53,81 @@ def wiki_links(wiki_html: Optional[Path], page_dir: Path) -> Link:
 
 # ── page data ────────────────────────────────────────────────────────────
 
-def own_graph(space: Mapping[str, Any]) -> Dict[str, Any]:
-    """Return the agent's own space (``space.dimensions``, ``space.relations``) shaped like a wiki graph."""
+def _zero_shot(doc: Mapping[str, Any]) -> bool:
+    """A file written without a space (``space: null``) whose steps name values by name, not as old-schema objects."""
+    return "space" in doc and doc["space"] is None and any(
+        isinstance(v, str) for s in doc.get("trajectory") or [] if isinstance(s, dict) for v in s.get("values") or [])
+
+
+def label_graph(doc: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """Return a zero-shot file's dimensions and values shaped like a wiki graph, and ``{name: node id}``.
+
+    The ids the file uses are names (``Storage``, ``Storage: Local disks``, see ``query.label_node``); the
+    nodes get short ids (``z:1``, ``z:1.2``) in the order the file first names them, so the page never puts the
+    agent's text in an id. The relations the alternatives claim become the graph's relations.
+    """
     nodes: List[Dict[str, Any]] = []
-    for dim in space.get("dimensions") or []:
-        if not isinstance(dim, dict):
+    alias: Dict[str, str] = {}
+    counts: Dict[str, int] = {}
+
+    def dimension(name: str) -> str:
+        n = label_node(name, ["dimension"])
+        if n is None:
+            return ""
+        if n["id"] not in alias:
+            alias[n["id"]] = f"z:{len(counts) + 1}"
+            counts[n["id"]] = 0
+            nodes.append({"id": alias[n["id"]], "kind": "dimension", "label": n["label"]})
+        alias.setdefault(name, alias[n["id"]])
+        return alias[n["id"]]
+
+    def value(ref: Any) -> None:
+        n = label_node(ref, ["value"])
+        if n is None or n["kind"] != "value":
+            return
+        did = dimension(n["dimension_id"])
+        if n["id"] not in alias:
+            counts[n["dimension_id"]] += 1
+            alias[n["id"]] = f"{did}.{counts[n['dimension_id']]}"
+            nodes.append({"id": alias[n["id"]], "kind": "value", "label": n["label"], "dimension_id": did})
+        alias.setdefault(ref, alias[n["id"]])
+
+    for s in doc.get("trajectory") or []:
+        for v in (s.get("values") or []) if isinstance(s, dict) else []:
+            value(v)
+    for alt in doc.get("alternatives") or []:
+        if not isinstance(alt, dict):
             continue
-        nodes.append({"id": dim.get("id"), "kind": "dimension", "label": dim.get("name") or dim.get("id")})
-        for v in dim.get("values") or []:
-            if isinstance(v, dict):
-                nodes.append({"id": v.get("id"), "kind": "value", "label": v.get("name") or v.get("id"),
-                              "dimension_id": dim.get("id")})
-    edges = [{"source": r.get("source"), "target": r.get("target"), "type": "relation", "relation": r.get("type"),
-              "directed": True} for r in space.get("relations") or [] if isinstance(r, dict)]
-    return {"nodes": nodes, "edges": edges}
+        for key in ("choices", "considered"):
+            for c in alt.get(key) or []:
+                if isinstance(c, dict):
+                    if isinstance(c.get("dimension_id"), str):
+                        dimension(c["dimension_id"])
+                    value(c.get("value_id"))
+        for o in alt.get("open") or []:
+            if isinstance(o, dict) and isinstance(o.get("dimension_id"), str):
+                dimension(o["dimension_id"])
+    for item in [*(doc.get("points") or []), *(doc.get("regions") or []),
+                 *(o for r in doc.get("adrs") or [] if isinstance(r, dict) for o in r.get("options") or [])]:
+        for v in (item.get("values") or []) if isinstance(item, dict) else []:
+            value(v)
+    for item in doc.get("comparison") or []:
+        if isinstance(item, dict) and isinstance(item.get("dimension_id"), str):
+            dimension(item["dimension_id"])
+    edges, seen = [], set()
+    for alt in doc.get("alternatives") or []:
+        for r in (alt.get("relations") or []) if isinstance(alt, dict) else []:
+            if not isinstance(r, dict) or not all(isinstance(r.get(k), str) for k in ("source", "target", "type")):
+                continue
+            s, t_ = dimension(r["source"]), dimension(r["target"])
+            if s and t_ and (s, t_, r["type"]) not in seen:
+                seen.add((s, t_, r["type"]))
+                edges.append({"source": s, "target": t_, "type": "relation", "relation": r["type"], "directed": True})
+    return {"nodes": nodes, "edges": edges}, alias
 
 
 class _Space:
-    """The dimensions and values the file touches, from the wiki's graph or from the file's own space.
+    """The dimensions and values the file touches, from the wiki's graph or from a zero-shot file's names.
 
     ``wiki`` says whether they come from a wiki (with links and sources). Files of an older schema without any
     space (``space: null``, choices naming ``decision`` and ``option``) are still drawn from the file.
@@ -78,11 +135,12 @@ class _Space:
 
     def __init__(self, doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: Link):
         meta = doc.get("space")
-        self.wiki = isinstance(meta, dict) and "dimensions" not in meta and graph is not None
-        if isinstance(meta, dict) and "dimensions" in meta:
-            graph, link = own_graph(meta), (lambda _target: None)
+        self.wiki = isinstance(meta, dict) and graph is not None
+        self._alias: Dict[str, str] = {}  # zero-shot: the file's names -> node ids
+        if _zero_shot(doc):
+            (graph, self._alias), link = label_graph(doc), (lambda _target: None)
         self.graph, self.link = graph, link
-        self.with_space = isinstance(meta, dict) and graph is not None
+        self.with_space = (isinstance(meta, dict) or bool(self._alias)) and graph is not None
         self.dims: Dict[str, Dict[str, Any]] = {}
         self.values: Dict[str, Dict[str, Any]] = {}
         self._by_id = {n["id"]: n for n in (graph or {}).get("nodes") or []} if self.with_space else {}
@@ -97,15 +155,20 @@ class _Space:
                 if e.get("type") == "evidence":
                     self._evidence.setdefault(e.get("target"), []).append(e)
 
+    def _id(self, ref: Any) -> Any:
+        """The node id of an id the file uses (a zero-shot name maps to its node's id)."""
+        return self._alias.get(ref, ref) if isinstance(ref, str) else ref
+
     def node(self, ref: Any) -> Optional[Dict[str, Any]]:
         """Return the graph node with id ``ref`` (None without a space or when there is none)."""
-        return self._by_id.get(ref)
+        return self._by_id.get(self._id(ref))
 
     def dim(self, ref: Any) -> Optional[str]:
         """Register and return the id of the dimension a choice names (a graph id, or the agent's decision)."""
         if ref is None or ref == "":
             return None
         if self.with_space:
+            ref = self._id(ref)
             n = self._by_id.get(ref)
             if n is None or n.get("kind") != "dimension":
                 return None
@@ -141,6 +204,7 @@ class _Space:
         if dim is None or ref is None:
             return None
         if self.with_space:
+            ref = self._id(ref)
             return ref if ref in self.values else None
         key = f"{dim}::{norm(ref)}"
         if key not in self._keys:
@@ -167,7 +231,7 @@ class _Space:
         out: Dict[str, str] = {}
         for item in values if isinstance(values, list) else []:
             if self.with_space:
-                n = self._by_id.get(item) if isinstance(item, str) else None
+                n = self.node(item) if isinstance(item, str) else None
                 d = self.dim(n.get("dimension_id")) if n is not None and n.get("kind") == "value" else None
                 v = self.value(d, item)
             elif isinstance(item, dict):

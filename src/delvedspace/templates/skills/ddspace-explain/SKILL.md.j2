@@ -31,8 +31,13 @@ you observed, and let the observation decide what to test next.
 **Where the space comes from.** If `references/design-space.md` is next to this file, a design space exists:
 read the reference before step 1. It says which `ddspace` command does each operation below (list dimensions and
 values, find evidence, evaluate a point), how to write ids, what to do with decisions the space does not cover,
-and the `space` part of the file. Without it, you build the space yourself in step 3 and do every operation
-yourself, from the problem and what you know; then the support is your own knowledge, and you say so.
+and the `space` part of the file. Without it, there is no space: you do every operation yourself, from the
+problem and what you know, and the support is your own knowledge, which you say.
+
+**Without a space** you work zero-shot: you do not build or write a space, you name each dimension and value
+from the solution, the problem and your own knowledge when you need it. The file's `space` is `null`, a
+dimension's id is its name (`Storage`) and a value's id is `Dimension: Value` (`Storage: Local disks`). Write a
+name the same way every time: the check reads the dimensions and values from these names.
 
 ## Budget
 
@@ -51,9 +56,8 @@ and `attested_by` stays empty.
 
 ## Gaps in the space
 
-The space is fixed. Never add, rename or remove a dimension, value or relation to make the solution fit: a wiki
-is read only, and the space you write yourself in step 3 does not change after that step. Where the space falls
-short, record the gap instead of forcing a fit:
+With a space, use it as it is. Never add, rename or remove a dimension, value or relation to make the solution
+fit. Where the space falls short, record the gap instead of forcing a fit:
 
 - **A decision the space has no dimension or value for** (with a wiki): list it in `uncovered` (the reference
   says how).
@@ -63,8 +67,10 @@ short, record the gap instead of forcing a fit:
 - **A value that only roughly matches** the solution's decision: keep the value, and mark the choice and the
   ADR option `"fit": "approximate"` with a `fit_note` saying what the value leaves out or stretches.
 
-Every requirement is either a driver of some ADR or listed in `unaddressed`, never both. Write
-`"unaddressed": []` when every requirement is addressed.
+Without a space there is nothing to fall short of: `uncovered` stays empty, no requirement is `no_dimension`, no
+fit is approximate, and `nearest_dimension_id` stays `null`. In both cases, every requirement is either a driver
+of some ADR or listed in `unaddressed` (`not_in_solution` and `traded_off` apply with a space or without), never
+both. Write `"unaddressed": []` when every requirement is addressed.
 
 ## Steps
 
@@ -74,9 +80,8 @@ Every requirement is either a driver of some ADR or listed in `unaddressed`, nev
 2. **The solution's decisions.** Read the solution and list each design decision it makes. For each, copy the
    sentence or phrase of the solution that states it, word for word: that is its `solution_quote`.
 3. **Map the solution onto the space.** For each decision, find its dimension and the value the quote describes.
-   Without a space, write your own in the file's `space.dimensions`: one dimension per decision, with the
-   solution's value and one to three other values a designer could have chosen (the contrasts need them), ids
-   `d:1`, … and `v:1.1`, … (value `v:1.2` belongs to dimension `d:1`).
+   Without a space, name them yourself: the dimension the decision settles and the solution's value for it. The
+   other values a contrast needs, you name when you contrast.
 4. **The solution as a point.** Evaluate the solution's values together (`move: "solution"`, no `parent`): this
    is step 1.
 5. **Hypotheses.** Group the solution's values by the requirements that call for them: each group is a candidate
@@ -128,27 +133,22 @@ Every requirement is either a driver of some ADR or listed in `unaddressed`, nev
 
 ## Rules
 
-- Every value in the file is a value id of the space: do not name a dimension, value or relation in prose that
+- Every value in the file is an id: of the space, or, without one, a `Dimension: Value` name. Do not name a
+  dimension, value or relation in prose that
   the file does not reference.
 - Requirement ids in `assessment` and `drivers` must be ids of `problem.requirements`.
 - Do not change the file after the last clean check without checking it again.
 
 ## File shape
 
-Without a space (with one, the reference gives the `space` part and the `uncovered` decisions):
+Without a space (with one, the reference gives the `space` part, the ids and the `uncovered` decisions):
 
 ```json
 {
   "schema": "ddspace-rationale/5",
   "id": "<id>",
   "mode": "explain",
-  "space": {
-    "dimensions": [
-      {"id": "d:1", "name": "<dimension>", "values": [{"id": "v:1.1", "name": "<the solution's value>"}, {"id": "v:1.2", "name": "<another value>"}]},
-      {"id": "d:2", "name": "<dimension>", "values": [{"id": "v:2.1", "name": "<the solution's value>"}, {"id": "v:2.2", "name": "<another value>"}]}
-    ],
-    "relations": []
-  },
+  "space": null,
   "problem": {
     "title": "<problem title>",
     "context": "<problem context>",
@@ -159,23 +159,23 @@ Without a space (with one, the reference gives the `space` part and the `uncover
   },
   "budget": {"max_points": {{ default_points }}},
   "points": [
-    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<one sentence>", "attested_by": []},
-    {"id": "P2", "values": ["v:1.1"], "description": "<…>", "attested_by": []},
-    {"id": "P3", "values": ["v:1.2"], "description": "<…>", "attested_by": []}
+    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<one sentence>", "attested_by": []},
+    {"id": "P2", "values": ["<dimension 1>: <value 1.1>"], "description": "<…>", "attested_by": []},
+    {"id": "P3", "values": ["<dimension 1>: <value 1.2>"], "description": "<…>", "attested_by": []}
   ],
   "trajectory": [
-    {"step": 1, "move": "solution", "parent": null, "values": ["v:1.1", "v:2.1"],
+    {"step": 1, "move": "solution", "parent": null, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"],
      "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"},
      "observation": "<what the evaluation showed>", "verdict": "partial", "point": "P1"},
-    {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"],
+    {"step": 2, "move": "region", "parent": 1, "values": ["<dimension 1>: <value 1.1>"],
      "hypothesis": "<which requirements explain these values>", "assessment": {"Q1": "meets"},
      "observation": "<…>", "verdict": "grounded", "point": "P2"},
-    {"step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"],
+    {"step": 3, "move": "contrast", "parent": 2, "values": ["<dimension 1>: <value 1.2>"],
      "hypothesis": "<does the requirement force v:1.1?>", "assessment": {"Q1": "misses"},
      "observation": "<…: forced>", "verdict": "ungrounded", "point": "P3"}
   ],
   "regions": [
-    {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"], "values": ["v:1.1"],
+    {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"], "values": ["<dimension 1>: <value 1.1>"],
      "reason": "<why this region justifies the solution>"}
   ],
   "alternatives": [
@@ -185,9 +185,9 @@ Without a space (with one, the reference gives the `space` part and the `uncover
       "summary": "<one or two sentences>",
       "step": 1,
       "choices": [
-        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "forced": true,
+        {"dimension_id": "<dimension 1>", "value_id": "<dimension 1>: <value 1.1>", "drivers": ["Q1"], "forced": true,
          "reason": "<why>", "solution_quote": "<the solution's own words>"},
-        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "forced": null,
+        {"dimension_id": "<dimension 2>", "value_id": "<dimension 2>: <value 2.1>", "drivers": ["R1"], "forced": null,
          "reason": "<why>", "solution_quote": "<the solution's own words>"}
       ],
       "considered": [],
@@ -198,14 +198,14 @@ Without a space (with one, the reference gives the `space` part and the `uncover
   "adrs": [
     {"id": "ADR1", "title": "<the decision>", "drivers": ["Q1"], "context": "<what the drivers demand>",
      "options": [
-       {"id": "O1", "name": "<the solution's option>", "values": ["v:1.1"], "status": "chosen", "in": ["S"], "step": 2,
+       {"id": "O1", "name": "<the solution's option>", "values": ["<dimension 1>: <value 1.1>"], "status": "chosen", "in": ["S"], "step": 2,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<forced or free, and why>"},
-       {"id": "O2", "name": "<a contrast>", "values": ["v:1.2"], "status": "discarded", "step": 3,
+       {"id": "O2", "name": "<a contrast>", "values": ["<dimension 1>: <value 1.2>"], "status": "discarded", "step": 3,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<why not>"}
      ]},
     {"id": "ADR2", "title": "<the decision>", "drivers": ["R1"], "context": "<…>",
      "options": [
-       {"id": "O1", "name": "<the solution's option>", "values": ["v:2.1"], "status": "chosen", "in": ["S"],
+       {"id": "O1", "name": "<the solution's option>", "values": ["<dimension 2>: <value 2.1>"], "status": "chosen", "in": ["S"],
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"}
      ]}
   ],

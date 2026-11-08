@@ -390,7 +390,7 @@ def file_ids(doc: Any) -> List[str]:
         if isinstance(value, str) and value.strip() and value not in ids:
             ids.append(value)
 
-    if not rationale.names_space(doc):   # no wiki: the agent's own ids (space.dimensions) are not the space's
+    if not rationale.names_space(doc):   # no wiki (space: null): the agent's own names are not space ids
         return ids
     for alt in doc.get("alternatives") or []:
         if not isinstance(alt, dict):

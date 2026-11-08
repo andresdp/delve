@@ -321,3 +321,22 @@ def point(graph: Graph, refs: Sequence[str]) -> Dict[str, Any]:
         "warnings": warnings,
         "unmet_requires": unmet,
     }
+
+
+def label_node(ref: Any, kinds: Sequence[str]) -> Optional[Dict[str, Any]]:
+    """Read a zero-shot id: a dimension's name, or ``Dimension: Value``. None when it is neither.
+
+    The node is shaped like a graph node (``id``, ``kind``, ``label``, ``dimension_id`` for a value); its ``id`` is
+    the canonical spelling, with single spaces and one space after the colon.
+    """
+    if not isinstance(ref, str) or not ref.strip():
+        return None
+    text = " ".join(ref.split())
+    if "value" in kinds:
+        dim, sep, value = text.partition(":")
+        if sep and dim.strip() and value.strip():
+            dim, value = dim.strip(), value.strip()
+            return {"id": f"{dim}: {value}", "kind": "value", "label": value, "dimension_id": dim, "dimension": dim}
+    if "dimension" in kinds:
+        return {"id": text, "kind": "dimension", "label": text}
+    return None

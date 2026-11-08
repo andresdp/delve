@@ -53,7 +53,7 @@ def _load(file: Path, table: bool) -> Any:
 
 def _space(doc: Any, graph: Optional[Path], table: bool) -> Tuple[Optional[q.Graph], Optional[str], Optional[Path]]:
     """Load the graph a file that names a space is checked against: (graph, its SHA-256, raw/graph.json path)."""
-    if not rationale.names_space(doc):  # a file with its own space (space.dimensions) is checked against it
+    if not rationale.names_space(doc):  # a zero-shot file (space: null) is checked against its own names
         return None, None, None
     try:
         path = _graph_path(graph)
@@ -121,7 +121,7 @@ def html_dir(root: Path) -> Path:
 def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rationale/4 JSON)."),
           out: Optional[Path] = typer.Option(None, "--out", help="Write a standalone folder (DIR/explainers/<id>.html "
                                              "and DIR/assets/) instead of into the workspace's wiki. Required "
-                                             "for a file with its own space and outside a workspace. DIR must be "
+                                             "for a file without a space and outside a workspace. DIR must be "
                                              "inside the current folder."),
           graph: Optional[Path] = query_cli.GraphOpt) -> None:
     """Check a rationale file, then render it as an explainer page; print the page path as JSON.
@@ -136,7 +136,7 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
     """
     doc = _load(file, False)
     if not rationale.names_space(doc) and out is None:
-        _fail("A file with its own space (space.dimensions) renders outside any wiki: pass --out DIR.", False)
+        _fail("A file without a space (space: null) renders outside any wiki: pass --out DIR.", False)
     if out is not None:
         _check_out(out)
     loaded, sha, graph_file = _space(doc, graph, False)

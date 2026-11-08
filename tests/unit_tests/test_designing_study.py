@@ -63,28 +63,27 @@ def cases(tmp_path):
 
 
 def _no_space(case_id="kv-store"):
-    """A clean search file with the agent's own space (space.dimensions), as an N session writes it."""
-    choice = {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "Survives a node failure."}
-    other = {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["Q1"], "reason": "S3 is already there."}
+    """A clean zero-shot search file (space: null, the agent's own names), as an N session writes it."""
+    choice = {"dimension_id": "Storage", "value_id": "Storage: Local disks", "drivers": ["Q1"], "reason": "Survives a node failure."}
+    other = {"dimension_id": "Storage", "value_id": "Storage: Log in S3", "drivers": ["Q1"], "reason": "S3 is already there."}
     step = lambda n, approach, c: {"step": n, "round": 1, "approach": approach, "move": "seed",  # noqa: E731
                                    "values": [c["value_id"]], "hypothesis": "h", "assessment": {"Q1": "meets"},
                                    "observation": "o", "rating": "strong", "point": f"P{n}"}
     return {"schema": "ddspace-rationale/5", "id": case_id, "mode": "search",
-            "space": {"dimensions": [{"id": "d:1", "name": "Storage", "values": [
-                {"id": "v:1.1", "name": "Local disks"}, {"id": "v:1.2", "name": "Log in S3"}]}]},
+            "space": None,
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No committed write is lost."}]},
             "budget": {"max_points": 12},
-            "points": [{"id": "P1", "values": ["v:1.1"], "description": "Local disks.", "attested_by": []},
-                       {"id": "P2", "values": ["v:1.2"], "description": "A log in S3.", "attested_by": []}],
+            "points": [{"id": "P1", "values": ["Storage: Local disks"], "description": "Local disks.", "attested_by": []},
+                       {"id": "P2", "values": ["Storage: Log in S3"], "description": "A log in S3.", "attested_by": []}],
             "approaches": [{"id": "A", "idea": "what if disks?", "status": "live"},
                            {"id": "B", "idea": "what if S3?", "status": "live"}],
             "trajectory": [step(1, "A", choice), step(2, "B", other)],
             "alternatives": [{"id": "A1", "name": "Disks", "approach": "A", "step": 1, "choices": [choice]},
                              {"id": "A2", "name": "S3", "approach": "B", "step": 2, "choices": [other]}],
             "adrs": [{"id": "ADR1", "title": "Storage", "drivers": ["Q1"], "context": "c", "options": [
-                {"id": "O1", "name": "Disks", "values": ["v:1.1"], "status": "chosen", "in": ["A1"], "pros": [],
+                {"id": "O1", "name": "Disks", "values": ["Storage: Local disks"], "status": "chosen", "in": ["A1"], "pros": [],
                  "cons": [], "reason": "r"},
-                {"id": "O2", "name": "S3", "values": ["v:1.2"], "status": "chosen", "in": ["A2"], "pros": [],
+                {"id": "O2", "name": "S3", "values": ["Storage: Log in S3"], "status": "chosen", "in": ["A2"], "pros": [],
                  "cons": [], "reason": "r"}]}],
             "uncovered": [], "unaddressed": []}
 
@@ -494,6 +493,6 @@ def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(t
 
 
 def test_file_ids_are_the_wikis_only():
-    """An N file's ids name its own space, not the wiki's: none of them counts as a space id."""
+    """An N file's ids are the agent's own names, not the wiki's: none of them counts as a space id."""
     assert runner.file_ids(_no_space()) == []
     assert {"d:1", "v:1.1", "v:2.10", "s01_p01", "s:s1"} <= set(runner.file_ids(_with_space()))

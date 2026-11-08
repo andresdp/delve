@@ -30,8 +30,13 @@ what you observed, and let the observation decide the next point.
 **Where the space comes from.** If `references/design-space.md` is next to this file, a design space exists:
 read the reference before step 1. It says which `ddspace` command does each operation below (list dimensions and
 values, follow relations, find evidence, evaluate a point), how to write ids, and the `space` part of the file.
-Without it, you build the space yourself in step 2 and do every operation yourself, from the problem and what you
-know; then the support for a point is your own knowledge, and you say so.
+Without it, there is no space: you do every operation yourself, from the problem and what you know, and the
+support for a point is your own knowledge, which you say.
+
+**Without a space** you work zero-shot: you do not build or write a space, you name each dimension and value
+from the problem and your own knowledge when you need it. The file's `space` is `null`, a dimension's id is its
+name (`Storage`) and a value's id is `Dimension: Value` (`Storage: Local disks`). Write a name the same way every
+time: the check reads the dimensions and values from these names.
 
 ## Budget
 
@@ -51,9 +56,8 @@ and `attested_by` stays empty.
 
 ## Gaps in the space
 
-The space is fixed. Never add, rename or remove a dimension, value or relation to make a requirement fit: a wiki
-is read only, and the space you write yourself in step 2 does not change after that step. Where the space falls
-short, record the gap instead of forcing a fit:
+With a space, use it as it is. Never add, rename or remove a dimension, value or relation to make a requirement
+fit. Where the space falls short, record the gap instead of forcing a fit:
 
 - **A requirement no dimension bears on.** Do not map it onto the nearest dimension. List it in `unaddressed`
   with `reason: "no_dimension"`, the `nearest_dimension_id` (or `null`) and a `note` saying what the space lacks.
@@ -62,8 +66,10 @@ short, record the gap instead of forcing a fit:
 - **A value that only roughly matches** what a choice or an ADR option stands for: keep the value, and mark the
   choice or the option `"fit": "approximate"` with a `fit_note` saying what the value leaves out or stretches.
 
-Every requirement is either a driver of some ADR or listed in `unaddressed`, never both. Write
-`"unaddressed": []` when every requirement is addressed.
+Without a space there is nothing to fall short of: no `no_dimension`, no approximate fit, and `nearest_dimension_id`
+stays `null`. In both cases, every requirement is either a driver of some ADR or listed in `unaddressed` (with a
+space or without, `traded_off` and `budget` apply), never both. Write `"unaddressed": []` when every requirement
+is addressed.
 
 ## Steps
 
@@ -73,9 +79,8 @@ Every requirement is either a driver of some ADR or listed in `unaddressed`, nev
    the quality requirements the problem stresses. Choose a short file id (lowercase, hyphens), `<id>`.
 2. **Map the space.** Find the dimensions the requirements bear on, their values and the relations between them.
    For each dimension, note which requirements bear on it. The **key dimensions** are those the most
-   constraining requirements bear on. Without a space, write your own in the file's `space.dimensions`: four to
-   ten dimensions, each with two to four values, ids `d:1`, `d:2`, … and `v:1.1`, `v:1.2`, … (value `v:1.2` belongs
-   to dimension `d:1`).
+   constraining requirements bear on. Without a space, do this from your own knowledge, as notes for yourself:
+   nothing of it goes in the file except the names your points use.
 3. **Approaches.** Write four to six approaches, each a "what if …" about the key dimensions. Keep the two to
    four that diverge most: two approaches diverge when they choose different values on at least two key
    dimensions, not when they differ only on dimensions no requirement bears on. Include one approach you would not
@@ -141,28 +146,21 @@ Every requirement is either a driver of some ADR or listed in `unaddressed`, nev
 ## Rules
 
 - Every alternative is a step of the trajectory: do not propose a point you did not evaluate.
-- Every value in the file is a value id of the space: do not name a dimension, value or relation in prose that
-  the file does not reference.
+- Every value in the file is an id: of the space, or, without one, a `Dimension: Value` name. Do not name a
+  dimension, value or relation in prose that the file does not reference.
 - Requirement ids in `assessment` and `drivers` must be ids of `problem.requirements`.
 - Do not change the file after the last clean check without checking it again.
 
 ## File shape
 
-Without a space (with one, the reference gives the `space` part):
+Without a space (with one, the reference gives the `space` part and the ids):
 
 ```json
 {
   "schema": "ddspace-rationale/5",
   "id": "<id>",
   "mode": "search",
-  "space": {
-    "dimensions": [
-      {"id": "d:1", "name": "<dimension>", "values": [{"id": "v:1.1", "name": "<value>"}, {"id": "v:1.2", "name": "<value>"}]},
-      {"id": "d:2", "name": "<dimension>", "values": [{"id": "v:2.1", "name": "<value>"}, {"id": "v:2.2", "name": "<value>"}]},
-      {"id": "d:3", "name": "<dimension>", "values": [{"id": "v:3.1", "name": "<value>"}, {"id": "v:3.2", "name": "<value>"}]}
-    ],
-    "relations": [{"source": "d:1", "target": "d:2", "type": "constrains"}]
-  },
+  "space": null,
   "problem": {
     "title": "<problem title>",
     "context": "<problem context>",
@@ -174,10 +172,10 @@ Without a space (with one, the reference gives the `space` part):
   },
   "budget": {"max_points": {{ default_points }}},
   "points": [
-    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<one sentence>", "attested_by": []},
-    {"id": "P2", "values": ["v:1.2", "v:2.2"], "description": "<…>", "attested_by": []},
-    {"id": "P3", "values": ["v:1.2", "v:3.1"], "description": "<…>", "attested_by": []},
-    {"id": "P4", "values": ["v:1.1", "v:2.1", "v:3.2"], "description": "<…>", "attested_by": []}
+    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<one sentence>", "attested_by": []},
+    {"id": "P2", "values": ["<dimension 1>: <value 1.2>", "<dimension 2>: <value 2.2>"], "description": "<…>", "attested_by": []},
+    {"id": "P3", "values": ["<dimension 1>: <value 1.2>", "<dimension 3>: <value 3.1>"], "description": "<…>", "attested_by": []},
+    {"id": "P4", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>", "<dimension 3>: <value 3.2>"], "description": "<…>", "attested_by": []}
   ],
   "approaches": [
     {"id": "A", "idea": "what if <…>?", "status": "live"},
@@ -185,17 +183,17 @@ Without a space (with one, the reference gives the `space` part):
     {"id": "C", "idea": "what if <…>?", "status": "dropped", "dropped_because": "<the reason later points must avoid>"}
   ],
   "trajectory": [
-    {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["v:1.1", "v:2.1"],
+    {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"],
      "hypothesis": "<what you expect, for which requirements>",
      "assessment": {"R1": "meets", "Q1": "partly", "C1": "meets"},
      "observation": "<what the evaluation showed>", "rating": "mixed", "point": "P1"},
-    {"step": 2, "round": 1, "approach": "B", "move": "seed", "parent": null, "values": ["v:1.2", "v:2.2"],
+    {"step": 2, "round": 1, "approach": "B", "move": "seed", "parent": null, "values": ["<dimension 1>: <value 1.2>", "<dimension 2>: <value 2.2>"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "partly"},
      "observation": "<…>", "rating": "strong", "point": "P2"},
-    {"step": 3, "round": 1, "approach": "C", "move": "seed", "parent": null, "values": ["v:1.2", "v:3.1"],
+    {"step": 3, "round": 1, "approach": "C", "move": "seed", "parent": null, "values": ["<dimension 1>: <value 1.2>", "<dimension 3>: <value 3.1>"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "C1": "misses"},
      "observation": "<…>", "rating": "weak", "point": "P3"},
-    {"step": 4, "round": 2, "approach": "A", "move": "exploit", "parent": 1, "values": ["v:1.1", "v:2.1", "v:3.2"],
+    {"step": 4, "round": 2, "approach": "A", "move": "exploit", "parent": 1, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>", "<dimension 3>: <value 3.2>"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "meets"},
      "observation": "<…>", "rating": "strong", "point": "P4"}
   ],
@@ -207,16 +205,16 @@ Without a space (with one, the reference gives the `space` part):
       "approach": "A",
       "step": 4,
       "choices": [
-        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["C1"], "reason": "<why>"},
-        {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "reason": "<why>"},
-        {"dimension_id": "d:3", "value_id": "v:3.2", "drivers": ["Q1"], "reason": "<why>"}
+        {"dimension_id": "<dimension 1>", "value_id": "<dimension 1>: <value 1.1>", "drivers": ["C1"], "reason": "<why>"},
+        {"dimension_id": "<dimension 2>", "value_id": "<dimension 2>: <value 2.1>", "drivers": ["R1"], "reason": "<why>"},
+        {"dimension_id": "<dimension 3>", "value_id": "<dimension 3>: <value 3.2>", "drivers": ["Q1"], "reason": "<why>"}
       ],
       "considered": [
-        {"dimension_id": "d:3", "value_id": "v:3.1", "drivers": ["C1"], "reason": "<why not>"}
+        {"dimension_id": "<dimension 3>", "value_id": "<dimension 3>: <value 3.1>", "drivers": ["C1"], "reason": "<why not>"}
       ],
       "open": [],
       "relations": [
-        {"source": "d:1", "target": "d:2", "type": "constrains", "holds": true, "note": "<what it means here>"}
+        {"source": "<dimension 1>", "target": "<dimension 2>", "type": "constrains", "holds": true, "note": "<what it means here>"}
       ]
     },
     {
@@ -226,12 +224,12 @@ Without a space (with one, the reference gives the `space` part):
       "approach": "B",
       "step": 2,
       "choices": [
-        {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["Q1"], "reason": "<why>"},
-        {"dimension_id": "d:2", "value_id": "v:2.2", "drivers": ["R1"], "reason": "<why>"}
+        {"dimension_id": "<dimension 1>", "value_id": "<dimension 1>: <value 1.2>", "drivers": ["Q1"], "reason": "<why>"},
+        {"dimension_id": "<dimension 2>", "value_id": "<dimension 2>: <value 2.2>", "drivers": ["R1"], "reason": "<why>"}
       ],
       "considered": [],
       "open": [
-        {"dimension_id": "d:3", "reason": "<why no requirement settles it>"}
+        {"dimension_id": "<dimension 3>", "reason": "<why no requirement settles it>"}
       ],
       "relations": []
     }
@@ -239,18 +237,18 @@ Without a space (with one, the reference gives the `space` part):
   "adrs": [
     {"id": "ADR1", "title": "<the decision>", "drivers": ["C1"], "context": "<what the drivers demand>",
      "options": [
-       {"id": "O1", "name": "<short name>", "values": ["v:1.1"], "status": "chosen", "in": ["A1"], "step": 4,
+       {"id": "O1", "name": "<short name>", "values": ["<dimension 1>: <value 1.1>"], "status": "chosen", "in": ["A1"], "step": 4,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<why A1 takes it>"},
-       {"id": "O2", "name": "<short name>", "values": ["v:1.2"], "status": "chosen", "in": ["B1"], "step": 2,
+       {"id": "O2", "name": "<short name>", "values": ["<dimension 1>: <value 1.2>"], "status": "chosen", "in": ["B1"], "step": 2,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<why B1 takes it>"}
      ]},
     {"id": "ADR2", "title": "<the decision>", "drivers": ["R1", "Q1"], "context": "<…>",
      "options": [
-       {"id": "O1", "name": "<short name>", "values": ["v:2.1", "v:3.2"], "status": "chosen", "in": ["A1"], "step": 4,
+       {"id": "O1", "name": "<short name>", "values": ["<dimension 2>: <value 2.1>", "<dimension 3>: <value 3.2>"], "status": "chosen", "in": ["A1"], "step": 4,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"},
-       {"id": "O2", "name": "<short name>", "values": ["v:2.2"], "status": "chosen", "in": ["B1"], "step": 2,
+       {"id": "O2", "name": "<short name>", "values": ["<dimension 2>: <value 2.2>"], "status": "chosen", "in": ["B1"], "step": 2,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"},
-       {"id": "O3", "name": "<short name>", "values": ["v:3.1"], "status": "discarded", "step": 3,
+       {"id": "O3", "name": "<short name>", "values": ["<dimension 3>: <value 3.1>"], "status": "discarded", "step": 3,
         "pros": ["<…>"], "cons": ["<…>"], "reason": "<why it was set aside>"}
      ]}
   ],

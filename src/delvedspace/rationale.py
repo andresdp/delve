@@ -27,12 +27,14 @@ Where the space falls short, the file says so instead of forcing a fit. Every re
 ADR or listed in ``unaddressed`` with a ``reason`` (``no_dimension``: the space has no dimension for it;
 ``traded_off``; ``budget``; ``not_in_solution``, in explain). A choice or an ADR option whose value only roughly
 matches what it stands for carries ``fit: "approximate"`` and a ``fit_note``. The agent never changes the space to
-close a gap: a wiki is read only, and the agent's own space is fixed once written.
+close a gap: the space is used as provided.
 
-Every file names its values by id (``d:1``, ``v:1.2``) against a space. Either the space is a DelveDSpace wiki
-(``space: {workspace, run, graph_sha256}``), and ``check`` tests the ids against ``raw/graph.json`` when it is
-given the graph; or the agent built its own (``space: {dimensions, relations}``), and ``check`` tests the ids
-against those. Every problem has a stable ``code`` and a JSON Pointer ``path`` into the file.
+With a space, the file names its values by id (``d:1``, ``v:1.2``) against a DelveDSpace wiki (``space:
+{workspace, run, graph_sha256}``), and ``check`` tests the ids against ``raw/graph.json`` when it is given the
+graph. Without one (``space: null``) the agent works zero-shot, from its own knowledge, and writes no space: a
+dimension's id is its name (``Storage``) and a value's id is ``Dimension: Value`` (``Storage: Local disks``), so
+the checker reads the dimensions and values from the ids themselves. There are no gaps then: nothing to fall
+short of. Every problem has a stable ``code`` and a JSON Pointer ``path`` into the file.
 """
 
 from __future__ import annotations
@@ -71,7 +73,7 @@ WARNINGS = ("unmet_requires", "graph_changed", "unused_point")
 _Spec = Dict[str, Tuple[str, bool]]
 _TYPES = {"text": str, "string": str, "list": list, "object": dict, "boolean": bool, "integer": int}
 _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", True),
-               "space": ("object", True), "problem": ("object", True), "budget": ("object", True),
+               "space": ("object|null", True), "problem": ("object", True), "budget": ("object", True),
                "trajectory": ("list", True), "alternatives": ("list", True), "adrs": ("list", True),
                "points": ("list", True), "approaches": ("list", False),
                "comparison": ("list", False), "regions": ("list", False), "uncovered": ("list", False),
@@ -92,10 +94,6 @@ _OPTION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list
                   "in": ("list", False), "pros": ("list", True), "cons": ("list", True), "reason": ("string", True),
                   "step": ("integer|null", False), "fit": ("text", False), "fit_note": ("string", False)}
 _WIKI: _Spec = {"workspace": ("string", True), "run": ("string", True), "graph_sha256": ("text", True)}
-_OWN: _Spec = {"dimensions": ("list", True), "relations": ("list", False)}
-_OWN_DIMENSION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list", True)}
-_OWN_VALUE: _Spec = {"id": ("text", True), "name": ("text", True)}
-_OWN_RELATION: _Spec = {"source": ("text", True), "target": ("text", True), "type": ("text", True)}
 _PROBLEM: _Spec = {"title": ("text", True), "context": ("string", False), "requirements": ("list", True)}
 _REQUIREMENT: _Spec = {"id": ("text", True), "text": ("text", True), "kind": ("string", False),
                        "attribute": ("string|null", False)}
@@ -136,14 +134,14 @@ def load(path: Path) -> Any:
         raise RationaleError(f"{path} is not JSON: {exc}") from None
 
 
-def own_space(doc: Any) -> bool:
-    """Whether the file carries the agent's own space (``space.dimensions``) instead of naming a wiki."""
-    return isinstance(doc, dict) and isinstance(doc.get("space"), dict) and "dimensions" in doc["space"]
+def zero_shot(doc: Any) -> bool:
+    """Whether the file was written without a space (``space: null``): ids are the agent's own names."""
+    return isinstance(doc, dict) and "space" in doc and doc["space"] is None
 
 
 def names_space(doc: Any) -> bool:
     """Whether the file names a wiki's space (``space`` is ``{workspace, run, graph_sha256}``), so it needs the graph."""
-    return isinstance(doc, dict) and isinstance(doc.get("space"), dict) and not own_space(doc)
+    return isinstance(doc, dict) and isinstance(doc.get("space"), dict)
 
 
 def file_sha256(path: Path) -> str:
@@ -181,27 +179,26 @@ def _integer(value: Any) -> bool:
 class _Checker:
     """Collects problems and resolved labels while walking one rationale file.
 
-    Ids resolve against the wiki's ``graph`` or, for a file with its own space, against ``own`` (``{id: node}``,
-    nodes shaped like the graph's: ``id``, ``kind``, ``label``, ``dimension_id`` for a value). With neither,
-    ids are not resolved and only the structural rules run.
+    Ids resolve against the wiki's ``graph`` or, for a zero-shot file, are read from the ids themselves
+    (``q.label_node``). A file that names a wiki checked without its graph gets the structural rules only.
     """
 
     def __init__(self, graph: Optional[q.Graph]):
         self.graph = graph
-        self.own: Optional[Dict[str, Dict[str, Any]]] = None
-        self.own_edges: List[Dict[str, Any]] = []
+        self.zero_shot = False
         self.problems: List[Dict[str, Any]] = []
         self.resolved: Dict[str, str] = {}
         self._relations: Optional[Dict[frozenset, List[Dict[str, Any]]]] = None  # {source, target} -> edges
 
     @property
     def resolves(self) -> bool:
-        """Whether ids can be resolved (a wiki graph or the file's own space)."""
-        return self.graph is not None or self.own is not None
+        """Whether ids can be resolved (a wiki graph, or a zero-shot file's names)."""
+        return self.graph is not None or self.zero_shot
 
     def node(self, ident: Any) -> Dict[str, Any]:
-        table = self.own if self.own is not None else (self.graph or {}).get("_by_id", {})
-        return table.get(ident) or {}
+        if self.zero_shot:
+            return q.label_node(ident, ["value", "dimension"]) or {}
+        return (self.graph or {}).get("_by_id", {}).get(ident) or {}
 
     def add(self, code: str, path: str, message: str, candidates: Sequence[Any] = ()) -> None:
         self.problems.append({"code": code, "severity": "warning" if code in WARNINGS else "error",
@@ -247,16 +244,16 @@ class _Checker:
 
     def resolve(self, ref: str, path: str, kinds: Sequence[str]) -> Optional[Dict[str, Any]]:
         """Resolve one id against the space; report it when unknown or not canonical."""
-        if self.own is not None:
-            n = self.own.get(ref)
-            if n is None or n["kind"] not in kinds:
-                same_kind = [x for x in self.own.values() if x["kind"] in kinds]
-                close = difflib.get_close_matches(ref, [x["id"] for x in same_kind], n=5, cutoff=0.5)
-                shown = [_brief(self.own[i]) for i in close] or [_brief(x) for x in same_kind[:5]]
-                self.add("unknown_id", path, f"'{ref}' is not a {' or '.join(kinds)} id of the file's space "
-                                             f"(space.dimensions)", shown)
+        if self.zero_shot:
+            n = q.label_node(ref, kinds)
+            if n is None:
+                self.add("unknown_id", path, f"'{ref}': without a space, a value is written 'Dimension: Value' "
+                                             "(for example 'Storage: Local disks') and a dimension by its name")
                 return None
-            self.resolved.setdefault(n["id"], n.get("label", ""))
+            self.resolved.setdefault(n["id"], n["label"])
+            if n["id"] != ref:
+                self.add("not_canonical", path, f"write '{n['id']}' (one space after the colon, single spaces), "
+                                                "the same way every time", [_brief(n)])
             return n
         try:
             n = q.resolve(self.graph, ref, kinds)
@@ -287,9 +284,10 @@ class _Checker:
         if src is None or tgt is None or not self.good(rel, "type"):
             return
         a, b = src["id"], tgt["id"]
+        if self.zero_shot:
+            return  # no space to check a claimed relation against
         if self._relations is None:
-            edges = self.own_edges if self.own is not None else [
-                e for e in (self.graph or {}).get("edges") or [] if e.get("type") == "relation"]
+            edges = [e for e in (self.graph or {}).get("edges") or [] if e.get("type") == "relation"]
             self._relations = {}
             for e in edges:
                 self._relations.setdefault(frozenset((e.get("source"), e.get("target"))), []).append(e)
@@ -303,7 +301,7 @@ class _Checker:
             return
         found = [{"source": e.get("source"), "target": e.get("target"), "type": e.get("relation"),
                   "directed": bool(e.get("directed"))} for e in between]
-        where = "the graph" if self.own is None else "the file's space (space.relations)"
+        where = "the graph"
         what = (f"; {where} has " + ", ".join(
             f"{f['source']} {f['type']} {f['target']}" + ("" if f["directed"] else " (undirected)") for f in found)
             if found else f"; {where} has no relation between them")
@@ -357,8 +355,8 @@ def check(doc: Any, graph: Optional[q.Graph] = None, graph_sha256: Optional[str]
     """Check a parsed rationale file; return ``{ok, graph_sha256, problems, resolved}``.
 
     ``graph`` (from ``q.load``) enables the rules against a wiki's space; it is used only for a file that names
-    one (``names_space``). ``graph_sha256`` is the hash of that graph's file. A file with its own space is
-    checked against it; a file that names a wiki, checked without its graph, gets the structural rules only.
+    one (``names_space``). ``graph_sha256`` is the hash of that graph's file. A zero-shot file
+    (``space: null``) is checked against the names it uses; a file that names a wiki, checked without its graph, gets the structural rules only.
     ``ok`` is false when any problem is an error; warnings are allowed.
     """
     c = _Checker(graph if names_space(doc) else None)
@@ -378,8 +376,11 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
     if mode is not None and mode not in MODES:
         c.add("schema", "/mode", f"expected one of {', '.join(MODES)}, got {json.dumps(mode)}")
     space = doc.get("space")
-    if own_space(doc):
-        _own_space(c, space)
+    c.zero_shot = space is None
+    if isinstance(space, dict) and "dimensions" in space:
+        c.add("schema", "/space/dimensions", "the agent does not write a space: without a wiki, set space to null "
+                                             "and name dimensions and values from your own knowledge "
+                                             "('Storage', 'Storage: Local disks')")
     elif isinstance(space, dict) and c.fields(space, ("space",), _WIKI):
         sha = space.get("graph_sha256")
         if graph_sha256 and isinstance(sha, str) and sha and sha != graph_sha256:
@@ -406,48 +407,13 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
         c.add("schema", "/uncovered", "missing uncovered (explain lists the decisions the space does not cover; "
                                       "use [] when every decision is mapped)")
     uncovered = c.items(doc, "uncovered")
-    if uncovered and own_space(doc):
-        c.add("schema", "/uncovered", "a file with its own space (space.dimensions) maps every decision onto it; "
-                                      "leave uncovered empty")
+    if uncovered and c.zero_shot:
+        c.add("schema", "/uncovered", "without a space (space: null) every decision is named from your own "
+                                      "knowledge, so nothing is uncovered: leave uncovered empty")
     for i, item in enumerate(uncovered):
         parts = ("uncovered", i)
         if c.fields(item, parts, _UNCOVERED) and item.get("nearest_dimension_id") is not None:
             c.ref(item, "nearest_dimension_id", parts, ["dimension"])
-
-
-def _own_space(c: _Checker, space: Mapping[str, Any]) -> None:
-    """Check the agent's own space and make it the table ids resolve against."""
-    c.own = {}
-    if not c.fields(space, ("space",), _OWN):
-        return
-    for i, dim in enumerate(c.items(space, "dimensions")):
-        parts = ("space", "dimensions", i)
-        if not c.fields(dim, parts, _OWN_DIMENSION) or not c.good(dim, "id"):
-            continue
-        if dim["id"] in c.own:
-            c.add("schema", pointer(*parts, "id"), f"duplicate id '{dim['id']}' in the space")
-            continue
-        c.own[dim["id"]] = {"id": dim["id"], "kind": "dimension", "label": dim.get("name") or dim["id"]}
-        values = c.items(dim, "values")
-        if not values:
-            c.add("schema", pointer(*parts, "values"), "a dimension has at least one value")
-        for j, value in enumerate(values):
-            vparts = (*parts, "values", j)
-            if not c.fields(value, vparts, _OWN_VALUE) or not c.good(value, "id"):
-                continue
-            if value["id"] in c.own:
-                c.add("schema", pointer(*vparts, "id"), f"duplicate id '{value['id']}' in the space")
-                continue
-            c.own[value["id"]] = {"id": value["id"], "kind": "value", "label": value.get("name") or value["id"],
-                                  "dimension_id": dim["id"], "dimension": dim.get("name")}
-    for i, rel in enumerate(c.items(space, "relations")):
-        parts = ("space", "relations", i)
-        if not c.fields(rel, parts, _OWN_RELATION):
-            continue
-        src = c.ref(rel, "source", parts, ["dimension"])
-        tgt = c.ref(rel, "target", parts, ["dimension"])
-        if src is not None and tgt is not None and c.good(rel, "type"):
-            c.own_edges.append({"source": src["id"], "target": tgt["id"], "relation": rel["type"], "directed": True})
 
 
 def _requirements(c: _Checker, problem: Any) -> set:
@@ -962,7 +928,9 @@ def _fit(c: _Checker, obj: Mapping[str, Any], parts: Tuple[Any, ...]) -> None:
     c.one_of(obj, "fit", parts, FITS, "fits")
     if obj.get("fit") != "approximate":
         return
-    if not c.good(obj, "fit_note"):
+    if c.zero_shot:
+        c.add("schema", pointer(*parts, "fit"), "without a space you name the value that fits: no approximate fit")
+    elif not c.good(obj, "fit_note"):
         c.add("schema", pointer(*parts, "fit_note"),
               "an approximate fit says in fit_note what the value leaves out or stretches")
 
@@ -980,7 +948,12 @@ def _unaddressed(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: s
         if item.get("reason") == "not_in_solution" and mode == "search":
             c.add("schema", pointer(*parts, "reason"), "not_in_solution belongs to explain: search designs the "
                                                        "solution (no_dimension, traded_off or budget)")
-        if item.get("nearest_dimension_id") is not None:
+        if c.zero_shot and item.get("reason") == "no_dimension":
+            c.add("schema", pointer(*parts, "reason"), "without a space there is no dimension to miss: no_dimension "
+                                                       "needs a space (traded_off, budget or not_in_solution)")
+        if c.zero_shot and item.get("nearest_dimension_id") is not None:
+            c.add("schema", pointer(*parts, "nearest_dimension_id"), "without a space, leave it null")
+        elif item.get("nearest_dimension_id") is not None:
             c.ref(item, "nearest_dimension_id", parts, ["dimension"])
         rid = item.get("requirement")
         if not c.good(item, "requirement"):

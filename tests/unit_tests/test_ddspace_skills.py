@@ -64,9 +64,10 @@ def test_skill_text_works_in_design_space_terms(name):
     for needle in ("R1", "Q1", "**dimension**", "**value**", "**relation**", "**design point**", "trajectory",
                    "budget", "references/design-space.md", "./rationale/<id>.json", "ddspace rationale check",
                    "candidates", "ddspace rationale build", "ddspace-rationale/5", "`points`", "reuse", "`adrs`", "`pros`", "`cons`", "`discarded`", '"step"', '"hypothesis"',
-                   '"assessment"', '"observation"', "space.dimensions", "your own knowledge"):
+                   '"assessment"', '"observation"', "zero-shot", '"space": null', "`Dimension: Value`", "your own knowledge"):
         assert needle in flat, needle
-    assert "every value in the file is a value id of the space" in flat.lower()
+    assert "every value in the file is an id: of the space, or, without one, a `dimension: value` name" in flat.lower()
+    assert "you do not build or write a space" in flat and "space.dimensions" not in flat
     steps = _steps(text)
     assert steps.rfind("ddspace rationale build") > steps.rfind("ddspace rationale check")  # build comes last
     last = " ".join(re.split(r"\n\d+\. ", steps)[-1].split())
@@ -91,7 +92,8 @@ def test_explain_skill_finds_regions_and_forced_values():
                    "**force**", "**freely**", '"forced"'):
         assert needle in text, needle
     assert '"uncovered": []' in text and '"unaddressed": []' in text and "Gaps in the space" in text
-    assert "The space is fixed" in text and '"fit": "approximate"' in text
+    assert "With a space, use it as it is" in text and '"fit": "approximate"' in text
+    assert "Without a space there is nothing to fall short of" in text
 
 
 @pytest.mark.parametrize("name", SKILLS)
@@ -112,7 +114,7 @@ def test_the_reference_maps_the_operations_onto_commands(name):
                    "ddspace query evidence", "ddspace query relations", "ddspace query search",
                    '`ddspace point "<v:id>" "<v:id>" ... --graph space`', "attested_by", "graph_sha256",
                    "`ddspace rationale build rationale/<id>.json --graph space` (not `--out`)",
-                   "exactly as `ddspace query` prints it", "Do not write `space.dimensions`"):
+                   "exactly as `ddspace query` prints it", "never `Dimension: Value` names"):
         assert needle in flat, needle
     assert "one LLM call" in flat and "the wiki's own description" in flat
     before, fallback = flat.split("--no-llm", 1)  # --no-llm only once, as the fallback
@@ -203,16 +205,20 @@ def test_skill_templates_ship_in_the_wheel(tmp_path):
 @pytest.mark.parametrize("space", [True, False])
 @pytest.mark.parametrize("name", SKILLS)
 def test_the_skill_skeleton_passes_the_check(name, space):
-    """SKILL.md's JSON skeleton is a valid ddspace-rationale/5 file with its own space; with the reference's
+    """SKILL.md's JSON skeleton is a valid zero-shot ddspace-rationale/5 file (``space: null``, names for ids);
+    with the names written as ids (``<dimension 1>`` -> ``d:1``) and the reference's
     ``space`` and ``points`` (descriptions and sources as ``ddspace point`` printed them) it is a valid file that
     names a wiki."""
     from delvedspace import rationale
 
     doc = json.loads(re.search(r"```json\n(.*?)```", agent.skill_text(name), re.S).group(1))
-    assert doc["schema"] == rationale.SCHEMA and rationale.own_space(doc)
+    assert doc["schema"] == rationale.SCHEMA and rationale.zero_shot(doc)
     assert doc["mode"] == ("search" if name == "ddspace-search" else "explain")
     assert [s["point"] for s in doc["trajectory"]] == [p["id"] for p in doc["points"]]
     if space:
+        named = json.dumps(doc)
+        named = re.sub(r"<dimension (\d+)>: <value (\d+\.\d+)>", r"v:\2", named)
+        doc = json.loads(re.sub(r"<dimension (\d+)>", r"d:\1", named))
         ref = json.loads(re.search(r"```json\n(.*?)```", agent.reference_text(name), re.S).group(1))
         (listed,) = ref["points"]
         assert set(listed) == {"id", "values", "description", "attested_by"}

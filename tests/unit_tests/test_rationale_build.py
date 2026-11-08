@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 from delvedspace import cli, rationale
 from taxonomy_generator.wiki import build, write
 from taxonomy_generator.wiki import explainer
-from tests.unit_tests.test_ddspace_rationale import _explain, _own, _sample
+from tests.unit_tests.test_ddspace_rationale import _explain, _zero, _sample
 from tests.unit_tests.test_wiki_export import POINTS, _inputs
 
 runner = CliRunner()
@@ -142,10 +142,10 @@ def test_explain_with_nothing_uncovered_says_every_decision_mapped(ws, tmp_path)
     assert "Every decision maps onto the space" in html
 
 
-def test_own_space_with_out_writes_a_standalone_folder_without_wiki_links(tmp_path, monkeypatch):
+def test_zero_shot_with_out_writes_a_standalone_folder_without_wiki_links(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "out"
-    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _own())), "--out", str(out)))
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", str(out)))
     page = out / "explainers" / "toy-store-search.html"
     assert Path(payload["page"]) == page and page.is_file()
     assert (out / "assets" / "d3.min.js").is_file() and (out / "assets" / "style.css").is_file()
@@ -155,9 +155,9 @@ def test_own_space_with_out_writes_a_standalone_folder_without_wiki_links(tmp_pa
     assert "Local disks" in html and "Postgres" in html and 'data-tab="compare"' in html
 
 
-def test_own_space_without_out_is_a_usage_error(tmp_path, monkeypatch):
+def test_zero_shot_without_out_is_a_usage_error(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = _invoke("rationale", "build", str(_file(tmp_path, _own())))
+    result = _invoke("rationale", "build", str(_file(tmp_path, _zero())))
     assert result.exit_code == 2 and "--out" in json.loads(result.stdout)["error"]
 
 
@@ -412,7 +412,7 @@ def test_out_outside_the_current_folder_exits_2_and_writes_nothing(tmp_path, mon
     here.mkdir()
     monkeypatch.chdir(here)
     for out in (tmp_path / "elsewhere", here / ".." / "sneaky"):
-        result = _invoke("rationale", "build", str(_file(tmp_path, _own())), "--out", str(out))
+        result = _invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", str(out))
         assert result.exit_code == 2 and "error" in json.loads(result.stdout)
         assert not out.exists()
 
@@ -422,7 +422,7 @@ def test_out_refuses_an_assets_folder_ddspace_did_not_create(tmp_path, monkeypat
     out = tmp_path / "out"
     (out / "assets").mkdir(parents=True)
     (out / "assets" / "style.css").write_text("mine", encoding="utf-8")
-    result = _invoke("rationale", "build", str(_file(tmp_path, _own())), "--out", str(out))
+    result = _invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", str(out))
     assert result.exit_code == 2 and "assets" in json.loads(result.stdout)["error"]
     assert (out / "assets" / "style.css").read_text(encoding="utf-8") == "mine"
     assert not (out / "explainers").exists()
@@ -432,7 +432,7 @@ def test_out_writes_a_marker_and_can_build_into_its_own_folder_again(tmp_path, m
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "out"
     for _ in range(2):
-        _built(_invoke("rationale", "build", str(_file(tmp_path, _own())), "--out", "out"))
+        _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", "out"))
     assert (out / "assets" / explainer.ASSETS_MARKER).is_file()
     assert (out / "explainers" / "toy-store-search.html").is_file()
 
@@ -580,19 +580,20 @@ def test_explain_page_shows_the_regions_as_bands(ws, tmp_path):
     assert data["regions"][0]["point"] == {"d:1": "v:1.1"} and data["trajectory"][0]["alternative"] == "S"
 
 
-def test_own_space_trajectory_uses_the_agents_own_space(tmp_path, monkeypatch):
+def test_zero_shot_trajectory_uses_the_agents_own_names(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _own())), "--out", "out"))
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", "out"))
     html = Path(payload["page"]).read_text(encoding="utf-8")
     visible = re.sub(r"<script.*?</script>", "", html, flags=re.S)
     assert 'data-panel="trajectory"' in html and "Local disks" in html and "Attested by" not in visible
-    data = _data(_own(), tmp_path)
-    assert [s["point"] for s in data["trajectory"]] == [{"d:1": "v:1.1"}, {"d:1": "v:1.2"}]
-    assert data["dimensions"]["d:1"]["label"] == "Store" and not data["wiki"]
-    assert data["values"]["v:1.3"]["label"] == "Postgres"   # a value of the own space no step used
+    data = _data(_zero(), tmp_path)
+    assert [s["point"] for s in data["trajectory"]] == [{"z:1": "z:1.1"}, {"z:1": "z:1.2"}]   # short ids, no text
+    assert data["dimensions"]["z:1"]["label"] == "Store" and not data["wiki"]
+    assert data["values"]["z:1.3"]["label"] == "Postgres"   # a value the agent named that no step took
     assert [s["approach"] for s in data["trajectory"]] == ["A", "B"] and data["approaches"][1]["idea"]
-    assert data["relations"] == [{"source": "d:1", "target": "d:2", "type": "constrains", "directed": True,
-                                  "reading": ""}]
+    assert data["relations"] == [{"source": "z:1", "target": "z:2", "type": "constrains", "directed": True,
+                                  "reading": ""}]   # the relation the alternatives claim
+    assert "No space was provided" in visible and "the agent named" in html
 
 
 

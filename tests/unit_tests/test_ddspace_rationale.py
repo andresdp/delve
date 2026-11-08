@@ -109,19 +109,20 @@ def _explain(uncovered=2):
     return _with_points(doc)
 
 
-OWN_SPACE = {
-    "dimensions": [
-        {"id": "d:1", "name": "Store", "values": [{"id": "v:1.1", "name": "Local disks"}, {"id": "v:1.2", "name": "S3"},
-                                                  {"id": "v:1.3", "name": "Postgres"}]},
-        {"id": "d:2", "name": "Replication", "values": [{"id": "v:2.1", "name": "Quorum"},
-                                                        {"id": "v:2.2", "name": "None"}]},
-    ],
-    "relations": [{"source": "d:1", "target": "d:2", "type": "constrains"}],
-}
+NAMES = {"d:1": "Store", "d:2": "Replication", "v:1.1": "Store: Local disks", "v:1.2": "Store: S3",
+         "v:1.3": "Store: Postgres", "v:2.1": "Replication: Quorum", "v:2.2": "Replication: None"}
 
 
-def _own():
-    """A search file with the agent's own space (no wiki)."""
+def _named(doc):
+    """Write a file's ids as the names a zero-shot agent uses (``Store``, ``Store: Local disks``)."""
+    text = json.dumps(doc)
+    for ident in sorted(NAMES, key=len, reverse=True):
+        text = text.replace(json.dumps(ident), json.dumps(NAMES[ident]))
+    return json.loads(text)
+
+
+def _zero():
+    """A zero-shot search file: no space (``space: null``), dimensions and values named by the agent."""
     alt = lambda i, approach, step, value: {  # noqa: E731
         "id": i, "name": i, "summary": "", "approach": approach, "step": step,
         "choices": [{"dimension_id": "d:1", "value_id": value, "drivers": ["Q1"], "reason": "r"}],
@@ -133,7 +134,7 @@ def _own():
         "step": n, "round": 1, "approach": approach, "move": move, "parent": None, "values": [value],
         "hypothesis": "h", "assessment": {"Q1": "meets"}, "observation": "o", "rating": "strong"}
     doc = _sample()
-    doc.update(space=copy.deepcopy(OWN_SPACE),
+    doc.update(space=None,
                approaches=[{"id": "A", "idea": "what if disks?", "status": "live"},
                            {"id": "B", "idea": "what if S3?", "status": "live"}],
                alternatives=[alt("A1", "A", 1, "v:1.1"), alt("A2", "B", 2, "v:1.2")],
@@ -148,7 +149,7 @@ def _own():
                comparison=[{"dimension_id": "d:1", "note": "disks versus S3"}],
                unaddressed=[{"requirement": "R1", "reason": "traded_off", "note": "n"},
                             {"requirement": "C1", "reason": "budget", "note": "n"}])
-    return _with_points(doc)
+    return _named(_with_points(doc))
 
 
 # ---------------------------------------------------------------- clean files
@@ -213,57 +214,51 @@ def test_a_missing_field_is_a_schema_error(graph):
 
 
 def test_a_wrong_schema_tag_or_mode_is_a_schema_error():
-    doc = _own()
+    doc = _zero()
     doc["schema"], doc["mode"] = "ddspace-rationale/4", "browse"
     assert {("schema", "/schema"), ("schema", "/mode")} <= _codes(rationale.check(doc))
 
 
-def test_an_own_space_file_is_checked_against_its_own_space():
-    result = rationale.check(_own())
+def test_a_zero_shot_file_is_checked_against_its_own_names():
+    result = rationale.check(_zero())
     assert result["ok"] and result["problems"] == [] and result["graph_sha256"] is None, result["problems"]
     labels = {r["id"]: r["label"] for r in result["resolved"]}
-    assert labels["d:1"] == "Store" and labels["v:1.2"] == "S3"
+    assert labels["Store"] == "Store" and labels["Store: S3"] == "S3"
 
 
-def test_an_own_space_needs_its_ids(graph):
-    doc = _own()
-    doc["trajectory"][0]["values"] = ["v:1.9"]
-    doc["alternatives"][0]["choices"][0]["value_id"] = "v:2.1"   # a value of Replication, not of Store
-    doc["alternatives"][1]["open"][0]["dimension_id"] = "d:3"
+def test_a_zero_shot_value_is_written_dimension_colon_value():
+    doc = _zero()
+    doc["trajectory"][0]["values"] = ["Local disks"]                                  # no dimension
+    doc["alternatives"][0]["choices"][0]["value_id"] = "Replication: Quorum"          # not a value of Store
+    doc["alternatives"][1]["choices"][0]["value_id"] = "Store:S3"                     # not written canonically
     codes = _codes(rationale.check(doc))
     assert ("unknown_id", "/trajectory/0/values/0") in codes
     assert ("value_not_in_dimension", "/alternatives/0/choices/0/value_id") in codes
-    assert ("unknown_id", "/alternatives/1/open/0/dimension_id") in codes
-    problem = next(p for p in rationale.check(doc)["problems"] if p["path"] == "/trajectory/0/values/0")
-    assert "v:1.1" in [c["id"] for c in problem["candidates"]]
+    assert ("not_canonical", "/alternatives/1/choices/0/value_id") in codes
 
 
-def test_an_own_space_is_well_formed():
-    doc = _own()
-    doc["space"]["dimensions"][1]["values"][0]["id"] = "v:1.1"   # the same id twice
-    doc["space"]["dimensions"].append({"id": "d:3", "name": "Empty", "values": []})
-    doc["space"]["relations"].append({"source": "d:1", "target": "d:7", "type": "requires"})
-    codes = _codes(rationale.check(doc))
-    assert ("schema", "/space/dimensions/1/values/0/id") in codes
-    assert ("schema", "/space/dimensions/2/values") in codes
-    assert ("unknown_id", "/space/relations/1/target") in codes
+def test_a_file_does_not_write_its_own_space():
+    doc = _zero()
+    doc["space"] = {"dimensions": [{"id": "d:1", "name": "Store", "values": []}], "relations": []}
+    assert ("schema", "/space/dimensions") in _codes(rationale.check(doc))
+    assert rationale.zero_shot(_zero()) and not rationale.names_space(_zero())
 
 
-def test_an_own_space_relation_claim_must_be_in_its_relations():
-    doc = _own()
-    doc["alternatives"][0]["relations"][0]["type"] = "requires"
-    assert ("relation_mismatch", "/alternatives/0/relations/0") in _codes(rationale.check(doc))
+def test_a_zero_shot_relation_claim_is_not_checked():
+    doc = _zero()
+    doc["alternatives"][0]["relations"][0]["type"] = "requires"   # no space to check it against
+    assert rationale.check(doc)["problems"] == []
 
 
-def test_own_space_two_values_for_one_dimension():
-    doc = _own()
+def test_zero_shot_two_values_for_one_dimension():
+    doc = _zero()
     doc["alternatives"][0]["choices"].append(
-        {"dimension_id": "d:1", "value_id": "v:1.3", "drivers": [], "reason": ""})
+        {"dimension_id": "Store", "value_id": "Store: Postgres", "drivers": [], "reason": ""})
     assert ("two_values_one_dimension", "/alternatives/0/choices/1") in _codes(rationale.check(doc))
 
 
-def test_own_space_explain_with_uncovered_items_is_a_schema_error():
-    doc = _own()
+def test_zero_shot_explain_with_uncovered_items_is_a_schema_error():
+    doc = _zero()
     doc["mode"] = "explain"
     del doc["approaches"]
     alt = doc["alternatives"][0]
@@ -276,8 +271,8 @@ def test_own_space_explain_with_uncovered_items_is_a_schema_error():
         del step[key]
     doc["trajectory"] = [dict(step, move="solution", verdict="grounded")]
     doc["points"] = doc["points"][:1]
-    doc["regions"] = [{"id": "G1", "name": "Local disks", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"],
-                       "reason": "r"}]
+    doc["regions"] = [{"id": "G1", "name": "Local disks", "values": ["Store: Local disks"], "step": 1,
+                       "drivers": ["Q1"], "reason": "r"}]
     doc["adrs"][0]["options"] = [dict(doc["adrs"][0]["options"][0], **{"in": ["S"]}), doc["adrs"][0]["options"][2]]
     doc["uncovered"] = [{"decision": "Backups", "solution_quote": "nightly", "nearest_dimension_id": None}]
     assert ("schema", "/uncovered") in _codes(rationale.check(doc))
@@ -285,8 +280,8 @@ def test_own_space_explain_with_uncovered_items_is_a_schema_error():
     assert rationale.check(doc)["problems"] == []
 
 
-def test_own_space_still_checks_requirement_links():
-    doc = _own()
+def test_zero_shot_still_checks_requirement_links():
+    doc = _zero()
     doc["alternatives"][1]["choices"][0]["drivers"] = ["Q1", "X9"]
     assert ("unknown_requirement", "/alternatives/1/choices/0/drivers/1") in _codes(rationale.check(doc))
 
@@ -421,16 +416,16 @@ def test_errors_exit_1_with_the_problems(ws, tmp_path):
     assert not payload["ok"] and payload["problems"][0]["code"] == "not_canonical"
 
 
-def test_an_own_space_file_outside_a_workspace(tmp_path, monkeypatch):
+def test_a_zero_shot_file_outside_a_workspace(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     file = tmp_path / "r.json"
-    file.write_text(json.dumps(_own()), encoding="utf-8")
+    file.write_text(json.dumps(_zero()), encoding="utf-8")
     result = _invoke("rationale", "check", str(file))
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert payload["ok"] and payload["graph_sha256"] is None and payload["problems"] == []
-    doc = _own()
-    doc["alternatives"][0]["choices"].append(dict(doc["alternatives"][0]["choices"][0], value_id="v:1.2"))
+    doc = _zero()
+    doc["alternatives"][0]["choices"].append(dict(doc["alternatives"][0]["choices"][0], value_id="Store: S3"))
     file.write_text(json.dumps(doc), encoding="utf-8")
     result = _invoke("rationale", "check", str(file))
     assert result.exit_code == 1
@@ -508,7 +503,7 @@ def test_a_stance_outside_the_stances_is_a_schema_error(graph):
     doc = _sample()
     doc["alternatives"][0]["choices"][0]["evidence"][0]["stance"] = "loves"
     assert ("schema", "/alternatives/0/choices/0/evidence/0/stance") in _codes(_check(doc, graph))
-    doc = _own()
+    doc = _zero()
     doc["alternatives"][0]["choices"][0]["evidence"] = [{"doc": "s01_p01", "stance": "loves"}]
     assert ("schema", "/alternatives/0/choices/0/evidence/0/stance") in _codes(rationale.check(doc))
 
@@ -855,13 +850,21 @@ def test_unaddressed_rejects_a_driven_requirement_a_bad_reason_and_an_unknown_ne
     assert ("schema", "/unaddressed") in _codes(_check(doc, graph))
 
 
-def test_an_approximate_fit_says_why_and_is_allowed_in_an_own_space():
-    doc = _own()
+def test_an_approximate_fit_says_why_and_needs_a_space(graph):
+    doc = _sample()
     doc["adrs"][0]["options"][0]["fit"] = "approximate"
     doc["alternatives"][0]["choices"][0]["fit"] = "close"
-    codes = _codes(rationale.check(doc))
+    codes = _codes(_check(doc, graph))
     assert ("schema", "/adrs/0/options/0/fit_note") in codes and ("schema", "/alternatives/0/choices/0/fit") in codes
-    doc["adrs"][0]["options"][0]["fit_note"] = "Local disks stand in for any block storage."
+    doc["adrs"][0]["options"][0]["fit_note"] = "The disk quorum stands in for any local store."
     doc["alternatives"][0]["choices"][0].update(fit="approximate", fit_note="n")
-    doc["unaddressed"][0]["reason"] = "no_dimension"   # the agent's own space is fixed once written
-    assert rationale.check(doc)["problems"] == []
+    assert _check(doc, graph)["problems"] == []
+
+
+def test_without_a_space_there_are_no_gaps():
+    doc = _zero()
+    doc["adrs"][0]["options"][0].update(fit="approximate", fit_note="n")
+    doc["unaddressed"][0].update(reason="no_dimension", nearest_dimension_id="Store")
+    codes = _codes(rationale.check(doc))
+    assert {("schema", "/adrs/0/options/0/fit"), ("schema", "/unaddressed/0/reason"),
+            ("schema", "/unaddressed/0/nearest_dimension_id")} <= codes

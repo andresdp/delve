@@ -469,6 +469,11 @@ flowchart TB
 - **Goal:** the user asked (2026-11-08) what happens when requirements (search) or parts of a solution (explain) fit no dimension or value, as with an incomplete space. The space is used as provided: the agent never changes a wiki, never adds its own dimensions to it (no hybrid), and without a wiki its own space is fixed once written. Gaps are recorded instead of forced, and shown at the bottom of the page.
 - **Requirements:** R26. Every requirement is a driver of some ADR or listed in `unaddressed` (`reason`: `no_dimension`, `traded_off`, `budget`, or `not_in_solution` in explain; optional `nearest_dimension_id`; `note`), never both: the checker reports `unaccounted_requirement` and `unaddressed_mismatch`. A choice or ADR option whose value only roughly matches carries `fit: "approximate"` and a `fit_note`. The skills say the space is fixed and how to record each gap. The page ends with "Gaps in the space": counts, the uncovered decisions (explain), the unaddressed requirements with reason and nearest dimension, and the approximate fits, each selecting its option; ADR options carry an "approximate fit" badge.
 
+### U16. Zero-shot work without a space
+
+- **Goal:** the user asked (2026-11-08) that without a wiki the agent not write a space of its own (this replaces "without a wiki the agent builds its own space" from U11): it works zero-shot, from its own knowledge.
+- **Requirements:** R27. A file without a wiki has `space: null`; a dimension's id is its name and a value's id is `Dimension: Value`. The checker reads dimensions and values from those names (`unknown_id` for a value without a dimension, `not_canonical` for another spelling, `value_not_in_dimension`, `two_values_one_dimension`), does not check claimed relations, and rejects `space.dimensions`, `uncovered` items, `no_dimension`, a `nearest_dimension_id` and approximate fits. The page draws the graph from the names (short `z:` ids, no agent text in ids) and says that no space was provided where the gaps would be. The skills and the study's no-space prompt say the same.
+
 ## Verification Contract
 
 | Gate | Command or check | Applies to |

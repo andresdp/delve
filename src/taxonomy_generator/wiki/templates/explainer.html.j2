@@ -295,7 +295,7 @@
     {% endfor %}
     <h2 class="sec">Requirements not addressed</h2>
     {% if d.unaddressed %}
-    <p class="hint">No ADR names these requirements as drivers. Why each one is left out is under <a href="#gaps">Gaps in the space</a>.</p>
+    <p class="hint">No ADR names these requirements as drivers{% if d.wiki %}; more on each under <a href="#gaps">Gaps in the space</a>{% endif %}.</p>
     <ul class="chips">{% for u in d.unaddressed %}<li><button class="chip" type="button" data-requirement="{{ u.id }}" data-node="r:{{ u.id }}"><strong>{{ u.id }}</strong> {{ u.text }} <span class="muted">· {{ u.reason_text }}</span></button></li>{% endfor %}</ul>
     {% else %}
     <p>Every requirement is addressed by an ADR.</p>
@@ -474,6 +474,9 @@
   {% set gap_count = d.uncovered|length + d.unaddressed|length + d.fits|length %}
   <section class="gaps" id="gaps">
   <h2 class="sec">Gaps in the space</h2>
+  {% if not d.wiki %}
+  <p>No space was provided: the agent worked zero-shot, naming dimensions and values from its own knowledge, so nothing can fall short of a space.{% if d.unaddressed %} The requirements no ADR addresses, and why, are listed in the ADRs tab.{% endif %}</p>
+  {% else %}
   <p class="hint">Where the space fell short of the problem{{ "" if search else " or the solution" }}. The agent does not change the space: it records each gap here instead of forcing a fit.</p>
   {% if not gap_count %}
   <p>No gaps: {% if not search %}every decision of the solution maps onto the space, {% endif %}every requirement is addressed by an ADR, and every value fits what it stands for.</p>
@@ -512,12 +515,13 @@
   {% endfor %}
   {% else %}<p class="muted">Every value fits what it stands for.</p>{% endif %}
   {% endif %}
+  {% endif %}
   </section>
 </main>
 <div class="splitter-v" role="separator" aria-orientation="vertical" aria-label="Resize the text and the graph" tabindex="0" title="Drag to resize (double-click to reset)"></div>
 <aside class="ex-side">
   <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg>
-    <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value the space offers</label>
+    <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value {{ "the space offers" if d.wiki else "the agent named" }}</label>
     <div class="zoom-ctl"><button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button><button type="button" data-zoom="fit" title="Fit the graph" aria-label="Fit the graph">⤢</button></div></div>
   <div class="splitter-h" role="separator" aria-orientation="horizontal" aria-label="Resize the graph and its details" tabindex="0" title="Drag to resize (double-click to reset)"></div>
   <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, linked by how each point meets them)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and the paths from it to design points and requirements</span></div>
@@ -828,7 +832,7 @@
               : o ? "leaves it open" + (o.reason ? ': <span class="muted">' + esc(o.reason) + "</span>" : "") : '<span class="muted">does not settle it</span>');
           })))
         + sec("In the trajectory", explored.length
-            ? para(explored.length + " of the " + dm.values.length + " values the space offers were taken by some design point:")
+            ? para(explored.length + " of the " + dm.values.length + " values " + (data.wiki ? "the space offers" : "the agent named") + " were taken by some design point:")
               + list(explored.map((v) => vlabel(v) + " " + taking(v).map(stepChip).join("")))
             : para('<span class="muted">No design point settled this dimension.</span>'))
         + sec("Relations", list(data.relations.filter((r) => r.source === n.id || r.target === n.id)
@@ -855,7 +859,7 @@
         + sec("In the trajectory", points.length
             ? para("Taken by " + points.length + " design point" + (points.length > 1 ? "s" : "") + ": " + points.map(stepChip).join("")
               + "<br>First tried in #" + points[0].step + ": " + esc(phrase(points[0])) + ".")
-            : para('<span class="muted">No design point took it: the space offers it, but the agent did not try it.</span>'))
+            : para('<span class="muted">No design point took it: ' + (data.wiki ? "the space offers it, but the agent did not try it." : "the agent named it as an option, but did not try it.") + "</span>"))
         + sec("What the sources say", list(n.sources.map((s) => (s.href ? '<a href="' + esc(s.href) + '">' + esc(s.label) + "</a>" : esc(s.label))
             + (s.stance ? " " + esc(STANCE[s.stance] || s.stance) : "")))
             + (n.passages.length ? '<p class="ev">Passages: ' + ev(n.passages) + "</p>" : ""))
