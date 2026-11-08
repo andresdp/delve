@@ -24,6 +24,7 @@
   //   inset:       ring -> distance; that ring moves out to sit at most this far inside the next ring (use it for an
   //                inward ring, whose labels then do not cross the next ring's nodes)
   //   even:        rings whose nodes sit evenly around the whole ring, in node order, clockwise from the top
+  //                (every other one of them turned by half a slot)
   function radialTargets(nodes, links, cx, cy, opts) {
     const o = opts || {};
     const rings = o.rings, spacing = o.spacing;
@@ -90,9 +91,9 @@
       angle.set(n.id, as.length ? Math.atan2(d3.sum(as, Math.sin), d3.sum(as, Math.cos)) + (i % 2 ? restJitter : -restJitter)
         : -Math.PI / 2 + 2 * Math.PI * i / rest.length);
     });
-    even.forEach((k) => {
+    even.forEach((k, j) => {  // alternate rings start half a slot apart, so equal counts do not line up
       const ring = nodes.filter((n) => ringOf(n.kind) === k);
-      ring.forEach((n, i) => angle.set(n.id, -Math.PI / 2 + 2 * Math.PI * (i + 0.5) / ring.length));
+      ring.forEach((n, i) => angle.set(n.id, -Math.PI / 2 + 2 * Math.PI * (i + (j % 2 ? 0 : 0.5)) / ring.length));
     });
     const target = new Map();
     nodes.forEach((n) => {
