@@ -73,7 +73,7 @@ def _no_space(case_id="kv-store"):
     return {"schema": "ddspace-rationale/5", "id": case_id, "mode": "search",
             "space": None,
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No committed write is lost."}]},
-            "budget": {"max_points": 12},
+            "budget": {"max_points": 2},
             "points": [{"id": "P1", "values": ["Storage: Local disks"], "description": "Local disks.", "attested_by": []},
                        {"id": "P2", "values": ["Storage: Log in S3"], "description": "A log in S3.", "attested_by": []}],
             "approaches": [{"id": "A", "idea": "what if disks?", "status": "live"},

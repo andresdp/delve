@@ -66,7 +66,8 @@ SAME_APPROACH_MOVES = ("exploit", "ablate")           # a search step that stays
 MAX_POINTS = {"search": 20, "explain": 12}     # the most design points a mode may evaluate
 DEFAULT_POINTS = {"search": 12, "explain": 8}  # what the skills set when the user names no budget
 REGIONS = (1, 3)
-WARNINGS = ("unmet_requires", "graph_changed", "unused_point")
+WARNINGS = ("unmet_requires", "graph_changed", "unused_point", "no_explore", "early_stop")
+RATING_ORDER = {"weak": 1, "mixed": 2, "strong": 3}   # to tell whether a step improved its approach
 
 # Field specs: name -> (kind, required). Kinds: "text" (a non-empty string), "string", "string|null", "list",
 # "object", "object|null", "boolean", "boolean|null", "integer", "integer|null".
@@ -392,6 +393,8 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
     approaches = _approaches(c, doc, mode)
     points = _points(c, doc)
     steps = _trajectory(c, doc, mode, requirements, approaches)
+    if mode == "search":
+        _search_rounds(c, doc, approaches)
     _step_points(c, doc, points, steps)
     _alternatives(c, doc, mode, requirements, steps, approaches)
     _regions(c, doc, mode, requirements, steps)
@@ -604,6 +607,52 @@ def _search_step(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...],
                   f"an {step.get('move')} step stays in its parent's approach: step {parent['step'].get('step')} is "
                   f"approach '{theirs}', this step says '{approach}'")
     return last_round
+
+
+def _search_rounds(c: _Checker, doc: Mapping[str, Any], approaches: Mapping[str, Dict[str, Any]]) -> None:
+    """Warn when the rounds break the search loop (warnings: the file can still be clean).
+
+    ``no_explore``: a round after the first and before the last has no ``explore`` step (every round but the last
+    keeps one slot for a new approach). ``early_stop``: the search stopped with budget left for another round (a
+    point per live approach) although its last round improved some approach's best point, or brought a new
+    approach better than the best so far; the skill stops early only after at least two rounds and a round that
+    improved nothing.
+    """
+    rounds: Dict[int, List[Tuple[int, Mapping[str, Any]]]] = {}
+    for i, step in enumerate(c.items(doc, "trajectory")):
+        if isinstance(step, dict) and _integer(step.get("round")) and step.get("rating") in RATING_ORDER:
+            rounds.setdefault(step["round"], []).append((i, step))
+    if not rounds:
+        return
+    last = max(rounds)
+    for r in sorted(rounds):
+        if 1 < r < last and not any(s.get("move") == "explore" for _, s in rounds[r]):
+            c.add("no_explore", pointer("trajectory", rounds[r][0][0]),
+                  f"round {r} has no explore step: every round but the last keeps one slot for a new approach")
+    best: Dict[Any, int] = {}
+    improved: List[str] = []
+    for r in sorted(rounds):
+        before, overall = dict(best), max(best.values(), default=0)
+        improved = []
+        for _, s in rounds[r]:
+            rank, approach = RATING_ORDER[s["rating"]], s.get("approach")
+            bar = before.get(approach, overall if r > 1 else 0)
+            if r > 1 and rank > bar:
+                improved.append(f"step {s.get('step')} ({approach}, {s['rating']})")
+            best[approach] = max(best.get(approach, 0), rank)
+    budget = doc.get("budget") if isinstance(doc.get("budget"), dict) else {}
+    limit = budget.get("max_points")
+    used = len(c.items(doc, "trajectory"))
+    live = sum(1 for a in approaches.values() if a.get("status") == "live") or 1
+    if not _integer(limit) or limit - used < live:
+        return                                    # the budget is spent, or too little is left for another round
+    if last < 2 or improved:
+        why = ("only one round ran" if last < 2 else
+               f"round {last} improved the search ({', '.join(improved)})")
+        c.add("early_stop", pointer("trajectory"),
+              f"the search stopped with {limit - used} of {limit} points left although {why}: stop early only after "
+              "at least two rounds and a round that improves no approach's best point; plan the next round "
+              "(step 6) and go on")
 
 
 def _same_point(c: _Checker, owner: Mapping[str, Any], key: Optional[frozenset], parts: Tuple[Any, ...],
