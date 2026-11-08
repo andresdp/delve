@@ -35,7 +35,7 @@ per call (`replication`, not `data replication strategy`), and try synonyms.
   run it again. A run that only produced warnings you then fixed is not a step of the trajectory.
 - **Evaluate (step 5c).** `ddspace point` with the point's values (leave unsettled dimensions out) returns the
   sources that attest the combination (`attested_by`) and a short `description` (one LLM call, or the wiki's own
-  description when the point is already in the wiki). Record both in the step's `point`. If the description
+  description when the point is already in the wiki). Before you run it, look the values up in the file's `points`: a point already there is reused, without running the command again. Record the `description` and `attested_by` of a new point in its entry in `points`, not in the step. If the description
   call fails (for example, no API key), run it again with `--no-llm` and record the description as `null`. The
   support for a point is its `attested_by` and the evidence of its values (`ddspace query evidence`): a combination
   no source attests is not wrong, but say in `observation` that nothing attests it.
@@ -57,17 +57,20 @@ it writes the explainer into the wiki, next to the pages it links to.
 
 ## The file with a space
 
-Everything is as in `SKILL.md`, except `space`, which names the wiki instead of listing dimensions, and each step's
-`point`:
+Everything is as in `SKILL.md`, except `space`, which names the wiki instead of listing dimensions, and each point's
+`description` and `attested_by`, as `ddspace point` printed them:
 
 ```json
 {
   "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+  "points": [
+    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<the description ddspace point printed>",
+     "attested_by": ["s:s01"]}
+  ],
   "trajectory": [
     {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["v:1.1", "v:2.1"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "partly", "C1": "meets"},
-     "observation": "<…>", "rating": "mixed",
-     "point": {"description": "<the description ddspace point printed>", "attested_by": ["s:s01"]}}
+     "observation": "<…>", "rating": "mixed", "point": "P1"}
   ],
   "alternatives": [
     {"id": "A1", "approach": "A", "step": 4,

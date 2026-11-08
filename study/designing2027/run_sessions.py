@@ -408,13 +408,15 @@ def file_ids(doc: Any) -> List[str]:
             if isinstance(r, dict):
                 add(r.get("source"))
                 add(r.get("target"))
-    for step in doc.get("trajectory") or []:          # the design points investigated, with what point reported
-        if not isinstance(step, dict):
-            continue
-        for v in step.get("values") or []:
+    for step in doc.get("trajectory") or []:          # the design points evaluated
+        for v in (step.get("values") or []) if isinstance(step, dict) else []:
             add(v)
-        point = step.get("point")
-        for s in (point.get("attested_by") or []) if isinstance(point, dict) else []:
+    for point in doc.get("points") or []:              # each evaluated point once, with what ddspace point reported
+        if not isinstance(point, dict):
+            continue
+        for v in point.get("values") or []:
+            add(v)
+        for s in point.get("attested_by") or []:
             add(s.get("id") if isinstance(s, dict) else s)    # a source id, or a source object with its id
     for region in doc.get("regions") or []:
         for v in (region.get("values") or []) if isinstance(region, dict) else []:

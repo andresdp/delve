@@ -1,4 +1,4 @@
-"""Render a checked design rationale file (``ddspace-rationale/4``) as an explainer page.
+"""Render a checked design rationale file (``ddspace-rationale/5``) as an explainer page.
 
 The page sits at ``<html dir>/explainers/<id>.html``, next to the wiki's HTML, or in a standalone folder
 (``<out>/explainers/<id>.html`` with its own ``assets/``). It shows the requirements, one tab per alternative
@@ -181,6 +181,8 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
     by_number: Dict[Any, Dict[str, Any]] = {}
     seen: set = set()
     proposed = {a["step"]: a["id"] for a in alternatives if a.get("step") is not None}
+    listed = {p.get("id"): p for p in doc.get("points") or [] if isinstance(p, dict)}  # the evaluated design points
+    first_step: Dict[Any, Any] = {}  # point id -> the first step that evaluated it
     for s in doc.get("trajectory") or []:
         if not isinstance(s, dict):
             continue
@@ -193,7 +195,7 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
             changed = []
         novel = [d for d, v in point.items() if v not in seen]
         seen.update(point.values())
-        record = s.get("point") if isinstance(s.get("point"), dict) else {}
+        record = s.get("point") if isinstance(s.get("point"), dict) else listed.get(s.get("point")) or {}
         attested = []
         for ref in record.get("attested_by") or []:
             sid = ref.get("id") if isinstance(ref, dict) else ref
@@ -208,7 +210,11 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
                 "drivers": list(assessment) or list(s.get("drivers") or []),
                 "point": point, "changed": changed, "novel": novel,
                 "description": record.get("description") or "", "attested_by": attested,
-                "alternative": proposed.get(s.get("step"))}
+                "alternative": proposed.get(s.get("step")),
+                "point_id": s.get("point") if isinstance(s.get("point"), str) else None,
+                "reuses": first_step.get(s.get("point")) if isinstance(s.get("point"), str) else None}
+        if isinstance(s.get("point"), str):
+            first_step.setdefault(s["point"], s.get("step"))
         steps.append(step)
         by_number[s.get("step")] = step
     return steps

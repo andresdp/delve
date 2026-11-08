@@ -63,7 +63,7 @@ def test_skill_text_works_in_design_space_terms(name):
     flat = " ".join(text.split())
     for needle in ("R1", "Q1", "**dimension**", "**value**", "**relation**", "**design point**", "trajectory",
                    "budget", "references/design-space.md", "./rationale/<id>.json", "ddspace rationale check",
-                   "candidates", "ddspace rationale build", "ddspace-rationale/4", "`adrs`", "`pros`", "`cons`", "`discarded`", '"step"', '"hypothesis"',
+                   "candidates", "ddspace rationale build", "ddspace-rationale/5", "`points`", "reuse", "`adrs`", "`pros`", "`cons`", "`discarded`", '"step"', '"hypothesis"',
                    '"assessment"', '"observation"', "space.dimensions", "your own knowledge"):
         assert needle in flat, needle
     assert "every value in the file is a value id of the space" in flat.lower()
@@ -202,22 +202,24 @@ def test_skill_templates_ship_in_the_wheel(tmp_path):
 @pytest.mark.parametrize("space", [True, False])
 @pytest.mark.parametrize("name", SKILLS)
 def test_the_skill_skeleton_passes_the_check(name, space):
-    """SKILL.md's JSON skeleton is a valid ddspace-rationale/3 file with its own space; with the reference's
-    ``space`` and step ``point`` it is a valid file that names a wiki."""
+    """SKILL.md's JSON skeleton is a valid ddspace-rationale/5 file with its own space; with the reference's
+    ``space`` and ``points`` (descriptions and sources as ``ddspace point`` printed them) it is a valid file that
+    names a wiki."""
     from delvedspace import rationale
 
     doc = json.loads(re.search(r"```json\n(.*?)```", agent.skill_text(name), re.S).group(1))
     assert doc["schema"] == rationale.SCHEMA and rationale.own_space(doc)
     assert doc["mode"] == ("search" if name == "ddspace-search" else "explain")
+    assert [s["point"] for s in doc["trajectory"]] == [p["id"] for p in doc["points"]]
     if space:
         ref = json.loads(re.search(r"```json\n(.*?)```", agent.reference_text(name), re.S).group(1))
-        points = [s["point"] for s in ref["trajectory"]]
-        assert points and all(set(p) == {"description", "attested_by"} for p in points), points
-        assert ref["trajectory"][0]["values"] == doc["trajectory"][0]["values"]
+        (listed,) = ref["points"]
+        assert set(listed) == {"id", "values", "description", "attested_by"}
+        assert ref["trajectory"][0]["values"] == doc["trajectory"][0]["values"] == listed["values"]
+        assert ref["trajectory"][0]["point"] == listed["id"] == doc["points"][0]["id"]
         assert ref["alternatives"][0]["step"] == doc["alternatives"][0]["step"]
         doc["space"] = ref["space"]
-        for step in doc["trajectory"]:
-            step["point"] = points[0]
+        doc["points"][0] = listed
         assert rationale.names_space(doc)
     result = rationale.check(doc)
     assert result["ok"], result["problems"]

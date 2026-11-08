@@ -459,6 +459,11 @@ flowchart TB
 - **Requirements:** R24. The file carries `adrs`: each with `drivers`, `context` and `options` (partial design points, `chosen` in named alternatives or `discarded`, with `pros`, `cons`, `reason` and an optional `step`). The checker requires every alternative value in a chosen option (`not_in_adr`) and chosen options inside the alternatives they name (`adr_mismatch`; in explain, one chosen option per ADR, in `S`). The page opens on an ADRs tab (alternatives, ADRs, requirements no ADR or decision addresses), then the trajectory, then compare; the per-alternative tabs are gone (their choices show when an alternative is selected). The graph has one design-point node per step, linked to its values and to the requirements its assessment judges; requirements no point is judged against are drawn hollow; selecting a node lights its lineage up to the centre and down through points to requirements; unexplored values are hidden behind a toggle.
 - **Files:** `src/delvedspace/rationale.py`, the skill templates, `src/taxonomy_generator/wiki/explainer.py`, `src/taxonomy_generator/wiki/templates/explainer.html.j2`, `src/taxonomy_generator/wiki/templates/graph-layout.js`, `USAGE.md`, the rationale, build, browser, skill and study tests.
 
+### U14. The list of design points (schema 5) and the page's mode icon
+
+- **Goal:** the user asked (2026-11-08) that the agent keep the design points it generates in one list, reused instead of generated again, and updated in one place; and for an icon that tells search from explain.
+- **Requirements:** R25. The file records every evaluated point once in `points` (`P1`, …: values, description, `attested_by`); a step names its point by id. The checker reports `unknown_point`, `point_mismatch`, `duplicate_point` (naming the point to reuse) and warns `unused_point`. The skills look a point up before evaluating it and change a description only in the list. The page shows a reused point as "same point as #N" and a search or explain icon atop.
+
 ## Verification Contract
 
 | Gate | Command or check | Applies to |

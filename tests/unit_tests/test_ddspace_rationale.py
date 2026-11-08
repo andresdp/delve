@@ -1,4 +1,4 @@
-"""ddspace rationale check: the ddspace-rationale/4 file, its structural rules and its rules against a space."""
+"""ddspace rationale check: the ddspace-rationale/5 file, its structural rules and its rules against a space."""
 
 import copy
 import hashlib
@@ -51,6 +51,21 @@ def _codes(result):
     return {(p["code"], p["path"]) for p in result["problems"]}
 
 
+def _with_points(doc):
+    """Move each step's point into ``points`` (one entry per distinct set of values) and name it by id."""
+    points, ids = [], {}
+    for s in doc["trajectory"]:
+        record = s.get("point") if isinstance(s.get("point"), dict) else {}
+        key = tuple(sorted(s["values"]))
+        if key not in ids:
+            ids[key] = f"P{len(ids) + 1}"
+            points.append({"id": ids[key], "values": list(s["values"]), "description": record.get("description"),
+                           "attested_by": record.get("attested_by", [])})
+        s["point"] = ids[key]
+    doc["points"] = points
+    return doc
+
+
 def _explain(uncovered=2):
     doc = _sample()
     doc.update(id="toy-store-explain", mode="explain", comparison=[])
@@ -89,7 +104,7 @@ def _explain(uncovered=2):
         {"decision": "Backup schedule", "solution_quote": "nightly snapshots", "nearest_dimension_id": "d:1"},
         {"decision": "Client library", "solution_quote": "a Go client", "nearest_dimension_id": None},
     ][:uncovered]
-    return doc
+    return _with_points(doc)
 
 
 OWN_SPACE = {
@@ -129,7 +144,7 @@ def _own():
                    {"id": "O3", "name": "Postgres", "values": ["v:1.3"], "status": "discarded",
                     "pros": [], "cons": ["too heavy"], "reason": "r"}]}],
                comparison=[{"dimension_id": "d:1", "note": "disks versus S3"}])
-    return doc
+    return _with_points(doc)
 
 
 # ---------------------------------------------------------------- clean files
@@ -195,7 +210,7 @@ def test_a_missing_field_is_a_schema_error(graph):
 
 def test_a_wrong_schema_tag_or_mode_is_a_schema_error():
     doc = _own()
-    doc["schema"], doc["mode"] = "ddspace-rationale/3", "browse"
+    doc["schema"], doc["mode"] = "ddspace-rationale/4", "browse"
     assert {("schema", "/schema"), ("schema", "/mode")} <= _codes(rationale.check(doc))
 
 
@@ -256,6 +271,7 @@ def test_own_space_explain_with_uncovered_items_is_a_schema_error():
     for key in ("round", "approach", "rating"):
         del step[key]
     doc["trajectory"] = [dict(step, move="solution", verdict="grounded")]
+    doc["points"] = doc["points"][:1]
     doc["regions"] = [{"id": "G1", "name": "Local disks", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"],
                        "reason": "r"}]
     doc["adrs"][0]["options"] = [dict(doc["adrs"][0]["options"][0], **{"in": ["S"]}), doc["adrs"][0]["options"][2]]
@@ -769,3 +785,43 @@ def test_explain_adrs_choose_the_solutions_option_once(graph):
     doc = _explain()
     doc["adrs"][1]["options"][0]["in"] = ["A1"]
     assert ("adr_mismatch", "/adrs/1/options/0/in") in _codes(_check(doc, graph))
+
+
+
+# ---------------------------------------------------------------- schema 5: the list of design points
+
+
+def test_a_step_names_a_point_of_the_list_with_its_values(graph):
+    doc = _sample()
+    doc["trajectory"][0]["point"] = "P9"
+    assert ("unknown_point", "/trajectory/0/point") in _codes(_check(doc, graph))
+    doc = _sample()
+    doc["trajectory"][2]["point"] = "P1"          # step 3 takes v:1.2, P1 is v:1.1 + v:2.1
+    codes = _codes(_check(doc, graph))
+    assert ("point_mismatch", "/trajectory/2/point") in codes
+    assert ("unused_point", "/points/2") in codes  # P3 is now named by no step: a warning
+    del doc["points"]
+    assert ("schema", "/points") in _codes(_check(doc, graph))
+
+
+def test_a_point_evaluated_again_is_reused_not_described_again(graph):
+    doc = _sample()
+    doc["trajectory"][2]["values"] = ["v:1.1", "v:2.1"]   # step 3 evaluates P1 again ...
+    doc["points"][2]["values"] = ["v:2.1", "v:1.1"]       # ... but records it as a new point
+    doc["alternatives"][1]["choices"][0]["value_id"] = "v:1.1"
+    problems = _check(doc, graph)["problems"]
+    dup = next(p for p in problems if p["code"] == "duplicate_point")
+    assert dup["path"] == "/points/2/values" and dup["candidates"] == ["P1"]
+    doc["trajectory"][2]["point"] = "P1"                    # reusing P1: no duplicate, P3 unused
+    del doc["points"][2]
+    codes = {p["code"] for p in _check(doc, graph)["problems"]}
+    assert "duplicate_point" not in codes and "point_mismatch" not in codes
+
+
+def test_point_entries_have_an_id_values_and_a_description(graph):
+    doc = _sample()
+    del doc["points"][0]["description"]
+    doc["points"][1]["values"] = ["v:9.9"]
+    codes = _codes(_check(doc, graph))
+    assert ("schema", "/points/0/description") in codes
+    assert ("unknown_id", "/points/1/values/0") in codes

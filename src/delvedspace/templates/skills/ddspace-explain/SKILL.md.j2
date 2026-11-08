@@ -1,6 +1,6 @@
 ---
 name: ddspace-explain
-description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/4) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/5) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
 ---
 <!-- {{ marker }} -->
 
@@ -40,6 +40,15 @@ Evaluate at most **{{ default_points }} points or regions** (the `budget`), unle
 more than {{ max_points }}. Each one is a step of the `trajectory`. Stop as soon as the solution is explained: a simple
 solution may need only two or three steps.
 
+## The list of design points
+
+Record every design point you evaluate once, in `points`: an id (`P1`, `P2`, …), its `values`, a short
+`description` and what supports it (`attested_by`). A step names its point by id (`"point": "P1"`). Before you
+evaluate a point, look it up in the list: when a point with the same values is already there, the step names that
+id and you do not evaluate or describe it again. If a description must change (rarely), change it in the list
+only: every step that names the point shows the new one. Without a space, the description is your own one sentence
+and `attested_by` stays empty.
+
 ## Steps
 
 1. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
@@ -58,8 +67,9 @@ solution may need only two or three steps.
    requirements are.
 6. **Evaluate, one step at a time,** starting with the first group. For every step:
    1. **Hypothesis.** Say which requirements you expect to explain the values, in `hypothesis`.
-   2. **Evaluate** it: for each requirement it bears on, `meets`, `partly` or `misses`, in `assessment`; and what
-      supports the combination.
+   2. **Evaluate** it, or reuse it from `points` when the list already has it: for each requirement it bears on,
+      `meets`, `partly` or `misses`, in `assessment`; and what supports the combination. Record a new point in
+      `points`.
    3. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
    4. **Verdict:** `grounded` (the requirements call for these values and what is known supports them),
       `partial` (only some of that holds) or `ungrounded`.
@@ -110,7 +120,7 @@ Without a space (with one, the reference gives the `space` part and the `uncover
 
 ```json
 {
-  "schema": "ddspace-rationale/4",
+  "schema": "ddspace-rationale/5",
   "id": "<id>",
   "mode": "explain",
   "space": {
@@ -129,16 +139,21 @@ Without a space (with one, the reference gives the `space` part and the `uncover
     ]
   },
   "budget": {"max_points": {{ default_points }}},
+  "points": [
+    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<one sentence>", "attested_by": []},
+    {"id": "P2", "values": ["v:1.1"], "description": "<…>", "attested_by": []},
+    {"id": "P3", "values": ["v:1.2"], "description": "<…>", "attested_by": []}
+  ],
   "trajectory": [
     {"step": 1, "move": "solution", "parent": null, "values": ["v:1.1", "v:2.1"],
      "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"},
-     "observation": "<what the evaluation showed>", "verdict": "partial"},
+     "observation": "<what the evaluation showed>", "verdict": "partial", "point": "P1"},
     {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"],
      "hypothesis": "<which requirements explain these values>", "assessment": {"Q1": "meets"},
-     "observation": "<…>", "verdict": "grounded"},
+     "observation": "<…>", "verdict": "grounded", "point": "P2"},
     {"step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"],
      "hypothesis": "<does the requirement force v:1.1?>", "assessment": {"Q1": "misses"},
-     "observation": "<…: forced>", "verdict": "ungrounded"}
+     "observation": "<…: forced>", "verdict": "ungrounded", "point": "P3"}
   ],
   "regions": [
     {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"], "values": ["v:1.1"],

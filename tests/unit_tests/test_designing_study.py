@@ -68,12 +68,14 @@ def _no_space(case_id="kv-store"):
     other = {"dimension_id": "d:1", "value_id": "v:1.2", "drivers": ["Q1"], "reason": "S3 is already there."}
     step = lambda n, approach, c: {"step": n, "round": 1, "approach": approach, "move": "seed",  # noqa: E731
                                    "values": [c["value_id"]], "hypothesis": "h", "assessment": {"Q1": "meets"},
-                                   "observation": "o", "rating": "strong"}
-    return {"schema": "ddspace-rationale/4", "id": case_id, "mode": "search",
+                                   "observation": "o", "rating": "strong", "point": f"P{n}"}
+    return {"schema": "ddspace-rationale/5", "id": case_id, "mode": "search",
             "space": {"dimensions": [{"id": "d:1", "name": "Storage", "values": [
                 {"id": "v:1.1", "name": "Local disks"}, {"id": "v:1.2", "name": "Log in S3"}]}]},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No committed write is lost."}]},
             "budget": {"max_points": 12},
+            "points": [{"id": "P1", "values": ["v:1.1"], "description": "Local disks.", "attested_by": []},
+                       {"id": "P2", "values": ["v:1.2"], "description": "A log in S3.", "attested_by": []}],
             "approaches": [{"id": "A", "idea": "what if disks?", "status": "live"},
                            {"id": "B", "idea": "what if S3?", "status": "live"}],
             "trajectory": [step(1, "A", choice), step(2, "B", other)],
@@ -89,7 +91,7 @@ def _no_space(case_id="kv-store"):
 
 def _with_space(uncovered=()):
     """An explain file with ids, a passage, a source and uncovered items (not checked against a graph here)."""
-    return {"schema": "ddspace-rationale/4", "id": "kv-explain", "mode": "explain",
+    return {"schema": "ddspace-rationale/5", "id": "kv-explain", "mode": "explain",
             "space": {"workspace": "c1", "run": "r", "graph_sha256": "abc"},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No write is lost."}]},
             "alternatives": [{"id": "S", "name": "The solution", "choices": [
@@ -101,7 +103,8 @@ def _with_space(uncovered=()):
             "budget": {"max_points": 8},
             "trajectory": [{"step": 1, "move": "solution", "values": ["v:1.1", "v:2.10"], "hypothesis": "h",
                             "assessment": {"Q1": "meets"}, "observation": "o", "verdict": "grounded",
-                            "point": {"attested_by": ["s:s1"]}}],
+                            "point": "P1"}],
+            "points": [{"id": "P1", "values": ["v:1.1", "v:2.10"], "description": None, "attested_by": ["s:s1"]}],
             "regions": [{"id": "G1", "name": "g", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"], "reason": "r"}],
             "adrs": [{"id": "ADR1", "title": "Storage", "drivers": ["Q1"], "context": "c", "options": [
                 {"id": "O1", "name": "Disks and quorum", "values": ["v:1.1", "v:2.10"], "status": "chosen", "in": ["S"],
@@ -214,7 +217,7 @@ def test_fabrication_audit_separates_ids_seen_only_outside_ddspace():
 
 def test_fabrication_audit_reads_attested_by_entries_that_are_objects():
     doc = _with_space()
-    doc["trajectory"][0]["point"]["attested_by"] = [{"id": "s:s2", "label": "A source"}, "s:s1", {"label": "x"}]
+    doc["points"][0]["attested_by"] = [{"id": "s:s2", "label": "A source"}, "s:s1", {"label": "x"}]
     events = _events(_cmd("ddspace query values d:1", "d:1 v:1.1 d:2 v:2.10 s01_p01 s:s1"))
     assert "s:s2" in runner.file_ids(doc) and "s:s1" in runner.file_ids(doc)
     audit = runner.fabrication_audit(doc, events)

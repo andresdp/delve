@@ -1,6 +1,6 @@
 ---
 name: ddspace-search
-description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/4) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
+description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/5) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
 ---
 <!-- {{ marker }} -->
 
@@ -40,6 +40,15 @@ Evaluate at most **{{ default_points }} design points** (the `budget`), unless t
 evaluation (step 5b) is not evaluated and costs nothing. Spend the budget on points that teach you something, not
 on small variations of a point that already works.
 
+## The list of design points
+
+Record every design point you evaluate once, in `points`: an id (`P1`, `P2`, …), its `values`, a short
+`description` and what supports it (`attested_by`). A step names its point by id (`"point": "P1"`). Before you
+evaluate a point, look it up in the list: when a point with the same values is already there, the step names that
+id and you do not evaluate or describe it again. If a description must change (rarely), change it in the list
+only: every step that names the point shows the new one. Without a space, the description is your own one sentence
+and `attested_by` stays empty.
+
 ## Steps
 
 1. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
@@ -64,8 +73,8 @@ on small variations of a point that already works.
    2. **Check before evaluating.** Drop the point without evaluating it if it takes two values of one dimension,
       breaks a relation you know, or repeats a reason an approach was dropped for (step 6). Fix it and check it
       again.
-   3. **Evaluate** it: for each requirement, `meets`, `partly` or `misses`, in `assessment`; and what supports the
-      combination.
+   3. **Evaluate** it, or reuse it from `points` when the list already has it: for each requirement, `meets`,
+      `partly` or `misses`, in `assessment`; and what supports the combination. Record a new point in `points`.
    4. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
    5. **Rate** it: `strong` (meets every constraint and every requirement at least partly, with no conflict),
       `mixed` (good on some requirements, but misses one or carries a conflict that changing a value could fix)
@@ -126,7 +135,7 @@ Without a space (with one, the reference gives the `space` part):
 
 ```json
 {
-  "schema": "ddspace-rationale/4",
+  "schema": "ddspace-rationale/5",
   "id": "<id>",
   "mode": "search",
   "space": {
@@ -147,6 +156,12 @@ Without a space (with one, the reference gives the `space` part):
     ]
   },
   "budget": {"max_points": {{ default_points }}},
+  "points": [
+    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<one sentence>", "attested_by": []},
+    {"id": "P2", "values": ["v:1.2", "v:2.2"], "description": "<…>", "attested_by": []},
+    {"id": "P3", "values": ["v:1.2", "v:3.1"], "description": "<…>", "attested_by": []},
+    {"id": "P4", "values": ["v:1.1", "v:2.1", "v:3.2"], "description": "<…>", "attested_by": []}
+  ],
   "approaches": [
     {"id": "A", "idea": "what if <…>?", "status": "live"},
     {"id": "B", "idea": "what if <…>?", "status": "live"},
@@ -156,16 +171,16 @@ Without a space (with one, the reference gives the `space` part):
     {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["v:1.1", "v:2.1"],
      "hypothesis": "<what you expect, for which requirements>",
      "assessment": {"R1": "meets", "Q1": "partly", "C1": "meets"},
-     "observation": "<what the evaluation showed>", "rating": "mixed"},
+     "observation": "<what the evaluation showed>", "rating": "mixed", "point": "P1"},
     {"step": 2, "round": 1, "approach": "B", "move": "seed", "parent": null, "values": ["v:1.2", "v:2.2"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "partly"},
-     "observation": "<…>", "rating": "strong"},
+     "observation": "<…>", "rating": "strong", "point": "P2"},
     {"step": 3, "round": 1, "approach": "C", "move": "seed", "parent": null, "values": ["v:1.2", "v:3.1"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "C1": "misses"},
-     "observation": "<…>", "rating": "weak"},
+     "observation": "<…>", "rating": "weak", "point": "P3"},
     {"step": 4, "round": 2, "approach": "A", "move": "exploit", "parent": 1, "values": ["v:1.1", "v:2.1", "v:3.2"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "meets"},
-     "observation": "<…>", "rating": "strong"}
+     "observation": "<…>", "rating": "strong", "point": "P4"}
   ],
   "alternatives": [
     {

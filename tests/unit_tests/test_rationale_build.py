@@ -63,6 +63,8 @@ def _search_with_a_shared_dimension():
         {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "reason": "Disks survive one failure.",
          "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": None}]
     doc["trajectory"][2]["values"] = ["v:1.1"]
+    doc["trajectory"][2]["point"] = "P2"   # the same point as step 2: reused, not described again
+    del doc["points"][2]
     shared, other = doc["adrs"][0]["options"]
     shared["in"] = ["A1", "A2"]
     other.update(status="discarded", **{"in": []})
@@ -639,3 +641,11 @@ def test_explain_trajectory_has_a_story_and_questions_options_criteria(ws):
     assert 'class="qoc-wrap"' in html and 'data-qoc="0:1"' in html and 'data-crit="Q1"' in html
     assert "the solution · forced" in html and "judged only within the whole solution" in html
     assert 'class="lanes"' not in html and 'class="heat"' not in html
+
+
+
+def test_a_reused_point_says_so_on_the_page(ws):
+    from tests.unit_tests.test_rationale_build import _search_with_a_shared_dimension
+    data = _data(_search_with_a_shared_dimension(), ws)   # step 3 names P2, which step 2 evaluated
+    assert [(s["point_id"], s["reuses"]) for s in data["trajectory"]] == [("P1", None), ("P2", None), ("P2", 2)]
+    assert "same point as #2, reused" in explainer._render(data)

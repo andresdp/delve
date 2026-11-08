@@ -34,7 +34,7 @@ per call (`replication`, not `data replication strategy`), and try synonyms.
 - **Evaluate (steps 4 and 6).** `ddspace point` with the step's values warns about two values of one dimension, a
   value the evidence rejects and a required dimension left out, and returns the sources that attest the
   combination (`attested_by`) and a short `description` (one LLM call, or the wiki's own description when the
-  point is already in the wiki). Record both in the step's `point`. If the description call fails (for example,
+  point is already in the wiki). Before you run it, look the values up in the file's `points`: a point already there is reused, without running the command again. Record the `description` and `attested_by` of a new point in its entry in `points`, not in the step. If the description call fails (for example,
   no API key), run it again with `--no-llm` and record the description as `null`.
 - **Grounded, in the space.** What supports a region is its `attested_by` and the evidence of its values
   (`ddspace query evidence`). A region is `grounded` when the requirements call for its values and sources attest
@@ -61,17 +61,19 @@ it writes the explainer into the wiki, next to the pages it links to.
 
 ## The file with a space
 
-Everything is as in `SKILL.md`, except `space`, which names the wiki instead of listing dimensions, each step's
-`point`, evidence on the choices, and `uncovered`:
+Everything is as in `SKILL.md`, except `space`, which names the wiki instead of listing dimensions, each point's
+`description` and `attested_by` as `ddspace point` printed them, evidence on the choices, and `uncovered`:
 
 ```json
 {
   "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+  "points": [
+    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<the description ddspace point printed>", "attested_by": []}
+  ],
   "trajectory": [
     {"step": 1, "move": "solution", "parent": null, "values": ["v:1.1", "v:2.1"],
      "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"},
-     "observation": "<…>", "verdict": "partial",
-     "point": {"description": "<the description ddspace point printed>", "attested_by": []}}
+     "observation": "<…>", "verdict": "partial", "point": "P1"}
   ],
   "alternatives": [
     {"id": "S", "step": 1,

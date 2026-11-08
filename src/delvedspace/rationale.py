@@ -1,4 +1,4 @@
-"""The design rationale file (``ddspace-rationale/4``) and its checker, with no ``jsonschema`` dependency.
+"""The design rationale file (``ddspace-rationale/5``) and its checker, with no ``jsonschema`` dependency.
 
 A dimension is a design concern, a value one option for it, and a design point a set of values, at most one per
 dimension. A coding agent writes one rationale file per problem, with the ``trajectory`` of design points it
@@ -13,6 +13,10 @@ given solution to one point (the ``solution`` step and the alternative ``id: "S"
 solution and say whether the requirements ``force`` them), evaluates partial points of it (``region``,
 ``contrast``) with a ``verdict``, and names the 1-3 ``regions`` that best justify it, plus the ``uncovered``
 decisions a wiki has no dimension for.
+
+Every design point the agent evaluated is recorded once in ``points`` (``P1``, ``P2``, ...: its values, its
+description and the sources that attest it); a step names its point by id, so a point evaluated again is reused,
+not described again, and a description is changed in one place.
 
 Both modes describe their solution(s) as ``adrs``: architecture decision records, each addressing a few related
 requirements (``drivers``) with ``options``, partial design points that are ``chosen`` (``in`` the alternatives
@@ -36,7 +40,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from taxonomy_generator.wiki import query as q
 
-SCHEMA = "ddspace-rationale/4"
+SCHEMA = "ddspace-rationale/5"
 MODES = ("search", "explain")
 SEARCH_ALTERNATIVES = (2, 4)
 EXPLAIN_ID = "S"
@@ -52,7 +56,7 @@ SAME_APPROACH_MOVES = ("exploit", "ablate")           # a search step that stays
 MAX_POINTS = {"search": 20, "explain": 12}     # the most design points a mode may evaluate
 DEFAULT_POINTS = {"search": 12, "explain": 8}  # what the skills set when the user names no budget
 REGIONS = (1, 3)
-WARNINGS = ("unmet_requires", "graph_changed")
+WARNINGS = ("unmet_requires", "graph_changed", "unused_point")
 
 # Field specs: name -> (kind, required). Kinds: "text" (a non-empty string), "string", "string|null", "list",
 # "object", "object|null", "boolean", "boolean|null", "integer", "integer|null".
@@ -61,12 +65,12 @@ _TYPES = {"text": str, "string": str, "list": list, "object": dict, "boolean": b
 _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", True),
                "space": ("object", True), "problem": ("object", True), "budget": ("object", True),
                "trajectory": ("list", True), "alternatives": ("list", True), "adrs": ("list", True),
-               "approaches": ("list", False),
+               "points": ("list", True), "approaches": ("list", False),
                "comparison": ("list", False), "regions": ("list", False), "uncovered": ("list", False)}
 _BUDGET: _Spec = {"max_points": ("integer", True)}
 _STEP: _Spec = {"step": ("integer", True), "move": ("text", True), "parent": ("integer|null", False),
                 "values": ("list", True), "hypothesis": ("string", True), "assessment": ("object", True),
-                "observation": ("string", True), "point": ("object|null", False)}
+                "observation": ("string", True), "point": ("text", True)}
 _SEARCH_STEP: _Spec = {"round": ("integer", True), "approach": ("text", True), "rating": ("text", True)}
 _EXPLAIN_STEP: _Spec = {"verdict": ("text", True)}
 _APPROACH: _Spec = {"id": ("text", True), "idea": ("text", True), "status": ("text", True),
@@ -99,7 +103,8 @@ _RELATION: _Spec = {"source": ("text", True), "target": ("text", True), "type": 
                     "holds": ("boolean", True), "note": ("string", False)}
 _UNCOVERED: _Spec = {"decision": ("text", True), "solution_quote": ("text", True),
                      "nearest_dimension_id": ("string|null", False)}
-_POINT: _Spec = {"description": ("string|null", False), "attested_by": ("list", False)}
+_POINT: _Spec = {"id": ("text", True), "values": ("list", True), "description": ("string|null", True),
+                 "attested_by": ("list", False)}
 
 
 class RationaleError(Exception):
@@ -372,7 +377,9 @@ def _check(c: _Checker, doc: Any, graph_sha256: Optional[str]) -> None:
 
     requirements = _requirements(c, doc.get("problem"))
     approaches = _approaches(c, doc, mode)
+    points = _points(c, doc)
     steps = _trajectory(c, doc, mode, requirements, approaches)
+    _step_points(c, doc, points, steps)
     _alternatives(c, doc, mode, requirements, steps, approaches)
     _regions(c, doc, mode, requirements, steps)
     _adrs(c, doc, mode, requirements, steps)
@@ -556,8 +563,6 @@ def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: se
         parts = ("trajectory", i)
         if not c.fields(step, parts, spec):
             continue
-        if step.get("point") is not None:
-            c.fields(step["point"], (*parts, "point"), _POINT)
         number = step.get("step")
         if c.good(step, "step", "integer") and number != i + 1:
             c.add("bad_step", pointer(*parts, "step"), f"steps are numbered 1, 2, … in order: expected {i + 1}, "
@@ -787,6 +792,54 @@ def _alternative_approach(c: _Checker, alt: Mapping[str, Any], i: int, step: Opt
     if step.get("rating") == "weak":
         c.add("step_mismatch", pointer("alternatives", i, "step"),
               f"step {step.get('step')} is rated weak: propose only strong or mixed points")
+
+
+def _points(c: _Checker, doc: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Check the list of design points; return ``{id: {point, key}}``. Two entries with the same values are an
+    error (``duplicate_point``): the agent reuses the first instead of describing the point again."""
+    found: Dict[str, Dict[str, Any]] = {}
+    by_key: Dict[frozenset, str] = {}
+    for i, item in enumerate(c.items(doc, "points")):
+        parts = ("points", i)
+        if not c.fields(item, parts, _POINT) or not c.good(item, "id"):
+            continue
+        if item["id"] in found:
+            c.add("schema", pointer(*parts, "id"), f"duplicate point id '{item['id']}'")
+            continue
+        key = _point_values(c, c.items(item, "values"), (*parts, "values"), f"point '{item['id']}'")
+        if key is not None and key in by_key:
+            c.add("duplicate_point", pointer(*parts, "values"),
+                  f"point '{item['id']}' has the same values as point '{by_key[key]}': reuse '{by_key[key]}' "
+                  "instead of evaluating and describing it again", [by_key[key]])
+        elif key is not None:
+            by_key[key] = item["id"]
+        found[item["id"]] = {"point": item, "key": key}
+    return found
+
+
+def _step_points(c: _Checker, doc: Mapping[str, Any], points: Mapping[str, Dict[str, Any]],
+                 steps: Mapping[int, Dict[str, Any]]) -> None:
+    """Each step names a point of the list with exactly its values; every point is named by some step."""
+    used: set = set()
+    for i, step in enumerate(c.items(doc, "trajectory")):
+        if not isinstance(step, dict) or not c.good(step, "point"):
+            continue
+        path = pointer("trajectory", i, "point")
+        entry = points.get(step["point"])
+        if entry is None:
+            c.add("unknown_point", path, f"'{step['point']}' is not in points (the list of evaluated design points)",
+                  sorted(points))
+            continue
+        used.add(step["point"])
+        number = step.get("step")
+        mine = steps.get(number, {}).get("key") if _integer(number) else None
+        if mine is not None and entry["key"] is not None and mine != entry["key"]:
+            c.add("point_mismatch", path,
+                  f"step {number} takes {', '.join(sorted(mine))}, but point '{step['point']}' is "
+                  f"{', '.join(sorted(entry['key']))}: a step names the point with exactly its values")
+    for i, item in enumerate(c.items(doc, "points")):
+        if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] in points and item["id"] not in used:
+            c.add("unused_point", pointer("points", i), f"no step names point '{item['id']}'")
 
 
 def _alternative_values(doc: Mapping[str, Any]) -> Dict[str, List[Tuple[int, int, str]]]:

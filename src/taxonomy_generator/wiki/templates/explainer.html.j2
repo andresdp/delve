@@ -119,6 +119,9 @@
   .legend { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; }
   .region { border: 1px solid var(--border); border-left: 4px solid var(--accepted); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
   .link.off { display: none; }
+  .mode-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 10px;
+    margin-bottom: 6px; color: #fff; }
+  .mode-icon.mode-search { background: var(--accent); } .mode-icon.mode-explain { background: var(--mixed); }
   .lanes-wrap, .qoc-wrap { position: relative; }
   svg.lane-arrows, svg.qoc-links { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
   table.lanes { border-collapse: separate; border-spacing: 0; font-size: 13px; width: 100%; }
@@ -204,6 +207,10 @@
 <div class="ex-wrap">
 <main class="ex-text">
   {% if d.graph_changed %}<div class="banner" role="status">The graph changed since this rationale was written: its ids were checked against the current graph, but labels, values and evidence may differ from what the agent saw.</div>{% endif %}
+  <div class="mode-icon mode-{{ d.mode or 'search' }}" role="img" aria-label="{{ 'Explain: the rationale of a given solution' if d.mode == 'explain' else 'Search: alternative solutions for a problem' }}" title="{{ 'Explain: the rationale of a given solution' if d.mode == 'explain' else 'Search: alternative solutions for a problem' }}">
+    {% if d.mode == "explain" %}<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    {% else %}<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>{% endif %}
+  </div>
   <div class="kind">{{ "Explain" if d.mode == "explain" else "Search" }} · design rationale{% if d.space %} · run {{ d.space.run }}{% else %} · no design space{% endif %}</div>
   <h1>{{ d.title }}</h1>
   {% if d.context %}<p>{{ d.context }}</p>{% endif %}
@@ -324,7 +331,7 @@
     {%- endmacro %}
     {% macro story(s, search) %}
     <article class="story-step mv-{{ s.move }}" data-step="{{ s.step }}">
-      <div class="story-head"><b>#{{ s.step }}</b> {{ phrase(s) }} <span class="vd-chip vb-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.alternative %} <span class="alt-chip">{{ "→ " ~ s.alternative if search else "the solution" }}</span>{% endif %}</div>
+      <div class="story-head"><b>#{{ s.step }}</b> {{ phrase(s) }} <span class="vd-chip vb-{{ s.verdict }}">{{ s.verdict }}</span>{% if s.reuses %} <span class="muted">· same point as #{{ s.reuses }}, reused</span>{% endif %}{% if s.alternative %} <span class="alt-chip">{{ "→ " ~ s.alternative if search else "the solution" }}</span>{% endif %}</div>
       {% if s.why %}<p><span class="lbl">Thought</span> {{ s.why }}</p>{% endif %}
       <div class="lbl-row"><span class="lbl">Move</span>
         <ul class="moves">
@@ -830,7 +837,8 @@
   function stepInfo(s) {
     const sub = (s.approach ? "Approach " + esc(s.approach) + (s.round ? ", round " + esc(s.round) : "") + ". " : "") + esc(s.description || "");
     const inAdrs = adrOptions.filter(({ o }) => o.step === s.step);
-    return head("Design point", "#" + s.step + " · " + esc(phrase(s)), sub)
+    return head("Design point" + (s.point_id ? " · " + esc(s.point_id) : ""), "#" + s.step + " · " + esc(phrase(s)),
+        sub + (s.reuses ? " The same point as #" + s.reuses + ": reused, not evaluated again." : ""))
       + para('<span class="vd-chip vb-' + esc(s.verdict) + '">' + esc(s.verdict) + "</span> " + esc(MEANS[s.verdict] || "")
         + (s.alternative ? '<br><span class="alt-chip">' + (EXPLAIN ? "This is the solution." : "It became alternative " + esc(s.alternative) + ".") + "</span>" : ""))
       + sec("Thought", para(esc(s.why)))
