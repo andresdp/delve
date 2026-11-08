@@ -418,7 +418,8 @@ def test_a_no_space_session_keeps_the_file_checks_it_and_records_the_build(tmp_p
     assert rec["check"]["ok"] is True and rec["check"]["exit_code"] == 0 and rec["check"]["problems"] == []
     assert rec["check_runs"] == 1 and rec["fabrication"]["ids"] == 0
     assert rec["explainer"]["out"] == "explainers/kv-store-N-r1"
-    assert rec["explainer"]["exit_code"] is not None             # built, or the error of a missing command
+    assert rec["explainer"]["exit_code"] == 0, rec["explainer"]   # rendered, with --out inside the results folder
+    assert rec["explainer"]["pages"] == ["explainers/kv-store-N-r1/explainers/kv-store.html"]
     assert "name: ddspace-search" in seen["input"] and rec["skills_via"] == "prompt"
     assert not (tmp_path / "scratch" / "kv-store-N-r1").exists()
     saved = json.loads((results / "summaries" / "kv-store-N-r1.json").read_text())
@@ -481,7 +482,7 @@ def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(t
             return subprocess.CompletedProcess(argv, 0, _jsonl(*_events()), "")
         if "check" in argv:                                        # ddspace rationale check: clean
             return subprocess.CompletedProcess(argv, 0, json.dumps({"ok": True, "problems": []}), "")
-        builds.append(argv)                                        # ddspace rationale build
+        builds.append((argv, kwargs.get("cwd")))                   # ddspace rationale build
         return subprocess.CompletedProcess(argv, 0, "{}", "")
     monkeypatch.setattr(runner.subprocess, "run", fake_run)
     case = next(c for c in cases if c["id"] == "kv-store")
@@ -498,8 +499,10 @@ def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(t
     assert rec["status"] == "ok", rec["problems"]
     (argv, env), = seen
     assert cain.NETWORK_ON in argv and env["OPENAI_API_KEY"] == "sk-study-key-000000000"
-    assert len(builds) == 1 and "--graph" in builds[0]
-    graph = Path(builds[0][builds[0].index("--graph") + 1])
+    (build_argv, build_cwd), = builds
+    assert "--graph" in build_argv and build_cwd == str(tmp_path / "results")   # --out must be inside the cwd
+    assert build_argv[build_argv.index("--out") + 1] == "explainers/kv-store-M-r1"
+    graph = Path(build_argv[build_argv.index("--graph") + 1])
     assert not (tmp_path / "scratch" / "kv-store-M-r1").exists()   # the work copy is gone, the link target is not
     assert graph.is_file() and graph.resolve() == (workspaces / "M" / "raw" / "graph.json").resolve()
     assert rec["explainer"]["links_into"] == "--workspaces/M"

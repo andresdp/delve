@@ -576,7 +576,8 @@ def build_explainer(ddspace: Sequence[str], workdir: Path, file: Path, results: 
                     session: Session, workspaces: Optional[Path] = None) -> Dict[str, Any]:
     """Render the explainer with ``ddspace rationale build --out`` under the results folder (every condition).
 
-    Run in the work copy. For M and E, ``--graph`` names the condition's workspace under ``workspaces`` (the
+    Run in the results folder (``--out`` must be inside the current folder), on the work copy's file. For M and
+    E, ``--graph`` names the condition's workspace under ``workspaces`` (the
     same graph the work copy was copied from), so the page's wiki links point into a wiki that outlives the work
     copy, which is deleted after the session; ``links_into`` records it (``--workspaces/<condition>``, no path).
     A missing ``build`` command (or any failure) is recorded, not raised.
@@ -584,12 +585,13 @@ def build_explainer(ddspace: Sequence[str], workdir: Path, file: Path, results: 
     out_dir = results / "explainers" / session.id
     shutil.rmtree(out_dir, ignore_errors=True)
     rec: Dict[str, Any] = {"out": out_dir.relative_to(results).as_posix(), "links_into": None}
-    args = ["rationale", "build", str(file), "--out", str(out_dir)]
+    args = ["rationale", "build", str((workdir / file).resolve()), "--out", str(out_dir.relative_to(results))]
     if workspaces is not None and session.condition in SPACE_CONDITIONS:
         args += ["--graph", str(Path(workspaces) / session.condition / "raw" / "graph.json")]
         rec["links_into"] = f"--workspaces/{session.condition}"
+    results.mkdir(parents=True, exist_ok=True)
     try:
-        proc = _ddspace(ddspace, args, workdir)
+        proc = _ddspace(ddspace, args, results)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return dict(rec, exit_code=None, error=f"{type(exc).__name__}: {exc}", pages=[])
     rec["exit_code"] = proc.returncode
