@@ -48,6 +48,9 @@ addEventListener("load", () => setTimeout(() => {
     // The trajectory tab: an arc links each step to its parent; selecting step 3 outlines its point.
     click(document.querySelector('.tab[data-tab="trajectory"]'));
     out.arcs = document.querySelectorAll("svg.lineage path").length;
+    out.lane_arrows = document.querySelectorAll("svg.lane-arrows > path").length;
+    click(document.querySelector('.node-chip[data-step="2"]'));
+    out.chip_point = inPoint();
     click(document.querySelector('.step-h[data-step="3"]'));
     out.greyed_step3 = greyed();
     out.point_step3 = inPoint();
@@ -129,6 +132,8 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert set(out["greyed_trajectory"]) and all(i.startswith(("v:", "d:")) for i in out["greyed_trajectory"])
     assert out["point_trajectory"] == []                           # nothing selected: no point outlined
     assert out["arcs"] == 1
+    assert out["lane_arrows"] == 1                                 # step 2 refines step 1, along lane A
+    assert out["chip_point"] == ["p:2", "v:1.1"]                   # a lane chip selects its point
     assert out["greyed_step3"] == out["greyed_trajectory"]         # explored stays lit whatever is shown
     assert out["point_step3"] == ["p:3", "v:1.2"]                 # step 3's point and its values are outlined
     assert "step 3" in out["step_info"] and "explore" in out["step_info"]

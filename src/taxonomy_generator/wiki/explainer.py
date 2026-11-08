@@ -214,6 +214,55 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
     return steps
 
 
+def _diff(point: Mapping[str, str], before: Mapping[str, str]) -> List[Dict[str, Any]]:
+    """What a step changed against its parent: ``{dimension, before, after}`` (None: not in that point)."""
+    order = list(point) + [d for d in before if d not in point]
+    return [{"dimension": d, "before": before.get(d), "after": point.get(d)}
+            for d in order if before.get(d) != point.get(d)]
+
+
+def _lanes(doc: Mapping[str, Any], trajectory: Sequence[Mapping[str, Any]],
+           alternatives: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Search's overview: one lane per approach, one column per round, each cell the steps it took there."""
+    rounds = sorted({s["round"] for s in trajectory if isinstance(s.get("round"), int)})
+    listed = [a for a in doc.get("approaches") or [] if isinstance(a, dict) and a.get("id")]
+    order = [str(a["id"]) for a in listed]
+    order += [s["approach"] for s in trajectory if s.get("approach") and s["approach"] not in order]
+    info = {str(a["id"]): a for a in listed}
+    became = {a.get("approach"): a["id"] for a in alternatives if a.get("approach")}
+    lanes = []
+    for ap in order:
+        cells = {r: [{"step": s["step"], "move": s["move"], "verdict": s["verdict"], "why": s["why"]}
+                     for s in trajectory if s.get("approach") == ap and s.get("round") == r] for r in rounds}
+        a = info.get(ap, {})
+        lanes.append({"approach": ap, "idea": a.get("idea") or "", "status": a.get("status") or "",
+                      "dropped_because": a.get("dropped_because") or "", "alternative": became.get(ap), "cells": cells})
+    return {"rounds": rounds, "lanes": lanes}
+
+
+def _qoc(trajectory: Sequence[Mapping[str, Any]], alternatives: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Explain's Questions-Options-Criteria view: each dimension of the solution (a question), its options (the
+    solution's value and the values contrasts tried), each judged against the requirements (the criteria) by the
+    most specific step that evaluated it."""
+    solution = next((s for s in trajectory if s["move"] == "solution"), None)
+    if solution is None:
+        return []
+    forced = {c["value"]: c.get("forced") for a in alternatives for c in a["choices"] if c["value"]}
+    questions = []
+    for dim, value in solution["point"].items():
+        regions = [s for s in trajectory if s["move"] == "region" and s["point"].get(dim) == value]
+        judge = min(regions, key=lambda s: len(s["point"])) if regions else solution
+        options = [{"value": value, "kind": "solution", "forced": forced.get(value), "step": judge["step"],
+                    "assessment": judge["assessment"], "specific": judge is not solution}]
+        for s in trajectory:
+            other = s["point"].get(dim)
+            if s["move"] == "contrast" and other and other != value and all(o["value"] != other for o in options):
+                options.append({"value": other, "kind": "contrast", "forced": None, "step": s["step"],
+                                "assessment": s["assessment"], "specific": True})
+        questions.append({"dimension": dim, "options": options})
+    return questions
+
+
 def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: Link,
               graph_changed: bool = False) -> Dict[str, Any]:
     """Build everything the explainer shows from a checked rationale file and the space's graph."""
@@ -249,6 +298,9 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
 
     trajectory = _trajectory(doc, space, alternatives)
     by_step = {s["step"]: s for s in trajectory}
+    for s in trajectory:
+        parent = by_step.get(s["parent"]) if s["parent"] is not None else None
+        s["diff"] = _diff(s["point"], parent["point"] if parent else {})
     for alt in alternatives:
         alt["point"] = (by_step.get(alt["step"]) or {}).get("description") or ""
     regions = []
@@ -359,6 +411,8 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         "relations": relations, "uncovered": uncovered, "trajectory": trajectory,
         "trajectory_dimensions": trajectory_dims, "regions": regions,
         "adrs": adrs, "unaddressed": unaddressed,
+        "lanes": _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None,
+        "qoc": _qoc(trajectory, alternatives) if doc.get("mode") == "explain" else [],
         "budget": {"max_points": budget.get("max_points"), "used": len(trajectory)},
         "links": {"index": link("index.html"), "graph": link("graph.html")},
     }

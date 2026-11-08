@@ -606,3 +606,35 @@ def test_the_adrs_tab_lists_requirements_no_adr_or_decision_addresses(ws):
     html = explainer._render(data)
     assert "Requirements not addressed" in html and 'data-requirement="Q9"' in html
     assert "Every requirement is addressed" in explainer._render(_data(_sample(), ws))
+
+
+
+def test_search_trajectory_has_lanes_a_requirement_strip_and_a_story(ws):
+    data = _data(_sample(), ws)
+    lanes = data["lanes"]
+    assert lanes["rounds"] == [1, 2]
+    assert [(l["approach"], l["alternative"]) for l in lanes["lanes"]] == [("A", "A1"), ("B", "A2")]
+    assert [c["step"] for c in lanes["lanes"][0]["cells"][1]] == [1] and [c["step"] for c in lanes["lanes"][0]["cells"][2]] == [2]
+    steps = data["trajectory"]
+    assert steps[1]["diff"] == [{"dimension": "d:2", "before": "v:2.1", "after": None}]  # step 2 dropped the commit protocol
+    html = explainer._render(data)
+    assert 'class="lanes"' in html and html.count('class="node-chip') == 3
+    assert 'class="heat"' in html and 'class="h h-meets' in html and html.count('class="story-step') == 3
+    assert "Round 2</b> · 2 points: refine A, new approach B" in html
+    assert "drop" in html and 'class="qoc' not in html
+
+
+def test_explain_trajectory_has_a_story_and_questions_options_criteria(ws):
+    doc = _explain()
+    doc["trajectory"].append({"step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"], "hypothesis": "h",
+                              "assessment": {"Q1": "misses"}, "observation": "o", "verdict": "ungrounded"})
+    data = _data(doc, ws)
+    assert data["lanes"] is None
+    (q1, q2) = data["qoc"]
+    assert q1["dimension"] == "d:1" and [(o["value"], o["kind"], o["step"], o["specific"]) for o in q1["options"]] == [
+        ("v:1.1", "solution", 2, True), ("v:1.2", "contrast", 3, True)]
+    assert q1["options"][0]["forced"] is True and q2["options"][0]["specific"] is False   # d:2 only within the whole
+    html = explainer._render(data)
+    assert 'class="qoc-wrap"' in html and 'data-qoc="0:1"' in html and 'data-crit="Q1"' in html
+    assert "the solution · forced" in html and "judged only within the whole solution" in html
+    assert 'class="lanes"' not in html and 'class="heat"' not in html
