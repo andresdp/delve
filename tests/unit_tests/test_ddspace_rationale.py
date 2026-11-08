@@ -134,7 +134,7 @@ def _zero():
         "step": n, "round": 1, "approach": approach, "move": move, "parent": None, "values": [value],
         "hypothesis": "h", "assessment": {"Q1": "meets"}, "observation": "o", "rating": "strong"}
     doc = _sample()
-    doc.update(space=None,
+    doc.update(space=None, budget={"max_points": 2},   # both points spent: a one-round search may stop
                approaches=[{"id": "A", "idea": "what if disks?", "status": "live"},
                            {"id": "B", "idea": "what if S3?", "status": "live"}],
                alternatives=[alt("A1", "A", 1, "v:1.1"), alt("A2", "B", 2, "v:1.2")],
@@ -868,3 +868,52 @@ def test_without_a_space_there_are_no_gaps():
     codes = _codes(rationale.check(doc))
     assert {("schema", "/adrs/0/options/0/fit"), ("schema", "/unaddressed/0/reason"),
             ("schema", "/unaddressed/0/nearest_dimension_id")} <= codes
+
+
+# ---------------------------------------------------------------- the search loop
+
+
+def _rounds(ratings, budget=12, moves=None):
+    """A zero-shot search file whose steps have these (round, approach, rating) triples."""
+    doc = _zero()
+    approaches = sorted({a for _, a, _ in ratings})
+    doc["approaches"] = [{"id": a, "idea": f"what if {a}?", "status": "live"} for a in approaches]
+    doc["budget"] = {"max_points": budget}
+    values = ["Store: Local disks", "Store: S3", "Store: Postgres"]
+    doc["trajectory"] = []
+    first = {}
+    for n, (rnd, approach, rating) in enumerate(ratings, start=1):
+        move = (moves or {}).get(n) or ("seed" if rnd == 1 else "exploit")
+        parent = None if move in ("seed", "explore") else first[approach]
+        first.setdefault(approach, n)
+        doc["trajectory"].append({"step": n, "round": rnd, "approach": approach, "move": move, "parent": parent,
+                                  "values": [values[n % 3]], "hypothesis": "h", "assessment": {"Q1": "meets"},
+                                  "observation": "o", "rating": rating, "point": f"P{n % 3 + 1}"})
+    return doc
+
+
+def _loop_codes(doc):
+    return {(p["code"], p["path"]) for p in rationale.check(doc)["problems"] if p["code"] in ("early_stop", "no_explore")}
+
+
+def test_a_search_that_stops_after_an_improving_round_with_budget_left_warns_early_stop():
+    doc = _rounds([(1, "A", "mixed"), (1, "B", "mixed"), (2, "A", "strong"), (2, "B", "mixed")])
+    assert _loop_codes(doc) == {("early_stop", "/trajectory")}
+    problem = next(p for p in rationale.check(doc)["problems"] if p["code"] == "early_stop")
+    assert problem["severity"] == "warning" and "8 of 12 points left" in problem["message"]
+    doc["budget"]["max_points"] = 5                    # one point left: not enough for another round of two
+    assert _loop_codes(doc) == set()
+
+
+def test_a_round_that_improves_nothing_may_end_the_search():
+    doc = _rounds([(1, "A", "mixed"), (1, "B", "strong"), (2, "A", "mixed"), (2, "B", "strong")])
+    assert _loop_codes(doc) == set()
+    assert ("early_stop", "/trajectory") in _loop_codes(_rounds([(1, "A", "mixed"), (1, "B", "mixed")]))  # one round
+
+
+def test_a_middle_round_without_a_new_approach_warns_no_explore():
+    ratings = [(1, "A", "mixed"), (1, "B", "mixed"), (2, "A", "strong"), (2, "B", "mixed"), (3, "A", "strong"),
+               (3, "B", "mixed")]
+    assert ("no_explore", "/trajectory/2") in _loop_codes(_rounds(ratings, budget=6))
+    ratings[3] = (2, "C", "mixed")                     # round 2 explores a new approach C
+    assert _loop_codes(_rounds(ratings, budget=6, moves={4: "explore"})) == set()
