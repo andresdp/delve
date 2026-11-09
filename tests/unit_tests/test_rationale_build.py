@@ -64,6 +64,7 @@ def _search_with_a_shared_dimension():
          "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": None}]
     doc["trajectory"][2]["values"] = ["v:1.1"]
     doc["trajectory"][2]["point"] = "P2"   # the same point as step 2: reused, not described again
+    doc["trajectory"][2]["tradeoffs"][0]["values"] = ["v:1.1"]
     del doc["points"][2]
     shared, other = doc["adrs"][0]["options"]
     shared["in"] = ["A1", "A2"]
@@ -689,6 +690,7 @@ def test_a_step_shows_its_trade_offs_and_the_points_own_trade_off(ws, tmp_path):
     payload = _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
     html = Path(payload["page"]).read_text(encoding="utf-8")
     assert '<ul class="tradeoffs">' in html and '<span class="t-cost">gives up</span>' in html
+    assert re.search(r'<ul class="tradeoffs"><li>[^\n]*?Three-phase commit[^\n]*?: <span class="t-gain">', html)  # its cause
     assert "Serves requests durably, but the commit protocol adds cost." in html     # the fixture's note
     assert "The point's trade-off</span> durable, at the cost of write latency." in html
     assert "Disks with a quorum.</p>" in html                                       # the description, split

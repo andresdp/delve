@@ -251,11 +251,14 @@ def split_tradeoff(description: str) -> Tuple[str, str]:
     return (body.strip(), tail.strip()) if mark else (description, "")
 
 
-def _tradeoffs(step: Mapping[str, Any]) -> List[Dict[str, Any]]:
-    """A step's trade-offs against the requirements: the requirement ids it gains and costs, and a note."""
+def _tradeoffs(step: Mapping[str, Any], space: "_Space") -> List[Dict[str, Any]]:
+    """A step's trade-offs against the requirements: the values that cause each (``causes``, resolved like the
+    step's point; not ``values``, which a template would read as the dict method), the requirement ids it gains
+    and costs, and a note."""
     def ids(xs: Any) -> List[str]:
         return [x for x in xs if isinstance(x, str)] if isinstance(xs, list) else []
-    return [{"gains": ids(t.get("gains")), "costs": ids(t.get("costs")), "note": str(t.get("note") or "")}
+    return [{"causes": list(space.point(ids(t.get("values"))).values()), "gains": ids(t.get("gains")),
+             "costs": ids(t.get("costs")), "note": str(t.get("note") or "")}
             for t in step.get("tradeoffs") or [] if isinstance(t, dict)]
 
 def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
@@ -293,7 +296,7 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
                 "verdict": s.get("rating") or s.get("verdict") or "", "assessment": dict(assessment),
                 "drivers": list(assessment) or list(s.get("drivers") or []),
                 "point": point, "changed": changed, "novel": novel,
-                "description": description, "own_tradeoff": own_tradeoff, "tradeoffs": _tradeoffs(s),
+                "description": description, "own_tradeoff": own_tradeoff, "tradeoffs": _tradeoffs(s, space),
                 "attested_by": attested,
                 "alternative": proposed.get(s.get("step")),
                 "point_id": s.get("point") if isinstance(s.get("point"), str) else None,

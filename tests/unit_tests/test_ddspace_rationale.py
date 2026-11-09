@@ -60,7 +60,7 @@ def _with_points(doc):
         if key not in ids:
             ids[key] = f"P{len(ids) + 1}"
             points.append({"id": ids[key], "values": list(s["values"]),
-                           "description": record.get("description", "A point. Trade-off: what it gives up."),
+                           "description": record.get("description", f"Point {ids[key]}. Trade-off: what it gives up."),
                            "attested_by": record.get("attested_by", [])})
         s["point"] = ids[key]
     doc["points"] = points
@@ -973,3 +973,54 @@ def test_a_point_without_a_description_is_a_warning(graph):
     assert result["ok"]
     assert {(p["code"], p["path"]) for p in result["problems"]} == {
         ("undescribed_point", "/points/1/description"), ("undescribed_point", "/points/2/description")}
+
+
+def test_a_trade_off_names_values_of_its_point(graph):
+    doc = _sample()
+    doc["trajectory"][0]["tradeoffs"][0]["values"] = ["v:1.2"]            # step 1 is v:1.1 + v:2.1
+    doc["trajectory"][1]["tradeoffs"][0]["values"] = []
+    codes = _codes(_check(doc, graph))
+    assert ("tradeoff_mismatch", "/trajectory/0/tradeoffs/0/values/0") in codes
+    assert ("schema", "/trajectory/1/tradeoffs/0/values") in codes
+
+
+def test_a_zero_shot_trade_off_names_values_by_name():
+    doc = _zero()
+    doc["problem"]["requirements"].append({"id": "Q2", "text": "fast", "kind": "quality"})
+    step = doc["trajectory"][0]
+    step["assessment"] = {"Q1": "meets", "Q2": "misses"}
+    step["tradeoffs"] = [{"values": ["Store:  Local disks"], "gains": ["Q1"], "costs": ["Q2"], "note": "n"},
+                         {"values": ["Store: S3"], "gains": ["Q1"], "costs": ["Q2"], "note": "n"}]
+    codes = _codes(rationale.check(doc, None, None))
+    assert ("tradeoff_mismatch", "/trajectory/0/tradeoffs/0/values/0") not in codes   # the same name, respaced
+    assert ("tradeoff_mismatch", "/trajectory/0/tradeoffs/1/values/0") in codes
+
+
+def test_a_trade_off_over_every_requirement_restates_the_assessment(graph):
+    doc = _sample()
+    doc["problem"]["requirements"].append({"id": "Q2", "text": "cheap", "kind": "quality"})
+    step = doc["trajectory"][0]
+    step["assessment"] = {"R1": "meets", "Q1": "meets", "C1": "partly", "Q2": "misses"}
+    step["tradeoffs"] = [{"values": ["v:2.1"], "gains": ["R1", "Q1"], "costs": ["C1", "Q2"], "note": "n"}]
+    result = _check(doc, graph)
+    assert ("restated_assessment", "/trajectory/0/tradeoffs/0") in _codes(result)
+    step["tradeoffs"][0]["costs"] = ["Q2"]
+    assert ("restated_assessment", "/trajectory/0/tradeoffs/0") not in _codes(_check(doc, graph))
+
+
+def test_a_description_copied_from_another_point_is_a_warning(graph):
+    doc = _sample()
+    doc["points"][2]["description"] = "  " + doc["points"][0]["description"]
+    result = _check(doc, graph)
+    assert result["ok"] and ("copied_description", "/points/2/description") in _codes(result)
+
+
+def test_a_search_step_that_revisits_its_approachs_point_is_a_warning(graph):
+    doc = _sample()
+    first = doc["trajectory"][0]
+    again = dict(first, step=len(doc["trajectory"]) + 1, round=doc["trajectory"][-1]["round"] + 1,
+                 move="exploit", parent=1)
+    doc["trajectory"].append(again)
+    doc["budget"]["max_points"] = max(doc["budget"]["max_points"], len(doc["trajectory"]))
+    codes = _codes(_check(doc, graph))
+    assert ("revisited_point", f"/trajectory/{len(doc['trajectory']) - 1}/point") in codes
