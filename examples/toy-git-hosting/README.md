@@ -68,5 +68,5 @@ the same wiki (the M files' `graph_sha256` matches it), so their explainers can 
 
 ```bash
 (cd $TOY/M && ddspace rationale build ~/Documents/GitHub/delve/examples/toy-git-hosting/runs/M/hosting-search.json)
-ddspace rationale build examples/toy-git-hosting/runs/N/hosting-search.json --out /tmp/toy-n
+mkdir -p /tmp/toy-n && (cd /tmp/toy-n && ddspace rationale build ~/Documents/GitHub/delve/examples/toy-git-hosting/runs/N/hosting-search.json --out .)
 ```
