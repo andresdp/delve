@@ -31,7 +31,8 @@ install packages or call external services. Finish with a short summary of the s
 ## space
 
 The working folder is a design space: `ddspace query` reads it, and `ddspace point` checks a combination of its
-values and describes it.
+values and describes it. The description comes from a service `ddspace point` calls itself: that call is part of
+the tool and allowed, so do not pass `--no-llm` to avoid it.
 
 ## no space
 

@@ -250,8 +250,15 @@ def prepare_workdir(session: Session, case: Mapping[str, Any], workspaces: Path,
 # ---------------------------------------------------------------- command, controls and environment
 
 
-def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Optional[str] = None) -> List[str]:
+EFFORTS = ("minimal", "low", "medium", "high", "xhigh")   # Codex's model_reasoning_effort
+
+
+def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Optional[str] = None,
+            effort: Optional[str] = None) -> List[str]:
     """Return the ``codex exec`` argv for one session: CAIN's, without ``--output-schema``.
+
+    ``effort`` sets the model's reasoning effort; ``--ignore-user-config`` drops the operator's own setting, so
+    without it the model runs at its default (the pilots used a few hundred reasoning tokens for a whole search).
 
     As in CAIN, M and E get sandbox network access (for ``ddspace point`` descriptions); N does not.
     """
@@ -259,6 +266,8 @@ def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Opt
             "-s", "workspace-write", "-m", model, "-o", str(last), "-C", str(workdir), "-c", cain.WEB_SEARCH_OFF]
     if oss:
         argv += ["--oss", "--local-provider", oss]
+    if effort:
+        argv += ["-c", f'model_reasoning_effort="{effort}"']
     for feature in cain.DISABLED_FEATURES:
         argv += ["--disable", feature]
     if session.condition in SPACE_CONDITIONS:
@@ -303,7 +312,7 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
     return env
 
 
-def guards(results: Path, *, model: str, prompt: Path, skills_via: str) -> List[str]:
+def guards(results: Path, *, model: str, prompt: Path, skills_via: str, effort: Optional[str] = None) -> List[str]:
     """Why ``results`` must not take more sessions now: another model, prompt version or skill delivery.
 
     The checks are CAIN's (``model_mismatch``, ``prompt_mismatch``), done here over :func:`read_summary`, so an
@@ -316,7 +325,7 @@ def guards(results: Path, *, model: str, prompt: Path, skills_via: str) -> List[
         rec = read_summary(path)
         if rec is None:
             continue
-        if rec.get("model") and rec["model"] != model:
+        if (rec.get("model") and rec["model"] != model) or rec.get("effort") != effort:
             other.append(path.stem)
         if rec.get("prompt_sha256") and rec["prompt_sha256"] != prompt_digest:
             mixed.append(path.stem)
@@ -324,7 +333,7 @@ def guards(results: Path, *, model: str, prompt: Path, skills_via: str) -> List[
                 rec.get("skills_sha256") and rec["skills_sha256"] != digest):
             skills.append(path.stem)
     if other:
-        out.append(f"{results.name}/ holds {len(other)} sessions run with another agent model (such as {other[0]}); "
+        out.append(f"{results.name}/ holds {len(other)} sessions run with another agent model or reasoning effort (such as {other[0]}); "
                    f"use another --results folder.")
     if mixed:
         out.append(f"{results.name}/ holds {len(mixed)} sessions run with another version of {prompt.name} "
@@ -768,7 +777,8 @@ def run_codex(argv: Sequence[str], *, input: str, env: Mapping[str, str], timeou
 def run(session: Session, case: Mapping[str, Any], workspaces: Path, scratch: Path, *, model: str,
         results: Path = RESULTS, prompt: Path = PROMPT, skills_via: str = "files", keep_raw: bool = False,
         ddspace_bin: Optional[Path] = None, ddspace: Optional[Sequence[str]] = None, timeout: int = TIMEOUT,
-        oss: Optional[str] = None, version: Optional[str] = None, key: Optional[str] = None) -> Dict[str, Any]:
+        oss: Optional[str] = None, version: Optional[str] = None, key: Optional[str] = None,
+        effort: Optional[str] = None) -> Dict[str, Any]:
     """Run one session; keep its rationale file and summary; return the summary.
 
     ``key`` is the study key M and E sessions get as ``OPENAI_API_KEY``; it is redacted from what is kept.
@@ -779,7 +789,7 @@ def run(session: Session, case: Mapping[str, Any], workspaces: Path, scratch: Pa
         return _run(session, case, workspaces, root, model=model, results=results, prompt=prompt,
                     skills_via=skills_via, keep_raw=keep_raw, ddspace_bin=ddspace_bin,
                     ddspace=list(ddspace) if ddspace else ddspace_command(ddspace_bin), timeout=timeout, oss=oss,
-                    version=version, key=key)
+                    version=version, key=key, effort=effort)
     finally:
         shutil.rmtree(root / "codex-home", ignore_errors=True)     # the copied login never outlives the session
         if not keep_raw:
@@ -788,16 +798,17 @@ def run(session: Session, case: Mapping[str, Any], workspaces: Path, scratch: Pa
 
 def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path, *, model: str, results: Path,
          prompt: Path, skills_via: str, keep_raw: bool, ddspace_bin: Optional[Path], ddspace: List[str],
-         timeout: int, oss: Optional[str], version: Optional[str], key: Optional[str]) -> Dict[str, Any]:
+         timeout: int, oss: Optional[str], version: Optional[str], key: Optional[str],
+         effort: Optional[str] = None) -> Dict[str, Any]:
     workdir = root / "ws"
     prepare_workdir(session, case, workspaces, workdir)
     extra = deliver_skill(workdir, case["mode"], session.condition, skills_via)
     last = root / "last.txt"
-    argv = command(session, workdir, last, model=model, oss=oss)
+    argv = command(session, workdir, last, model=model, oss=oss, effort=effort)
     argv[0] = shutil.which("codex") or "codex"           # resolved here: the session PATH may not have it
     record: Dict[str, Any] = {
         "session": session.id, "case": session.case, "mode": case["mode"], "condition": session.condition,
-        "rep": session.rep, "model": model, "provider": oss or "openai", "codex_version": version,
+        "rep": session.rep, "model": model, "effort": effort, "provider": oss or "openai", "codex_version": version,
         "prompt": prompt.name, "prompt_sha256": design.sha256(prompt), "skills_via": skills_via,
         "skill": SKILL[case["mode"]], "skill_variant": "space" if session.condition in SPACE_CONDITIONS else "no space",
         "skills_sha256": skills_sha256(), "started_at": datetime.now().isoformat(timespec="seconds")}
@@ -845,6 +856,7 @@ def main() -> None:
                         help="folder with the M and E workspaces (study/cain2027/build_workspaces.py)")
     parser.add_argument("--scratch", type=Path, required=True, help="where session copies go (outside the repository)")
     parser.add_argument("--model", required=True, help="the Codex model for every session")
+    parser.add_argument("--effort", choices=EFFORTS, help="the model's reasoning effort (default: the model's own)")
     parser.add_argument("--cases", default="", help="comma-separated case ids (default: all)")
     parser.add_argument("--cases-dir", type=Path, default=CASES, help="the cases folder (default: cases/)")
     parser.add_argument("--conditions", default="M,E,N")
@@ -860,7 +872,7 @@ def main() -> None:
         results = results_folder(args.results)
     except ValueError as exc:
         sys.exit(str(exc))
-    refused = guards(results, model=args.model, prompt=PROMPT, skills_via=args.skills_via)
+    refused = guards(results, model=args.model, prompt=PROMPT, skills_via=args.skills_via, effort=args.effort)
     if refused:
         sys.exit("\n".join(refused))
     repo = HERE.parents[1]
@@ -888,14 +900,14 @@ def main() -> None:
         print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail "  # noqa: T201
               "(the skills then fall back to --no-llm)")
     version = cain.codex_version()
-    print(f"{version or 'codex version unknown'}; model {args.model}"  # noqa: T201
+    print(f"{version or 'codex version unknown'}; model {args.model}, effort {args.effort or 'default'}"  # noqa: T201
           f"{f' via {args.oss}' if args.oss else ''}; skills via {args.skills_via}; results in {results.name}/")
     for s in pending(plan(cases, conditions, args.reps), results):
         case = next(c for c in cases if c["id"] == s.case)
         try:
             rec = run(s, case, args.workspaces.resolve(), args.scratch.resolve(), model=args.model, results=results,
                       skills_via=args.skills_via, keep_raw=args.keep_raw, ddspace_bin=ddspace_bin,
-                      timeout=args.timeout, oss=args.oss, version=version, key=key)
+                      timeout=args.timeout, oss=args.oss, version=version, key=key, effort=args.effort)
         except Exception as exc:                          # one broken session must not stop the batch
             print(f"{s.id}: error {type(exc).__name__}: {exc}")  # noqa: T201
             continue

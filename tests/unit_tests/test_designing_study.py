@@ -564,3 +564,19 @@ def test_points_evaluated_counts_the_file_points_some_ddspace_point_call_took():
     doc = {"points": [{"id": "P1", "values": ["v:1.1", "v:2.1"]}, {"id": "P2", "values": ["v:1.2"]}]}
     calls = [{"values": ["v:2.1", "v:1.1"]}, {"values": ["v:9.9"]}]
     assert runner.points_evaluated(doc, calls) == {"points": 2, "with_ddspace_point": 1, "without": ["P2"]}
+
+
+def test_the_effort_goes_to_codex_and_one_results_folder_holds_one_effort(tmp_path):
+    s = runner.Session("kv-store", "M", 1)
+    argv = runner.command(s, tmp_path, tmp_path / "last.txt", model="gpt-test", effort="high")
+    assert argv[argv.index('model_reasoning_effort="high"') - 1] == "-c"
+    assert 'model_reasoning_effort' not in " ".join(runner.command(s, tmp_path, tmp_path / "l", model="gpt-test"))
+    (tmp_path / "results" / "summaries").mkdir(parents=True)
+    (tmp_path / "results" / "summaries" / "kv-store-M-r1.json").write_text(json.dumps(
+        {"model": "gpt-test", "effort": "medium", "prompt_sha256": cain.design.sha256(runner.PROMPT),
+         "skills_via": "files", "skills_sha256": runner.skills_sha256()}))
+    refused = runner.guards(tmp_path / "results", model="gpt-test", prompt=runner.PROMPT, skills_via="files",
+                            effort="high")
+    assert refused and "reasoning effort" in refused[0]
+    assert runner.guards(tmp_path / "results", model="gpt-test", prompt=runner.PROMPT, skills_via="files",
+                         effort="medium") == []
