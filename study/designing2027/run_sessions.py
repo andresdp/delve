@@ -397,7 +397,7 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
             continue
         commands += 1
         script = cain._inner(str(item.get("command") or ""))
-        for args in cain._ddspace_calls(script):
+        for args in _ddspace_calls(script):
             if not args:
                 continue
             calls[_command_name(args)] += 1
@@ -412,6 +412,43 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
 
 
 # ---------------------------------------------------------------- points evaluated with ddspace point
+
+
+def _segments(script: str) -> List[str]:
+    """Split a shell script into commands at ``;``, ``&``, ``|`` and newlines outside quotes.
+
+    CAIN's splitter cuts inside quotes too, so a value whose label holds a ``;`` ended its ``ddspace point`` call
+    early. A backslash before a newline continues the line.
+    """
+    out: List[str] = []
+    cur: List[str] = []
+    quote: Optional[str] = None
+    i = 0
+    while i < len(script):
+        ch = script[i]
+        if ch == "\\" and quote != "'" and i + 1 < len(script):
+            if script[i + 1] != "\n":            # an escaped character stays; a backslash-newline joins the lines
+                cur += [ch, script[i + 1]]
+            i += 2
+            continue
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch in ";&|\n":
+            out.append("".join(cur))
+            cur = []
+            i += 1
+            continue
+        cur.append(ch)
+        i += 1
+    out.append("".join(cur))
+    return [x for x in out if x.strip()]
+
+
+def _ddspace_calls(script: str) -> List[List[str]]:
+    """The argument lists of every ddspace invocation in a shell script, split with :func:`_segments`."""
+    return [args for args in (cain._ddspace_args(piece) for piece in _segments(script)) if args is not None]
 
 
 def _without_domain(args: List[str]) -> List[str]:

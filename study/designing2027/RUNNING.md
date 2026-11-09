@@ -217,8 +217,11 @@ results folder:
 python study/designing2027/run_sessions.py \
   --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
   --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
-  --model gpt-6-luna --effort high --timeout 3600 --results results-v2
+  --model gpt-6-luna --effort high --timeout 3600 --results results-v2 --keep-raw
 ```
+
+`--keep-raw` keeps the event logs in `results-v2/raw/` (never committed), so the summaries can be recomputed
+if a count turns out wrong, as the smoke test's did (a `;` inside a value's label).
 
 To try it on one session first (about 5 minutes):
 

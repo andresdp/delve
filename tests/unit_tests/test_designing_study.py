@@ -598,3 +598,11 @@ def test_n_point_calls_count_with_their_names_and_without_the_domain():
     doc = {"points": [{"id": "P1", "values": ["Serving: Online", "Store: Feature store"]},
                       {"id": "P2", "values": ["Serving: Batch"]}]}
     assert runner.points_evaluated(doc, [event]) == {"points": 2, "with_ddspace_point": 1, "without": ["P2"]}
+
+
+def test_ddspace_calls_split_only_outside_quotes():
+    script = ("ddspace point --no-space 'Release: Shadow; then promote' \\\n  \"Store: A && B\" && "
+              "ddspace rationale check r.json; echo done | cat\nddspace point v:1.1")
+    assert runner._ddspace_calls(script) == [
+        ["point", "--no-space", "Release: Shadow; then promote", "Store: A && B"],
+        ["rationale", "check", "r.json"], ["point", "v:1.1"]]
