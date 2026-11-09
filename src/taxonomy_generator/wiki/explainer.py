@@ -1,4 +1,4 @@
-"""Render a checked design rationale file (``ddspace-rationale/5``) as an explainer page.
+"""Render a checked design rationale file (``ddspace-rationale/6``) as an explainer page.
 
 The page sits at ``<html dir>/explainers/<id>.html``, next to the wiki's HTML, or in a standalone folder
 (``<out>/explainers/<id>.html`` with its own ``assets/``). It shows the requirements, one tab per alternative
@@ -21,6 +21,7 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
+from taxonomy_generator.wiki.llm_texts import TRADEOFF_MARK
 from taxonomy_generator.wiki.query import label_node, norm
 from taxonomy_generator.wiki.render import TEMPLATES, _env, copy_images, copy_page_assets
 
@@ -243,6 +244,20 @@ class _Space:
         return out
 
 
+
+def split_tradeoff(description: str) -> Tuple[str, str]:
+    """Split a point's description into what the point is and its own trade-off (after ``Trade-off:``)."""
+    body, mark, tail = description.partition(TRADEOFF_MARK)
+    return (body.strip(), tail.strip()) if mark else (description, "")
+
+
+def _tradeoffs(step: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """A step's trade-offs against the requirements: the requirement ids it gains and costs, and a note."""
+    def ids(xs: Any) -> List[str]:
+        return [x for x in xs if isinstance(x, str)] if isinstance(xs, list) else []
+    return [{"gains": ids(t.get("gains")), "costs": ids(t.get("costs")), "note": str(t.get("note") or "")}
+            for t in step.get("tradeoffs") or [] if isinstance(t, dict)]
+
 def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     """The steps the agent took, each with its point and what changed against its parent (or what was new)."""
     steps: List[Dict[str, Any]] = []
@@ -271,13 +286,15 @@ def _trajectory(doc: Mapping[str, Any], space: _Space, alternatives: Sequence[Ma
             attested.append({"id": str(sid), "label": (n or {}).get("label") or str(sid),
                              "href": space.link((n or {}).get("href") or "") if n else None})
         assessment = s.get("assessment") if isinstance(s.get("assessment"), dict) else {}
+        description, own_tradeoff = split_tradeoff(record.get("description") or "")
         step = {"step": s.get("step"), "move": s.get("move") or "", "parent": s.get("parent"),
                 "round": s.get("round"), "approach": s.get("approach"),
                 "why": s.get("hypothesis") or s.get("why") or "", "observation": s.get("observation") or "",
                 "verdict": s.get("rating") or s.get("verdict") or "", "assessment": dict(assessment),
                 "drivers": list(assessment) or list(s.get("drivers") or []),
                 "point": point, "changed": changed, "novel": novel,
-                "description": record.get("description") or "", "attested_by": attested,
+                "description": description, "own_tradeoff": own_tradeoff, "tradeoffs": _tradeoffs(s),
+                "attested_by": attested,
                 "alternative": proposed.get(s.get("step")),
                 "point_id": s.get("point") if isinstance(s.get("point"), str) else None,
                 "reuses": first_step.get(s.get("point")) if isinstance(s.get("point"), str) else None}

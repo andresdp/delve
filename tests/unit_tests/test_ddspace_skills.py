@@ -63,7 +63,7 @@ def test_skill_text_works_in_design_space_terms(name):
     flat = " ".join(text.split())
     for needle in ("R1", "Q1", "**dimension**", "**value**", "**relation**", "**design point**", "trajectory",
                    "budget", "references/design-space.md", "./rationale/<id>.json", "ddspace rationale check",
-                   "candidates", "ddspace rationale build", "ddspace-rationale/5", "`points`", "reuse", "`adrs`", "`pros`", "`cons`", "`discarded`", '"step"', '"hypothesis"',
+                   "candidates", "ddspace rationale build", "ddspace-rationale/6", "`points`", "reuse", "`adrs`", "`pros`", "`cons`", "`discarded`", '"step"', '"hypothesis"',
                    '"assessment"', '"observation"', "zero-shot", '"space": null', "`Dimension: Value`", "your own knowledge"):
         assert needle in flat, needle
     assert "every value in the file is an id: of the space, or, without one, a `dimension: value` name" in flat.lower()
@@ -98,9 +98,11 @@ def test_explain_skill_finds_regions_and_forced_values():
 
 @pytest.mark.parametrize("name", SKILLS)
 def test_the_skill_text_names_no_space_command(name):
-    """SKILL.md is the same in every condition: the space's commands live in the reference only."""
-    text = agent.skill_text(name)
-    assert "ddspace query" not in text and "ddspace point" not in text
+    """SKILL.md is the same in every condition: the space's commands live in the reference only. The one
+    exception is ``ddspace point --no-space``, which describes a zero-shot point."""
+    text = " ".join(agent.skill_text(name).split())
+    assert "ddspace query" not in text
+    assert text.count("ddspace point") == text.count("ddspace point --no-space") >= 1
     assert "`ddspace rationale build rationale/<id>.json --out .`" in " ".join(text.split())
 
 
@@ -205,7 +207,7 @@ def test_skill_templates_ship_in_the_wheel(tmp_path):
 @pytest.mark.parametrize("space", [True, False])
 @pytest.mark.parametrize("name", SKILLS)
 def test_the_skill_skeleton_passes_the_check(name, space):
-    """SKILL.md's JSON skeleton is a valid zero-shot ddspace-rationale/5 file (``space: null``, names for ids);
+    """SKILL.md's JSON skeleton is a valid zero-shot ddspace-rationale/6 file (``space: null``, names for ids);
     with the names written as ids (``<dimension 1>`` -> ``d:1``) and the reference's
     ``space`` and ``points`` (descriptions and sources as ``ddspace point`` printed them) it is a valid file that
     names a wiki."""

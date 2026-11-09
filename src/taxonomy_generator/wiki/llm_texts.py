@@ -10,7 +10,7 @@ from typing import Any, Mapping
 
 SUMMARY_PROMPT_VERSION = "1"
 SUMMARY_MAX_WORDS = 12000
-DESCRIPTION_PROMPT_VERSION = "1"
+DESCRIPTION_PROMPT_VERSION = "2"   # 2: every description names its trade-off
 
 SUMMARY_PROMPT = """Summarize the source below for a reader browsing a wiki of software-architecture design decisions.
 
@@ -29,16 +29,23 @@ Source text:
 Summary:"""
 
 
-DESCRIPTION_PROMPT = """A design space for "{domain}" was mined from engineering documents. Each dimension is one design
-decision; each value is an alternative answer. Below is one combination of values, one per dimension.
+DESCRIPTION_PROMPT = """{origin} Each dimension is one design decision; each value is an alternative answer. Below
+is one combination of values, one per dimension.
 
 {choices}
 
-In 2-3 sentences (at most 70 words), describe the solution, or solution fragment, that this combination implies:
-how the chosen values would work together in one system. If two choices are in evident tension or do not fit
-together, say so briefly. Be concrete and neutral; do not invent details beyond the values given.
+Write at most 90 words, in two parts:
+1. In 2 sentences, the solution, or solution fragment, that this combination implies: how the chosen values would
+   work together in one system.
+2. One or two sentences starting with "Trade-off:": what this combination gains and what it gives up (the costs,
+   risks or qualities it weakens), and any two choices that are in tension or do not fit together.
+Be concrete and neutral; do not invent details beyond the values given.
 
 Description:"""
+MINED_ORIGIN = 'A design space for "{domain}" was mined from engineering documents.'
+NAMED_ORIGIN = ('The dimensions and values below were named by a designer working on "{domain}", without a design '
+                'space.')
+TRADEOFF_MARK = "Trade-off:"
 
 
 def _text(reply: Any) -> str:
@@ -61,13 +68,18 @@ def choices_text(point: Mapping[str, Any], dims: Mapping[str, Any]) -> str:
     for s in point.get("values") or []:
         d = dims.get(str(s.get("dimension_id"))) or {}
         question = d.get("description") or ""
-        lines.append(f"- Dimension: {s.get('dimension')}" + (f" ({question})" if question else "")
-                     + f"\n  Value: {s.get('label')}: {s.get('description')} [status: {s.get('status')}]")
+        value = f"\n  Value: {s.get('label')}" + (f": {s['description']}" if s.get("description") else "")
+        value += f" [status: {s['status']}]" if s.get("status") else ""
+        lines.append(f"- Dimension: {s.get('dimension')}" + (f" ({question})" if question else "") + value)
     return "\n".join(lines)
 
 
-async def describe(model, point: Mapping[str, Any], dims: Mapping[str, Any], domain: str) -> str:
-    """Return a 2-3 sentence description of the solution a design point implies."""
-    reply = await model.ainvoke(DESCRIPTION_PROMPT.format(domain=domain or "a software system",
-                                                          choices=choices_text(point, dims)))
+async def describe(model, point: Mapping[str, Any], dims: Mapping[str, Any], domain: str, *,
+                   named: bool = False) -> str:
+    """Return a short description of the solution a design point implies, ending with its trade-off.
+
+    ``named`` is for values a designer named without a design space (zero-shot): they have no descriptions.
+    """
+    origin = (NAMED_ORIGIN if named else MINED_ORIGIN).format(domain=domain or "a software system")
+    reply = await model.ainvoke(DESCRIPTION_PROMPT.format(origin=origin, choices=choices_text(point, dims)))
     return _text(reply)

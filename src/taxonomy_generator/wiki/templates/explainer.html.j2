@@ -172,6 +172,10 @@
   .choice.fit:hover, .choice.fit:focus { border-color: var(--accent); }
   .badge.neutral { background: transparent; color: var(--muted); border: 1px solid var(--border); }
   .fit-note { font-size: 13px; color: var(--muted); }
+  .tradeoffs { margin: 4px 0; padding-left: 18px; font-size: 13px; }
+  .t-gain, .t-cost { font-size: 11px; border-radius: 9px; padding: 0 6px; border: 1px solid; }
+  .t-gain { color: var(--accepted); } .t-cost { color: var(--rejected); }
+  .own-tradeoff { font-size: 13px; border-left: 3px solid var(--mixed); padding-left: 8px; }
   .round-head { margin: 18px 0 6px; font-size: 14px; border-bottom: 2px solid var(--border); padding-bottom: 4px; }
   .round-end { color: var(--muted); font-size: 13px; margin-top: 12px; }
   .story-step { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 8px 0; cursor: pointer; }
@@ -369,7 +373,9 @@
       </div>
       {% if s.observation %}<p><span class="lbl">Observed</span> {{ s.observation }}</p>{% endif %}
       {% if s.assessment %}<div class="judged">{% for rid, j in s.assessment.items() %}<span class="j j-{{ j }}" data-node="r:{{ rid }}">{{ rid }} {{ j }}</span>{% endfor %}</div>{% endif %}
+      {% if s.tradeoffs %}<ul class="tradeoffs">{% for t in s.tradeoffs %}<li><span class="t-gain">gains</span> {% for r in t.gains %}<span class="vref" data-node="r:{{ r }}">{{ r }}</span>{% if not loop.last %}, {% endif %}{% endfor %} <span class="t-cost">gives up</span> {% for r in t.costs %}<span class="vref" data-node="r:{{ r }}">{{ r }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% if t.note %}: <span class="muted">{{ t.note }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
       {% if s.description %}<p class="muted">{{ s.description }}</p>{% endif %}
+      {% if s.own_tradeoff %}<p class="own-tradeoff"><span class="lbl">The point's trade-off</span> {{ s.own_tradeoff }}</p>{% endif %}
       {% if d.wiki %}<p class="muted">{% if s.attested_by %}Attested by {% for a in s.attested_by %}{% if a.href %}<a href="{{ a.href }}">{{ a.label }}</a>{% else %}{{ a.label }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No source attests this combination.{% endif %}</p>{% endif %}
     </article>
     {% endmacro %}
@@ -781,6 +787,11 @@
   const sec = (title, body) => body ? '<h3 class="info-h">' + esc(title) + "</h3>" + body : "";
   const list = (items) => items.length ? "<ul>" + items.map((i) => "<li>" + i + "</li>").join("") + "</ul>" : "";
   const para = (text) => text ? "<p>" + text + "</p>" : "";
+  // A step's trade-off against the requirements, and the one the point's description names.
+  const tradeoffLine = (t) => '<span class="t-gain">gains</span> ' + t.gains.map(rlabel).join(", ")
+    + ' <span class="t-cost">gives up</span> ' + t.costs.map(rlabel).join(", ") + (t.note ? '<br><span class="muted">' + esc(t.note) + "</span>" : "");
+  const tradeoffSecs = (s) => sec("Trade-offs against the requirements", list((s.tradeoffs || []).map(tradeoffLine)))
+    + sec("The point's own trade-off", para(esc(s.own_tradeoff || "")));
   const judgedChip = (rid, j) => '<span class="j j-' + esc(j) + '" data-id="r:' + esc(rid) + '">' + esc(rid) + " " + esc(j) + "</span>";
   const judgedWord = (j) => '<span class="j j-' + esc(j) + '">' + esc(j) + "</span>";  // inside a requirement's own panel
   const chips = (assessment) => { const e = Object.entries(assessment || {}); return e.length ? '<div class="judged">' + e.map(([r, j]) => judgedChip(r, j)).join("") + "</div>" : ""; };
@@ -917,6 +928,7 @@
       + sec("Move", list(moveItems(s)))
       + sec("Observed", para(esc(s.observation)))
       + sec("Requirements", chips(s.assessment))
+      + tradeoffSecs(s)
       + (["seed", "solution", "region"].includes(s.move) ? "" : sec("The whole point", list(Object.entries(s.point).map(([d, v]) => pair(d, v)))))
       + sec("In the decisions", list(inAdrs.map(optLine)))
       + (data.wiki ? sec("What the sources say", s.attested_by.length
@@ -941,6 +953,7 @@
       + sec("Composed of", list((a.parts || []).map((p) => adrRef(p.adr, p.name)
           + "<br>" + Object.entries(p.point).map(([d, v]) => pair(d, v)).join("<br>"))))
       + sec("Requirements", s ? chips(s.assessment) : "")
+      + (s ? tradeoffSecs(s) : "")
       + sec("Left open", list(a.open.map((o) => dlabel(o.dimension) + (o.reason ? ': <span class="muted">' + esc(o.reason) + "</span>" : ""))))
       + sec("Each choice", list(a.choices.map((c) => pair(c.dimension, c.value) + (c.drivers.length ? " · for " + c.drivers.map(rlabel).join(", ") : "")
           + (c.reason ? '<br><span class="muted">' + esc(c.reason) + "</span>" : "")

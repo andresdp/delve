@@ -1,4 +1,4 @@
-"""ddspace rationale check: the ddspace-rationale/5 file, its structural rules and its rules against a space."""
+"""ddspace rationale check: the ddspace-rationale/6 file, its structural rules and its rules against a space."""
 
 import copy
 import hashlib
@@ -59,7 +59,8 @@ def _with_points(doc):
         key = tuple(sorted(s["values"]))
         if key not in ids:
             ids[key] = f"P{len(ids) + 1}"
-            points.append({"id": ids[key], "values": list(s["values"]), "description": record.get("description"),
+            points.append({"id": ids[key], "values": list(s["values"]),
+                           "description": record.get("description", "A point. Trade-off: what it gives up."),
                            "attested_by": record.get("attested_by", [])})
         s["point"] = ids[key]
     doc["points"] = points
@@ -82,11 +83,11 @@ def _explain(uncovered=2):
     doc["trajectory"] = [
         {"step": 1, "move": "solution", "parent": None, "values": ["v:1.1", "v:2.1"],
          "hypothesis": "The solution as one design point.", "assessment": {"R1": "meets", "Q1": "meets"},
-         "observation": "A source attests the whole point.", "verdict": "grounded",
+         "tradeoffs": [], "observation": "A source attests the whole point.", "verdict": "grounded",
          "point": {"description": "Local disks with a quorum and a commit protocol.", "attested_by": ["s:s1"]}},
         {"step": 2, "move": "region", "parent": 1, "values": ["v:1.1"],
          "hypothesis": "Durability alone calls for the disk quorum.", "assessment": {"Q1": "meets"},
-         "observation": "Attested on its own.", "verdict": "grounded",
+         "tradeoffs": [], "observation": "Attested on its own.", "verdict": "grounded",
          "point": {"description": "Local disks with a quorum.", "attested_by": ["s:s1"]}},
     ]
     doc["regions"] = [{"id": "G1", "name": "Disk quorum", "values": ["v:1.1"], "step": 2, "drivers": ["Q1"],
@@ -132,7 +133,7 @@ def _zero():
     }
     step = lambda n, move, approach, value: {  # noqa: E731
         "step": n, "round": 1, "approach": approach, "move": move, "parent": None, "values": [value],
-        "hypothesis": "h", "assessment": {"Q1": "meets"}, "observation": "o", "rating": "strong"}
+        "hypothesis": "h", "assessment": {"Q1": "meets"}, "tradeoffs": [], "observation": "o", "rating": "strong"}
     doc = _sample()
     doc.update(space=None, budget={"max_points": 2},   # both points spent: a one-round search may stop
                approaches=[{"id": "A", "idea": "what if disks?", "status": "live"},
@@ -924,3 +925,51 @@ def test_a_better_assessment_with_the_same_rating_counts_as_an_improvement():
     assert _loop_codes(doc) == set()                       # the same rating and the same assessment: no improvement
     doc["trajectory"][0]["assessment"] = {"Q1": "partly"}
     assert _loop_codes(doc) == {("early_stop", "/trajectory")}   # step 3 meets what step 1 met only partly
+
+
+# ---------------------------------------------------------------- trade-offs
+
+
+def test_a_trade_off_names_known_requirements_on_the_right_side(graph):
+    doc = _sample()
+    step = doc["trajectory"][0]                       # R1 meets, Q1 meets, C1 partly
+    step["tradeoffs"] = [{"gains": ["R1", "C1"], "costs": ["C1", "X9"], "note": "n"},
+                         {"gains": [], "costs": ["R1"], "note": "n"}]
+    codes = _codes(_check(doc, graph))
+    assert ("tradeoff_mismatch", "/trajectory/0/tradeoffs/0") in codes             # C1 on both sides
+    assert ("unknown_requirement", "/trajectory/0/tradeoffs/0/costs/1") in codes
+    assert ("schema", "/trajectory/0/tradeoffs/1/gains") in codes                 # no gain named
+    assert ("tradeoff_mismatch", "/trajectory/0/tradeoffs/1/costs/0") in codes    # R1 is met: not a cost
+
+
+def test_a_gain_judged_misses_is_a_mismatch(graph):
+    doc = _sample()
+    doc["trajectory"][1]["tradeoffs"] = [{"gains": ["R1"], "costs": ["Q1"], "note": "n"}]   # R1 misses, Q1 meets
+    codes = _codes(_check(doc, graph))
+    assert {("tradeoff_mismatch", "/trajectory/1/tradeoffs/0/gains/0"),
+            ("tradeoff_mismatch", "/trajectory/1/tradeoffs/0/costs/0")} <= codes
+
+
+def test_a_mixed_point_without_a_trade_off_is_a_warning(graph):
+    doc = _sample()
+    doc["trajectory"][0]["tradeoffs"] = []
+    result = _check(doc, graph)
+    assert result["ok"]
+    assert [(p["code"], p["severity"], p["path"]) for p in result["problems"]] == [
+        ("missing_tradeoff", "warning", "/trajectory/0/tradeoffs")]
+
+
+def test_a_step_without_tradeoffs_is_a_schema_error(graph):
+    doc = _sample()
+    del doc["trajectory"][2]["tradeoffs"]
+    assert ("schema", "/trajectory/2/tradeoffs") in _codes(_check(doc, graph))
+
+
+def test_a_point_without_a_description_is_a_warning(graph):
+    doc = _sample()
+    doc["points"][1]["description"] = None
+    doc["points"][2]["description"] = "  "
+    result = _check(doc, graph)
+    assert result["ok"]
+    assert {(p["code"], p["path"]) for p in result["problems"]} == {
+        ("undescribed_point", "/points/1/description"), ("undescribed_point", "/points/2/description")}
