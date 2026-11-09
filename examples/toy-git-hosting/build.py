@@ -9,7 +9,9 @@ Usage::
     # write toy-git-hosting_taxonomy_<stamp>.json next to this file (needs the C3 mined run in output/)
     python examples/toy-git-hosting/build.py taxonomy
     # build a workspace from it (outside the repository), with the C3 source list
-    python examples/toy-git-hosting/build.py workspace --out ~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting
+    python examples/toy-git-hosting/build.py workspace --out ~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting/M
+    # an empty folder with the skills and no space, for the zero-shot run (N)
+    python examples/toy-git-hosting/build.py no-space --out ~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting/N
 """
 
 from __future__ import annotations
@@ -111,13 +113,34 @@ def workspace(spec: Dict[str, Any], run_file: Path, out: Path) -> Path:
     return out
 
 
+def no_space(out: Path) -> Path:
+    """Write an empty folder with the search and explain skills and no space reference (zero-shot, as in N)."""
+    from delvedspace import agent
+
+    out = out.expanduser().resolve()
+    if REPO in out.parents or out == REPO:
+        sys.exit("Build the folder outside the repository, so agents working in it cannot read the repository.")
+    shutil.rmtree(out, ignore_errors=True)
+    for name in ("ddspace-search", "ddspace-explain"):
+        for rel, text in agent.skill_files(name, space=False).items():
+            path = out / ".agents" / "skills" / name / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+    return out
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("taxonomy", help="write the run file next to this script")
     ws = sub.add_parser("workspace", help="build a workspace from the run file")
     ws.add_argument("--out", type=Path, required=True)
+    ns = sub.add_parser("no-space", help="an empty folder with the skills and no space (zero-shot)")
+    ns.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
+    if args.cmd == "no-space":
+        print(no_space(args.out))
+        return
     spec = yaml.safe_load(SPEC.read_text(encoding="utf-8"))
     run_file = HERE / f"{spec['name']}_taxonomy_{STAMP}.json"
     if args.cmd == "taxonomy":

@@ -9,7 +9,8 @@ Scalar, ...) are points of the space; `spec.yaml` lists them.
 
 ```bash
 python examples/toy-git-hosting/build.py taxonomy        # spec.yaml -> toy-git-hosting_taxonomy_*.json
-python examples/toy-git-hosting/build.py workspace --out ~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting
+python examples/toy-git-hosting/build.py workspace --out ~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting/M
+python examples/toy-git-hosting/build.py no-space --out ~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting/N
 ```
 
 The workspace has a wiki without quotes, and the agent guide. `cases/` holds a search brief and a solution to
@@ -20,28 +21,41 @@ combination; the per-value passages and stances carry more of the evidence than 
 
 ## Running search and explain on it
 
-Interactively, with Codex in the workspace (from the repository folder, `taxonomy` active):
+Two conditions, as in the C1 study: **M**, the toy space as a wiki, and **N**, an empty folder where the agent
+works zero-shot (`space: null`). In both, every design point gets a description from `ddspace point` that ends
+with the point's own trade-off (`Trade-off: …`), and every step records its trade-offs against the requirements
+(`tradeoffs`). In N, `ddspace point --no-space` describes the agent's own `Dimension: Value` names with the same
+prompt and the same model as M (`DDSPACE_POINT_MODEL`).
+
+Set up both folders (from the repository folder, `taxonomy` active):
 
 ```bash
 TOY=~/Documents/GitHub/ddspace-sandboxes/toy-git-hosting
-python examples/toy-git-hosting/build.py workspace --out $TOY
-cp examples/toy-git-hosting/cases/2-spokes-explain/problem.md $TOY/PROBLEM.md
-cp examples/toy-git-hosting/cases/2-spokes-explain/solution.md $TOY/SOLUTION.md
-cd $TOY && ddspace agent setup --skills --yes
+python examples/toy-git-hosting/build.py workspace --out $TOY/M
+python examples/toy-git-hosting/build.py no-space --out $TOY/N
+(cd $TOY/M && ddspace agent setup --skills --yes)
+for c in M N; do
+  cp examples/toy-git-hosting/cases/2-spokes-explain/problem.md $TOY/$c/PROBLEM.md
+  cp examples/toy-git-hosting/cases/2-spokes-explain/solution.md $TOY/$c/SOLUTION.md
+done
 ```
 
-Then one Codex session per case. `CODEX_HOME` keeps your login while the throw-away `HOME` keeps your personal
-skills out, as in the study; the study key lets `ddspace point` write its descriptions:
+Then four Codex sessions, search and explain in each folder. `CODEX_HOME` keeps your login while the throw-away
+`HOME` keeps your personal skills out, as in the study; the study key lets `ddspace point` write descriptions:
 
 ```bash
-export OPENAI_API_KEY=$STUDY_OPENAI_API_KEY
-CODEX_HOME=~/.codex HOME=$(mktemp -d) codex exec -m gpt-6-luna -c 'model_reasoning_effort="high"' \
-  -s workspace-write -c sandbox_workspace_write.network_access=true --skip-git-repo-check \
-  "Use the ddspace-search skill. The problem is in PROBLEM.md. Write ./rationale/hosting-search.json, run ddspace rationale check until it is clean, then run ddspace rationale build rationale/hosting-search.json."
-CODEX_HOME=~/.codex HOME=$(mktemp -d) codex exec -m gpt-6-luna -c 'model_reasoning_effort="high"' \
-  -s workspace-write -c sandbox_workspace_write.network_access=true --skip-git-repo-check \
-  "Use the ddspace-explain skill. The problem is in PROBLEM.md and the solution in SOLUTION.md. Write ./rationale/spokes-explain.json, run ddspace rationale check until it is clean, then run ddspace rationale build rationale/spokes-explain.json."
-ddspace wiki open
+export OPENAI_API_KEY=$STUDY_OPENAI_API_KEY DDSPACE_POINT_MODEL=openai/gpt-5.6-luna
+codex_run() {  # folder, prompt
+  (cd "$1" && CODEX_HOME=~/.codex HOME=$(mktemp -d) codex exec -m gpt-6-luna -c 'model_reasoning_effort="high"' \
+    -s workspace-write -c sandbox_workspace_write.network_access=true --skip-git-repo-check "$2")
+}
+SEARCH="Use the ddspace-search skill. The problem is in PROBLEM.md. Write ./rationale/hosting-search.json and run ddspace rationale check until it is clean."
+EXPLAIN="Use the ddspace-explain skill. The problem is in PROBLEM.md and the solution in SOLUTION.md. Write ./rationale/spokes-explain.json and run ddspace rationale check until it is clean."
+codex_run $TOY/M "$SEARCH Then run ddspace rationale build rationale/hosting-search.json."
+codex_run $TOY/M "$EXPLAIN Then run ddspace rationale build rationale/spokes-explain.json."
+codex_run $TOY/N "$SEARCH There is no design space here: work zero-shot. Then run ddspace rationale build rationale/hosting-search.json --out ."
+codex_run $TOY/N "$EXPLAIN There is no design space here: work zero-shot. Then run ddspace rationale build rationale/spokes-explain.json --out ."
 ```
 
-The explainers are in the wiki: `site/explainers/hosting-search.html` and `site/explainers/spokes-explain.html`.
+The M explainers are in the wiki (`ddspace wiki open`, then `site/explainers/`); the N explainers are next to
+the rationale files, in `$TOY/N/explainers/`.
