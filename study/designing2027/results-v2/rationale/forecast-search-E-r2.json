@@ -1,0 +1,637 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "forecast-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Retail demand forecasting",
+    "context": "Forecast weekly demand for 400 stores and 30,000 products, with forecasts for the next eight weeks delivered to replenishment by Monday 06:00. Nightly sales data is in a centrally managed warehouse; promotions and holidays strongly affect demand. Three data scientists own the pipeline.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Produce, every week, the forecast per store and product for the next eight weeks, and deliver it to the replenishment system by Monday 06:00."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Run the forecast again for any past week exactly as it was produced."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Try new model ideas and compare them with the production model on past weeks before they replace it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "reproducibility",
+        "text": "Asked for the forecast of a week up to two years back, the team produces the same numbers within one working day."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "development velocity",
+        "text": "A new model idea that beats the production model on past weeks reaches production within one week, with no manual step except the approval."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "reliability",
+        "text": "When a weekly run fails, the team is told within 15 minutes, and the replenishment system never receives a partial forecast."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "maintainability",
+        "text": "A new team member can run the whole pipeline on their own machine within their first week."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three data scientists, with no data engineers; the data warehouse stays as it is."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The weekly run must fit in the six hours between the nightly load and the Monday deadline."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.3",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:13.1",
+        "v:22.2",
+        "v:25.2",
+        "v:26.9"
+      ],
+      "description": "A scheduled ML orchestrator retrieves versioned data, provisions environments, and runs CI/CD-built pipelines and components. It tests trained-model quality, writes batch predictions to storage, and monitors both system behavior and predictions in production. Trade-off: This gains reproducibility, repeatable automation, and observable scheduled delivery, but batch serving may produce stale results and cannot provide low-latency predictions. Trade-off: Versioning, provisioning, orchestration, and monitoring add operational complexity and storage overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:5.4",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:13.1",
+        "v:22.2",
+        "v:25.1",
+        "v:26.9"
+      ],
+      "description": "A scheduled pipeline uses versioned data to train models in automatically provisioned environments, tests model quality, and lets CI/CD build and deploy the models and supporting components. Predictions are precomputed and delivered as reports, while production data and predictions are logged and monitored. Trade-off: This gains reproducibility, repeatable delivery, and operational visibility, but scheduled precomputation gives up real-time responsiveness and may produce stale reports between runs. Testing only trained-model quality also leaves data, integration, and deployment failures less directly covered.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:5.3",
+        "v:8.2",
+        "v:11.3",
+        "v:12.1",
+        "v:13.2",
+        "v:22.3",
+        "v:25.3",
+        "v:26.14"
+      ],
+      "description": "**Solution:** The system runs model scoring in scheduled data batches and writes predictions to storage. Pipelines are launched on demand, while build/deployment scripts are run manually; environments, data, tests, monitoring, and CI/CD deployment are not automated. **Trade-off:** This minimizes infrastructure and automation effort and preserves direct operational control. It gives up reproducibility, validation, traceability, observability, and rapid reliable releases, increasing the risk of undetected model or deployment problems.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a scheduled orchestrator makes the full batch workflow repeatable and observable?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if CI/CD and precomputed reports make model promotion fast while retaining a simple scheduled run?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a minimal manually operated batch pipeline is sufficient for the small team?",
+      "status": "dropped",
+      "dropped_because": "Manual triggering, absent data versioning, monitoring, testing, and deployment automation cannot support historical reproducibility, prompt failure detection, or approval-only rapid promotion."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.3",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:13.1",
+        "v:22.2",
+        "v:25.2",
+        "v:26.9"
+      ],
+      "hypothesis": "Versioned scheduled batches with orchestration, automated environment setup, monitoring and quality gates should support R1, R2, Q1, Q3, and Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:8.3",
+            "v:13.1",
+            "v:25.2"
+          ],
+          "gains": [
+            "R2",
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Orchestration, provisioning, and pipeline automation improve repeatability but increase the operating surface for a three-person team."
+        },
+        {
+          "values": [
+            "v:5.3"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Scheduled batch serving satisfies weekly report delivery but does not make model promotion faster by itself."
+        }
+      ],
+      "observation": "The checked combination has no attesting sources. It gives a coherent scheduled reproducible path, but exact run time and safe publication are not encoded by these values.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.4",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:13.1",
+        "v:22.2",
+        "v:25.1",
+        "v:26.9"
+      ],
+      "hypothesis": "Precomputation plus CI/CD and historical data versioning should make model comparison and promotion repeatable and fast (R2, R3, Q1, Q2).",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:8.1",
+            "v:25.1"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Automated model deployment can shorten promotion time but requires CI configuration and operational ownership."
+        },
+        {
+          "values": [
+            "v:5.4"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Precomputed reports suit weekly demand delivery but do not by themselves guarantee atomic output or rapid failure notification."
+        }
+      ],
+      "observation": "No source attests this combination. It directly supports model comparison and report generation, though the configured pipeline still needs proof of timing and approval gating.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.3",
+        "v:8.2",
+        "v:11.3",
+        "v:12.1",
+        "v:13.2",
+        "v:22.3",
+        "v:25.3",
+        "v:26.14"
+      ],
+      "hypothesis": "A minimal manual design may reduce overhead for the small team and satisfy the weekly batch output (R1, C1).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "misses",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "misses",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:11.3",
+            "v:12.1",
+            "v:22.3",
+            "v:25.3",
+            "v:26.14"
+          ],
+          "gains": [
+            "C1",
+            "Q4"
+          ],
+          "costs": [
+            "R2",
+            "Q1",
+            "Q2",
+            "Q3"
+          ],
+          "note": "Avoiding support components reduces setup, but sacrifices traceability, automated promotion, checks, and failure visibility."
+        }
+      ],
+      "observation": "Nothing attests the combination; its minimal footprint does not overcome the missing historical record and automation gaps.",
+      "rating": "weak",
+      "point": "P3"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Orchestrated reproducible batch",
+      "summary": "Schedule versioned input through an orchestrated, provisioned workflow with model quality checks and monitored batch outputs.",
+      "approach": "A",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Writes scheduled batch predictions for replenishment."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Coordinates repeatable pipeline components."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Preserves data revisions for historical reruns."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Runs on a weekly cadence."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Recreates an environment automatically."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Logs production inputs and outputs."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automates pipeline component delivery."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Checks candidate model quality."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:8",
+          "type": "affects",
+          "holds": true,
+          "note": "The CI/CD scope informs the delivery approach."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "CI/CD precomputed forecasts",
+      "summary": "Use versioned data, a scheduled run, CI/CD model delivery and monitored precomputed forecast reports.",
+      "approach": "B",
+      "step": 2,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.4",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Precomputes forecast reports for downstream use."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automates deployment after approval."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Keeps data versions with code revisions."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Runs the regular forecast schedule."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Automates environment setup."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Logs data and prediction behavior."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Builds and deploys models automatically."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Tests candidate model quality."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:8",
+          "type": "affects",
+          "holds": true,
+          "note": "The CI/CD scope informs the delivery approach."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "How to deliver weekly forecasts",
+      "drivers": [
+        "R1",
+        "C2"
+      ],
+      "context": "Weekly, large volume forecast reports must be ready in a fixed six-hour window. Batch delivery fits the cadence; the space does not represent deadline scheduling precision or atomic publication.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Scheduled batch outputs",
+          "values": [
+            "v:5.3",
+            "v:12.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "Scheduled output is aligned with weekly replenishment."
+          ],
+          "cons": [
+            "No value guarantees Monday 06:00 or atomic completeness."
+          ],
+          "reason": "Retains an explicit batch run and schedule."
+        },
+        {
+          "id": "O2",
+          "name": "Precomputed reports",
+          "values": [
+            "v:5.4",
+            "v:12.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 2,
+          "pros": [
+            "Precomputation matches forecast report delivery."
+          ],
+          "cons": [
+            "Can be stale and has no explicit atomic delivery guarantee."
+          ],
+          "reason": "Makes the forecast report a precomputed artifact."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How to reproduce and promote models",
+      "drivers": [
+        "R2",
+        "R3",
+        "Q1",
+        "Q2",
+        "Q4"
+      ],
+      "context": "Historical reruns and approval-led model updates require preserved inputs, repeatable environments and automated checks/deployment. These choices add operating complexity for a small team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Orchestrated versioned pipelines",
+          "values": [
+            "v:8.3",
+            "v:11.1",
+            "v:13.1",
+            "v:25.2",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "Supports traceable reruns and repeatable execution."
+          ],
+          "cons": [
+            "Several operational components increase team burden."
+          ],
+          "reason": "Emphasizes reproducible pipeline runs and model quality checks."
+        },
+        {
+          "id": "O2",
+          "name": "CI/CD versioned models",
+          "values": [
+            "v:8.1",
+            "v:11.2",
+            "v:13.1",
+            "v:25.1",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 2,
+          "pros": [
+            "Automates model artifact deployment and candidate evaluation."
+          ],
+          "cons": [
+            "Data versioning in the code repository may be less suitable for large warehouse datasets."
+          ],
+          "reason": "Emphasizes low-friction promotion after an approval gate."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How to observe weekly run health",
+      "drivers": [
+        "Q3"
+      ],
+      "context": "The team needs fast failure awareness and complete outputs. Monitoring/logging can expose behavior, but notification thresholds and atomic publication are absent from the space.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Monitor batch data and predictions",
+          "values": [
+            "v:22.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 1,
+          "pros": [
+            "Provides production data and prediction visibility."
+          ],
+          "cons": [
+            "Does not specify a 15-minute alert or prevent partial delivery."
+          ],
+          "reason": "Closest available monitoring choice."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:8",
+      "note": "The space does not represent team size, staffing, or the constraint that the central warehouse cannot change."
+    }
+  ]
+}

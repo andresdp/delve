@@ -1,0 +1,2274 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores about 3,000 card transactions per second and up to 15,000 at seasonal peaks. Fraud labels arrive days to weeks later, fraudsters adapt within weeks, and auditors may ask months later why a score was produced. Five data scientists, two ML engineers, and the existing operations team must build and run the service without an ML platform team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.1",
+        "v:6.5",
+        "v:13.1",
+        "v:32.2",
+        "v:19.3"
+      ],
+      "description": "Streaming events feed an online/offline feature store, with a stateless, horizontally scaled REST service computing predictions from current context and recent data. Immutable, provenance-rich data supports training and reuse. An orchestrated pipeline maintains data-to-model lineage, retrains automatically on new production or labeled data, evaluates candidates offline, and promotes releases through progressively stronger environment gates. Trade-off: This gains scalable serving, reproducibility, auditability, and automated model freshness, but requires operating synchronized feature stores, immutable data retention, lineage metadata, and substantial pipeline automation. Stateless serving simplifies scaling but provides no durable serving state beyond external stores.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:21.3",
+        "v:29.1",
+        "v:31.9",
+        "v:25.3",
+        "v:43.3",
+        "v:20.3",
+        "v:42.5",
+        "v:6.8",
+        "v:13.6",
+        "v:32.2",
+        "v:19.5"
+      ],
+      "description": "A durable feature platform supplies reusable training and inference data, while horizontally scaled Redis-backed services combine precomputed predictions with asynchronous online processing for fresher responses. Orchestrated pipelines evaluate candidates by metrics, record artifacts and governed data end to end, retrain on performance or drift signals, and progressively release changes with rollback. Trade-off: This gains freshness, scalability, reproducibility, traceability, and safer deployment, but requires substantial operational coordination across storage, Redis, monitoring, retraining, and release systems. Trade-off: Hybrid serving and continuous adaptation add latency, consistency, and resource-management complexity compared with simpler batch-only, manually governed operation.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.12",
+        "v:25.4",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.12",
+        "v:13.2",
+        "v:32.2",
+        "v:19.4"
+      ],
+      "description": "The system orchestrates reproducible feature, training, evaluation, and deployment pipelines, storing governed artifacts and access-controlled data. Online serving uses shared low-latency features, geographically redundant asynchronous operation, fallback predictions, threshold regression checks, automated failure recovery, and release rollback with manual intervention when needed. Trade-off: This gains availability, repeatability, recoverability, and controlled data use, but asynchronous regional state and fallback results can reduce freshness or prediction accuracy. Comprehensive governance, monitoring, testing, and recovery also increase operational complexity and maintenance effort.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.1",
+        "v:6.5",
+        "v:13.1",
+        "v:32.2",
+        "v:19.3",
+        "v:26.8"
+      ],
+      "description": "Continuous source events feed base features into complementary online/offline stores, while a stateless, horizontally scaled REST service computes predictions from current context and recent data. Immutable, provenance-preserved data supports lineage-linked artifacts, orchestrated offline evaluation and automated retraining; environment-gated automation releases selected models, with service profiling guiding resource placement. Trade-off: This gains low-latency scalable serving, reproducibility, governance, and adaptation, but increases operational complexity and cost through dual stores, retention, orchestration, monitoring, profiling, and gated releases. Online computation also increases request-time dependence on current data and services.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:21.3",
+        "v:29.1",
+        "v:31.12",
+        "v:25.3",
+        "v:43.3",
+        "v:20.3",
+        "v:42.5",
+        "v:6.8",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4"
+      ],
+      "description": "Events enter through parallel low-latency and durable paths. An orchestrated pipeline uses governed, traceable data and durable features to train, evaluate, version, and deploy REST models with horizontally scalable Redis-backed asynchronous serving; monitoring triggers retraining, fallbacks handle unavailable inputs, and release automation supports rollback. Trade-off: The design gains responsiveness, resilience, traceability, reuse, and adaptation, but duplicates ingestion and requires substantial Redis, feature-platform, governance, monitoring, and lifecycle complexity; fallbacks protect availability at the cost of potentially weaker predictions.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.12",
+        "v:25.4",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.2",
+        "v:32.2",
+        "v:19.4"
+      ],
+      "description": "A streaming ingestion layer feeds a shared feature-preparation pipeline and low-latency online store, which a REST prediction service uses. The service returns fallback results when retrieval is unavailable or anomalous, operates with geographically redundant asynchronous failover, and is supported by reproducible governance, access-controlled preservation, threshold regression tests, orchestration, automated recovery, and release restoration with manual intervention. Trade-off: This gains availability, repeatability, controlled access, and recoverability, but asynchronous operation and fallbacks can reduce freshness or prediction fidelity. Comprehensive governance, testing, versioning, and geographic redundancy also increase operational, storage, and coordination overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4",
+        "v:39.1"
+      ],
+      "description": "Streaming events feed a shared feature-preparation pipeline that materializes low-latency features for a REST prediction service. Stateless replicas compute online predictions, while orchestrated, governed pipelines evaluate candidates, retrain automatically, version artifacts and data, and release recoverable model versions with manual intervention available. Trade-off: This gains fresh predictions, reproducibility, horizontal scalability, and automated adaptation, but requires substantial in-house platform ownership and coordination across streaming, feature serving, retraining, monitoring, and release processes. It also gives up some operational simplicity and may increase recovery and governance overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.1",
+        "v:6.5",
+        "v:13.1",
+        "v:32.2",
+        "v:19.3",
+        "v:26.6"
+      ],
+      "description": "Streaming events feed an online/offline feature store, while a stateless, horizontally scaled REST service computes current-context predictions online and scales elastically. An orchestrated pipeline evaluates candidates offline, tracks data-to-model lineage and preserved provenance, automatically retrains from new data, and promotes releases through environment-specific gates. Trade-off: This provides responsive serving, reproducibility, scalability, and continual adaptation. It increases operational complexity and storage/compute cost, while automated retraining and fresh streaming features require careful validation to avoid deploying regressions or inconsistent feature states.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:21.3",
+        "v:29.1",
+        "v:31.12",
+        "v:25.3",
+        "v:43.3",
+        "v:20.3",
+        "v:42.5",
+        "v:6.8",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4",
+        "v:26.8"
+      ],
+      "description": "Interaction data enters via parallel low-latency and durable paths; an orchestrated pipeline creates governed, versioned features and artifacts, evaluates candidates by metrics, and deploys a REST prediction service. Horizontally scalable instances use Redis and asynchronous communication, durable feature storage for reuse and recovery, fallbacks for missing or anomalous inputs, monitoring-triggered retraining, and release automation that restores prior versions or supports manual recovery. Trade-off: The design gains resilience, reproducibility, recoverability, and lifecycle control, but requires substantial platform complexity, duplicated ingestion/storage paths, Redis operations, and governance overhead. Fallback predictions may reduce quality, while drift-triggered retraining can consume resources or react to transient changes.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.12",
+        "v:25.4",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.2",
+        "v:32.2",
+        "v:19.4",
+        "v:26.8"
+      ],
+      "description": "A streaming ingestion layer feeds an online feature-serving pipeline, whose features support a REST prediction service with fallback results when inputs or retrieval fail. Orchestrated training, evaluation, threshold regression tests, automated retraining, lifecycle governance, preserved access-controlled data, and recovery-oriented release automation maintain and restore models across geographically redundant asynchronous serving regions. Trade-off: This gains low-latency, resilient serving and repeatable adaptation, but adds substantial operational complexity across regions, pipelines, governance, and versioning. Automated retraining and fallback behavior can also propagate stale or lower-quality results unless monitored and controlled.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4",
+        "v:39.1",
+        "v:26.8"
+      ],
+      "description": "Streaming events feed an online feature-serving pipeline and REST service; stateless replicas compute predictions from current context, with profiling guiding resource and latency sizing. An orchestrated, metric-evaluated lifecycle versions artifacts and datasets, preserves access-controlled data, automatically retrains, and releases with rollback/recovery and manual intervention on in-house infrastructure. Trade-off: The design gains low-latency scale, reproducibility, adaptation, and recovery, but sacrifices simplicity and likely cost efficiency because online materialization, governance, retraining, and internal platform operation require substantial coordination; metric-only evaluation and automation may miss unmeasured or poorly labeled failures.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if we prioritize fresh online scoring, paired online/offline features and a repeatable model lifecycle?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if hybrid scoring and fallback behavior absorb service or feature interruptions while preserving a durable model lifecycle?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if regional redundancy, explicit fallback behavior and recovery controls make continued authorization the leading design concern?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if the company keeps ML operations entirely in-house to retain control of a PCI-sensitive workload?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.1",
+        "v:6.5",
+        "v:13.1",
+        "v:32.2",
+        "v:19.3"
+      ],
+      "hypothesis": "Online computation and complementary feature stores should meet R1; lineage, preservation and automated retraining should support R2/R3/Q4. Stateless serving should scale, but without fallback Q2 is exposed.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.5",
+            "v:25.1",
+            "v:43.4"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1",
+            "Q2"
+          ],
+          "note": "Current-context scoring supports recent activity, but adds request-time feature dependencies and the point has no explicit fallback when those dependencies fail."
+        },
+        {
+          "values": [
+            "v:20.4",
+            "v:42.1",
+            "v:6.5",
+            "v:13.1",
+            "v:32.2"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "R3",
+            "Q3"
+          ],
+          "note": "Lifecycle lineage and preserved training data support reproducible updates, but do not by themselves persist every past score's exact inputs."
+        }
+      ],
+      "observation": "The combination has no attesting source. Online/offline features, lineage, preservation and automated retraining align with the workflow needs, but the checked point lacks explicit serving fallback. Numeric latency and the required 48-hour adaptation time remain unproven.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:21.3",
+        "v:29.1",
+        "v:31.9",
+        "v:25.3",
+        "v:43.3",
+        "v:20.3",
+        "v:42.5",
+        "v:6.8",
+        "v:13.6",
+        "v:32.2",
+        "v:19.5"
+      ],
+      "hypothesis": "Dual-path ingestion and hybrid online serving should combine freshness with durable reuse. Drift-triggered retraining, candidate evaluation and progressive releases should improve Q4, while operational complexity could hurt Q1 and C2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:21.3",
+            "v:31.9",
+            "v:25.3",
+            "v:43.3"
+          ],
+          "gains": [
+            "R1",
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Hybrid online work and asynchronous Redis-backed serving offer freshness and decoupling, but add latency and coordination paths that need measurement."
+        },
+        {
+          "values": [
+            "v:6.8",
+            "v:13.6",
+            "v:32.2",
+            "v:19.5"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Automated drift response and releases shorten adaptation, but this distributed lifecycle has substantial operational surface for a small team."
+        }
+      ],
+      "observation": "No source attests the full combination. The point has a freshness path and durable feature reuse, but hybrid serving is not a firm latency result; fallback behavior is not explicit yet. Delayed labels and the 48-hour limit still need operational timing evidence.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.12",
+        "v:25.4",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.12",
+        "v:13.2",
+        "v:32.2",
+        "v:19.4"
+      ],
+      "hypothesis": "Fallback behavior, regional redundancy and automated recovery should best protect Q2. Online features preserve a current scoring path, but recovery-focused choices may not provide automated retraining for Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "misses",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "misses"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.12",
+            "v:25.4",
+            "v:6.12"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R1",
+            "Q1"
+          ],
+          "note": "Fallback and regional recovery protect continued service but may use stale or weaker signals and add cross-region latency."
+        },
+        {
+          "values": [
+            "v:20.6",
+            "v:42.4",
+            "v:13.2"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "Preserved, governed data and regression checks help audit and controlled release, but this seed has recovery rather than retraining adaptation."
+        }
+      ],
+      "observation": "No source attests the full point. This seed is strongest on recovery but has no model-update mechanism, so it misses the stressed 48-hour adaptation need. The next round should retain the recovery design and replace failure recovery with retraining.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.1",
+        "v:6.5",
+        "v:13.1",
+        "v:32.2",
+        "v:19.3",
+        "v:26.8"
+      ],
+      "hypothesis": "Add service resource and latency profiling to the online design. Profiling should better inform Q1 sizing without changing the recent-feature or lineage choices.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.5",
+            "v:25.1",
+            "v:43.4"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Online scoring serves recent activity but depends on live feature access without a failure fallback."
+        },
+        {
+          "values": [
+            "v:26.8"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Profiling helps size for measured load, but requires measurement and tuning effort and does not establish the stated p99 threshold."
+        }
+      ],
+      "observation": "The point remains unattested. Profiling makes the performance plan more concrete but offers no result at 15,000 requests per second; Q2 remains its main gap.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:21.3",
+        "v:29.1",
+        "v:31.12",
+        "v:25.3",
+        "v:43.3",
+        "v:20.3",
+        "v:42.5",
+        "v:6.8",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4"
+      ],
+      "hypothesis": "Replace hybrid serving with explicit prediction fallback behavior and recovery-oriented releases. This should improve Q2 while retaining drift-triggered updates and rollback.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.12",
+            "v:25.3",
+            "v:43.3"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R1",
+            "Q1"
+          ],
+          "note": "Fallback and asynchronous serving protect continuity but may return weaker or stale predictions and increase latency."
+        },
+        {
+          "values": [
+            "v:20.3",
+            "v:42.5",
+            "v:6.8"
+          ],
+          "gains": [
+            "Q3",
+            "Q4"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Integrated governance and drift response improve lifecycle control, but increase the systems and operational policies the small team must maintain."
+        }
+      ],
+      "observation": "No source attests the combination. Explicit fallbacks address the quality-versus-availability compromise, but the point's online scoring and precomputed fallback behavior still need a concrete freshness policy. Timing targets remain unverified.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.12",
+        "v:25.4",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.2",
+        "v:32.2",
+        "v:19.4"
+      ],
+      "hypothesis": "Replace automated failure recovery with automated retraining, retaining the fallback and regionally redundant serving. This should recover Q4 while preserving Q2 protection.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.12",
+            "v:25.4",
+            "v:43.2"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R1",
+            "Q1"
+          ],
+          "note": "Fallback and regional asynchronous behavior support continued authorizations, but can trade away freshness and response speed."
+        },
+        {
+          "values": [
+            "v:6.5",
+            "v:13.2",
+            "v:32.2"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Automated retraining with threshold regression checks supports adaptation, but adds lifecycle operation and still needs validation against recent transactions."
+        }
+      ],
+      "observation": "No source attests the combination. Replacing failure recovery with retraining closes the seed's major update gap; however, Q4 remains partly supported because no checked combination demonstrates delivery within 48 hours after the required comparison.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4",
+        "v:39.1"
+      ],
+      "hypothesis": "Explore an in-house operating model using the existing operations organization and no external ML service. This may fit C1/C2 better, but risks placing too much platform work on seven people.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:21.2",
+            "v:29.1",
+            "v:31.5",
+            "v:43.2"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Fresh online features support recent-activity scoring, but this point has no serving fallback."
+        },
+        {
+          "values": [
+            "v:39.1",
+            "v:20.6",
+            "v:32.2"
+          ],
+          "gains": [
+            "C2"
+          ],
+          "costs": [
+            "Q1",
+            "Q4"
+          ],
+          "note": "Internal ownership avoids dependence on an external operator, but puts infrastructure and lifecycle work on the existing small team and may slow sizing and releases."
+        }
+      ],
+      "observation": "No source attests the point. In-house ownership is only an approximate fit for the staffing constraint: the value says who operates infrastructure, not whether the existing team has enough capacity. PCI-certified placement is still not established by the design space.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.1",
+        "v:6.5",
+        "v:13.1",
+        "v:32.2",
+        "v:19.3",
+        "v:26.6"
+      ],
+      "hypothesis": "Replace profiling as the performance choice with elastic resource scaling. This should respond to seasonal workload spikes, though it remains necessary to benchmark the p99 target.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.5",
+            "v:25.1",
+            "v:43.4",
+            "v:26.6"
+          ],
+          "gains": [
+            "R1",
+            "Q1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Online fresh scoring with elasticity supports current features and burst capacity, but does not provide a scoring-failure fallback."
+        },
+        {
+          "values": [
+            "v:20.4",
+            "v:42.1",
+            "v:6.5",
+            "v:13.1"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Automated lifecycle controls support updates, but don't retain each score's exact request inputs by themselves."
+        }
+      ],
+      "observation": "No source attests the combination. Elastic scaling is more directly relevant to seasonal peaks than profiling alone, but the 30 ms p99 still requires measurement. This round did not fix the Q2 weakness of the approach.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:21.3",
+        "v:29.1",
+        "v:31.12",
+        "v:25.3",
+        "v:43.3",
+        "v:20.3",
+        "v:42.5",
+        "v:6.8",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4",
+        "v:26.8"
+      ],
+      "hypothesis": "Add service profiling to the fallback design. This should help tune the online path and quantify its latency and resource cost without losing fallback or drift response.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.12",
+            "v:25.3",
+            "v:43.3",
+            "v:26.8"
+          ],
+          "gains": [
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "Profiling and fallback improve sizing and availability planning, but fallback values may be stale and the design is less directly fresh than online-only computation."
+        },
+        {
+          "values": [
+            "v:6.8",
+            "v:13.6",
+            "v:32.2",
+            "v:20.3"
+          ],
+          "gains": [
+            "R2",
+            "Q4",
+            "Q3"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Governed drift-based model updates and data lineage improve adaptation and audits, but remain an operationally broad pipeline for a small team."
+        }
+      ],
+      "observation": "No source attests the combination. Profiling supports evidence-based sizing, but cannot verify the stated threshold by itself; the point retains the strongest balance so far between fallback and current activity through its hybrid serving path.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.12",
+        "v:25.4",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.2",
+        "v:32.2",
+        "v:19.4",
+        "v:26.8"
+      ],
+      "hypothesis": "Add resource and latency profiling to the regionally redundant recovery path. This should guide sizing, though the synchronous scoring response still needs testing.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.12",
+            "v:25.4",
+            "v:43.2",
+            "v:26.8"
+          ],
+          "gains": [
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "Fallback, regional redundancy and profiling address availability and sizing, but may serve a less recent score and add network latency."
+        },
+        {
+          "values": [
+            "v:20.6",
+            "v:42.4",
+            "v:6.5",
+            "v:13.2"
+          ],
+          "gains": [
+            "R2",
+            "Q4",
+            "Q3"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Lifecycle governance and retraining support audit and adaptation, but add operational work and exact per-score inputs remain unproven."
+        }
+      ],
+      "observation": "No source attests the combination. Profiling helps make sizing deliberate; unlike an actual benchmark, it cannot establish the latency target. The design still offers a fallback and regional recovery path.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:21.2",
+        "v:29.1",
+        "v:31.5",
+        "v:25.1",
+        "v:43.2",
+        "v:20.6",
+        "v:42.4",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:19.4",
+        "v:39.1",
+        "v:26.8"
+      ],
+      "hypothesis": "Add profiling to the internally operated service to help the current operations group size it. This addresses Q1 evidence needs but not staffing capacity or online failure fallback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.5",
+            "v:25.1",
+            "v:43.2"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Fresh online scoring serves recent activity but remains dependent on live data and has no fallback behavior."
+        },
+        {
+          "values": [
+            "v:39.1",
+            "v:26.8",
+            "v:20.6"
+          ],
+          "gains": [
+            "C2",
+            "Q1"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "Internal operation and profiling give the existing operations group control and sizing data, but add duties and do not prove the required release time."
+        }
+      ],
+      "observation": "No source attests the combination. Profiling improves the operating plan, but no point establishes team capacity, PCI-certified placement or quantitative service targets. This remains a control-oriented option with considerable local operating responsibility.",
+      "rating": "mixed",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Elastic online scoring",
+      "summary": "Score from current activity through an online/offline feature store and stateless REST replicas that scale elastically. Pair the serving path with lineage, preserved source data, automated retraining and gated releases; service failure fallback remains a gap.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Streaming ingestion supports current activity in online features.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A REST prediction service integrates scoring with authorization.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Online computation uses current context at request time.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Stateless replicas can scale horizontally for burst throughput.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.4",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Complementary stores serve low-latency features and retain training data.",
+          "evidence": [
+            {
+              "doc": "s06_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Links dataset versions with model and training context.",
+          "evidence": [
+            {
+              "doc": "s10_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preserves provenance and source data for later reconstruction.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Retrains from newly labeled production data.",
+          "evidence": [
+            {
+              "doc": "s01_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Evaluates candidates on held-out true outcomes before selection.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Connects data, training, evaluation and deployment into repeatable stages.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Stages and validates model promotion across environments.",
+          "evidence": [
+            {
+              "doc": "s09_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Elastic capacity responds to variable transaction load.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.8",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Profiling was considered first, but elastic scaling better addresses a seasonal peak; measurement is still needed to verify the target."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:27",
+          "reason": "The brief does not choose a model family."
+        },
+        {
+          "dimension_id": "d:30",
+          "reason": "The brief does not specify a packaging or runtime placement approach."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "The point chooses a streaming ingestion mechanism as required by the orchestrated workflow."
+        },
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The point selects a REST serving interface before its runtime communication strategy."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Hybrid scoring with fallback",
+      "summary": "Combine current online work with precomputed results, durable features and fallback behavior. Drift response, lifecycle traceability, profiling and rollback improve resilience, with greater system complexity and freshness coordination.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.3",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Dual-path ingestion supplies low-latency activity and a durable data path.",
+          "evidence": [
+            {
+              "doc": "s12_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Exposes prediction through the product-facing REST service.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.12",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Fallback behavior handles unavailable or anomalous online inputs.",
+          "evidence": [
+            {
+              "doc": "s02_p13",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.3",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Redis-backed asynchronous serving decouples work and scales instances.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.3",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Durable end-to-end features support online access and training reuse.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.3",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracks training runs, artifacts, deployments and datasets together.",
+          "evidence": [
+            {
+              "doc": "s08_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.5",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Integrates traceability, preservation and policy checks.",
+          "evidence": [
+            {
+              "doc": "s05_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.8",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Performance or drift triggers a new training run.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.6",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Compares multiple candidates using a selected metric.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Orchestrates repeatable preparation, training and evaluation stages.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.4",
+          "drivers": [
+            "Q2",
+            "Q4"
+          ],
+          "reason": "Supports restoration of a previous model and manual recovery work.",
+          "evidence": [
+            {
+              "doc": "s21_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.8",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Profiles latency and resource use to guide sizing, but does not prove the numeric limit.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.9",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Hybrid offline-online serving was the seed choice; explicit fallback better addresses failure handling."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:27",
+          "reason": "The brief does not choose a model family."
+        },
+        {
+          "dimension_id": "d:30",
+          "reason": "The brief does not specify a packaging or runtime placement approach."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Dual-path ingestion satisfies the workflow prerequisite."
+        },
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The point specifies REST before its asynchronous runtime strategy."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Regional recovery with fallback",
+      "summary": "Use fallback predictions and geographically redundant asynchronous serving to protect authorization continuity. Automated retraining and threshold checks retain adaptation, while recovery complexity and stale fallback risk remain.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Streaming features supply recent transaction activity.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "REST exposes the score to the authorization workflow.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.12",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Fallback behavior supports service when inputs or feature retrieval fail.",
+          "evidence": [
+            {
+              "doc": "s02_p13",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Regional asynchronous serving adds failover capacity.",
+          "evidence": [
+            {
+              "doc": "s13_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.2",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Materializes features in a low-latency online store.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.6",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Versions training snapshots, datasets, metadata and deployment health.",
+          "evidence": [
+            {
+              "doc": "s21_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preserves data under organizational access controls.",
+          "evidence": [
+            {
+              "doc": "s13_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Retrains automatically from new production or labeled data.",
+          "evidence": [
+            {
+              "doc": "s01_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Threshold tests detect regressions before promotion.",
+          "evidence": [
+            {
+              "doc": "s06_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Orders training, evaluation and deployment as a repeatable pipeline.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.4",
+          "drivers": [
+            "Q2",
+            "Q4"
+          ],
+          "reason": "Supports rollback and human intervention during recovery.",
+          "evidence": [
+            {
+              "doc": "s21_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.8",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Provides latency and resource measurements for sizing.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.12",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automated failure recovery was replaced by retraining to address the stronger adaptation requirement."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:27",
+          "reason": "The brief does not choose a model family."
+        },
+        {
+          "dimension_id": "d:30",
+          "reason": "The brief does not specify a packaging or runtime placement approach."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Streaming ingestion is included for the orchestrated workflow."
+        },
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The point specifies the REST serving interface before regional runtime behavior."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "In-house controlled operation",
+      "summary": "Keep MLOps infrastructure under internal ownership and use the existing operations group for a fresh, online, recoverable model service. This improves control but carries substantial workload for the small team.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Streaming supports fresh features for online scoring.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "REST integrates scoring with authorization.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.5",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Online computation uses current activity.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Stateless serving supports horizontal replica scaling.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.2",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "A low-latency feature store serves online features.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.6",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Lifecycle governance tracks artifacts, training runs and datasets.",
+          "evidence": [
+            {
+              "doc": "s21_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preservation with access controls supports later evidence retrieval.",
+          "evidence": [
+            {
+              "doc": "s13_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates updates when labeled data is available.",
+          "evidence": [
+            {
+              "doc": "s01_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.6",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Compares candidate models using performance metrics.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Orchestration reduces manual workflow transitions.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.4",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Recovery-oriented release automation preserves rollback and operator intervention.",
+          "evidence": [
+            {
+              "doc": "s21_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Internal infrastructure ownership retains operational control, but does not itself prove this team has capacity.",
+          "fit": "approximate",
+          "fit_note": "The value covers who owns operations, not whether seven people can sustainably build and run the platform."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.8",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Profiling informs sizing but does not verify the peak latency target.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [],
+      "open": [
+        {
+          "dimension_id": "d:27",
+          "reason": "The brief does not choose a model family."
+        },
+        {
+          "dimension_id": "d:30",
+          "reason": "The brief does not specify a packaging or runtime placement approach."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Streaming ingestion is included for the orchestrated workflow."
+        },
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The point specifies REST before its serving state and scaling approach."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Serve fresh scores through an authorization-compatible request path",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2"
+      ],
+      "context": "Scoring must use recent activity before authorization and meet a 30 ms p99 peak target, while scoring or data failures cannot stop authorizations. Online and hybrid serving preserve freshness, but fallbacks may be stale and add complexity. Profiling and elastic scaling help plan capacity but do not prove the numeric latency target.",
+      "options": [
+        {
+          "id": "A-online",
+          "name": "Online computation with elastic replicas",
+          "values": [
+            "v:21.2",
+            "v:29.1",
+            "v:31.5",
+            "v:25.1",
+            "v:43.4",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Uses current activity at request time.",
+            "Scales replicas with peak demand."
+          ],
+          "cons": [
+            "No explicit fallback when scoring or feature access fails.",
+            "The 30 ms p99 remains to be measured."
+          ],
+          "reason": "Choose when freshness and throughput lead; authorization continuity requires a separate fallback decision outside this value set."
+        },
+        {
+          "id": "B-hybrid",
+          "name": "Hybrid online path with input fallback",
+          "values": [
+            "v:21.3",
+            "v:29.1",
+            "v:31.12",
+            "v:25.3",
+            "v:43.3",
+            "v:26.8"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Combines online scoring, durable results and fallback behavior.",
+            "Profiling can guide sizing."
+          ],
+          "cons": [
+            "Fallback freshness and p99 latency are not proven.",
+            "Redis and dual-path ingestion add operational load."
+          ],
+          "reason": "Choose when feature or service interruption handling matters more than a simpler request path."
+        },
+        {
+          "id": "C-regional",
+          "name": "Fallback with regional redundancy",
+          "values": [
+            "v:21.2",
+            "v:29.1",
+            "v:31.12",
+            "v:25.4",
+            "v:43.2",
+            "v:26.8"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Combines feature fallback with regional failover and latency profiling."
+          ],
+          "cons": [
+            "Asynchronous regional behavior can serve stale data and increase latency.",
+            "The 30 ms target remains unverified."
+          ],
+          "reason": "Choose when regional recovery and degraded scoring are acceptable to protect authorization continuity."
+        },
+        {
+          "id": "D-inhouse",
+          "name": "In-house online operation",
+          "values": [
+            "v:21.2",
+            "v:29.1",
+            "v:31.5",
+            "v:25.1",
+            "v:43.2",
+            "v:26.8"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Keeps runtime ownership internal and provides current-context inference."
+          ],
+          "cons": [
+            "No fallback is explicit, and the small team has to operate the supporting systems."
+          ],
+          "reason": "Choose when internal operational control is the primary concern, while accepting availability and capacity risks."
+        },
+        {
+          "id": "A-seed",
+          "name": "Profiled online feature service",
+          "values": [
+            "v:21.2",
+            "v:29.1",
+            "v:31.5",
+            "v:25.1",
+            "v:43.4",
+            "v:26.8"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Adds service latency and resource profiling."
+          ],
+          "cons": [
+            "Does not scale capacity elastically and has no explicit fallback."
+          ],
+          "reason": "Set aside in favor of elastic scaling for seasonal demand."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Update and validate models as labels arrive",
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "context": "Confirmed chargebacks are delayed, but the system must respond to segment loss increases and compare a candidate with the current model before production. Automated retraining and orchestration support speed; the design space does not promise a 48-hour end-to-end time or specify fraud-specific comparison data.",
+      "options": [
+        {
+          "id": "A-update",
+          "name": "Automated retraining with held-out evaluation",
+          "values": [
+            "v:6.5",
+            "v:13.1",
+            "v:32.2",
+            "v:19.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Automates training and candidate evaluation in repeatable stages."
+          ],
+          "cons": [
+            "Does not establish the 48-hour turnaround or current-model comparison on recent transactions."
+          ],
+          "reason": "Select for a straightforward retraining and validation sequence."
+        },
+        {
+          "id": "B-update",
+          "name": "Drift-triggered candidate evaluation",
+          "values": [
+            "v:6.8",
+            "v:13.6",
+            "v:32.2",
+            "v:19.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Uses drift or performance signals and compares multiple candidates by a chosen metric.",
+            "Release recovery is supported."
+          ],
+          "cons": [
+            "Label delays and target turnaround still need a runbook and timing evidence."
+          ],
+          "reason": "Select when segment deterioration should trigger a controlled candidate cycle."
+        },
+        {
+          "id": "C-update",
+          "name": "Automated retraining with threshold gates",
+          "values": [
+            "v:6.5",
+            "v:13.2",
+            "v:32.2",
+            "v:19.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Automates updates and checks candidate quality thresholds before release."
+          ],
+          "cons": [
+            "The comparison to the current model on recent transactions is not explicit."
+          ],
+          "reason": "Select when a simple regression gate and recoverable release are preferred."
+        },
+        {
+          "id": "D-update",
+          "name": "In-house metric-evaluated pipeline",
+          "values": [
+            "v:6.5",
+            "v:13.6",
+            "v:32.2",
+            "v:19.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Automates retraining and candidate metric evaluation within internally owned infrastructure."
+          ],
+          "cons": [
+            "Platform ownership and operating capacity may slow iteration."
+          ],
+          "reason": "Select for internal control, subject to capacity and turnaround validation."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Preserve model and data lineage for later score investigations",
+      "drivers": [
+        "R3",
+        "Q3"
+      ],
+      "context": "An auditor needs model version, exact score inputs and the training data behind a model up to 13 months later. Lineage, version governance and preserved source data support the training history. The space does not fully specify per-score input persistence or a 13-month retention duration, so the end-to-end audit response remains partly supported.",
+      "options": [
+        {
+          "id": "A-audit",
+          "name": "Data-to-model lineage with preserved inputs",
+          "values": [
+            "v:20.4",
+            "v:42.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Links dataset versions and model context and preserves source provenance."
+          ],
+          "cons": [
+            "Does not guarantee that every request's exact input values are stored for 13 months."
+          ],
+          "reason": "Select for explicit data-to-model lineage with immutable source retention."
+        },
+        {
+          "id": "B-audit",
+          "name": "Comprehensive lifecycle and governance",
+          "values": [
+            "v:20.3",
+            "v:42.5"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Covers training runs, artifacts, deployment health and governed data."
+          ],
+          "cons": [
+            "Per-score feature snapshots and retention duration remain operational decisions."
+          ],
+          "reason": "Select for integrated lifecycle traceability and data policy coverage."
+        },
+        {
+          "id": "C-audit",
+          "name": "Reproducible lifecycle with access-controlled data",
+          "values": [
+            "v:20.6",
+            "v:42.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Tracks training snapshots, model metadata and data versions under access controls."
+          ],
+          "cons": [
+            "Exact score inputs are not guaranteed by lifecycle versioning alone."
+          ],
+          "reason": "Select where controlled access and broad reproducibility are emphasized."
+        },
+        {
+          "id": "D-audit",
+          "name": "Governance on internally operated infrastructure",
+          "values": [
+            "v:20.6",
+            "v:42.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Pairs access-controlled preservation with internal operation."
+          ],
+          "cons": [
+            "The team must implement and operate the audit trail."
+          ],
+          "reason": "Select for internal control with a larger local governance burden."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Keep ML operations manageable for the available team",
+      "drivers": [
+        "C2"
+      ],
+      "context": "Seven people and the existing operations group build and run the service without a dedicated ML platform team. Internal ownership provides control but transfers platform work to the company and does not establish available capacity.",
+      "options": [
+        {
+          "id": "in-house",
+          "name": "In-house MLOps infrastructure",
+          "values": [
+            "v:39.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Keeps MLOps operation under internal ownership."
+          ],
+          "cons": [
+            "The team still has to build and operate the platform; this may exceed available capacity."
+          ],
+          "reason": "This is an approximate fit for the staffing constraint because ownership does not say how much staff time is required.",
+          "fit": "approximate",
+          "fit_note": "The value captures internal ownership, not team size or the effort required to run the platform."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:42",
+      "note": "The space covers data preservation and policy governance, but has no decision about PCI-certified deployment boundaries or whether every processor is inside that environment."
+    }
+  ]
+}

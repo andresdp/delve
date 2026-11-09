@@ -1,0 +1,1354 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:2.1",
+        "v:3.2",
+        "v:5.3",
+        "v:6.2",
+        "v:7.3",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "A shared data store holds ingested data and prediction outputs, accessed through a service-based data API. Scheduled batch jobs process newly available data, write scores back to the store, and clients poll the API for results; monitoring tracks model performance, while humans manually adjust and redeploy models when needed. Trade-off: This favors simple, decoupled, operationally manageable workflows and supports performance oversight. It sacrifices real-time responsiveness, since ingestion, scoring, and polling are batch-oriented, and manual adjustment increases response time and operational effort.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.1",
+        "v:6.1",
+        "v:7.1",
+        "v:22.2",
+        "v:24.1"
+      ],
+      "description": "The system ingests continuous data as events into an event store and exposes new data through a message/event-queue API. Distributed model-serving microservices process the stream in real time, push prediction availability to clients, and log data and predictions for monitoring; humans manually adjust and redeploy models when needed. Trade-off: This provides decoupled, responsive processing and observable production behavior, but introduces event-driven operational complexity and makes adaptation dependent on human intervention, which can slow response to detected model issues.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:2.4",
+        "v:3.1",
+        "v:5.4",
+        "v:6.3",
+        "v:7.2",
+        "v:22.3",
+        "v:24.2"
+      ],
+      "description": "The system fetches raw data on request through a local access API, without maintaining a data store. It precomputes predictions as reports, with clients blocking until the requested results are available. Trade-off: This reduces storage and infrastructure complexity, but sacrifices persistent history, convenient reuse, and production visibility. Blocking may also increase client latency. Automated model adjustment conflicts with having no in-production monitoring, because there is no monitoring signal to trigger those adjustments.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.5",
+        "v:6.1",
+        "v:7.3",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "An event store records exchanged data, while a message/event-queue API makes newly available data accessible through messages. Batch ingestion feeds the system; hybrid serving combines online and batch predictions, pushes result notifications to clients, and monitors model performance for human-led redeployment. Trade-off: This supports event-driven access and flexible serving, but batch ingestion and manual adjustment can delay freshness and response to detected degradation. Push notifications add timely awareness, while the overall design requires coordinating asynchronous events, batches, services, and redeployments.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.1",
+        "v:6.1",
+        "v:7.1",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "description": "An event store captures continuously ingested data as system events, while a message-based API queues new data for downstream processing. A model-serving microservice produces real-time predictions, pushes result notifications to clients, and is monitored for performance; monitoring findings automatically trigger model adjustments. Trade-off: This supports responsive, scalable, and highly automated operation, but asynchronous queues and event storage add coordination and operational complexity. Automated adjustment reduces manual intervention but can change models incorrectly if performance signals are misleading.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:2.1",
+        "v:3.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "description": "A shared data store receives continuously streamed data and exposes it through a pub/sub API, with publishers notifying subscribers when data is available. Models combine online service computations with offline batch processing, push prediction results to clients, and are monitored for usage, inputs, outputs, interpretability, and fairness; humans adjust and redeploy them based on findings. Trade-off: This supports timely access, flexible serving, and broad governance visibility, but coordinating streaming, notifications, and hybrid serving adds operational complexity. Manual adjustment provides human oversight but slows response to detected problems and requires ongoing effort.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:2.1",
+        "v:3.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.3",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "description": "A shared data store holds ingested batches and serves as the common repository for data, predictions, and scores. Data-access services expose the store, scheduled batch jobs write predictions there, and push notifications tell clients when results are available; monitoring logs data and predictions for human-led model adjustment and redeployment. Trade-off: This favors operational simplicity, centralized access, and traceability, but batch ingestion and serving limit freshness and responsiveness. Manual adjustment also makes adaptation dependent on human review and deployment effort.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "description": "An event store captures exchanged data as a durable event history, while streamed ingestion and a message-based API make new data available through queued events. Hybrid serving computes predictions online or in batches, pushes results to clients, and tracks model usage, inputs, outputs, interpretability, and fairness for human review and redeployment. Trade-off: This supports continuous, asynchronous processing and broad production visibility, but queued events and hybrid serving add operational complexity and potentially variable result latency. Manual adjustment preserves human oversight but gives up automatic, rapid adaptation when monitoring reveals problems.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:2.1",
+        "v:3.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:22.2",
+        "v:24.1"
+      ],
+      "description": "A shared data store receives a continuous stream through a pub/sub API, with publishers announcing newly available data to subscribers. Services provide online predictions while batch jobs provide offline scores, and clients receive push notifications; system data and predictions are logged for monitoring, with humans manually adjusting and redeploying models. Trade-off: This supports responsive access, flexible serving, and observable operations, but adds coordination and operational complexity across streaming, storage, notifications, and batch processing. Manual adjustment can make responses to detected issues slow and dependent on human availability.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if scheduled batch processing and a shared repository keep the high-volume workflow operationally simple?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if an event-driven system gives each consumer asynchronous, decoupled results?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if minimal storage and precomputed reports keep the design small?",
+      "status": "dropped",
+      "dropped_because": "No production monitoring leaves the one-day quality degradation requirement without a signal, and automated adjustment has no monitoring signal to act on."
+    },
+    {
+      "id": "D",
+      "idea": "What if a shared store and publish/subscribe access combine flexible hybrid serving with broad operational visibility?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:2.1",
+        "v:3.2",
+        "v:5.3",
+        "v:6.2",
+        "v:7.3",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "A shared store and scheduled batches should make the high volume manageable, while the service API should let teams access results independently. Performance monitoring and human adjustment should give an operational path for detecting and correcting quality changes.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.3",
+            "v:7.3",
+            "v:6.2"
+          ],
+          "gains": [
+            "Q1",
+            "Q3"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Scheduled batches can aggregate high volume and avoid constant real-time serving, but polling and batch freshness limit timely result access and make consumer behavior less independent."
+        },
+        {
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Monitoring and human-led adjustment provide a correction path, but manual investigation and redeployment may delay response under load."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest this combination. The design has plausible batch and service patterns; neither the two-hour target nor per-document cost is established by the available values. The model-performance monitoring value does not specify per-claim-type alerting or a one-day bound, and manual adjustment does not define reviewer correction feedback into training.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.1",
+        "v:6.1",
+        "v:7.1",
+        "v:22.2",
+        "v:24.1"
+      ],
+      "hypothesis": "Continuous ingestion and event queues should isolate consumers and avoid waiting for batch windows. Real-time serving and push notifications should keep all teams supplied quickly; logging predictions should help operators detect quality changes.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.3",
+            "v:3.4",
+            "v:7.1",
+            "v:5.1"
+          ],
+          "gains": [
+            "R2",
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Continuous event processing and queued interfaces can support independent consumers and low delay, while the event infrastructure and online serving add ongoing coordination and operating cost."
+        },
+        {
+          "values": [
+            "v:22.2",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Logging creates evidence for quality investigation and human adjustment, but a manual response can lag the one-day signal target and the feedback loop is not specified."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest the combination. Event delivery is a strong fit for independent teams and prompt results. It provides no capacity or cost figures, and logging alone does not guarantee class-specific alerts or incorporate reviewer corrections into classifier improvement.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:2.4",
+        "v:3.1",
+        "v:5.4",
+        "v:6.3",
+        "v:7.2",
+        "v:22.3",
+        "v:24.2"
+      ],
+      "hypothesis": "Removing persistent storage and precomputing reports may reduce infrastructure and prediction costs; however, the lack of monitoring may make quality changes invisible, and a local access interface may couple the consumers.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.4",
+            "v:5.4",
+            "v:6.3"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "R2",
+            "Q4"
+          ],
+          "note": "Avoiding a persistent store and serving precomputed reports may reduce infrastructure needs, but synchronous blocking and local access do not give three teams independent result handling."
+        },
+        {
+          "values": [
+            "v:22.3",
+            "v:24.2"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "Q2",
+            "R3"
+          ],
+          "note": "No production monitoring means quality drops are not surfaced, and automated adjustment cannot use a monitoring signal or reviewer corrections."
+        }
+      ],
+      "observation": "The point check returned no structural warnings, but no sources attest this combination. Its own description flags the conflict between no monitoring and automated adjustment. It misses the most constraining observability requirement and there is no value change within this minimal-storage idea that supplies the missing signal, so this approach is dropped.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.5",
+        "v:6.1",
+        "v:7.3",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "Keep batch ingestion but add hybrid serving and push notification, while using an event store and queued interface. This should serve routine work in batches, handle urgent requests online, and improve result availability for the three teams.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:7.3",
+            "v:3.4"
+          ],
+          "gains": [
+            "Q1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Hybrid service, batching, and queued access balance bursts and urgent traffic while decoupling consumers, but coordinating both paths and event handling adds cost and operational complexity."
+        },
+        {
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Performance monitoring and human adjustment provide a response path, but human investigation and redeployment can slow service recovery."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest this combination. Hybrid serving improves flexibility over pure batch service, although the available values do not prove storm-season capacity or cost. The monitor still lacks an explicit class-specific, one-day alert policy.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.1",
+        "v:6.1",
+        "v:7.1",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "hypothesis": "Retain stream ingestion, the event store, queued access, and online microservices. Change from manual to automated adjustment and use model-performance monitoring so the system can react faster to drops in model quality.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1",
+            "v:7.1",
+            "v:3.4"
+          ],
+          "gains": [
+            "Q1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Streaming and online serving favor fast response and decoupled consumers, but continuous distributed services can increase compute and operating cost."
+        },
+        {
+          "values": [
+            "v:22.1",
+            "v:24.2"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R3"
+          ],
+          "note": "Automated adjustment may shorten reaction time after monitored performance drops, but automatic model changes are not the same as reviewer corrections and can react to misleading signals."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest the combination. Automation shortens the adjustment path in principle, yet the space does not define safe model updates or the required human review and learning loop. Q2 still lacks a per-class alert target.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:2.1",
+        "v:3.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "hypothesis": "Combine a shared repository with publish/subscribe access, streamed ingestion, hybrid prediction serving, and detailed production tracking. This may combine rapid intake with flexible delivery and provide evidence for quality investigations across different teams.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.1",
+            "v:3.3",
+            "v:5.5",
+            "v:7.1"
+          ],
+          "gains": [
+            "Q1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "A shared store with subscriptions and hybrid streaming can support distinct consumers and flexible throughput, but the mix of storage, events, services, and batch paths raises operational complexity."
+        },
+        {
+          "values": [
+            "v:22.4",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Broad production tracking gives operators more diagnostic context and human adjustment allows oversight, but it does not set alert thresholds and human response can take time."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest this combination. Tracking usage and inputs/outputs provides useful context, yet it does not itself promise per-claim-type quality measurement or a one-day notification. Review correction and model retraining remain outside the space.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:2.1",
+        "v:3.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.3",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "hypothesis": "Retain hybrid serving and batch ingestion but simplify the data layer to a shared repository with subscriptions. Detailed tracking should give operators more context than performance-only monitoring while preserving human review of model changes.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.1",
+            "v:3.3",
+            "v:5.5",
+            "v:7.3"
+          ],
+          "gains": [
+            "Q1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Batch ingestion paired with flexible serving and subscriptions can handle variable workloads and separate consumers, but the multi-path architecture may raise operating cost."
+        },
+        {
+          "values": [
+            "v:22.4",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Detailed tracking can help diagnose model behavior and human adjustment keeps changes reviewable, but neither guarantees the alert deadline or a fast correction cycle."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest this combination. The shared store and pub/sub API support decoupling, and hybrid serving addresses both batch and online work. Detailed tracking improves diagnostic breadth but leaves the one-day class-specific alert policy and reviewer-to-training loop unspecified.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:2.3",
+        "v:3.4",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "hypothesis": "Keep event storage, queue access, and streamed intake. Replace always-online microservice serving with hybrid online/offline serving for burst handling, and replace automated adjustment with detailed tracking and human-reviewed redeployment.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.3",
+            "v:3.4",
+            "v:5.5",
+            "v:7.1"
+          ],
+          "gains": [
+            "Q1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Events keep consumers independent and hybrid serving gives batch capacity for surges, but coordinating streaming and both serving modes has added cost."
+        },
+        {
+          "values": [
+            "v:22.4",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Detailed tracking and human-reviewed adjustments improve diagnostic context and avoid uncontrolled automatic changes, but response speed depends on operators."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest this combination. Hybrid serving gives the event-driven approach an offline path for storm volume while preserving online handling. The manual review path is more controllable than automatic adjustment but remains distinct from the required classifier feedback loop.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:2.1",
+        "v:3.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:22.2",
+        "v:24.1"
+      ],
+      "hypothesis": "Keep streaming, the shared store, pub/sub access, and hybrid serving, but narrow detailed tracking to logged data and predictions. This focuses the monitoring record on inputs and outputs useful for investigating changed forms while retaining human oversight.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.1",
+            "v:3.3",
+            "v:5.5",
+            "v:7.1"
+          ],
+          "gains": [
+            "Q1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Streaming and hybrid service support fast intake with batch capacity and subscriber-based delivery, but coordination across both paths costs more to operate."
+        },
+        {
+          "values": [
+            "v:22.2",
+            "v:24.1"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Logging predictions gives a review trail and human adjustment retains oversight, but manual analysis and redeployment can delay action."
+        }
+      ],
+      "observation": "The point check found no warnings or required dimensions left out, but no sources attest this combination. Logging data and predictions is directly useful for investigating changed forms, but does not guarantee per-claim-type quality metrics or alerting within a day. Reviewers' corrections still have no modeled path into classifier improvement.",
+      "rating": "mixed",
+      "point": "P9"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Shared store with scheduled scoring",
+      "summary": "Use a shared repository and service interface with batch intake and hybrid online/offline scoring. Notify consumers when results are available and retain detailed model tracking with human-reviewed adjustment.",
+      "approach": "A",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A shared repository gives the teams a common result source.",
+          "fit": "approximate",
+          "fit_note": "The space does not specify EU residency or access controls for personal documents."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Subscriptions notify separate clients when data becomes available."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Hybrid serving combines online processing with batch capacity for variable volume.",
+          "fit": "approximate",
+          "fit_note": "The value covers prediction serving generally; it does not specify document classification, confidence output, capacity for eight million items, or the two-hour target."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Push notification informs consuming teams when results are ready."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Batch intake can group high-volume arrivals for scheduled processing."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Production tracking provides diagnostic context about model inputs and outputs.",
+          "fit": "approximate",
+          "fit_note": "Tracking does not promise per-claim-type quality measures or an alert within one day."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Manual adjustment provides a human-controlled model correction path.",
+          "fit": "approximate",
+          "fit_note": "It does not specify routing uncertain documents to reviewers or feeding corrections into training."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Pure batch serving is simpler but gives up the online path for urgent or interactive work."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Performance monitoring is narrower than tracking inputs and outputs for investigation."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:3",
+          "type": "affects",
+          "holds": true,
+          "note": "Storage choices affect the data access interface; the shared store is exposed through subscriptions."
+        },
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect when consumers can be told results are available."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring findings inform the human adjustment process."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Event-driven hybrid scoring",
+      "summary": "Ingest documents as a stream into an event store and expose them through a queue. Hybrid serving provides online and batch paths, with push delivery and detailed production tracking for human review.",
+      "approach": "B",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "An event store aligns result flow with asynchronous processing."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Queued events decouple consumers from the classifier's processing time."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Hybrid serving can process online while retaining a batch path for surges.",
+          "fit": "approximate",
+          "fit_note": "The value does not establish classifier confidence output or the stated capacity and latency targets."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Push notifications signal result availability to the teams."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Stream ingestion accepts continuous document arrivals."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Tracking provides inputs and outputs to investigate production changes.",
+          "fit": "approximate",
+          "fit_note": "No per-claim-type alerting or one-day notification behavior is included in the value."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human-led adjustment keeps model changes reviewable.",
+          "fit": "approximate",
+          "fit_note": "The value does not include uncertain-document routing or a feedback pipeline from corrections."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Always-online microservice serving lacks the batch path that could help manage seasonal surges."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Automated adjustment does not supply the requested reviewer corrections and risks acting on misleading monitoring signals."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:3",
+          "type": "affects",
+          "holds": true,
+          "note": "The event store is accessed through the message/event queue interface."
+        },
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Hybrid result availability is announced to clients through push notifications."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Production tracking informs the human adjustment process."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Shared stream with pub/sub",
+      "summary": "Use a shared repository with publish/subscribe access, streamed intake, and hybrid serving. Log inputs and outputs for investigation and rely on human-reviewed model adjustment.",
+      "approach": "D",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A shared repository gives subscribers a durable common result source."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Pub/sub access lets each team subscribe to result availability."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Hybrid serving offers online predictions and batch processing capacity.",
+          "fit": "approximate",
+          "fit_note": "The option does not state how to produce confidence scores or meet the two-hour capacity target."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Push notifications tell clients when results are available."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Stream ingestion handles continuous arrivals."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Logging data and predictions gives operators records to investigate.",
+          "fit": "approximate",
+          "fit_note": "Logging does not ensure class-level quality measurement or notification within one day."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Manual adjustment gives humans control over model changes.",
+          "fit": "approximate",
+          "fit_note": "It does not define uncertain-document review or how corrections improve the classifier."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:3",
+          "type": "affects",
+          "holds": true,
+          "note": "The shared store is exposed through publish/subscribe access."
+        },
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving results are announced to clients with push notifications."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Logged predictions support the human investigation and adjustment path."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "How to ingest, serve, and distribute classification results",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q1",
+        "Q4"
+      ],
+      "context": "The design must classify a highly variable document stream and deliver results to three teams that need independent processing. Batch patterns can simplify high volume, while event and subscription patterns reduce coupling and online paths improve freshness. The design space has no values that prove the stated capacity, confidence format, cost, or data residency.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shared batch repository with service access",
+          "values": [
+            "v:2.1",
+            "v:3.2",
+            "v:5.3",
+            "v:6.2",
+            "v:7.3"
+          ],
+          "status": "discarded",
+          "in": [],
+          "step": 1,
+          "pros": [
+            "Centralized result storage and scheduled processing are operationally straightforward.",
+            "Push notifications improve result awareness compared with polling."
+          ],
+          "cons": [
+            "Pure batch serving limits freshness.",
+            "Service access does not provide the same consumer subscription decoupling as pub/sub."
+          ],
+          "reason": "Set aside after testing hybrid serving and publish/subscribe access, which preserve a batch path while giving teams more flexible delivery."
+        },
+        {
+          "id": "O2",
+          "name": "Shared store with hybrid serving and subscriptions",
+          "values": [
+            "v:2.1",
+            "v:3.3",
+            "v:5.5",
+            "v:6.1",
+            "v:7.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Combines batch handling with online serving.",
+            "Subscriptions and push notifications support independent consumer workflows."
+          ],
+          "cons": [
+            "Combining batch and online paths adds operational coordination.",
+            "No value provides capacity or cost evidence for the targets."
+          ],
+          "reason": "Chosen for the batch-oriented intake with a flexible online path and decoupled result access."
+        },
+        {
+          "id": "O3",
+          "name": "Event store with queued hybrid serving",
+          "values": [
+            "v:2.3",
+            "v:3.4",
+            "v:5.5",
+            "v:6.1",
+            "v:7.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Continuous intake and queued access isolate producers and consumers.",
+            "Hybrid serving provides both online and batch paths."
+          ],
+          "cons": [
+            "Event infrastructure and multiple serving modes increase coordination and operational cost.",
+            "The two-hour target remains unproven."
+          ],
+          "reason": "Chosen for an event-first architecture that retains batch capacity for seasonal load."
+        },
+        {
+          "id": "O4",
+          "name": "Shared streaming store with subscriptions and hybrid serving",
+          "values": [
+            "v:2.1",
+            "v:3.3",
+            "v:5.5",
+            "v:6.1",
+            "v:7.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Continuous intake, shared results, and subscriptions give consumers flexible access.",
+            "Hybrid serving can support both immediate and bulk workloads."
+          ],
+          "cons": [
+            "Streaming, shared storage, and hybrid serving create operational complexity.",
+            "No tested evidence establishes cost or throughput targets."
+          ],
+          "reason": "Chosen as the compromise combining a durable shared result source with streaming and flexible serving."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How to monitor quality and respond to model issues",
+      "drivers": [
+        "Q2",
+        "R3"
+      ],
+      "context": "Operators need to find class-specific quality drops within a day, and uncertain documents need human review whose corrections improve the classifier. Production monitoring and adjustment values offer partial support, but the space does not represent per-class alerting, review queues, confidence thresholds, or feedback-driven retraining.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Performance monitoring with manual adjustment",
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "status": "discarded",
+          "in": [],
+          "step": 4,
+          "pros": [
+            "Observes model performance parameters.",
+            "Keeps adjustment under human control."
+          ],
+          "cons": [
+            "Does not specify data and prediction records for investigation.",
+            "Does not encode reviewer corrections or an alert deadline."
+          ],
+          "reason": "Set aside in favor of broader production tracking or prediction logging, which gives operators more diagnostic context."
+        },
+        {
+          "id": "O2",
+          "name": "Detailed production tracking with human adjustment",
+          "values": [
+            "v:22.4",
+            "v:24.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Tracks model usage, inputs, outputs, interpretability, and fairness.",
+            "Human adjustment allows review before model changes."
+          ],
+          "cons": [
+            "Tracking does not guarantee the one-day class-specific alert.",
+            "Manual adjustment is not the reviewer feedback loop required for classifier improvement."
+          ],
+          "reason": "Chosen by the two alternatives that prioritize diagnostic breadth and human oversight."
+        },
+        {
+          "id": "O3",
+          "name": "Prediction logging with human adjustment",
+          "values": [
+            "v:22.2",
+            "v:24.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Logs data and predictions for later investigation.",
+            "Retains human control of model changes."
+          ],
+          "cons": [
+            "Logging does not guarantee class-level quality monitoring or timely alerts.",
+            "Correction-driven retraining is not represented."
+          ],
+          "reason": "Chosen where records of inputs and outputs are the main investigation aid."
+        },
+        {
+          "id": "O4",
+          "name": "No monitoring with automated adjustment",
+          "values": [
+            "v:22.3",
+            "v:24.2"
+          ],
+          "status": "discarded",
+          "in": [],
+          "step": 3,
+          "pros": [
+            "Avoids explicit monitoring infrastructure.",
+            "Automated adjustment could reduce manual work if a signal existed."
+          ],
+          "cons": [
+            "No monitoring signal exists to trigger adjustment.",
+            "Misses the observability requirement and offers no human correction loop."
+          ],
+          "reason": "Dropped because the combination has no signal for model adjustment and cannot surface quality degradation."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "There is no cost dimension or per-document cost evidence, so none of the alternatives can establish the annual average below 0.2 cents."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "The space has a general data storage decision but no EU residency, locality, or personal-data handling alternative."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space has a model serving decision but no approved-provider or EU-region choice for the LLM."
+    }
+  ]
+}

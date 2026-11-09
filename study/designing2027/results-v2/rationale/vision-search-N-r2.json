@@ -1,0 +1,1244 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "vision-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "On-device visual inspection",
+    "context": "A manufacturer inspects parts for defects with cameras along its production lines. There are 40 lines in three plants, each with two to four cameras attached to a small edge computer next to the line. The plants' network is unreliable: some lines are cut off for days at a time. Quality inspectors label images of defects, about 5,000 new labels a week, and the model is retrained every week from them and pushed to the devices. The team is two ML engineers and one person who spends half their time on operations. The infrastructure budget is tight.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Check every part as it passes the camera and signal a defective part to the line operator."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Retrain the model every week from the newly labelled images and roll the new model out to every line."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Collect the images the model was unsure about, or got wrong, so that inspectors can label them."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "Each image is classified on the line within 200 ms, so the line never slows down."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a plant's network is down for up to seven days, its lines keep inspecting with the model they have; the images collected in the meantime are uploaded when the network returns."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "deployability",
+        "text": "A new model reaches every connected line within 24 hours of approval. When a new model misbehaves on a line, the line operator can go back to the previous one within 15 minutes, without the ML team."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "Cloud and infrastructure spending stays under 2,000 euros a month."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three people build and run the system, with no support outside working hours."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The edge computers (an ARM processor with a small neural accelerator) cannot be replaced this year."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Managed cloud services"
+      ],
+      "description": "The device runs quantized models at the edge, while sampling uncertain or erroneous images into a durable local queue. Managed cloud services consume these samples for weekly retraining and registry updates, then distribute signed models through staged rollout with automatic rollback. Trade-off: This combines low-latency inspection and resilient data collection with governed model updates and safer deployment. It gives up some model accuracy or responsiveness to new failures through quantization and weekly cadence, and depends on managed cloud infrastructure and queued storage.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Self-hosted weekly training pipeline",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Single small self-managed cloud server"
+      ],
+      "description": "1. Devices run quantized models at the edge and use uncertainty or error sampling to place informative images in a durable local queue. A self-hosted weekly pipeline uses queued data to produce updates, which a line agent pulls for deployment with operator rollback, while a single small self-managed cloud server hosts coordination and training. 2. Trade-off: This reduces connectivity dependence, bandwidth, and operating cost while enabling feedback-driven improvement, but sacrifices immediate retraining, centralized operational resilience, and potentially model accuracy from quantization and sparse weekly updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Inference: Cloud inference",
+        "Image capture: Stream every image to cloud",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Central cloud deployment",
+        "Operations: Managed cloud services"
+      ],
+      "description": "Devices capture images and stream every image to cloud services, where inference runs and results are returned. Managed cloud operations support weekly retraining and model registry, while centrally deployed models serve the fleet. Trade-off: This gains centralized processing, deployment, retraining, and operational management, but gives up bandwidth efficiency, offline resilience, and potentially responsiveness; sending all imagery off-device also increases cloud dependence and data-exposure concerns.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Minimal object-storage artifact service"
+      ],
+      "description": "1. Devices run quantized models at the edge, sampling uncertain or erroneous images into a durable local queue. A managed weekly process retrains models, registers them, and distributes signed releases through staged pulls with automatic rollback, using a minimal object-storage service for artifacts. 2. Trade-off: This combines efficient local inference, useful failure data, and controlled deployment with limited infrastructure. It gives up some model fidelity and freshness because quantization and weekly retraining constrain accuracy and update frequency, while the minimal artifact service provides fewer management capabilities.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Self-hosted weekly training pipeline",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Single small self-managed cloud server"
+      ],
+      "description": "1. Devices run quantized inference and place uncertain or erroneous examples in a durable local queue. A self-hosted weekly pipeline uses these samples to produce signed model updates, which devices pull through staged rollout with automatic rollback, while a small self-managed cloud server supports coordination and training. 2. Trade-off: This reduces device compute and enables resilient, feedback-driven improvement, but quantization and weekly updates may reduce accuracy or slow adaptation, while the single server creates an operational bottleneck and failure point.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Minimal object-storage artifact service"
+      ],
+      "description": "The device runs quantized inference at the edge and records uncertain or erroneous samples in a durable local queue. A managed weekly process retrains and registers models, while line agents pull approved artifacts from minimal object storage and allow operators to roll back. Trade-off: This gains low-latency, resilient inspection and controlled deployment, but gives up immediate learning from new failures and requires local queue handling. Weekly retraining and quantization may also leave performance behind current conditions or reduce model accuracy.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "description": "Devices run compact, hardware-specific signed models for quantized edge inference, while uncertainty and error samples enter a durable local queue. A minimal object-storage service supports managed weekly retraining and registry updates, which devices receive through staged signed pulls with automatic rollback. Trade-off: This combines efficient, hardware-tailored inspection with safer updates and feedback-driven improvement, but requires device-specific packaging, local storage, signing and rollback machinery, and weekly retraining may leave newly observed failures unaddressed between cycles.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "description": "Devices run a compact, hardware-specific signed model with quantized edge inference, while capturing uncertain or erroneous cases into a durable local queue. Managed weekly retraining uses those samples, publishes artifacts through minimal object storage, and delivers them via staged signed pulls with automatic rollback. Trade-off: This reduces latency, bandwidth, and deployment risk while turning field failures into training data. It gives up immediate learning and broad hardware portability, while the durable queue and retraining pipeline add storage and operational overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model with enforced 200 ms release gate"
+      ],
+      "description": "Devices run compact, hardware-specific signed models locally with quantized inference and a 200 ms release gate. They queue uncertain or erroneous samples durably, upload artifacts through minimal object storage, and support managed weekly retraining followed by staged signed deployment with automatic rollback. Trade-off: This improves latency, bandwidth use, deployment safety, and targeted data collection, but requires hardware-specific packaging and operational support for queues, signing, registries, and rollback. Weekly retraining may also leave newly observed failure modes unaddressed until the next cycle.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Line-agent pull with operator rollback drill under 15 minutes",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "description": "Devices run a compact, hardware-specific signed model using quantized edge inference, while uncertainty and error cases are sampled into a durable local queue. A managed weekly pipeline retrains and registers models, stores artifacts in minimal object storage, and lets line agents pull releases with an operator rollback drill under 15 minutes. Trade-off: This gains efficient, recoverable inspection and structured feedback, but gives up hardware portability and richer artifact-service capabilities; weekly retraining may leave newly observed failure patterns unaddressed for a time.",
+      "attested_by": []
+    },
+    {
+      "id": "P13",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Federated weekly learning across line devices",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Federated coordination service"
+      ],
+      "description": "Edge devices run quantized inference and retain uncertain or erroneous samples in a durable local queue. A federated coordination service aggregates these samples for weekly learning across line devices, while a line agent pulls updates and lets operators roll them back. Trade-off: This reduces bandwidth, preserves local data, and supports recovery, but quantization may reduce accuracy, queued samples consume local storage, and weekly federated training adapts slowly. Coordination, update validation, and rollback also add operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P14",
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Federated weekly learning across line devices",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Managed federated learning coordination service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "description": "Each line device runs a compact, hardware-specific signed model with edge-quantized inference, while uncertainty and error cases are sampled into a durable local queue. A managed federated-learning service coordinates weekly updates from those devices, and a line agent pulls the resulting package with operator-controlled rollback. Trade-off: This reduces model size, compute needs, and routine image transfer while enabling recovery from connectivity or deployment problems, but weekly learning limits adaptation speed, queues add local storage and management needs, and hardware-specific quantization can constrain portability or accuracy.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if managed training and a complete managed cloud control plane minimize the small team's operations work while keeping inspection at the edge?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a small self-managed server and line agents keep infrastructure spending and deployment mechanics simple?",
+      "status": "dropped",
+      "dropped_because": "Self-hosting weekly training and a single server place patching, monitoring, recovery, and routine operation on the small team, which breaks C1; changing the rollout or model package does not remove that ongoing server burden."
+    },
+    {
+      "id": "C",
+      "idea": "What if all inference and image handling move to the cloud so one managed system serves the whole fleet?",
+      "status": "dropped",
+      "dropped_because": "Central inference and streaming all images require connectivity for inspection, so the approach misses the stressed 200 ms line latency and seven-day offline availability requirements; other value changes within this centralized approach cannot fix that."
+    },
+    {
+      "id": "D",
+      "idea": "What if a minimal artifact service plus operator-controlled line agents keep edge resilience and avoid a full fleet management platform?",
+      "status": "live"
+    },
+    {
+      "id": "E",
+      "idea": "What if weekly model updates are learned across line devices through federated coordination, reducing routine transfer of imagery?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Managed cloud services"
+      ],
+      "hypothesis": "Edge inference and a durable queue should meet R1, Q1, Q2 and R3; managed weekly training and staged rollout should support R2 and Q3 while reducing the burden on the small team (C1). Managed infrastructure could challenge Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: Edge quantized inference"
+          ],
+          "gains": [
+            "R1",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "C2"
+          ],
+          "note": "Local inference avoids network delay and supports outages, but latency on the fixed accelerator and model compatibility still need measurement."
+        },
+        {
+          "values": [
+            "Operations: Managed cloud services"
+          ],
+          "gains": [
+            "C1",
+            "R2"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "Managed training and registry reduce operational work but may exceed the spending ceiling; provider pricing is not established."
+        }
+      ],
+      "observation": "The design fits offline line operation and the staffing constraint. The 200 ms limit, fleet rollout timing, and monthly bill still need measurements and pricing, so those targets are supported architecturally but not proven.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Self-hosted weekly training pipeline",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Single small self-managed cloud server"
+      ],
+      "hypothesis": "Edge inference and queued samples should meet R1, R3 and Q2. Self-hosting should lower Q4 but add maintenance against C1; line-agent rollback could meet Q3 if it is designed for operators.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Training: Self-hosted weekly training pipeline",
+            "Operations: Single small self-managed cloud server"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1",
+            "R2"
+          ],
+          "note": "A small self-managed footprint may lower the bill, but the three-person team must maintain it and its reliability and weekly throughput are unknown."
+        }
+      ],
+      "observation": "The edge path handles network outages, and sampling supports inspector labeling. Self-hosting shifts work to the small team; hardware timing, weekly throughput, operator usability, and cost remain to be measured.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Cloud inference",
+        "Image capture: Stream every image to cloud",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Central cloud deployment",
+        "Operations: Managed cloud services"
+      ],
+      "hypothesis": "Centralized services may simplify retraining and fleet management for R2 and C1, but streaming and cloud inference are likely to miss Q1 and Q2 when connectivity is poor.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: Cloud inference",
+            "Image capture: Stream every image to cloud"
+          ],
+          "gains": [
+            "C1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "R1",
+            "R3"
+          ],
+          "note": "Central processing reduces edge-side system work, but network round trips and disconnection prevent timely inspection and sample transfer."
+        }
+      ],
+      "observation": "The connectivity dependency breaks the two most stressed operating conditions. A faster or cheaper central service would not restore inspection during a plant outage, so this approach is dropped.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Minimal object-storage artifact service"
+      ],
+      "hypothesis": "Replacing broad managed cloud services with minimal artifact storage should lower Q4 while preserving edge inference and the local queue. It may add implementation and maintenance work under C1 and require a separate mechanism for staged rollout.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Operations: Minimal object-storage artifact service"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1",
+            "R2",
+            "Q3"
+          ],
+          "note": "Artifact storage is inexpensive, but automation for training, registry metadata, staged delivery, and rollback must be supplied around it."
+        }
+      ],
+      "observation": "The cheaper artifact endpoint reduces platform scope, but the complete managed control plane no longer follows from the chosen services. The team would own more glue and operational checks, and costs and rollout times remain unmeasured.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Self-hosted weekly training pipeline",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Single small self-managed cloud server"
+      ],
+      "hypothesis": "Adding staged signed releases and automatic rollback to the self-hosted pipeline should improve Q3 while retaining edge availability and lower infrastructure cost; release automation adds work against C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "misses",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Rollout: Staged signed pull with automatic rollback",
+            "Operations: Single small self-managed cloud server"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "C1",
+            "Q4"
+          ],
+          "note": "Automated rollout can reduce operator effort, but implementing and maintaining this machinery on a single self-managed server adds responsibility and the cost ceiling is still unverified."
+        }
+      ],
+      "observation": "Automatic rollback improves release recovery, but training and server maintenance still require the limited team to own the full service. This breaks the staffing constraint, and changing the rollout does not remove the server burden; drop this approach.",
+      "rating": "weak",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": 4,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Minimal object-storage artifact service"
+      ],
+      "hypothesis": "Combining managed weekly training with small artifact storage and line-local pull/rollback should retain edge resilience, reduce cloud services cost, and let an operator roll back without central tooling. Operator action and simple polling may weaken the 24-hour rollout target.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Rollout: Line-agent pull with operator rollback",
+            "Operations: Minimal object-storage artifact service"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1",
+            "Q3"
+          ],
+          "note": "A simple local agent and explicit operator rollback can limit platform costs and avoid ML-team involvement, but agents and instructions still need maintenance and the 24-hour/15-minute targets require validation."
+        }
+      ],
+      "observation": "The hybrid keeps inference and collection local and makes operator rollback explicit. It avoids a full fleet platform, though local agent behavior and rollout cadence need careful implementation for both targets.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "hypothesis": "A compact package tuned for the fixed ARM accelerator should improve Q1 and C2 while preserving the local queue, weekly training and staged release. Device-specific packaging may add work for C1 and limit portability.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model package: Compact hardware-specific signed model"
+          ],
+          "gains": [
+            "Q1",
+            "C2"
+          ],
+          "costs": [
+            "C1",
+            "R2"
+          ],
+          "note": "A compact package suits the installed accelerator, but hardware-specific build and validation add engineering work and do not prove the 200 ms target."
+        }
+      ],
+      "observation": "Hardware-specific packaging improves fit to the computers that cannot be replaced. The timing target still requires measurement on the actual accelerator, and release automation and managed training costs remain unresolved.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "hypothesis": "A compact signed package should improve hardware fit and latency while preserving the simple local pull and operator rollback. This should keep platform scope small, but timing, operator procedure, and agent maintenance remain to be validated.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Rollout: Line-agent pull with operator rollback",
+            "Operations: Minimal object-storage artifact service"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1",
+            "Q3"
+          ],
+          "note": "A lightweight pull agent and operator rollback reduce central platform scope, but local agent maintenance remains and delivery and rollback targets need timed validation."
+        },
+        {
+          "values": [
+            "Model package: Compact hardware-specific signed model"
+          ],
+          "gains": [
+            "Q1",
+            "C2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "A compact, hardware-specific package fits the existing accelerator but adds device-specific build and validation work."
+        }
+      ],
+      "observation": "The combination preserves local operation and pairs the existing accelerator with a compact package. It keeps managed training but relies on a simple delivery agent; rollout cadence and rollback usability need a plant trial. Costs and latency are not established by the design alone.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Federated weekly learning across line devices",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Federated coordination service"
+      ],
+      "hypothesis": "Federated weekly learning could use locally retained labeled examples and reduce routine image transfer while preserving edge inspection. Coordination and validation across many devices may add operational work against C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Training: Federated weekly learning across line devices",
+            "Operations: Federated coordination service"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1",
+            "R2"
+          ],
+          "note": "Local learning can reduce reliance on central image transfer, but cross-device coordination adds operational complexity and weekly convergence and rollout need validation."
+        }
+      ],
+      "observation": "The approach preserves edge inspection and local samples during outages, but it introduces a coordination and model-validation system the small team would have to understand. It is worth one managed-coordination refinement, though it has not shown a better overall assessment.",
+      "rating": "mixed",
+      "point": "P13"
+    },
+    {
+      "step": 10,
+      "round": 4,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Staged signed pull with automatic rollback",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model with enforced 200 ms release gate"
+      ],
+      "hypothesis": "Enforcing a 200 ms edge-latency acceptance gate before model release should turn Q1 from an architectural expectation into a release condition. Hardware packaging and measured throughput remain required under C2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model package: Compact hardware-specific signed model with enforced 200 ms release gate"
+          ],
+          "gains": [
+            "Q1",
+            "C2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "A release gate prevents an over-budget model from being rolled out, but its benchmark and packaging process adds engineering work."
+        }
+      ],
+      "observation": "The requirement becomes an explicit release guard rather than an assumed outcome. This improves the best point on Q1, though it does not establish actual performance until the hardware benchmark passes; the search budget is now spent.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 4,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Managed weekly retraining and model registry",
+        "Rollout: Line-agent pull with operator rollback drill under 15 minutes",
+        "Operations: Minimal object-storage artifact service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "hypothesis": "Adding a recurring operator rollback drill should make the 15-minute recovery procedure more credible while preserving a lightweight line-agent rollout. The 24-hour delivery target and local-agent support burden still need fleet validation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Rollout: Line-agent pull with operator rollback drill under 15 minutes",
+            "Operations: Minimal object-storage artifact service"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1",
+            "Q3"
+          ],
+          "note": "A rollback drill and small artifact service constrain recovery time and service cost, but the agent and drill require recurring operational ownership and rollout within 24 hours is still unverified."
+        }
+      ],
+      "observation": "The drill addresses rollback usability but does not improve the approach's overall assessment because full-fleet delivery timing and recurring support still need evidence. The search is complete at the 12-point budget.",
+      "rating": "strong",
+      "point": "P12"
+    },
+    {
+      "step": 12,
+      "round": 4,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "Inference: Edge quantized inference",
+        "Image capture: Uncertainty and error sampling with durable local queue",
+        "Training: Federated weekly learning across line devices",
+        "Rollout: Line-agent pull with operator rollback",
+        "Operations: Managed federated learning coordination service",
+        "Model package: Compact hardware-specific signed model"
+      ],
+      "hypothesis": "Managed coordination and a compact hardware-specific package may reduce device-side and coordination work, while retaining local data and weekly federated updates. The service adds cost and does not prove weekly model quality or rollout timing.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Training: Federated weekly learning across line devices",
+            "Operations: Managed federated learning coordination service"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1",
+            "Q4"
+          ],
+          "note": "Managed coordination reduces some self-operated machinery and local image transfer, but still adds service integration and recurring charges."
+        }
+      ],
+      "observation": "Managed coordination makes the federated idea more plausible to operate, but its assessment remains mixed: weekly convergence, fleet rollout, and the spending cap are still unproven. The edge-first alternatives offer stronger latency assurance with less coordination complexity.",
+      "rating": "mixed",
+      "point": "P14"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Managed training with staged releases",
+      "summary": "Keep classification and image queues on the line, use managed weekly retraining, and distribute compact signed models through staged pulls with rollback. This favors lower operating effort and controlled fleet updates, while retaining cost and timing validation as rollout gates.",
+      "approach": "A",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Edge quantized inference",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Local inference works through network outages and can meet line latency if validated on the installed accelerator."
+        },
+        {
+          "dimension_id": "Image capture",
+          "value_id": "Image capture: Uncertainty and error sampling with durable local queue",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Queue informative images on the line and upload them after connectivity returns."
+        },
+        {
+          "dimension_id": "Training",
+          "value_id": "Training: Managed weekly retraining and model registry",
+          "drivers": [
+            "R2",
+            "C1"
+          ],
+          "reason": "A managed weekly pipeline limits infrastructure work for the small team."
+        },
+        {
+          "dimension_id": "Rollout",
+          "value_id": "Rollout: Staged signed pull with automatic rollback",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Staged delivery and rollback provide a controlled route to the whole fleet."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Minimal object-storage artifact service",
+          "drivers": [
+            "Q4",
+            "C1"
+          ],
+          "reason": "A narrow artifact service limits always-on infrastructure, though total pipeline cost must be priced."
+        },
+        {
+          "dimension_id": "Model package",
+          "value_id": "Model package: Compact hardware-specific signed model with enforced 200 ms release gate",
+          "drivers": [
+            "Q1",
+            "C2"
+          ],
+          "reason": "A compact, hardware-specific package is released only after meeting the latency gate on the fixed accelerator."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Managed cloud services",
+          "drivers": [
+            "C1",
+            "Q4"
+          ],
+          "reason": "The broader managed stack further reduces maintenance but introduces more potential monthly service cost."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Single small self-managed cloud server",
+          "drivers": [
+            "C1",
+            "Q4"
+          ],
+          "reason": "This keeps infrastructure small but leaves routine server support with the limited team."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Managed training with lightweight line agents",
+      "summary": "Use edge inference, durable sample queues, managed weekly training and compact signed models, with line agents pulling artifacts from minimal object storage and operators able to roll back. This keeps central platform scope small while retaining weekly pipeline and operator procedure work.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Edge quantized inference",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Local inference preserves operation during outages and uses the installed hardware."
+        },
+        {
+          "dimension_id": "Image capture",
+          "value_id": "Image capture: Uncertainty and error sampling with durable local queue",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Informative cases persist locally until upload is possible."
+        },
+        {
+          "dimension_id": "Training",
+          "value_id": "Training: Managed weekly retraining and model registry",
+          "drivers": [
+            "R2",
+            "C1"
+          ],
+          "reason": "Managed training avoids operating a training server with limited staff."
+        },
+        {
+          "dimension_id": "Rollout",
+          "value_id": "Rollout: Line-agent pull with operator rollback drill under 15 minutes",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "The lightweight agent retrieves approved releases and recurring drills rehearse the operator recovery target."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Minimal object-storage artifact service",
+          "drivers": [
+            "Q4",
+            "C1"
+          ],
+          "reason": "A minimal artifact endpoint limits the central service footprint."
+        },
+        {
+          "dimension_id": "Model package",
+          "value_id": "Model package: Compact hardware-specific signed model",
+          "drivers": [
+            "Q1",
+            "C2"
+          ],
+          "reason": "The signed compact artifact is suited to the fixed accelerator."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Rollout",
+          "value_id": "Rollout: Staged signed pull with automatic rollback",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Automatic staged rollback can improve repeatability but needs additional fleet automation."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where should each part be classified?",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "C2"
+      ],
+      "context": "Inspection must keep pace with the line and continue through week-long network outages, while the existing ARM computers remain in place. Cloud inference centralizes compute but depends on a network round trip; edge inference requires a model that fits and runs fast enough on the installed accelerator.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Quantized edge inference",
+          "values": [
+            "Inference: Edge quantized inference"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 7,
+          "pros": [
+            "Inspection continues during network outages.",
+            "No image round trip is needed for each decision."
+          ],
+          "cons": [
+            "Latency and model compatibility on the actual accelerator must be measured.",
+            "Quantization may reduce accuracy."
+          ],
+          "reason": "All retained alternatives place inference beside the line so connectivity does not gate inspection."
+        },
+        {
+          "id": "O2",
+          "name": "Central cloud inference",
+          "values": [
+            "Inference: Cloud inference"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Centralizes model execution and compute management."
+          ],
+          "cons": [
+            "Network latency and outages prevent the required line response and continuous inspection."
+          ],
+          "reason": "It misses the most constraining operating conditions and cannot be repaired within a centralized-inference approach."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Which images should be retained for labeling?",
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "context": "Inspectors need uncertain and incorrect cases, and disconnected plants must retain collected images until upload resumes. Sending every image increases network and storage demand; keeping no local durable buffer loses samples during outages.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Sample into a durable local queue",
+          "values": [
+            "Image capture: Uncertainty and error sampling with durable local queue"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 7,
+          "pros": [
+            "Captures useful labeling candidates while limiting upload volume.",
+            "Preserves samples through a network outage."
+          ],
+          "cons": [
+            "Requires queue capacity management and later upload monitoring."
+          ],
+          "reason": "It directly supports inspector labeling and deferred upload without relying on continuous connectivity."
+        },
+        {
+          "id": "O2",
+          "name": "Stream all images to the cloud",
+          "values": [
+            "Image capture: Stream every image to cloud"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Provides a complete central image stream."
+          ],
+          "cons": [
+            "Consumes bandwidth and cannot transfer during outages."
+          ],
+          "reason": "The approach couples image collection to unreliable connectivity and misses the availability scenario."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How should weekly training and artifacts be operated?",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C1"
+      ],
+      "context": "New labels arrive each week, so training and artifact publication must recur weekly. Spending must stay below the stated cap and the small team has limited operations time. Managed services reduce maintenance but can accumulate charges; self-hosting gives control over the bill but requires support and reliability work.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Managed weekly pipeline with minimal artifact storage",
+          "values": [
+            "Training: Managed weekly retraining and model registry",
+            "Operations: Minimal object-storage artifact service"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 7,
+          "pros": [
+            "Automates the recurring training and registry work.",
+            "Limits the always-on service footprint."
+          ],
+          "cons": [
+            "End-to-end charges and glue work need a cost estimate and operating trial."
+          ],
+          "reason": "This combines managed recurring training with a narrow artifact service to balance staffing and spending."
+        },
+        {
+          "id": "O2",
+          "name": "Self-managed weekly pipeline on one small server",
+          "values": [
+            "Training: Self-hosted weekly training pipeline",
+            "Operations: Single small self-managed cloud server"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Can keep infrastructure charges predictable and compact."
+          ],
+          "cons": [
+            "The small team owns patching, monitoring, backups, and weekly pipeline recovery; the server is a single failure point."
+          ],
+          "reason": "It may constrain service charges, but its recurring server work violates the staffing constraint."
+        },
+        {
+          "id": "O3",
+          "name": "Federated weekly learning with managed coordination",
+          "values": [
+            "Training: Federated weekly learning across line devices",
+            "Operations: Managed federated learning coordination service"
+          ],
+          "status": "discarded",
+          "step": 12,
+          "pros": [
+            "Can reduce routine transfer of imagery while learning from distributed samples."
+          ],
+          "cons": [
+            "Coordination, convergence, service cost, and fleet rollout remain unproven for the small team."
+          ],
+          "reason": "It adds coordination complexity without improving the edge alternatives on the stated requirements."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "How should approved models reach lines and roll back?",
+      "drivers": [
+        "R2",
+        "Q3",
+        "C1",
+        "C2"
+      ],
+      "context": "Every connected line needs the approved model within 24 hours, and an operator must restore the previous model within 15 minutes without ML support. Updates must fit the unchanged edge computers. Automated staged deployment can improve repeatability but takes more implementation; a line agent can keep central infrastructure small but needs a reliable procedure.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Staged signed pulls with automatic rollback",
+          "values": [
+            "Rollout: Staged signed pull with automatic rollback",
+            "Model package: Compact hardware-specific signed model with enforced 200 ms release gate"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 10,
+          "pros": [
+            "Staging and automatic rollback can limit the effect of a bad release.",
+            "Compact signed artifacts suit the installed hardware."
+          ],
+          "cons": [
+            "The fleet automation must be built and tested; target timings still need measurement."
+          ],
+          "reason": "This maximizes release control for the managed pipeline while retaining hardware-specific packaging."
+        },
+        {
+          "id": "O2",
+          "name": "Line-agent pulls with operator rollback",
+          "values": [
+            "Rollout: Line-agent pull with operator rollback"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Provides a direct operator rollback path with a lightweight deployment agent.",
+            "Compact signed artifacts suit the installed hardware."
+          ],
+          "cons": [
+            "Operator usability, polling cadence, and fleet-wide completion time need a plant trial."
+          ],
+          "reason": "A line agent is lightweight, but operator recovery still requires a proven procedure and the self-managed server approach was dropped for its staffing burden."
+        },
+        {
+          "id": "O3",
+          "name": "Line-agent pulls with rehearsed operator rollback",
+          "values": [
+            "Rollout: Line-agent pull with operator rollback drill under 15 minutes",
+            "Model package: Compact hardware-specific signed model"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "A recurring drill rehearses the 15-minute operator recovery target.",
+            "Compact signed artifacts suit the installed hardware."
+          ],
+          "cons": [
+            "The 24-hour fleet delivery target and agent support still need validation."
+          ],
+          "reason": "This retains a lightweight local agent while making the operator rollback procedure testable."
+        },
+        {
+          "id": "O4",
+          "name": "Federated line-agent update path",
+          "values": [
+            "Rollout: Line-agent pull with operator rollback"
+          ],
+          "status": "discarded",
+          "step": 9,
+          "pros": [
+            "Retains a local operator rollback path."
+          ],
+          "cons": [
+            "Weekly federated update quality and deployment timing need validation."
+          ],
+          "reason": "It adds coordination work without improving the stated latency and availability profile."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

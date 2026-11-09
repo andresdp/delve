@@ -1,0 +1,1290 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "forecast-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Retail demand forecasting",
+    "context": "A retailer forecasts weekly demand per store and product for 400 stores and 30,000 products. Forecasts for the next eight weeks feed replenishment by Monday 06:00. Nightly sales data, promotions, and public holidays affect demand. Three data scientists own the pipeline; central IT controls the unchanged warehouse.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Produce, every week, the forecast per store and product for the next eight weeks, and deliver it to the replenishment system by Monday 06:00."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Run the forecast again for any past week exactly as it was produced."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Try new model ideas and compare them with the production model on past weeks before they replace it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "reproducibility",
+        "text": "Asked for the forecast of a week up to two years back, the team produces the same numbers within one working day."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "development velocity",
+        "text": "A new model idea that beats the production model on past weeks reaches production within one week, with no manual step except the approval."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "reliability",
+        "text": "When a weekly run fails, the team is told within 15 minutes, and the replenishment system never receives a partial forecast."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "maintainability",
+        "text": "A new team member can run the whole pipeline on their own machine within their first week."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three data scientists, with no data engineers; the data warehouse stays as it is."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The weekly run must fit in the six hours between the nightly load and the Monday deadline."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:8.1",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.9",
+        "v:27.1"
+      ],
+      "description": "A CI/CD pipeline uses commits to automate environment provisioning and build, test, and deploy models and supporting components. Scheduled runs execute the orchestrator regularly, using a data-version repository and trained-model quality tests within an MLOps process. Trade-off: This improves reproducibility, delivery speed, and operational consistency, but scheduled execution and automated provisioning consume resources, while model-quality tests may not cover every pipeline or production concern.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:27.1"
+      ],
+      "description": "The system uses MLOps with an orchestrator that runs pipelines on a frequent schedule. CI/CD versions data in the code repository, automatically provisions environments, and builds, tests, and deploys the pipelines and components, including checks of trained-model quality. Trade-off: This provides repeatable, automated delivery and regular model updates, but scheduled runs and automatic provisioning consume recurring compute and operational resources. Focusing testing on trained-model quality leaves other pipeline, data, or environment defects less directly assessed.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:8.2",
+        "v:12.1",
+        "v:11.3",
+        "v:13.2",
+        "v:25.3",
+        "v:26.14",
+        "v:27.2"
+      ],
+      "description": "The system is operated through ad-hoc, on-demand pipeline runs, with operators manually invoking build and deployment scripts when needed. It uses neither data versioning, automated environment provisioning, automated deployment, pipeline testing, nor MLOps practices. Trade-off: This keeps the system simple and gives operators direct control, but sacrifices reproducibility, validation, deployment speed, environment consistency, and traceability, increasing the risk of manual errors and inconsistent results.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:8.1",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.9",
+        "v:27.1",
+        "v:9.2"
+      ],
+      "description": "An MLOps system would use a data-versioning repository and scheduled triggers to run reproducible machine-learning workflows. Its CI/CD delivery pipeline would automatically provision environments, test trained-model quality, and build, test, and deploy models and supporting components for serving. Trade-off: This improves repeatability, automation, and regular delivery while reducing manual operational work. It gives up some responsiveness to unscheduled changes and incurs the complexity and resource cost of maintaining versioned data, scheduled runs, environment provisioning, and quality tests.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.4",
+        "v:27.1"
+      ],
+      "description": "An MLOps system uses an orchestrator to run machine-learning pipelines on a regular schedule, with data tracked in a version-controlled repository. CI/CD automatically provisions environments and builds, unit-tests, and deploys the pipelines and components required for each run. Trade-off: This improves repeatability, automation, and operational consistency, while scheduled execution supports predictable refreshes. It gives up responsiveness to unscheduled data or business changes and incurs the maintenance and resource costs of orchestration, provisioning, versioning, and repeated unit-test execution.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:27.1",
+        "v:17.2"
+      ],
+      "description": "An MLOps system uses a machine-learning orchestrator to run pipelines on a regular schedule, with data definitions versioned in a code repository and environments provisioned automatically. CI/CD builds, tests, and deploys the pipelines and their components; data is partitioned for parallel processing, and trained models are evaluated for quality during runs. Trade-off: This gains repeatability, automation, scalable processing, and model-quality assurance, but scheduled execution may be less responsive than event-driven triggering and quality checks add pipeline cost and duration.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:8.1",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.9",
+        "v:27.1",
+        "v:9.2",
+        "v:10.2"
+      ],
+      "description": "1. A scheduled MLOps orchestrator retrieves versioned data and uses automatically provisioned environments to run pipelines. CI/CD tests trained-model quality, builds and deploys models and supporting components, while retaining testing as a delivery-pipeline task and enabling rollback to a previous model version. 2. **Trade-off:** This provides repeatability, automated delivery, traceability, and recovery from problematic deployments. Scheduled execution may delay reactions compared with event-driven runs, and emphasis on trained-model quality does not necessarily cover every pipeline or system failure mode.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:27.1",
+        "v:17.2"
+      ],
+      "description": "An MLOps system uses an orchestrator to run machine-learning pipelines on a recurring schedule, with data tracked in a version repository. CI/CD automatically provisions environments and builds, integration-tests, and deploys the pipelines and components, while partitioning data enables parallel processing during runs. Trade-off: This improves repeatability, automation, traceability, and scalable execution, but scheduled runs and broad system integration tests can consume substantial compute and maintenance effort, while data-versioning infrastructure adds operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:8.3",
+        "v:12.4",
+        "v:11.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:27.1",
+        "v:17.2"
+      ],
+      "description": "An MLOps system uses an orchestrator to run pipelines and components, automatically triggered when new training data becomes available. CI/CD versions data in the code repository, provisions environments, builds and deploys required pipeline artifacts, tests trained-model quality, and partitions data for parallel processing. Trade-off: This improves automation, reproducibility, responsiveness, and scalable processing, but increases orchestration, provisioning, and testing complexity. Repository-based data versioning can also add storage and maintenance burden, while quality testing may delay deployment when models fail acceptance criteria.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if CI/CD provides the primary control plane for repeatable releases and recovery?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if an ML orchestrator coordinates scheduled, versioned work for a small team?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if manual scripts and minimal process keep the solution as small as possible?",
+      "status": "dropped",
+      "dropped_because": "The manual, unversioned approach misses recurring dependable delivery, replay, and model comparison; no refinement within this approach remedies those gaps."
+    },
+    {
+      "id": "D",
+      "idea": "What if data arrival drives scalable orchestrated processing?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:8.1",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.9",
+        "v:27.1"
+      ],
+      "hypothesis": "CI/CD, scheduled execution, and a data version repository should support R1, R2, R3, Q1, and Q2; model quality testing should improve release confidence.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:13.1",
+            "v:25.1",
+            "v:27.1"
+          ],
+          "gains": [
+            "R1",
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "C1",
+            "C2"
+          ],
+          "note": "Automation supports repeatable delivery and faster model release, but introduces operating work and runtime overhead for a team without engineers; the six-hour limit remains unmeasured."
+        }
+      ],
+      "observation": "The checked combination has no attesting source. The values support repeatability and automated deployment but cannot prove the deadline or runtime target.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:27.1"
+      ],
+      "hypothesis": "An orchestrator and component pipeline should make recurring work manageable, while stored data versions and quality checks support replay and comparison.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:11.2",
+            "v:25.2"
+          ],
+          "gains": [
+            "R2",
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Repository-based versioning and automated pipeline delivery aid replay and experimentation, with maintenance burden for a small team."
+        }
+      ],
+      "observation": "No source attests the full point. The repository versioning option is a weaker match for exact two-year data and artifact replay than a dedicated data-version repository.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:8.2",
+        "v:12.1",
+        "v:11.3",
+        "v:13.2",
+        "v:25.3",
+        "v:26.14",
+        "v:27.2"
+      ],
+      "hypothesis": "Manual scripts might reduce setup effort for three scientists, but are expected to make scheduled delivery and historical replay difficult.",
+      "assessment": {
+        "R1": "misses",
+        "R2": "misses",
+        "R3": "misses",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q4": "misses",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:8.2",
+            "v:11.3",
+            "v:25.3",
+            "v:26.14"
+          ],
+          "gains": [
+            "C1"
+          ],
+          "costs": [
+            "R1",
+            "R2",
+            "R3",
+            "Q1",
+            "Q2",
+            "Q4"
+          ],
+          "note": "Avoiding automated infrastructure lowers initial operating burden but gives up repeatability, release automation, testing, and dependable weekly execution."
+        }
+      ],
+      "observation": "This point misses the core repeatability and automation requirements. No attesting sources support it.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:8.1",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.9",
+        "v:27.1",
+        "v:9.2"
+      ],
+      "hypothesis": "Adding delivery pipeline testing to the CI/CD based release should improve confidence in R1 and Q2 without changing the versioned schedule.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:9.2"
+          ],
+          "gains": [
+            "R1",
+            "Q2"
+          ],
+          "costs": [
+            "C1",
+            "C2"
+          ],
+          "note": "Automated testing can catch release defects but increases maintenance and runtime work; no measured evidence establishes six-hour fit."
+        }
+      ],
+      "observation": "The added testing task complements model-quality testing at another dimension. The combination remains unattested and still does not specify atomic forecast publication.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.4",
+        "v:27.1"
+      ],
+      "hypothesis": "A dedicated data version repository improves R2 and Q1; component unit tests trade model-quality evaluation breadth for maintainable pipeline checks.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.4"
+          ],
+          "gains": [
+            "Q4",
+            "C1"
+          ],
+          "costs": [
+            "R3"
+          ],
+          "note": "Component unit tests are easier to maintain and may help a small team, but alone they do not compare candidate model quality."
+        }
+      ],
+      "observation": "The data version repository is a better fit for historical replay. Replacing trained-model quality testing weakens evidence for candidate promotion.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:27.1",
+        "v:17.2"
+      ],
+      "hypothesis": "Partitioned data processing may help R1 meet the six-hour window at this scale, with automated orchestration retaining repeatability.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:17.2"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Parallel partitioning may shorten execution but adds processing configuration and does not prove a six-hour result."
+        }
+      ],
+      "observation": "Partitioning is a plausible scale response, not a runtime guarantee. The point remains unattested and uses repository-based rather than dedicated data versioning.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:8.1",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.9",
+        "v:27.1",
+        "v:9.2",
+        "v:10.2"
+      ],
+      "hypothesis": "Rollback adds recovery to the CI/CD release path and improves R1 reliability while preserving historical model-quality gates.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:10.2"
+          ],
+          "gains": [
+            "R1",
+            "R3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Rollback can recover from a poor model release, but maintaining and operating recovery paths adds team burden."
+        }
+      ],
+      "observation": "Rollback addresses model release recovery, but it does not prevent a partial forecast file from reaching replenishment. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:8.3",
+        "v:12.3",
+        "v:11.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:27.1",
+        "v:17.2"
+      ],
+      "hypothesis": "Integration tests plus partitioned processing should improve R1 and Q3 confidence while retaining the stronger data replay choice.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.5",
+            "v:17.2"
+          ],
+          "gains": [
+            "R1",
+            "Q3",
+            "C2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Integration testing and parallel processing improve coverage and potential throughput, but increase implementation and upkeep for a small team."
+        }
+      ],
+      "observation": "Broader integration checks are a stronger pipeline reliability measure than unit tests alone, but still do not implement timed alerting or atomic output delivery. Runtime remains unproven.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:8.3",
+        "v:12.4",
+        "v:11.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:27.1",
+        "v:17.2"
+      ],
+      "hypothesis": "Triggering when training data arrives improves responsiveness to nightly loads while retaining partitioned execution and automated model-quality checks.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:12.4",
+            "v:17.2"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Event-driven starts and parallel work may reduce waiting and elapsed processing, but add trigger coordination and do not verify the deadline."
+        }
+      ],
+      "observation": "The data arrival trigger improves responsiveness over a fixed schedule, but does not itself guarantee the Monday deadline. The point has no attesting source.",
+      "rating": "mixed",
+      "point": "P9"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Automated release with rollback",
+      "summary": "Use CI/CD with versioned data, scheduled production runs, trained-model quality checks, delivery testing, and model rollback. This emphasizes release automation and recovery.",
+      "approach": "A",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Automates release of candidate models and supporting components."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "A dedicated data version repository best matches replaying historical inputs."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Runs on the weekly cadence required for replenishment."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [],
+          "reason": "Provisioning helps a new teammate reproduce the execution environment.",
+          "fit": "approximate",
+          "fit_note": "Environment provisioning alone does not guarantee that a local machine can run the full pipeline."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Builds, tests, and deploys production models and components."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Evaluates candidate model quality before deployment."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Coordinates repeatable model operations."
+        },
+        {
+          "dimension_id": "d:9",
+          "value_id": "v:9.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Makes testing part of automated delivery."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Allows recovery from a problematic model release."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automating pipeline artifacts is useful but less directly promotes the production model."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:22",
+          "reason": "Alerting and output atomicity are not specified by the selected release choices."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "The space says delivery automation choices affect data versioning outcomes."
+        },
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "The space says delivery automation choices affect model deployment outcomes."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Orchestrated and tested pipeline",
+      "summary": "Use an ML orchestrator on a weekly schedule, a data version repository, automated pipeline component delivery, and integration tests. This emphasizes replay and pipeline-level checks.",
+      "approach": "B",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "Coordinates multiple pipeline components and recurring runs."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Tracks historical data versions for replay."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Runs the replenishment forecast on a predictable cadence."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [],
+          "reason": "Makes environments repeatable for the small team.",
+          "fit": "approximate",
+          "fit_note": "Provisioning does not by itself make the pipeline runnable on a teammate's own machine."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "Automates build, test, and deployment of run-time pipeline components."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.5",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Checks pipeline components together for integration failures."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Provides a systematic operating approach."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Partitions data to support parallel processing.",
+          "fit": "approximate",
+          "fit_note": "Parallelization may reduce runtime but does not establish that the run finishes within six hours."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.4",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Unit testing is simpler but provides less end-to-end pipeline coverage."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:22",
+          "reason": "The space does not specify timed run failure notification or atomic forecast publication."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery choices affect pipeline trigger outcomes."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Data arrival driven parallel pipeline",
+      "summary": "Use an orchestrator triggered by new data, repository versioning, automated pipeline delivery, model quality checks, and partitioned processing. This emphasizes responsiveness and potential throughput.",
+      "approach": "D",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "Coordinates scheduled workflow components and automated delivery."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Captures data versioning within the code repository.",
+          "fit": "approximate",
+          "fit_note": "The space does not specify whether this captures the complete warehouse snapshot and all artifacts needed for exact two-year replay."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.4",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Starts processing as soon as the nightly training data is available."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [],
+          "reason": "Automates environment setup.",
+          "fit": "approximate",
+          "fit_note": "Provisioning alone does not guarantee local end-to-end execution."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Automates the components required during pipeline runs."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Evaluates new model quality."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Establishes repeatable ML operations."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supports parallel data processing at the retailer's scale.",
+          "fit": "approximate",
+          "fit_note": "Parallelism could help throughput but is not a measured six-hour runtime guarantee."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A fixed weekly trigger is simpler and ensures cadence, but responds later to data availability."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation choices affect trigger outcomes."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Automate production and candidate model delivery",
+      "drivers": [
+        "R1",
+        "R3",
+        "Q2"
+      ],
+      "context": "The team needs a weekly delivery and a fast path for approved models. Pipeline automation reduces manual release work, while broad automation and orchestration increase operating burden for three scientists.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "CI/CD for serving models",
+          "values": [
+            "v:8.1",
+            "v:25.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Automates model and supporting component deployment.",
+            "Supports release rollback when a model version is problematic."
+          ],
+          "cons": [
+            "Requires CI/CD and environment maintenance.",
+            "Does not by itself establish the weekly run schedule."
+          ],
+          "reason": "Chosen for the release path centered on production model promotion."
+        },
+        {
+          "id": "O2",
+          "name": "Orchestrated pipeline delivery",
+          "values": [
+            "v:8.3",
+            "v:25.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Coordinates pipeline components and their delivery.",
+            "Fits repeatable multi-step forecasting work."
+          ],
+          "cons": [
+            "Adds orchestration responsibility for the small team."
+          ],
+          "reason": "Chosen where the pipeline and its execution components are the center of automation."
+        },
+        {
+          "id": "O3",
+          "name": "Manual build and deployment scripts",
+          "values": [
+            "v:8.2",
+            "v:25.3"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Keeps initial automation footprint small."
+          ],
+          "cons": [
+            "Misses automated promotion and raises manual error risk."
+          ],
+          "reason": "Rejected after the point missed recurring delivery and experimentation requirements."
+        },
+        {
+          "id": "O4",
+          "name": "Delivery pipeline testing",
+          "values": [
+            "v:9.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 4,
+          "pros": [
+            "Makes testing part of delivery automation."
+          ],
+          "cons": [
+            "The value does not specify which failures are tested."
+          ],
+          "reason": "Chosen as a release quality gate."
+        },
+        {
+          "id": "O5",
+          "name": "Rollback to previous model",
+          "values": [
+            "v:10.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Supports recovery from a problematic model release."
+          ],
+          "cons": [
+            "Does not ensure atomic publication of the forecast."
+          ],
+          "reason": "Chosen to reduce recovery time after a poor model deployment."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Trigger and reproduce historical forecasts",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q1"
+      ],
+      "context": "Forecasts run weekly and must be reproducible for up to two years. A fixed schedule makes the replenishment cadence explicit; data arrival can reduce waiting. Exact replay also depends on retaining data and code versions.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Scheduled runs with dedicated data versions",
+          "values": [
+            "v:12.3",
+            "v:11.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 7,
+          "pros": [
+            "Directly represents weekly cadence.",
+            "Dedicated repository best matches historical data replay."
+          ],
+          "cons": [
+            "Does not react immediately to new data.",
+            "Versioning infrastructure adds upkeep."
+          ],
+          "reason": "Chosen for predictable replenishment and stronger replay fit."
+        },
+        {
+          "id": "O2",
+          "name": "Data availability trigger with code repository versioning",
+          "values": [
+            "v:12.4",
+            "v:11.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Starts work when new training data is ready.",
+            "Keeps versioning near code artifacts."
+          ],
+          "cons": [
+            "Trigger alone does not guarantee Monday delivery.",
+            "Repository based data versioning is a rougher fit for full historical replay."
+          ],
+          "reason": "Chosen for responsiveness and paired with partitioned execution."
+        },
+        {
+          "id": "O3",
+          "name": "On-demand runs without data versions",
+          "values": [
+            "v:12.1",
+            "v:11.3"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Simple to start manually."
+          ],
+          "cons": [
+            "Does not support reliable weekly runs or exact replay."
+          ],
+          "reason": "Set aside because it misses the core schedule and reproducibility needs."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Prepare environments, test, and scale pipeline execution",
+      "drivers": [
+        "Q2"
+      ],
+      "context": "The system must be operable by a small data science team and process a large forecast within six hours. Provisioning and pipeline tests improve consistency, and partitioning may improve throughput, but the space has no runtime evidence or explicit alerting and atomic publication decision.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Provisioned CI/CD environment and trained-model tests",
+          "values": [
+            "v:13.1",
+            "v:26.9",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Automates environment setup and model quality checks."
+          ],
+          "cons": [
+            "Does not provide timed alerts or atomic output delivery.",
+            "Quality tests do not alone prove pipeline reliability."
+          ],
+          "reason": "Chosen for model promotion and environment consistency."
+        },
+        {
+          "id": "O2",
+          "name": "Provisioned orchestrator with integration tests and partitioning",
+          "values": [
+            "v:13.1",
+            "v:26.5",
+            "v:17.2",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Tests interactions across pipeline components.",
+            "Partitioning may improve processing throughput."
+          ],
+          "cons": [
+            "Adds operational complexity.",
+            "Six-hour performance remains unverified."
+          ],
+          "reason": "Chosen for broader pipeline validation and potential scale."
+        },
+        {
+          "id": "O3",
+          "name": "Provisioned data-triggered parallel workflow",
+          "values": [
+            "v:13.1",
+            "v:26.9",
+            "v:17.2",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Combines automated setup, model checks, and parallel data processing."
+          ],
+          "cons": [
+            "Data-trigger behavior and parallel execution need operational validation.",
+            "Does not specify failure alerting or atomic publication."
+          ],
+          "reason": "Chosen for responsiveness and potential throughput."
+        },
+        {
+          "id": "O4",
+          "name": "Unprovisioned and untested manual operation",
+          "values": [
+            "v:13.2",
+            "v:26.14",
+            "v:27.2"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Minimal setup."
+          ],
+          "cons": [
+            "Fails maintainability, testing, and operational automation needs."
+          ],
+          "reason": "The search rated this direction weak."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:22",
+      "note": "The space has monitoring choices, but none specifies notification within 15 minutes or atomic publication that prevents partial forecasts from reaching replenishment."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:27",
+      "note": "The space has no decision about staffing or the unchanged central warehouse; MLOps is only a rough proxy for the team's operating capacity."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:17",
+      "note": "Parallelization is represented, but the space has no execution-time, hardware-capacity, or deadline decision that can establish a six-hour run."
+    },
+    {
+      "requirement": "Q4",
+      "reason": "traded_off",
+      "note": "Provisioning is only an approximate support for running the whole pipeline locally; none of the alternatives establishes this end-to-end onboarding scenario."
+    }
+  ]
+}

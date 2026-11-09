@@ -1,0 +1,1657 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores 3,000 card transactions per second normally and up to 15,000 during seasonal sales before authorization. Fraudsters adapt within weeks; chargeback labels arrive days to weeks later. Auditors may ask months later why a transaction received its score. Five data scientists and two ML engineers work with an operations team, and there is no ML platform team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.2",
+        "v:26.13"
+      ],
+      "description": "A feature store supplies consistent features to a batch-based training process and a real-time model-serving microservice. An automated model-building pipeline versions data, trains and validates models, deploys multiple versions concurrently, and monitors/logs inputs and predictions; prediction-service performance tests check serving behavior. Trade-off: This supports reproducibility, controlled comparison, and operational visibility, but adds infrastructure and coordination across the feature store, data-version repository, pipeline, serving, monitoring, and testing systems. Batch training may also limit how quickly models incorporate newly arriving data.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.2",
+        "v:18.2",
+        "v:11.1",
+        "v:10.3",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "description": "A dedicated model-builder component incrementally trains, evaluates, validates, and tests model quality using versioned data from a repository. The resulting single production model is served through a local real-time API, while features remain in general-purpose data stores and production usage, inputs, outputs, interpretability, and fairness are tracked. Trade-off: This supports iterative updates, reproducibility, and operational visibility without specialized feature-store infrastructure. It gives up built-in feature-management capabilities and deployment redundancy, while incremental training and a single production model may increase sensitivity to data drift or update errors.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.2",
+        "v:26.2"
+      ],
+      "description": "An automated pipeline versions data in a repository, builds, trains, evaluates, and validates models, combining batch learning with incremental updates. A feature store supplies shared features to hybrid online/offline serving; multiple model versions run concurrently, with logged inputs and predictions and A/B tests comparing them in production. Trade-off: This enables fresh features, continuous adaptation, reproducibility, and controlled comparison, but adds operational complexity across data management, incremental training, monitoring, and parallel deployments. Multiple live versions can also complicate diagnosis and consistency.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "description": "A versioned data repository feeds a feature store and batch training, while an automated pipeline builds, evaluates, validates, and tests model quality. Approved models are served through a real-time microservice, with multiple versions deployed concurrently and monitored for usage, inputs, outputs, interpretability, and fairness. Trade-off: This gains reproducibility, repeatable delivery, controlled comparison, and broad production visibility. It gives up operational simplicity through duplicated model serving, version coordination, monitoring overhead, and potentially stale predictions from batch-trained models.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.2",
+        "v:18.2",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "description": "A local service/API delivers real-time predictions using features retrieved from general-purpose data stores. A dedicated model builder incrementally trains, evaluates, and validates models; data versions and trained-model quality are recorded, production behavior is tracked, and rollback redeploys a previous model when needed. Trade-off: This provides rapid model updates, traceability, operational visibility, and recovery, but generic feature storage may lack ML-specific support, while incremental training and local serving increase operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.2",
+        "v:10.1",
+        "v:22.4",
+        "v:26.2"
+      ],
+      "description": "The system uses a feature store to support both batch and online features, with model factors trained through a combination of automated batch pipelines and incremental updates. Versioned data and pipeline validation produce deployable models; multiple versions serve concurrently for A/B testing, while production data and predictions are logged for monitoring. Trade-off: This supports experimentation, fresh personalization, reproducibility, and gradual comparison of models, but increases coordination and operational complexity across batch and online paths. Multiple versions and incremental training also raise risks of feature, data, and model inconsistency and increase storage and monitoring costs.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:18.1",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.3"
+      ],
+      "description": "The system stores features in general-purpose data stores, versions datasets in a dedicated repository, and uses an automated pipeline for batch training, evaluation, validation, and evidence-based hypothesis testing. A locally hosted API serves predictions, while production tracking monitors usage, inputs, outputs, interpretability, and fairness; if needed, operators redeploy a previous model version. Trade-off: This gains reproducibility, auditability, observability, and recoverability. It gives up specialized feature-store capabilities and rapid adaptation from batch training, potentially increasing operational burden for local serving and monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.4",
+        "v:26.13"
+      ],
+      "description": "A versioned data repository feeds a feature store used by a real-time model-serving microservice. An automated pipeline trains and validates batch and incrementally updated model factors, deploys multiple versions concurrently, and uses performance tests plus production tracking to monitor behavior, usage, inputs, outputs, interpretability, and fairness. Trade-off: This supports low-latency serving, continual adaptation, reproducibility, and controlled model comparison, but increases operational complexity and resource costs. Maintaining consistency across batch and online features, incremental training, multiple deployed versions, and their monitoring and tests also creates additional failure and governance risks.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.3",
+        "v:18.2",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "description": "A local service/API serves real-time predictions, using features stored in general-purpose data stores and models trained through a hybrid batch/incremental process. A dedicated model-builder component trains and validates models, a data-version repository supports reproducibility, production tracking monitors behavior and fairness, and rollback redeploys a previous model when needed. Trade-off: This gains responsive serving, flexible updating, traceability, and operational recovery, but hybrid training and generic feature storage increase integration and consistency complexity, while model-quality tests and monitoring may leave broader pipeline failures uncovered.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.2",
+        "v:10.2",
+        "v:22.4",
+        "v:26.2"
+      ],
+      "description": "1. **Solution:** A feature store supports both online service computations and offline batch jobs, while hybrid training updates some model factors in batches and others incrementally. An automated pipeline uses repository-versioned data for training, evaluation, validation, and A/B testing; production tracking monitors behavior, and rollback redeploys a prior model when needed. 2. **Trade-off:** This gains reproducibility, deployment safety, flexible serving, and visibility into production behavior. It gives up operational simplicity: online/offline consistency, coordinated batch and incremental training, feature-store management, experimentation, and multiple model versions require additional infrastructure and governance.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.3",
+        "v:18.1",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.3"
+      ],
+      "description": "The system serves predictions through a local real-time API, reading features from general-purpose data stores. A model-building pipeline uses versioned data for evidence-based testing, combines batch and incremental training, tracks production behavior, and supports redeploying a prior model version when needed. Trade-off: This provides reproducibility, operational visibility, and recovery while supporting both offline and online learning. It gives up the convenience of specialized feature-store capabilities and adds complexity in coordinating hybrid training, versioned data, monitoring, and rollback.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a feature store and automated batch pipeline anchor a real-time microservice with concurrent model versions?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a locally hosted API, general-purpose feature stores, and incremental learning keep deployment lean and responsive?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a feature store and hybrid online/offline serving support hybrid learning and direct A/B comparison?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if a local API and general-purpose feature storage keep the runtime simple, with versioned batch training and rollback?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.2",
+        "v:26.13"
+      ],
+      "hypothesis": "A real-time microservice and feature store can serve recent activity; a batch pipeline and dataset versions aid repeatability, while concurrent versions and performance tests help compare and validate releases.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:19.1"
+          ],
+          "gains": [
+            "R3",
+            "Q3"
+          ],
+          "costs": [
+            "R2",
+            "Q4"
+          ],
+          "note": "Batch training and versioned inputs support reproducibility but wait for chargeback labels and a training run before adapting."
+        }
+      ],
+      "observation": "The checked combination is valid but unattested. The serving and feature choices align with online scoring, while batch learning limits the pace of model refresh. The point descriptions do not establish numeric latency or fail-open behavior.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.2",
+        "v:18.2",
+        "v:11.1",
+        "v:10.3",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "hypothesis": "A local API and incremental learning should favor prompt scoring and updates; tracking inputs and model behavior with versioned data supports audit reconstruction.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:19.2"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Incremental learning can incorporate confirmed cases promptly but complicates reproducible training snapshots and controlled release comparison."
+        },
+        {
+          "values": [
+            "v:10.3"
+          ],
+          "gains": [
+            "C2"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "One production model reduces deployment overhead but offers no concurrent comparison path."
+        }
+      ],
+      "observation": "The point is valid and unattested. Input and model tracking provide a stronger audit trail, but the chosen single-model deployment does not directly compare a candidate against the current model.",
+      "rating": "strong",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.2",
+        "v:26.2"
+      ],
+      "hypothesis": "Hybrid serving and learning with a feature store should combine fresh online features and offline processing; A/B testing concurrent models should support the required recent comparison.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.3"
+          ],
+          "gains": [
+            "R1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Hybrid online/offline paths support fresh scoring and adaptation but add work whose peak latency remains unproven."
+        }
+      ],
+      "observation": "This combination makes the comparison workflow explicit and supports more frequent updates, at the cost of the broadest operational surface. Its data logging does not yet explicitly describe the model version and all input values needed for an audit response.",
+      "rating": "strong",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "hypothesis": "Replace generic logging with model in-production tracking and add trained-model quality tests to improve traceability while retaining the batch pipeline and online service.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:19.1"
+          ],
+          "gains": [
+            "R3",
+            "Q3"
+          ],
+          "costs": [
+            "R2",
+            "Q4"
+          ],
+          "note": "Batch-based training yields repeatable data and model artifacts but cannot guarantee fast adaptation to delayed labels."
+        }
+      ],
+      "observation": "Tracking broadens the production record to model usage and inputs, and quality tests strengthen candidate checks. The point remains unattested; the training-data retention period and 13-month retrieval workflow are not specified by the values.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.2",
+        "v:18.2",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "hypothesis": "Keep local incremental serving and explicit input tracking, and change single-model production to rollback support so an unsuccessful update can be reversed.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:19.2"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Frequent updates help adaptation but training snapshots must be preserved separately for reliable historical reconstruction."
+        }
+      ],
+      "observation": "Rollback adds an explicit recovery path and the production tracker captures inputs and usage. A candidate comparison and rollback procedure still need to be provided around these values.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.2",
+        "v:10.1",
+        "v:22.4",
+        "v:26.2"
+      ],
+      "hypothesis": "Use production tracking for model and input details and code-repository data versioning, retaining hybrid serving, training, and A/B testing.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.3",
+            "v:10.1"
+          ],
+          "gains": [
+            "R1",
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Hybrid paths and concurrent models support comparison but increase serving complexity that must still meet the latency target."
+        }
+      ],
+      "observation": "Model and input tracking improves the audit path, though code-repository data versioning may be less convenient for large training datasets. The point is still unattested.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:18.1",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.3"
+      ],
+      "hypothesis": "A locally hosted API with general feature stores, batch pipeline, evidence-based testing, and rollback may offer a lower-complexity starting point while retaining audit records and controlled releases.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:19.1"
+          ],
+          "gains": [
+            "R3",
+            "Q3"
+          ],
+          "costs": [
+            "R2",
+            "Q4"
+          ],
+          "note": "Batch updates improve repeatability but respond more slowly to delayed confirmed labels."
+        },
+        {
+          "values": [
+            "v:4.2"
+          ],
+          "gains": [
+            "C2"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "General-purpose storage avoids specialized feature-store operations but leaves recent-feature consistency and access behavior to the team."
+        }
+      ],
+      "observation": "This approach combines local control and rollback with a batch workflow; its simpler serving stack gives up specialized feature support and rapid adaptation. The checked point is valid but unattested.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.1",
+        "v:10.1",
+        "v:22.4",
+        "v:26.13"
+      ],
+      "hypothesis": "Replace batch-only learning with hybrid batch and incremental learning to improve adaptation while retaining feature consistency, version tracking, multiple releases, and performance tests.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:19.3"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Incremental updates improve adaptation, while the added training path needs validation against the peak latency budget."
+        }
+      ],
+      "observation": "The combined training mode improves the adaptation hypothesis while the performance test remains relevant to the peak target. No point description or evidence establishes that the 30 ms target is achieved.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.3",
+        "v:18.2",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.9"
+      ],
+      "hypothesis": "Use hybrid rather than only incremental training so model factors can receive repeatable batch validation as well as updates, while retaining local serving and rollback.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:4.2",
+            "v:19.3"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Hybrid training improves responsiveness but coordinating its feature paths adds work before the latency target is established."
+        }
+      ],
+      "observation": "Hybrid learning retains fast adaptation while restoring batch validation opportunities. The point supports candidate evaluation conceptually but does not quantify the 48-hour delivery cycle.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:18.1",
+        "v:11.2",
+        "v:10.2",
+        "v:22.4",
+        "v:26.2"
+      ],
+      "hypothesis": "Replace concurrent production versions with rollback to test whether a recovery-oriented release path reduces the operational burden while retaining hybrid serving, learning, and A/B evaluation.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:10.2"
+          ],
+          "gains": [
+            "C2"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "Rollback offers a contained recovery path with less concurrent runtime overhead, but candidate comparison requires additional evaluation machinery."
+        }
+      ],
+      "observation": "The rollback variant is valid and unattested. It may reduce concurrent serving overhead but weakens the direct production comparison path; A/B testing still requires a controlled way to compare the candidate with recent transactions.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.3",
+        "v:18.1",
+        "v:11.1",
+        "v:10.2",
+        "v:22.4",
+        "v:26.3"
+      ],
+      "hypothesis": "Change batch-only learning to hybrid learning to improve updates without changing the local API, general feature storage, rollback, and evidence-based testing.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:19.3"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Online/offline serving and training support responsive scoring and updates, but the more complex path has unproven peak latency."
+        }
+      ],
+      "observation": "The change improves adaptability while preserving the locally controlled runtime. Evidence-based testing still needs to be operationalized as a comparison against recent transactions.",
+      "rating": "strong",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Versioned feature store and real-time microservice",
+      "summary": "Use online feature access and a real-time microservice, with hybrid training, concurrent model versions, and broad tracking. This favors freshness and controlled releases but carries substantial operating complexity.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Real-time distributed serving is suited to pre-authorization scoring; performance testing is included, though the target remains unproven."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A feature store is the closest available choice for shared recent features."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Hybrid learning combines repeatable batch work with incremental updates."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Automated training, evaluation, and validation support a repeatable candidate workflow."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "A dedicated data-version repository supports reproducible training inputs.",
+          "fit": "approximate",
+          "fit_note": "Data versioning alone does not promise 13-month retention or a complete mapping from a score to its exact training snapshot."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Concurrent production versions make side-by-side candidate comparison possible.",
+          "fit": "approximate",
+          "fit_note": "Multiple live versions permit comparison but do not themselves define safe traffic allocation or promotion criteria."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Production tracking covers model usage and inputs needed to reconstruct score context.",
+          "fit": "approximate",
+          "fit_note": "The value does not state exact per-score retention duration or training-data lineage."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.13",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Performance tests can measure serving behavior against the peak latency target."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Batch-only learning was set aside because it may slow response to new fraud labels."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature access choices; the feature store supplies the microservice's feature path."
+        },
+        {
+          "source": "d:18",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Model-building choices affect feature access; the automated pipeline uses the feature store."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Local API with hybrid learning and rollback",
+      "summary": "Run a local real-time API over general-purpose feature stores, combining batch validation and incremental learning with tracked inputs and rollback. This favors local control and recovery while leaving feature consistency to the team.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "A local real-time API can keep scoring close to the in-house environment; performance remains to be measured."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "General-purpose stores avoid introducing a specialized feature service, though recent-feature consistency is a team responsibility.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify low-latency online access or consistent point-in-time feature retrieval."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Hybrid learning balances rapid updates with batch training and validation."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "A dedicated model-builder component separates training, evaluation, and validation."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "A dedicated data-version repository preserves dataset versions.",
+          "fit": "approximate",
+          "fit_note": "The value does not set the retention period or guarantee exact lineage from score to training data."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q2",
+            "Q4"
+          ],
+          "reason": "Rollback supports recovery from an unsuccessful model release.",
+          "fit": "approximate",
+          "fit_note": "Rollback restores a model version but does not provide service or data-source fail-open behavior."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Production tracking records model usage and inputs for investigations.",
+          "fit": "approximate",
+          "fit_note": "The value does not explicitly guarantee 13-month per-score and training-data retention."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Trained-model quality tests support model comparison before a release."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.3",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "A single production model is operationally simpler but has no rollback behavior in the selected value."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "The local API's serving choice affects how it accesses general-purpose feature stores."
+        },
+        {
+          "source": "d:18",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "The builder component's choices affect feature access and training consistency."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Hybrid online/offline serving with concurrent A/B versions",
+      "summary": "Use the feature store across online and offline serving, hybrid learning, concurrent versions, A/B testing, and explicit production tracking. This most directly supports fresh comparison, with the highest coordination cost.",
+      "approach": "C",
+      "step": 6,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q4"
+          ],
+          "reason": "Hybrid online/offline serving supports real-time scores while retaining batch paths.",
+          "fit": "approximate",
+          "fit_note": "The value does not detail online feature latency or authorization-time service isolation."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A feature store is the closest choice for consistent features across serving and training."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Hybrid learning supports updates while retaining batch training and validation."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "The pipeline automates training, evaluation, and validation."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Versioning data in the code repository ties data versions to version-control workflows.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify large-dataset retention or exact score-to-training lineage."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Concurrent versions provide the deployment basis for comparison.",
+          "fit": "approximate",
+          "fit_note": "The value does not define candidate selection, traffic splitting, or promotion safeguards."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracking model usage and inputs improves score-level investigation.",
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee the required audit retention or complete training lineage."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "A/B testing directly compares candidate and current model behavior."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "A dedicated data-version repository is an alternative when training data volume or retention needs exceed code-repository capabilities."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Hybrid serving uses the feature-store choice for online and offline feature access."
+        },
+        {
+          "source": "d:18",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "The pipeline uses the feature store for consistent training and serving features."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Local API with hybrid training and rollback",
+      "summary": "Use a local API and general-purpose feature stores with hybrid training, a versioned dataset, evidence-based testing, and rollback. This keeps the runtime conceptually contained while retaining an explicit comparison and recovery workflow.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "A local real-time API supports in-house pre-authorization scoring; throughput and latency require measurement."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "General stores limit specialized infrastructure while carrying feature consistency work.",
+          "fit": "approximate",
+          "fit_note": "The value does not promise point-in-time or low-latency access for recent features."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Hybrid learning supports both timely updates and repeatable batch evaluation."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "An automated pipeline provides repeatable training and validation."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "The repository versions training data for later reconstruction.",
+          "fit": "approximate",
+          "fit_note": "Retention length and score-to-training lineage are not specified."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Rollback supports rapid recovery if a new model performs poorly.",
+          "fit": "approximate",
+          "fit_note": "Rollback does not by itself implement comparison against recent transactions."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Production tracking records the inputs and model context used for scoring.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify historical retention or training-data lineage."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.3",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Evidence-based hypothesis testing provides a comparison method for candidate models."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Batch-only learning is operationally simpler, but less responsive to new confirmed cases."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "The local API's serving choice affects how it accesses general-purpose feature stores."
+        },
+        {
+          "source": "d:18",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Model-building choices affect feature access and consistency."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Serve scores and provide recent features",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Every score must be available before authorization and include recent cardholder activity. The 30 ms peak target favors a direct online path; a more elaborate online/offline design may improve feature reuse but increases operational coordination.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Microservice and feature store",
+          "values": [
+            "v:5.1",
+            "v:4.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Real-time service and shared feature access align with pre-authorization scoring."
+          ],
+          "cons": [
+            "Latency and high-load capacity remain unmeasured; the service adds distributed operations."
+          ],
+          "reason": "A favors a purpose-built feature path for shared online data."
+        },
+        {
+          "id": "O2",
+          "name": "Local API and general-purpose stores",
+          "values": [
+            "v:5.2",
+            "v:4.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1",
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Keeps scoring locally hosted and avoids specialized feature-store operations."
+          ],
+          "cons": [
+            "The team must ensure recent-feature consistency and test latency under peak load."
+          ],
+          "reason": "B and D choose local control and a simpler feature stack."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid online/offline serving",
+          "values": [
+            "v:5.5",
+            "v:4.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Supports real-time scoring alongside offline computations."
+          ],
+          "cons": [
+            "Two computation paths increase consistency and operating demands."
+          ],
+          "reason": "C values reuse across online and offline workflows."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Train, evaluate, and refresh models",
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "context": "Confirmed fraud arrives late, but segment-level fraud shifts require a compared retrained model within 48 hours. Batch pipelines improve repeatability; incremental updates can improve freshness but require careful validation.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Batch pipeline with versioned data",
+          "values": [
+            "v:19.1",
+            "v:18.1",
+            "v:11.1"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Repeatable training and dataset versioning support audit reconstruction."
+          ],
+          "cons": [
+            "Batch-only updates may respond slowly to new cases and the 48-hour adaptation target."
+          ],
+          "reason": "D explored this simpler starting point, then changed to hybrid learning."
+        },
+        {
+          "id": "O2",
+          "name": "Incremental component with versioned data",
+          "values": [
+            "v:19.2",
+            "v:18.2",
+            "v:11.1"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Incremental learning can incorporate new confirmed cases quickly."
+          ],
+          "cons": [
+            "The point leaves less explicit room for repeatable batch validation and candidate comparison."
+          ],
+          "reason": "B refined this seed with rollback and hybrid learning."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid learning with automated pipeline and dedicated data repository",
+          "values": [
+            "v:19.3",
+            "v:18.1",
+            "v:11.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Combines incremental updates with batch training and an automated validation workflow."
+          ],
+          "cons": [
+            "Adds coordination between training modes and dataset versions."
+          ],
+          "reason": "A uses the pipeline and dedicated repository to balance adaptation and repeatability."
+        },
+        {
+          "id": "O4",
+          "name": "Hybrid learning with component and dedicated data repository",
+          "values": [
+            "v:19.3",
+            "v:18.2",
+            "v:11.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Separates training work while retaining hybrid updates and versioned data."
+          ],
+          "cons": [
+            "Requires integration across the component and serving system."
+          ],
+          "reason": "B retains a component boundary for the training process."
+        },
+        {
+          "id": "O5",
+          "name": "Hybrid pipeline with code-repository data versioning",
+          "values": [
+            "v:19.3",
+            "v:18.1",
+            "v:11.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Links versioned data to the pipeline and supports hybrid updates."
+          ],
+          "cons": [
+            "The option does not establish large dataset handling or retention."
+          ],
+          "reason": "C selects the code-repository versioning alternative."
+        },
+        {
+          "id": "O6",
+          "name": "Hybrid pipeline with dedicated data repository",
+          "values": [
+            "v:19.3",
+            "v:18.1",
+            "v:11.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Pairs repeatable pipeline stages with both batch and incremental learning."
+          ],
+          "cons": [
+            "The added training modes and data versioning increase operating work."
+          ],
+          "reason": "D changes its batch-only seed to hybrid learning while preserving pipeline-based validation."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Compare and release model versions",
+      "drivers": [
+        "Q4"
+      ],
+      "context": "A segment-level model change must be compared with the current model using recent transactions before production. Concurrent models and A/B testing make comparison explicit; rollback and evidence-based tests offer a more contained release path.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Concurrent production versions with performance tests",
+          "values": [
+            "v:10.1",
+            "v:26.13"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Concurrent models support comparison and performance tests target the scoring service."
+          ],
+          "cons": [
+            "Multiple live models require routing, monitoring, and promotion controls."
+          ],
+          "reason": "A prioritizes concurrent comparison and peak-serving measurement."
+        },
+        {
+          "id": "O2",
+          "name": "Rollback with model quality tests",
+          "values": [
+            "v:10.2",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Quality checks and rollback provide a release guard and recovery path."
+          ],
+          "cons": [
+            "The values do not specify a live traffic comparison mechanism."
+          ],
+          "reason": "B favors a controlled local release with recovery."
+        },
+        {
+          "id": "O3",
+          "name": "Concurrent versions with A/B testing",
+          "values": [
+            "v:10.1",
+            "v:26.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 6,
+          "pros": [
+            "A/B testing directly supports comparison against the current model."
+          ],
+          "cons": [
+            "Parallel versions and traffic experiments increase operational load."
+          ],
+          "reason": "C most directly encodes the recent comparison requirement."
+        },
+        {
+          "id": "O4",
+          "name": "Rollback with evidence-based hypothesis testing",
+          "values": [
+            "v:10.2",
+            "v:26.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Evidence-based comparison and rollback support cautious adoption."
+          ],
+          "cons": [
+            "Traffic allocation and rollback automation are not described by these values."
+          ],
+          "reason": "D balances a comparison method with a locally controlled release path."
+        },
+        {
+          "id": "O5",
+          "name": "Single production model with quality tests",
+          "values": [
+            "v:10.3",
+            "v:26.9"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Reduces the number of deployed models."
+          ],
+          "cons": [
+            "Does not directly support candidate comparison or rollback."
+          ],
+          "reason": "B's seed was refined to add rollback."
+        },
+        {
+          "id": "O6",
+          "name": "Rollback with A/B testing",
+          "values": [
+            "v:10.2",
+            "v:26.2"
+          ],
+          "status": "discarded",
+          "step": 10,
+          "pros": [
+            "Rollback provides recovery while A/B testing compares candidates."
+          ],
+          "cons": [
+            "This variant has no concurrent production versions in the selected deployment choice."
+          ],
+          "reason": "The experiment explored lower runtime complexity, but the concurrent-version option better matched direct current-model comparison."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Record score and model context in production",
+      "drivers": [
+        "R3",
+        "Q3"
+      ],
+      "context": "Investigators need the exact model version, input values, and training data behind any score for up to 13 months. Production tracking is the closest available choice for input and model context; data versioning supports the training side, but retention and end-to-end lineage must be implemented explicitly.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Log data and predictions",
+          "values": [
+            "v:22.2"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Captures operational data and predictions."
+          ],
+          "cons": [
+            "Does not explicitly cover model version, complete inputs, or training lineage."
+          ],
+          "reason": "The initial approaches replaced generic logging with explicit model tracking."
+        },
+        {
+          "id": "O2",
+          "name": "Track production model and inputs",
+          "values": [
+            "v:22.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "C1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Tracks model use and inputs needed to explain individual scores."
+          ],
+          "cons": [
+            "Retention duration and lineage to the training dataset are not specified."
+          ],
+          "reason": "All final alternatives choose the most direct production tracking value; each pairs it with a data versioning choice."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space has serving options but no value for fail-open authorization behavior, source-failure fallback, or a 15-minute degraded mode. Each alternative assumes an authorization bypass/degraded-scoring path must be added outside these choices."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "No dimension specifies deployment location, PCI boundaries, or whether a runtime is internal. The alternatives assume every selected service, store, and pipeline is deployed inside the certified environment."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:8",
+      "note": "The space does not model team size, staffing, or operational ownership. The points expose complexity trade-offs, but cannot establish that seven people can sustain the chosen stack."
+    }
+  ]
+}

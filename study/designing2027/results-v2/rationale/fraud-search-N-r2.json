@@ -1,0 +1,1357 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores every card transaction for fraud before it is authorized. It processes about 3,000 transactions per second on a normal day and up to five times as many during seasonal sales. Fraudsters adapt within weeks, and the confirmed fraud labels (chargebacks) arrive days to weeks after the transaction. Auditors and the card schemes can ask, months later, why a given transaction was scored the way it was. The ML team has five data scientists and two ML engineers. The company's operations team runs the data centres and the shared infrastructure, but there is no platform team for machine learning.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: stateless replicated scorer with local rules fallback",
+        "Model updates: scheduled batch retraining after label maturation",
+        "Audit: immutable decision log with model and input snapshot",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "description": "The scorer runs as stateless replicas, reading cardholder-keyed online features from Redis and applying local rules if scoring is unavailable. It records each decision with its model and input snapshot, while operations manages the open-source components and scheduled jobs retrain models after labels mature. Trade-off: This provides scalable serving, fallback resilience, reproducible auditability, and controlled retraining, but matured-label scheduling makes models and features less responsive to new fraud patterns. It also requires dependable Redis and operational ownership, plus storage and handling for immutable snapshots.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots",
+        "Operations: small-team single deployment using existing infrastructure"
+      ],
+      "description": "1. A stateful stream processor maintains per-key online features, while co-located replicated processors score events and fall back to rules when needed. Frequent batch retraining replays the append-only log for champion-challenger evaluation, with versioned models and training snapshots supporting auditability. 2. **Trade-off:** This provides low-latency, context-aware scoring, failover, reproducibility, and rapid model iteration, but state replication, replay, and snapshot retention add operational and infrastructure burden for a small team. A single deployment also limits independent scaling and fault isolation.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Online features: event-sourced transaction stream and materialized per-cardholder state",
+        "Serving: asynchronous scoring with authorization timeout and static fallback",
+        "Model updates: online updates when delayed fraud labels arrive",
+        "Audit: reconstruct scores by replaying event history and model lineage",
+        "Operations: custom streaming platform maintained by ML team"
+      ],
+      "description": "The system maintains per-cardholder state from an event-sourced transaction stream and asynchronously scores authorization requests, using a static fallback when scoring exceeds the timeout. Delayed fraud labels update the model online, while event history and model lineage support score reconstruction; the ML team operates the streaming platform. Trade-off: This provides fresh features, adaptable models, and auditable decisions with authorization-timeout resilience. It gives up operational simplicity and may reduce decision quality during scoring delays, when the static fallback is used.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: stateless replicated scorer with local rules fallback",
+        "Model updates: automated daily batch retraining with champion-challenger validation",
+        "Audit: immutable decision log with model and input snapshot",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "description": "The service reads cardholder-keyed online features from Redis and sends them to a stateless replicated scorer, which can apply local rules if feature access or scoring fails. Daily retraining produces challenger models, promotes validated champions, and records each decision with its model and input snapshot; operations manages the open-source components. Trade-off: This gains scalable serving, degraded-mode resilience, controlled model promotion, and strong auditability. It gives up immediate adaptation to fraud changes, depends on Redis feature availability and consistency, and incurs storage and operational ownership costs.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots including input values",
+        "Operations: small-team single deployment using existing infrastructure"
+      ],
+      "description": "Stateful keyed processing maintains online features locally, while co-located scoring uses replicated processors and falls back to rules when necessary. Batch retraining replays the append-only log for champion-challenger evaluation, with versioned models and training snapshots supporting reproducibility in a single existing-infrastructure deployment. Trade-off: This provides low-latency features, resilience, iterative improvement, and strong auditability, but local-state replication, frequent replay, and input snapshots increase storage, recovery, and operational burden for a small team.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Online features: embedded rolling counters backed by a durable local journal",
+        "Serving: replicated scorer with deterministic rules fallback",
+        "Model updates: automated daily batch retraining after label confirmation",
+        "Audit: immutable score records with model version, input values, and training dataset references",
+        "Operations: shared operations runs commodity services; ML team owns model pipelines"
+      ],
+      "description": "The replicated scorer computes fraud scores from embedded rolling counters persisted in a durable local journal, using deterministic rules when scoring or model-serving paths are unavailable. Shared operations runs the commodity services, while the ML team owns daily retraining after labels are confirmed; each score is immutably recorded with its model version, inputs, and training-dataset references. Trade-off: This provides resilient serving, reproducible audits, and automated model refreshes, but adds journal, replication, and ownership complexity while confirmed-label delays can make models and scores lag new fraud patterns.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: stateless replicated scorer with local rules fallback",
+        "Model updates: automated daily batch retraining with champion-challenger validation",
+        "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "description": "A replicated stateless scorer reads cardholder-keyed features from Redis, applies the current model, and uses local rules when the model-serving path is unavailable. Daily retraining produces a challenger, promotes it only after validation, and records scores plus model, input, and training-dataset snapshots in an immutable 13-month audit log; operations owns the managed open-source components. Trade-off: This provides shared low-latency features, fallback resilience, controlled model promotion, and strong traceability, but daily updates can leave the model stale and the retained immutable data increases storage and governance costs. Managed components reduce operational effort but reduce direct infrastructure control.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots including input values",
+        "Operations: existing stream infrastructure operated by shared operations"
+      ],
+      "description": "A stateful stream processor maintains keyed online features, while co-located scoring uses replicated processing and falls back to rules when necessary. Frequent batch retraining is evaluated through champion-challenger replay, with the append-only log preserving inputs, model versions, and training snapshots for audit; shared operations runs the existing stream infrastructure. Trade-off: This provides low-latency, resilient decisions, reproducible auditing, and controlled model updates. It increases state-replication, replay, storage, and operational complexity, while reliance on shared operations limits service-specific control.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Online features: embedded rolling counters backed by a durable local journal",
+        "Serving: replicated scorer with deterministic rules fallback",
+        "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation",
+        "Audit: immutable score records with model version, input values, and training dataset references",
+        "Operations: shared operations runs commodity services; ML team owns model pipelines"
+      ],
+      "description": "Each replicated scorer maintains rolling counters in a durable local journal and scores transactions with the current model, falling back to deterministic rules when needed. Immutable records capture each score’s model version, inputs, and training-dataset references; after labels arrive, the ML team retrains a daily challenger and replays recent transactions for comparison, while shared operations runs the commodity services. Trade-off: This provides resilient, auditable serving and controlled model improvement, but local journals and replication add state-management and consistency burden, while label-dependent daily updates limit responsiveness.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: replicated stateless scorer with local feature cache and rules fallback",
+        "Model updates: automated daily batch retraining with champion-challenger validation",
+        "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "description": "The system stores cardholder-keyed online features in Redis, while replicated stateless scorers use local caches and rules as a fallback to serve scores. Automated daily retraining uses champion-challenger validation, and immutable logs retain each score, model, inputs, and training-dataset snapshot for 13 months; operations owns the managed open-source components. Trade-off: This gains availability, automated model governance, and strong auditability, but requires coordinating caches, Redis, replicated serving, and frequent retraining. Local or fallback decisions may use less-current features or rules, while retaining detailed snapshots increases storage and operational burden.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots including input values retained for 13 months",
+        "Operations: existing stream infrastructure operated by shared operations"
+      ],
+      "description": "Transactions flow through a stateful stream processor, whose local keyed state supports online features and co-located scoring; replicated processors provide resilience, with rules as fallback. Frequent batch retraining replays audited inputs and versioned training snapshots to compare challengers with the champion, while shared operations runs the existing stream infrastructure. Trade-off: This offers low-latency, resilient scoring, reproducible model evaluation, and detailed 13-month auditability. It increases state-replication and storage/retention burden, and shared operations may constrain operational focus and capacity.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "Online features: embedded rolling counters backed by a durable local journal",
+        "Serving: replicated scorer with deterministic rules fallback",
+        "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation",
+        "Audit: immutable score records with model version, input values, and training dataset references retained for 13 months",
+        "Operations: shared operations runs commodity services; ML team owns model pipelines"
+      ],
+      "description": "The system computes online features with embedded rolling counters persisted in a durable local journal, and a replicated scorer serves decisions with deterministic rules as fallback. The ML team retrains daily challengers, replaying recent transactions after labels arrive, while immutable score records retain model versions, inputs, and dataset references for 13 months; shared operations runs the commodity services. Trade-off: This gains resilience, traceability, and controlled model comparison. Trade-off: It sacrifices immediate adaptation to newly labeled outcomes and adds journal, retention, replay, and team-boundary operational complexity.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a stateless scorer reads shared cardholder features and operations owns the common serving components?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a stateful stream processor computes features and scoring together so recent activity is immediately available?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if the transaction log is the source of truth and delayed labels update models online?",
+      "status": "dropped",
+      "dropped_because": "A custom streaming platform maintained by the seven-person team conflicts with C2; no value change within this approach removes that platform ownership burden."
+    },
+    {
+      "id": "D",
+      "idea": "What if replicated scorers keep compact local rolling state and use a durable journal rather than a separate feature platform?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: stateless replicated scorer with local rules fallback",
+        "Model updates: scheduled batch retraining after label maturation",
+        "Audit: immutable decision log with model and input snapshot",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "hypothesis": "Shared Redis features and replicated stateless serving should meet R1 and Q1 at peak scale, while local rules preserve Q2. Batch retraining after confirmed labels should meet R2 and Q4; immutable score snapshots should meet R3 partly and Q3 partly. PCI deployment is assumed internal (C1), while managed operations ownership may make C2 partly feasible.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model updates: scheduled batch retraining after label maturation"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Scheduled training uses confirmed labels safely and can run regularly, but the point does not preserve the training data lineage needed for the full audit scenario."
+        },
+        {
+          "values": [
+            "Operations: managed open-source components owned by operations"
+          ],
+          "gains": [
+            "C1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Keeping components within company operations supports PCI control, while requiring operations ownership and reliable Redis stewardship still draws on a limited team."
+        }
+      ],
+      "observation": "The serving and fallback shape fits transaction-time needs. The audit log captures score inputs and model but not the training dataset; the operating model needs explicit ownership despite reducing ML platform work.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots",
+        "Operations: small-team single deployment using existing infrastructure"
+      ],
+      "hypothesis": "Co-located state and scoring should meet R1 and Q1, with replicated processing and rules meeting Q2. Replay-based retraining should meet R2 and Q4, and versioned snapshots should support R3 and Q3 partly. Existing internal infrastructure supports C1; the complexity may strain C2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Online features: stateful stream processor with local keyed state",
+            "Serving: co-located scoring with replicated stream processing and rule fallback"
+          ],
+          "gains": [
+            "R1",
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Local keyed state and co-location reduce feature lookup and preserve serving during failures, but replicated state and recovery create operational load for a small team."
+        },
+        {
+          "values": [
+            "Audit: append-only event log with versioned model and training snapshots"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Versioned artifacts aid reconstruction, but absent explicit input-value retention leaves the 13-month answer incomplete."
+        }
+      ],
+      "observation": "The architecture addresses latency and resilience as a coherent pipeline, but state recovery has a real operating cost and the initial audit choice leaves score inputs implicit.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Online features: event-sourced transaction stream and materialized per-cardholder state",
+        "Serving: asynchronous scoring with authorization timeout and static fallback",
+        "Model updates: online updates when delayed fraud labels arrive",
+        "Audit: reconstruct scores by replaying event history and model lineage",
+        "Operations: custom streaming platform maintained by ML team"
+      ],
+      "hypothesis": "Event-sourced state and online updates should improve R1, R2, and Q4, with replay supporting R3 and Q3. Timeout fallback should protect Q2, although asynchronous scoring may challenge Q1 and C2 is at risk from custom platform ownership.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "misses"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving: asynchronous scoring with authorization timeout and static fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R1",
+            "Q1"
+          ],
+          "note": "A timeout and static fallback let authorization continue, but asynchronous completion cannot reliably return a context-aware score within the authorization latency target."
+        },
+        {
+          "values": [
+            "Operations: custom streaming platform maintained by ML team"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Direct ownership enables tightly integrated online learning but assigns custom platform operations to a team without platform capacity."
+        }
+      ],
+      "observation": "The point combines fresh data and labels with replay, but asynchronous scoring conflicts with the authorization-time score requirement and custom platform ownership violates the staffing constraint.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: stateless replicated scorer with local rules fallback",
+        "Model updates: automated daily batch retraining with champion-challenger validation",
+        "Audit: immutable decision log with model and input snapshot",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "hypothesis": "Automating daily challenger training and comparison should improve Q4 and R2 while retaining the serving, fallback, and staffing balance of P1. Q3 remains partly addressed because training data lineage is not yet retained.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Audit: immutable decision log with model and input snapshot"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Capturing the exact model and inputs supports score explanation, but without training dataset references it does not satisfy the complete historical audit request."
+        }
+      ],
+      "observation": "Daily automated comparison makes the update cadence concrete and fits the 48-hour window after labels and data are available. Training lineage is still the main audit gap.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots including input values",
+        "Operations: small-team single deployment using existing infrastructure"
+      ],
+      "hypothesis": "Adding explicit input values to the append-only snapshots should improve R3 and Q3, preserving the latency, resilience, and replay benefits. Operational complexity remains a C2 concern.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Operations: small-team single deployment using existing infrastructure"
+          ],
+          "gains": [
+            "C1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Existing internal infrastructure keeps data in the certified environment, but operating replicated state, replay, and retained snapshots remains demanding for seven people."
+        }
+      ],
+      "observation": "Explicit input retention closes the score reconstruction gap. Training snapshots enable dataset lineage; the design still depends on the team sustaining stream state and replay operations.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Online features: embedded rolling counters backed by a durable local journal",
+        "Serving: replicated scorer with deterministic rules fallback",
+        "Model updates: automated daily batch retraining after label confirmation",
+        "Audit: immutable score records with model version, input values, and training dataset references",
+        "Operations: shared operations runs commodity services; ML team owns model pipelines"
+      ],
+      "hypothesis": "Embedded counters and a durable journal may avoid a separate online feature platform while replicated scoring and rules preserve Q1 and Q2. Explicit score and dataset records should meet R3 and Q3; shared operations may keep C2 feasible, though state consistency needs careful design.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Online features: embedded rolling counters backed by a durable local journal"
+          ],
+          "gains": [
+            "R1",
+            "Q1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Local counters avoid remote lookup latency, but durable journals and synchronization across replicas add state consistency and recovery work."
+        },
+        {
+          "values": [
+            "Model updates: automated daily batch retraining after label confirmation"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "Daily retraining reacts to newly confirmed cases, but without explicit recent-transaction comparison the required promotion gate is incomplete."
+        }
+      ],
+      "observation": "This lower-infrastructure direction has a plausible fast path and strong lineage, but replicated local state becomes its main engineering burden and the update process needs challenger comparison.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: stateless replicated scorer with local rules fallback",
+        "Model updates: automated daily batch retraining with champion-challenger validation",
+        "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "hypothesis": "Retaining model, inputs, and training dataset snapshots for the full 13-month period should close Q3 while preserving R3, Q1, Q2, and Q4. This remains a strong operationally delegated candidate subject to internal deployment for C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months"
+          ],
+          "gains": [
+            "R3",
+            "Q3"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Long-term immutable retention makes full explanations available, while storage capacity, access controls, and retention operations add ongoing ownership work."
+        }
+      ],
+      "observation": "The 13-month record now includes the three requested audit elements. This closes the largest requirement gap, with storage governance and proof of peak performance still requiring operational measurement.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots including input values",
+        "Operations: existing stream infrastructure operated by shared operations"
+      ],
+      "hypothesis": "Moving stream operation to infrastructure already run by shared operations should improve C2 while preserving B's score, feature, replay, and audit behavior. Remaining risk is the extra state and replay complexity.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Operations: existing stream infrastructure operated by shared operations"
+          ],
+          "gains": [
+            "C1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Using an existing internal stream service keeps data within the PCI environment, while specialist stream recovery still requires shared expertise and a clear support agreement."
+        }
+      ],
+      "observation": "Reusing an established internal stream platform avoids assigning platform construction to the ML team. The design retains a heavier stateful service and depends on operations' familiarity and support capacity.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 2,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Online features: embedded rolling counters backed by a durable local journal",
+        "Serving: replicated scorer with deterministic rules fallback",
+        "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation",
+        "Audit: immutable score records with model version, input values, and training dataset references",
+        "Operations: shared operations runs commodity services; ML team owns model pipelines"
+      ],
+      "hypothesis": "Adding recent-transaction challenger replay should close Q4 while preserving D's local fast path, failure fallback, and direct audit lineage. The journal and replica consistency burden remains, and the exact 13-month retention policy needs implementation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation"
+          ],
+          "gains": [
+            "R2",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Daily challenger comparison meets the promotion workflow, but score and training lineage still need an explicit 13-month retention commitment."
+        },
+        {
+          "values": [
+            "Online features: embedded rolling counters backed by a durable local journal"
+          ],
+          "gains": [
+            "R1",
+            "Q1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Embedded state keeps the scoring path short but requires careful replication, recovery, and consistency ownership."
+        }
+      ],
+      "observation": "The explicit replay comparison fulfills the model promotion scenario. The audit record has the needed content but not a stated retention duration, and local state still needs careful operational handling.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Online features: Redis keyed by cardholder",
+        "Serving: replicated stateless scorer with local feature cache and rules fallback",
+        "Model updates: automated daily batch retraining with champion-challenger validation",
+        "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months",
+        "Operations: managed open-source components owned by operations"
+      ],
+      "hypothesis": "Adding a local feature cache should preserve useful feature access during Redis disruption and strengthen Q2 while keeping the explicit 13-month audit and daily champion process. The cache adds consistency work for the small team.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving: replicated stateless scorer with local feature cache and rules fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "A local feature cache can serve through a Redis interruption, but cache synchronization and freshness add operational work."
+        }
+      ],
+      "observation": "The cache provides another degraded-mode path while retaining recent features; it introduces cache freshness and synchronization work. Detailed retained snapshots still need storage governance.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "Online features: stateful stream processor with local keyed state",
+        "Serving: co-located scoring with replicated stream processing and rule fallback",
+        "Model updates: frequent batch retraining with champion-challenger replay",
+        "Audit: append-only event log with versioned model and training snapshots including input values retained for 13 months",
+        "Operations: existing stream infrastructure operated by shared operations"
+      ],
+      "hypothesis": "Making 13-month retention explicit should remove ambiguity in Q3 while preserving stream replay and internal operations support. The main remaining cost is the stream state and retention burden.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Operations: existing stream infrastructure operated by shared operations"
+          ],
+          "gains": [
+            "C1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "The existing stream service keeps processing internal, but its stateful recovery and 13-month retention still need coordinated operational capacity."
+        }
+      ],
+      "observation": "The stated retention period completes the audit requirement. Reusing existing operations support lowers platform ownership risk, though the stream workload still needs capacity and support agreements.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "Online features: embedded rolling counters backed by a durable local journal",
+        "Serving: replicated scorer with deterministic rules fallback",
+        "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation",
+        "Audit: immutable score records with model version, input values, and training dataset references retained for 13 months",
+        "Operations: shared operations runs commodity services; ML team owns model pipelines"
+      ],
+      "hypothesis": "Explicit 13-month retention for immutable score and dataset references should complete Q3 while keeping the local fast path and daily challenger replay. The local journal remains a staffing and consistency concern.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Online features: embedded rolling counters backed by a durable local journal"
+          ],
+          "gains": [
+            "R1",
+            "Q1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Local rolling state shortens the scoring path, but journal replication and recovery add work for a small team."
+        }
+      ],
+      "observation": "With an explicit 13-month duration, records identify the model, inputs, and training dataset throughout the audit window. Local-state reliability and recovery still need careful implementation.",
+      "rating": "strong",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Redis features with delegated operations",
+      "summary": "Use Redis keyed features and stateless replicated scoring with a local rules fallback. Daily challenger promotion and an immutable 13-month record support adaptation and audit, while operations owns the managed components.",
+      "approach": "A",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Online features",
+          "value_id": "Online features: Redis keyed by cardholder",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Provides shared recent cardholder activity without embedding mutable state in each scorer."
+        },
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: replicated stateless scorer with local feature cache and rules fallback",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Replicas support transaction throughput and local rules keep authorization moving during scoring failures."
+        },
+        {
+          "dimension_id": "Model updates",
+          "value_id": "Model updates: automated daily batch retraining with champion-challenger validation",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated daily comparison and promotion can fit the 48-hour update window after new labels arrive."
+        },
+        {
+          "dimension_id": "Audit",
+          "value_id": "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Keeps the model, exact inputs, and training data lineage available for the requested period."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: managed open-source components owned by operations",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "Keeps components under company control and assigns shared infrastructure ownership to operations."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model updates",
+          "value_id": "Model updates: scheduled batch retraining after label maturation",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Evaluated first, but it did not state daily challenger comparison needed for the 48-hour workflow."
+        },
+        {
+          "dimension_id": "Audit",
+          "value_id": "Audit: immutable decision log with model and input snapshot",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Explains scores but does not retain training dataset lineage for the full audit scenario."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Stateful stream scoring on existing infrastructure",
+      "summary": "Co-locate keyed feature processing and scoring on replicated stream infrastructure, with rule fallback and replay-based champion evaluation. The append-only record retains score inputs and model training snapshots.",
+      "approach": "B",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "Online features",
+          "value_id": "Online features: stateful stream processor with local keyed state",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Maintains recent keyed activity close to the scoring path."
+        },
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: co-located scoring with replicated stream processing and rule fallback",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Co-location limits lookup delay, replicas provide continuity, and rules provide degraded operation."
+        },
+        {
+          "dimension_id": "Model updates",
+          "value_id": "Model updates: frequent batch retraining with champion-challenger replay",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Replay compares candidates against recent transaction history before promotion."
+        },
+        {
+          "dimension_id": "Audit",
+          "value_id": "Audit: append-only event log with versioned model and training snapshots including input values retained for 13 months",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preserves score inputs and versioned training lineage for reconstruction."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: existing stream infrastructure operated by shared operations",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "Reuses internal infrastructure and its existing operational support."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Audit",
+          "value_id": "Audit: append-only event log with versioned model and training snapshots",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "The first version did not explicitly include input values in retained snapshots."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: small-team single deployment using existing infrastructure",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "A single deployment left stream operations and recovery burden less clearly supported."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Local journal with replicated rules fallback",
+      "summary": "Keep rolling counters in durable local journals, replicate scoring, and fall back to deterministic rules. Daily challenger replay supports model updates, with immutable score and training lineage records.",
+      "approach": "D",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "Online features",
+          "value_id": "Online features: embedded rolling counters backed by a durable local journal",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Avoids a separate feature lookup on the critical scoring path."
+        },
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: replicated scorer with deterministic rules fallback",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "Replicas and deterministic rules allow authorization to continue when learned scoring is unavailable."
+        },
+        {
+          "dimension_id": "Model updates",
+          "value_id": "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Compares a daily challenger with the current model using recent transactions after labels arrive."
+        },
+        {
+          "dimension_id": "Audit",
+          "value_id": "Audit: immutable score records with model version, input values, and training dataset references retained for 13 months",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Captures the records needed to explain a score and identify its training dataset."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: shared operations runs commodity services; ML team owns model pipelines",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "Leaves commodity infrastructure with operations while keeping model workflows with the ML team."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model updates",
+          "value_id": "Model updates: automated daily batch retraining after label confirmation",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Did not explicitly compare a challenger against recent transactions."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "How to keep recent activity on the authorization scoring path",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "C1"
+      ],
+      "context": "Every authorization needs a score informed by recent activity, even at 15,000 transactions per second. The scoring path must return within 30 ms at p99 and failures must not stop authorization. All transaction data and processing remain inside the PCI-certified environment.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shared keyed feature store and stateless replicas",
+          "values": [
+            "Online features: Redis keyed by cardholder",
+            "Serving: replicated stateless scorer with local feature cache and rules fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 10,
+          "pros": [
+            "Scoring replicas can scale independently while reading shared recent activity.",
+            "Local rules provide a degraded path during feature or model-service failure."
+          ],
+          "cons": [
+            "The shared feature store must be provisioned, replicated, and operated for peak throughput.",
+            "Fallback detection quality is weaker during outages."
+          ],
+          "reason": "Chosen for a separately scalable serving path with an explicit authorization-safe fallback."
+        },
+        {
+          "id": "O2",
+          "name": "Co-located stateful stream scoring",
+          "values": [
+            "Online features: stateful stream processor with local keyed state",
+            "Serving: co-located scoring with replicated stream processing and rule fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Recent keyed state is close to scoring and can avoid a remote feature lookup.",
+            "Replicated processing and rule fallback support continuity."
+          ],
+          "cons": [
+            "State recovery and replication add complexity to the critical service.",
+            "Throughput and latency targets still need peak-load measurement."
+          ],
+          "reason": "Chosen where a stream platform already exists and its team can operate the stateful service."
+        },
+        {
+          "id": "O3",
+          "name": "Embedded journaled counters",
+          "values": [
+            "Online features: embedded rolling counters backed by a durable local journal",
+            "Serving: replicated scorer with deterministic rules fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Local state avoids an external feature lookup on the scoring path.",
+            "Replicated scorers and rules provide a continuity path."
+          ],
+          "cons": [
+            "Replica consistency, recovery, and journal retention require careful implementation.",
+            "Peak performance and cross-replica feature consistency remain unproven."
+          ],
+          "reason": "Chosen as a compact data path when the team can own journal synchronization and recovery."
+        },
+        {
+          "id": "O4",
+          "name": "Asynchronous event-sourced scoring",
+          "values": [
+            "Online features: event-sourced transaction stream and materialized per-cardholder state",
+            "Serving: asynchronous scoring with authorization timeout and static fallback"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Event history can rebuild recent state and supports replay.",
+            "Timeout fallback allows authorization to proceed."
+          ],
+          "cons": [
+            "Asynchronous completion does not reliably satisfy scoring before authorization and the 30 ms p99 target."
+          ],
+          "reason": "Dropped because it misses transaction-time score availability and latency."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How to update models and divide operational ownership",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2",
+        "C1"
+      ],
+      "context": "Confirmed fraud labels arrive late, yet new models must be compared on recent transactions and promoted within 48 hours after a segment loss rate rises. Seven people operate the system without a dedicated ML platform team, and data processing must stay internal.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Automated daily champion validation with operations-owned components",
+          "values": [
+            "Model updates: automated daily batch retraining with champion-challenger validation",
+            "Operations: managed open-source components owned by operations"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 10,
+          "pros": [
+            "Daily retraining and comparison provide a clear promotion cadence.",
+            "Operations owns common infrastructure components."
+          ],
+          "cons": [
+            "Training cannot use fraud labels before they arrive.",
+            "Daily cadence may lag a rapidly changing segment and requires storage and governance ownership."
+          ],
+          "reason": "Chosen to automate a controlled refresh while relying on the existing operations function."
+        },
+        {
+          "id": "O2",
+          "name": "Frequent replay evaluation on existing stream infrastructure",
+          "values": [
+            "Model updates: frequent batch retraining with champion-challenger replay",
+            "Operations: existing stream infrastructure operated by shared operations"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 11,
+          "pros": [
+            "Replay compares challenger models against recent transactions.",
+            "Reuses a stream platform already operated internally."
+          ],
+          "cons": [
+            "Frequent replay and stream recovery increase system complexity.",
+            "The ML team and operations need an explicit division of model and platform support."
+          ],
+          "reason": "Chosen when existing stream operations can support the replay workload and stateful serving."
+        },
+        {
+          "id": "O3",
+          "name": "Daily challenger replay with local model pipelines",
+          "values": [
+            "Model updates: daily challenger retraining and replay comparison on recent transactions after label confirmation",
+            "Operations: shared operations runs commodity services; ML team owns model pipelines"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Makes recent-transaction comparison explicit before candidate promotion.",
+            "Leaves commodity infrastructure to shared operations."
+          ],
+          "cons": [
+            "ML engineers retain pipeline and model release ownership.",
+            "Delayed labels bound how quickly a new pattern can enter training."
+          ],
+          "reason": "Chosen to meet the explicit comparison workflow without building a custom ML platform."
+        },
+        {
+          "id": "O4",
+          "name": "Label-matured scheduled batch",
+          "values": [
+            "Model updates: scheduled batch retraining after label maturation",
+            "Operations: managed open-source components owned by operations"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Uses confirmed labels and has a simple scheduled operating pattern."
+          ],
+          "cons": [
+            "The point did not specify recent-transaction comparison or a cadence that assures the 48-hour promotion window."
+          ],
+          "reason": "Replaced with daily challenger validation to make Q4 testable."
+        },
+        {
+          "id": "O5",
+          "name": "Custom online learning platform",
+          "values": [
+            "Model updates: online updates when delayed fraud labels arrive",
+            "Operations: custom streaming platform maintained by ML team"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Can integrate new labels directly into a model update path."
+          ],
+          "cons": [
+            "Custom platform maintenance conflicts with the small team's capacity, and online updates alone do not provide the required challenger comparison."
+          ],
+          "reason": "Dropped because of the C2 staffing conflict and incomplete promotion gate."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "What evidence to retain for historical score explanations",
+      "drivers": [
+        "R3",
+        "Q3"
+      ],
+      "context": "For any past score, the team must identify the model and inputs. Auditors may ask about scores 13 months later and need a response within one working day that also identifies the training data. The record therefore needs durable score inputs, model identity, and model training lineage.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Immutable 13-month score and training snapshots",
+          "values": [
+            "Audit: immutable score log with model, input, and training dataset snapshots retained for 13 months"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 10,
+          "pros": [
+            "Explicitly retains all requested evidence for the full period.",
+            "Immutable records support consistent historical reconstruction."
+          ],
+          "cons": [
+            "Storage, privacy controls, and retrieval operations need capacity planning."
+          ],
+          "reason": "Chosen to make the retention period and required audit artifacts explicit."
+        },
+        {
+          "id": "O2",
+          "name": "Append-only score, input, model, and training snapshots",
+          "values": [
+            "Audit: append-only event log with versioned model and training snapshots including input values retained for 13 months"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 11,
+          "pros": [
+            "Connects score inputs to model and training artifacts in an append-only history."
+          ],
+          "cons": [
+            "Retention duration and response process still need operational policy."
+          ],
+          "reason": "Chosen because it captures the full lineage while fitting the stream replay approach."
+        },
+        {
+          "id": "O3",
+          "name": "Immutable score records with dataset references",
+          "values": [
+            "Audit: immutable score records with model version, input values, and training dataset references retained for 13 months"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Records model identity, inputs, and the training dataset reference for each score."
+          ],
+          "cons": [
+            "The alternative must enforce 13-month retention and keep referenced datasets available."
+          ],
+          "reason": "Chosen as direct score evidence with dataset lineage, with retention policy to be specified."
+        },
+        {
+          "id": "O4",
+          "name": "Model and input snapshot only",
+          "values": [
+            "Audit: immutable decision log with model and input snapshot"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Explains which model and values produced a score."
+          ],
+          "cons": [
+            "Does not identify the training data or specify a 13-month retention period."
+          ],
+          "reason": "Insufficient for the full historical audit scenario."
+        },
+        {
+          "id": "O5",
+          "name": "Versioned model and training snapshot without explicit inputs",
+          "values": [
+            "Audit: append-only event log with versioned model and training snapshots"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Preserves model versions and training lineage."
+          ],
+          "cons": [
+            "Does not explicitly retain input values needed to reproduce a score explanation."
+          ],
+          "reason": "Refined to include captured score inputs."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

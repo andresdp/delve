@@ -1,0 +1,1410 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "vision-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "On-device visual inspection",
+    "context": "A manufacturer inspects parts using cameras on 40 lines across three plants. Each line has two to four cameras and an ARM edge computer with a small neural accelerator. Networks can be unavailable for days. Inspectors label about 5,000 defect images weekly, and models are retrained weekly and pushed to devices. The team is two ML engineers and one half-time operations engineer, with a tight infrastructure budget.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Check every part as it passes the camera and signal a defective part to the line operator."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Retrain the model every week from the newly labelled images and roll the new model out to every line."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Collect the images the model was unsure about, or got wrong, so that inspectors can label them."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "Each image is classified on the line within 200 ms, so the line never slows down."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a plant's network is down for up to seven days, its lines keep inspecting with the model they have; the images collected in the meantime are uploaded when the network returns."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "deployability",
+        "text": "A new model reaches every connected line within 24 hours of approval. When a new model misbehaves on a line, the line operator can go back to the previous one within 15 minutes, without the ML team."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "Cloud and infrastructure spending stays under 2,000 euros a month."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three people build and run the system, with no support outside working hours."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The edge computers (an ARM processor with a small neural accelerator) cannot be replaced this year."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3"
+      ],
+      "description": "1. A batch-ingestion and batch-training pipeline builds, evaluates, and validates models automatically. CI/CD deploys the selected model to a local real-time serving API, while monitoring logs data and predictions and supports rollback to the previous version. 2. Trade-off: This provides repeatable delivery, operational visibility, and rapid recovery, but batch ingestion and training may reduce data and model freshness compared with continuous approaches. Local serving may also limit scalability beyond the serving environment.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:1.3",
+        "v:8.2",
+        "v:10.3",
+        "v:18.3",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3"
+      ],
+      "description": "The application contains the model as a module within a modular monolith. Data is ingested in batches, the model is built and trained offline in a development sandbox, then manually run deployment scripts release one model to production while logging system data and predictions. Trade-off: This favors a simple architecture and controlled, observable releases. It gives up rapid adaptation, continuous automation, and production experimentation; batch processing and a single deployed model can delay updates and limit version comparison.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.5",
+        "v:8.4",
+        "v:10.1",
+        "v:18.2",
+        "v:19.2",
+        "v:22.4",
+        "v:7.1"
+      ],
+      "description": "A streamed data pipeline feeds an event-driven model service, while a dedicated model builder incrementally trains, evaluates, and validates models. Multiple validated model versions can serve production requests concurrently, with usage, inputs, outputs, interpretability, and fairness tracked in production. Trade-off: This supports continuous adaptation, controlled comparison, and detailed oversight, but requires managing concurrent versions and streaming operations. It gives up integration and delivery automation, increasing manual release effort and the risk of deployment inconsistency.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.2"
+      ],
+      "description": "The application contains the model as a module in a modular monolith, exposing predictions through a local service/API. Batch-ingested, repository-versioned data feeds an automated training, evaluation, and validation pipeline; CI/CD deploys models, while production logging and monitoring support rollback to a previous version. Trade-off: This gains repeatable builds, automated delivery, operational visibility, and straightforward recovery. It gives up continuous adaptation and potentially low-latency response to new data because training and ingestion are batch-based, while storing data versions in a code repository may be cumbersome at scale.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3",
+        "v:11.1"
+      ],
+      "description": "The application contains the model as a module in a modular monolith and exposes its predictions through a local service/API. Batch-ingested, versioned data feeds an automated training, evaluation, and validation pipeline; CI/CD deploys the resulting model, while production monitoring detects performance changes and supports rollback to a previous version. Trade-off: This provides repeatable delivery, traceability, and operational recovery, but batch learning and ingestion limit freshness and responsiveness to new data. Local serving simplifies integration but couples model execution to the application’s deployment and scaling lifecycle.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:8.1",
+        "v:9.6",
+        "v:10.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3"
+      ],
+      "description": "A batch ingestion process feeds an automated model-building pipeline that trains, evaluates, and validates models offline. Validated models are deployed as separate real-time microservices, with multiple versions running concurrently, canary testing in CI/CD, and production performance monitoring. Trade-off: This supports controlled releases, version comparison, and repeatable model delivery, while batch processing and offline training limit freshness and responsiveness to new data. Operating multiple model services and monitoring their performance also increases infrastructure and operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.2",
+        "v:12.3"
+      ],
+      "description": "The model is packaged as a module in a modular monolith and exposed through a local service/API for real-time predictions. Scheduled batch ingestion feeds versioned data into an automated training, evaluation, and validation pipeline; CI/CD deploys models, supports rollback, and monitoring logs production data and predictions. Trade-off: This provides repeatable, auditable delivery and operational visibility while keeping serving local and integrated. It gives up rapid adaptation because training and ingestion occur in batches on a schedule, and the modular monolith may limit independent scaling of the model component.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:8.1",
+        "v:9.6",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3"
+      ],
+      "description": "A separate service hosts each model and serves predictions in real time through distributed model-serving infrastructure. Batch-ingested data feeds an automated training, evaluation, and validation pipeline; CI/CD deploys models, uses canary testing, monitors performance, and can roll back to the previous version. Trade-off: This provides repeatable delivery, controlled releases, and rapid online prediction, but requires operating multiple services, pipelines, monitoring, and rollback mechanisms. Batch ingestion and batch training simplify processing but may reduce data freshness and delay adaptation to changing patterns.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.1",
+        "v:12.3",
+        "v:2.1"
+      ],
+      "description": "The model is packaged as a module in a modular monolith and exposed through a local service/API for real-time predictions. A scheduled pipeline ingests batch data from a shared, versioned store, trains and validates models in batches, deploys them through CI/CD, monitors data and predictions, and supports rollback to the previous version. Trade-off: This provides reproducible, automated releases and operational recovery while keeping serving local. It gives up immediate adaptation to new data and may delay detection or response between scheduled training runs.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.2",
+        "v:12.3",
+        "v:2.1"
+      ],
+      "description": "A local model module serves line predictions while a scheduled batch pipeline trains from a shared data store. CI/CD and rollback manage releases, prediction logging supports review, and training inputs are versioned in a code repository. Trade-off: This keeps line inference local and supports a repeatable weekly workflow, but repository based data versioning can be awkward for a large image corpus and does not provide explicit outage buffering or uncertainty selection.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:8.1",
+        "v:9.6",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3",
+        "v:26.13"
+      ],
+      "description": "A separate service serves each model’s real-time predictions, while batched data feeds an automated training, evaluation, and validation pipeline. CI/CD deploys tested models through canary releases, monitors their performance, and can roll back to the previous version when needed. Trade-off: This provides repeatable delivery, controlled releases, and production visibility, but batch ingestion and batch learning limit data and model freshness. Multiple services, automated pipelines, canary testing, and rollback also increase operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.1",
+        "v:12.3",
+        "v:2.1",
+        "v:26.9"
+      ],
+      "description": "The model runs as a module within a modular monolith and exposes predictions through a local service/API. A scheduled pipeline ingests batch data into a shared store, versions it, trains and validates models, tests quality, and delivers them through CI/CD, with monitoring and rollback to a prior version. Trade-off: This provides repeatable, operationally simple batch retraining with controlled releases and recovery, but predictions and models may become stale between scheduled runs; the monolith and local serving also limit independent scaling.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if inference stays local to each line while weekly batch training and automated delivery keep operations repeatable?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a simple embedded model and manually controlled releases minimize architectural overhead?",
+      "status": "dropped",
+      "dropped_because": "Manual deployment scripts and a single production version leave too much release and recovery work for the small team and do not provide a clear operator-controlled rollback path."
+    },
+    {
+      "id": "C",
+      "idea": "What if streaming and incremental learning provide continuous adaptation through an event-driven model service?",
+      "status": "dropped",
+      "dropped_because": "No delivery automation combined with incremental training and concurrent versions adds manual operational burden and does not establish the required weekly controlled rollout."
+    },
+    {
+      "id": "D",
+      "idea": "What if separate model services, canary testing, and controlled rollback reduce the risk of a bad fleet release?",
+      "status": "live"
+    },
+    {
+      "id": "E",
+      "idea": "What if a shared, versioned image corpus is the center of cross-plant retraining and inspector feedback?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3"
+      ],
+      "hypothesis": "Local real-time serving should support R1 and partly address Q1 and Q2; automated batch training and CI/CD should support R2 and Q3, while logged predictions support R3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:19.1",
+            "v:7.3"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "R2",
+            "R3"
+          ],
+          "note": "Local real-time inference avoids a network call for each part, but batch ingestion and training do not specify the response-time bound, outage buffer and later upload, or uncertainty-based image selection."
+        }
+      ],
+      "observation": "The point is a plausible basis for line inference and repeatable retraining, but the space does not establish numeric latency or durable offline image collection. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.3",
+        "v:8.2",
+        "v:10.3",
+        "v:18.3",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3"
+      ],
+      "hypothesis": "An embedded model and batch workflow may reduce service complexity, but manually run scripts and a single production version may weaken R2, Q3, and C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "misses",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:8.2",
+            "v:10.3"
+          ],
+          "gains": [
+            "C1"
+          ],
+          "costs": [
+            "R2",
+            "Q3"
+          ],
+          "note": "Manual scripts and one production version reduce initial machinery but make fleet rollout and rapid recovery depend on operator procedures."
+        }
+      ],
+      "observation": "The compact integration does not compensate for missing automated rollout and rollback; this is a weak fit for the stated deployment target. No source attests the combination.",
+      "rating": "weak",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.5",
+        "v:8.4",
+        "v:10.1",
+        "v:18.2",
+        "v:19.2",
+        "v:22.4",
+        "v:7.1"
+      ],
+      "hypothesis": "Streaming and incremental learning may improve adaptation and image collection, but the absence of delivery automation may fail Q3 and C1.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "misses",
+        "C1": "misses"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:8.4",
+            "v:19.2",
+            "v:10.1"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "R2",
+            "Q3",
+            "C1"
+          ],
+          "note": "Streaming and incremental updates may make new examples available quickly, but manual releases and multiple live versions increase the burden and weaken predictable rollback."
+        }
+      ],
+      "observation": "Continuous adaptation is not enough to offset the missing deployment automation under a small operations team. No source attests the combination.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.2"
+      ],
+      "hypothesis": "Add data versioning so R2 is more reproducible and logged production examples can be connected to training data for R3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:11.2",
+            "v:7.3"
+          ],
+          "gains": [
+            "R2",
+            "R3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Batch ingestion and repository versioning aid traceability, but add upkeep and do not automate selection of uncertain or incorrect images."
+        }
+      ],
+      "observation": "Versioning improves traceability but does not close the image selection or offline buffering gap. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3",
+        "v:11.1"
+      ],
+      "hypothesis": "Automate deployment and restore a previous version, and use a data version repository, to address the main failures of the simple seed.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:8.1",
+            "v:10.2",
+            "v:11.1"
+          ],
+          "gains": [
+            "R2",
+            "Q3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Automation, rollback, and data versioning improve control, but a separate version repository and delivery system add operational components for the small team."
+        }
+      ],
+      "observation": "Automation removes the core weakness of B, but this point converges on the local batch approach and offers no distinct benefit over A. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:8.1",
+        "v:9.6",
+        "v:10.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3"
+      ],
+      "hypothesis": "Canary testing and multiple live versions may improve Q3 and reduce risk to R1 during fleet rollout, at a likely cost in C1 and infrastructure cost.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.1",
+            "v:5.1",
+            "v:9.6",
+            "v:10.1"
+          ],
+          "gains": [
+            "Q3",
+            "R1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Separate services and concurrent versions enable controlled releases but add fleet service and monitoring work."
+        }
+      ],
+      "observation": "Canary testing adds a valuable release control, but concurrent services are a heavier fit for the team and edge fleet. It remains a candidate if paired with an explicit rollback choice. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.2",
+        "v:12.3"
+      ],
+      "hypothesis": "Add an on-schedule trigger to make the weekly retraining cadence explicit for R2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:12.3",
+            "v:19.1"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "R3"
+          ],
+          "note": "Scheduled batch training gives a predictable weekly cycle, but it does not itself select uncertain or incorrect images for inspectors."
+        }
+      ],
+      "observation": "The weekly trigger closes the cadence gap while the lack of explicit uncertainty selection and offline buffering remains. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:8.1",
+        "v:9.6",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3"
+      ],
+      "hypothesis": "Replace concurrent production versions with explicit rollback while retaining canary testing, simplifying operation and strengthening Q3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:9.6",
+            "v:10.2"
+          ],
+          "gains": [
+            "Q3",
+            "R1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Canary and rollback reduce the blast radius and aid recovery, though separate online services remain an operational cost."
+        }
+      ],
+      "observation": "Explicit rollback is a better fit than keeping N versions active, while canary checks still add release safety. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.1",
+        "v:12.3",
+        "v:2.1"
+      ],
+      "hypothesis": "Make a shared, versioned image corpus central to cross-plant weekly retraining and feedback, while keeping line inference local.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.1",
+            "v:7.3",
+            "v:19.1"
+          ],
+          "gains": [
+            "R2",
+            "R3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Shared versioned batch data supports coordinated training, but operating that store and transfers adds work and does not define edge buffering during outages."
+        }
+      ],
+      "observation": "The shared store improves fleet level data management and preserves the local inference pattern. It still leaves image selection, outage buffering, and timing targets unproven. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 4,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.2",
+        "v:12.3",
+        "v:2.1"
+      ],
+      "hypothesis": "Recheck code repository data versioning within the shared corpus architecture; it may reduce infrastructure dependencies but could be cumbersome for images.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:11.2",
+            "v:2.1"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Repository versioning may simplify tooling but can increase handling work for a large image corpus."
+        }
+      ],
+      "observation": "This did not improve on the dedicated version repository in P9: traceability remains possible, but the point adds no coverage for uncertainty selection or offline buffering. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 4,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:8.1",
+        "v:9.6",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.1",
+        "v:7.3",
+        "v:26.13"
+      ],
+      "hypothesis": "Add prediction-service performance testing to canary releases, helping check response behavior without changing the distributed service topology.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:9.6",
+            "v:1.1",
+            "v:26.13"
+          ],
+          "gains": [
+            "Q3",
+            "R1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Testing and canary release controls reduce release risk but introduce test and service operations for the small team."
+        }
+      ],
+      "observation": "Performance testing adds a relevant check, but the space supplies no 200 ms target or proof of on-device behavior; the separate service footprint remains. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 4,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:8.1",
+        "v:10.2",
+        "v:18.1",
+        "v:19.1",
+        "v:22.2",
+        "v:7.3",
+        "v:11.1",
+        "v:12.3",
+        "v:2.1",
+        "v:26.9"
+      ],
+      "hypothesis": "Add trained-model quality testing before delivery to reduce the chance that a weak weekly model reaches the lines.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.9",
+            "v:18.1"
+          ],
+          "gains": [
+            "R2",
+            "Q3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Quality testing can reject a poor candidate before release, but adds a validation step the small team must maintain."
+        }
+      ],
+      "observation": "Quality testing strengthens model validation but does not prove the numeric latency, outage buffering, or operator recovery targets. Requirement ratings do not improve beyond P9. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Local inference with scheduled retraining",
+      "summary": "Keep prediction close to each line, and use shared versioned training data, weekly automated training with quality checks, CI/CD, and rollback. This is the lower-complexity candidate for the fixed edge fleet.",
+      "approach": "A",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.3",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C1"
+          ],
+          "reason": "A model module keeps inference integrated with the line application; it is a plausible fit for fixed edge hardware.",
+          "fit": "approximate",
+          "fit_note": "The space does not say whether this module runs on ARM with the stated accelerator or meets the 200 ms bound."
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R2",
+            "R3"
+          ],
+          "reason": "A shared store can centralize images and labels from the plants for weekly training.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify offline edge buffering or delayed upload after a network outage."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Local service serving avoids a network round trip for each part.",
+          "fit": "approximate",
+          "fit_note": "Real-time local serving is a fit for the direction of Q1 and Q2, but the space gives no latency bound, offline model persistence, or seven-day availability guarantee."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "R2",
+            "R3"
+          ],
+          "reason": "Batch ingestion suits the weekly labeled-image training cycle.",
+          "fit": "approximate",
+          "fit_note": "The value does not define uncertainty-based selection or buffering at each line."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q3",
+            "C1"
+          ],
+          "reason": "A delivery pipeline reduces repeated manual release work.",
+          "fit": "approximate",
+          "fit_note": "The space does not specify per-line rollout within 24 hours or an operator interface."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "The previous version can be restored if a new model misbehaves.",
+          "fit": "approximate",
+          "fit_note": "The space does not establish a 15 minute operator-controlled rollback."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R2",
+            "R3"
+          ],
+          "reason": "Data versioning gives training runs traceable inputs.",
+          "fit": "approximate",
+          "fit_note": "The value does not define image retention, access control, or collection policy."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "A schedule makes the weekly retraining trigger explicit."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "The pipeline automates training, evaluation, and validation."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Batch learning fits the weekly labeled data cadence."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Logging data and predictions can provide inputs to review and monitoring.",
+          "fit": "approximate",
+          "fit_note": "The space does not specify an uncertainty or error selection rule for images."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Test trained model quality before releasing a weekly candidate."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Code repository versioning was evaluated, but a dedicated data version repository better suits a shared image corpus."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "The delivery pipeline is paired with rollback behavior."
+        },
+        {
+          "source": "d:18",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "The weekly trigger schedules the model building pipeline."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Canary controlled model service",
+      "summary": "Deploy distinct model services through CI/CD, check a release with prediction performance testing and canary traffic, monitor quality, and roll back when needed. This strengthens release control at the cost of more services to operate.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "A separate service isolates model releases and supports controlled deployment.",
+          "fit": "approximate",
+          "fit_note": "The space does not describe how the service is hosted near the edge or how disconnected lines keep using it."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "A real-time serving service can deliver predictions while allowing an independently deployed model.",
+          "fit": "approximate",
+          "fit_note": "Distributed serving does not establish the 200 ms line latency or disconnected operation."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "R2",
+            "R3"
+          ],
+          "reason": "Batch ingestion supports weekly training from inspector labels."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q3",
+            "C1"
+          ],
+          "reason": "CI/CD automates repetitive release work."
+        },
+        {
+          "dimension_id": "d:9",
+          "value_id": "v:9.6",
+          "drivers": [
+            "Q3",
+            "R1"
+          ],
+          "reason": "Canary testing limits exposure while a model is checked."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Rollback to the previous model provides a recovery path.",
+          "fit": "approximate",
+          "fit_note": "The value does not define a 15 minute operator action."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "The model building pipeline automates training and validation."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Batch learning matches the weekly training cycle."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Performance monitoring helps identify a bad canary model.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify error-image capture for inspector labeling."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.13",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Measure prediction service performance as part of the release checks.",
+          "fit": "approximate",
+          "fit_note": "The space names performance testing but does not supply or certify the 200 ms threshold."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Concurrent versions enable comparison but increase operational and infrastructure load; explicit rollback is a simpler recovery choice."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:2",
+          "reason": "No requirement settles the store form for this service topology; image buffering and retention remain unspecified."
+        },
+        {
+          "dimension_id": "d:11",
+          "reason": "The requirement calls for weekly labels but does not settle the data versioning mechanism."
+        },
+        {
+          "dimension_id": "d:12",
+          "reason": "Weekly timing is needed, but this trajectory did not include a trigger value in the canary approach."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "The CI/CD path includes canary testing and rollback."
+        },
+        {
+          "source": "d:5",
+          "target": "d:7",
+          "type": "affects",
+          "holds": true,
+          "note": "The serving design affects ingestion of prediction data and images."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where and how to serve line predictions",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Every passing part needs an immediate decision. Locality is relevant to latency, while the space does not establish hardware compatibility, numeric latency, or offline continuity.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Local model module and service",
+          "values": [
+            "v:1.3",
+            "v:5.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Avoids a network call for each line prediction.",
+            "Keeps the model close to the line application."
+          ],
+          "cons": [
+            "ARM accelerator compatibility and the latency target require measurement.",
+            "Seven day offline behavior is not specified by these values."
+          ],
+          "reason": "A1 prioritizes local inference on the fixed line equipment."
+        },
+        {
+          "id": "O2",
+          "name": "Separate real-time model service",
+          "values": [
+            "v:1.1",
+            "v:5.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Separates model releases and supports canary deployment.",
+            "Serves real-time predictions."
+          ],
+          "cons": [
+            "Adds a service topology to operate.",
+            "The space does not establish offline continuity or line latency."
+          ],
+          "reason": "D1 accepts service operations overhead for release isolation."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How to train and release weekly models",
+      "drivers": [
+        "R2",
+        "Q3",
+        "C1"
+      ],
+      "context": "New labels arrive weekly and releases must reach connected lines promptly, with recovery that does not depend on ML engineers. A small team favors automation, while exact fleet rollout timing and operator rollback controls are absent from the space.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Scheduled automated batch pipeline with rollback",
+          "values": [
+            "v:8.1",
+            "v:10.2",
+            "v:12.3",
+            "v:18.1",
+            "v:19.1",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 12,
+          "pros": [
+            "Automates weekly training, validation, and delivery.",
+            "Provides a previous-version recovery path.",
+            "Tests trained model quality before release."
+          ],
+          "cons": [
+            "Does not guarantee rollout within 24 hours or operator rollback within 15 minutes."
+          ],
+          "reason": "A1 combines explicit weekly scheduling with automated delivery and rollback while limiting new operational machinery."
+        },
+        {
+          "id": "O2",
+          "name": "Canary release with automated rollback",
+          "values": [
+            "v:8.1",
+            "v:9.6",
+            "v:10.2",
+            "v:18.1",
+            "v:19.1",
+            "v:26.13"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Checks a release on a limited slice and retains a previous-version recovery path.",
+            "Automates training and delivery.",
+            "Includes prediction-service performance testing during release evaluation."
+          ],
+          "cons": [
+            "Canary and separate services add operations work.",
+            "A weekly trigger was not included in this point."
+          ],
+          "reason": "D1 favors release risk control for the fleet, accepting extra operational load."
+        },
+        {
+          "id": "O3",
+          "name": "Manual single-version release",
+          "values": [
+            "v:8.2",
+            "v:10.3",
+            "v:18.3",
+            "v:19.1"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Simple initial release mechanism."
+          ],
+          "cons": [
+            "Does not provide a strong self-service rollback or reliable automation for fleet rollout."
+          ],
+          "reason": "The seed missed the deployment requirement and relied too much on the small team."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How to manage training images and production feedback",
+      "drivers": [
+        "R2",
+        "R3"
+      ],
+      "context": "The workflow needs new labeled images for weekly training and images that reveal model uncertainty or mistakes. The space covers batch ingestion, shared storage, data versioning, and prediction logging, but it does not define uncertainty selection, error queues, or outage buffering.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shared versioned batch corpus with prediction logs",
+          "values": [
+            "v:2.1",
+            "v:7.3",
+            "v:11.1",
+            "v:22.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Centralizes training images and labels.",
+            "Makes training inputs traceable and captures prediction records."
+          ],
+          "cons": [
+            "Does not specify which images are uncertain or wrong.",
+            "Does not guarantee edge buffering during a network outage."
+          ],
+          "reason": "A1 gives priority to a traceable shared training corpus and leaves image selection policy as a separate implementation gap."
+        },
+        {
+          "id": "O2",
+          "name": "Batch corpus with performance monitoring",
+          "values": [
+            "v:7.3",
+            "v:22.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Fits weekly labels and monitors model quality during release."
+          ],
+          "cons": [
+            "Does not provide a shared versioned store or identify images for labeling."
+          ],
+          "reason": "D1 uses performance monitoring to assess canary behavior, accepting less explicit data traceability."
+        },
+        {
+          "id": "O3",
+          "name": "Streamed ingestion with detailed production tracking",
+          "values": [
+            "v:7.1",
+            "v:22.4"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Supports continuous feedback and broad usage tracking."
+          ],
+          "cons": [
+            "The seed paired it with no delivery automation and incremental training, increasing team workload."
+          ],
+          "reason": "The continuous approach did not establish reliable weekly rollout or operator recovery."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "No dimension describes retaining images locally during a seven-day network outage and uploading them after reconnection; a shared store or batch ingestion does not establish that behavior."
+    },
+    {
+      "requirement": "Q4",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "The space has no infrastructure or cloud cost decision or budget outcome, so the 2,000 euro monthly ceiling cannot be evaluated."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:1",
+      "note": "The space has no edge hardware or accelerator compatibility decision; whether the current ARM devices can run the chosen model is unaddressed."
+    }
+  ]
+}

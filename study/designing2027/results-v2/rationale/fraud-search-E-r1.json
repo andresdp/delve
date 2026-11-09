@@ -1,0 +1,1854 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company needs in-environment real-time fraud scoring at up to 15,000 transactions per second, with delayed labels, historical auditability and a seven-person delivery team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.2",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "description": "1. The system trains models in batches, versions data in a code repository, and serves predictions through a local real-time API using features stored in general-purpose data stores. A CI/CD pipeline deploys updates, prediction-service performance is tested, production usage and behavior are tracked, and a previous model can be redeployed and switched back when needed. 2. Trade-off: This provides straightforward automation, rollback, and operational visibility without adopting MLOps. It gives up specialized MLOps capabilities and may leave feature management, training orchestration, and model lifecycle coordination less integrated.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.2",
+        "v:8.3",
+        "v:10.1",
+        "v:11.1",
+        "v:22.2",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "description": "The system uses an MLOps orchestrator to incrementally train models from versioned data and feature-store features, then deploys multiple model versions through a real-time microservice. It logs inputs and predictions for monitoring and uses A/B testing to compare versions and guide promotion. Trade-off: This gains reproducible data management, continuous adaptation, controlled experimentation, and observable serving. It gives up simplicity: orchestrating incremental training, maintaining several production versions, and monitoring their behavior require substantial infrastructure and operational effort, while incremental updates can increase drift risk.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The system uses a feature store to support hybrid online/offline serving and hybrid batch/incremental training. An MLOps CI/CD pipeline versions data, tests hypotheses, deploys multiple model versions, and tracks their production usage, inputs, outputs, interpretability, and fairness. Trade-off: This gains flexible low-latency serving, continuous adaptation, reproducibility, controlled releases, and richer production oversight. It gives up simplicity: coordinating feature consistency, incremental and batch training, versioned data, multiple deployments, and comprehensive monitoring increases infrastructure and operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:18.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "description": "A batch-trained model is built, evaluated, and validated in an automated pipeline, with data kept in a technology-specific version repository. A local real-time service exposes predictions; CI/CD deploys it, prediction-service performance is tested, production activity and outputs are tracked, and rollback can restore an earlier model version. Trade-off: This provides reproducibility, automated delivery, operational visibility, and recovery while retaining simple feature storage. Trade-off: Batch learning may make predictions less current, while avoiding MLOps limits specialized lifecycle automation and generic feature stores may weaken consistency and access support.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:8.3",
+        "v:10.1",
+        "v:11.1",
+        "v:22.2",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "A feature store supplies consistent features to a batch-based training process and a real-time model-serving microservice. An automated model-building pipeline evaluates and validates models, an ML orchestrator coordinates workflows, data versioning supports reproducibility, and multiple validated model versions can run in production while predictions and system data are monitored; evidence-based hypothesis testing guides pipeline tests. Trade-off: This improves repeatability, deployment flexibility, and observability, but adds operational complexity, storage and orchestration overhead, and risks inconsistent behavior or maintenance burden across simultaneously deployed model versions.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.3",
+        "v:27.2"
+      ],
+      "description": "A feature store and versioned data repository feed batch training, with evidence-based tests and CI/CD automating model releases. Multiple model versions are deployed through hybrid online/offline serving, while production tracking monitors usage, inputs, outputs, interpretability, and fairness. Trade-off: This gains reproducibility, controlled experimentation, and broad operational visibility, but batch learning may reduce responsiveness to new data and maintaining multiple versions increases serving and monitoring complexity. The \u201cNo MLOps\u201d choice conflicts with the CI/CD, versioning, testing, and tracking practices, which are characteristic MLOps capabilities.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:5.2",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "description": "Batch training uses versioned data from a feature store, while CI/CD tests prediction-service performance and deploys models to a local real-time serving API. Production usage, inputs, outputs, interpretability, and fairness are tracked, with rollback available to a previous model version. Trade-off: This provides reproducibility, operational visibility, and recovery while keeping serving responsive. It gives up broader MLOps lifecycle coordination and may leave batch-trained models less current between releases.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:18.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.9",
+        "v:27.2"
+      ],
+      "description": "This system trains models in batches through an automated build pipeline, tests trained-model quality, versions training data in a dedicated repository, and delivers deployments through CI/CD. A local prediction API serves real-time scores from features in general-purpose data stores; production usage, inputs, outputs, interpretability, and fairness are tracked, with rollback available to restore the prior model. Trade-off: It gains repeatability, traceability, visibility, and recovery, but gives up specialized feature-store capabilities and integrated MLOps support, increasing coordination and operational burden.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:8.3",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "description": "A feature store supplies consistent training and serving features, while versioned data feeds an orchestrated model-building pipeline that batch-trains, evaluates, and validates models. The resulting models are deployed as multiple concurrent microservice versions, enabling A/B testing, with MLOps tracking usage, inputs, outputs, interpretability, and fairness in production. Trade-off: This provides reproducibility, automation, controlled comparisons, and rich oversight, but requires substantial orchestration, feature-store, version-management, and monitoring infrastructure, plus added operational complexity and storage for concurrent models and tracked data.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.9",
+        "v:27.2"
+      ],
+      "description": "A feature store and versioned data repository support batch training, while CI/CD tests trained-model quality and deploys multiple model versions. Predictions are served through a hybrid online/offline architecture, with production usage, inputs, outputs, interpretability, and fairness tracked. Trade-off: This gains reproducibility, deployment flexibility, and operational visibility, but batch learning may reduce responsiveness to new data and maintaining multiple versions increases complexity. The \u201cNo MLOps\u201d choice conflicts with the selected CI/CD, tracking, versioning, and feature-store practices, which are characteristic MLOps capabilities.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:5.2",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.9",
+        "v:27.2"
+      ],
+      "description": "A batch-trained model uses versioned data and a feature store, is tested for quality, and served through a local real-time API. A CI/CD pipeline deploys it, with production tracking and rollback to the previous model version when needed. Trade-off: This gains reproducibility, operational recovery, and visibility into model behavior, but gives up MLOps-specific coordination and automation despite using CI/CD, potentially leaving model lifecycle practices less comprehensive. The \u201cNo MLOps\u201d choice conflicts somewhat with CI/CD for ML because it rejects the broader discipline that the pipeline supports.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "description": "1. A batch-trained model uses a feature store and versioned data repository, then is deployed as a real-time prediction microservice through a CI/CD pipeline. Production usage, inputs, outputs, interpretability, fairness, and service performance are tracked, while a previous model version can be redeployed and activated if needed. 2. Trade-off: This provides reproducible data, automated delivery, operational visibility, and rapid rollback. It gives up continuously updated learning and the broader coordination, automation, and governance typically associated with MLOps, while batch retraining may leave the model less responsive to changing data.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if local real-time serving, batch retraining and rollback keep operations focused while versioning and tracking support audits?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if an orchestrated microservice and concurrent models maximize experimentation and automation?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if hybrid serving, a feature store and multiple versions balance online scoring with offline lifecycle work?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if a feature store and explicit tracking pair with batch updates and rollback, without MLOps?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.2",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "hypothesis": "Local real-time serving and general feature storage should support scoring, while performance tests target latency and batch updates keep operations manageable.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.2",
+        "v:8.3",
+        "v:10.1",
+        "v:11.1",
+        "v:22.2",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "hypothesis": "Incremental updates, versioned data and A/B tests should favor adaptation and candidate comparison, at higher team cost.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1",
+            "v:27.1"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.3",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Hybrid serving and training plus a feature store should balance scoring and adaptation, while tracking helps auditability.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:27.1"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:18.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "hypothesis": "Add an automated build pipeline and dedicated data versioning to improve repeatability, lineage and retraining.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:8.3",
+        "v:10.1",
+        "v:11.1",
+        "v:22.2",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Replace incremental learning with batch learning and automate candidate build and validation to reduce update risk.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1",
+            "v:27.1"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.3",
+        "v:27.2"
+      ],
+      "hypothesis": "Use batch retraining while retaining hybrid serving and comparisons; omit MLOps to ease the staffing burden.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "hypothesis": "What if a feature store and tracking are paired with local serving, batch learning, rollback and no MLOps?",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:19.1",
+        "v:18.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.9",
+        "v:27.2"
+      ],
+      "hypothesis": "Add trained-model quality testing to the automated build pipeline while retaining rollback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:18.1",
+        "v:8.3",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "hypothesis": "Use A/B tests and production tracking to strengthen candidate comparison and traceability.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1",
+            "v:27.1"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:22.4",
+        "v:26.9",
+        "v:27.2"
+      ],
+      "hypothesis": "Test trained-model quality while retaining hybrid serving and multiple versions.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:5.2",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.9",
+        "v:27.2"
+      ],
+      "hypothesis": "Add trained-model quality testing to the local service and feature-store option.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 11,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:19.1",
+        "v:8.1",
+        "v:10.2",
+        "v:11.1",
+        "v:22.4",
+        "v:26.13",
+        "v:27.2"
+      ],
+      "hypothesis": "Switch the local API to a real-time microservice while keeping batch updates, rollback and no MLOps.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1",
+            "v:27.2"
+          ],
+          "gains": [
+            "R1",
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "note": "Real-time serving and model lifecycle choices support scoring and updates; the selected values do not establish numeric capacity, failure fallback, PCI placement, long-term lineage retention or staffing effort."
+        }
+      ],
+      "observation": "ddspace point accepted this combination without warnings; no source attests it. The generated description identifies the operational trade-off. Latency, failure behavior, PCI deployment location and lineage retention remain unproven.",
+      "rating": "mixed",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Lean local scorer",
+      "summary": "A local API, batch training, CI/CD, rollback, versioned data and production tracking favor a focused operating footprint; numeric targets still need validation.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Serving type does not establish the 15,000 TPS or p99 latency target."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Feature persistence only partially represents recent-activity access and feature consistency."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "R3",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Deployment or rollback does not itself identify the model used for each historical score."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Data versioning does not guarantee retained score-to-training-data lineage for 13 months."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Tracking is a proxy for retaining exact inputs and model versions for the full audit period."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Testing does not ensure comparison on recent transactions within 48 hours."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.2",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "MLOps adoption only approximates staffing burden; the value does not specify effort for seven people."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.13",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Kept performance testing over this point\u2019s generic model-quality test because peak scoring latency is a stated target."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Set aside code-repository versioning for the dedicated data-version repository."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:5",
+          "reason": "The space does not decide failure fallback behavior."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature access."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery choices affect data-versioning outcomes."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Orchestrated challenger",
+      "summary": "A feature store and orchestrated microservice run concurrent versions with A/B tests, giving richer experimentation at higher operating cost.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Serving type does not establish the 15,000 TPS or p99 latency target."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Feature persistence only partially represents recent-activity access and feature consistency."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "R3",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Deployment or rollback does not itself identify the model used for each historical score."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Data versioning does not guarantee retained score-to-training-data lineage for 13 months."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Tracking is a proxy for retaining exact inputs and model versions for the full audit period."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Testing does not ensure comparison on recent transactions within 48 hours."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "MLOps adoption only approximates staffing burden; the value does not specify effort for seven people."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Set aside incremental learning in favor of batch candidate builds that can be compared before release."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chose model tracking over general prediction logging for audit context."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature access."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery choices affect data-versioning outcomes."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Hybrid controlled release",
+      "summary": "Hybrid serving uses feature-store features and versioned batch models with quality testing and production tracking.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Serving type does not establish the 15,000 TPS or p99 latency target."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Feature persistence only partially represents recent-activity access and feature consistency."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "R3",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Deployment or rollback does not itself identify the model used for each historical score."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Data versioning does not guarantee retained score-to-training-data lineage for 13 months."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Tracking is a proxy for retaining exact inputs and model versions for the full audit period."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Testing does not ensure comparison on recent transactions within 48 hours."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.2",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "MLOps adoption only approximates staffing burden; the value does not specify effort for seven people."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Set aside hybrid incremental training to reduce lifecycle complexity."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Set aside MLOps to reduce the specialized operating burden."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.3",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Chose trained-model quality tests in this final member."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature access."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery choices affect data-versioning outcomes."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Tracked service with rollback",
+      "summary": "A feature store and versioned batch process feed a local real-time service; tracking, quality tests and rollback support controlled operation without MLOps.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Serving type does not establish the 15,000 TPS or p99 latency target."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Feature persistence only partially represents recent-activity access and feature consistency."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "R3",
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Deployment or rollback does not itself identify the model used for each historical score."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Data versioning does not guarantee retained score-to-training-data lineage for 13 months."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Tracking is a proxy for retaining exact inputs and model versions for the full audit period."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "Testing does not ensure comparison on recent transactions within 48 hours."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.2",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Chosen as part of this evaluated combination to support these drivers.",
+          "fit": "approximate",
+          "fit_note": "MLOps adoption only approximates staffing burden; the value does not specify effort for seven people."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Kept local serving over a microservice to limit operating components."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.13",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Chose trained-model quality testing over service performance testing in this final member."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature access."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery choices affect data-versioning outcomes."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Real-time serving and feature access",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Scores must use recent cardholder activity before authorization at seasonal peak. The space offers local, microservice and hybrid serving and two feature-storage choices, but it does not specify capacity, latency budgets or failure fallback.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Local API and general stores",
+          "values": [
+            "v:5.2",
+            "v:4.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O2",
+          "name": "Microservice and feature store",
+          "values": [
+            "v:5.1",
+            "v:4.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid serving and feature store",
+          "values": [
+            "v:5.5",
+            "v:4.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O4",
+          "name": "Local API and feature store",
+          "values": [
+            "v:5.2",
+            "v:4.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Model training and delivery workload",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2"
+      ],
+      "context": "Delayed confirmed labels must feed retraining, and a candidate should be compared before promotion within 48 hours. Automation shortens the path, while seven people must maintain it without a platform team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Batch build with CI/CD",
+          "values": [
+            "v:19.1",
+            "v:18.1",
+            "v:8.1",
+            "v:27.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O2",
+          "name": "Batch orchestrated MLOps",
+          "values": [
+            "v:19.1",
+            "v:18.1",
+            "v:8.3",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O3",
+          "name": "Batch CI/CD with no MLOps",
+          "values": [
+            "v:19.1",
+            "v:8.1",
+            "v:27.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O4",
+          "name": "Batch CI/CD with feature store",
+          "values": [
+            "v:19.1",
+            "v:8.1",
+            "v:27.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Candidate comparison and deployment",
+      "drivers": [
+        "Q4",
+        "R3"
+      ],
+      "context": "A new model must be compared before promotion, and historic scores need a model-version association. The space includes concurrent deployment, rollback and testing, but no explicit score-level model registry decision.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Rollback and quality testing",
+          "values": [
+            "v:10.2",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O2",
+          "name": "Concurrent models and A/B tests",
+          "values": [
+            "v:10.1",
+            "v:26.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O3",
+          "name": "Concurrent models and quality tests",
+          "values": [
+            "v:10.1",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Score and training-data traceability",
+      "drivers": [
+        "R3",
+        "Q3"
+      ],
+      "context": "Auditors need the model version, exact inputs and training data for a score up to 13 months old. Data versioning and production tracking are available, but retention duration and score-level lineage are not specified.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Versioned data and production tracking",
+          "values": [
+            "v:11.1",
+            "v:22.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        },
+        {
+          "id": "O2",
+          "name": "Versioned data and production tracking",
+          "values": [
+            "v:11.1",
+            "v:22.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Supports the alternative\u2019s serving or lifecycle drivers."
+          ],
+          "cons": [
+            "Capacity or operational effort is not established by the design space."
+          ],
+          "reason": "Chosen as part of this evaluated alternative."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "Serving choices do not decide failure detection, fallback scores or authorization bypass during source outages."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "Storage choices do not define the PCI boundary, deployment location or data residency."
+    }
+  ]
+}

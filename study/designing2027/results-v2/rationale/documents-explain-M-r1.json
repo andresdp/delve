@@ -1,0 +1,260 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "Classify every incoming document into a claim type, with a confidence."},
+      {"id": "R2", "kind": "functional", "text": "Deliver the results to the three consuming teams."},
+      {"id": "R3", "kind": "functional", "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."},
+      {"id": "Q1", "kind": "quality", "attribute": "throughput and scalability", "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."},
+      {"id": "Q2", "kind": "quality", "attribute": "observability", "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."},
+      {"id": "Q3", "kind": "quality", "attribute": "cost", "text": "The classification costs less than 0.2 cents per document on average over the year."},
+      {"id": "Q4", "kind": "quality", "attribute": "loose coupling", "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."},
+      {"id": "C1", "kind": "constraint", "text": "The documents contain personal data and may not leave the EU."},
+      {"id": "C2", "kind": "constraint", "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."}
+    ]
+  },
+  "budget": {"max_points": 8},
+  "points": [
+    {
+      "id": "P1",
+      "values": ["v:21.4", "v:25.2", "v:26.6", "v:31.1", "v:6.13", "v:13.1", "v:20.1"],
+      "description": "The system ingests source events through messaging channels into ML workflows, while asynchronous queues connect components and elastically scale resources. A queue-fronted, containerized serving cluster delivers online predictions; humans review operation, candidate models undergo offline held-out evaluation, and versioned artifacts support reproducible deployment and reuse. Trade-off: This design improves decoupling, throughput, responsiveness to demand, operational oversight, and reproducibility. It adds queueing and infrastructure complexity, while offline evaluation and human review can delay adaptation and may not reveal changing production behavior.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": ["v:21.4", "v:25.2", "v:26.6", "v:31.1"],
+      "description": "Source events enter through messaging channels and are processed asynchronously, decoupling ingestion from downstream training and serving work. Queue-fronted, containerized predictors consume requests across an elastic compute pool, scaling with demand to sustain throughput and low latency. Trade-off: This improves buffering, workload isolation, availability, and resource efficiency under variable demand. It adds queueing and coordination overhead, potentially delaying predictions, and increases operational complexity around asynchronous processing and message handling.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": ["v:21.4", "v:25.2", "v:26.2", "v:31.1"],
+      "description": "Source events enter through messaging channels and are processed asynchronously, while a queue fronts containerized online predictors for load balancing and decoupled request handling. Predictor capacity can scale to zero during idle periods and restart when queued demand arrives, reducing serving cost. Trade-off: This gains elasticity, buffering, throughput, and cost efficiency, but scale-to-zero can introduce cold-start latency and queued-request backlogs. The design also increases operational complexity in coordinating queues, message flow, and predictor availability.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": ["v:6.13"],
+      "description": "Human reviewers oversee deployed model predictions, examining outputs and intervening when they judge a correction or additional review is needed. The system therefore combines automated operation with human decisions during production. Trade-off: This adds contextual judgment, accountability, and a channel for catching problematic predictions. It gives up some automation efficiency and consistency, while requiring ongoing reviewer effort and potentially slowing responses.",
+      "attested_by": ["s:s1", "s:s4", "s:s20", "s:s21", "s:s22", "s:s23", "s:s24"]
+    },
+    {
+      "id": "P5",
+      "values": ["v:6.4"],
+      "description": "The deployed system serves predictions in production without actively monitoring prediction quality, data shifts, or resource behavior. Model-development actions are therefore not automatically triggered by post-deployment observations. Trade-off: This minimizes monitoring infrastructure, operational effort, and intervention during routine operation. It gives up early detection of degraded performance, changing inputs, or resource problems, allowing issues to persist unnoticed.",
+      "attested_by": ["s:s13", "s:s21", "s:s23"]
+    },
+    {
+      "id": "P6",
+      "values": ["v:13.1"],
+      "description": "Candidate models are evaluated offline against held-out examples with known true values. The resulting quality comparisons guide which model is selected for deployment. Trade-off: This provides objective, repeatable pre-deployment regression checks, but may miss production-distribution changes or runtime behavior and depends on representative held-out data with reliable true values.",
+      "attested_by": ["s:s2", "s:s4", "s:s6", "s:s8", "s:s9", "s:s20", "s:s22", "s:s25"]
+    },
+    {
+      "id": "P7",
+      "values": ["v:13.4"],
+      "description": "The system reserves a sampled test set and keeps it unseen while models are selected or tuned. Before promotion, the chosen model is evaluated on this isolated set to estimate generalization and detect regressions without selection bias. Trade-off: This provides a more credible, less data-snooped quality estimate. It reduces data available for development and makes the test set less useful if repeatedly consulted or used to guide subsequent changes.",
+      "attested_by": ["s:s9", "s:s19", "s:s22"]
+    },
+    {
+      "id": "P8",
+      "values": ["v:20.1"],
+      "description": "ML artifacts and their dependencies are stored as managed, versioned assets, allowing deployments to reference known baselines and teams to reuse prior artifacts. Experiment and deployment workflows can use these versions to support reproducibility and governed promotion. Trade-off: This improves traceability, repeatable deployment, and reuse, but requires ongoing version management and storage of artifact dependencies. It may also add process overhead when updating or replacing artifacts.",
+      "attested_by": ["s:s12", "s:s19"]
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": ["v:21.4", "v:25.2", "v:26.6", "v:31.1", "v:6.13", "v:13.1", "v:20.1"],
+      "hypothesis": "The solution combines message-based ingestion, asynchronous delivery, elastic queued inference, human review, pre-promotion prompt checks, and per-result version metadata to meet the functional and operational requirements.",
+      "assessment": {"R1": "meets", "R2": "meets", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "meets", "C1": "meets", "C2": "meets"},
+      "tradeoffs": [
+        {"values": ["v:26.6", "v:31.1"], "gains": ["Q1"], "costs": ["Q3"], "note": "Elastic queued capacity and batching aim to sustain peak throughput, while worker and provider capacity can add cost; the solution gives no measured latency or cost results."},
+        {"values": ["v:6.13"], "gains": ["R3", "Q2"], "costs": ["Q1", "Q3"], "note": "Human review and weekly sampling provide correction and visibility paths, while reviewer effort and review queues consume time and operating capacity."}
+      ],
+      "observation": "The mapped values support decoupled delivery and demand-responsive processing, but ddspace point returns no sources adopting the whole combination. It warns that the point omits Model Serving Interface and ML Workflow Execution Coordination, which the space says are prerequisites for two selected dimensions. The solution states the EU/provider constraints, but those choices have no matching dimension. Its two-hour and per-document cost targets are not measured here; the dashboard's share-of-review alert is only a proxy for quality and triggers on a week-over-week change, not a guaranteed one-day quality measurement.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": ["v:21.4", "v:25.2", "v:26.6", "v:31.1"],
+      "hypothesis": "R2 and Q4 call for message-based, asynchronous delivery to independent consumers; Q1 calls for queueing and worker elasticity under the storm-season backlog.",
+      "assessment": {"R2": "meets", "Q1": "partly", "Q4": "meets"},
+      "tradeoffs": [
+        {"values": ["v:25.2", "v:31.1"], "gains": ["R2", "Q4"], "costs": ["Q1"], "note": "Queues buffer and separate work across consumers, but the service target still depends on processing rates, backlog size, and latency that are not specified."}
+      ],
+      "observation": "The result topic with a consumer group per team directly supports independent consumption. Kafka backlog-based scaling fits variable demand, but the point is unattested as a combination and the tool flags the missing Model Serving Interface prerequisite. The solution does not report a load test proving the two-hour target.",
+      "verdict": "partial",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": ["v:21.4", "v:25.2", "v:26.2", "v:31.1"],
+      "hypothesis": "Does Q1 force elastic resource scaling over the space's scale-to-zero serving alternative?",
+      "assessment": {"Q1": "partly", "Q3": "partly"},
+      "tradeoffs": [
+        {"values": ["v:26.2"], "gains": ["Q3"], "costs": ["Q1"], "note": "Scaling to zero can reduce idle serving cost, but cold starts or queued work may threaten the peak completion deadline."}
+      ],
+      "observation": "The contrast makes the cost/latency tension visible, but neither value has measured results for this workload. Q1 favors keeping capacity responsive and Q3 favors lower idle cost; the requirements do not establish that scale-to-zero cannot meet the deadline, so elastic scaling is not proven forced.",
+      "verdict": "partial",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": ["v:6.13"],
+      "hypothesis": "R3 calls for human oversight of uncertain predictions, and Q2 calls for operators to see class-specific quality problems.",
+      "assessment": {"R3": "meets", "Q2": "partly"},
+      "tradeoffs": [
+        {"values": ["v:6.13"], "gains": ["R3", "Q2"], "costs": ["Q1", "Q3"], "note": "Reviewers supply correction and a signal for operators, while staff review can add turnaround time and recurring labor cost."}
+      ],
+      "observation": "The review queue and corrections directly meet the human-review loop. The dashboard's per-class confidence and review share, alert, and weekly random sample provide some visibility, but the design does not specify a direct accuracy measure per class or guarantee detection within one day. The point is attested by sources on human oversight, though the monitoring dashboard is another practice in the same dimension and is not represented as a second value in this point.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": ["v:6.4"],
+      "hypothesis": "Does R3 require active human oversight rather than passive production operation?",
+      "assessment": {"R3": "misses", "Q2": "misses"},
+      "tradeoffs": [],
+      "observation": "Passive operation neither routes uncertain documents for correction nor gives operators a monitoring signal. Human oversight is forced over this contrast by R3; the contrast alone does not settle whether it must be implemented using this exact review queue or another human-review workflow.",
+      "verdict": "ungrounded",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "region",
+      "parent": 1,
+      "values": ["v:13.1"],
+      "hypothesis": "R3 calls for using reviewer corrections to improve the classifier; checking a new prompt against reviewed documents is the solution's pre-promotion evaluation gate.",
+      "assessment": {"R3": "partly"},
+      "tradeoffs": [],
+      "observation": "The 2,000 reviewed documents provide a repeatable check before changing the prompt. The mapped value concerns evaluation of candidate models, so it only approximately represents prompt validation and does not by itself capture the prompt-example replacement strategy. No accuracy threshold or evaluation result is given.",
+      "verdict": "partial",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "contrast",
+      "parent": 6,
+      "values": ["v:13.4"],
+      "hypothesis": "Could held-out test-set isolation explain the review-correction gate as well as the offline evaluation pipeline?",
+      "assessment": {"R3": "misses"},
+      "tradeoffs": [],
+      "observation": "An isolated test set can reduce evaluation bias, but that value does not describe changing prompt examples using reviewer corrections. This contrast supports keeping the evaluation gate as an approximate fit to v:13.1; it does not make the prompt-update mechanism a decision represented in the space.",
+      "verdict": "ungrounded",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "move": "region",
+      "parent": 1,
+      "values": ["v:20.1"],
+      "hypothesis": "Per-result prompt and model metadata may support traceability, although no stated requirement demands version governance.",
+      "assessment": {"Q2": "partly"},
+      "tradeoffs": [],
+      "observation": "Storing prompt version and model name records production context, but artifact version control only roughly matches metadata attached to classification results. This is a free implementation choice: no requirement calls for it, and the space does not determine that it must be present.",
+      "verdict": "partial",
+      "point": "P8"
+    }
+  ],
+  "regions": [
+    {"id": "G1", "name": "Human correction loop", "step": 4, "drivers": ["R3", "Q2"], "values": ["v:6.13"], "reason": "The review queue and staff corrections satisfy R3 directly. The same operational practice gives Q2 a partial signal through review rates and sampling, but the alert is a proxy and does not establish the one-day detection target."}
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Document classification as built",
+      "summary": "A Kafka-based document pipeline scales workers with backlog, serves results through independent consumer groups, and routes low-confidence documents to review. Prompt checks, monitoring, and result metadata support ongoing operation.",
+      "step": 1,
+      "choices": [
+        {"dimension_id": "d:21", "value_id": "v:21.4", "drivers": ["R1", "Q1"], "forced": null, "reason": "The upload message starts an event-driven ingestion path. The solution uses a message topic directly, though the requirements do not force messaging as the only possible ingestion choice.", "evidence": [{"doc": "s02_p06", "stance": "accepts"}, {"doc": "s15_p03", "stance": "accepts"}], "solution_quote": "each upload puts a message on a Kafka topic."},
+        {"dimension_id": "d:25", "value_id": "v:25.2", "drivers": ["R2", "Q4"], "forced": null, "reason": "Separate consumer groups let each team read at its own pace, which directly supports independent downstream processing. The asynchronous value matches the message-driven design, but the solution omits the dimension's required Model Serving Interface and no evaluated contrast proves this exact communication value is forced.", "evidence": [{"doc": "s07_p01", "stance": "accepts"}, {"doc": "s10_p04", "stance": "accepts"}, {"doc": "s16_p04", "stance": "accepts"}, {"doc": "s16_p05", "stance": "accepts"}], "solution_quote": "Results go to a second Kafka topic. Each consuming team has its own consumer group and reads at its own pace; analytics also loads the topic into the data warehouse every hour."},
+        {"dimension_id": "d:26", "value_id": "v:26.6", "drivers": ["Q1", "Q3"], "forced": null, "reason": "Scaling worker count with backlog is aimed at the storm-season throughput target, while batching aims to control cost. The contrast shows the same cost/latency tension in scale-to-zero but cannot establish whether it meets either numeric target, so this exact value is not proven forced.", "evidence": [{"doc": "s02_p01", "stance": "accepts"}, {"doc": "s04_p02", "stance": "accepts"}, {"doc": "s04_p06", "stance": "accepts"}, {"doc": "s13_p09", "stance": "accepts"}, {"doc": "s13_p10", "stance": "accepts"}, {"doc": "s15_p04", "stance": "accepts"}, {"doc": "s21_p15", "stance": "accepts"}], "solution_quote": "The number of classifier workers scales with the length of the Kafka topic's backlog, from 4 to 120."},
+        {"dimension_id": "d:31", "value_id": "v:31.1", "drivers": ["R1", "Q1"], "forced": null, "fit": "approximate", "fit_note": "The value describes containerized online predictors behind a queue. The solution has Kubernetes workers consuming Kafka and making provider calls, but its document workflow is asynchronous and does not expose an online prediction cluster as described by the value.", "reason": "A queue and distributed workers are a rough match to the queue-fronted serving pattern and address classification at scale. The exact serving interface and two-hour throughput evidence are not in the design.", "evidence": [{"doc": "s02_p11", "stance": "accepts"}, {"doc": "s02_p13", "stance": "accepts"}, {"doc": "s12_p07", "stance": "accepts"}, {"doc": "s19_p15", "stance": "accepts"}], "solution_quote": "A classifier service, running on Kubernetes, sends the text to the approved provider's LLM in its EU region."},
+        {"dimension_id": "d:6", "value_id": "v:6.13", "drivers": ["R3", "Q2"], "forced": true, "reason": "Human oversight is required by the uncertain-document review and correction loop. The passive-operation contrast misses both correction and visibility, though it does not distinguish this queue implementation from other active review workflows.", "evidence": [{"doc": "s01_p06", "stance": "accepts"}, {"doc": "s04_p05", "stance": "accepts"}, {"doc": "s20_p02", "stance": "accepts"}, {"doc": "s21_p02", "stance": "accepts"}, {"doc": "s22_p11", "stance": "accepts"}, {"doc": "s23_p09", "stance": "accepts"}, {"doc": "s23_p11", "stance": "accepts"}, {"doc": "s23_p13", "stance": "accepts"}, {"doc": "s24_p01", "stance": "accepts"}, {"doc": "s24_p08", "stance": "accepts"}, {"doc": "s24_p10", "stance": "accepts"}, {"doc": "s24_p11", "stance": "accepts"}], "solution_quote": "Documents with a confidence below 0.7 go to a review queue in a labelling tool, where claims staff correct the claim type."},
+        {"dimension_id": "d:13", "value_id": "v:13.1", "drivers": ["R3"], "forced": null, "fit": "approximate", "fit_note": "The value covers held-out evaluation of candidate models; the solution checks a new prompt against reviewed documents. It does not represent prompt-example replacement or a full model evaluation pipeline.", "reason": "Reviewers' corrections feed prompt updates, and the new prompt is checked on reviewed examples before use. The requirement supports an evaluation gate but does not force this specific workflow.", "evidence": [{"doc": "s02_p09", "stance": "accepts"}, {"doc": "s04_p15", "stance": "accepts"}, {"doc": "s06_p08", "stance": "accepts"}, {"doc": "s08_p02", "stance": "accepts"}, {"doc": "s09_p04", "stance": "accepts"}, {"doc": "s20_p03", "stance": "accepts"}, {"doc": "s20_p09", "stance": "accepts"}, {"doc": "s22_p08", "stance": "accepts"}, {"doc": "s25_p09", "stance": "accepts"}], "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it."},
+        {"dimension_id": "d:20", "value_id": "v:20.1", "drivers": ["Q2"], "forced": false, "fit": "approximate", "fit_note": "The value is artifact version control; the solution stores prompt version and model name alongside each result, but does not say it versions managed artifacts or their dependencies.", "reason": "Version metadata can help trace Q2 issues to a prompt and model, but no requirement makes this exact metadata practice necessary. It is free and only roughly fits artifact version control.", "evidence": [{"doc": "s12_p05", "stance": "accepts"}, {"doc": "s19_p05", "stance": "accepts"}], "solution_quote": "Every result is stored with the prompt version and the model name that produced it."}
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {"source": "d:21", "target": "d:6", "type": "affects", "holds": true},
+        {"source": "d:13", "target": "d:32", "type": "requires", "holds": false},
+        {"source": "d:25", "target": "d:29", "type": "requires", "holds": false}
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Queue-based ingestion, inference, and result delivery",
+      "drivers": ["R1", "R2", "Q1", "Q3", "Q4"],
+      "context": "The system must classify a large, variable stream of documents and deliver results so that three teams can consume them independently. Peak throughput and loose coupling matter, but the solution provides no measured service-level results.",
+      "options": [
+        {"id": "O1", "name": "Kafka ingestion, asynchronous workers, and independent consumers", "values": ["v:21.4", "v:25.2", "v:26.6", "v:31.1"], "status": "chosen", "in": ["S"], "step": 2, "fit": "approximate", "fit_note": "v:31.1 roughly matches a queue-fronted worker cluster but describes online predictors; this implementation consumes Kafka documents asynchronously and calls an external LLM.", "pros": ["Backlog-based scaling responds to load variation.", "Separate consumer groups support independent team processing.", "Queueing decouples ingestion, classification, and result consumption."], "cons": ["The design does not demonstrate the two-hour target at eight million documents per day.", "Queue and worker capacity add operating cost and complexity.", "The point leaves the required model serving interface unspecified."], "reason": "Chosen for its direct fit with message-based delivery and variable-volume processing. Requirements support the queue and elasticity direction, but do not prove this exact serving form is necessary or that its numeric targets are met."},
+        {"id": "O2", "name": "Scale-to-zero serving", "values": ["v:21.4", "v:25.2", "v:26.2", "v:31.1"], "status": "discarded", "step": 3, "pros": ["Can reduce cost while serving capacity is idle."], "cons": ["Cold starts and queued backlogs could threaten the peak completion target."], "reason": "The contrast makes the cost and response-time tension explicit, but evidence in this problem is insufficient to establish that it would fail either target."}
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Human review and operational visibility",
+      "drivers": ["R3", "Q2"],
+      "context": "Uncertain classifications need correction, and operators need a timely class-specific signal when quality changes. The solution uses low confidence to route work to claims staff and surfaces review rates and confidence by claim type.",
+      "options": [
+        {"id": "O1", "name": "Human oversight of deployed classifications", "values": ["v:6.13"], "status": "chosen", "in": ["S"], "step": 4, "pros": ["Provides a direct way to correct uncertain classifications.", "Reviewer corrections supply examples for subsequent prompt updates."], "cons": ["Requires staff time and may extend turnaround for reviewed documents.", "The dashboard's review-rate alert is a proxy and does not prove one-day detection of a quality drop."], "reason": "Human oversight is forced over passive operation by R3. The exact queue and 0.7 threshold are design choices, and Q2's deadline remains only partly supported."},
+        {"id": "O2", "name": "Passive production operation", "values": ["v:6.4"], "status": "discarded", "step": 5, "pros": ["Avoids recurring reviewer and monitoring effort."], "cons": ["Does not route uncertain documents for correction or provide operators a detection signal."], "reason": "It misses the human-review requirement and is inconsistent with the solution's review and monitoring workflow."}
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Validate prompt changes before activation",
+      "drivers": ["R3"],
+      "context": "Reviewer corrections should improve classification, and the team checks a new prompt on reviewed examples before using it. The design space offers model evaluation alternatives, not a prompt-tuning strategy.",
+      "options": [
+        {"id": "O1", "name": "Offline evaluation before switching", "values": ["v:13.1"], "status": "chosen", "in": ["S"], "step": 6, "fit": "approximate", "fit_note": "This model-evaluation value only roughly matches checking a revised LLM prompt against reviewed documents.", "pros": ["Adds a pre-activation check against reviewed examples.", "Can catch a regression before the new prompt is used."], "cons": ["No acceptance threshold or measured result is specified.", "Does not represent the prompt-example update mechanism itself."], "reason": "The requirement supports using corrections and checking a change, but the particular monthly cadence and example-replacement approach are not forced by the design space."},
+        {"id": "O2", "name": "Held-out test-set isolation", "values": ["v:13.4"], "status": "discarded", "step": 7, "pros": ["Can reduce data snooping when estimating performance."], "cons": ["Does not describe feedback-driven prompt updates or reviewer correction use."], "reason": "This contrast does not explain the correction loop in R3."}
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Retain prompt and model identity with results",
+      "drivers": ["Q2"],
+      "context": "The solution stores the prompt version and model name with each result. This can help operators trace a classification issue to the prompt and model in use, although the space only approximately represents it as artifact version control.",
+      "options": [
+        {"id": "O1", "name": "Store version metadata with each result", "values": ["v:20.1"], "status": "chosen", "in": ["S"], "step": 8, "fit": "approximate", "fit_note": "The implementation records per-result prompt and model metadata but does not describe managed versioning of artifacts and dependencies.", "pros": ["Makes it easier to identify which prompt and model produced an output."], "cons": ["Requires metadata retention and consistent version identifiers."], "reason": "This is a free traceability choice that can help investigate Q2, but no requirement forces it."}
+      ]
+    }
+  ],
+  "uncovered": [
+    {"decision": "Which LLM or model family performs the 60-class classification, including selection of the approved provider's model.", "solution_quote": "A classifier service, running on Kubernetes, sends the text to the approved provider's LLM in its EU region.", "nearest_dimension_id": "d:27"},
+    {"decision": "Where EU-only data is stored and which provider region receives the LLM requests.", "solution_quote": "Incoming documents land in an object storage bucket in the EU region, and each upload puts a message on a Kafka topic." , "nearest_dimension_id": "d:30"},
+    {"decision": "The confidence threshold and prompt-example update strategy used to route review and adapt classification.", "solution_quote": "Documents with a confidence below 0.7 go to a review queue in a labelling tool, where claims staff correct the claim type. Every month the team replaces the prompt's examples with recent corrected documents", "nearest_dimension_id": "d:28"}
+  ],
+  "unaddressed": [
+    {"requirement": "C1", "reason": "no_dimension", "nearest_dimension_id": "d:30", "note": "The solution keeps documents in an EU storage region, but the design space has no decision about regional placement or a requirement that personal data remain in the EU."},
+    {"requirement": "C2", "reason": "no_dimension", "nearest_dimension_id": "d:30", "note": "The solution uses the approved provider's EU region, but the design space has no decision about provider approval or LLM endpoint region."}
+  ]
+}
