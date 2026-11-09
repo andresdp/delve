@@ -1,9 +1,10 @@
-"""The design rationale file (``ddspace-rationale/5``) and its checker, with no ``jsonschema`` dependency.
+"""The design rationale file (``ddspace-rationale/6``) and its checker, with no ``jsonschema`` dependency.
 
 A dimension is a design concern, a value one option for it, and a design point a set of values, at most one per
 dimension. A coding agent writes one rationale file per problem, with the ``trajectory`` of design points it
 evaluated (at most ``budget.max_points``). Each step records its ``hypothesis``, its ``assessment`` (``meets``,
-``partly`` or ``misses`` per requirement) and its ``observation``.
+``partly`` or ``misses`` per requirement), its ``tradeoffs`` against the requirements (each ``gains`` some
+requirements at the ``costs`` of others, with a ``note``) and its ``observation``.
 
 *Search* works in rounds over ``approaches`` (each a "what if" idea, ``live`` or ``dropped``): its steps
 (``seed``, ``exploit``, ``explore``, ``ablate``) carry a ``round``, an ``approach`` and a ``rating`` (``strong``,
@@ -16,7 +17,9 @@ decisions a wiki has no dimension for.
 
 Every design point the agent evaluated is recorded once in ``points`` (``P1``, ``P2``, ...: its values, its
 description and the sources that attest it); a step names its point by id, so a point evaluated again is reused,
-not described again, and a description is changed in one place.
+not described again, and a description is changed in one place. A description comes from ``ddspace point``, also
+without a space, and ends with the point's own trade-off ("Trade-off: ..."): what the combination of values gains
+and gives up, whatever the requirements.
 
 Both modes describe their solution(s) as ``adrs``: architecture decision records, each addressing a few related
 requirements (``drivers``) with ``options``, partial design points that are ``chosen`` (``in`` the alternatives
@@ -48,7 +51,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from taxonomy_generator.wiki import query as q
 
-SCHEMA = "ddspace-rationale/5"
+SCHEMA = "ddspace-rationale/6"
 MODES = ("search", "explain")
 SEARCH_ALTERNATIVES = (2, 4)
 EXPLAIN_ID = "S"
@@ -66,7 +69,8 @@ SAME_APPROACH_MOVES = ("exploit", "ablate")           # a search step that stays
 MAX_POINTS = {"search": 20, "explain": 12}     # the most design points a mode may evaluate
 DEFAULT_POINTS = {"search": 12, "explain": 8}  # what the skills set when the user names no budget
 REGIONS = (1, 3)
-WARNINGS = ("unmet_requires", "graph_changed", "unused_point", "no_explore", "early_stop")
+WARNINGS = ("unmet_requires", "graph_changed", "unused_point", "no_explore", "early_stop", "missing_tradeoff",
+            "undescribed_point")
 RATING_ORDER = {"weak": 1, "mixed": 2, "strong": 3}   # to tell whether a step improved its approach
 ASSESSMENT_SCORE = {"misses": 0, "partly": 1, "meets": 2}
 
@@ -83,7 +87,8 @@ _TOP: _Spec = {"schema": ("text", True), "id": ("text", True), "mode": ("text", 
 _BUDGET: _Spec = {"max_points": ("integer", True)}
 _STEP: _Spec = {"step": ("integer", True), "move": ("text", True), "parent": ("integer|null", False),
                 "values": ("list", True), "hypothesis": ("string", True), "assessment": ("object", True),
-                "observation": ("string", True), "point": ("text", True)}
+                "observation": ("string", True), "point": ("text", True), "tradeoffs": ("list", True)}
+_TRADEOFF: _Spec = {"gains": ("list", True), "costs": ("list", True), "note": ("text", True)}
 _SEARCH_STEP: _Spec = {"round": ("integer", True), "approach": ("text", True), "rating": ("text", True)}
 _EXPLAIN_STEP: _Spec = {"verdict": ("text", True)}
 _APPROACH: _Spec = {"id": ("text", True), "idea": ("text", True), "status": ("text", True),
@@ -459,6 +464,39 @@ def _assessment(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], re
             c.add("schema", path, f"a requirement is judged {', '.join(ASSESSMENTS)}, got {json.dumps(judged)}")
 
 
+def _tradeoffs(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], requirements: set) -> None:
+    """Check a step's trade-offs against the requirements: each gains some requirements at the cost of others.
+
+    A gain is not judged ``misses`` and a cost not ``meets`` in the step's assessment (``tradeoff_mismatch``). A
+    step that meets some requirements and not others without naming a trade-off gets ``missing_tradeoff``.
+    """
+    assessment = step.get("assessment") if isinstance(step.get("assessment"), dict) else {}
+    tradeoffs = c.items(step, "tradeoffs")
+    for k, item in enumerate(tradeoffs):
+        here = (*parts, "tradeoffs", k)
+        if not c.fields(item, here, _TRADEOFF):
+            continue
+        sides = {}
+        for side, wrong in (("gains", "misses"), ("costs", "meets")):
+            ids = c.items(item, side)
+            if not ids:
+                c.add("schema", pointer(*here, side), f"a trade-off names the requirements it {side[:-1]}s "
+                                                      f"({side}: at least one requirement id)")
+            for m, rid in enumerate(ids):
+                _unknown_requirement(c, rid, pointer(*here, side, m), requirements)
+                if assessment.get(rid) == wrong:
+                    c.add("tradeoff_mismatch", pointer(*here, side, m),
+                          f"'{rid}' is in {side}, but the step judges it {wrong}")
+            sides[side] = {r for r in ids if isinstance(r, str)}
+        both = sides.get("gains", set()) & sides.get("costs", set())
+        if both:
+            c.add("tradeoff_mismatch", pointer(*here), f"{', '.join(sorted(both))} cannot be both a gain and a cost")
+    judged = set(assessment.values())
+    if isinstance(step.get("tradeoffs"), list) and not tradeoffs and "meets" in judged and judged - {"meets"}:
+        c.add("missing_tradeoff", pointer(*parts, "tradeoffs"),
+              "the point meets some requirements and not others: name what it gains and what it gives up (tradeoffs)")
+
+
 def _point_values(c: _Checker, values: List[Any], parts: Tuple[Any, ...], owner: str) -> Optional[frozenset]:
     """Check a design point's ``values`` (value ids); return its key, the set of canonical value ids.
 
@@ -575,6 +613,7 @@ def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: se
         if mode == "search":
             last_round = _search_step(c, step, parts, approaches, parent_entry, last_round)
         _assessment(c, step, parts, requirements)
+        _tradeoffs(c, step, parts, requirements)
         key = _point_values(c, c.items(step, "values"), (*parts, "values"), f"step {i + 1}")
         if c.good(step, "step", "integer") and number == i + 1:
             steps[number] = {"step": step, "key": key}
@@ -848,6 +887,10 @@ def _points(c: _Checker, doc: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
                   "instead of evaluating and describing it again", [by_key[key]])
         elif key is not None:
             by_key[key] = item["id"]
+        description = item.get("description")
+        if description is None or (isinstance(description, str) and not description.strip()):
+            c.add("undescribed_point", pointer(*parts, "description"),
+                  f"point '{item['id']}' has no description: describe it with ddspace point")
         found[item["id"]] = {"point": item, "key": key}
     return found
 

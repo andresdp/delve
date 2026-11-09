@@ -67,9 +67,9 @@ def _no_space(case_id="kv-store"):
     choice = {"dimension_id": "Storage", "value_id": "Storage: Local disks", "drivers": ["Q1"], "reason": "Survives a node failure."}
     other = {"dimension_id": "Storage", "value_id": "Storage: Log in S3", "drivers": ["Q1"], "reason": "S3 is already there."}
     step = lambda n, approach, c: {"step": n, "round": 1, "approach": approach, "move": "seed",  # noqa: E731
-                                   "values": [c["value_id"]], "hypothesis": "h", "assessment": {"Q1": "meets"},
+                                   "values": [c["value_id"]], "hypothesis": "h", "assessment": {"Q1": "meets"}, "tradeoffs": [],
                                    "observation": "o", "rating": "strong", "point": f"P{n}"}
-    return {"schema": "ddspace-rationale/5", "id": case_id, "mode": "search",
+    return {"schema": "ddspace-rationale/6", "id": case_id, "mode": "search",
             "space": None,
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No committed write is lost."}]},
             "budget": {"max_points": 2},
@@ -90,7 +90,7 @@ def _no_space(case_id="kv-store"):
 
 def _with_space(uncovered=()):
     """An explain file with ids, a passage, a source and uncovered items (not checked against a graph here)."""
-    return {"schema": "ddspace-rationale/5", "id": "kv-explain", "mode": "explain",
+    return {"schema": "ddspace-rationale/6", "id": "kv-explain", "mode": "explain",
             "space": {"workspace": "c1", "run": "r", "graph_sha256": "abc"},
             "problem": {"title": "A store", "requirements": [{"id": "Q1", "text": "No write is lost."}]},
             "alternatives": [{"id": "S", "name": "The solution", "choices": [
@@ -101,7 +101,7 @@ def _with_space(uncovered=()):
                  "solution_quote": "a quorum", "forced": None}], "step": 1}],
             "budget": {"max_points": 8},
             "trajectory": [{"step": 1, "move": "solution", "values": ["v:1.1", "v:2.10"], "hypothesis": "h",
-                            "assessment": {"Q1": "meets"}, "observation": "o", "verdict": "grounded",
+                            "assessment": {"Q1": "meets"}, "tradeoffs": [], "observation": "o", "verdict": "grounded",
                             "point": "P1"}],
             "points": [{"id": "P1", "values": ["v:1.1", "v:2.10"], "description": None, "attested_by": ["s:s1"]}],
             "regions": [{"id": "G1", "name": "g", "values": ["v:1.1"], "step": 1, "drivers": ["Q1"], "reason": "r"}],

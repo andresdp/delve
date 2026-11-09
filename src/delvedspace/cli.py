@@ -1034,22 +1034,30 @@ def point(
     values: List[str] = typer.Argument(..., help="The values to combine, one per dimension: a value's id or label, "
                                        "or Dimension=Value when the label is not unique."),
     no_llm: bool = typer.Option(False, "--no-llm", help="Only the checks; no description is generated."),
-    model: Optional[str] = typer.Option(None, "--model", help="Model for the description "
-                                        "(default: the one that wrote the wiki's descriptions)."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model for the description (default: the one that "
+                                        "wrote the wiki's descriptions; with --no-space, DDSPACE_POINT_MODEL)."),
+    no_space: bool = typer.Option(False, "--no-space", help="No design space: the values are your own "
+                                  "'Dimension: Value' names, and only the description is generated."),
+    domain: str = typer.Option("", "--domain", help="With --no-space: what the system is, for the description."),
     graph: Optional[Path] = query_cli.GraphOpt,
     table: bool = query_cli.TableOpt,
 ) -> None:
     """Interpret a design point (one value per dimension). Returns the wiki's description when it has this point,
-    else generates one with one LLM call. Nothing is stored; the design space and the wiki do not change."""
+    else generates one with one LLM call; the description ends with the point's trade-off. Nothing is stored; the
+    design space and the wiki do not change."""
     from delvedspace import point as pt
 
-    path = query_cli._graph_path(graph)
+    def run():
+        if no_space:
+            return pt.named_point(values, domain=domain, llm=not no_llm, model_override=model)
+        return pt.point(query_cli._graph_path(graph), values, llm=not no_llm, model_override=model)
+
     try:
         if table:
             with ui.status("Describing the design point..." if not no_llm else "Checking the design point..."):
-                data = pt.point(path, values, llm=not no_llm, model_override=model)
+                data = run()
         else:
-            data = pt.point(path, values, llm=not no_llm, model_override=model)
+            data = run()
     except q.NotFound as exc:
         query_cli.err.print(f"[red]✗ Not found:[/red] {escape(str(exc))}")
         if not table:
@@ -1061,15 +1069,18 @@ def point(
         typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
         return
     ui.table("Design point", ["dimension", "value", "status"],
-             [[escape(v["dimension"]), escape(v["label"]), v["status"]] for v in data["values"]])
-    ex = data["existing"]
-    ui.note(f"In the wiki as {ex['label']} ({ex['group']})" if ex else "Not one of the wiki's design points")
-    ui.note("Attested by " + (", ".join(escape(str(s["label"])) for s in data["attested_by"]) if data["attested_by"]
-                              else "no source: no source adopts every value (novel)"))
-    for r in data["relations"]:
-        ui.note(escape(r["reading"]))
-    for w in data["warnings"]:
-        ui.warn(escape(w))
+             [[escape(v["dimension"]), escape(v["label"]), v.get("status") or ""] for v in data["values"]])
+    if no_space:
+        ui.note("No design space: the values are your own names, so nothing was checked")
+    else:
+        ex = data["existing"]
+        ui.note(f"In the wiki as {ex['label']} ({ex['group']})" if ex else "Not one of the wiki's design points")
+        ui.note("Attested by " + (", ".join(escape(str(s["label"])) for s in data["attested_by"])
+                                  if data["attested_by"] else "no source: no source adopts every value (novel)"))
+        for r in data["relations"]:
+            ui.note(escape(r["reading"]))
+        for w in data["warnings"]:
+            ui.warn(escape(w))
     if data["description"]:
         from rich.panel import Panel
 

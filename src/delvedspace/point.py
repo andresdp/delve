@@ -1,13 +1,19 @@
 """``ddspace point``: interpret one combination of values (a design point) without changing anything.
 
 The checks come from ``query.point`` (no LLM). The description is the wiki's stored one when the wiki already
-has a design point with exactly these values; otherwise one LLM call writes it on the fly, with the prompt and
-model of the wiki's design-point descriptions. Nothing is stored: not in the run, the wiki or the design space.
+has a design point with exactly these values and that description names its trade-off; otherwise one LLM call
+writes it on the fly, with the prompt and model of the wiki's design-point descriptions. Every description ends
+with the point's trade-off ("Trade-off: ..."): what the combination gains and gives up.
+
+Without a space (``--no-space``) the values are the agent's own ``Dimension: Value`` names: there is nothing to
+check, and the same prompt describes them, told they were named without a space. The model is ``--model`` or
+``DDSPACE_POINT_MODEL``. Nothing is stored: not in the run, the wiki or the design space.
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -16,6 +22,8 @@ from taxonomy_generator.wiki import llm_texts
 from taxonomy_generator.wiki import query as q
 
 GENERATED_NOTE = "Generated for this request; not stored and not part of the design space."
+NAMED_NOTE = "Generated for this request from the agent's own names; there is no design space."
+MODEL_ENV = "DDSPACE_POINT_MODEL"
 
 
 class PointError(Exception):
@@ -59,6 +67,8 @@ def point(graph_path: Path, refs, *, llm: bool = True, model_override: Optional[
     """Return ``query.point`` plus a description: stored, generated now (not stored), or none with ``llm=False``."""
     graph = q.load(graph_path)
     info = q.point(graph, refs)
+    if llm and info["description"] and llm_texts.TRADEOFF_MARK not in info["description"]:
+        info["description"] = None  # stored before descriptions named their trade-off: describe it again
     if info["description"]:
         info["description_source"] = "stored"
     elif llm:
@@ -72,4 +82,38 @@ def point(graph_path: Path, refs, *, llm: bool = True, model_override: Optional[
         info["note"] = GENERATED_NOTE
     else:
         info["description_source"] = None
+    return info
+
+
+def named_point(refs, *, domain: str = "", llm: bool = True, model_override: Optional[str] = None,
+                model: Any = None) -> Dict[str, Any]:
+    """Describe a zero-shot design point: ``Dimension: Value`` names, one value per dimension, no space.
+
+    Raises ``q.QueryError`` for a name that is not ``Dimension: Value`` or a second value for one dimension.
+    """
+    values, seen = [], {}
+    for ref in refs:
+        v = q.label_node(ref, ["value"])
+        if v is None:
+            raise q.QueryError(f"'{ref}' is not a 'Dimension: Value' name (without a space, values are named so)")
+        if v["dimension_id"] in seen:
+            raise q.QueryError(f"'{v['id']}' is a second value for '{v['dimension']}' (the first is "
+                               f"'{seen[v['dimension_id']]}'): a design point takes one value per dimension")
+        seen[v["dimension_id"]] = v["id"]
+        values.append({"id": v["id"], "dimension_id": v["dimension_id"], "dimension": v["dimension"],
+                       "label": v["label"]})
+    info: Dict[str, Any] = {"values": values, "space": None, "description": None, "description_source": None}
+    if not llm:
+        return info
+    name = model_override or os.environ.get(MODEL_ENV, "")
+    if model is None:  # ``model`` is given in tests
+        if not name:
+            raise PointError(f"Without a space there is no wiki model: pass --model provider/name or set {MODEL_ENV}.")
+        from dotenv import load_dotenv
+        from taxonomy_generator.utils import load_chat_model
+
+        load_dotenv(Path.cwd() / ".env")
+        model = load_chat_model(name)
+    info["description"] = asyncio.run(llm_texts.describe(model, {"values": values}, {}, domain, named=True))
+    info.update(description_source="generated", model=name or None, note=NAMED_NOTE)
     return info

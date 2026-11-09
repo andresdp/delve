@@ -1,6 +1,6 @@
 ---
 name: ddspace-explain
-description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/5) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/6) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
 ---
 <!-- {{ marker }} -->
 
@@ -54,8 +54,11 @@ Record every design point you evaluate once, in `points`: an id (`P1`, `P2`, …
 `description` and what supports it (`attested_by`). A step names its point by id (`"point": "P1"`). Before you
 evaluate a point, look it up in the list: when a point with the same values is already there, the step names that
 id and you do not evaluate or describe it again. If a description must change (rarely), change it in the list
-only: every step that names the point shows the new one. Without a space, the description is your own one sentence
-and `attested_by` stays empty.
+only: every step that names the point shows the new one. Without a space, describe each new point with
+`ddspace point --no-space --domain "<problem title>" "<Dimension: Value>" ...` (one call per point, the values
+named as in the file) and record the `description` it prints; `attested_by` stays empty. If that call fails, keep
+the description `null`, never one of your own. Every description ends with the point's own trade-off
+(`Trade-off: …`): what the combination of values gains and what it gives up, whatever the requirements.
 
 ## Gaps in the space
 
@@ -95,8 +98,14 @@ both. Write `"unaddressed": []` when every requirement is addressed.
    2. **Evaluate** it, or reuse it from `points` when the list already has it: for each requirement it bears on,
       `meets`, `partly` or `misses`, in `assessment`; and what supports the combination. Record a new point in
       `points`.
-   3. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
-   4. **Verdict:** `grounded` (the requirements call for these values and what is known supports them),
+   3. **Trade-offs.** A point rarely serves every requirement equally. In `tradeoffs`, name each trade-off
+      it makes among the requirements: `gains` (the requirements it serves, judged `meets` or `partly`), `costs`
+      (those it serves less, judged `partly` or `misses`, never `meets`) and a `note` on which values cause it.
+      Start from the description's `Trade-off:`, which says what the values give up, and say which requirements
+      that touches. A point that meets some requirements and not others needs at least one trade-off; a point
+      that meets every requirement it is judged on has `[]`.
+   4. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
+   5. **Verdict:** `grounded` (the requirements call for these values and what is known supports them),
       `partial` (only some of that holds) or `ungrounded`.
    5. **Choose the next step:**
       - a `region` (`parent`: the step it narrows, at first the solution step) for the next group, or a smaller
@@ -148,7 +157,7 @@ Without a space (with one, the reference gives the `space` part, the ids and the
 
 ```json
 {
-  "schema": "ddspace-rationale/5",
+  "schema": "ddspace-rationale/6",
   "id": "<id>",
   "mode": "explain",
   "space": null,
@@ -162,19 +171,19 @@ Without a space (with one, the reference gives the `space` part, the ids and the
   },
   "budget": {"max_points": {{ default_points }}},
   "points": [
-    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<one sentence>", "attested_by": []},
+    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<what ddspace point --no-space printed, ending with Trade-off: …>", "attested_by": []},
     {"id": "P2", "values": ["<dimension 1>: <value 1.1>"], "description": "<…>", "attested_by": []},
     {"id": "P3", "values": ["<dimension 1>: <value 1.2>"], "description": "<…>", "attested_by": []}
   ],
   "trajectory": [
     {"step": 1, "move": "solution", "parent": null, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"],
-     "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"},
+     "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"}, "tradeoffs": [],
      "observation": "<what the evaluation showed>", "verdict": "partial", "point": "P1"},
     {"step": 2, "move": "region", "parent": 1, "values": ["<dimension 1>: <value 1.1>"],
-     "hypothesis": "<which requirements explain these values>", "assessment": {"Q1": "meets"},
+     "hypothesis": "<which requirements explain these values>", "assessment": {"Q1": "meets"}, "tradeoffs": [],
      "observation": "<…>", "verdict": "grounded", "point": "P2"},
     {"step": 3, "move": "contrast", "parent": 2, "values": ["<dimension 1>: <value 1.2>"],
-     "hypothesis": "<does the requirement force v:1.1?>", "assessment": {"Q1": "misses"},
+     "hypothesis": "<does the requirement force v:1.1?>", "assessment": {"Q1": "misses"}, "tradeoffs": [],
      "observation": "<…: forced>", "verdict": "ungrounded", "point": "P3"}
   ],
   "regions": [

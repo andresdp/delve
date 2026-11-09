@@ -1,6 +1,6 @@
 ---
 name: ddspace-search
-description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/5) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
+description: Design two to four alternative solutions for a problem with requirements by searching a design space (dimensions, their values, and design points that combine them) in rounds, evaluating each point against the requirements, refining strong points and exploring new approaches, and record the trajectory and the alternatives as a checked rationale file (ddspace-rationale/6) in ./rationale/. Use when asked to design, compare or propose solutions for a problem.
 ---
 <!-- {{ marker }} -->
 
@@ -53,8 +53,11 @@ Record every design point you evaluate once, in `points`: an id (`P1`, `P2`, …
 `description` and what supports it (`attested_by`). A step names its point by id (`"point": "P1"`). Before you
 evaluate a point, look it up in the list: when a point with the same values is already there, the step names that
 id and you do not evaluate or describe it again. If a description must change (rarely), change it in the list
-only: every step that names the point shows the new one. Without a space, the description is your own one sentence
-and `attested_by` stays empty.
+only: every step that names the point shows the new one. Without a space, describe each new point with
+`ddspace point --no-space --domain "<problem title>" "<Dimension: Value>" ...` (one call per point, the values
+named as in the file) and record the `description` it prints; `attested_by` stays empty. If that call fails, keep
+the description `null`, never one of your own. Every description ends with the point's own trade-off
+(`Trade-off: …`): what the combination of values gains and what it gives up, whatever the requirements.
 
 ## Gaps in the space
 
@@ -98,12 +101,18 @@ is addressed.
       again.
    3. **Evaluate** it, or reuse it from `points` when the list already has it: for each requirement, `meets`,
       `partly` or `misses`, in `assessment`; and what supports the combination. Record a new point in `points`.
-   4. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
-   5. **Rate** it: `strong` (meets every constraint and every requirement at least partly, with no conflict),
+   4. **Trade-offs.** A point rarely serves every requirement equally. In `tradeoffs`, name each trade-off
+      it makes among the requirements: `gains` (the requirements it serves, judged `meets` or `partly`), `costs`
+      (those it serves less, judged `partly` or `misses`, never `meets`) and a `note` on which values cause it.
+      Start from the description's `Trade-off:`, which says what the values give up, and say which requirements
+      that touches. A point that meets some requirements and not others needs at least one trade-off; a point
+      that meets every requirement it is judged on has `[]`.
+   5. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
+   6. **Rate** it: `strong` (meets every constraint and every requirement at least partly, with no conflict),
       `mixed` (good on some requirements, but misses one or carries a conflict that changing a value could fix)
       or `weak` (breaks a constraint, or misses a most constraining requirement and no value change in the
       approach fixes it).
-   6. Update each approach's **best point**: the member with the best assessment so far.
+   7. Update each approach's **best point**: the member with the best assessment so far.
 6. **Plan the next round from the ratings.**
    - **Strong:** refine it, do not replace it. One `exploit` step (`parent`: the point) changes one or two values
      to serve the requirement the point meets least.
@@ -162,7 +171,7 @@ Without a space (with one, the reference gives the `space` part and the ids):
 
 ```json
 {
-  "schema": "ddspace-rationale/5",
+  "schema": "ddspace-rationale/6",
   "id": "<id>",
   "mode": "search",
   "space": null,
@@ -177,7 +186,7 @@ Without a space (with one, the reference gives the `space` part and the ids):
   },
   "budget": {"max_points": {{ default_points }}},
   "points": [
-    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<one sentence>", "attested_by": []},
+    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<what ddspace point --no-space printed, ending with Trade-off: …>", "attested_by": []},
     {"id": "P2", "values": ["<dimension 1>: <value 1.2>", "<dimension 2>: <value 2.2>"], "description": "<…>", "attested_by": []},
     {"id": "P3", "values": ["<dimension 1>: <value 1.2>", "<dimension 3>: <value 3.1>"], "description": "<…>", "attested_by": []},
     {"id": "P4", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>", "<dimension 3>: <value 3.2>"], "description": "<…>", "attested_by": []}
@@ -191,15 +200,18 @@ Without a space (with one, the reference gives the `space` part and the ids):
     {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"],
      "hypothesis": "<what you expect, for which requirements>",
      "assessment": {"R1": "meets", "Q1": "partly", "C1": "meets"},
+     "tradeoffs": [{"gains": ["R1", "C1"], "costs": ["Q1"], "note": "<which values trade Q1 for R1 and C1>"}],
      "observation": "<what the evaluation showed>", "rating": "mixed", "point": "P1"},
     {"step": 2, "round": 1, "approach": "B", "move": "seed", "parent": null, "values": ["<dimension 1>: <value 1.2>", "<dimension 2>: <value 2.2>"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "partly"},
+     "tradeoffs": [{"gains": ["Q1"], "costs": ["C1"], "note": "<…>"}],
      "observation": "<…>", "rating": "strong", "point": "P2"},
     {"step": 3, "round": 1, "approach": "C", "move": "seed", "parent": null, "values": ["<dimension 1>: <value 1.2>", "<dimension 3>: <value 3.1>"],
      "hypothesis": "<…>", "assessment": {"R1": "meets", "C1": "misses"},
+     "tradeoffs": [{"gains": ["R1"], "costs": ["C1"], "note": "<…>"}],
      "observation": "<…>", "rating": "weak", "point": "P3"},
     {"step": 4, "round": 2, "approach": "A", "move": "exploit", "parent": 1, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>", "<dimension 3>: <value 3.2>"],
-     "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "meets"},
+     "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "meets", "C1": "meets"}, "tradeoffs": [],
      "observation": "<…>", "rating": "strong", "point": "P4"}
   ],
   "alternatives": [

@@ -633,7 +633,7 @@ def test_search_trajectory_has_lanes_a_requirement_strip_and_a_story(ws):
 def test_explain_trajectory_has_a_story_and_questions_options_criteria(ws):
     doc = _explain()
     doc["trajectory"].append({"step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"], "hypothesis": "h",
-                              "assessment": {"Q1": "misses"}, "observation": "o", "verdict": "ungrounded"})
+                              "assessment": {"Q1": "misses"}, "tradeoffs": [], "observation": "o", "verdict": "ungrounded"})
     data = _data(doc, ws)
     assert data["lanes"] is None
     (q1, q2) = data["qoc"]
@@ -681,3 +681,19 @@ def test_an_approximate_option_lists_only_the_values_its_choices_mark_approximat
     doc["alternatives"][0]["choices"][1].update(fit="approximate", fit_note="n")   # A1's v:2.1
     fits = _data(doc, ws)["fits"]
     assert [(f["option"], f["point"]) for f in fits] == [("ADR1:O1", {"d:2": "v:2.1"})]   # the choice is not listed twice
+
+
+def test_a_step_shows_its_trade_offs_and_the_points_own_trade_off(ws, tmp_path):
+    doc = _sample()
+    doc["points"][0]["description"] = "Disks with a quorum. Trade-off: durable, at the cost of write latency."
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
+    html = Path(payload["page"]).read_text(encoding="utf-8")
+    assert '<ul class="tradeoffs">' in html and '<span class="t-cost">gives up</span>' in html
+    assert "Serves requests durably, but the commit protocol adds cost." in html     # the fixture's note
+    assert "The point's trade-off</span> durable, at the cost of write latency." in html
+    assert "Disks with a quorum.</p>" in html                                       # the description, split
+
+
+def test_split_tradeoff():
+    assert explainer.split_tradeoff("A. Trade-off: B.") == ("A.", "B.")
+    assert explainer.split_tradeoff("No mark here.") == ("No mark here.", "")
