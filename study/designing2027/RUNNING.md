@@ -54,6 +54,10 @@ Every command below runs from this folder, with `taxonomy` active.
 `.nosync` link you set up for CAIN, so iCloud does not sync it). The runner refuses a `--workspaces` or
 `--scratch` folder inside the repository.
 
+**Reasoning effort.** Every command passes `--effort high`: the runner ignores your own Codex settings, and
+at the model's default effort the pilots gave up halfway. Keep one effort for the whole study; the runner records
+it per session and refuses to mix two in one results folder.
+
 ## 1. Build the workspaces
 
 ```bash
@@ -94,7 +98,7 @@ One session, `fraud-search` on M, kept in its own results folder:
 python study/designing2027/run_sessions.py \
   --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
   --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
-  --model gpt-6-luna --cases fraud-search --conditions M --reps 1 \
+  --model gpt-6-luna --effort high --cases fraud-search --conditions M --reps 1 \
   --results results-smoke --keep-raw --timeout 3600
 ```
 
@@ -138,12 +142,12 @@ every later step; write it in the run log.
 python study/designing2027/run_sessions.py \
   --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
   --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
-  --model gpt-6-luna --cases fraud-search --conditions M,E,N --reps 1 \
+  --model gpt-6-luna --effort high --cases fraud-search --conditions M,E,N --reps 1 \
   --results results-pilot --keep-raw --timeout 3600
 python study/designing2027/run_sessions.py \
   --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
   --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
-  --model gpt-6-luna --cases fraud-explain --conditions M --reps 1 \
+  --model gpt-6-luna --effort high --cases fraud-explain --conditions M --reps 1 \
   --results results-pilot --keep-raw --timeout 3600
 ```
 
@@ -177,7 +181,7 @@ Then run every session (add `--skills-via prompt` if the smoke test needed it):
 python study/designing2027/run_sessions.py \
   --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
   --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
-  --model gpt-6-luna --timeout 3600
+  --model gpt-6-luna --effort high --timeout 3600
 ```
 
 - **Order:** case by case (`fraud-search` under M, E, N, both repetitions, then the next case), so a partial run
