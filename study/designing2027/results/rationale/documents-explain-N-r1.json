@@ -1,0 +1,764 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-explain",
+  "mode": "explain",
+  "space": null,
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Document storage: EU object storage",
+        "Ingestion transport: Kafka upload topic",
+        "Text preparation: OCR, content-hash deduplication and adjacent text storage",
+        "Inference runtime: Kubernetes classifier service",
+        "LLM location: Approved provider EU region",
+        "Prompt construction: 60 claim definitions and ten labelled examples",
+        "Output: Claim type and confidence",
+        "Inference batching: Batches of 20 small documents",
+        "Worker scaling: Kafka-backlog scaling from 4 to 120 workers",
+        "Result provenance: Store prompt version and model name",
+        "Result transport: Second Kafka topic",
+        "Consumer isolation: One consumer group per team",
+        "Analytics delivery: Hourly warehouse load",
+        "Human review: Below-0.7 confidence review queue",
+        "Classifier improvement: Monthly example refresh and 2,000-document prompt check",
+        "Per-type monitoring: Review share and mean confidence dashboard",
+        "Alerting: Alert on doubled weekly review share for a claim type",
+        "Quality sampling: Weekly random sample of 300 classifications"
+      ],
+      "description": "The implementation stores EU documents, classifies asynchronously with a versioned LLM prompt, distributes results, reviews uncertain cases and monitors per-type signals.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Document storage: EU object storage",
+        "LLM location: Approved provider EU region"
+      ],
+      "description": "Documents and inference stay in the EU, with the approved provider's EU deployment used for classification.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "LLM location: Provider outside the EU"
+      ],
+      "description": "Classification sends personal document text to a provider deployment outside the EU.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Ingestion transport: Kafka upload topic",
+        "Inference batching: Batches of 20 small documents",
+        "Worker scaling: Kafka-backlog scaling from 4 to 120 workers"
+      ],
+      "description": "Queued ingestion, small-document batching and backlog-driven worker scaling address burst load and per-document inference expense.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Worker scaling: Fixed worker count"
+      ],
+      "description": "A fixed-size classifier fleet processes incoming work without responding to backlog growth.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Result transport: Second Kafka topic",
+        "Consumer isolation: One consumer group per team",
+        "Analytics delivery: Hourly warehouse load"
+      ],
+      "description": "A result topic decouples producers and team consumers, while analytics ingests results on an hourly schedule.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Human review: Below-0.7 confidence review queue",
+        "Classifier improvement: Monthly example refresh and 2,000-document prompt check"
+      ],
+      "description": "A confidence threshold routes uncertain cases to human correction, and reviewed examples update a prompt after a held-out check.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Per-type monitoring: Review share and mean confidence dashboard",
+        "Alerting: Alert on doubled weekly review share for a claim type",
+        "Quality sampling: Weekly random sample of 300 classifications"
+      ],
+      "description": "Per-type review and confidence signals, alerts and regular sampling provide operational visibility into classification quality.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "Document storage: EU object storage",
+        "Ingestion transport: Kafka upload topic",
+        "Text preparation: OCR, content-hash deduplication and adjacent text storage",
+        "Inference runtime: Kubernetes classifier service",
+        "LLM location: Approved provider EU region",
+        "Prompt construction: 60 claim definitions and ten labelled examples",
+        "Output: Claim type and confidence",
+        "Inference batching: Batches of 20 small documents",
+        "Worker scaling: Kafka-backlog scaling from 4 to 120 workers",
+        "Result provenance: Store prompt version and model name",
+        "Result transport: Second Kafka topic",
+        "Consumer isolation: One consumer group per team",
+        "Analytics delivery: Hourly warehouse load",
+        "Human review: Below-0.7 confidence review queue",
+        "Classifier improvement: Monthly example refresh and 2,000-document prompt check",
+        "Per-type monitoring: Review share and mean confidence dashboard",
+        "Alerting: Alert on doubled weekly review share for a claim type",
+        "Quality sampling: Weekly random sample of 300 classifications"
+      ],
+      "hypothesis": "The solution combines EU-resident data and approved inference with asynchronous classification, independent result consumers, human feedback and monitoring to address the stated requirements.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The design implements each functional flow and both location constraints. Queue-based scaling and batching plausibly support peak throughput and cost, but no processing-rate or cost measurements establish the targets. Review and weekly sampling create quality signals, though the weekly cadence and review-share trigger do not guarantee that a quality drop is noticed within one day.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Document storage: EU object storage",
+        "LLM location: Approved provider EU region"
+      ],
+      "hypothesis": "C1 and C2 explain EU storage and the approved provider's EU region.",
+      "assessment": {
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Both location choices directly meet the constraints for stored documents and LLM processing. The specific object-storage and provider-region implementations are choices, while EU residence and the approved provider are required.",
+      "verdict": "grounded",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "LLM location: Provider outside the EU"
+      ],
+      "hypothesis": "Using a provider deployment outside the EU tests whether the chosen inference location is forced by C1 and C2.",
+      "assessment": {
+        "C1": "misses",
+        "C2": "misses"
+      },
+      "observation": "An outside-EU inference location violates both the personal-data location restriction and the requirement to use the approved provider in its EU region. EU inference is forced; choosing the specific approved provider's EU region also follows C2.",
+      "verdict": "ungrounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Ingestion transport: Kafka upload topic",
+        "Inference batching: Batches of 20 small documents",
+        "Worker scaling: Kafka-backlog scaling from 4 to 120 workers"
+      ],
+      "hypothesis": "Q1 and Q3 explain buffering, batch inference and scaling capacity with backlog.",
+      "assessment": {
+        "Q1": "partly",
+        "Q3": "partly"
+      },
+      "observation": "The queue gives workers a backlog signal, scaling adds parallel capacity, and batching reduces request overhead. These mechanisms plausibly help with peak load and cost, but neither target is demonstrated by the given capacity or cost data. The particular broker and worker limits are not proven necessary.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "Worker scaling: Fixed worker count"
+      ],
+      "hypothesis": "A fixed worker count tests whether backlog-driven scaling is required to meet Q1.",
+      "assessment": {
+        "Q1": "partly"
+      },
+      "observation": "A fixed fleet could meet the two-hour target if sized for the peak, but the problem gives no capacity evidence to establish that. Backlog-driven scaling is a sensible response to seasonal variation; the requirement forces sufficient peak capacity, not this scaling mechanism.",
+      "verdict": "partial",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Result transport: Second Kafka topic",
+        "Consumer isolation: One consumer group per team",
+        "Analytics delivery: Hourly warehouse load"
+      ],
+      "hypothesis": "R2 and Q4 explain publishing results once and letting the three teams consume them independently.",
+      "assessment": {
+        "R2": "meets",
+        "Q4": "meets"
+      },
+      "observation": "The separate result topic supports delivery to all three teams, while independent consumer groups let each team read at its own pace. This meets the loose-coupling behavior. Kafka and the hourly analytics schedule are implementation choices rather than requirements.",
+      "verdict": "grounded",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Human review: Below-0.7 confidence review queue",
+        "Classifier improvement: Monthly example refresh and 2,000-document prompt check"
+      ],
+      "hypothesis": "R3 explains confidence-based routing, correction capture and using reviewed examples to improve the classifier.",
+      "assessment": {
+        "R1": "meets",
+        "R3": "meets"
+      },
+      "observation": "The confidence score enables uncertain cases to be identified, staff corrections enter a review workflow, and the monthly prompt refresh uses those examples after a check against reviewed documents. The need for review and feedback is required; 0.7, monthly cadence, example count and prompt-check method are chosen parameters.",
+      "verdict": "grounded",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Per-type monitoring: Review share and mean confidence dashboard",
+        "Alerting: Alert on doubled weekly review share for a claim type",
+        "Quality sampling: Weekly random sample of 300 classifications"
+      ],
+      "hypothesis": "Q2 explains per-claim-type monitoring and human sampling to expose quality drops.",
+      "assessment": {
+        "Q2": "partly"
+      },
+      "observation": "The dashboard and alert are broken out by claim type, and sampling can reveal errors missed by confidence signals. However, the alert detects a doubled review share rather than quality directly, and analysts sample weekly; the design does not establish that operators see every quality drop within one day.",
+      "verdict": "partial",
+      "point": "P8"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "EU-resident approved inference",
+      "step": 2,
+      "drivers": [
+        "C1",
+        "C2"
+      ],
+      "values": [
+        "Document storage: EU object storage",
+        "LLM location: Approved provider EU region"
+      ],
+      "reason": "EU storage and inference with the approved provider directly satisfy the data-location constraints; the region requirement is forced, with the storage and service implementation selected to realize it."
+    },
+    {
+      "id": "G2",
+      "name": "Independent result consumption",
+      "step": 6,
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "values": [
+        "Result transport: Second Kafka topic",
+        "Consumer isolation: One consumer group per team",
+        "Analytics delivery: Hourly warehouse load"
+      ],
+      "reason": "Publishing to a result stream gives all three teams access, and separate consumer groups let them process results independently. The behavior is required, while Kafka and the warehouse cadence are freely chosen mechanisms."
+    },
+    {
+      "id": "G3",
+      "name": "Review and feedback loop",
+      "step": 7,
+      "drivers": [
+        "R1",
+        "R3"
+      ],
+      "values": [
+        "Human review: Below-0.7 confidence review queue",
+        "Classifier improvement: Monthly example refresh and 2,000-document prompt check"
+      ],
+      "reason": "The confidence-based queue and corrections used in prompt improvement implement the required human review and learning loop. The numeric threshold and refresh process are discretionary details."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Document classification as built",
+      "summary": "The solution uses EU-resident asynchronous LLM classification, streams results to independent consumers, and routes uncertain cases through a human feedback loop with per-type monitoring.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "Document storage",
+          "value_id": "Document storage: EU object storage",
+          "drivers": [
+            "C1"
+          ],
+          "forced": false,
+          "reason": "EU residence is forced by C1, but choosing object storage as the storage mechanism is not; the value combines the mandated location with a freely selected implementation.",
+          "solution_quote": "Incoming documents land in an object storage bucket in the EU region"
+        },
+        {
+          "dimension_id": "Ingestion transport",
+          "value_id": "Ingestion transport: Kafka upload topic",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "Asynchronous buffering can help absorb variable load, but neither Kafka nor a topic is required and the throughput target is not proven.",
+          "solution_quote": "each upload puts a message on a Kafka topic"
+        },
+        {
+          "dimension_id": "Text preparation",
+          "value_id": "Text preparation: OCR, content-hash deduplication and adjacent text storage",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "forced": false,
+          "reason": "Text extraction supports classifying scanned and text documents, while deduplication may reduce repeated work; these exact preprocessing choices are not specified by requirements.",
+          "solution_quote": "extracts the text (with OCR for scanned forms), removes duplicates by content hash and writes the text next to the document"
+        },
+        {
+          "dimension_id": "Inference runtime",
+          "value_id": "Inference runtime: Kubernetes classifier service",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "A classifier service is needed to produce classifications, but Kubernetes is a freely selected runtime and sufficient throughput is unverified.",
+          "solution_quote": "A classifier service, running on Kubernetes"
+        },
+        {
+          "dimension_id": "LLM location",
+          "value_id": "LLM location: Approved provider EU region",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "forced": true,
+          "reason": "The constraints require the approved provider and its EU region for personal data.",
+          "solution_quote": "sends the text to the approved provider's LLM in its EU region"
+        },
+        {
+          "dimension_id": "Prompt construction",
+          "value_id": "Prompt construction: 60 claim definitions and ten labelled examples",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "forced": false,
+          "reason": "The prompt must support classification and can incorporate reviewed examples, but this exact prompt composition is a design choice.",
+          "solution_quote": "The prompt lists the 60 claim types with a short definition and ten labelled examples"
+        },
+        {
+          "dimension_id": "Output",
+          "value_id": "Output: Claim type and confidence",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "forced": true,
+          "reason": "R1 explicitly requires both a claim type and confidence; confidence also enables uncertain-case routing.",
+          "solution_quote": "asks for a claim type and a confidence between 0 and 1"
+        },
+        {
+          "dimension_id": "Inference batching",
+          "value_id": "Inference batching: Batches of 20 small documents",
+          "drivers": [
+            "Q3",
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "Batching may reduce cost and request overhead, but the batch size and batching itself are not forced and there is no measured cost result.",
+          "solution_quote": "Small documents are sent in batches of 20 to reduce cost"
+        },
+        {
+          "dimension_id": "Worker scaling",
+          "value_id": "Worker scaling: Kafka-backlog scaling from 4 to 120 workers",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "forced": false,
+          "reason": "Peak capacity is required, but backlog-based scaling and these limits are implementation choices; the fixed-worker contrast could also meet the target if sized adequately.",
+          "solution_quote": "The number of classifier workers scales with the length of the Kafka topic's backlog, from 4 to 120"
+        },
+        {
+          "dimension_id": "Result provenance",
+          "value_id": "Result provenance: Store prompt version and model name",
+          "drivers": [
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Version provenance can help diagnose changes in quality, but the requirement does not mandate this exact stored metadata.",
+          "solution_quote": "Every result is stored with the prompt version and the model name that produced it"
+        },
+        {
+          "dimension_id": "Result transport",
+          "value_id": "Result transport: Second Kafka topic",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "forced": false,
+          "reason": "A decoupled result channel serves the teams, but Kafka is one of several possible mechanisms.",
+          "solution_quote": "Results go to a second Kafka topic"
+        },
+        {
+          "dimension_id": "Consumer isolation",
+          "value_id": "Consumer isolation: One consumer group per team",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "forced": false,
+          "reason": "Independent processing by teams is required by Q4, but a separate consumer group per team is one implementation of that behavior and was not contrasted with alternatives.",
+          "solution_quote": "Each consuming team has its own consumer group and reads at its own pace"
+        },
+        {
+          "dimension_id": "Analytics delivery",
+          "value_id": "Analytics delivery: Hourly warehouse load",
+          "drivers": [
+            "R2"
+          ],
+          "forced": false,
+          "reason": "Analytics needs results, but hourly warehouse loading is a chosen delivery cadence and destination.",
+          "solution_quote": "analytics also loads the topic into the data warehouse every hour"
+        },
+        {
+          "dimension_id": "Human review",
+          "value_id": "Human review: Below-0.7 confidence review queue",
+          "drivers": [
+            "R3"
+          ],
+          "forced": false,
+          "reason": "Routing uncertain cases to human review is required, while the 0.7 threshold and queue implementation are choices.",
+          "solution_quote": "Documents with a confidence below 0.7 go to a review queue in a labelling tool, where claims staff correct the claim type"
+        },
+        {
+          "dimension_id": "Classifier improvement",
+          "value_id": "Classifier improvement: Monthly example refresh and 2,000-document prompt check",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Using corrections to improve the classifier is required; monthly prompt replacement and the size and form of its check are chosen methods.",
+          "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it"
+        },
+        {
+          "dimension_id": "Per-type monitoring",
+          "value_id": "Per-type monitoring: Review share and mean confidence dashboard",
+          "drivers": [
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Per-type visibility supports the observability goal, but these indicators do not directly measure classification accuracy and are a design choice.",
+          "solution_quote": "A dashboard shows, per claim type, the share of documents sent to review and the mean confidence"
+        },
+        {
+          "dimension_id": "Alerting",
+          "value_id": "Alerting: Alert on doubled weekly review share for a claim type",
+          "drivers": [
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "An alert supports timely detection, but this particular trigger does not establish detection of every quality drop within one day.",
+          "solution_quote": "an alert fires when the share sent to review for a claim type doubles from one week to the next"
+        },
+        {
+          "dimension_id": "Quality sampling",
+          "value_id": "Quality sampling: Weekly random sample of 300 classifications",
+          "drivers": [
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Sampling can reveal misclassifications, but the sample size and weekly cadence are freely selected and do not meet the one-day detection scenario by themselves.",
+          "solution_quote": "Each week, analysts review a random sample of 300 classified documents"
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Keep documents and LLM inference in the EU",
+      "drivers": [
+        "C1",
+        "C2"
+      ],
+      "context": "Personal documents must remain in the EU, and classification must use the insurer's approved LLM provider in its EU region.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "EU object storage and approved EU LLM region",
+          "values": [
+            "Document storage: EU object storage",
+            "LLM location: Approved provider EU region"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "Meets both data-location and provider constraints."
+          ],
+          "cons": [
+            "The specific storage service and region do not by themselves establish broader data governance controls."
+          ],
+          "reason": "Chosen because the EU locations and approved provider are required by C1 and C2; object storage is the selected implementation."
+        },
+        {
+          "id": "O2",
+          "name": "Provider outside the EU",
+          "values": [
+            "LLM location: Provider outside the EU"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Could offer a different provider deployment."
+          ],
+          "cons": [
+            "Violates C1 and C2."
+          ],
+          "reason": "Rejected because it places personal data outside the EU and does not use the approved provider's EU region."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Buffer and scale classification work for variable volume",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q3"
+      ],
+      "context": "The classifier must process up to eight million documents per day within two hours during storm season, while average classification cost must remain below 0.2 cents per document.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Queued, batched, backlog-scaled workers",
+          "values": [
+            "Ingestion transport: Kafka upload topic",
+            "Inference batching: Batches of 20 small documents",
+            "Worker scaling: Kafka-backlog scaling from 4 to 120 workers"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Backlog-driven scaling responds to variable demand, and batching aims to reduce inference cost."
+          ],
+          "cons": [
+            "The solution provides no benchmark showing the peak deadline or annual cost target is met."
+          ],
+          "reason": "This is a plausible response to variable volume and cost pressure, but only sufficient peak capacity is forced; Kafka, batch size and scaling limits remain design choices."
+        },
+        {
+          "id": "O2",
+          "name": "Fixed-size worker fleet",
+          "values": [
+            "Worker scaling: Fixed worker count"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "A sufficiently large fixed fleet could meet the peak deadline with a simpler scaling policy."
+          ],
+          "cons": [
+            "A peak-sized fleet may use more capacity than needed at normal volumes; no sizing evidence is supplied."
+          ],
+          "reason": "The requirement does not rule out a properly sized fixed fleet, so the solution's scaling mechanism is not forced."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Publish results for independent team consumption",
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "context": "Claims handling, fraud investigation and analytics all need the classification results, and one team's processing changes must not require changes to other consumers or the classifier.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Result topic with independent team consumers",
+          "values": [
+            "Result transport: Second Kafka topic",
+            "Consumer isolation: One consumer group per team",
+            "Analytics delivery: Hourly warehouse load"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 6,
+          "pros": [
+            "The topic separates classification from consumption, and independent groups allow each team to read at its own pace."
+          ],
+          "cons": [
+            "The hourly warehouse schedule means analytics receives data on that cadence."
+          ],
+          "reason": "Independent consumption is required by Q4 and delivery to all teams by R2. Kafka and hourly warehouse loading are free implementation choices."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Route uncertain classifications through human feedback",
+      "drivers": [
+        "R1",
+        "R3"
+      ],
+      "context": "The classifier must return confidence, uncertain cases must receive human correction, and corrections must improve future classification.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Confidence queue and checked prompt refresh",
+          "values": [
+            "Output: Claim type and confidence",
+            "Human review: Below-0.7 confidence review queue",
+            "Classifier improvement: Monthly example refresh and 2,000-document prompt check"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "pros": [
+            "Confidence enables routing; reviewers correct uncertain cases; corrected examples feed a checked prompt update."
+          ],
+          "cons": [
+            "A monthly refresh makes the improvement cycle periodic, and the selected threshold and check size are not justified by reported results."
+          ],
+          "reason": "Confidence, human review and use of corrections are required. The 0.7 threshold, monthly cadence and 2,000-document check are free choices."
+        }
+      ]
+    },
+    {
+      "id": "ADR5",
+      "title": "Prepare text and maintain classification quality signals",
+      "drivers": [
+        "R1",
+        "Q2",
+        "Q3"
+      ],
+      "context": "The system must classify scanned and digital documents, control per-document cost, and expose drops in quality by claim type within a day.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "OCR and deduplication with versioned inference and per-type monitoring",
+          "values": [
+            "Text preparation: OCR, content-hash deduplication and adjacent text storage",
+            "Inference runtime: Kubernetes classifier service",
+            "Prompt construction: 60 claim definitions and ten labelled examples",
+            "Result provenance: Store prompt version and model name",
+            "Per-type monitoring: Review share and mean confidence dashboard",
+            "Alerting: Alert on doubled weekly review share for a claim type",
+            "Quality sampling: Weekly random sample of 300 classifications"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "pros": [
+            "OCR supports scanned forms, deduplication can avoid repeated work, and version metadata plus per-type signals support investigation."
+          ],
+          "cons": [
+            "The solution does not show that its monitoring detects all quality drops within one day; weekly sampling and a weekly-change trigger may be too slow. Cost and classification accuracy are not measured."
+          ],
+          "reason": "These are implementation choices intended to support classification, cost control and observability. They are not forced in their exact form, and the observability scenario remains only partly addressed."
+        }
+      ]
+    }
+  ],
+  "uncovered": [],
+  "unaddressed": []
+}

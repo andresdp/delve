@@ -1,0 +1,1607 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "vision-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "On-device visual inspection",
+    "context": "A manufacturer inspects parts with cameras on 40 production lines across three plants. Each line has two to four cameras connected to a fixed ARM edge computer with a small neural accelerator. Network outages can last seven days. Inspectors label about 5,000 defect images per week, and models are retrained weekly and pushed to devices. The delivery team is two ML engineers and one half-time operations person, with a tight infrastructure budget.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Check every part as it passes the camera and signal a defective part to the line operator."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Retrain the model every week from the newly labelled images and roll the new model out to every line."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Collect the images the model was unsure about, or got wrong, so that inspectors can label them."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "Each image is classified on the line within 200 ms, so the line never slows down."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a plant's network is down for up to seven days, its lines keep inspecting with the model they have; the images collected in the meantime are uploaded when the network returns."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "deployability",
+        "text": "A new model reaches every connected line within 24 hours of approval. When a new model misbehaves on a line, the line operator can go back to the previous one within 15 minutes, without the ML team."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "Cloud and infrastructure spending stays under 2,000 euros a month."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three people build and run the system, with no support outside working hours."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The edge computers (an ARM processor with a small neural accelerator) cannot be replaced this year."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:30.4",
+        "v:31.5",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "The system ingests data through messaging channels and runs orchestrated, automated ML workflows whose versioned artifacts are progressively released to edge devices for online inference using current context and recent data. Production models are retrained on a recurring schedule, with incremental releases and rollback available if deployment issues arise.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:30.3",
+        "v:31.1",
+        "v:19.3",
+        "v:20.1",
+        "v:32.2",
+        "v:21.4",
+        "v:6.5",
+        "v:38.1"
+      ],
+      "description": "Models are packaged as real-time services and served by containerized predictors behind a queue, with source data arriving through messaging channels. Orchestrated pipelines automate preparation, feature extraction, training, evaluation, deployment, and retraining from new production or labeled data, while artifact versioning and environment-specific validation gates support controlled releases and lifecycle operations.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.4",
+        "v:20.1",
+        "v:32.1",
+        "v:21.1",
+        "v:6.14"
+      ],
+      "description": "The system performs inference on deployed edge devices, with production inputs and predictions persisted for later monitoring and evaluation; features arrive through batch ETL. Model preparation, training, validation, and deployment are manually script-driven, while version-controlled artifacts support reproducibility and release automation supports deployment recovery, including manual intervention; retraining is triggered manually.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "The system ingests data through messaging channels, runs an orchestrated and automated ML lifecycle, versions artifacts, converts models to ONNX, and deploys them for inference in edge modules. It persists production inputs and predictions for monitoring or evaluation, retrains on a schedule, and uses progressive releases with rollback to manage updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.5",
+        "v:20.1",
+        "v:32.1",
+        "v:21.1",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "The system performs inference on deployed edge devices, persists production inputs and predictions, and uses version-controlled ML artifacts with progressive releases that support rollback. Batch ETL supplies features, while scheduled retraining updates models; however, manual script-driven workflow execution is in tension with the broader automated ML lifecycle workflows.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.3"
+      ],
+      "description": "A configurable integrated MLOps platform ingests data through messaging, runs orchestrated preparation-to-deployment pipelines, converts models to ONNX for optimized on-device edge inference, and persists production inputs and predictions. It provides lifecycle traceability, scheduled retraining, and progressive releases with rollback; scheduled retraining may not respond immediately to data or performance changes unless other triggers are added.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "The system ingests data through messaging channels, runs ONNX-optimized inference in deployed edge modules, and persists production inputs and predictions for monitoring and evaluation. Automated, orchestrated ML workflows provide lifecycle traceability, perform scheduled retraining, and use progressive releases with rollback to update deployed models safely.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.1",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "This system ingests batch features through ETL, runs orchestrated preparation, training, evaluation, and deployment workflows, versions resulting artifacts, and automates recurring lifecycle operations. Models are deployed for on-device edge inference, with production inputs and predictions persisted for monitoring or evaluation; scheduled retraining produces updates that are progressively released and can be rolled back if problems arise.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.1",
+        "v:28.7",
+        "v:21.1",
+        "v:6.6"
+      ],
+      "description": "The system trains models on client devices, packages them as versioned artifacts, converts them to ONNX, and deploys them for on-device edge inference, while persisting production inputs and predictions. ETL batch ingestion supplies row-level features, scheduled retraining updates models, and progressive releases support incremental deployment with rollback; centralized ETL may not directly support client-side training without additional coordination.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:23.2",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "An automated, orchestrated ML lifecycle ingests data through messaging, trains and evaluates models, and deploys ONNX-optimized models to edge devices with progressive releases and rollback. Production inputs and predictions are persisted for traceability and monitoring; scheduled retraining can incorporate actively selected uncertain or error-prone examples, with lifecycle artifacts, datasets, runs, and deployment health governed comprehensively.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.1",
+        "v:23.2",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "description": "This system uses automated, orchestrated ML workflows to ingest batch ETL features, select uncertain or error-prone production inputs for labeling, and periodically retrain models with version-controlled artifacts. Versioned models are released progressively with rollback capability to edge devices, while production inputs and predictions are persisted for monitoring and evaluation; scheduled retraining and active-learning selection are complementary.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:13.2",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:23.2",
+        "v:6.6",
+        "v:38.3"
+      ],
+      "description": "An integrated MLOps platform ingests data through messaging, selects uncertain production examples for labeling, orchestrates training and evaluation, tracks lifecycle artifacts and deployment health, and performs ONNX-optimized inference on edge devices while persisting predictions. Threshold regression tests support progressive releases with rollback, and retraining is initiated on a recurring schedule; this may not immediately react to detected quality or data changes.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if the system keeps inference and the image collection path at the line, while automating weekly training and guarded releases?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if centralized online serving and a queue provide the prediction path and automate model retraining?",
+      "status": "dropped",
+      "dropped_because": "Centralized inference depends on plant connectivity and adds a remote request path to every part, conflicting with the seven-day offline operation and 200 ms line latency requirements."
+    },
+    {
+      "id": "C",
+      "idea": "What if edge inference uses a simpler batch-oriented input path and versioned weekly updates, minimizing platform scope?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if an integrated MLOps platform governs a traceable, evaluated edge-model lifecycle?",
+      "status": "live"
+    },
+    {
+      "id": "E",
+      "idea": "What if every line trains an updated model locally on its own edge device to reduce dependence on central connectivity?",
+      "status": "dropped",
+      "dropped_because": "Client-side training shifts weekly training onto 40 constrained line devices and fragments delivery of the newly labelled images into a consistent model rollout, conflicting with the weekly system-wide retraining requirement and the small operations team."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:30.4",
+        "v:31.5",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "On-device placement should preserve line operation through network outages; an orchestrated, scheduled, automated lifecycle and rollback should address weekly updates and the small team.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The edge placement supports local prediction, and schedule plus orchestration supports weekly retraining and deployment. Nothing in the point selects uncertain images, and the selected online computation and messaging intake do not establish seven-day buffering, numeric latency, rollout deadlines, or the budget cap. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:30.3",
+        "v:31.1",
+        "v:19.3",
+        "v:20.1",
+        "v:32.2",
+        "v:21.4",
+        "v:6.5",
+        "v:38.1"
+      ],
+      "hypothesis": "A queue-fronted online service may offer low-latency serving and centralized automated updates, but it may fail when the plant network is unavailable.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point automates retraining and release work but requires online service access for each prediction, so it conflicts with the fixed line-latency and seven-day disconnected operation scenarios. It does not use the existing edge computers for inference. No source attests this combination.",
+      "rating": "weak",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.4",
+        "v:20.1",
+        "v:32.1",
+        "v:21.1",
+        "v:6.14"
+      ],
+      "hypothesis": "Edge prediction and persisted production inputs should preserve inference and some later review, while manual scripts and retraining limit infrastructure overhead.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "misses",
+        "C2": "meets"
+      },
+      "observation": "Edge inference and persistence help the line and retain inputs, but manual workflow execution and manual retraining do not fit weekly delivery by a three-person team. Persistence alone does not select uncertain or wrong images. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "Replace generic online serving with persisted production inputs, and add ONNX optimization; these changes should better address image review and the edge latency target.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Persistence makes later review possible and ONNX is intended to improve inference performance, but neither establishes seven-day upload buffering or the 200 ms threshold. The point still lacks an explicit uncertain-example selector. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.5",
+        "v:20.1",
+        "v:32.1",
+        "v:21.1",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "Scheduled retraining and progressive rollback should make weekly delivery and recovery more dependable while retaining the simpler edge and batch-data approach.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The schedule and rollback improve on manual retraining and recovery, but the manual script-driven workflow remains in tension with automated lifecycle work and weakens confidence in a weekly rollout. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": 4,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.3"
+      ],
+      "hypothesis": "A configurable integrated platform with comprehensive traceability may reduce bespoke lifecycle work and improve coordination of recurring edge releases, at a possible cost and integration burden.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The integrated platform point preserves local inference and adds traceability, while its larger platform scope raises cost and integration questions for a tight budget and small team. It still lacks active-learning selection and explicit offline image synchronization. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "Increase artifact, dataset, run, and deployment-health traceability to make staged releases easier to govern across many lines.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Comprehensive lifecycle traceability improves the evidence available for deployment and recovery, but exact propagation and rollback times remain unspecified. The point remains unattested as a combination.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.1",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "Replace manual script execution with an orchestrated pipeline so scheduled retraining and rollback can meet the weekly release cadence with less operator work.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Orchestration removes the conflict between manual execution and automated lifecycle work. The batch ETL path and lack of inference optimization leave this option less suited to disconnected image collection and the strict line-latency target than the edge-first alternative. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.1",
+        "v:28.7",
+        "v:21.1",
+        "v:6.6"
+      ],
+      "hypothesis": "If each line trains locally, it may continue adapting without a central training connection, but coordinating consistent weekly models across 40 constrained devices may fail R2 and C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "misses",
+        "C2": "meets"
+      },
+      "observation": "Client-side training removes the single central training environment but shifts weekly work to the ARM edge computers, fragments the newly labelled data across lines, and adds coordination work for the small team. It misses system-wide weekly retraining and is dropped; this is distinct from the centralized serving failure because its problem is training coordination and edge capacity. No source attests the full combination.",
+      "rating": "weak",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 4,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:23.2",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "Add active-learning sample selection so uncertain or error-prone production images enter the labeling queue and support weekly retraining.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Active-learning sample selection directly supports the requested review set and closes the functional gap in R3. Image persistence still does not define seven-day local buffering and later synchronization. No source attests the full combination.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 4,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:19.5",
+        "v:20.1",
+        "v:32.2",
+        "v:21.1",
+        "v:23.2",
+        "v:6.6",
+        "v:38.1"
+      ],
+      "hypothesis": "Add active-learning sample selection to the batch-oriented, orchestrated edge pipeline to complete the uncertain-image labeling loop.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The point now covers uncertain-example selection and weekly automation, but batch ETL and the absence of ONNX optimization leave latency and outage handling less directly supported than the optimized edge path. No source attests the full combination.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 4,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:30.4",
+        "v:31.10",
+        "v:26.9",
+        "v:13.2",
+        "v:19.5",
+        "v:20.3",
+        "v:32.2",
+        "v:21.4",
+        "v:23.2",
+        "v:6.6",
+        "v:38.3"
+      ],
+      "hypothesis": "Replace general offline evaluation with threshold-based regression tests and add active-learning selection, tightening release protection and completing the review loop.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Threshold regression checks and active-learning selection improve promotion safety and label collection. The integrated platform still carries budget and integration uncertainty, and no chosen value promises the numeric rollout or offline-sync limits. No source attests the full combination.",
+      "rating": "strong",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Automated edge inspection",
+      "summary": "Keep scoring on the existing edge devices, persist production images and predictions, select uncertain examples, optimize inference, and automate traceable weekly retraining and rollback.",
+      "approach": "A",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.4",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Run inference on the installed edge modules so inspection does not require a plant network round trip.",
+          "evidence": [
+            {
+              "doc": "s07_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s19_p11",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value places inference on edge devices but does not establish compatibility with this ARM processor and accelerator."
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.10",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Persist inputs and predictions for later review and analysis, supporting collection during production.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s09_p10",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Persistence does not specify seven-day local retention, store-and-forward upload, or a recovery protocol."
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.2",
+          "drivers": [
+            "R3",
+            "R2"
+          ],
+          "reason": "Select uncertain or error-prone production inputs for inspector labeling and subsequent training.",
+          "evidence": [
+            {
+              "doc": "s09_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s22_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q1",
+            "C2"
+          ],
+          "reason": "Use ONNX conversion as a runtime optimization candidate on the fixed edge hardware.",
+          "evidence": [
+            {
+              "doc": "s19_p10",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The evidence says the conversion is intended to improve performance but provides no 200 ms result or hardware-specific benchmark."
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.4",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Use messaging-based intake to feed collected examples into the training workflow.",
+          "evidence": [
+            {
+              "doc": "s02_p06",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Messaging is an ingestion mechanism; it does not itself guarantee durable buffering during a seven-day disconnection."
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "C1"
+          ],
+          "reason": "Make preparation, training, evaluation, and deployment repeatable as one orchestrated workflow.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s06_p07",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.6",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Trigger the retraining cycle on a weekly schedule.",
+          "evidence": [
+            {
+              "doc": "s02_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.5",
+          "drivers": [
+            "Q3",
+            "R2"
+          ],
+          "reason": "Promote updates progressively and provide a route to restore the previous model.",
+          "evidence": [
+            {
+              "doc": "s04_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s25_p06",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value supports rollback but gives no 24-hour rollout or 15-minute operator recovery guarantee."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.3",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Keep model, data, run, and deployment-health lineage available for release governance across lines.",
+          "evidence": [
+            {
+              "doc": "s08_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s22_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.1",
+          "drivers": [
+            "C1",
+            "Q4"
+          ],
+          "reason": "Automate recurring lifecycle operations to reduce repeated hands-on work.",
+          "evidence": [
+            {
+              "doc": "s04_p18",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s22_p03",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Lifecycle automation may reduce manual effort but does not establish a monthly infrastructure cost below 2,000 euros."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Online computation uses current context, but an explicit remote online path adds unnecessary dependency for disconnected line inspection."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Basic artifact version control is lighter, while comprehensive traceability better supports governance across weekly updates and many lines."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "The point decides data ingestion alongside workflow coordination."
+        },
+        {
+          "source": "d:21",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The chosen intake path supplies examples used by retraining."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Batch-fed edge lifecycle",
+      "summary": "Keep inference on the devices and automate weekly retraining, active sample selection, and rollback using a batch-oriented data intake with basic artifact versioning.",
+      "approach": "C",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.4",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Retain local inference on existing edge modules.",
+          "evidence": [
+            {
+              "doc": "s07_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not establish this exact ARM accelerator's compatibility or measured latency."
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.10",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Persist images and predictions for later evaluation and labeling.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not specify offline buffer capacity or automatic synchronization after an outage."
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.2",
+          "drivers": [
+            "R3",
+            "R2"
+          ],
+          "reason": "Select uncertain or error-prone inputs for labeling.",
+          "evidence": [
+            {
+              "doc": "s09_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Use batch ETL to supply prepared features to the model-training workflow.",
+          "evidence": [
+            {
+              "doc": "s02_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "C1"
+          ],
+          "reason": "Orchestrate the repeated training and deployment stages instead of running them manually.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.6",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Trigger training weekly on a schedule.",
+          "evidence": [
+            {
+              "doc": "s02_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.5",
+          "drivers": [
+            "Q3",
+            "R2"
+          ],
+          "reason": "Use progressive deployment and rollback for model updates.",
+          "evidence": [
+            {
+              "doc": "s04_p10",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Version model artifacts and dependencies for repeatable deployment.",
+          "evidence": [
+            {
+              "doc": "s19_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.1",
+          "drivers": [
+            "C1",
+            "Q4"
+          ],
+          "reason": "Automate recurring lifecycle tasks while keeping the stack relatively simple.",
+          "evidence": [
+            {
+              "doc": "s22_p03",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value may reduce routine effort but does not quantify either staffing load or monthly spending."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "ONNX optimization is omitted to avoid an extra conversion path; consequently the 200 ms target has weaker support."
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Messaging intake was considered, but neither ingestion option specifies durable offline buffering."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Data ingestion is decided alongside the orchestrated workflow."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Integrated governed edge platform",
+      "summary": "Use an integrated MLOps platform for traceable weekly training and threshold-checked releases while keeping inspection and image persistence at the edge.",
+      "approach": "D",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.4",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Keep inference on the installed line devices.",
+          "evidence": [
+            {
+              "doc": "s19_p11",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The design space does not verify accelerator compatibility or measured classification time."
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.10",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Persist production inputs and predictions for later upload and analysis.",
+          "evidence": [
+            {
+              "doc": "s09_p10",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Persistence alone does not specify the offline retention and upload behavior required by Q2."
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.2",
+          "drivers": [
+            "R3",
+            "R2"
+          ],
+          "reason": "Select uncertain examples for inspector labeling and retraining.",
+          "evidence": [
+            {
+              "doc": "s22_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Try an inference representation intended to improve runtime performance.",
+          "evidence": [
+            {
+              "doc": "s25_p04",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "No evidence establishes the stated latency on the fixed hardware."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.2",
+          "drivers": [
+            "Q3",
+            "R2"
+          ],
+          "reason": "Use regression thresholds to detect quality drops before or during promotion.",
+          "evidence": [
+            {
+              "doc": "s06_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s22_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.4",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Feed collected data through messaging-based ingestion.",
+          "evidence": [
+            {
+              "doc": "s02_p06",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Messaging-based ingestion does not guarantee durable disconnected operation or delayed synchronization."
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R2",
+            "C1"
+          ],
+          "reason": "Orchestrate repeatable training, evaluation, and deployment stages.",
+          "evidence": [
+            {
+              "doc": "s06_p13",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.6",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Start retraining on a recurring weekly schedule.",
+          "evidence": [
+            {
+              "doc": "s06_p07",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.5",
+          "drivers": [
+            "Q3",
+            "R2"
+          ],
+          "reason": "Roll updates out progressively and retain a rollback path.",
+          "evidence": [
+            {
+              "doc": "s25_p06",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee delivery or recovery within the stated times."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.3",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Trace training runs, datasets, artifacts, and deployment health for governed rollout.",
+          "evidence": [
+            {
+              "doc": "s22_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.3",
+          "drivers": [
+            "C1",
+            "Q4"
+          ],
+          "reason": "Consider a configurable integrated platform to reduce toolchain assembly and lifecycle operations.",
+          "evidence": [
+            {
+              "doc": "s20_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s21_p10",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The source value describes an integrated platform but does not confirm its cost fits the cap or its operational burden fits this team."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Held-out evaluation was tested first; threshold regression testing more directly detects quality drops between releases."
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.1",
+          "drivers": [
+            "C1",
+            "Q4"
+          ],
+          "reason": "Generic lifecycle automation is a smaller platform commitment, but does not provide the integrated platform behavior this approach explores."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "The point includes the required ingestion decision for workflow coordination."
+        },
+        {
+          "source": "d:13",
+          "target": "d:32",
+          "type": "requires",
+          "holds": true,
+          "note": "The point includes workflow coordination required by evaluation strategy."
+        },
+        {
+          "source": "d:21",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The intake path affects what production data reaches retraining."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Place inference and retain review examples at the line",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "R3",
+        "C2"
+      ],
+      "context": "Every part needs a prompt prediction and disconnected plants must keep inspecting. The fixed edge computers provide the available local execution point, while examples must be retained for later review. The design space supports edge placement, persisted production inputs, and active selection of uncertain examples, but does not define a seven-day local buffer or verify latency and accelerator compatibility.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Optimized edge inference with active sample collection",
+          "values": [
+            "v:30.4",
+            "v:31.10",
+            "v:23.2",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 10,
+          "pros": [
+            "Inference remains on the installed device during network outages.",
+            "Uncertain or error-prone examples can be selected for labeling.",
+            "ONNX conversion is intended to improve runtime performance."
+          ],
+          "cons": [
+            "No evidence proves the target latency on this accelerator.",
+            "Persistence does not specify outage-length buffering or upload recovery."
+          ],
+          "reason": "This combination best covers line-local inference and the review loop while giving performance a runtime optimization path."
+        },
+        {
+          "id": "O2",
+          "name": "Persisted edge inference with batch intake",
+          "values": [
+            "v:30.4",
+            "v:31.10",
+            "v:23.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Keeps inference local and supports uncertain-example collection.",
+            "Uses a batch-oriented intake path for the recurring training workflow."
+          ],
+          "cons": [
+            "No inference optimization is selected, and batch intake does not specify offline image synchronization."
+          ],
+          "reason": "This is the lower-complexity edge variant, accepting weaker support for the strict latency and outage scenarios."
+        },
+        {
+          "id": "O3",
+          "name": "Central online service",
+          "values": [
+            "v:30.3",
+            "v:31.1"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Offers a queue-fronted online prediction service."
+          ],
+          "cons": [
+            "Every image depends on network access to the service and conflicts with disconnected inspection."
+          ],
+          "reason": "The line cannot depend on a remote online path during plant outages or within the required latency."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Automate weekly training and image intake",
+      "drivers": [
+        "R2",
+        "Q2",
+        "C1",
+        "Q4"
+      ],
+      "context": "The model must be retrained weekly from new inspector labels, and the small team cannot carry repeated manual lifecycle work. Image intake must eventually reach training, but the workspace does not establish the monthly cost of any option or specify durable store-and-forward behavior during an outage.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Orchestrated workflow with messaging intake",
+          "values": [
+            "v:21.4",
+            "v:32.2",
+            "v:6.6",
+            "v:38.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 10,
+          "pros": [
+            "Coordinates repeatable training and deployment stages.",
+            "Scheduled retraining matches the weekly cadence.",
+            "Automates recurring lifecycle work."
+          ],
+          "cons": [
+            "Messaging alone does not promise outage buffering.",
+            "Automation does not prove the infrastructure budget."
+          ],
+          "reason": "This option combines weekly cadence with automated lifecycle steps and an ingestion mechanism suited to messages."
+        },
+        {
+          "id": "O2",
+          "name": "Orchestrated workflow with batch ETL",
+          "values": [
+            "v:21.1",
+            "v:32.2",
+            "v:6.6",
+            "v:38.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Batch feature ingestion is straightforward for scheduled retraining.",
+            "Orchestration and automation avoid the manual-workflow weakness seen in the seed point."
+          ],
+          "cons": [
+            "Batch ETL does not define collection or synchronization for disconnected plants."
+          ],
+          "reason": "This is the simpler weekly data path, with less direct support for collecting live image examples."
+        },
+        {
+          "id": "O3",
+          "name": "Integrated platform workflow",
+          "values": [
+            "v:21.4",
+            "v:32.2",
+            "v:6.6",
+            "v:38.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Integrates lifecycle automation and platform components.",
+            "Supports an orchestrated and scheduled training process."
+          ],
+          "cons": [
+            "The integrated platform may exceed the budget or the team's operational capacity."
+          ],
+          "reason": "Choose this when out-of-the-box integration and lifecycle governance justify the additional platform commitment."
+        },
+        {
+          "id": "O4",
+          "name": "Manual script-driven updates",
+          "values": [
+            "v:21.1",
+            "v:32.1",
+            "v:6.14"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Requires little dedicated platform infrastructure."
+          ],
+          "cons": [
+            "Manual retraining and workflow execution do not fit a weekly cycle for the available team."
+          ],
+          "reason": "The operational workload conflicts with weekly retraining and the staffing constraint."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Govern and recover model releases",
+      "drivers": [
+        "Q3",
+        "R2",
+        "C1"
+      ],
+      "context": "Approved models must reach connected lines promptly, and an operator must be able to restore a previous model without the ML team. Progressive rollback and lifecycle records help, while threshold regression checks offer an extra release signal. The design space does not give quantitative fleet rollout or recovery times.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Progressive release with full lifecycle traceability",
+          "values": [
+            "v:19.5",
+            "v:20.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 10,
+          "pros": [
+            "Introduces updates progressively and supports reverting to an earlier version.",
+            "Links artifacts, training runs, datasets, and deployment health."
+          ],
+          "cons": [
+            "Does not specify operator controls or the 15-minute rollback limit."
+          ],
+          "reason": "Provides the strongest release governance and recovery basis represented in the selected alternatives."
+        },
+        {
+          "id": "O2",
+          "name": "Progressive release with artifact versioning",
+          "values": [
+            "v:19.5",
+            "v:20.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Keeps deployment artifacts versioned and supports rollback."
+          ],
+          "cons": [
+            "Provides less lifecycle context than comprehensive traceability."
+          ],
+          "reason": "A lighter governance choice for the batch-fed edge option."
+        },
+        {
+          "id": "O3",
+          "name": "Threshold regression checks",
+          "values": [
+            "v:13.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Can detect gradual quality decline and sudden regression in a new version."
+          ],
+          "cons": [
+            "Does not establish actual line-level rollback timing."
+          ],
+          "reason": "The integrated-platform alternative uses threshold checks to strengthen promotion decisions."
+        },
+        {
+          "id": "O4",
+          "name": "Recovery-oriented release with manual intervention",
+          "values": [
+            "v:19.4",
+            "v:20.1"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Provides a recovery path and versioned artifacts."
+          ],
+          "cons": [
+            "Manual recovery is a poor match for an operator-owned 15-minute rollback."
+          ],
+          "reason": "The manual intervention path risks requiring the ML team when a release misbehaves."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

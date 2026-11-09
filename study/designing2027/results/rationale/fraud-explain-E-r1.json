@@ -1,0 +1,781 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "fraud-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores every card transaction for fraud before it is authorized. It processes about 3,000 transactions per second on a normal day and up to five times as many during seasonal sales. Fraudsters adapt within weeks, and the confirmed fraud labels (chargebacks) arrive days to weeks after the transaction. Auditors and the card schemes can ask, months later, why a given transaction was scored the way it was. The ML team has five data scientists and two ML engineers. The company's operations team runs the data centres and the shared infrastructure, but there is no platform team for machine learning.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.1",
+        "v:6.3",
+        "v:2.1",
+        "v:11.1",
+        "v:12.3",
+        "v:19.1",
+        "v:18.1",
+        "v:10.3",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "description": "The system ingests continuous streams, processes them in real time, stores data and features in shared or general-purpose stores, and serves each model through a dedicated microservice, with clients blocking for predictions. A scheduled pipeline performs batch training, evaluation, and validation; one model is deployed at a time, monitored in production, and manually adjusted and redeployed, while data versions are maintained in a dedicated repository.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.1",
+        "v:6.3"
+      ],
+      "description": "The system continuously ingests streamed data and processes it in real time, storing features in general-purpose data stores without specialized feature-store support. Each model runs as its own service, exposed through distributed microservice-based serving; clients make requests and block until predictions are available.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:2.1",
+        "v:11.1",
+        "v:22.4"
+      ],
+      "description": "The system stores machine-learning data in a shared data store and uses a repository with specific technology support to version that data. In production, it tracks model usage, inputs, outputs, interpretability, and fairness, linking operational monitoring with the stored and versioned data where applicable.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:12.3",
+        "v:19.1",
+        "v:18.1",
+        "v:10.3",
+        "v:24.1"
+      ],
+      "description": "A scheduled orchestrator runs frequent batch-based training jobs, using an automated pipeline to build, evaluate, and validate the model. One model version is deployed in production, and humans review monitoring results and manually adjust and redeploy it when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:12.3",
+        "v:19.2",
+        "v:18.1",
+        "v:10.3",
+        "v:24.1"
+      ],
+      "description": "The system runs the ML pipeline on a regular schedule, incrementally training the model and automatically performing model building, evaluation, and validation. A single model version is deployed to production, while humans review monitoring results and manually adjust and redeploy it when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.2",
+        "v:6.3"
+      ],
+      "description": "The system continuously ingests and processes streaming data in real time, persisting features in general-purpose data stores without specialized feature-store support. Each model runs as its own service and exposes a local API for real-time predictions; clients make synchronous requests and block until results are available.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.1",
+        "v:6.3",
+        "v:2.1",
+        "v:11.1",
+        "v:12.3",
+        "v:19.1",
+        "v:18.1",
+        "v:10.3",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "hypothesis": "the solution's mapped decisions collectively provide fresh transaction features, online scoring with continued authorization on failure, traceable past scores, and controlled retraining",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "misses",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "The point check found no conflicting or rejected values and no unmet required dimensions. Its generated description aligns with the mapped streaming, synchronous scoring, scheduled batch training and one-model rollout choices. No sources attest the combination, and the space has no source passages, so the mapping is a useful fit but not source-backed. The 25 ms timeout and six replicas do not demonstrate the 99th percentile target at 15,000 requests per second. The three-day shadow comparison exceeds Q4's 48-hour limit before promotion.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.1",
+        "v:6.3"
+      ],
+      "hypothesis": "R1, Q1, Q2 and C1 explain continuous ingestion, real-time feature processing and synchronous service-based scoring inside the PCI environment",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "observation": "This region directly maps the transaction stream, recent per-card aggregates and synchronous scoring service. Rule-engine fallback covers service failures; the document does not explicitly explain the behavior when Redis itself fails. The local-service contrast also remains capable of real-time scoring, so distributed microservice serving is a design choice rather than a requirement forced by the listed latency target. The point is unattested by sources.",
+      "verdict": "partial",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:2.1",
+        "v:11.1",
+        "v:22.4"
+      ],
+      "hypothesis": "R3 and Q3 explain the shared persistent record of score inputs, model version and training data snapshot",
+      "assessment": {
+        "R3": "meets",
+        "Q3": "meets"
+      },
+      "observation": "The append-only score records retained for 13 months and MLflow's training snapshot and artifact records provide the requested score-to-model and model-to-training-data trace. The values are an approximate fit because the space's data version repository describes data versioning generally rather than the combined per-score object-store log and experiment registry. There are no source passages to attest the region.",
+      "verdict": "partial",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:12.3",
+        "v:19.1",
+        "v:18.1",
+        "v:10.3",
+        "v:24.1"
+      ],
+      "hypothesis": "R2, Q4 and C2 explain scheduled automated batch retraining, comparison and human promotion",
+      "assessment": {
+        "R2": "meets",
+        "Q4": "misses",
+        "C2": "partly"
+      },
+      "observation": "Nightly batch retraining updates the model as labels arrive, and pipeline automation plus human review fit the small team's operating context. A three-day shadow period misses the 48-hour production deadline in Q4. Manual promotion offers control but the workspace has no source evidence that this operational pattern is especially suitable for a seven-person team. No source attests this combination.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "v:12.3",
+        "v:19.2",
+        "v:18.1",
+        "v:10.3",
+        "v:24.1"
+      ],
+      "hypothesis": "whether batch-based learning is forced over incremental learning by R2 or Q4",
+      "assessment": {
+        "R2": "meets",
+        "Q4": "partly"
+      },
+      "observation": "Incremental learning could also update the model as confirmed cases arrive, so R2 does not force batch-based learning. Q4 requires recent-transaction comparison and a 48-hour production path, but it does not prescribe a training mode; this contrast does not establish that incremental learning would meet that full workflow. The batch choice is therefore free with respect to the stated requirements, and neither combination has source attestation.",
+      "verdict": "partial",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.2",
+        "v:6.3"
+      ],
+      "hypothesis": "whether synchronous real-time scoring requires a distributed microservice rather than a local service",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "observation": "The local service contrast still supports synchronous scoring and could meet the real-time functional need, so the requirements do not force distributed microservice serving. The solution chose the Kubernetes microservice form freely. This alternative does not establish the 15,000 transactions per second p99 target or the failure fallback behavior. Neither point has source attestation.",
+      "verdict": "partial",
+      "point": "P6"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Real-time scoring path",
+      "step": 2,
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "C1"
+      ],
+      "values": [
+        "v:7.1",
+        "v:15.2",
+        "v:4.2",
+        "v:1.1",
+        "v:5.1",
+        "v:6.3"
+      ],
+      "reason": "These values describe the stream-to-feature-to-synchronous-score path required by per-transaction authorization and recent activity. The space offers a close structural mapping, but no source passages attest it and Q1's numerical latency target is not measured in the solution."
+    },
+    {
+      "id": "G2",
+      "name": "Historical score trace",
+      "step": 3,
+      "drivers": [
+        "R3",
+        "Q3"
+      ],
+      "values": [
+        "v:2.1",
+        "v:11.1",
+        "v:22.4"
+      ],
+      "reason": "Persistent score inputs and model identity, paired with versioned training snapshots, make past decisions traceable for 13 months. This is the clearest requirement-to-design match; the exact combined logging and registry implementation is only approximately represented by the general data-versioning value."
+    },
+    {
+      "id": "G3",
+      "name": "Scheduled model refresh",
+      "step": 4,
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2"
+      ],
+      "values": [
+        "v:12.3",
+        "v:19.1",
+        "v:18.1",
+        "v:10.3",
+        "v:24.1"
+      ],
+      "reason": "Nightly batch retraining with automated evaluation and human promotion addresses model updates with a small team, but the three-day shadow interval conflicts with Q4's 48-hour production deadline. The region is partial and has no source attestation."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Fraud scoring as built",
+      "summary": "A PCI-contained stream processing path supplies real-time per-card features to a synchronous model microservice and falls back to rules when scoring is unavailable. Nightly automated batch retraining is evaluated in shadow mode, while score records and training snapshots preserve audit history.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "C1"
+          ],
+          "forced": true,
+          "reason": "A continuous transaction feed supports scoring each authorization from recent activity, and the switch and stream run inside the PCI boundary. The space offers this as an accepted value, though its evidence list is empty.",
+          "evidence": [],
+          "solution_quote": "The payments switch publishes every card transaction to a Kafka topic inside the PCI-certified environment."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": true,
+          "reason": "Keeping per-card aggregates current supports recent-activity features at scoring time. Batch processing would not supply the same continuously updated state for the synchronous authorization path.",
+          "evidence": [],
+          "solution_quote": "Flink jobs consume the topic and keep per-card aggregates (spend and counts over the last hour, day and week, and the number of distinct merchants) up to date in a Redis cluster."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C2"
+          ],
+          "forced": null,
+          "fit": "approximate",
+          "fit_note": "Redis stores derived features and provides access, but the value does not specify low-latency online access or streaming updates.",
+          "reason": "General-purpose Redis storage is a close match for maintaining and reading aggregates; the requirements call for recent features but do not require a feature store or force Redis specifically.",
+          "evidence": [],
+          "solution_quote": "Flink jobs consume the topic and keep per-card aggregates (spend and counts over the last hour, day and week, and the number of distinct merchants) up to date in a Redis cluster."
+        },
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C1"
+          ],
+          "forced": false,
+          "reason": "A separately deployed model service fits the described integration. A local service could also return real-time results and the problem does not force the distributed boundary; the solution chose its Kubernetes service arrangement.",
+          "evidence": [],
+          "solution_quote": "The model is a gradient-boosted tree model (XGBoost). It is packaged in a container with a small Python REST service and runs on the company's Kubernetes cluster, with six replicas and autoscaling on CPU."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "A microservice serves scores in real time and fits the REST service called by the switch. The design space's local service alternative could also provide synchronous scores, so the distributed service choice is not forced by these requirements.",
+          "evidence": [],
+          "solution_quote": "The model is a gradient-boosted tree model (XGBoost). It is packaged in a container with a small Python REST service and runs on the company's Kubernetes cluster, with six replicas and autoscaling on CPU."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.3",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2"
+          ],
+          "forced": true,
+          "reason": "The authorization switch waits for the score before authorization, with a timeout before falling back to rules. This fits blocking on a result; Q2 makes the fallback essential so a timeout does not block authorization indefinitely.",
+          "evidence": [],
+          "solution_quote": "The authorization switch calls the service synchronously with a 25 ms timeout."
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R3",
+            "Q3",
+            "C1"
+          ],
+          "forced": true,
+          "reason": "An on-premises object store provides persistent score records within the company's environment for the audit window. The shared-store value is a broad fit; the append-only retention details are not expressed by it.",
+          "evidence": [],
+          "solution_quote": "Every score is written, with the model version and all input values, to an append-only table in the company's on-premises object store, kept for 13 months."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "forced": true,
+          "fit": "approximate",
+          "fit_note": "MLflow records a training data snapshot per run, but also records parameters, metrics and artifacts; this value only captures the data versioning aspect.",
+          "reason": "Versioned training snapshots are needed to connect a deployed model to its source data. The tool choice MLflow is not forced by the requirement.",
+          "evidence": [],
+          "solution_quote": "MLflow records the parameters, the metrics, the training data snapshot and the model artifact of every run, and holds the model registry."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "forced": true,
+          "fit": "approximate",
+          "fit_note": "The value captures tracking of model use, inputs and interpretability, but does not capture the solution's separate drift dashboards and alerts.",
+          "reason": "Logging model version and all score inputs, plus selected explanation features, supports traceability of individual scores. Grafana drift monitoring is an additional practice not represented by this one-value mapping.",
+          "evidence": [],
+          "solution_quote": "Every score is written, with the model version and all input values, to an append-only table in the company's on-premises object store, kept for 13 months."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "Nightly execution supplies a regular retraining cadence, but requirements do not prescribe scheduling; a trigger based on data or observed loss could also be considered.",
+          "evidence": [],
+          "solution_quote": "An Airflow pipeline retrains the model every night on the last 90 days of labelled transactions."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "forced": false,
+          "reason": "Retraining from accumulated labelled transactions is batch-based. Incremental learning could also satisfy updating as labels arrive, so batch learning is a free implementation choice; the contrast does not resolve the full Q4 comparison and promotion workflow.",
+          "evidence": [],
+          "solution_quote": "An Airflow pipeline retrains the model every night on the last 90 days of labelled transactions."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "A pipeline automates repeatable training and comparison work for the small team, but the requirements do not demand this specific orchestration structure.",
+          "evidence": [],
+          "solution_quote": "An Airflow pipeline retrains the model every night on the last 90 days of labelled transactions."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.3",
+          "drivers": [
+            "Q4"
+          ],
+          "forced": null,
+          "fit": "approximate",
+          "fit_note": "The production service loads the promoted model, but the solution also runs a candidate in shadow mode alongside it for three days; the dimension's single-production-model value does not capture this comparison phase.",
+          "reason": "One promoted model serves authorizations at a time. Shadow evaluation temporarily adds a candidate model and is not represented by this production value.",
+          "evidence": [],
+          "solution_quote": "A new model first runs in shadow mode next to the production model for three days; the risk team reviews the comparison and promotes it by hand in MLflow."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "The risk team reviews comparisons and promotes models by hand. This retains human oversight, but the three-day review window fails the 48-hour adaptability target and is a designer choice rather than a requirement.",
+          "evidence": [],
+          "solution_quote": "A new model first runs in shadow mode next to the production model for three days; the risk team reviews the comparison and promotes it by hand in MLflow."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:1",
+          "target": "d:5",
+          "type": "affects",
+          "holds": true
+        },
+        {
+          "source": "d:18",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Build the authorization scoring path around streaming features and a synchronous model service",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "C1",
+        "C2"
+      ],
+      "context": "Every transaction needs a score based on recent card activity before authorization, under a 30 ms p99 target at peak load. Scoring failures must not block authorization, and card data must stay inside the PCI environment.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "PCI-contained stream and microservice scoring",
+          "values": [
+            "v:7.1",
+            "v:15.2",
+            "v:4.2",
+            "v:1.1",
+            "v:5.1",
+            "v:6.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "fit": "approximate",
+          "fit_note": "General-purpose Redis feature storage is not a dedicated online feature serving design; the design space also cannot establish the stated p99 latency or Redis-failure behavior.",
+          "pros": [
+            "Maintains recent activity aggregates continuously and makes them available to the scoring request.",
+            "Synchronous results fit the before-authorization decision, while the rule-engine fallback allows authorization to continue after a scoring failure.",
+            "The transaction topic is inside the PCI-certified environment."
+          ],
+          "cons": [
+            "The solution gives a 25 ms timeout but no p99 measurements at 15,000 transactions per second.",
+            "The requirements do not force a distributed microservice over a local service.",
+            "The document describes fallback for service timeouts and failures but not the explicit behavior on a Redis-only outage."
+          ],
+          "reason": "Recent transaction features and synchronous scoring are called for by R1 and Q1, while the rule fallback addresses Q2 and the internal topic addresses C1. The stream and synchronous result are functionally forced; the Kubernetes microservice boundary and Redis choice remain free. The point check has no warnings, but there is no source attestation."
+        },
+        {
+          "id": "O2",
+          "name": "Real-time local service",
+          "values": [
+            "v:7.1",
+            "v:15.2",
+            "v:4.2",
+            "v:5.2",
+            "v:6.3"
+          ],
+          "status": "discarded",
+          "step": 6,
+          "pros": [
+            "Still provides real-time scoring and blocking result behavior.",
+            "Could avoid the distributed model-serving boundary."
+          ],
+          "cons": [
+            "Does not match the described separately deployed Kubernetes service."
+          ],
+          "reason": "This contrast still fits the stated synchronous scoring needs, so the requirements do not force the chosen distributed service. It is an option supplied by the design space, not one the solution says the designers considered."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Keep score and training records for later audit",
+      "drivers": [
+        "R3",
+        "Q3",
+        "C1"
+      ],
+      "context": "The team must reconstruct score inputs and model version up to 13 months later, and identify the training data behind that model within one working day, while keeping card data in the PCI environment.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "On-premises score ledger and versioned MLflow runs",
+          "values": [
+            "v:2.1",
+            "v:11.1",
+            "v:22.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 3,
+          "fit": "approximate",
+          "fit_note": "The design space maps the combined append-only score ledger, experiment registry and drift dashboards only approximately to general data storage, data versioning and in-production tracking values.",
+          "pros": [
+            "Each score stores its model version and all input values for 13 months.",
+            "MLflow retains the training data snapshot and model artifact for each run.",
+            "On-premises storage supports the PCI boundary."
+          ],
+          "cons": [
+            "The design space has no value specific to per-score immutable audit records or a combined model and data registry.",
+            "No source passages establish this particular combination."
+          ],
+          "reason": "R3 and Q3 directly call for reconstructable score records and model lineage. The implementation choices of object store and MLflow are free ways to provide that trace, while the selected values are approximate mappings rather than direct endorsements from the space."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Retrain models on a nightly batch pipeline",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2"
+      ],
+      "context": "Confirmed fraud labels arrive late, but a model must be refreshed as labels arrive and compared with the current model before a candidate is promoted. Seven people operate the system without a dedicated ML platform team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Nightly batch retraining with human promotion",
+          "values": [
+            "v:12.3",
+            "v:19.1",
+            "v:18.1",
+            "v:24.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Nightly runs incorporate newly labelled transactions on a recurring schedule.",
+            "Automation covers repeatable model building and comparison, with risk-team review before promotion."
+          ],
+          "cons": [
+            "The three-day shadow period exceeds Q4's 48-hour production deadline.",
+            "Human review and orchestration add operational work for a small team.",
+            "The solution gives no evidence that nightly batch training is better than incremental learning for the stated needs."
+          ],
+          "reason": "R2 calls for updates as confirmed cases arrive, and nightly automation provides a repeatable update path. Q4 is not met: the three-day shadow period delays promotion beyond 48 hours. Batch training and manual approval are therefore free choices that trade timely adaptation for review time."
+        },
+        {
+          "id": "O2",
+          "name": "Nightly incremental learning with human promotion",
+          "values": [
+            "v:12.3",
+            "v:19.2",
+            "v:18.1",
+            "v:24.1"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Could incorporate confirmed cases without waiting for a full batch retrain."
+          ],
+          "cons": [
+            "The problem does not say the model can be incrementally updated, and this does not remove the three-day shadow delay."
+          ],
+          "reason": "R2 does not force batch training because incremental updates could also address new labels. This point does not establish a better outcome for Q4, and the alternative is a contrast supplied by the design space rather than one named by the solution."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Use a shadow comparison before promoting a model",
+      "drivers": [
+        "Q4",
+        "C2"
+      ],
+      "context": "A retrained model should be compared with the current model on recent transactions before it goes to production, with a small risk team responsible for the review.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three-day shadow run and manual promotion",
+          "values": [
+            "v:10.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "pros": [
+            "Allows the risk team to inspect a candidate beside the current production model before promotion."
+          ],
+          "cons": [
+            "The three-day duration misses the 48-hour limit in Q4.",
+            "The single-model production value does not represent the candidate shadow period."
+          ],
+          "reason": "The comparison itself serves Q4's review requirement, but its duration conflicts with the deadline. The exact shadow-mode deployment and comparison duration are not covered by a matching design-space value; v:10.3 only approximately represents the promoted steady state."
+        }
+      ]
+    }
+  ],
+  "uncovered": [
+    {
+      "decision": "Use a gradient-boosted tree model (XGBoost) and package it as a Python REST container with six Kubernetes replicas and CPU autoscaling.",
+      "solution_quote": "The model is a gradient-boosted tree model (XGBoost). It is packaged in a container with a small Python REST service and runs on the company's Kubernetes cluster, with six replicas and autoscaling on CPU.",
+      "nearest_dimension_id": "d:5"
+    },
+    {
+      "decision": "On a timeout or scoring-service failure, use the existing rule engine for that transaction and log that no score was used.",
+      "solution_quote": "If the call times out or fails, the switch uses the existing rule engine for that transaction and logs that no score was used.",
+      "nearest_dimension_id": "d:6"
+    },
+    {
+      "decision": "Return the three features that pushed the score up most to explain declines to cardholders.",
+      "solution_quote": "The service returns, with every score, the three features that pushed the score up the most, which the dispute team uses to explain declines to cardholders.",
+      "nearest_dimension_id": "d:22"
+    },
+    {
+      "decision": "Keep score records in an append-only table for 13 months.",
+      "solution_quote": "Every score is written, with the model version and all input values, to an append-only table in the company's on-premises object store, kept for 13 months.",
+      "nearest_dimension_id": "d:2"
+    },
+    {
+      "decision": "Use MLflow for run tracking and model registry, and load promoted models at the scoring service's next restart.",
+      "solution_quote": "MLflow records the parameters, the metrics, the training data snapshot and the model artifact of every run, and holds the model registry.\n\nA new model first runs in shadow mode next to the production model for three days; the risk team reviews the comparison and promotes it by hand in MLflow. The scoring service loads the promoted model at its next restart.",
+      "nearest_dimension_id": "d:10"
+    },
+    {
+      "decision": "Use Grafana dashboards for score distribution and rule-engine fallbacks, and alert on drift from last month's score distribution.",
+      "solution_quote": "Grafana dashboards show the score distribution and the share of rule-engine fallbacks, and alert when the score distribution drifts from last month's.",
+      "nearest_dimension_id": "d:22"
+    }
+  ],
+  "unaddressed": []
+}

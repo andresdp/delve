@@ -1,0 +1,1441 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer classifies two to eight million documents a day, including a fourfold storm-season peak, into 60 claim types with an LLM classifier. Three teams consume results; documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:5.1",
+        "v:6.1",
+        "v:17.2",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "Data arrives continuously through a message/event queue, is partitioned for parallel real-time processing, and is sent to a model-serving microservice. Prediction availability is pushed to clients, while model performance is monitored and humans manually adjust and redeploy models when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.3",
+        "v:6.2",
+        "v:17.2",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "A service-based data access API supplies data to ML projects through batch ingestion, and partitioned batch pipelines process it in parallel. Models run on schedule over data batches, write predictions to storage, and clients poll for results; model performance is monitored, with humans manually adjusting and redeploying models when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:15.2",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "description": "A pub/sub API delivers continuously streamed data to real-time processing components, using hybrid parallelization, while model predictions are served through a combination of online services and offline batch computations. Clients receive push notifications when results are available; production usage, inputs, outputs, interpretability, and fairness are tracked, and humans manually adjust and redeploy models based on monitoring findings.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:3.5",
+        "v:7.3",
+        "v:15.1",
+        "v:5.4",
+        "v:6.3",
+        "v:17.4",
+        "v:22.3",
+        "v:24.1"
+      ],
+      "description": "The system directly accesses the data provider, ingests data in batches, processes it sequentially, and precomputes predictions or scores for delivery, with clients blocking until results are available. It has no production monitoring, so any model adjustments are made manually and redeployed; blocking may be unsuitable if precomputation is slow.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:5.1",
+        "v:6.1",
+        "v:17.2",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "description": "A message/event queue provides newly available data to a streamed, real-time processing pipeline, where partitioning enables parallel processing and a microservice serves predictions or scores. Push notifications inform clients when results are available, while model performance monitoring triggers automated model adjustments.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.2",
+        "v:24.1"
+      ],
+      "description": "Data is ingested and processed in batches through a service-based data access API, using a hybrid parallelization approach, while predictions are served through a combination of online services and offline batch computations. Clients receive push notifications when results are available; data and predictions are monitored or logged, and humans manually adjust and redeploy models based on findings.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.3",
+        "v:6.2",
+        "v:17.2",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "description": "A service-based data access API supplies data through batch ingestion, and partitioned batch pipelines process it in parallel. Models run on schedule over data batches, write predictions to storage, and clients poll for results; model performance is monitored, with automated adjustment triggered by monitoring findings.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:15.2",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.4",
+        "v:24.2"
+      ],
+      "description": "A pub/sub API delivers continuously streamed data to real-time processing components, using hybrid parallelization, while model predictions are served through online services and offline batch computations. Clients receive push notifications when results are available; production usage, inputs, outputs, interpretability, and fairness are tracked, and automated measures adjust the model based on monitoring findings.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:5.1",
+        "v:6.1",
+        "v:17.2",
+        "v:22.2",
+        "v:24.2"
+      ],
+      "description": "A message/event queue provides newly available data to a streamed, partitioned real-time pipeline. A model-serving microservice returns predictions and pushes availability notifications to clients, while system data and predictions are monitored and automated measures adjust the model when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.3",
+        "v:6.2",
+        "v:17.2",
+        "v:22.2",
+        "v:24.2"
+      ],
+      "description": "A service-based data access API encapsulates the provider, while data is ingested, partitioned, and processed in batches for scheduled model serving, with predictions written to storage. Clients poll for availability, and system data and predictions are monitored or logged to trigger automated model adjustments.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:15.2",
+        "v:5.5",
+        "v:6.2",
+        "v:17.3",
+        "v:22.4",
+        "v:24.2"
+      ],
+      "description": "A pub/sub interface delivers continuously streamed data into real-time processing, using hybrid parallelization and online/offline model serving. Clients poll for prediction results, while production usage, inputs, outputs, interpretability, and fairness are tracked; automated measures adjust models based on monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.2",
+        "v:24.2"
+      ],
+      "description": "The system accesses data through services, ingests and processes it in batches using hybrid parallelization, and serves predictions through a combination of online services and offline batch computations. It notifies clients when results are available, while logging and monitoring data and predictions to trigger automated model adjustments.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a queue-driven, partitioned stream puts low latency and peak throughput first?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if scheduled batch processing controls average cost and scales by partitioning?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a hybrid online/offline design supports both immediate and bulk demand?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if the simplest precomputed, sequential design is enough?",
+      "status": "dropped",
+      "dropped_because": "Sequential precomputation without monitoring cannot credibly meet the two-hour peak deadline or one-day detection requirement."
+    },
+    {
+      "id": "E",
+      "idea": "What if batch ingestion is paired with hybrid serving and observable event-driven outputs?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:5.1",
+        "v:6.1",
+        "v:17.2",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "Queueing, continuous ingestion, real-time processing, and partitioning should meet R1 and support Q1; pushed results should help R2 and Q4; performance monitoring should help Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point aligns with fast intake and parallel processing, but contains no evidence that eight million documents meet the deadline or that costs stay below target. It specifies neither review workflow nor data residency/provider deployment.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.3",
+        "v:6.2",
+        "v:17.2",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "Partitioned batch processing and scheduled serving may control costs while meeting Q1 if jobs finish inside two hours; monitoring and polling offer basic Q2 and R2 support.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Scheduled batches may be efficient, though the deadline depends on job sizing and capacity; polling is less event-driven and no point evidence supports the cost target.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:15.2",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.4",
+        "v:24.1"
+      ],
+      "hypothesis": "Hybrid online/offline serving and hybrid parallelization should handle mixed demand and scale; tracking and push delivery should support Q2, R2, and Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "This provides the broadest serving choices and useful tracking, but no quantified throughput, cost, or team-specific isolation evidence; tracking does not create human review.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 1,
+      "approach": "D",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:3.5",
+        "v:7.3",
+        "v:15.1",
+        "v:5.4",
+        "v:6.3",
+        "v:17.4",
+        "v:22.3",
+        "v:24.1"
+      ],
+      "hypothesis": "Precomputation may reduce repeated serving work, but sequential processing and blocking may miss Q1; no monitoring likely misses Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "misses",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point has no parallel processing and no monitoring, and the generated description itself flags blocking as unsuitable when precomputation is slow. It misses the most constraining deadline and observability goals.",
+      "rating": "weak",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:5.1",
+        "v:6.1",
+        "v:17.2",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "hypothesis": "Automated adjustment may shorten response after performance degradation and improve Q2, while retaining A's fast path for Q1.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Automation improves response potential, but model performance monitoring does not establish per-claim-type alerting and automatic adjustment is not the requested human correction loop.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.3",
+        "v:6.2",
+        "v:17.2",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "hypothesis": "Logging system data and predictions plus automated adjustment may make batch quality changes more visible and actionable, improving Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Logging makes the batch path more diagnosable, but the space does not state alerts, per-type quality measures, or deadline/cost performance.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:15.2",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.4",
+        "v:24.2"
+      ],
+      "hypothesis": "Automated adjustment added to hybrid serving and tracking may make model response faster while preserving immediate and batch paths.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The hybrid point retains coverage and adds a response mechanism; however automated adjustment can be risky without explicit review gates, and the point remains unverified on numeric targets.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 8,
+      "round": 2,
+      "approach": "E",
+      "move": "explore",
+      "parent": 2,
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.2",
+        "v:24.1"
+      ],
+      "hypothesis": "A batch-oriented ingest path combined with hybrid serving and logging may improve team delivery flexibility while keeping cost and observability visible.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The combination gives batch and online delivery paths and visibility into data/predictions, but values do not prove cost or freshness targets and human review remains outside the design space.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:5.1",
+        "v:6.1",
+        "v:17.2",
+        "v:22.2",
+        "v:24.2"
+      ],
+      "hypothesis": "Replacing model-only monitoring with data and prediction logging should expose pipeline and output changes more broadly, serving Q2 while preserving throughput choices.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The fast path remains intact and logging gives operators more diagnostic material, though neither logging nor automated adjustment guarantees a one-day class-specific alert.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.3",
+        "v:6.2",
+        "v:17.2",
+        "v:22.2",
+        "v:24.2"
+      ],
+      "hypothesis": "Keeping scheduled batches and adding logging plus automation should make the batch option more operationally responsive.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "This point repeats the prior batch refinement and is reused without another evaluation; the tradeoff remains uncertain deadline performance against possible batch efficiency.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:15.2",
+        "v:5.5",
+        "v:6.2",
+        "v:17.3",
+        "v:22.4",
+        "v:24.2"
+      ],
+      "hypothesis": "Polling results in the hybrid design tests whether consumers can retrieve results independently while retaining online/offline processing and tracking.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point remains viable, but polling is less event-driven and does not offer the result notification decoupling of push; the assessed alternative remains the stronger hybrid member.",
+      "rating": "mixed",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:3.2",
+        "v:7.3",
+        "v:15.1",
+        "v:5.5",
+        "v:6.1",
+        "v:17.3",
+        "v:22.2",
+        "v:24.2"
+      ],
+      "hypothesis": "Automated adjustment layered onto the hybrid batch option may improve response to observed quality changes.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point adds a response path while retaining hybrid serving and logging, but lacks explicit human approval and may increase risk without measured guardrails.",
+      "rating": "mixed",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Queue driven real time",
+      "summary": "Stream each document through a partitioned real-time pipeline and serve predictions with a microservice. Push results to consumers and monitor the data and predictions.",
+      "approach": "A",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "An event queue can decouple producers and consuming teams.",
+          "fit": "approximate",
+          "fit_note": "The value describes queued data access, not a complete multi-team result event contract."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Continuous intake supports low arrival-to-classification latency."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Real-time processing is aligned with the two-hour deadline."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Distributed model serving is aligned with real-time prediction delivery.",
+          "fit": "approximate",
+          "fit_note": "The value covers serving predictions, not the classifier choice, confidence contract, or EU provider configuration."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push notifies each consumer when results are ready."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Partitioning enables parallel processing."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Logging inputs and predictions supports diagnosis.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify class-specific quality measures or a one-day alert."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [],
+          "reason": "Automated adjustment offers a response to monitoring findings.",
+          "fit": "approximate",
+          "fit_note": "This does not implement uncertain-case human review or use reviewer corrections."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Performance monitoring is more directly about model quality, but logs also help inspect layout and output changes."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The serving mode affects how clients learn that predictions are ready."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring choices affect how model adjustment is triggered."
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Scheduled batch processing",
+      "summary": "Ingest and classify documents in partitioned batches, write predictions to storage, and let teams poll for results. Logging and automated adjustment add operational feedback.",
+      "approach": "B",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A service boundary separates data access from consumers."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Automated batch ingestion handles high-volume arrivals."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Batch processing may improve utilization and average cost, subject to the deadline."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Scheduled serving writes results to storage for consumers.",
+          "fit": "approximate",
+          "fit_note": "The value does not promise that batches finish within two hours or define confidence outputs."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Polling lets each team retrieve results on its own schedule."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Partitioning adds parallelism to batch execution."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Logging data and predictions supports quality investigation.",
+          "fit": "approximate",
+          "fit_note": "No per-claim-type thresholds or alert timing are specified."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [],
+          "reason": "Automated adjustment may respond to issues found by monitoring.",
+          "fit": "approximate",
+          "fit_note": "This does not implement human review or correction ingestion."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push is more immediate but polling gives teams independent retrieval timing."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Batch serving writes predictions before clients retrieve them."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring choices affect how model adjustment is triggered."
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Hybrid online and offline",
+      "summary": "Combine real-time ingestion and processing with online and batch serving, hybrid parallelism, pushed results, and model tracking. This supports varied traffic at the cost of greater operational complexity.",
+      "approach": "C",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Pub/sub can notify independent subscribers as data becomes available.",
+          "fit": "approximate",
+          "fit_note": "The value addresses data access notification and does not define downstream result schemas."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Streamed ingestion handles continuous arrivals."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Real-time processing supports the strict arrival deadline."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Online and offline serving can place urgent cases on the fast path and bulk work on batches.",
+          "fit": "approximate",
+          "fit_note": "The choice does not quantify latency or cost and does not specify classifier confidence."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push supports timely, independent result consumption."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Hybrid parallelization can combine processing strategies."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Tracking model usage and outputs supports production diagnosis.",
+          "fit": "approximate",
+          "fit_note": "The value does not explicitly define per-class quality monitoring or alert timing."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [],
+          "reason": "Automated adjustment links monitoring outcomes to model changes.",
+          "fit": "approximate",
+          "fit_note": "The value leaves human review and correction-based improvement unspecified."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Manual adjustment preserves human control but provides no specific uncertain-document correction loop."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Hybrid serving affects when clients can be notified."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Tracking informs model adjustment."
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "Hybrid serving with batch intake",
+      "summary": "Ingest in batches and use hybrid serving and parallel processing to balance cost and timely outputs. Push and logging support consumer and operator awareness, with automated adjustment.",
+      "approach": "E",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A service access boundary supports independent consumers."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Batch intake may simplify capacity planning and utilization."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.1",
+          "drivers": [],
+          "reason": "Batch processing may help control average costs."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Hybrid serving retains an online route while supporting batch work.",
+          "fit": "approximate",
+          "fit_note": "No numeric performance or cost evidence is available."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push notifications tell consumers results are ready."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Hybrid parallelism can increase processing capacity."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Logging inputs and predictions supports diagnosing quality changes.",
+          "fit": "approximate",
+          "fit_note": "The value does not promise class-specific alerts within one day."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [],
+          "reason": "Automated adjustment can trigger a response to monitoring.",
+          "fit": "approximate",
+          "fit_note": "It does not supply human review or feedback ingestion."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Polling gives consumers control over retrieval timing, but push better signals readiness."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choice shapes client result availability."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring findings influence adjustment."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Choose processing and prediction serving modes",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "The classifier must process a highly variable multi-million-document workload and meet a strict two-hour peak deadline, while average cost is also constrained. The design space describes processing and serving patterns but supplies no measurements for this workload.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Queue driven real time",
+          "values": [
+            "v:7.1",
+            "v:15.2",
+            "v:5.1",
+            "v:17.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Continuous intake, real-time processing, and partitioning align with low latency and parallel work."
+          ],
+          "cons": [
+            "Could use more resources than necessary during ordinary periods; no cost or throughput measurements are available."
+          ],
+          "reason": "Choose this when the storm-season deadline dominates."
+        },
+        {
+          "id": "O2",
+          "name": "Scheduled partitioned batches",
+          "values": [
+            "v:7.3",
+            "v:15.1",
+            "v:5.3",
+            "v:17.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 10,
+          "pros": [
+            "Partitioned batch processing can make high-volume work schedulable and utilization controllable."
+          ],
+          "cons": [
+            "The two-hour arrival deadline depends on batch size, queue age, and capacity; none are established."
+          ],
+          "reason": "Choose this when cost and operational scheduling take priority, after load validation."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid online and offline serving",
+          "values": [
+            "v:7.1",
+            "v:15.2",
+            "v:5.5",
+            "v:17.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 7,
+          "pros": [
+            "Retains real-time processing while supporting online and batch serving paths."
+          ],
+          "cons": [
+            "Adds operational complexity and the space does not show this combination meets either numeric target."
+          ],
+          "reason": "Choose this to cover mixed urgent and bulk demand."
+        },
+        {
+          "id": "O4",
+          "name": "Batch intake with hybrid serving",
+          "values": [
+            "v:7.3",
+            "v:15.1",
+            "v:5.5",
+            "v:17.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A4"
+          ],
+          "step": 12,
+          "pros": [
+            "Batch-oriented intake may aid utilization while hybrid serving preserves a route for timely requests."
+          ],
+          "cons": [
+            "Batch arrival handling may consume the deadline budget and cost benefit is unmeasured."
+          ],
+          "reason": "Choose this when batch operations are preferred but serving needs both modes."
+        },
+        {
+          "id": "O5",
+          "name": "Sequential precomputation",
+          "values": [
+            "v:7.3",
+            "v:15.1",
+            "v:5.4",
+            "v:17.4"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Precomputation may avoid repeating prediction work."
+          ],
+          "cons": [
+            "No parallel processing makes peak completion doubtful."
+          ],
+          "reason": "Set aside because it missed the peak throughput and observability goals."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Decouple result delivery to consuming teams",
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "context": "Three teams need classification results and should be able to change their processing independently. The space offers notification and access patterns but does not define message schemas, replay, or consumer isolation.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Queue and push",
+          "values": [
+            "v:3.4",
+            "v:6.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Queued access and push notifications separate arrival from consumer retrieval."
+          ],
+          "cons": [
+            "Requires a stable event contract and queue operations, which the space does not detail."
+          ],
+          "reason": "Select for event-driven delivery to independent consumers."
+        },
+        {
+          "id": "O2",
+          "name": "Service and polling",
+          "values": [
+            "v:3.2",
+            "v:6.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 10,
+          "pros": [
+            "Consumers retrieve results on their own schedules through an access boundary."
+          ],
+          "cons": [
+            "Polling can add delay and repeated requests."
+          ],
+          "reason": "Select where teams need independent retrieval timing."
+        },
+        {
+          "id": "O3",
+          "name": "Pub/sub and push",
+          "values": [
+            "v:3.3",
+            "v:6.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 7,
+          "pros": [
+            "Subscriptions and pushed readiness suit multiple independent consumers."
+          ],
+          "cons": [
+            "Delivery semantics and result contracts remain unspecified."
+          ],
+          "reason": "Select for event-driven fan-out."
+        },
+        {
+          "id": "O4",
+          "name": "Service and push",
+          "values": [
+            "v:3.2",
+            "v:6.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A4"
+          ],
+          "step": 12,
+          "pros": [
+            "A service boundary with push can notify teams without requiring synchronous blocking."
+          ],
+          "cons": [
+            "The service and notification integration is not described in detail."
+          ],
+          "reason": "Select for centralized result access with readiness notification."
+        },
+        {
+          "id": "O5",
+          "name": "Direct access and blocking",
+          "values": [
+            "v:3.5",
+            "v:6.3"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Simple direct interaction."
+          ],
+          "cons": [
+            "Couples clients to provider availability and blocks until results are ready."
+          ],
+          "reason": "Set aside because this weakens independent consumer changes."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Observe and respond to model quality changes",
+      "drivers": [
+        "Q2"
+      ],
+      "context": "Operators need to see claim-type quality drops within one day, and uncertain cases should receive human review whose corrections improve the classifier. The space includes monitoring and adjustment patterns but no human review or feedback-loop decision.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Performance monitoring with manual adjustment",
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Model performance is observed and humans control adjustment."
+          ],
+          "cons": [
+            "No explicit class-specific alerts, review queue, or correction ingestion."
+          ],
+          "reason": "Considered as the seed but it leaves the feedback flow vague."
+        },
+        {
+          "id": "O2",
+          "name": "Prediction logging and automated adjustment",
+          "values": [
+            "v:22.2",
+            "v:24.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "A2",
+            "A4"
+          ],
+          "step": 9,
+          "pros": [
+            "Logs provide diagnostic inputs and adjustment can respond to monitoring findings."
+          ],
+          "cons": [
+            "Automatic changes can be risky and do not satisfy human review or correction reuse."
+          ],
+          "reason": "Chosen for operational visibility and response potential, with human review workflow left as a design gap."
+        },
+        {
+          "id": "O3",
+          "name": "Model tracking with manual adjustment",
+          "values": [
+            "v:22.4",
+            "v:24.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 7,
+          "pros": [
+            "Tracking model inputs and outputs supports investigation while keeping humans in control."
+          ],
+          "cons": [
+            "Manual response may be slower; no class-level alert schedule or correction loop is specified."
+          ],
+          "reason": "Chosen when hybrid serving and human-controlled changes are preferred."
+        },
+        {
+          "id": "O4",
+          "name": "No monitoring",
+          "values": [
+            "v:22.3",
+            "v:24.1"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Avoids monitoring overhead."
+          ],
+          "cons": [
+            "Operators cannot meet the one-day quality detection goal."
+          ],
+          "reason": "Dropped with the weak precomputation approach."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "R3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:24",
+      "note": "The space covers model adjustment but has no decision about uncertainty thresholds, human review queues, recording reviewer corrections, or feeding corrections into classifier improvement."
+    },
+    {
+      "requirement": "Q3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "No dimension represents per-document inference cost, model routing, caching, token budgets, or annual cost measurement; batch serving is only a nearby concern, not a cost answer."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": null,
+      "note": "The space has no EU data residency, deletion, access control, or privacy deployment decision."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space does not cover approved LLM providers, provider regions, or model selection."
+    }
+  ]
+}

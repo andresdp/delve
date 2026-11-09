@@ -1,0 +1,750 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "Payments company scores card transactions before authorization at up to 15,000 TPS; labels are delayed, audits reach back 13 months, and seven people operate the service.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:31.5",
+        "v:43.3",
+        "v:20.6",
+        "v:42.1",
+        "v:28.3",
+        "v:38.1",
+        "v:39.1",
+        "v:30.19",
+        "v:26.6"
+      ],
+      "description": "The system computes predictions online from current context and recent data, using a durable end-to-end feature platform that serves real-time features and preserves engineered data for training, recovery, and inference. Governed, traceable lifecycle workflows automate incremental online training and containerized deployment, while elastic infrastructure scales workloads; the MLOps platform is internally owned and operated, although that sourcing choice is marked mixed.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:31.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.4",
+        "v:28.4",
+        "v:38.1",
+        "v:39.1",
+        "v:30.23",
+        "v:26.6"
+      ],
+      "description": "This system uses containerized, queue-fronted predictors in an orchestrated runtime, with elastic compute scaling and complementary online/offline feature stores for low-latency inference and durable training access. Automated lifecycle workflows perform hyperparameter optimization while lineage links data, training context, models, and deployment status; preserved data is access-controlled, and the infrastructure is operated in-house.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:31.5",
+        "v:43.2",
+        "v:20.3",
+        "v:42.2",
+        "v:28.3",
+        "v:38.3",
+        "v:39.1",
+        "v:30.3",
+        "v:26.6"
+      ],
+      "description": "The system serves real-time predictions through a model-as-a-service endpoint, using features materialized by an online feature-serving pipeline and compute that scales with demand. Models update incrementally, with artifacts, runs, deployment health, and cataloged datasets governed through integrated lifecycle traceability; the configurable integrated platform runs on internally owned infrastructure.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if online incremental learning and durable lineage anchor the service?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if queueing and distinct online/offline feature stores prioritize peak throughput and reproducibility?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if an integrated lifecycle platform minimizes operational assembly?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.5",
+        "v:43.3",
+        "v:20.6",
+        "v:42.1",
+        "v:28.3",
+        "v:38.1",
+        "v:39.1",
+        "v:30.19",
+        "v:26.6"
+      ],
+      "hypothesis": "Current-context scoring and incremental updates should support R1 and R2; durable lineage should help R3 and Q3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The values support fresh scoring and traceability concepts; no complete combination is attested and numeric targets remain unproven.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.4",
+        "v:28.4",
+        "v:38.1",
+        "v:39.1",
+        "v:30.23",
+        "v:26.6"
+      ],
+      "hypothesis": "Queue-fronted service, separate feature stores and candidate tuning should better support Q1, Q3 and Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The split feature stores and queue fit scale and history, but latency, fallback and staffing are unverified.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:31.5",
+        "v:43.2",
+        "v:20.3",
+        "v:42.2",
+        "v:28.3",
+        "v:38.3",
+        "v:39.1",
+        "v:30.3",
+        "v:26.6"
+      ],
+      "hypothesis": "An integrated service and lifecycle platform may reduce assembly effort while retaining online features and audit context.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Integrated automation could help a small team, but the platform and in-house operation add uncertain burden.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:31.5",
+        "v:43.3",
+        "v:20.6",
+        "v:42.1",
+        "v:28.3",
+        "v:38.1",
+        "v:39.1",
+        "v:30.19",
+        "v:26.6"
+      ],
+      "hypothesis": "Retain the fresh online and durable lineage choices; assess the full point against requirements.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Strong functional fit, with authorization fail-open behavior and service-level targets still gaps.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:31.1",
+        "v:43.4",
+        "v:20.4",
+        "v:42.4",
+        "v:28.4",
+        "v:38.1",
+        "v:39.1",
+        "v:30.23",
+        "v:26.6"
+      ],
+      "hypothesis": "Keep queueing and online/offline separation for peak throughput and historical data access.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The combination remains plausible but unproven at specified TPS and latency.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:31.5",
+        "v:43.2",
+        "v:20.3",
+        "v:42.2",
+        "v:28.3",
+        "v:38.3",
+        "v:39.1",
+        "v:30.3",
+        "v:26.6"
+      ],
+      "hypothesis": "Retain integrated lifecycle automation to reduce manual platform assembly.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Integration may reduce custom work but platform complexity remains uncertain.",
+      "rating": "mixed",
+      "point": "P3"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Durable online learner",
+      "summary": "Online fresh-feature scoring with incremental model updates and broad lineage.",
+      "approach": "A",
+      "step": 4,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Uses current context during an online request.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.3",
+          "drivers": [
+            "R1",
+            "R3",
+            "Q3"
+          ],
+          "reason": "Serves real-time features and persists engineered data.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.6",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Governed versions and training snapshots support reconstruction."
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Updates incrementally as cases arrive.",
+          "evidence": [
+            {
+              "doc": "s10_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.1",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "Automates recurring lifecycle tasks."
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [],
+          "reason": "Keeps operations in-house.",
+          "fit": "approximate",
+          "fit_note": "In-house does not guarantee PCI certification."
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.19",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Container deployment can be placed in the certified environment."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Elastic capacity responds to demand."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preserves data provenance or access for later audit reconstruction."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "A2",
+      "name": "Queued online/offline learner",
+      "summary": "Queue-fronted predictors with separate online and durable stores, lineage and automated candidate tuning.",
+      "approach": "B",
+      "step": 5,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Queue-fronted predictors distribute load.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.4",
+          "drivers": [
+            "R1",
+            "R3",
+            "Q3"
+          ],
+          "reason": "Separates low-latency serving from durable training access.",
+          "evidence": [
+            {
+              "doc": "s06_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Links dataset versions to model context."
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates model configuration search."
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.1",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "Automates recurring workflows."
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [],
+          "reason": "Keeps operations in-house.",
+          "fit": "approximate",
+          "fit_note": "Does not specify certified scope."
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.23",
+          "drivers": [
+            "Q1",
+            "C2"
+          ],
+          "reason": "Orchestrates containerized runtime."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Scales resources with demand."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preserves data provenance or access for later audit reconstruction."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "A3",
+      "name": "Integrated model service",
+      "summary": "A service and integrated lifecycle platform reduce custom component assembly, with uncertain platform burden.",
+      "approach": "C",
+      "step": 6,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Scores current context online."
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Materializes features for online inference."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.3",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracks artifacts, runs, deployment and datasets."
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Incremental learning responds as labels arrive."
+        },
+        {
+          "dimension_id": "d:38",
+          "value_id": "v:38.3",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "Integrated platform offers broad lifecycle automation."
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [],
+          "reason": "Keeps infrastructure internally operated."
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.3",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Exposes a real-time model service."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Scales compute with demand."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.2",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Preserves data provenance or access for later audit reconstruction."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Select a serving, data and lifecycle architecture",
+      "drivers": [
+        "R1",
+        "R2",
+        "R3",
+        "Q1",
+        "Q3",
+        "Q4",
+        "C2"
+      ],
+      "context": "Fresh transaction context, burst capacity, delayed labels, retrospective reconstruction and a small operating team pull toward different serving and lifecycle choices. The design space supplies patterns but cannot verify numeric service levels or authorization fail-open behavior.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Durable online learner",
+          "values": [
+            "v:31.5",
+            "v:43.3",
+            "v:20.6",
+            "v:42.1",
+            "v:28.3",
+            "v:38.1",
+            "v:39.1",
+            "v:30.19",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 4,
+          "pros": [
+            "Online features, incremental updates and durable lifecycle context support freshness and audit reconstruction."
+          ],
+          "cons": [
+            "Promotion controls and actual latency remain unproven."
+          ],
+          "reason": "Choose for fresh scoring and end-to-end retained context."
+        },
+        {
+          "id": "O2",
+          "name": "Queued online/offline learner",
+          "values": [
+            "v:31.1",
+            "v:43.4",
+            "v:20.4",
+            "v:42.4",
+            "v:28.4",
+            "v:38.1",
+            "v:39.1",
+            "v:30.23",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 5,
+          "pros": [
+            "Queue-fronted serving and separate durable stores support throughput and training lineage."
+          ],
+          "cons": [
+            "Candidate tuning and queue operations add work; performance needs measurement."
+          ],
+          "reason": "Choose for scale separation and repeatable candidate training."
+        },
+        {
+          "id": "O3",
+          "name": "Integrated model service",
+          "values": [
+            "v:31.5",
+            "v:43.2",
+            "v:20.3",
+            "v:42.2",
+            "v:28.3",
+            "v:38.3",
+            "v:39.1",
+            "v:30.3",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 6,
+          "pros": [
+            "Integrated lifecycle capabilities may reduce custom assembly."
+          ],
+          "cons": [
+            "Platform and staffing burden are uncertain."
+          ],
+          "reason": "Choose when integration is preferred over a bespoke toolchain."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:39",
+      "note": "Infrastructure sourcing is represented, but PCI certification boundaries and guarantees are absent."
+    },
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:31",
+      "note": "Serving fallback values do not specify authorization fail-open behavior or a 15-minute limit."
+    }
+  ]
+}

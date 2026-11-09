@@ -1,0 +1,1132 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:23.2"
+      ],
+      "description": "The system uses elastic compute to run scheduled batch predictions, stores results in storage or analytics systems, and exposes model predictions through a REST microservice. Human reviewers oversee production outputs, while active learning selects uncertain or error-prone inputs for labeling and subsequent model improvement; batch delivery and REST serving are complementary but represent different access patterns.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:31.1",
+        "v:25.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.13",
+        "v:23.1"
+      ],
+      "description": "A REST prediction microservice runs containerized predictors in a queue-fronted cluster, using asynchronous messaging and elastic resource scaling to handle demand and performance. Human experts oversee deployed predictions and review outcomes, while controlled human-in-the-loop labeling workflows produce training data; the choices fit together, though human review may remain a production bottleneck.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:31.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.13",
+        "v:23.2"
+      ],
+      "description": "The system deploys ML workloads as serverless functions behind a REST prediction microservice, with resources scaling automatically according to demand. Human reviewers oversee production predictions, while active learning selects uncertain or error-prone inputs for labeling and subsequent model-development actions.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "description": "The system periodically scales compute to run batch predictions, storing results in analytics or storage, while also exposing the model through a REST prediction microservice. Continuous quality monitoring, when labels are available, can identify uncertain or erroneous production inputs for active-learning labeling; batch delivery and REST serving are complementary but represent distinct serving paths.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:31.1",
+        "v:25.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "description": "A REST-based prediction microservice runs containerized online predictors behind a queue, using asynchronous messages to distribute work and elastic resources to handle demand. Real-time monitoring measures prediction quality and behavior, while active learning selects uncertain or error-prone production inputs for labeling and subsequent model improvement.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:31.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "description": "A REST prediction microservice is deployed as serverless functions, with elastic resource scaling handling changing request demand. Real-time prediction-quality monitoring observes served behavior when labels are available, and active learning selects uncertain or error-prone production inputs for labeling and subsequent model improvement.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:33.2",
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "description": "Managed pipeline infrastructure runs scheduled batch scoring with elastically scaled resources, storing predictions in storage or analytics systems while exposing the model through a REST microservice. Continuous quality monitoring can identify uncertain or erroneous production inputs for active-learning labeling, although the batch-serving mode may not provide inherently real-time predictions despite the REST interface.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:33.2",
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2",
+        "v:25.2"
+      ],
+      "description": "Managed ML pipelines run scheduled batch scoring on elastically scaled resources, persist results to storage or analytics systems, and use asynchronous messaging to decouple serving and downstream work. A REST prediction microservice provides the model interface, while real-time quality monitoring identifies uncertain or erroneous production inputs for active-learning labeling. The scheduled-batch mode is somewhat in tension with a REST interface and real-time monitoring, which more naturally support online serving.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:31.1",
+        "v:25.1",
+        "v:29.1",
+        "v:26.6",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "description": "A REST prediction microservice runs stateless containerized predictors behind a queue, allowing requests to be load-balanced and replicas to scale elastically with demand. Real-time monitoring measures prediction quality and model behavior, while active learning selects uncertain or error-prone production inputs for labeling and subsequent model improvement.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:31.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.23",
+        "v:23.2"
+      ],
+      "description": "The system deploys ML workloads as serverless functions behind a REST prediction microservice, with compute scaling automatically according to demand. Monitoring covers service health, dependencies, resource behavior, data quality and shifts, and model performance; uncertain or error-prone production inputs are selected for labeling to support adaptation.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:33.2",
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:23.2"
+      ],
+      "description": "A managed pipeline infrastructure runs scheduled batch scoring on elastically scaled resources, stores predictions in storage or analytics systems, and exposes the model through a REST prediction microservice for application integration. Human review oversees production predictions, while active learning selects uncertain or error-prone inputs for labeling and subsequent model development; the batch-oriented mode may limit real-time freshness despite the REST interface.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if scheduled batch scoring and elastic resources absorb the seasonal peak, with a separately exposed prediction interface and uncertainty based review?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if queued online prediction and asynchronous components maximize throughput and isolate consuming teams?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if serverless inference and automatic scaling minimize idle capacity and keep operations simple?",
+      "status": "dropped",
+      "dropped_because": "The checked points do not establish that serverless deployment can classify eight million documents within the two-hour peak window; the point changes did not resolve that throughput uncertainty."
+    },
+    {
+      "id": "D",
+      "idea": "What if a managed pipeline standardizes batch scoring, while asynchronous delivery and review workflows support operational separation?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:23.2"
+      ],
+      "hypothesis": "Scheduled batch scoring with elastic compute should make Q1 plausible at high daily volume; a REST interface supports R2 and Q4, while human oversight plus active learning supports R3. The point does not establish the provider region, cost target, or quality alert timing.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The checked combination is warning-free and has no source attesting the full combination. Batch scoring and elastic scaling fit the peak workload, and review plus active learning address the human feedback path, but none of the choices verifies numerical performance, cost, or regional compliance.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.1",
+        "v:25.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.13",
+        "v:23.1"
+      ],
+      "hypothesis": "A queue-fronted cluster with asynchronous messaging and elastic resources should address Q1 while isolating downstream work for Q4; REST supports R2 and human review with expert labeling supports R3. The review path may constrain peak throughput.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point check reports the known requirement from d:25 to decide d:29, which the point satisfies, and no source attests the complete combination. The generated description flags human review as a potential bottleneck; asynchronous delivery and elastic scaling support burst handling but do not prove the two-hour objective.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.13",
+        "v:23.2"
+      ],
+      "hypothesis": "Serverless deployment with elastic scaling should reduce idle compute for Q3 and adjust to the storm peak for Q1; REST and reviewer feedback support R2, Q4 and R3.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Serverless and elastic scaling are an accepted combination with no warning, but the design space supplies no volume or latency bound for this deployment style. The full combination is unattested and regional placement remains unsettled.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "hypothesis": "Replace human oversight as the monitoring choice with real-time prediction-quality monitoring to improve Q2 visibility, retaining batch scaling and active learning for Q1 and R3.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Monitoring quality continuously when labels are available gives the clearest path to Q2, and active learning still selects uncertain inputs. Human oversight is no longer explicit, so the point does not fully specify review handling or use of corrections. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:31.1",
+        "v:25.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "hypothesis": "Use active learning instead of general human-in-the-loop labeling so uncertain production items are prioritized, and select real-time quality monitoring for Q2 while preserving the queue and async scale-out for Q1 and Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "This point combines the clearest throughput and coupling mechanisms with targeted uncertain-input selection and quality measurement. The review correction loop is still only partly represented; full combination remains unattested.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:31.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "hypothesis": "Replace the human oversight choice with continuous quality monitoring to improve Q2 while retaining serverless elasticity and uncertainty based selection.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Monitoring better addresses Q2, but nothing in the point supports classifying eight million documents within two hours with serverless functions. This unresolved miss is central to the brief, so the serverless-first approach is dropped.",
+      "rating": "weak",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:31.2",
+        "v:29.1",
+        "v:26.6",
+        "v:6.23",
+        "v:23.2"
+      ],
+      "hypothesis": "Try service-health and data-quality monitoring to improve Q2 while retaining serverless elasticity and uncertainty based review.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The monitoring value broadens visibility into service health and data shifts, but it does not resolve the serverless peak-throughput uncertainty. The approach still misses the most constraining two-hour peak requirement and is dropped.",
+      "rating": "weak",
+      "point": "P10"
+    },
+    {
+      "step": 8,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": 4,
+      "values": [
+        "v:33.2",
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "hypothesis": "Explore managed pipeline-centered infrastructure with the batch and monitoring choices that worked in A, expecting more standardized execution for Q1 and Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Managed pipelines add an execution structure but do not verify the storm throughput or regional provider constraints. The check is warning-free, the full combination has no attesting source, and batch mode leaves freshness less certain.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 9,
+      "round": 2,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:33.2",
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2",
+        "v:25.2"
+      ],
+      "hypothesis": "Add asynchronous messaging to the managed batch pipeline to improve Q4 decoupling while retaining the batch and monitoring choices.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Asynchronous messaging supports decoupling, but the generated description identifies tension between batch scoring, REST access and real-time monitoring. No source attests the combination, so it does not improve the approach best point.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "hypothesis": "Retain A's elastic batch path and real-time quality monitoring, which served Q1 and Q2 best; use its separate REST interface and active-learning selection for R2, Q4 and R3.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The same checked point as step 4 is reused. It remains a coherent batch-plus-monitoring alternative, though combining REST access with scheduled scoring requires downstream consumers to tolerate batch freshness. Nothing attests the exact combination.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:31.1",
+        "v:25.1",
+        "v:29.1",
+        "v:26.6",
+        "v:6.1",
+        "v:23.2"
+      ],
+      "hypothesis": "Replace the Redis-backed asynchronous bundle with stateless horizontally scaled serving to preserve independent scale-out while reducing dependence on shared mutable serving state; retain REST, quality monitoring and active learning.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Stateless replicas retain horizontal scaling and reduce shared serving state while the interface and queue-fronted online cluster provide distinct consumer and throughput mechanisms. The required d:25 to d:29 relation is satisfied; the combination remains unattested.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "v:33.2",
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:23.2"
+      ],
+      "hypothesis": "Restore explicit human oversight to the managed batch pipeline variant, keeping active learning to route uncertain samples and corrections for R3.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The managed pipeline and batch deployment provide a standardized path for classification and elastic peak handling, and explicit human oversight improves review coverage. Compared with continuous monitoring, it leaves Q2 less directly addressed; the combination has no attesting source.",
+      "rating": "mixed",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Elastic batch with quality feedback",
+      "summary": "Run scheduled scoring on elastically scaled capacity and expose results through REST, with real-time quality monitoring and uncertainty based labeling. This favors peak throughput and observability while leaving human correction workflow details to implementation.",
+      "approach": "A",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "Q1",
+            "R2"
+          ],
+          "reason": "Scheduled scoring writes outputs to storage or analytics and supports high volume processing; the two-hour SLO still requires load and capacity validation.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic compute follows demand and can limit idle capacity, but the per-document cost ceiling is not established.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q4"
+          ],
+          "reason": "A prediction API gives consumers a stable integration boundary; it only approximates confidence-bearing classification because it does not specify the output schema or classifier.",
+          "fit": "approximate",
+          "fit_note": "A REST prediction endpoint can carry classification results, but does not define claim types, confidence values, or the approved LLM implementation.",
+          "evidence": [
+            {
+              "doc": "s02_p10",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Continuous prediction-quality monitoring gives operators a route to notice quality changes when labels are available.",
+          "evidence": [
+            {
+              "doc": "s04_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.2",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Uncertain or error-prone examples are prioritized for labeling, though the correction-to-model-update process remains unspecified.",
+          "evidence": [
+            {
+              "doc": "s09_p09",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Explicit reviewer oversight was considered but set aside here to prioritize continuous quality measurement; active learning retains targeted review selection."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Queue-fronted online cluster",
+      "summary": "Use a REST interface, queue-fronted online predictors, stateless replicas and elastic resources, with real-time monitoring and uncertainty based labeling. It prioritizes burst handling and independent consumers, with service capacity and cost still requiring validation.",
+      "approach": "B",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "Q1",
+            "R1"
+          ],
+          "reason": "Queue-fronted predictors distribute load for throughput and low latency; the daily volume target needs benchmark evidence.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Stateless replicas handle requests independently and support horizontal scale-out.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic scaling adjusts compute to workload demand; it does not itself guarantee the annual unit cost.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q4"
+          ],
+          "reason": "The REST API separates integration from classifier implementation and allows the three consumers to use a stable interface.",
+          "fit": "approximate",
+          "fit_note": "The interface does not specify claim-type confidence semantics or approved provider selection.",
+          "evidence": [
+            {
+              "doc": "s10_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Continuous quality monitoring can expose degraded model behavior when outcome labels are available.",
+          "evidence": [
+            {
+              "doc": "s01_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.2",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Active learning selects uncertain production documents for labeling and can feed corrected examples back into model improvement.",
+          "evidence": [
+            {
+              "doc": "s10_p08",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "A general human labeling workflow was evaluated; uncertainty based sample selection is more directly aligned with routing low-confidence cases."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The REST model interface is selected alongside the runtime communication strategy, satisfying the design-space requirement."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Managed batch review pipeline",
+      "summary": "Center execution on managed ML pipelines with elastic scheduled scoring, REST result access, explicit reviewer oversight and active learning. This adds workflow standardization and explicit human involvement, while batch freshness makes Q2 slower to verify than continuous monitoring.",
+      "approach": "D",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "d:33",
+          "value_id": "v:33.2",
+          "drivers": [
+            "Q1",
+            "C1",
+            "C2"
+          ],
+          "reason": "Managed pipeline components standardize workflow execution, but this value does not specify EU residency or the approved LLM provider.",
+          "fit": "approximate",
+          "fit_note": "The infrastructure value identifies managed pipeline execution but does not constrain provider region or data location.",
+          "evidence": [
+            {
+              "doc": "s10_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "Q1",
+            "R2"
+          ],
+          "reason": "Scheduled batch scoring is a natural fit for large daily classification volumes with persistent results; the two-hour target must be benchmarked.",
+          "evidence": [
+            {
+              "doc": "s02_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic resources can scale up for storm season and down when volume falls, without proving the cost threshold.",
+          "evidence": [
+            {
+              "doc": "s15_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q4"
+          ],
+          "reason": "A REST contract provides application integration for each consuming team; output details still need a confidence-bearing classification contract.",
+          "fit": "approximate",
+          "fit_note": "The REST interface does not define confidence output or the approved LLM implementation.",
+          "evidence": [
+            {
+              "doc": "s19_p14",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight provides a production review path for uncertain predictions.",
+          "evidence": [
+            {
+              "doc": "s04_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.2",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Active learning targets uncertain documents for labels that can support improvement.",
+          "evidence": [
+            {
+              "doc": "s24_p10",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Continuous quality monitoring was tested but gives less explicit human review than this alternative; label availability remains necessary for quality scoring."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Prediction interface and result delivery",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q4"
+      ],
+      "context": "The classifier must return a usable result to claims handling, fraud investigation and analytics, while each team should be able to evolve independently. The space describes model serving interfaces but does not specify claim taxonomy or confidence schemas.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "REST prediction interface",
+          "values": [
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Provides an API boundary between model serving and consuming applications."
+          ],
+          "cons": [
+            "Does not define confidence output, claim type schema, or application-specific semantics."
+          ],
+          "reason": "All alternatives use the REST interface to decouple consumer integrations; detailed contracts remain a project decision."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Peak-volume execution and resource scaling",
+      "drivers": [
+        "Q1",
+        "Q3",
+        "R2"
+      ],
+      "context": "Storm season quadruples demand and the two-hour objective makes predictable throughput important. Cost must stay below the annual unit ceiling, so elastic capacity helps but cannot substitute for workload measurement.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Elastic scheduled batch",
+          "values": [
+            "v:31.3",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Processes a large arrival set in scheduled scoring runs and adjusts compute with demand."
+          ],
+          "cons": [
+            "Freshness and the two-hour processing window require capacity benchmarks; batch REST access may not be immediate."
+          ],
+          "reason": "The brief gives a daily classification volume and a bounded completion window, making batch execution the clearest fit."
+        },
+        {
+          "id": "O2",
+          "name": "Queue-fronted stateless online scaling",
+          "values": [
+            "v:31.1",
+            "v:25.1",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 11,
+          "pros": [
+            "Queues and independent replicas can distribute work and scale horizontally."
+          ],
+          "cons": [
+            "The point does not establish that the cluster sustains the peak volume or the cost ceiling."
+          ],
+          "reason": "This option favors burst distribution and component independence, with throughput and cost to be verified."
+        },
+        {
+          "id": "O3",
+          "name": "Managed pipeline batch",
+          "values": [
+            "v:33.2",
+            "v:31.3",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Standardizes workflow execution and retains elastic batch capacity."
+          ],
+          "cons": [
+            "Managed infrastructure does not resolve residency/provider constraints, and batch freshness needs measurement."
+          ],
+          "reason": "This option adds an orchestrated workflow structure to the batch approach."
+        },
+        {
+          "id": "O4",
+          "name": "Serverless inference",
+          "values": [
+            "v:31.2",
+            "v:26.6"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Automatically scales function execution and may reduce idle capacity."
+          ],
+          "cons": [
+            "The checked point does not support the required storm peak completion window."
+          ],
+          "reason": "The serverless branch was dropped after refinement failed to resolve its central throughput uncertainty."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Quality observation and reviewer feedback",
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "context": "Uncertain classifications need human correction that can improve the classifier, and operators need to see claim-type quality declines within a day. Continuous quality checks depend on obtaining labels; the design space does not prescribe a correction-to-retraining workflow.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Continuous quality checks with active learning",
+          "values": [
+            "v:6.1",
+            "v:23.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 11,
+          "pros": [
+            "Measures prediction quality when labels are available and targets uncertain or error-prone cases for labeling."
+          ],
+          "cons": [
+            "The review correction and retraining loop needs implementation detail, and quality monitoring waits for labels."
+          ],
+          "reason": "This pair most directly connects fast quality visibility to targeted review selection."
+        },
+        {
+          "id": "O2",
+          "name": "Explicit oversight with active learning",
+          "values": [
+            "v:6.13",
+            "v:23.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Names human review explicitly and selects uncertain examples for labels."
+          ],
+          "cons": [
+            "It gives less direct assurance of one-day per-claim-type quality alerts than continuous quality monitoring."
+          ],
+          "reason": "This option prioritizes the explicit human review path and retains targeted data selection."
+        },
+        {
+          "id": "O3",
+          "name": "Service-health and data-quality monitoring",
+          "values": [
+            "v:6.23",
+            "v:23.2"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Covers service health, data quality, dependencies, and data shifts."
+          ],
+          "cons": [
+            "It is less directly focused on prediction-quality visibility than v:6.1."
+          ],
+          "reason": "The serverless refinement explored this monitoring value, but the approach was dropped for throughput uncertainty."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:33",
+      "note": "The space has an infrastructure strategy dimension but no value that specifies EU-only document storage, processing, or regional data controls."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:33",
+      "note": "The space has no decision about approved LLM provider selection or pinning inference to that provider's EU region."
+    }
+  ]
+}

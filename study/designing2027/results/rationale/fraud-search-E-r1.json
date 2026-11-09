@@ -1,0 +1,1563 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores card transactions before authorization at 3,000 transactions per second normally and up to 15,000 at seasonal peaks. Fraud patterns change within weeks, confirmed chargeback labels arrive days to weeks later, and auditors may ask months later why a score was produced. Five data scientists and two ML engineers share infrastructure run by the operations team, with no ML platform team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.1",
+        "v:10.2",
+        "v:26.13"
+      ],
+      "description": "The application integrates the model as a module in a modular monolith and exposes predictions through a local real-time service/API, using a feature store supplied by streamed, real-time data processing. Model training, evaluation, and validation run in a batch-based automated pipeline with versioned data, on-demand triggering, CI/CD, production tracking, prediction-service performance tests, and rollback to a previous model version.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.2",
+        "v:8.3",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The system uses a separate model service behind real-time microservice-based prediction, with features persisted in a feature store and supplied through streamed, real-time processing. An MLOps orchestrator automates batch training, evaluation, validation, evidence-based testing, versioning, monitoring, and deployment of multiple model versions, triggering pipelines when performance degrades.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.2",
+        "v:5.2",
+        "v:4.2",
+        "v:7.3",
+        "v:15.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:8.2",
+        "v:12.1",
+        "v:10.2",
+        "v:26.9"
+      ],
+      "description": "The application embeds the model in its monolith and exposes predictions through a local service/API, using generic data stores for features and batch ingestion, processing, and learning. A dedicated model builder trains and validates models, with data versioned in a code repository, model-quality tests, monitoring of data and predictions, on-demand pipeline triggers, scripted deployments, and rollback to a previous model version.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:1.5",
+        "v:5.5",
+        "v:2.3",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.1",
+        "v:8.3",
+        "v:12.4",
+        "v:10.1",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "description": "An event-driven ML system ingests and stores data as streams of events, processes it in real time, and serves predictions through a hybrid online/offline approach. New training data triggers versioned, orchestrated pipelines for batch and incremental learning; multiple model versions are deployed concurrently for A/B testing and monitored for performance.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.1",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "A modular-monolith application would expose the model through a local service/API, consuming features from a feature store and processing continuously ingested streams in real time. An on-demand, automated model-building pipeline would train in batches using versioned data and evidence-based hypothesis tests, with CI/CD deploying multiple model versions and production tracking under an MLOps approach.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:1.1",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.3",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The system serves each model through its own local API, using a feature store and continuous streaming ingestion with real-time processing for predictions. Batch-trained models are built, tested through evidence-based hypothesis testing, versioned, monitored in production, and orchestrated for delivery; performance degradation triggers pipelines, which can deploy multiple model versions concurrently.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:1.2",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.2",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.2",
+        "v:12.1",
+        "v:10.2",
+        "v:26.3",
+        "v:27.2"
+      ],
+      "description": "The application embeds the model in its monolith and exposes predictions through a local service/API, using a feature store with streamed ingestion and real-time processing. Models are built and batch-trained in a dedicated component, with versioned data, on-demand pipeline execution, scripted deployment, production tracking, hypothesis-based testing, and rollback to a previous version; the “No MLOps” choice is in tension with these operational practices.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The application contains a model module exposed through a local service/API, using a feature store and real-time stream processing to provide predictions from continuously ingested data. An automated, versioned batch-training pipeline tests, evaluates, and deploys models through CI/CD; production tracking can trigger retraining or orchestration on degradation, while multiple model versions run concurrently.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:1.1",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The system serves each model through its own local API, using a feature store and continuous streaming ingestion with real-time processing. Batch-trained models are versioned and tracked; performance degradation triggers orchestrated retraining and evidence-based testing, and CI/CD deploys multiple model versions concurrently.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:1.2",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.2",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.1",
+        "v:10.2",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The application embeds the model in its monolith while obtaining real-time predictions through a local service/API, with features persisted in a feature store and supplied by streamed, real-time processing. A dedicated model builder trains in batches, versioned data supports evidence-based testing, and CI/CD enables on-demand deployment, production tracking, and rollback; batch training contrasts with real-time serving but is compatible.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.13",
+        "v:27.1"
+      ],
+      "description": "A modular monolith contains the model as a module and exposes its predictions through a local service/API, using a feature store fed by streamed, real-time data processing. An automated, batch-based model-building pipeline uses versioned data, is triggered by observed performance degradation, and deploys multiple model versions through CI/CD, with production tracking and prediction-service performance testing under an MLOps approach.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The system uses an MLOps workflow in which streamed data is processed in real time, persisted in a feature store and data-version repository, and used by an automated model-building pipeline for batch training, evaluation, validation, and evidence-based hypothesis testing. Each model is exposed through its own microservice for real-time predictions, with CI/CD, production monitoring, multiple model versions deployed concurrently, and retraining or orchestration triggered by performance degradation.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if the scoring model stayed close to the authorization application, with a small real-time feature path and a controlled batch retraining pipeline?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if an independently operated model service and MLOps orchestration provided scaling, monitoring, and candidate comparison?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a simple monolith and batch feature pipeline minimized infrastructure, even at the cost of freshness?",
+      "status": "dropped",
+      "dropped_because": "Batch ingestion and processing do not reliably provide the recent cardholder activity needed before each authorization."
+    },
+    {
+      "id": "D",
+      "idea": "What if events drove both scoring and incremental model updates for fast adaptation?",
+      "status": "dropped",
+      "dropped_because": "An event-driven scoring interface and incremental updates do not establish a synchronous sub-30 ms authorization response, and incremental updates conflict with labels arriving days to weeks later."
+    },
+    {
+      "id": "E",
+      "idea": "What if a monolithic scoring application kept a dedicated batch model builder but added CI/CD and focused MLOps for repeatable releases?",
+      "status": "dropped",
+      "dropped_because": "The no-MLOps seed is superseded by approach F, which adds CI/CD and MLOps to resolve its operational tension."
+    },
+    {
+      "id": "F",
+      "idea": "What if a monolithic scoring application kept a dedicated batch model builder but added CI/CD and focused MLOps for repeatable releases?",
+      "status": "dropped",
+      "dropped_because": "Its best point is dominated by the local modular pipeline point, which has no worse assessment and responds more directly to degradation with concurrent candidate models."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.1",
+        "v:10.2",
+        "v:26.13"
+      ],
+      "hypothesis": "A local API and streaming feature path should support R1 and help Q1; batch retraining with versioned data and input tracking should support R2, R3, Q3, and Q4, with limited platform overhead for C2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The real-time feature and local serving choices align with authorization scoring, and tracking plus data versioning help audits. The point is unattested, and neither it nor the space establishes a 30 ms p99, a 13-month retention policy, or fail-open behavior; performance tests alone do not compare a candidate with the current model.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.2",
+        "v:8.3",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "A separate real-time model service and feature store should handle changing traffic, while orchestration, versioning, monitoring, and evidence-based tests should support R2 through Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "Multiple deployed versions and evidence-based testing directly support recent comparison for Q4. The separate service adds a network dependency on the authorization path and the orchestrator adds operational work; no source attests the combination, and the space does not prescribe failure behavior or numeric latency.",
+      "rating": "strong",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.2",
+        "v:5.2",
+        "v:4.2",
+        "v:7.3",
+        "v:15.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:8.2",
+        "v:12.1",
+        "v:10.2",
+        "v:26.9"
+      ],
+      "hypothesis": "A monolith, batch ingestion, and scripts may reduce operations for C2, but they may leave R1 without sufficiently fresh features.",
+      "assessment": {
+        "R1": "misses",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The batch data choices cannot reliably supply last-hour activity before authorization. Scripts and manual triggering also leave the 48-hour retraining target less certain.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 1,
+      "approach": "D",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.5",
+        "v:5.5",
+        "v:2.3",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.1",
+        "v:8.3",
+        "v:12.4",
+        "v:10.1",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "hypothesis": "An event store and hybrid serving can preserve real-time signals while event-triggered hybrid learning may adapt quickly as new labels arrive.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "Hybrid online/offline serving could serve real-time scores, but an event-driven model interface does not guarantee a synchronous authorization result. Incremental learning is also a poor match for chargeback labels that arrive days to weeks later; A/B testing is useful, but the central mechanism remains uncertain.",
+      "rating": "weak",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.1",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Replace rollback-only deployment and latency-only tests with concurrent versions and evidence-based comparison; this should strengthen Q4 while preserving the local latency path and audit records.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The point adds a direct current-versus-candidate comparison and concurrent deployment to the local scoring design. It remains unattested and the audit retention/linkage and fail-open gaps remain.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:1.1",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.3",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Use local API serving and input/output tracking to reduce the network latency risk and improve score reconstruction, retaining orchestration and concurrent candidate comparison.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "The local API addresses one avoidable hop, and model tracking better matches R3. The separate model service and orchestrator still require shared operational ownership; exact 13-month training-data lineage and fail-open handling are not provided by these values.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:1.2",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.2",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.2",
+        "v:12.1",
+        "v:10.2",
+        "v:26.3",
+        "v:27.2"
+      ],
+      "hypothesis": "Keep scoring embedded in the main application but add real-time features, explicit audit tracking, and candidate tests; a dedicated builder and scripts may limit platform burden while still supporting Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The familiar application boundary and scripts fit the team size, while real-time features address R1. However, the point description identifies a tension between no MLOps and the versioning, tracking, and deployment practices required here; CI/CD and a supported operating approach may be necessary.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Trigger the tested batch retraining pipeline when monitored model performance degrades instead of only on demand, improving reaction to a segment loss increase without changing online scoring.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Monitoring-triggered retraining and candidate comparison form a coherent response to deteriorating fraud performance. The score path remains local and real time; audit retention and fail-open behavior remain unspecified.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:1.1",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Replace a multi-pipeline orchestrator with a CI/CD pipeline while retaining local service access, degradation-triggered retraining, input tracking, and model comparison; this should reduce C2 burden.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The CI/CD choice removes some orchestrator overhead while the separate service remains independently deployable. This is a more manageable service design, though keeping and operating the service still needs clear ownership; the space gives no numeric latency or fail-open guarantee.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "F",
+      "move": "explore",
+      "parent": 7,
+      "values": [
+        "v:1.2",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.2",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.1",
+        "v:10.2",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Explore resolving the no-MLOps tension by adding CI/CD and MLOps while retaining embedded scoring, a dedicated builder, versioned data, and rollback; this should preserve a simple score path and make timely retraining more repeatable.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The MLOps and CI/CD choices resolve the explicit operational tension. The model stays embedded and the builder remains separate, but this combination is no better assessed than the local modular pipeline and offers less direct degradation-triggered candidate deployment.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 4,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.13",
+        "v:27.1"
+      ],
+      "hypothesis": "Substitute prediction-service performance tests for evidence-based model comparison to probe Q1's peak throughput target; this may improve confidence in latency while reducing the direct Q4 comparison support.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Performance testing targets the scoring service but still does not establish the numeric p99 threshold without a measured test result. It also gives up the explicit recent-model comparison, so the earlier candidate-testing point remains preferable overall.",
+      "rating": "mixed",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 4,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.1",
+        "v:11.1",
+        "v:22.4",
+        "v:8.1",
+        "v:12.5",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Restore distributed microservice prediction serving to explore independent throughput scaling at the seasonal peak, keeping local ingestion, tracking, and automated candidate comparison.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "The distributed service could be scaled separately, but its network dependency reintroduces latency and availability risk. The point offers no demonstrated improvement over the local API refinement for the strict authorization path.",
+      "rating": "mixed",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Local modular scoring with monitored retraining",
+      "summary": "Keep the scoring module close to authorization, update features continuously, and use tracked batch models with performance-triggered retraining and concurrent comparison.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.3",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "A module in the application keeps the model close to the authorization path.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "A local real-time API avoids a remote prediction call.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A feature store supports consistent access to recent activity features.",
+          "evidence": [],
+          "fit": "approximate",
+          "fit_note": "The dimension names feature persistence and access, but does not specify the online freshness, availability, or PCI deployment properties required here."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Continuous ingestion can keep recent transaction activity available to scoring.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Real-time processing matches last-hour activity better than batch updates.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "An automated training, evaluation, and validation pipeline supports regular retraining.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Batch training fits delayed confirmed labels and permits reproducible training runs.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "A data version repository can identify training data versions.",
+          "evidence": [],
+          "fit": "approximate",
+          "fit_note": "A data version repository does not itself guarantee 13-month retention or a recorded link from each score to its model's full training dataset."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Production tracking includes model use and inputs and outputs, helping reconstruct a score.",
+          "evidence": [],
+          "fit": "approximate",
+          "fit_note": "Tracking inputs and outputs does not guarantee model-version linkage, durable retention for 13 months, or a complete training-data lineage record."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "A CI/CD pipeline makes tested deployment repeatable for the small team.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Performance degradation can trigger the retraining workflow when a segment worsens.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Concurrent versions allow comparison with the current model before promotion.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.3",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Evidence-based testing matches the required comparison on recent transactions.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "C2",
+            "Q4"
+          ],
+          "reason": "A focused MLOps practice can coordinate repeatable model updates without requiring a separate platform team.",
+          "evidence": []
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Rollback helps recover from a bad deployment but does not itself compare a candidate with the current version."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.13",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Performance testing addresses serving speed, but leaves the required model quality comparison untested."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:2",
+          "reason": "The requirements do not choose a general storage pattern beyond feature access and training data versioning."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:1",
+          "target": "d:5",
+          "type": "affects",
+          "holds": true,
+          "note": "The model's integration boundary affects the serving path; this point keeps both local to the application."
+        },
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving affects feature access; the local API uses the selected feature store."
+        },
+        {
+          "source": "d:5",
+          "target": "d:7",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving affects ingestion; the online score path relies on streamed activity."
+        },
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects deployment; CI/CD deploys concurrent model versions."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Independent model service with automated operations",
+      "summary": "Run each model behind its own local API, backed by real-time features and degradation-triggered, versioned batch training with concurrent candidate comparison.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "R1",
+            "Q4"
+          ],
+          "reason": "A distinct model service can be deployed and versioned independently.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Local API serving reduces the network path to the authorizer.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A feature store supplies recent activity to the service.",
+          "evidence": [],
+          "fit": "approximate",
+          "fit_note": "The space does not state online freshness, failure behavior, or PCI residency for the feature store."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Streaming ingestion feeds recent card activity.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Real-time processing supports current activity features.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "The automated pipeline trains, evaluates, and validates new models.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Batch learning accommodates delayed labels and repeatable training.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Versioned training data supports historical model reconstruction.",
+          "evidence": [],
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee retention or a complete model-to-training-data lineage."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracking model use and input/output values helps explain prior scores.",
+          "evidence": [],
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee model version linkage or 13-month retention of inputs and training data."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "CI/CD automates deployment while keeping the service boundary independently managed.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Observed degradation starts a retraining pipeline.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Concurrent model versions support current-versus-candidate evaluation.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.3",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Evidence-based testing evaluates the candidate on recent transactions.",
+          "evidence": []
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "C2",
+            "Q4"
+          ],
+          "reason": "MLOps provides repeatable model lifecycle practices, with operations infrastructure shared from the company team.",
+          "evidence": []
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Distributed microservice serving is an option, but the extra network dependency increases latency risk on the authorization path."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "C2",
+            "Q4"
+          ],
+          "reason": "A multi-pipeline orchestrator provides coordination but adds operational complexity for seven people."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "d:2",
+          "reason": "The brief does not select a general-purpose storage design."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:1",
+          "target": "d:5",
+          "type": "affects",
+          "holds": true,
+          "note": "The separate model service exposes a local serving API."
+        },
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "The service consumes features from the feature store."
+        },
+        {
+          "source": "d:8",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "The CI/CD path supports the degradation-triggered pipeline."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation works with versioned training data."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Real-time scoring and feature access",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Authorization waits for every score, while recent cardholder activity and a 15,000 transaction-per-second peak require a fast online path. A local model boundary can limit network hops; an independent service can simplify deployment but increases dependency and operating work. The design space has no latency figures or feature-store failure policy, so the p99 target needs verification outside these choices.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Local module and streamed features",
+          "values": [
+            "v:1.3",
+            "v:5.2",
+            "v:4.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Keeps scoring close to authorization.",
+            "Uses a real-time feature path for recent activity."
+          ],
+          "cons": [
+            "Tightly couples scoring deployment to the host application.",
+            "Feature store latency and failure behavior are unspecified."
+          ],
+          "reason": "Choose this when the shortest local scoring path and a clear module boundary matter most."
+        },
+        {
+          "id": "O2",
+          "name": "Independent model service with local API",
+          "values": [
+            "v:1.1",
+            "v:5.2",
+            "v:4.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Allows model service releases to be managed independently.",
+            "Keeps the serving API local and uses continuously updated features."
+          ],
+          "cons": [
+            "Introduces a service dependency and separate operational ownership.",
+            "No value establishes the numeric latency target."
+          ],
+          "reason": "Choose this when independent model release and scaling justify the additional service boundary."
+        },
+        {
+          "id": "O3",
+          "name": "Model embedded in the application",
+          "values": [
+            "v:1.2",
+            "v:5.2",
+            "v:4.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "discarded",
+          "step": 10,
+          "pros": [
+            "Avoids a remote service call in the authorization path.",
+            "Uses streaming real-time features."
+          ],
+          "cons": [
+            "Model updates share the application release and runtime boundary.",
+            "No resilience or numeric performance guarantee is represented."
+          ],
+          "reason": "Set aside at final comparison because the local modular pipeline point is at least as good on every assessed requirement and stronger on Q4."
+        },
+        {
+          "id": "O4",
+          "name": "Batch feature updates",
+          "values": [
+            "v:1.2",
+            "v:5.2",
+            "v:4.2",
+            "v:7.3",
+            "v:15.1"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Uses a simple application boundary and generic storage.",
+            "Batch data handling may reduce streaming infrastructure."
+          ],
+          "cons": [
+            "Cannot reliably supply the required recent activity before authorization."
+          ],
+          "reason": "Set aside because batch ingestion and processing leave the core recent-activity requirement unmet."
+        },
+        {
+          "id": "O5",
+          "name": "Local API with prediction performance tests",
+          "values": [
+            "v:1.3",
+            "v:5.2",
+            "v:4.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "discarded",
+          "step": 11,
+          "pros": [
+            "Directly exercises the score service under latency and throughput tests."
+          ],
+          "cons": [
+            "The design-space value does not establish a passing p99 result and this point loses explicit candidate-model quality testing."
+          ],
+          "reason": "Set aside because performance testing alone does not address candidate comparison and remains only a test choice, not measured evidence."
+        },
+        {
+          "id": "O6",
+          "name": "Distributed microservice prediction",
+          "values": [
+            "v:1.1",
+            "v:5.1",
+            "v:4.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "discarded",
+          "step": 12,
+          "pros": [
+            "Can separate model serving for independent scaling."
+          ],
+          "cons": [
+            "Adds a network dependency to the synchronous authorization path."
+          ],
+          "reason": "Set aside because the explored scaling benefit has no measured evidence and increases latency and availability risk."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Model retraining, comparison, and score reconstruction",
+      "drivers": [
+        "R2",
+        "R3",
+        "Q3",
+        "Q4"
+      ],
+      "context": "Chargeback labels arrive after a delay, but new models must be compared on recent transactions and promoted within 48 hours when fraud loss rises. Historical answers also need the model, exact inputs, and training data. Batch learning fits delayed labels; versioning and production tracking help reconstruct runs, but neither value alone promises long retention or complete lineage.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Monitored batch pipeline with candidate comparison",
+          "values": [
+            "v:18.1",
+            "v:19.1",
+            "v:11.1",
+            "v:22.4",
+            "v:12.5",
+            "v:10.1",
+            "v:26.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Batch training matches delayed chargeback labels.",
+            "Performance degradation can trigger retraining.",
+            "Concurrent models and evidence-based testing support candidate comparison."
+          ],
+          "cons": [
+            "13-month score and training-data linkage must be implemented explicitly.",
+            "A trigger does not ensure a retrained model is ready within 48 hours."
+          ],
+          "reason": "Choose this for an automated, comparison-oriented retraining path with explicit monitoring."
+        },
+        {
+          "id": "O2",
+          "name": "Dedicated batch model builder with controlled rollback",
+          "values": [
+            "v:18.2",
+            "v:19.1",
+            "v:11.1",
+            "v:22.4",
+            "v:12.1",
+            "v:10.2",
+            "v:26.3"
+          ],
+          "status": "discarded",
+          "step": 10,
+          "pros": [
+            "Separates training from serving and accommodates delayed labels.",
+            "Versioning and tracking help reconstruct prior results.",
+            "Rollback provides a straightforward recovery action."
+          ],
+          "cons": [
+            "On-demand triggering depends on the team noticing the segment change.",
+            "Rollback does not itself compare the candidate or enforce audit retention."
+          ],
+          "reason": "Set aside at final comparison because the local modular pipeline point is at least as good on every assessed requirement and stronger on Q4."
+        },
+        {
+          "id": "O3",
+          "name": "Batch model pipeline with rollback and performance tests",
+          "values": [
+            "v:18.1",
+            "v:19.1",
+            "v:11.1",
+            "v:22.4",
+            "v:12.1",
+            "v:10.2",
+            "v:26.13"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Provides repeatable batch training and version rollback.",
+            "Performance tests address serving speed."
+          ],
+          "cons": [
+            "Performance tests do not compare candidate fraud quality against the current model."
+          ],
+          "reason": "Set aside after the first evaluation because the tests do not fulfill the candidate-comparison requirement."
+        },
+        {
+          "id": "O4",
+          "name": "Incremental hybrid learning from event data",
+          "values": [
+            "v:19.3",
+            "v:2.3",
+            "v:12.4",
+            "v:10.1",
+            "v:26.2"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Can react to newly available training events and compare versions concurrently."
+          ],
+          "cons": [
+            "Confirmed labels arrive too late for immediate incremental updates.",
+            "The event-driven scoring boundary does not establish synchronous authorization response."
+          ],
+          "reason": "Set aside because delayed labels and synchronous scoring make this approach a poor fit."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Delivery ownership for a seven-person team",
+      "drivers": [
+        "C2"
+      ],
+      "context": "The team has no dedicated ML platform group, so the retraining and release path must remain supportable by the application and ML teams alongside shared operations. A multi-pipeline orchestrator can coordinate work but increases the operating surface; CI/CD offers a smaller repeatable path. The space does not specify staffing effort, so ownership and support limits need to be agreed by the team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "CI/CD with focused MLOps",
+          "values": [
+            "v:8.1",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Makes deployment repeatable.",
+            "Supports versioning, tracking, and testing as a coherent lifecycle."
+          ],
+          "cons": [
+            "The team still owns pipeline maintenance and production support."
+          ],
+          "reason": "Use a focused MLOps practice implemented through CI/CD to meet the delivery needs without a dedicated platform team."
+        },
+        {
+          "id": "O2",
+          "name": "Orchestrator with MLOps",
+          "values": [
+            "v:8.3",
+            "v:27.1"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Coordinates multiple pipelines and degradation-triggered retraining."
+          ],
+          "cons": [
+            "Adds operational complexity for a seven-person build and run team."
+          ],
+          "reason": "Prefer CI/CD after refinement showed that a multi-pipeline orchestrator was more than this team needs."
+        },
+        {
+          "id": "O3",
+          "name": "Scripts without MLOps",
+          "values": [
+            "v:8.2",
+            "v:27.2"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Keeps automation explicit and initially appears lightweight."
+          ],
+          "cons": [
+            "The checked point exposed tension between no MLOps and the needed versioning, tracking, and release practices."
+          ],
+          "reason": "Set aside because the operational model conflicts with the lifecycle controls required for timely retraining and audit support."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space has serving and monitoring choices but no explicit fail-open authorization policy, dependency fallback, or bounded degraded-mode behavior for 15 minutes."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:1",
+      "note": "No dimension captures PCI-certified placement, data residency, or whether a service is internal. Each alternative assumes all scoring and feature components are deployed inside the PCI-certified environment."
+    }
+  ]
+}
