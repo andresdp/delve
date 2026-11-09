@@ -37,4 +37,6 @@ the tool and allowed, so do not pass `--no-llm` to avoid it.
 ## no space
 
 There is no design space: work from your own knowledge, as the skill says, and set the file's `space` to
-`null`. Do not write a space of your own.
+`null`. Do not write a space of your own. Describe each design point with `ddspace point --no-space`, as the skill
+says. The description comes from a service `ddspace point` calls itself: that call is part of the tool and
+allowed, so do not pass `--no-llm` to avoid it.

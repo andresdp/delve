@@ -9,13 +9,15 @@ file, ``./rationale/<case>.json``, in one of three conditions:
 |---|---|---|
 | M | the mined C1 space (a workspace from ``study/cain2027/build_workspaces.py``) | with a space |
 | E | the expert C1 space (the same builder) | with a space |
-| N | an empty folder; ``ddspace`` is on the PATH, so only the structural check runs (KTD3) | no space |
+| N | an empty folder; ``ddspace`` is on the PATH: the structural check and ``ddspace point --no-space`` | no space |
 
 The CAIN runner's controls are reused as they are (private ``CODEX_HOME``, pinned model, web search off, the
-workspace manifest, the event parsing and redaction; ``study/cain2027/`` is not changed). As in CAIN, only M and
-E sessions get sandbox network access and the study key (``STUDY_OPENAI_API_KEY``, passed as ``OPENAI_API_KEY``)
-for the description ``ddspace point`` generates; N gets neither. The summary counts any other network use, and
-web search is disabled in every session. After each session the runner keeps, under ``--results``:
+workspace manifest, the event parsing and redaction; ``study/cain2027/`` is not changed). Unlike CAIN, every
+session gets sandbox network access and the study key (``STUDY_OPENAI_API_KEY``, passed as ``OPENAI_API_KEY``)
+for the descriptions ``ddspace point`` generates: in M and E from the wiki, in N from the agent's own names
+(``--no-space``), with the model of the M wiki's descriptions (``DDSPACE_POINT_MODEL``), so every condition is
+described by the same model and prompt. The summary counts any other network use, and web search is disabled in
+every session. After each session the runner keeps, under ``--results``:
 
 - ``rationale/<session>.json``: the agent's final rationale file (the home folder and keys redacted);
 - ``summaries/<session>.json``: an allow-listed summary of the event log, the final ``ddspace rationale check``
@@ -75,6 +77,7 @@ cain = sys.modules.get("cain2027_run_sessions") or _import("cain2027_run_session
 design = cain.design                         # redact, sha256, results-folder names
 
 from delvedspace import agent, rationale  # noqa: E402
+from delvedspace import point as point_mod  # noqa: E402
 from taxonomy_generator.wiki import query as q  # noqa: E402
 
 RESULTS = HERE / "results"
@@ -82,6 +85,7 @@ CASES = HERE / "cases"
 PROMPT = HERE / "prompt.md"
 CONDITIONS = ("M", "E", "N")
 SPACE_CONDITIONS = cain.SPACE_CONDITIONS      # M and E
+CAIN_NETWORK_RULE = "network access does not match the condition"   # CAIN: off for N; here on everywhere
 MODES = rationale.MODES
 SKILL = {name.removeprefix("ddspace-"): name for name in agent.SKILLS}  # mode -> skill
 SKILLS_VIA = ("files", "prompt")
@@ -260,7 +264,7 @@ def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Opt
     ``effort`` sets the model's reasoning effort; ``--ignore-user-config`` drops the operator's own setting, so
     without it the model runs at its default (the pilots used a few hundred reasoning tokens for a whole search).
 
-    As in CAIN, M and E get sandbox network access (for ``ddspace point`` descriptions); N does not.
+    Every condition gets sandbox network access, for ``ddspace point`` descriptions (N too, with ``--no-space``).
     """
     argv = ["codex", "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
             "-s", "workspace-write", "-m", model, "-o", str(last), "-C", str(workdir), "-c", cain.WEB_SEARCH_OFF]
@@ -270,8 +274,7 @@ def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Opt
         argv += ["-c", f'model_reasoning_effort="{effort}"']
     for feature in cain.DISABLED_FEATURES:
         argv += ["--disable", feature]
-    if session.condition in SPACE_CONDITIONS:
-        argv += ["-c", cain.NETWORK_ON, "-c", "shell_environment_policy.ignore_default_excludes=true"]
+    argv += ["-c", cain.NETWORK_ON, "-c", "shell_environment_policy.ignore_default_excludes=true"]
     return argv + ["-"]   # the prompt comes on stdin
 
 
@@ -279,24 +282,28 @@ def preflight(session: Session, argv: List[str], workdir: Path, manifest: Path =
               matching_model: str = "", skill: Optional[str] = None) -> List[str]:
     """Return why the session must not start (empty when every control holds).
 
-    CAIN's checks run as they are, for the session's condition: the pinned model, web search off, network
-    access that matches the condition (on for M and E, off for N) and, for M and E, the study manifest in the
-    work copy. No matcher judges this study, so ``matching_model`` is empty by default. ``skill`` (with
-    ``--skills-via files``) needs its ``SKILL.md`` there.
+    CAIN's checks run for the session's condition (the pinned model, web search off and, for M and E, the study
+    manifest in the work copy), except its network rule (off for N): here every condition needs network access,
+    for the descriptions. No matcher judges this study, so ``matching_model`` is empty by default. ``skill``
+    (with ``--skills-via files``) needs its ``SKILL.md`` there.
     """
-    problems = cain.preflight(cain.Session(session.case, session.condition, session.rep), argv, workdir, manifest,
-                              model=model, matching_model=matching_model)
+    problems = [p for p in cain.preflight(cain.Session(session.case, session.condition, session.rep), argv, workdir,
+                                          manifest, model=model, matching_model=matching_model)
+                if p != CAIN_NETWORK_RULE]
+    if cain.NETWORK_ON not in argv:
+        problems.append("network access is off (every condition needs it for ddspace point descriptions)")
     if skill and not (workdir / ".agents" / "skills" / skill / "SKILL.md").is_file():
         problems.append(f"the skill file .agents/skills/{skill}/SKILL.md is missing")
     return problems
 
 
 def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path], key: Optional[str] = None,
-                 oss: Optional[str] = None) -> Dict[str, str]:
+                 oss: Optional[str] = None, describer: Optional[str] = None) -> Dict[str, str]:
     """Return the session's environment: CAIN's allow-list, ``ddspace`` on the PATH in every condition.
 
-    M and E also get the study key ``key`` as ``OPENAI_API_KEY`` (for ``ddspace point`` descriptions); N never
-    gets a key, and the operator's own ``OPENAI_API_KEY`` is never passed on.
+    Every condition gets the study key ``key`` as ``OPENAI_API_KEY`` and the ``describer`` model as
+    ``DDSPACE_POINT_MODEL`` (for ``ddspace point`` descriptions; N needs the model, M and E read the wiki's own).
+    The operator's own ``OPENAI_API_KEY`` is never passed on.
     """
     path = [p for p in os.environ.get("PATH", "").split(os.pathsep) if not (Path(p) / "ddspace").exists()]
     env = {k: os.environ[k] for k in cain.SAFE_ENV if k in os.environ}
@@ -307,9 +314,20 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
     home = codex_home.parent / "home"   # an empty home: no personal ~/.agents/skills, shell profile or settings
     home.mkdir(parents=True, exist_ok=True)
     env.update(CODEX_HOME=str(codex_home), HOME=str(home), PATH=os.pathsep.join(path))
-    if key and session.condition in SPACE_CONDITIONS:
+    if key:
         env["OPENAI_API_KEY"] = key
+    if describer:
+        env[point_mod.MODEL_ENV] = describer
     return env
+
+
+def describer_model(workspaces: Path) -> Optional[str]:
+    """The model that wrote the M wiki's descriptions (``M/raw/run.json``), for N's ``ddspace point --no-space``."""
+    try:
+        run = json.loads((Path(workspaces) / "M" / "raw" / "run.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return str((run.get("models") or {}).get("generation_llm") or "") or None
 
 
 def guards(results: Path, *, model: str, prompt: Path, skills_via: str, effort: Optional[str] = None) -> List[str]:
@@ -384,7 +402,7 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
                 continue
             calls[_command_name(args)] += 1
             if args[0] == "point":
-                points.append(cain._point_event(args, str(item.get("aggregated_output") or ""),
+                points.append(cain._point_event(_without_domain(args), str(item.get("aggregated_output") or ""),
                                                 item.get("exit_code") == 0, clean))
         if cain._uses_network(script):
             network += 1
@@ -396,14 +414,35 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
 # ---------------------------------------------------------------- points evaluated with ddspace point
 
 
+def _without_domain(args: List[str]) -> List[str]:
+    """``ddspace point`` arguments without ``--domain <text>``, which CAIN's parser would read as a value."""
+    out, skip = [], False
+    for a in args:
+        if skip:
+            skip = False
+        elif a == "--domain":
+            skip = True
+        elif not a.startswith("--domain="):
+            out.append(a)
+    return out
+
+
+def _canonical(value: str) -> str:
+    return re.sub(r"\s*:\s*", ": ", " ".join(value.split()))
+
+
 def points_evaluated(doc: Any, calls: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     """How many of the file's ``points`` some ``ddspace point`` call of the session evaluated (same value set).
 
-    In M and E every point should be one call (the skill's reference asks for it); N makes no calls.
+    Every point should be one call: in M and E with the wiki's ids, in N with ``--no-space`` and the agent's own
+    ``Dimension: Value`` names, compared with the spacing around the colon and between words normalized.
     """
-    called = {frozenset(c.get("values") or []) for c in calls if c.get("values")}
+    def key(values: Any) -> frozenset:
+        return frozenset(_canonical(v) for v in values or [] if isinstance(v, str))
+
+    called = {key(c.get("values")) for c in calls if c.get("values")}
     points = [p for p in (doc.get("points") or []) if isinstance(p, dict)] if isinstance(doc, dict) else []
-    missing = [str(p.get("id")) for p in points if frozenset(p.get("values") or []) not in called]
+    missing = [str(p.get("id")) for p in points if key(p.get("values")) not in called]
     return {"points": len(points), "with_ddspace_point": len(points) - len(missing), "without": missing}
 
 
@@ -781,7 +820,7 @@ def run(session: Session, case: Mapping[str, Any], workspaces: Path, scratch: Pa
         effort: Optional[str] = None) -> Dict[str, Any]:
     """Run one session; keep its rationale file and summary; return the summary.
 
-    ``key`` is the study key M and E sessions get as ``OPENAI_API_KEY``; it is redacted from what is kept.
+    ``key`` is the study key every session gets as ``OPENAI_API_KEY``; it is redacted from what is kept.
     """
     root = scratch / session.id
     shutil.rmtree(root, ignore_errors=True)
@@ -811,11 +850,12 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
         "rep": session.rep, "model": model, "effort": effort, "provider": oss or "openai", "codex_version": version,
         "prompt": prompt.name, "prompt_sha256": design.sha256(prompt), "skills_via": skills_via,
         "skill": SKILL[case["mode"]], "skill_variant": "space" if session.condition in SPACE_CONDITIONS else "no space",
-        "skills_sha256": skills_sha256(), "started_at": datetime.now().isoformat(timespec="seconds")}
+        "skills_sha256": skills_sha256(), "describer": describer_model(workspaces),
+        "started_at": datetime.now().isoformat(timespec="seconds")}
     problems = preflight(session, argv, workdir, model=model,
                          skill=SKILL[case["mode"]] if skills_via == "files" else None)
     if not problems:
-        env = _environment(session, cain._codex_home(root), ddspace_bin, key, oss)
+        env = _environment(session, cain._codex_home(root), ddspace_bin, key, oss, record["describer"])
         start = time.monotonic()
         print(f"{session.id}: started (stops after {timeout // 60} min)", flush=True)  # noqa: T201
         stdout, stderr, record["exit_code"], timed_out = run_codex(
@@ -896,9 +936,11 @@ def main() -> None:
     if ddspace_bin is None:
         sys.exit("No ddspace command next to this Python or on the PATH: every condition needs it.")
     key = os.environ.get("STUDY_OPENAI_API_KEY")
-    if not key and set(conditions) & set(SPACE_CONDITIONS):
+    if not key:
         print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail "  # noqa: T201
-              "(the skills then fall back to --no-llm)")
+              "(the skills then keep the descriptions null)")
+    if "N" in conditions and not describer_model(args.workspaces):
+        sys.exit("No describer model in --workspaces/M/raw/run.json: N describes its points with the M wiki's model.")
     version = cain.codex_version()
     print(f"{version or 'codex version unknown'}; model {args.model}, effort {args.effort or 'default'}"  # noqa: T201
           f"{f' via {args.oss}' if args.oss else ''}; skills via {args.skills_via}; results in {results.name}/")

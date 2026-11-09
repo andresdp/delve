@@ -59,3 +59,14 @@ codex_run $TOY/N "$EXPLAIN There is no design space here: work zero-shot. Then r
 
 The M explainers are in the wiki (`ddspace wiki open`, then `site/explainers/`); the N explainers are next to
 the rationale files, in `$TOY/N/explainers/`.
+
+## Recorded runs
+
+`runs/M/` and `runs/N/` hold the rationale files of the second toy run (2026-11-09; `gpt-6-luna`, effort high,
+schema `ddspace-rationale/6`, descriptions by `openai/gpt-5.6-luna`), for the paper's figures. `build.py` rebuilds
+the same wiki (the M files' `graph_sha256` matches it), so their explainers can be rebuilt:
+
+```bash
+(cd $TOY/M && ddspace rationale build ~/Documents/GitHub/delve/examples/toy-git-hosting/runs/M/hosting-search.json)
+ddspace rationale build examples/toy-git-hosting/runs/N/hosting-search.json --out /tmp/toy-n
+```

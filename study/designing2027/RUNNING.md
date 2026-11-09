@@ -10,7 +10,7 @@ built from the CAIN briefs (`cases/`) and writes one rationale file per session,
 |---|---|---|
 | **M** | the C1 design space mined by ddspace, as a wiki | with the space reference (`ddspace query`, `ddspace point`) |
 | **E** | the C1 expert decision model, as a wiki | the same |
-| **N** | only the problem (and the solution, in explain) | zero-shot: the agent's own knowledge, `space: null` |
+| **N** | only the problem (and the solution, in explain) | zero-shot: the agent's own knowledge, `space: null`; points described by `ddspace point --no-space` |
 
 | Case | Skill | Brief |
 |---|---|---|
@@ -201,3 +201,35 @@ I check the kept files for secrets and absolute paths before committing (the run
 folder and the study key). Never commit `raw/` or the sandbox; the ignore rules keep `results*/raw/` out.
 
 When the study is done, revoke the study key.
+
+## 6. The second run: trade-offs (schema 6)
+
+After the toy runs (2026-11-09), the skills record trade-offs: every point description ends with its own
+`Trade-off: …`, and every step names its trade-offs against the requirements, each with the values that cause
+it. N now describes its points too (`ddspace point --no-space`), with the M wiki's model, so **every** session
+gets network access and the study key; the runner prints the describer model per session (`describer` in the
+summary). The first 36 sessions stay in `results/` as the "before" run.
+
+Add a line to the run log (`date; git rev-parse --short HEAD`), then the same command as section 4, with a new
+results folder:
+
+```bash
+python study/designing2027/run_sessions.py \
+  --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
+  --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
+  --model gpt-6-luna --effort high --timeout 3600 --results results-v2
+```
+
+To try it on one session first (about 5 minutes):
+
+```bash
+python study/designing2027/run_sessions.py \
+  --workspaces ~/Documents/GitHub/ddspace-sandboxes/designing2027/workspaces \
+  --scratch ~/Documents/GitHub/ddspace-sandboxes/designing2027/scratch \
+  --model gpt-6-luna --effort high --timeout 3600 --results results-v2-smoke \
+  --cases fraud-explain --conditions N --reps 1
+```
+
+**You should see** `fraud-explain-N-r1: ok; check ok`, and in the progress lines `ddspace point --no-space …`
+calls. Send me that line; I check the summary's `points_evaluated` before you start the full run.
+

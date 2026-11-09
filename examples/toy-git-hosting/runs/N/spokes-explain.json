@@ -1,0 +1,685 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "spokes-explain",
+  "mode": "explain",
+  "space": null,
+  "problem": {
+    "title": "Git hosting for a fast-growing engineering organization",
+    "context": "A company hosts Git for 3,000 engineers in four regions and about 40,000 CI jobs a day. Its largest repository has 15 years of history and is about 200 GB. Five engineers build and operate the service in the company's cloud account.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes and serve fetches and clones for every repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let engineers work on the largest repository without downloading all of it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "durability",
+        "text": "When any single machine or disk is lost, no pushed commit is lost."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When one server fails during working hours, pushes and fetches continue within one minute, without an operator."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A CI job in any region fetches the latest state of a repository within 30 seconds at the 95th percentile, even right after a push."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A fetch that starts after a push has succeeded always sees that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Five engineers build and run the service."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Engineers keep using standard Git clients; no custom client may be required."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Replica placement: Three replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database",
+        "Write coordination: Three-phase commit with majority vote",
+        "Replica repair: Checksum detection, background repair, and re-replication",
+        "Read routing: Closest up-to-date replica, with remote non-voting read replicas",
+        "Client and clone mode: Standard Git clients with full clones",
+        "Packfile maintenance: Periodic repacking on every replica"
+      ],
+      "description": "1. Three rack-separated Git repositories coordinate updates through three-phase majority commit, while checksums detect corruption and background repair re-replicates damaged data. Reads use the closest up-to-date replica; remote non-voting replicas serve additional reads, standard clients make full clones, and every replica is periodically repacked. 2. Trade-off: This provides quorum durability, repair, and locality, but adds write latency and coordination complexity. Full clones and per-replica repacking consume network, storage, and CPU, while remote non-voting replicas may serve stale data.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Replica placement: Three replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database"
+      ],
+      "description": "Each repository is stored as a standard Git repository on local disks, with three copies placed in separate racks. The Git repositories themselves are authoritative, while the replicas provide alternate copies of that authority. Trade-off: Rack separation improves availability during a rack failure, and avoiding a separate content database simplifies the storage model. It requires maintaining replica consistency and incurs three-way storage and replication costs; repository content is also less convenient to query as centralized database records.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Replica placement: Two replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database"
+      ],
+      "description": "The system stores each repository as ordinary Git data on local disks and maintains a second replica in another rack. The Git repositories themselves are authoritative, with no separate content database. Trade-off: This gains rack-level failure tolerance and a simpler authority model, but gives up centralized metadata or transactional guarantees and makes replica synchronization and recovery part of the system.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Write coordination: Three-phase commit with majority vote",
+        "Replica repair: Checksum detection, background repair, and re-replication"
+      ],
+      "description": "A write proceeds through three commit phases and is finalized when a majority of replicas votes to commit. Replicas verify checksums, while background processes repair detected corruption and re-replicate damaged or missing copies. Trade-off: This improves coordinated write durability and automatically restores replica health, but adds multi-phase write latency and majority-quorum dependence, while repair consumes background resources.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Read routing: Closest up-to-date replica, with remote non-voting read replicas",
+        "Replica repair: Checksum detection, background repair, and re-replication"
+      ],
+      "description": "The system routes each read to the geographically closest replica that is sufficiently up to date, while remote non-voting replicas serve additional read demand. Checksums detect corrupted data; background repair restores affected replicas and re-replication replaces replicas that cannot be repaired. Trade-off: This improves read latency, local availability, and storage durability, but requires extra replication bandwidth, storage, and operational complexity, while non-voting replicas do not participate in write or failover decisions.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Read routing: Closest up-to-date replica, without remote non-voting read replicas",
+        "Replica repair: Checksum detection, background repair, and re-replication"
+      ],
+      "description": "Reads are routed to the closest replica that is up to date, while remote non-voting replicas are not used as read targets. Replicas are checked with checksums; detected corruption is repaired in the background, and affected data is re-replicated to restore redundancy. Trade-off: This reduces read latency while preserving freshness and provides automatic recovery, but excludes potentially useful remote read capacity and makes repair and re-replication consume background resources and time.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Client and clone mode: Standard Git clients with full clones",
+        "Packfile maintenance: Periodic repacking on every replica"
+      ],
+      "description": "Each replica stores full Git repositories, and users access them with unmodified Git clients that perform complete clones. Each replica periodically repacks its repository data independently to maintain efficient packfiles. Trade-off: This provides broad client compatibility, complete local histories, and straightforward per-replica maintenance. It consumes substantial network bandwidth, client and replica storage, and repeated CPU/I/O for repacking across every replica.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Client and clone mode: Standard Git clients with partial clones",
+        "Packfile maintenance: Periodic repacking on every replica"
+      ],
+      "description": "Standard Git clients use partial-clone filters to fetch only the objects needed initially, while replicas serve those clone requests. Each replica periodically repacks its local object store to consolidate packfiles. Trade-off: This preserves broad client compatibility, reduces initial clone transfer, and keeps replica storage organized. It adds recurring CPU and I/O work on every replica, and packs may remain less optimized between repacking runs.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "Replica placement: Three replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database",
+        "Write coordination: Three-phase commit with majority vote",
+        "Replica repair: Checksum detection, background repair, and re-replication",
+        "Read routing: Closest up-to-date replica, with remote non-voting read replicas",
+        "Client and clone mode: Standard Git clients with full clones",
+        "Packfile maintenance: Periodic repacking on every replica"
+      ],
+      "hypothesis": "This is the complete architecture stated in the proposed solution.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Client and clone mode: Standard Git clients with full clones",
+            "Packfile maintenance: Periodic repacking on every replica"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Complete clones work with standard Git but require downloading the repository history, contrary to the large-repository requirement."
+        },
+        {
+          "values": [
+            "Read routing: Closest up-to-date replica, with remote non-voting read replicas"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Regional read copies and freshness-aware routing support timely reads, while adding storage and routing operations for the five-person team."
+        }
+      ],
+      "observation": "The replica and quorum design gives a credible single-machine or disk loss path and freshness-aware reads. The solution explicitly requires complete clones, which contradicts R2. It describes no timing evidence for Q2's one-minute recovery or Q3's 30-second p95 target, so those remain partly supported rather than established. The added components also create operational work for a team of five.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Replica placement: Three replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database"
+      ],
+      "hypothesis": "Q1 should explain independent authoritative copies on separate machines and racks.",
+      "assessment": {
+        "Q1": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "Three independent copies across racks leave copies available after one machine or disk is lost. The requirement only covers a single loss, so this supports Q1; it does not establish protection from correlated or multiple failures.",
+      "verdict": "grounded",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "Replica placement: Two replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database"
+      ],
+      "hypothesis": "Test whether Q1 forces three copies rather than two rack-separated copies.",
+      "assessment": {
+        "Q1": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "Two independent copies also leave a surviving copy after any one machine or disk loss. Three copies add margin, but the stated single-loss requirement does not force the third copy; replica count is free relative to Q1.",
+      "verdict": "grounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Write coordination: Three-phase commit with majority vote",
+        "Replica repair: Checksum detection, background repair, and re-replication"
+      ],
+      "hypothesis": "Q1 and Q4 should explain acknowledged writes on a replica majority and repair of lagging or damaged replicas; Q2 should benefit from automatic repair.",
+      "assessment": {
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Write coordination: Three-phase commit with majority vote",
+            "Replica repair: Checksum detection, background repair, and re-replication"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Majority coordination and repair improve durable, consistent replica state, while multi-phase commits and background re-replication do not specify that service recovers within one minute."
+        }
+      ],
+      "observation": "Majority agreement plus repair supports durable updates and convergence. The description does not define commit visibility or read behavior alone well enough to prove Q4, and it gives no recovery-time bound for Q2. The three-phase write path also adds latency, but no measured push target was supplied.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Read routing: Closest up-to-date replica, with remote non-voting read replicas",
+        "Replica repair: Checksum detection, background repair, and re-replication"
+      ],
+      "hypothesis": "Q3 and Q4 should explain serving regional reads from the closest replica only when it has the latest successful push; Q2 may benefit from alternate replicas.",
+      "assessment": {
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read routing: Closest up-to-date replica, with remote non-voting read replicas"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Remote non-voting replicas add nearby read capacity and improve the chance of serving current state, at the cost of storage, replication, and routing work for a small operations team."
+        }
+      ],
+      "observation": "Routing only to an up-to-date copy directly supports read-after-push consistency. Nearby read copies plausibly help regional latency and alternate service, but there are no measurements against 30 seconds p95 or one minute recovery. Up-to-date filtering may also leave a lagging regional replica temporarily ineligible; this is a trade-off, not proof of a target miss.",
+      "verdict": "partial",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "contrast",
+      "parent": 5,
+      "values": [
+        "Read routing: Closest up-to-date replica, without remote non-voting read replicas",
+        "Replica repair: Checksum detection, background repair, and re-replication"
+      ],
+      "hypothesis": "Test whether Q3 forces additional remote read replicas beyond routing to the closest current replica.",
+      "assessment": {
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read routing: Closest up-to-date replica, without remote non-voting read replicas"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Routing remains freshness-aware, but omitting remote read copies gives up their extra regional read capacity."
+        }
+      ],
+      "observation": "Without remote non-voting copies, the design still routes to the closest current replica, so the latency target remains plausible but unproven. Remote copies may help capacity or locality, but Q3's numerical target does not prove they are necessary; their use is a free choice on this evidence.",
+      "verdict": "partial",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Client and clone mode: Standard Git clients with full clones",
+        "Packfile maintenance: Periodic repacking on every replica"
+      ],
+      "hypothesis": "R1 and C2 explain keeping repositories in Git's format and serving standard clients; R2 tests whether full clones fit large-repository use.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Client and clone mode: Standard Git clients with full clones"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Unmodified clients and complete clones preserve normal Git behavior, but a complete clone necessarily downloads all repository data."
+        }
+      ],
+      "observation": "The standard Git protocol and clients satisfy compatibility, but full clones directly conflict with R2. Repacking is a maintenance choice; the problem gives no packfile or fetch measurements to show it meets Q3. Periodic work on every replica also adds operator load under C1.",
+      "verdict": "ungrounded",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "move": "contrast",
+      "parent": 7,
+      "values": [
+        "Client and clone mode: Standard Git clients with partial clones",
+        "Packfile maintenance: Periodic repacking on every replica"
+      ],
+      "hypothesis": "Test whether C2 requires full clones, or whether standard clients can partially clone to address R2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "Partial clone filters can retain standard Git client use while initially fetching only selected objects. This comparison shows that full clones are not required by C2 and leave R2 unmet; the solution's clone mode is an ungrounded choice against an explicit requirement.",
+      "verdict": "grounded",
+      "point": "P8"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Rack-separated authoritative copies",
+      "step": 2,
+      "drivers": [
+        "Q1"
+      ],
+      "values": [
+        "Replica placement: Three replicas in different racks",
+        "Repository authority: Plain Git repositories on local disks, with no separate content database"
+      ],
+      "reason": "Independent copies on separate racks preserve a pushed commit after a single machine or disk loss. The third copy adds resilience beyond what the one-loss requirement forces."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Replicated Git file servers",
+      "summary": "Plain Git repositories on rack-separated file servers coordinate writes by majority and serve reads from current nearby replicas. Standard clients use full clones, leaving the large-repository requirement unmet.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "Replica placement",
+          "value_id": "Replica placement: Three replicas in different racks",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "Three copies support single-loss durability, though two rack-separated copies also meet that stated failure case.",
+          "solution_quote": "Every repository is stored as a plain Git repository on the local disks of three file servers, placed in different racks."
+        },
+        {
+          "dimension_id": "Repository authority",
+          "value_id": "Repository authority: Plain Git repositories on local disks, with no separate content database",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "The plain repositories are the stated authoritative data and avoid a separate content database; the problem does not compare alternatives.",
+          "solution_quote": "The three replicas are the authoritative copies; there is no separate database of repository contents."
+        },
+        {
+          "dimension_id": "Write coordination",
+          "value_id": "Write coordination: Three-phase commit with majority vote",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "forced": null,
+          "reason": "Majority agreement supports durable updates and replica agreement, though the precise consistency protocol is not fully specified.",
+          "solution_quote": "A push updates references through a three-phase commit: a proxy sends the update to all three replicas, each takes a lock and votes, and the update commits once a majority has agreed."
+        },
+        {
+          "dimension_id": "Replica repair",
+          "value_id": "Replica repair: Checksum detection, background repair, and re-replication",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "forced": null,
+          "reason": "Checksum comparison and repair restore lagging or damaged copies without requiring each repair to be initiated by an operator; timing is unspecified.",
+          "solution_quote": "Replicas that miss an update are detected by comparing checksums of their references and repaired in the background from a healthy replica."
+        },
+        {
+          "dimension_id": "Read routing",
+          "value_id": "Read routing: Closest up-to-date replica, with remote non-voting read replicas",
+          "drivers": [
+            "Q2",
+            "Q3",
+            "Q4",
+            "C1"
+          ],
+          "forced": null,
+          "reason": "Freshness-aware routing serves a successful push consistently, and remote copies can improve regional reads, but neither timing target is measured and extra copies are not shown necessary.",
+          "solution_quote": "Reads go to the closest replica that is up to date; in remote regions, extra non-voting replicas serve reads without slowing down writes."
+        },
+        {
+          "dimension_id": "Client and clone mode",
+          "value_id": "Client and clone mode: Standard Git clients with full clones",
+          "drivers": [
+            "R1",
+            "C1",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "Standard clients meet compatibility, while full clones fail R2; a partial-clone contrast shows standard clients need not imply full downloads.",
+          "solution_quote": "Engineers use standard Git clients and full clones."
+        },
+        {
+          "dimension_id": "Packfile maintenance",
+          "value_id": "Packfile maintenance: Periodic repacking on every replica",
+          "drivers": [
+            "C1"
+          ],
+          "forced": null,
+          "reason": "The solution uses Git's own packfile format and periodic repacking, but no stated requirement forces the schedule or its operation on every replica.",
+          "solution_quote": "The team relies on Git's own packfile format and runs periodic repacking on every replica."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Keep three rack-separated authoritative copies",
+      "drivers": [
+        "Q1"
+      ],
+      "context": "A pushed commit must survive loss of any one machine or disk, so independent copies must remain available after a single failure.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three replicas in separate racks",
+          "values": [
+            "Replica placement: Three replicas in different racks",
+            "Repository authority: Plain Git repositories on local disks, with no separate content database"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "A single machine or disk loss leaves two copies.",
+            "Separate racks reduce exposure to one rack failure."
+          ],
+          "cons": [
+            "Three copies consume more storage and replication bandwidth than two."
+          ],
+          "reason": "This meets the single-loss durability requirement. The third copy is a free margin choice because two rack-separated copies also survive one machine or disk loss."
+        },
+        {
+          "id": "O2",
+          "name": "Two replicas in separate racks",
+          "values": [
+            "Replica placement: Two replicas in different racks",
+            "Repository authority: Plain Git repositories on local disks, with no separate content database"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "A surviving copy remains after one machine or disk loss.",
+            "Uses less storage and replication bandwidth."
+          ],
+          "cons": [
+            "Leaves less redundancy after a failure."
+          ],
+          "reason": "It still meets the stated single-loss case, so the solution does not force three replicas; this option was not chosen."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Coordinate writes across replicas and repair missed updates",
+      "drivers": [
+        "Q1",
+        "Q2",
+        "Q4"
+      ],
+      "context": "Successful pushes must be durable and visible to subsequent fetches, and the service should recover from a server failure without operator action.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three-phase majority commit with background repair",
+          "values": [
+            "Write coordination: Three-phase commit with majority vote",
+            "Replica repair: Checksum detection, background repair, and re-replication"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "A majority coordinates committed updates.",
+            "Checksums detect and repair replicas that miss updates."
+          ],
+          "cons": [
+            "Multi-phase writes add latency.",
+            "No recovery-time bound establishes the one-minute availability target."
+          ],
+          "reason": "This supports durability and repair, but the requirements do not force this particular protocol and the solution supplies no timing proof for availability."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Route reads to current nearby replicas",
+      "drivers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "C1"
+      ],
+      "context": "Fetches after successful pushes must see the new state while CI jobs in every region need fast reads and service should continue after a server failure.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Closest current replica with remote read copies",
+          "values": [
+            "Read routing: Closest up-to-date replica, with remote non-voting read replicas",
+            "Replica repair: Checksum detection, background repair, and re-replication"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 5,
+          "pros": [
+            "Freshness-aware routing supports read-after-push consistency.",
+            "Remote copies add regional read capacity."
+          ],
+          "cons": [
+            "Extra copies add storage and operational work.",
+            "No latency or failover measurements establish the numeric targets."
+          ],
+          "reason": "Freshness supports Q4 and remote copies plausibly help Q3. The exact targets remain unproven, and the contrast without remote copies shows they are not forced by the available evidence."
+        },
+        {
+          "id": "O2",
+          "name": "Closest current replica without remote read copies",
+          "values": [
+            "Read routing: Closest up-to-date replica, without remote non-voting read replicas",
+            "Replica repair: Checksum detection, background repair, and re-replication"
+          ],
+          "status": "discarded",
+          "step": 6,
+          "pros": [
+            "Retains routing to a current nearby copy.",
+            "Avoids the extra read-copy storage."
+          ],
+          "cons": [
+            "Provides less regional read capacity."
+          ],
+          "reason": "It continues to support freshness, while its effect on the 30-second target is unknown; remote copies remain a free choice on this evidence."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Use standard Git clients with complete clones",
+      "drivers": [
+        "R1",
+        "C1",
+        "C2"
+      ],
+      "context": "The service must use the standard Git protocol and must not require a custom client. The problem also asks engineers to work on the largest repository without downloading all of it.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Standard clients with full clones",
+          "values": [
+            "Client and clone mode: Standard Git clients with full clones",
+            "Packfile maintenance: Periodic repacking on every replica"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 7,
+          "pros": [
+            "Preserves familiar standard Git client behavior.",
+            "Periodic repacking maintains Git packfiles."
+          ],
+          "cons": [
+            "A full clone downloads all repository data and misses R2.",
+            "Repacking every replica consumes storage I/O and operator capacity."
+          ],
+          "reason": "Standard clients are required, but full clones are not. This choice meets R1 and C2 while contradicting R2, so it is not justified by the requirements."
+        },
+        {
+          "id": "O2",
+          "name": "Standard clients with partial clones",
+          "values": [
+            "Client and clone mode: Standard Git clients with partial clones",
+            "Packfile maintenance: Periodic repacking on every replica"
+          ],
+          "status": "discarded",
+          "step": 8,
+          "pros": [
+            "Can fetch selected objects initially while retaining standard Git clients.",
+            "Better matches work on the large repository without downloading all objects."
+          ],
+          "cons": [
+            "Requires compatible partial-clone behavior and object serving."
+          ],
+          "reason": "This contrast indicates a way to retain standard-client compatibility while addressing R2; the supplied solution does not choose it."
+        }
+      ]
+    }
+  ],
+  "uncovered": [],
+  "unaddressed": [
+    {
+      "requirement": "R2",
+      "reason": "not_in_solution",
+      "note": "The solution explicitly uses full clones, which download the repository data, and provides no partial-clone or other selective-fetch mechanism."
+    }
+  ]
+}

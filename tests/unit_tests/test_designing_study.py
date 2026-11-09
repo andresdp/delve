@@ -262,10 +262,11 @@ def test_n_session_has_ddspace_on_path_and_no_workspace(tmp_path, monkeypatch, c
     assert sorted(p.name for p in workdir.iterdir()) == ["PROBLEM.md"]
     argv = runner.command(s, workdir, tmp_path / "last.txt", model="gpt-test")
     assert argv[argv.index("-C") + 1] == str(workdir) and "--output-schema" not in argv
-    assert cain.NETWORK_ON not in argv and cain.WEB_SEARCH_OFF in argv and argv[-1] == "-"
-    env = runner._environment(s, tmp_path / "home", bin_dir / "ddspace", "sk-study-key-000000000")
-    assert env["PATH"].split(":")[0] == str(bin_dir) and "OPENAI_API_KEY" not in env   # N: no key, not even the study's
-    assert env["CODEX_HOME"] == str(tmp_path / "home")
+    assert cain.NETWORK_ON in argv and cain.WEB_SEARCH_OFF in argv and argv[-1] == "-"   # N describes points too
+    env = runner._environment(s, tmp_path / "home", bin_dir / "ddspace", "sk-study-key-000000000",
+                              describer="openai/describer")
+    assert env["PATH"].split(":")[0] == str(bin_dir) and env["OPENAI_API_KEY"] == "sk-study-key-000000000"
+    assert env["DDSPACE_POINT_MODEL"] == "openai/describer" and env["CODEX_HOME"] == str(tmp_path / "home")
 
 
 @pytest.mark.parametrize("condition", ["M", "E"])
@@ -306,9 +307,10 @@ def test_preflight_checks_network_the_manifest_and_the_skill_file(tmp_path):
     assert any("network" in p for p in runner.preflight(s, no_network, ws, manifest, model="gpt-test"))
     n = runner.Session("kv-store", "N", 1)
     n_argv = runner.command(n, tmp_path / "n", tmp_path / "last.txt", model="gpt-test")
-    assert runner.preflight(n, n_argv, tmp_path / "n", manifest, model="gpt-test") == []
-    assert any("network" in p for p in runner.preflight(n, n_argv[:-1] + ["-c", cain.NETWORK_ON, "-"],
-                                                         tmp_path / "n", manifest, model="gpt-test"))
+    assert runner.preflight(n, n_argv, tmp_path / "n", manifest, model="gpt-test") == []   # CAIN's N rule is dropped
+    at = n_argv.index(cain.NETWORK_ON)
+    assert any("network" in p for p in runner.preflight(n, n_argv[:at - 1] + n_argv[at + 1:], tmp_path / "n",
+                                                         manifest, model="gpt-test"))
     assert any("skill" in p for p in runner.preflight(s, argv, ws, manifest, model="gpt-test",
                                                       skill="ddspace-search"))
     (ws / cain.MANIFEST_COPY).write_text("{}")
@@ -580,3 +582,19 @@ def test_the_effort_goes_to_codex_and_one_results_folder_holds_one_effort(tmp_pa
     assert refused and "reasoning effort" in refused[0]
     assert runner.guards(tmp_path / "results", model="gpt-test", prompt=runner.PROMPT, skills_via="files",
                          effort="medium") == []
+
+
+def test_the_describer_is_the_m_wikis_model(tmp_path):
+    assert runner.describer_model(tmp_path) is None
+    (tmp_path / "M" / "raw").mkdir(parents=True)
+    (tmp_path / "M" / "raw" / "run.json").write_text('{"models": {"generation_llm": "openai/describer"}}')
+    assert runner.describer_model(tmp_path) == "openai/describer"
+
+
+def test_n_point_calls_count_with_their_names_and_without_the_domain():
+    args = ["point", "--no-space", "--domain", "Card fraud", "Serving:  Online", "Store :Feature store"]
+    event = cain._point_event(runner._without_domain(args), "{}", True, lambda t: t)
+    assert event["values"] == ["Serving:  Online", "Store :Feature store"]
+    doc = {"points": [{"id": "P1", "values": ["Serving: Online", "Store: Feature store"]},
+                      {"id": "P2", "values": ["Serving: Batch"]}]}
+    assert runner.points_evaluated(doc, [event]) == {"points": 2, "with_ddspace_point": 1, "without": ["P2"]}
