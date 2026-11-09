@@ -3,8 +3,9 @@
 A dimension is a design concern, a value one option for it, and a design point a set of values, at most one per
 dimension. A coding agent writes one rationale file per problem, with the ``trajectory`` of design points it
 evaluated (at most ``budget.max_points``). Each step records its ``hypothesis``, its ``assessment`` (``meets``,
-``partly`` or ``misses`` per requirement), its ``tradeoffs`` against the requirements (each ``gains`` some
-requirements at the ``costs`` of others, with a ``note``) and its ``observation``.
+``partly`` or ``misses`` per requirement), its ``tradeoffs`` against the requirements (each names the
+``values`` of the point that cause it, the few requirements it ``gains`` at the ``costs`` of others, and a
+``note``) and its ``observation``.
 
 *Search* works in rounds over ``approaches`` (each a "what if" idea, ``live`` or ``dropped``): its steps
 (``seed``, ``exploit``, ``explore``, ``ablate``) carry a ``round``, an ``approach`` and a ``rating`` (``strong``,
@@ -70,7 +71,8 @@ MAX_POINTS = {"search": 20, "explain": 12}     # the most design points a mode m
 DEFAULT_POINTS = {"search": 12, "explain": 8}  # what the skills set when the user names no budget
 REGIONS = (1, 3)
 WARNINGS = ("unmet_requires", "graph_changed", "unused_point", "no_explore", "early_stop", "missing_tradeoff",
-            "undescribed_point")
+            "undescribed_point", "restated_assessment", "copied_description", "revisited_point")
+RESTATED_MIN = 4   # a trade-off over every judged requirement, when there are at least this many, restates the assessment
 RATING_ORDER = {"weak": 1, "mixed": 2, "strong": 3}   # to tell whether a step improved its approach
 ASSESSMENT_SCORE = {"misses": 0, "partly": 1, "meets": 2}
 
@@ -88,7 +90,7 @@ _BUDGET: _Spec = {"max_points": ("integer", True)}
 _STEP: _Spec = {"step": ("integer", True), "move": ("text", True), "parent": ("integer|null", False),
                 "values": ("list", True), "hypothesis": ("string", True), "assessment": ("object", True),
                 "observation": ("string", True), "point": ("text", True), "tradeoffs": ("list", True)}
-_TRADEOFF: _Spec = {"gains": ("list", True), "costs": ("list", True), "note": ("text", True)}
+_TRADEOFF: _Spec = {"values": ("list", True), "gains": ("list", True), "costs": ("list", True), "note": ("text", True)}
 _SEARCH_STEP: _Spec = {"round": ("integer", True), "approach": ("text", True), "rating": ("text", True)}
 _EXPLAIN_STEP: _Spec = {"verdict": ("text", True)}
 _APPROACH: _Spec = {"id": ("text", True), "idea": ("text", True), "status": ("text", True),
@@ -464,11 +466,15 @@ def _assessment(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], re
             c.add("schema", path, f"a requirement is judged {', '.join(ASSESSMENTS)}, got {json.dumps(judged)}")
 
 
-def _tradeoffs(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], requirements: set) -> None:
-    """Check a step's trade-offs against the requirements: each gains some requirements at the cost of others.
+def _tradeoffs(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], requirements: set,
+               key: Optional[frozenset]) -> None:
+    """Check a step's trade-offs against the requirements: the values that cause each, and the few requirements it
+    gains at the cost of others.
 
-    A gain is not judged ``misses`` and a cost not ``meets`` in the step's assessment (``tradeoff_mismatch``). A
-    step that meets some requirements and not others without naming a trade-off gets ``missing_tradeoff``.
+    The ``values`` are values of the step's point; a gain is not judged ``misses`` and a cost not ``meets`` in the
+    step's assessment (``tradeoff_mismatch``). A trade-off over every judged requirement (at least
+    ``RESTATED_MIN``) only restates the assessment (``restated_assessment``). A step that meets some requirements
+    and not others without naming a trade-off gets ``missing_tradeoff``.
     """
     assessment = step.get("assessment") if isinstance(step.get("assessment"), dict) else {}
     tradeoffs = c.items(step, "tradeoffs")
@@ -476,6 +482,16 @@ def _tradeoffs(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], req
         here = (*parts, "tradeoffs", k)
         if not c.fields(item, here, _TRADEOFF):
             continue
+        values = c.items(item, "values")
+        if not values:
+            c.add("schema", pointer(*here, "values"), "a trade-off names the values of the point that cause it")
+        for m, ref in enumerate(values):
+            path = pointer(*here, "values", m)
+            v = c.resolve(ref, path, ["value"]) if c.resolves and isinstance(ref, str) and ref.strip() else None
+            ident = v["id"] if v is not None else ref
+            if key is not None and (v is not None or not c.resolves) and ident not in key:
+                c.add("tradeoff_mismatch", path, f"'{ref}' is not a value of the step's point: a trade-off names "
+                                                 f"the values that cause it", sorted(key))
         sides = {}
         for side, wrong in (("gains", "misses"), ("costs", "meets")):
             ids = c.items(item, side)
@@ -491,6 +507,11 @@ def _tradeoffs(c: _Checker, step: Mapping[str, Any], parts: Tuple[Any, ...], req
         both = sides.get("gains", set()) & sides.get("costs", set())
         if both:
             c.add("tradeoff_mismatch", pointer(*here), f"{', '.join(sorted(both))} cannot be both a gain and a cost")
+        judged_ids = set(assessment)
+        if len(judged_ids) >= RESTATED_MIN and judged_ids <= sides.get("gains", set()) | sides.get("costs", set()):
+            c.add("restated_assessment", pointer(*here),
+                  "this trade-off names every judged requirement, which restates the assessment: name only the few "
+                  "requirements that pull against each other because of its values")
     judged = set(assessment.values())
     if isinstance(step.get("tradeoffs"), list) and not tradeoffs and "meets" in judged and judged - {"meets"}:
         c.add("missing_tradeoff", pointer(*parts, "tradeoffs"),
@@ -613,8 +634,8 @@ def _trajectory(c: _Checker, doc: Mapping[str, Any], mode: Any, requirements: se
         if mode == "search":
             last_round = _search_step(c, step, parts, approaches, parent_entry, last_round)
         _assessment(c, step, parts, requirements)
-        _tradeoffs(c, step, parts, requirements)
         key = _point_values(c, c.items(step, "values"), (*parts, "values"), f"step {i + 1}")
+        _tradeoffs(c, step, parts, requirements, key)
         if c.good(step, "step", "integer") and number == i + 1:
             steps[number] = {"step": step, "key": key}
     if mode == "explain" and trajectory and solutions != 1:
@@ -873,6 +894,7 @@ def _points(c: _Checker, doc: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
     error (``duplicate_point``): the agent reuses the first instead of describing the point again."""
     found: Dict[str, Dict[str, Any]] = {}
     by_key: Dict[frozenset, str] = {}
+    by_description: Dict[str, str] = {}
     for i, item in enumerate(c.items(doc, "points")):
         parts = ("points", i)
         if not c.fields(item, parts, _POINT) or not c.good(item, "id"):
@@ -891,6 +913,13 @@ def _points(c: _Checker, doc: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
         if description is None or (isinstance(description, str) and not description.strip()):
             c.add("undescribed_point", pointer(*parts, "description"),
                   f"point '{item['id']}' has no description: describe it with ddspace point")
+        if isinstance(description, str) and description.strip():
+            text = " ".join(description.split())
+            if text in by_description and found[by_description[text]]["key"] != key:
+                c.add("copied_description", pointer(*parts, "description"),
+                      f"point '{item['id']}' has the description of point '{by_description[text]}', whose values "
+                      "differ: describe each point with its own ddspace point call", [by_description[text]])
+            by_description.setdefault(text, item["id"])
         found[item["id"]] = {"point": item, "key": key}
     return found
 
@@ -899,10 +928,18 @@ def _step_points(c: _Checker, doc: Mapping[str, Any], points: Mapping[str, Dict[
                  steps: Mapping[int, Dict[str, Any]]) -> None:
     """Each step names a point of the list with exactly its values; every point is named by some step."""
     used: set = set()
+    evaluated: Dict[Tuple[Any, str], Any] = {}   # (approach, point) -> the first step that evaluated it
     for i, step in enumerate(c.items(doc, "trajectory")):
         if not isinstance(step, dict) or not c.good(step, "point"):
             continue
         path = pointer("trajectory", i, "point")
+        if doc.get("mode") == "search" and isinstance(step.get("approach"), str):
+            first = evaluated.setdefault((step["approach"], step["point"]), step.get("step"))
+            if first != step.get("step"):
+                c.add("revisited_point", path,
+                      f"step {step.get('step')} evaluates point '{step['point']}' again, which approach "
+                      f"'{step['approach']}' already evaluated at step {first}: it costs a step and teaches nothing; "
+                      "change a value instead")
         entry = points.get(step["point"])
         if entry is None:
             c.add("unknown_point", path, f"'{step['point']}' is not in points (the list of evaluated design points)",

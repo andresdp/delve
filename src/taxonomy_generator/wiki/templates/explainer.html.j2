@@ -373,7 +373,7 @@
       </div>
       {% if s.observation %}<p><span class="lbl">Observed</span> {{ s.observation }}</p>{% endif %}
       {% if s.assessment %}<div class="judged">{% for rid, j in s.assessment.items() %}<span class="j j-{{ j }}" data-node="r:{{ rid }}">{{ rid }} {{ j }}</span>{% endfor %}</div>{% endif %}
-      {% if s.tradeoffs %}<ul class="tradeoffs">{% for t in s.tradeoffs %}<li><span class="t-gain">gains</span> {% for r in t.gains %}<span class="vref" data-node="r:{{ r }}">{{ r }}</span>{% if not loop.last %}, {% endif %}{% endfor %} <span class="t-cost">gives up</span> {% for r in t.costs %}<span class="vref" data-node="r:{{ r }}">{{ r }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% if t.note %}: <span class="muted">{{ t.note }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+      {% if s.tradeoffs %}<ul class="tradeoffs">{% for t in s.tradeoffs %}<li>{% if t.causes %}{% for v in t.causes %}{{ value_ref(v) }}{% if not loop.last %}, {% endif %}{% endfor %}: {% endif %}<span class="t-gain">gains</span> {% for r in t.gains %}<span class="vref" data-node="r:{{ r }}">{{ r }}</span>{% if not loop.last %}, {% endif %}{% endfor %} <span class="t-cost">gives up</span> {% for r in t.costs %}<span class="vref" data-node="r:{{ r }}">{{ r }}</span>{% if not loop.last %}, {% endif %}{% endfor %}{% if t.note %}: <span class="muted">{{ t.note }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
       {% if s.description %}<p class="muted">{{ s.description }}</p>{% endif %}
       {% if s.own_tradeoff %}<p class="own-tradeoff"><span class="lbl">The point's trade-off</span> {{ s.own_tradeoff }}</p>{% endif %}
       {% if d.wiki %}<p class="muted">{% if s.attested_by %}Attested by {% for a in s.attested_by %}{% if a.href %}<a href="{{ a.href }}">{{ a.label }}</a>{% else %}{{ a.label }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}No source attests this combination.{% endif %}</p>{% endif %}
@@ -788,7 +788,7 @@
   const list = (items) => items.length ? "<ul>" + items.map((i) => "<li>" + i + "</li>").join("") + "</ul>" : "";
   const para = (text) => text ? "<p>" + text + "</p>" : "";
   // A step's trade-off against the requirements, and the one the point's description names.
-  const tradeoffLine = (t) => '<span class="t-gain">gains</span> ' + t.gains.map(rlabel).join(", ")
+  const tradeoffLine = (t) => (t.causes && t.causes.length ? t.causes.map(vlabel).join(", ") + ": " : "") + '<span class="t-gain">gains</span> ' + t.gains.map(rlabel).join(", ")
     + ' <span class="t-cost">gives up</span> ' + t.costs.map(rlabel).join(", ") + (t.note ? '<br><span class="muted">' + esc(t.note) + "</span>" : "");
   const tradeoffSecs = (s) => sec("Trade-offs against the requirements", list((s.tradeoffs || []).map(tradeoffLine)))
     + sec("The point's own trade-off", para(esc(s.own_tradeoff || "")));
