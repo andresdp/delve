@@ -38,8 +38,11 @@ Write at most 90 words, in two parts:
 1. In 2 sentences, the solution, or solution fragment, that this combination implies: how the chosen values would
    work together in one system.
 2. One or two sentences starting with "Trade-off:": what this combination gains and what it gives up (the costs,
-   risks or qualities it weakens), and any two choices that are in tension or do not fit together.
-Be concrete and neutral; do not invent details beyond the values given.
+   risks or qualities it weakens), specific to these values rather than true of any design.
+Only if two of the choices genuinely conflict (one undermines what the other is for), add one sentence saying
+which and why. Combinations that are commonly used together are not in tension; most combinations have no
+conflict, and then you say nothing about one. Be concrete and neutral; do not invent details beyond the values
+given.
 
 Description:"""
 MINED_ORIGIN = 'A design space for "{domain}" was mined from engineering documents.'
