@@ -68,6 +68,7 @@ DEFAULT_POINTS = {"search": 12, "explain": 8}  # what the skills set when the us
 REGIONS = (1, 3)
 WARNINGS = ("unmet_requires", "graph_changed", "unused_point", "no_explore", "early_stop")
 RATING_ORDER = {"weak": 1, "mixed": 2, "strong": 3}   # to tell whether a step improved its approach
+ASSESSMENT_SCORE = {"misses": 0, "partly": 1, "meets": 2}
 
 # Field specs: name -> (kind, required). Kinds: "text" (a non-empty string), "string", "string|null", "list",
 # "object", "object|null", "boolean", "boolean|null", "integer", "integer|null".
@@ -616,8 +617,13 @@ def _search_rounds(c: _Checker, doc: Mapping[str, Any], approaches: Mapping[str,
     keeps one slot for a new approach). ``early_stop``: the search stopped with budget left for another round (a
     point per live approach) although its last round improved some approach's best point, or brought a new
     approach better than the best so far; the skill stops early only after at least two rounds and a round that
-    improved nothing.
+    improved nothing. A step is better than another when its rating is higher or, with the same rating, its
+    assessment is (the mean of meets 2, partly 1, misses 0 over the requirements it judges).
     """
+    def merit(s: Mapping[str, Any]) -> Tuple[int, float]:
+        judged = [ASSESSMENT_SCORE[j] for j in (s.get("assessment") or {}).values() if j in ASSESSMENT_SCORE]
+        return RATING_ORDER[s["rating"]], (sum(judged) / len(judged) if judged else 0.0)
+
     rounds: Dict[int, List[Tuple[int, Mapping[str, Any]]]] = {}
     for i, step in enumerate(c.items(doc, "trajectory")):
         if isinstance(step, dict) and _integer(step.get("round")) and step.get("rating") in RATING_ORDER:
@@ -629,17 +635,17 @@ def _search_rounds(c: _Checker, doc: Mapping[str, Any], approaches: Mapping[str,
         if 1 < r < last and not any(s.get("move") == "explore" for _, s in rounds[r]):
             c.add("no_explore", pointer("trajectory", rounds[r][0][0]),
                   f"round {r} has no explore step: every round but the last keeps one slot for a new approach")
-    best: Dict[Any, int] = {}
+    best: Dict[Any, Tuple[int, float]] = {}
     improved: List[str] = []
     for r in sorted(rounds):
-        before, overall = dict(best), max(best.values(), default=0)
+        before, overall = dict(best), max(best.values(), default=(0, 0.0))
         improved = []
         for _, s in rounds[r]:
-            rank, approach = RATING_ORDER[s["rating"]], s.get("approach")
-            bar = before.get(approach, overall if r > 1 else 0)
+            rank, approach = merit(s), s.get("approach")
+            bar = before.get(approach, overall if r > 1 else (0, 0.0))
             if r > 1 and rank > bar:
                 improved.append(f"step {s.get('step')} ({approach}, {s['rating']})")
-            best[approach] = max(best.get(approach, 0), rank)
+            best[approach] = max(best.get(approach, (0, 0.0)), rank)
     budget = doc.get("budget") if isinstance(doc.get("budget"), dict) else {}
     limit = budget.get("max_points")
     used = len(c.items(doc, "trajectory"))

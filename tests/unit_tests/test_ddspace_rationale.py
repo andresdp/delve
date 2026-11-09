@@ -917,3 +917,10 @@ def test_a_middle_round_without_a_new_approach_warns_no_explore():
     assert ("no_explore", "/trajectory/2") in _loop_codes(_rounds(ratings, budget=6))
     ratings[3] = (2, "C", "mixed")                     # round 2 explores a new approach C
     assert _loop_codes(_rounds(ratings, budget=6, moves={4: "explore"})) == set()
+
+
+def test_a_better_assessment_with_the_same_rating_counts_as_an_improvement():
+    doc = _rounds([(1, "A", "mixed"), (1, "B", "mixed"), (2, "A", "mixed"), (2, "B", "mixed")])
+    assert _loop_codes(doc) == set()                       # the same rating and the same assessment: no improvement
+    doc["trajectory"][0]["assessment"] = {"Q1": "partly"}
+    assert _loop_codes(doc) == {("early_stop", "/trajectory")}   # step 3 meets what step 1 met only partly
