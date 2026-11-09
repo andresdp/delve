@@ -295,7 +295,9 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
         env.update({k: v for k, v in os.environ.items() if k.startswith(f"{oss.upper()}_")})
     if ddspace_bin is not None:
         path.insert(0, str(ddspace_bin.parent))
-    env.update(CODEX_HOME=str(codex_home), PATH=os.pathsep.join(path))
+    home = codex_home.parent / "home"   # an empty home: no personal ~/.agents/skills, shell profile or settings
+    home.mkdir(parents=True, exist_ok=True)
+    env.update(CODEX_HOME=str(codex_home), HOME=str(home), PATH=os.pathsep.join(path))
     if key and session.condition in SPACE_CONDITIONS:
         env["OPENAI_API_KEY"] = key
     return env
@@ -380,6 +382,20 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
     return {"complete": complete, "commands": commands, "ddspace_calls": dict(calls),
             "check_runs": calls["rationale check"], "build_runs": calls["rationale build"], "points": points,
             "network_commands": network, "web_search": web, "tokens": tokens}
+
+
+# ---------------------------------------------------------------- points evaluated with ddspace point
+
+
+def points_evaluated(doc: Any, calls: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """How many of the file's ``points`` some ``ddspace point`` call of the session evaluated (same value set).
+
+    In M and E every point should be one call (the skill's reference asks for it); N makes no calls.
+    """
+    called = {frozenset(c.get("values") or []) for c in calls if c.get("values")}
+    points = [p for p in (doc.get("points") or []) if isinstance(p, dict)] if isinstance(doc, dict) else []
+    missing = [str(p.get("id")) for p in points if frozenset(p.get("values") or []) not in called]
+    return {"points": len(points), "with_ddspace_point": len(points) - len(missing), "without": missing}
 
 
 # ---------------------------------------------------------------- fabrication audit
@@ -632,7 +648,8 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
     kept.parent.mkdir(parents=True, exist_ok=True)
     kept.write_text(design.redact(text, home, list(secrets)), encoding="utf-8")
     rec: Dict[str, Any] = {"problems": problems, "rationale": kept.relative_to(results).as_posix(),
-                           "fabrication": fabrication_audit(doc, events)}
+                           "fabrication": fabrication_audit(doc, events),
+                           "points_evaluated": points_evaluated(doc, summary.get("points") or [])}
     rec["check"] = final_check(ddspace, workdir, Path(rel))
     rec["retrieval_misses"] = None
     if session.condition in SPACE_CONDITIONS and isinstance(doc, dict) and doc.get("mode") == "explain":

@@ -550,3 +550,17 @@ def test_run_codex_streams_progress_and_kills_a_session_over_its_timeout(monkeyp
                                                  env=dict(os.environ), timeout=1, show=shown.append)
     assert timed_out and code is None and "ddspace query dimensions" in out
     assert any("still running (1 commands so far)" in s for s in shown)
+
+
+def test_a_session_gets_an_empty_home_so_personal_skills_stay_out(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path / "real-home"))
+    env = runner._environment(runner.Session("kv-store", "N", 1), tmp_path / "s" / "codex-home", None, None)
+    home = Path(env["HOME"])
+    assert home == tmp_path / "s" / "home" and home.is_dir() and not any(home.iterdir())
+    assert env["CODEX_HOME"] == str(tmp_path / "s" / "codex-home")
+
+
+def test_points_evaluated_counts_the_file_points_some_ddspace_point_call_took():
+    doc = {"points": [{"id": "P1", "values": ["v:1.1", "v:2.1"]}, {"id": "P2", "values": ["v:1.2"]}]}
+    calls = [{"values": ["v:2.1", "v:1.1"]}, {"values": ["v:9.9"]}]
+    assert runner.points_evaluated(doc, calls) == {"points": 2, "with_ddspace_point": 1, "without": ["P2"]}
