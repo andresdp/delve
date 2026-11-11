@@ -238,6 +238,23 @@ def _expert_model(ws: Workspace) -> bool:
     return run is not None and run.kind == runs.IMPORT_MODEL
 
 
+def _curated(ws: Workspace) -> bool:
+    """Whether the current run is a design space written by hand (its run file's ``provenance.kind`` is
+    ``curated``): its values still carry passages, but nothing was mined."""
+    try:
+        run_dir = runs.current_run_dir(ws)
+    except WorkspaceError:
+        return False
+    for path in sorted(run_dir.glob("*_taxonomy_*.json")) if run_dir is not None else []:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if ((data.get("provenance") or {}).get("kind")) == "curated":
+            return True
+    return False
+
+
 def _sketching(dim: str, value: str, where: str, expert: bool) -> str:
     """How to sketch a design for a brief with the space: compare alternatives, try combinations, record choices."""
     compare = (f'`ddspace query values "{dim}"{where}` lists them' if expert else
@@ -316,8 +333,9 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
         rule = ("2. Ground every claim about the design space in it, and cite dimension and value ids\n"
                 "   (from `ddspace query values` and `ddspace query show`).")
     else:
-        about = (f"a design space mined from practitioner sources{run}. Use it to answer design questions with "
-                 "evidence from those sources.")
+        origin = "written by hand from practitioner sources" if _curated(ws) else "mined from practitioner sources"
+        about = (f"a design space {origin}{run}. Use it to answer design questions with evidence from those "
+                 "sources.")
         evidence = ("- **Evidence**: each value is supported by passages of the sources; a passage id such as "
                     "`s03_p02` means\n  source 3, passage 2.")
         evidence_cmd = (f'ddspace query evidence "{value}"{where}      '

@@ -143,6 +143,20 @@ def test_guide_for_an_imported_expert_model_drops_passage_citations(tmp_path, mo
     assert "## Sketching a design" in text and "dimension and value ids" in text
 
 
+def test_guide_for_a_curated_space_does_not_call_it_mined(ws, monkeypatch, tmp_path):
+    from delvedspace import agent as agent_mod
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "toy_taxonomy_20261109_000000.json").write_text(json.dumps({"provenance": {"kind": "curated"}}))
+    monkeypatch.setattr(agent_mod.runs, "current_run_dir", lambda w: run_dir)
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    text = (ws.root / "AGENTS.md").read_text()
+    assert "written by hand from practitioner sources" in text and "mined" not in text.split("\n## ", 1)[0]
+    assert "cite passage ids" in text                                    # a curated space keeps its passages
+    monkeypatch.setattr(agent_mod.runs, "current_run_dir", lambda w: None)
+    assert agent_mod._curated(ws) is False
+
+
 def test_setup_from_a_parent_folder_points_commands_at_the_workspace(ws, monkeypatch):
     parent = ws.root.parent
     assert _invoke("agent", "setup", "--dir", str(parent), "--yes").exit_code == 0
