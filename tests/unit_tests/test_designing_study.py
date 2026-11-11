@@ -627,3 +627,32 @@ def test_the_builder_refuses_changed_inputs(tmp_path):
     assert builder.verify(tmp_path) == ["gt_model.json"]
     with pytest.raises(ValueError, match="gt_model.json"):
         builder.build(tmp_path / "out", tmp_path)
+
+
+# ---------------------------------------------------------------- the paper's numbers
+
+analysis = _load("analyze")
+PAPER = {   # Table 1 and the counts in the text, as the paper rounds them
+    "E": {"operations": 41, "points": 8.4, "dimensions_per_point": 8.4, "alternatives": 3.1, "strong_share": 0.24,
+          "tradeoffs_per_step": 1.1, "values_per_cause": 2.3, "requirements_per_tradeoff": 3.6, "unaddressed": 2.8,
+          "uncovered": 5.0, "shared_values": 0.51, "unaddressed_total": 34, "unaddressed_constraints": 20,
+          "evidence_absence_share": 0.24, "sessions": 12},
+    "N": {"operations": 18, "points": 10.0, "dimensions_per_point": 4.9, "alternatives": 3.4, "strong_share": 0.62,
+          "tradeoffs_per_step": 1.1, "values_per_cause": 1.7, "requirements_per_tradeoff": 3.1, "unaddressed": 0,
+          "uncovered": 0, "shared_values": 0.01, "unaddressed_total": 0, "unaddressed_constraints": 0,
+          "evidence_absence_share": 0.06, "sessions": 12},
+}
+
+
+def test_analyze_recomputes_the_papers_numbers_from_the_second_run():
+    numbers = analysis.analyze(ROOT / "study" / "designing2027" / "results-v2", ["E", "N"])
+    for condition, expected in PAPER.items():
+        for key, value in expected.items():
+            got = numbers[condition][key]
+            digits = 2 if isinstance(value, float) and value < 1 else 1
+            assert round(got, digits) == value if isinstance(value, float) else round(got) == value, (condition, key)
+
+
+def test_analyze_renders_every_row_of_the_table():
+    text = analysis.render(analysis.analyze(ROOT / "study" / "designing2027" / "results-v2", ["E", "N"]))
+    assert all(label in text for _, label, _ in analysis.ROWS) and "51%" in text and "62%" in text
