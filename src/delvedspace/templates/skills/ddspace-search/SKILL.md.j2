@@ -43,8 +43,9 @@ is there, run the command it gives for what the space is, exactly as it writes i
 step 1. It says which `ddspace` command does each operation below (list dimensions and values, follow relations, find evidence, evaluate a point), how to write ids, and the `space` part of the file. When the reference is missing, `ddspace`
 is not installed, or the command finds no space, there is no space: you do every operation yourself, from the
 problem and what you know, and the support for a point is your own knowledge, which you say. When `ddspace` runs
-but finds no space, tell the user so in one line before you start ("`ddspace` is installed, but this folder has
-no design space: I continue without one") and go on without a space.
+but finds no space, that is a missing space, not a way to work: warn the user in one line before you start
+("Warning: `ddspace` is installed, but no design space was found in this folder; I continue zero-shot. To use a
+space, run me in its folder.") and go on without a space.
 
 **Without a space** you work zero-shot: you do not build or write a space, you name each dimension and value
 from the problem and your own knowledge when you need it. The file's `space` is `null`, a dimension's id is its
