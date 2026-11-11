@@ -258,9 +258,17 @@ def test_a_standalone_skill_finds_its_space_and_works_without_ddspace(name):
     assert "`ddspace` is not installed, keep the description `null`" in text
     assert "If `ddspace` is not installed, check the file yourself" in text
     assert "when `ddspace` is installed, finish with `ddspace rationale build" in text
-    assert "The user usually gives the problem as text with the request" in text                 # text first
-    assert f"(`/{name} ...`)" in text and "may instead name a file to read (such as `PROBLEM.md`)" in text
+    first = "the solution to explain" if name == "ddspace-explain" else "the problem"
+    assert f"The user usually gives {first} as text with the request" in text                    # text first
+    assert f"(`/{name} ...`)" in text and "may instead name" in text and "PROBLEM.md" in text
     assert "When `ddspace` runs but finds no space, that is a missing space, not a way to work: warn" in text
     assert ("SOLUTION.md" in text) == (name == "ddspace-explain")
     reference = agent.skill_files(name, space=True)[agent.REFERENCE]
     assert "the working folder is a `ddspace` workspace" in " ".join(reference.split()) and "mined" not in reference
+
+
+def test_explain_takes_a_solution_alone_and_infers_the_requirements():
+    text = " ".join(agent.skill_text("ddspace-explain").split())
+    assert "The problem it solves is optional" in text and "**Without a problem**, infer it from the solution" in text
+    assert "Set the problem's `inferred` to `true`" in text and "never a target it does not state" in text
+    assert "with or without the problem it solves" in text                       # the description agents pick by

@@ -1,6 +1,6 @@
 ---
 name: ddspace-explain
-description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/6) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution.
+description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/6) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution, with or without the problem it solves (without one, the requirements are inferred from the solution).
 ---
 <!-- {{ marker }} -->
 
@@ -14,12 +14,21 @@ you observed, and let the observation decide what to test next.
 
 ## The input
 
-The user usually gives the problem as text with the request, for example after the skill's command
-(`/ddspace-explain ...`). A problem has a context and requirements: functional ones, quality attributes (best as
-scenarios) and constraints. When the requirements are not labelled, take them from the text and say how you read
-them. The solution to explain comes the same way, usually in the same text after the problem ("Solution: ..."),
-or in a file such as `SOLUTION.md`: what the system is, its components and the decisions taken. The user may instead name a file to read (such as `PROBLEM.md`). When the request gives neither text
-nor a file, look for `PROBLEM.md` and `SOLUTION.md` in the working folder; when there is none, ask for the problem before you start.
+The user usually gives the solution to explain as text with the request, for example after the skill's command
+(`/ddspace-explain ...`): what the system is, its components and the decisions taken. The problem it solves is
+optional and comes the same way, before or after the solution ("Problem: ... Solution: ..."): a context and
+requirements, functional ones, quality attributes (best as scenarios) and constraints. When the requirements are not
+labelled, take them from the text and say how you read them. The user may instead name files to read (such as
+`SOLUTION.md` and `PROBLEM.md`). When the request gives neither text nor a file, look for `SOLUTION.md` and
+`PROBLEM.md` in the working folder; when there is no solution, ask for it before you start.
+
+**Without a problem**, infer it from the solution: the requirements the solution appears to be built for, the ones
+its decisions only make sense for (a three-replica store implies a durability requirement; a 25 ms timeout, a
+latency one). Write them as you would the user's, with ids, in the solution's own terms and with the targets it
+states, and only those its text supports: never a target it does not state. Set the problem's `inferred` to `true`,
+start its `context` with "Inferred from the solution:", and say in your summary that the requirements were
+inferred, so the user can correct them and run the skill again. The explanation is then of the form: the solution
+looks built for these requirements; given them, these choices are forced and these are free.
 
 ## The design space
 
@@ -92,7 +101,8 @@ both. Write `"unaddressed": []` when every requirement is addressed.
 
 ## Steps
 
-1. **Requirements.** Read the problem and give each requirement an id: `R1`, `R2`, … for functional
+1. **Requirements.** Read the problem (or infer it from the solution, see "Without a problem") and give each
+   requirement an id: `R1`, `R2`, … for functional
    requirements, `Q1`, … for quality requirements (with the quality `attribute`, e.g. `durability`), `C1`, … for
    constraints. Keep the problem's own wording in `text`. Choose a short file id (lowercase, hyphens), `<id>`.
 2. **The solution's decisions.** Read the solution and list each design decision it makes. For each, copy the
@@ -180,7 +190,8 @@ Without a space (with one, the reference gives the `space` part, the ids and the
   "space": null,
   "problem": {
     "title": "<problem title>",
-    "context": "<problem context>",
+    "context": "<problem context, or: Inferred from the solution: ...>",
+    "inferred": false,
     "requirements": [
       {"id": "R1", "kind": "functional", "text": "<requirement>"},
       {"id": "Q1", "kind": "quality", "attribute": "<quality attribute>", "text": "<requirement>"}

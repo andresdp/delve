@@ -103,7 +103,8 @@ _OPTION: _Spec = {"id": ("text", True), "name": ("text", True), "values": ("list
                   "in": ("list", False), "pros": ("list", True), "cons": ("list", True), "reason": ("string", True),
                   "step": ("integer|null", False), "fit": ("text", False), "fit_note": ("string", False)}
 _WIKI: _Spec = {"workspace": ("string", True), "run": ("string", True), "graph_sha256": ("text", True)}
-_PROBLEM: _Spec = {"title": ("text", True), "context": ("string", False), "requirements": ("list", True)}
+_PROBLEM: _Spec = {"title": ("text", True), "context": ("string", False), "requirements": ("list", True),
+                   "inferred": ("boolean", False)}   # explain: requirements inferred from the solution
 _REQUIREMENT: _Spec = {"id": ("text", True), "text": ("text", True), "kind": ("string", False),
                        "attribute": ("string|null", False)}
 _ALTERNATIVE: _Spec = {"id": ("text", True), "name": ("string", True), "summary": ("string", False),

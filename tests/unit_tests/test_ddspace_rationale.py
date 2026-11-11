@@ -1024,3 +1024,11 @@ def test_a_search_step_that_revisits_its_approachs_point_is_a_warning(graph):
     doc["budget"]["max_points"] = max(doc["budget"]["max_points"], len(doc["trajectory"]))
     codes = _codes(_check(doc, graph))
     assert ("revisited_point", f"/trajectory/{len(doc['trajectory']) - 1}/point") in codes
+
+
+def test_a_problem_may_be_marked_inferred_and_the_mark_is_a_boolean():
+    doc = _zero()
+    doc["problem"]["inferred"] = True
+    assert rationale.check(doc)["ok"]
+    doc["problem"]["inferred"] = "yes"
+    assert ("schema", "/problem/inferred") in _codes(rationale.check(doc))
