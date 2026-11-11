@@ -257,7 +257,8 @@ def test_a_standalone_skill_finds_its_space_and_works_without_ddspace(name):
     assert "A design space exists only when that command prints one" in text      # the folder, not the install
     assert "`ddspace` is not installed, keep the description `null`" in text
     assert "If `ddspace` is not installed, check the file yourself" in text
-    assert "when `ddspace` is installed, render the file" in text and "use the reference's command, without `--out`" in text
+    assert "when `ddspace` is installed, render the file" in text
+    assert "With a space, run `ddspace rationale build rationale/<id>.json`, without `--out`" in text   # into the wiki
     first = "the solution to explain" if name == "ddspace-explain" else "the problem"
     assert f"The user usually gives {first} as text with the request" in text                    # text first
     assert f"(`/{name} ...`)" in text and "may instead name" in text and "PROBLEM.md" in text
