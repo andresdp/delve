@@ -518,6 +518,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     return {
         "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space, "wiki": space.wiki,
         "title": problem.get("title") or str(doc.get("id")), "context": problem.get("context") or "",
+        "inferred": problem.get("inferred") is True,
         "space": {"workspace": meta.get("workspace"), "run": meta.get("run"),
                   "domain": (graph or {}).get("domain") or (graph or {}).get("name") or meta.get("workspace")}
         if space.wiki else None,

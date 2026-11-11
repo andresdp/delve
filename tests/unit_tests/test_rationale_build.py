@@ -699,3 +699,14 @@ def test_a_step_shows_its_trade_offs_and_the_points_own_trade_off(ws, tmp_path):
 def test_split_tradeoff():
     assert explainer.split_tradeoff("A. Trade-off: B.") == ("A.", "B.")
     assert explainer.split_tradeoff("No mark here.") == ("No mark here.", "")
+
+
+def test_explain_with_inferred_requirements_says_so(ws, tmp_path):
+    doc = _explain()
+    doc["problem"]["inferred"] = True
+    _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
+    html = (ws / "site" / "explainers" / "toy-store-explain.html").read_text(encoding="utf-8")
+    assert "Requirements (inferred from the solution)" in html and "the agent inferred these requirements" in html
+    plain = _explain()
+    _built(_invoke("rationale", "build", str(_file(tmp_path, plain, "plain.json"))))
+    assert "inferred from the solution" not in (ws / "site" / "explainers" / "toy-store-explain.html").read_text()
