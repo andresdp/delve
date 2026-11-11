@@ -1,0 +1,95 @@
+<!-- {{ marker }} -->
+
+# The design space: how search maps onto ddspace
+
+A design space is available: the working folder is a `ddspace` workspace, a wiki of dimensions, values and
+relations. When the space was built from sources, each value has the evidence passages that accept or reject it;
+a decision model or a space written by hand has none, and you cite its ids. Do not build your own space (step 2 of the skill):
+take the dimensions, values and relations from the wiki with the commands below, and do every operation of the
+skill with them.
+
+## The operations as commands
+
+| Operation in the skill | Command |
+|---|---|
+| what the space is (for the file's `space`) | `ddspace query info{{ where }}` |
+| list the dimensions | `ddspace query dimensions{{ where }}` |
+| list the values of a dimension | `ddspace query values "<d:id>"{{ where }}` |
+| find a dimension or value by keyword | `ddspace query search "<keyword>"{{ where }}` |
+| follow the relations of a dimension | `ddspace query relations --from "<d:id>"{{ where }}` |
+| the evidence for a value | `ddspace query evidence "<v:id>"{{ where }}` |
+| the values a source accepts | `ddspace query show "<s:id>"{{ where }}` |
+| evaluate a design point | `ddspace point "<v:id>" "<v:id>" ...{{ where }}` |
+
+Write every id exactly as `ddspace query` prints it (`d:1`, `v:1.2`, `s:s01`, `s01_p01`), never a label or slug.
+`ddspace query search` matches the whole query as one substring, so a phrase rarely matches: search one keyword
+per call (`replication`, not `data replication strategy`), and try synonyms.
+
+## The steps in the space
+
+- **Map the space (step 2).** List the dimensions, and the values of each one a requirement bears on. Follow the
+  relations of the key dimensions: a `requires` relation names a dimension a point must also settle, an
+  `excludes` or `constrains` relation is something the check before evaluation (step 5b) must respect. Write
+  the wiki's ids, never `Dimension: Value` names: the wiki is the space, and no command changes it.
+- **A requirement no dimension bears on.** Search for it with a keyword or two and its synonyms before you decide.
+  If nothing fits, list it in `unaddressed` with `reason: "no_dimension"` and, as `nearest_dimension_id`, the
+  closest dimension `ddspace query dimensions` printed (or `null`). A value that only roughly matches gets
+  `"fit": "approximate"` and a `fit_note`. These are the gaps the page reports for whoever maintains the wiki.
+- **Check before evaluating (step 5b).** `ddspace point` warns about two values of one dimension, a value the
+  evidence rejects, and a required dimension left out. Those warnings are part of the check: fix the point and
+  run it again. A run that only produced warnings you then fixed is not a step of the trajectory.
+- **Evaluate (step 5c).** `ddspace point` with the point's values (leave unsettled dimensions out) returns the
+  sources that attest the combination (`attested_by`) and a short `description` that ends with the point's trade-off (`Trade-off: …`; one LLM call, or the wiki's own
+  description when the point is already in the wiki). Before you run it, look the values up in the file's `points`: a point already there is reused, without running the command again. Record the `description` and `attested_by` of a new point in its entry in `points`, not in the step. If the description
+  call fails (for example, no API key), run it again with `--no-llm` and record the description as `null`. The
+  support for a point is its `attested_by` and the evidence of its values (`ddspace query evidence`): a combination
+  no source attests is not wrong, but say in `observation` that nothing attests it. Evaluate every point of the file with `ddspace point`, one call per point: never judge a point without it. Use that fallback only after a call without it failed, and then keep the description `null`, never one of your own.
+- **Explore (step 6).** A new approach can start from values no step has used yet: take a source in an earlier
+  step's `attested_by`, list the values it accepts with `ddspace query show`, and build the new point around the
+  ones on key dimensions.
+- **Evidence for a choice (step 8).** For the values of an alternative, cite the passage ids (`doc`) that
+  `ddspace query evidence` lists, with their stance.
+
+## After writing the file
+
+Run the check as `ddspace rationale check rationale/<id>.json{{ where }}`: it also checks the ids against the
+space. Set `space.graph_sha256` to the `graph_sha256` the check prints. Warnings: `unmet_requires` (add the required
+dimension or say in `open` why it stays open), `graph_changed` (the space changed since you wrote the file: check
+the ids again).
+
+To render the page in interactive use, run `ddspace rationale build rationale/<id>.json{{ where }}` (not `--out`):
+it writes the explainer into the wiki, next to the pages it links to.
+
+## The file with a space
+
+Everything is as in `SKILL.md`, except `space`, which names the wiki instead of `null`, the ids (`d:1`,
+`v:1.2` as `ddspace query` prints them, in place of `Dimension: Value` names), each point's
+`description` and `attested_by`, as `ddspace point` printed them, and the gaps (`unaddressed`, `fit`):
+
+```json
+{
+  "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+  "points": [
+    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<the description ddspace point printed>",
+     "attested_by": ["s:s01"]}
+  ],
+  "trajectory": [
+    {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["v:1.1", "v:2.1"],
+     "hypothesis": "<…>", "assessment": {"R1": "meets", "Q1": "partly", "C1": "meets"},
+     "tradeoffs": [{"values": ["v:2.1"], "gains": ["R1", "C1"], "costs": ["Q1"], "note": "<how this value trades Q1 for R1 and C1>"}],
+     "observation": "<…>", "rating": "mixed", "point": "P1"}
+  ],
+  "alternatives": [
+    {"id": "A1", "approach": "A", "step": 4,
+     "choices": [
+       {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["C1"], "reason": "<why>",
+        "evidence": [{"doc": "s01_p01", "stance": "accepts"}]},
+       {"dimension_id": "d:2", "value_id": "v:2.1", "drivers": ["R1"], "reason": "<why>",
+        "fit": "approximate", "fit_note": "<what the value leaves out or stretches>"}
+     ]}
+  ],
+  "unaddressed": [
+    {"requirement": "Q2", "reason": "no_dimension", "nearest_dimension_id": "d:3", "note": "<what the space lacks>"}
+  ]
+}
+```

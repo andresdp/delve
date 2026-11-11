@@ -1,0 +1,257 @@
+---
+name: ddspace-explain
+description: Explain a given solution to a problem by mapping it onto a design space as one design point (a combination of values across dimensions), then evaluating partial design points (regions) of it and contrasting their values with alternatives, to find the regions that best justify the solution and which of its choices the requirements force, and record the trajectory and the explanation as a checked rationale file (ddspace-rationale/6) in ./rationale/. Use when asked to explain, justify or document the design of an existing solution, with or without the problem it solves (without one, the requirements are inferred from the solution).
+---
+<!-- {{ marker }} -->
+
+# Explain: the design rationale of a given solution
+
+You explain a solution to a problem in terms of a design space: which parts of it the requirements call for, what
+supports them, and which choices the requirements force and which the designers made freely. You write the
+explanation, with every point you evaluated on the way, as one rationale file that `ddspace rationale check`
+accepts. The work is a loop: form a hypothesis about why part of the solution is there, evaluate it, record what
+you observed, and let the observation decide what to test next.
+
+## The input
+
+The user usually gives the solution to explain as text with the request, for example after the skill's command
+(`/ddspace-explain ...`): what the system is, its components and the decisions taken. The problem it solves is
+optional and comes the same way, before or after the solution ("Problem: ... Solution: ..."): a context and
+requirements, functional ones, quality attributes (best as scenarios) and constraints. When the requirements are not
+labelled, take them from the text and say how you read them. The user may instead name files to read (such as
+`SOLUTION.md` and `PROBLEM.md`). When the request gives neither text nor a file, look for `SOLUTION.md` and
+`PROBLEM.md` in the working folder; when there is no solution, ask for it before you start.
+
+**Without a problem**, infer it from the solution: the requirements the solution appears to be built for, the ones
+its decisions only make sense for (a three-replica store implies a durability requirement; a 25 ms timeout, a
+latency one). Write them as you would the user's, with ids, in the solution's own terms and with the targets it
+states, and only those its text supports: never a target it does not state. Set the problem's `inferred` to `true`,
+start its `context` with "Inferred from the solution:", and say in your summary that the requirements were
+inferred, so the user can correct them and run the skill again. The explanation is then of the form: the solution
+looks built for these requirements; given them, these choices are forced and these are free.
+
+## The design space
+
+- A **dimension** is a design concern the solution must settle: where the data lives, how replicas agree.
+- A **value** is one option for a dimension: local disks, a log in object storage. The values of a dimension are
+  alternatives to each other.
+- A **relation** links two dimensions: one requires, constrains or excludes the other.
+- A **design point** is a set of values, at most one per dimension. The solution is one design point.
+- A **region** is a partial design point: some of the solution's values. Every design with those values falls in
+  the region. A region **justifies** the solution when the requirements call for its values and what is known
+  supports that combination.
+- A **contrast** is a region with one value changed to another value of the same dimension. If the change breaks
+  a requirement or loses the support, the requirements **force** the solution's value; if not, the designers chose
+  it **freely**.
+- **Evaluating** a point or region means judging it as a whole: for each requirement it bears on, does it `meet`
+  it, meet it `partly`, or `miss` it; which of its values conflict; and what supports the combination.
+
+**Is there a design space?** A design space is a `ddspace` workspace: a folder with a `ddspace.yaml` and a wiki of
+dimensions, values and relations, which the `ddspace` command reads. Look for `references/design-space.md` next to
+this file, in the folder this skill was loaded from (in a project, `.agents/skills/ddspace-explain/` or
+`.claude/skills/ddspace-explain/`; use `ls` or `cat`: file searches such as `rg --files` skip hidden folders). If it
+is there, run the command it gives for what the space is, exactly as it writes it, in the working folder. A design space exists only when that command prints one: then read the reference before
+step 1. It says which `ddspace` command does each operation below (list dimensions and values, find evidence, evaluate a point), how to write ids, what to do with decisions the space does not cover, and the `space` part of the file. When the reference is missing, `ddspace`
+is not installed, or the command finds no space, there is no space: you do every operation yourself, from the
+problem and what you know, and the support for a point is your own knowledge, which you say. When `ddspace` runs
+but finds no space, that is a missing space, not a way to work: your next message to the user starts with this
+warning, word for word: "Warning: `ddspace` is installed, but no design space was found in this folder; I
+continue zero-shot. To use a space, run me in its folder." Then go on without a space, and repeat the warning in
+your final summary.
+
+**Without a space** you work zero-shot: you do not build or write a space, you name each dimension and value
+from the solution, the problem and your own knowledge when you need it. The file's `space` is `null`, a
+dimension's id is its name (`Storage`) and a value's id is `Dimension: Value` (`Storage: Local disks`). Write a
+name the same way every time: the check reads the dimensions and values from these names.
+
+## Budget
+
+Evaluate at most **{{ default_points }} points or regions** (the `budget`), unless the user names another number; never
+more than {{ max_points }}. Each one is a step of the `trajectory`. Stop as soon as the solution is explained: a simple
+solution may need only two or three steps.
+
+## The list of design points
+
+Record every design point you evaluate once, in `points`: an id (`P1`, `P2`, …), its `values`, a short
+`description` and what supports it (`attested_by`). A step names its point by id (`"point": "P1"`). Before you
+evaluate a point, look it up in the list: when a point with the same values is already there, the step names that
+id and you do not evaluate or describe it again. If a description must change (rarely), change it in the list
+only: every step that names the point shows the new one. Without a space, describe each new point with
+`ddspace point --no-space --domain "<problem title>" "<Dimension: Value>" ...` (one call per point, the values
+named as in the file) and record the `description` it prints; `attested_by` stays empty. If that call fails, or
+`ddspace` is not installed, keep the description `null`, never one of your own. Every description ends with the point's own trade-off
+(`Trade-off: …`): what the combination of values gains and what it gives up, whatever the requirements.
+
+## Gaps in the space
+
+With a space, use it as it is. Never add, rename or remove a dimension, value or relation to make the solution
+fit. Where the space falls short, record the gap instead of forcing a fit:
+
+- **A decision the space has no dimension or value for** (with a wiki): list it in `uncovered` (the reference
+  says how).
+- **A requirement** no dimension bears on (`no_dimension`, with the `nearest_dimension_id` or `null`), or one the
+  solution does not address (`not_in_solution`), or gives up for a stronger one (`traded_off`): list it in
+  `unaddressed` with that reason and a `note`.
+- **A value that only roughly matches** the solution's decision: keep the value, and mark the choice and the
+  ADR option `"fit": "approximate"` with a `fit_note` saying what the value leaves out or stretches.
+
+Without a space there is nothing to fall short of: `uncovered` stays empty, no requirement is `no_dimension`, no
+fit is approximate, and `nearest_dimension_id` stays `null`. In both cases, every requirement is either a driver
+of some ADR or listed in `unaddressed` (`not_in_solution` and `traded_off` apply with a space or without), never
+both. Write `"unaddressed": []` when every requirement is addressed.
+
+## Steps
+
+1. **Requirements.** Read the problem (or infer it from the solution, see "Without a problem") and give each
+   requirement an id: `R1`, `R2`, … for functional
+   requirements, `Q1`, … for quality requirements (with the quality `attribute`, e.g. `durability`), `C1`, … for
+   constraints. Keep the problem's own wording in `text`. Choose a short file id (lowercase, hyphens), `<id>`.
+2. **The solution's decisions.** Read the solution and list each design decision it makes. For each, copy the
+   sentence or phrase of the solution that states it, word for word: that is its `solution_quote`.
+3. **Map the solution onto the space.** For each decision, find its dimension and the value the quote describes.
+   Without a space, name them yourself: the dimension the decision settles and the solution's value for it. The
+   other values a contrast needs, you name when you contrast.
+4. **The solution as a point.** Evaluate the solution's values together (`move: "solution"`, no `parent`): this
+   is step 1.
+5. **Hypotheses.** Group the solution's values by the requirements that call for them: each group is a candidate
+   region, and the hypothesis is that those requirements explain it. Order the groups by how constraining their
+   requirements are.
+6. **Evaluate, one step at a time,** starting with the first group. For every step:
+   1. **Hypothesis.** Say which requirements you expect to explain the values, in `hypothesis`.
+   2. **Evaluate** it, or reuse it from `points` when the list already has it: for each requirement it bears on,
+      `meets`, `partly` or `misses`, in `assessment`; and what supports the combination. Record a new point in
+      `points`.
+   3. **Trade-offs.** A trade-off is a choice that serves some requirements at the expense of others. Start
+      from the description's `Trade-off:`, which says what the values give up, and say which requirements that
+      touches. In `tradeoffs`, record one entry per cause: the `values` of the point that cause it, the few
+      requirements it `gains` (judged `meets` or `partly`) and the few it `costs` (judged `partly` or `misses`,
+      never `meets`), and a `note` on how those values pull the requirements apart. Do not restate the
+      assessment: a trade-off over every requirement says nothing the assessment does not. A requirement that is
+      only unproven (no number to check a target against) is not a cost: say so in `observation`. A point that
+      meets some requirements and not others needs at least one trade-off; one that meets every requirement it is
+      judged on has `[]`.
+   4. **Observe.** Write what the evaluation showed in `observation`, including anything you did not expect.
+   5. **Verdict:** `grounded` (the requirements call for these values and what is known supports them),
+      `partial` (only some of that holds) or `ungrounded`.
+   5. **Choose the next step:**
+      - a `region` (`parent`: the step it narrows, at first the solution step) for the next group, or a smaller
+        region when a region is `partial` and you suspect one value does not belong to it;
+      - a `contrast` (`parent`: the region) when a region is grounded but you cannot tell whether a requirement
+        forces one of its values: change that value to another value of its dimension, evaluate, and say in
+        `observation` whether the value is forced or free. Contrast the values whose reason is least clear
+        first; a value no requirement bears on is free without a contrast.
+7. **Stop** when grounded regions cover the solution's main values and each of their values is known to be
+   forced or free, or when the budget is spent.
+8. **The regions.** Name the one to three regions that best justify the solution: grounded, covering the most of
+   its values, and overlapping little. Each names the step that evaluated it, its values (a subset of the
+   solution's), the requirements that call for it (`drivers`) and a `reason`.
+9. **The solution as one alternative.** Write one choice per mapped decision, with its `solution_quote`, the
+   requirement ids it serves (`drivers`), `forced` (`true`, `false`, or `null` when no step settled it) and a
+   `reason`. Its `step` is the solution step. Put in `considered` only the values the solution text says the
+   designers weighed.
+10. **ADRs.** Describe the solution as architecture decision records (`adrs`). Group its values by the
+   requirements behind them (the regions are a good start) and write one ADR per group: its `drivers`, a `title`,
+   the `context` (what the drivers demand) and its `options`, each a partial design point (`values`) with its
+   `pros`, its `cons`, a `reason` and the `step` that evaluated it when one did. The solution's values for the
+   group are the one `chosen` option (`in: ["S"]`; say in `reason` whether the requirements force it). The
+   contrasts you evaluated and the options the solution says the designers weighed are `discarded` options.
+   Every value of the solution belongs to the chosen option of some ADR. Write the ADRs for a reader who
+   has not seen the trajectory: their text never refers to steps (the `step` field links them). List every
+   requirement no ADR addresses in `unaddressed`, with its reason (see "Gaps in the space").
+11. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
+12. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
+   again, until `ok` is `true`. If `ddspace` is not installed, check the file yourself against the shape below
+   (every required field, every point a step names in `points`, every trade-off's values in its step's point) and
+   say in your summary that `ddspace` did not check it. Each problem has a `code`, a JSON Pointer `path` into the file and often
+   `candidates`: read them, they list what would fit.
+13. **Present the explanation.** Summarize the ADRs and the regions that justify the solution, which values are
+   forced and which free, the path you took, and the gaps: uncovered decisions, unaddressed requirements and
+   approximate fits. In interactive use (not in a study session), when `ddspace` is installed, render the file as
+   a browsable explainer page with the trajectory. With a space, run
+   `ddspace rationale build rationale/<id>.json`, without `--out` (with the `--graph` option the reference gives,
+   if any): the page goes into the space's wiki, `site/explainers/<id>.html`, next to the pages it links to. Without
+   a space, run `ddspace rationale build rationale/<id>.json --out .`, which writes `explainers/<id>.html`.
+
+## Rules
+
+- Every value in the file is an id: of the space, or, without one, a `Dimension: Value` name. Do not name a
+  dimension, value or relation in prose that
+  the file does not reference.
+- Requirement ids in `assessment` and `drivers` must be ids of `problem.requirements`.
+- Do not change the file after the last clean check without checking it again.
+
+## File shape
+
+Without a space (with one, the reference gives the `space` part, the ids and the `uncovered` decisions):
+
+```json
+{
+  "schema": "ddspace-rationale/6",
+  "id": "<id>",
+  "mode": "explain",
+  "space": null,
+  "problem": {
+    "title": "<problem title>",
+    "context": "<problem context, or: Inferred from the solution: ...>",
+    "inferred": false,
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "<requirement>"},
+      {"id": "Q1", "kind": "quality", "attribute": "<quality attribute>", "text": "<requirement>"}
+    ]
+  },
+  "budget": {"max_points": {{ default_points }}},
+  "points": [
+    {"id": "P1", "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"], "description": "<what ddspace point --no-space printed, ending with Trade-off: …>", "attested_by": []},
+    {"id": "P2", "values": ["<dimension 1>: <value 1.1>"], "description": "<…>", "attested_by": []},
+    {"id": "P3", "values": ["<dimension 1>: <value 1.2>"], "description": "<…>", "attested_by": []}
+  ],
+  "trajectory": [
+    {"step": 1, "move": "solution", "parent": null, "values": ["<dimension 1>: <value 1.1>", "<dimension 2>: <value 2.1>"],
+     "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"}, "tradeoffs": [],
+     "observation": "<what the evaluation showed>", "verdict": "partial", "point": "P1"},
+    {"step": 2, "move": "region", "parent": 1, "values": ["<dimension 1>: <value 1.1>"],
+     "hypothesis": "<which requirements explain these values>", "assessment": {"Q1": "meets"}, "tradeoffs": [],
+     "observation": "<…>", "verdict": "grounded", "point": "P2"},
+    {"step": 3, "move": "contrast", "parent": 2, "values": ["<dimension 1>: <value 1.2>"],
+     "hypothesis": "<does the requirement force v:1.1?>", "assessment": {"Q1": "misses"}, "tradeoffs": [],
+     "observation": "<…: forced>", "verdict": "ungrounded", "point": "P3"}
+  ],
+  "regions": [
+    {"id": "G1", "name": "<short name>", "step": 2, "drivers": ["Q1"], "values": ["<dimension 1>: <value 1.1>"],
+     "reason": "<why this region justifies the solution>"}
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "<the solution's name>",
+      "summary": "<one or two sentences>",
+      "step": 1,
+      "choices": [
+        {"dimension_id": "<dimension 1>", "value_id": "<dimension 1>: <value 1.1>", "drivers": ["Q1"], "forced": true,
+         "reason": "<why>", "solution_quote": "<the solution's own words>"},
+        {"dimension_id": "<dimension 2>", "value_id": "<dimension 2>: <value 2.1>", "drivers": ["R1"], "forced": null,
+         "reason": "<why>", "solution_quote": "<the solution's own words>"}
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {"id": "ADR1", "title": "<the decision>", "drivers": ["Q1"], "context": "<what the drivers demand>",
+     "options": [
+       {"id": "O1", "name": "<the solution's option>", "values": ["<dimension 1>: <value 1.1>"], "status": "chosen", "in": ["S"], "step": 2,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<forced or free, and why>"},
+       {"id": "O2", "name": "<a contrast>", "values": ["<dimension 1>: <value 1.2>"], "status": "discarded", "step": 3,
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<why not>"}
+     ]},
+    {"id": "ADR2", "title": "<the decision>", "drivers": ["R1"], "context": "<…>",
+     "options": [
+       {"id": "O1", "name": "<the solution's option>", "values": ["<dimension 2>: <value 2.1>"], "status": "chosen", "in": ["S"],
+        "pros": ["<…>"], "cons": ["<…>"], "reason": "<…>"}
+     ]}
+  ],
+  "uncovered": [],
+  "unaddressed": []
+}
+```

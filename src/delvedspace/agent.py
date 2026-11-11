@@ -1,7 +1,8 @@
 """``ddspace agent setup``: the files that let a coding agent (Claude Code, Copilot) use the wiki.
 
-Writes a guide (``AGENTS.md``) and, on request, the agent-specific pointers to it. Files that already exist
-are not overwritten: the generated text goes between ``ddspace`` markers, replaced on the next setup.
+Writes a guide (``AGENTS.md``) and, on request, the agent-specific pointers to it and the ``ddspace-search`` and
+``ddspace-explain`` skills. Files that already exist are not overwritten: the generated text goes between
+``ddspace`` markers, replaced on the next setup. The skill files are ddspace's own and are rewritten whole.
 """
 
 from __future__ import annotations
@@ -12,17 +13,26 @@ import re
 import shlex
 import shutil
 import sys
+from importlib import resources
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-from delvedspace import runs
+import jinja2
+
+from delvedspace import rationale, runs
 from delvedspace.workspace import Workspace, WorkspaceError
 from taxonomy_generator.wiki import query as q
 
 START, END = "<!-- ddspace:start -->", "<!-- ddspace:end -->"
 QUERY_PERMISSION = "Bash(ddspace query:*)"
 POINT_PERMISSION = "Bash(ddspace point:*)"
-_ANY_QUERY_PERMISSION = re.compile(r"^Bash\((?:\S*[/\\])?ddspace (?:query|point):\*\)$")  # bare or by full path
+RATIONALE_READ = ("rationale check", "rationale list")   # read-only, like query
+RATIONALE_BUILD = "rationale build"                        # writes rationale/ and site/explainers/
+_ANY_QUERY_PERMISSION = re.compile(  # ours, bare or by full path (which may contain spaces)
+    r"^Bash\((?:[^()]*[/\\])?ddspace(?:\.exe)? (?:query|point|rationale (?:check|list|build)):\*\)$")
+SKILLS = ("ddspace-search", "ddspace-explain")
+SKILL_DIRS = (".claude/skills", ".agents/skills")         # Claude Code, Codex
+SKILL_MARKER = "Written by `ddspace agent setup --skills`; rerunning it replaces this file."
 
 
 def install_info() -> Dict[str, Optional[str]]:
@@ -38,16 +48,139 @@ def install_info() -> Dict[str, Optional[str]]:
     return {"path": path, "activate": activate}
 
 
+def _rules(install: Optional[Dict[str, Optional[str]]], *subcommands: str) -> List[str]:
+    """Allow rules for ``ddspace <subcommand>``: every bare one, then every one by full path when it is known."""
+    path = (install or {}).get("path")
+    return ([f"Bash(ddspace {c}:*)" for c in subcommands]
+            + ([f"Bash({path} {c}:*)" for c in subcommands] if path else []))
+
+
 def query_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
     """Claude Code allow rules for ``ddspace query``: bare, and by full path when it is known."""
-    path = (install or {}).get("path")
-    return [QUERY_PERMISSION] + ([f"Bash({path} query:*)"] if path else [])
+    return _rules(install, "query")
 
 
 def point_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
     """Claude Code allow rules for ``ddspace point`` (one LLM call per combination unless ``--no-llm``)."""
-    path = (install or {}).get("path")
-    return [POINT_PERMISSION] + ([f"Bash({path} point:*)"] if path else [])
+    return _rules(install, "point")
+
+
+def rationale_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Claude Code allow rules for the read-only ``ddspace rationale check`` and ``list``."""
+    return _rules(install, *RATIONALE_READ)
+
+
+def build_permissions(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Claude Code allow rules for ``ddspace rationale build`` (writes explainer pages, no LLM)."""
+    return _rules(install, RATIONALE_BUILD)
+
+
+def graph_option(ws: Workspace, target: Path) -> str:
+    """Return the ``--graph`` option commands run from ``target`` need to reach the workspace ("" from its root)."""
+    rel = Path(os.path.relpath(ws.root, target)).as_posix()
+    return "" if rel == "." else f" --graph {rel}"
+
+
+REFERENCE = "references/design-space.md"  # in a skill folder: how the skill maps onto the space (with a space only)
+
+
+def _skill_template(name: str, file: str, where: str) -> str:
+    if name not in SKILLS:
+        raise ValueError(f"unknown skill {name!r} (expected one of {', '.join(SKILLS)})")
+    mode = "search" if name == "ddspace-search" else "explain"
+    source = resources.files("delvedspace").joinpath(f"templates/skills/{name}/{file}.j2").read_text(encoding="utf-8")
+    env = jinja2.Environment(trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True,
+                             undefined=jinja2.StrictUndefined, autoescape=False)
+    return env.from_string(source).render(where=where, marker=SKILL_MARKER,
+                                          default_points=rationale.DEFAULT_POINTS[mode],
+                                          max_points=rationale.MAX_POINTS[mode])
+
+
+def skill_text(name: str) -> str:
+    """Render the ``name`` skill's ``SKILL.md``: one text for every condition, with or without a space."""
+    return _skill_template(name, "SKILL.md", "")
+
+
+def reference_text(name: str, where: str = "") -> str:
+    """Render the ``name`` skill's ``references/design-space.md``: the mapping onto a space and its commands.
+
+    ``where`` is the ``--graph`` option the commands carry (see ``graph_option``).
+    """
+    return _skill_template(name, REFERENCE, where)
+
+
+def skill_files(name: str, space: bool = True, where: str = "") -> Dict[str, str]:
+    """Return the files of the ``name`` skill folder, ``{relative path: text}``: the reference only with a space."""
+    files = {"SKILL.md": skill_text(name)}
+    if space:
+        files[REFERENCE] = reference_text(name, where)
+    return files
+
+
+def _marked(path: Path) -> bool:
+    try:
+        return SKILL_MARKER in path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
+def _drop(path: Path) -> bool:
+    """Remove ``path`` when ``install_skills`` wrote it (the marker), and its folder when left empty."""
+    if not (path.is_file() and _marked(path)):
+        return False
+    path.unlink()
+    if path.parent.is_dir() and not any(path.parent.iterdir()):
+        path.parent.rmdir()
+    return True
+
+
+def install_skills(target: Path, space: bool = True, where: str = "") -> List[Tuple[Path, str]]:
+    """Write both skills under ``.claude/skills/`` and ``.agents/skills/`` of ``target``; return (path, action).
+
+    With a space, each skill folder also gets ``references/design-space.md``; without one (``space=False``), a
+    reference an earlier setup wrote is removed (a file of the user's own stays).
+    """
+    done = []
+    files = {name: skill_files(name, space, where) for name in SKILLS}
+    for folder in SKILL_DIRS:
+        for name in SKILLS:
+            for rel, text in files[name].items():
+                path = target / folder / name / rel
+                try:
+                    existed, old = True, path.read_text(encoding="utf-8")
+                except (FileNotFoundError, NotADirectoryError):  # NotADirectoryError: a file where a folder goes
+                    existed, old = False, None
+                if old == text:
+                    done.append((path, "unchanged"))
+                    continue
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+                done.append((path, "updated" if existed else "created"))
+            if not space and _drop(target / folder / name / REFERENCE):
+                done.append((target / folder / name / REFERENCE, "removed"))
+    return done
+
+
+def remove_skills(root: Path) -> List[str]:
+    """Remove the skill files ``install_skills`` wrote (recognized by the marker), and skill folders left empty.
+
+    Return the removed paths, relative to ``root``. A user's own skills and files stay.
+    """
+    removed = []
+    for folder in SKILL_DIRS:
+        for name in SKILLS:
+            for rel in (REFERENCE, "SKILL.md"):
+                path = root / folder / name / rel
+                if _drop(path):
+                    removed.append(path.relative_to(root).as_posix())
+            skill = root / folder / name
+            if skill.is_dir() and not any(skill.iterdir()):
+                skill.rmdir()
+        skills = root / folder
+        for empty in (skills, skills.parent):  # skills/, then .agents/ (.claude/ goes when empty, with the rest)
+            if empty.is_dir() and not any(empty.iterdir()):
+                empty.rmdir()
+    return removed
 
 
 def upsert_block(path: Path, block: str) -> str:
@@ -95,14 +228,31 @@ def _examples(ws: Workspace) -> Dict[str, Optional[str]]:
     return {"dimension": dim, "value": value, "word": word, "run": graph.get("run"), "name": graph.get("name")}
 
 
-def _expert_model(ws: Workspace) -> bool:
-    """Whether the current run is an imported expert decision model (no passages to cite)."""
+def _imported_kind(ws: Workspace) -> Optional[str]:
+    """The current run's kind when it is an import without passages (a decision model or a hand-written space)."""
+    try:
+        run_dir = runs.current_run_dir(ws)
+    except WorkspaceError:
+        return None
+    run = runs.load(run_dir) if run_dir is not None else None
+    return run.kind if run is not None and run.kind in (runs.IMPORT_MODEL, runs.IMPORT_SPACE) else None
+
+
+def _curated(ws: Workspace) -> bool:
+    """Whether the current run is a design space written by hand (its run file's ``provenance.kind`` is
+    ``curated``): its values still carry passages, but nothing was mined."""
     try:
         run_dir = runs.current_run_dir(ws)
     except WorkspaceError:
         return False
-    run = runs.load(run_dir) if run_dir is not None else None
-    return run is not None and run.kind == runs.IMPORT_MODEL
+    for path in sorted(run_dir.glob("*_taxonomy_*.json")) if run_dir is not None else []:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if ((data.get("provenance") or {}).get("kind")) == "curated":
+            return True
+    return False
 
 
 def _sketching(dim: str, value: str, where: str, expert: bool) -> str:
@@ -165,7 +315,7 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
     """
     install = install_info() if install is None else install
     rel = Path(os.path.relpath(ws.root, target)).as_posix()
-    where = "" if rel == "." else f" --graph {rel}"
+    where = graph_option(ws, target)
     prefix = "" if rel == "." else f"{rel}/"
     ex = _examples(ws)
     dim, value, word = ex["dimension"] or "<dimension>", ex["value"] or "<value>", ex["word"] or "replication"
@@ -173,8 +323,17 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
     run = f" (run {ex['run']})" if ex["run"] else ""
     built = "" if ex["run"] else ("\n> The wiki has not been built yet: run `ddspace wiki build` in the workspace, "
                                   "then `ddspace agent setup` again for real examples.\n")
-    expert = _expert_model(ws)
-    if expert:
+    imported = _imported_kind(ws)
+    expert = imported is not None       # no passages: cite dimension and value ids
+    if imported == runs.IMPORT_SPACE:
+        about = (f"a design space written by hand{run}: dimensions, values and relations chosen by its authors, "
+                 "without source passages. Use it to answer design questions and sketch designs, and cite the "
+                 "dimension and value ids you use.")
+        evidence = ("- **Evidence**: there are no source passages; cite dimension and value ids (`d:3`, `v:3.1`).")
+        evidence_cmd = ""
+        rule = ("2. Ground every claim about the design space in it, and cite dimension and value ids\n"
+                "   (from `ddspace query values` and `ddspace query show`).")
+    elif expert:
         about = (f"a design space imported from an expert decision model{run}: decisions and alternatives written by "
                  "researchers, without source passages. Use it to answer design questions and sketch designs, and "
                  "cite the dimension and value ids you use.")
@@ -183,8 +342,9 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
         rule = ("2. Ground every claim about the design space in it, and cite dimension and value ids\n"
                 "   (from `ddspace query values` and `ddspace query show`).")
     else:
-        about = (f"a design space mined from practitioner sources{run}. Use it to answer design questions with "
-                 "evidence from those sources.")
+        origin = "written by hand from practitioner sources" if _curated(ws) else "mined from practitioner sources"
+        about = (f"a design space {origin}{run}. Use it to answer design questions with evidence from those "
+                 "sources.")
         evidence = ("- **Evidence**: each value is supported by passages of the sources; a passage id such as "
                     "`s03_p02` means\n  source 3, passage 2.")
         evidence_cmd = (f'ddspace query evidence "{value}"{where}      '
@@ -241,10 +401,18 @@ it is generated now with one LLM call (`description_source: generated`). It is n
 change the design space; like other generated text it is not evidence. Add `--no-llm` for the checks only.
 
 {_sketching(dim, value, where, expert)}
+## Rationale files
+
+The `ddspace-search` and `ddspace-explain` skills (if installed) write a design rationale file
+(`ddspace-rationale/6`) to `rationale/<id>.json`. Check it with `ddspace rationale check rationale/<id>.json{where}`
+(read-only, JSON) until it is clean; `ddspace rationale build` renders it as an explainer page.
+
 ## Rules
 
-1. Read-only: never edit `wiki/`, `raw/` or `runs/`; they are regenerated. To change the design space, suggest
-   the user run `ddspace update --feedback "..."`.
+1. Read-only: never edit `wiki/`, `site/`, `raw/` or `runs/`; they are regenerated. To change the design space,
+   suggest the user run `ddspace update --feedback "..."`. One exception: `ddspace rationale build` may write
+   `rationale/` and `site/explainers/`, and `ddspace rationale build --out` may write an `explainers/` folder
+   (and its assets) only inside the working directory. Nothing else may write to `wiki/`, `site/`, `raw/` or `runs/`.
 {rule}
 3. Generated text is not evidence: source summaries, design-point descriptions and narrative text are
    summaries written by an LLM.
@@ -283,13 +451,24 @@ def remove_block(path: Path) -> str:
     return "deleted"
 
 
-def disallow_query(settings_path: Path) -> str:
-    """Remove the ``ddspace query`` and ``ddspace point`` allow rules; delete the settings file when it held nothing else."""
+def our_rules(install: Optional[Dict[str, Optional[str]]] = None) -> List[str]:
+    """Every allow rule setup writes for ``install``: query, point, rationale check/list and build."""
+    return (query_permissions(install) + point_permissions(install) + rationale_permissions(install)
+            + build_permissions(install))
+
+
+def disallow_query(settings_path: Path, install: Optional[Dict[str, Optional[str]]] = None) -> str:
+    """Remove the ``ddspace query``, ``point`` and ``rationale`` allow rules (the file goes when nothing else is left).
+
+    A rule is ours when it is one setup writes for ``install`` (``install_info()`` by default), or when it has the
+    shape of one for any install path (an earlier install, or a path with spaces).
+    """
     if not settings_path.is_file():
         return ""
+    exact = set(our_rules(install_info() if install is None else install))
     data = json.loads(settings_path.read_text(encoding="utf-8"))
     allow = (data.get("permissions") or {}).get("allow") or []
-    ours = [r for r in allow if isinstance(r, str) and _ANY_QUERY_PERMISSION.match(r)]
+    ours = [r for r in allow if isinstance(r, str) and (r in exact or _ANY_QUERY_PERMISSION.match(r))]
     if not ours:
         return ""
     for rule in ours:

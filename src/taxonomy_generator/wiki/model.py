@@ -40,6 +40,18 @@ CANDIDATE_STATUSES = ("accepted", "mixed", "rejected")
 GROUP_ORDER = ("attested", "novel", "control")
 SYNTHESIS_ORDER = ("synthesis/overview", "synthesis/contested", "synthesis/dropped", "synthesis/system-matrix",
                    "synthesis/design-points", "synthesis/evaluation")
+# Design spaces that were not mined (the run file's ``provenance.kind``): how the index introduces them, and what
+# the reference page says about where they come from.
+ORIGINS = {"decision model": "imported from a decision model written by experts",
+           "curated": "written by hand"}
+ORIGIN_ABOUT = {
+    "decision model": "This design space was imported from a **decision model written by experts**: its decisions "
+                      "become dimensions, their options become values, and the links between decisions become "
+                      "relations. Its values carry no passages from documents: they are cited by "
+                      "their identifiers.",
+    "curated": "This design space was **written by hand**: its dimensions, values and relations were chosen by its "
+               "authors, and each value lists the passages of public sources that describe it.",
+}
 MODEL_LABELS = (("generation_llm", "Generation LLM"), ("evaluation_llm", "Evaluation LLM (judge)"),
                 ("embedding", "Embedding model"))
 PASSAGE_ID = re.compile(r"^s(\d+)_p\d+$")
@@ -786,20 +798,35 @@ class _Builder:
                                                       str(b.get("name", r.get("target")))))
         self.add(self.point_path[pid], title, "design", fm, "\n".join(lines))
 
+    def origin(self) -> str:
+        """How the design space was made: ``""`` (mined from a corpus), ``"decision model"`` (imported from an
+        expert decision model) or ``"curated"`` (written by hand), from the run file's ``provenance.kind``."""
+        kind = str(((self.inp.taxonomy or {}).get("provenance") or {}).get("kind") or "")
+        return kind if kind in ORIGINS else ""
+
     def index_page(self, has_points: bool) -> None:
         values = sum(len(d.get("values") or []) for d in self.dims)
-        lines = ["![DelveDSpace](assets/delvedspace-logo.svg)", "", f"# {self.inp.taxonomy_name}", "",
-                  "This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design "
-                  "space organizes the architectural design decisions the documents discuss: each **dimension** is "
-                  "one decision a designer faces, and its **values** are the alternatives the documents describe. "
-                  "Every page is generated from the run's data, without rewording, and links to the evidence behind it. "
-                  f"New to design spaces or to how they are mined? Start with {link('approach', 'Approach')}.",
+        origin = self.origin()
+        if origin:
+            intro = ("This wiki presents a **design space** " + ORIGINS[origin] + ". A design space organizes the "
+                     "architectural design decisions of a domain: each **dimension** is one decision a designer "
+                     "faces, and its **values** are the alternatives for it. Every page is generated from the design "
+                     "space's data, without rewording. New to design spaces? Start with "
+                     f"{link('approach', 'About this design space')}.")
+        else:
+            intro = ("This wiki presents a **design space** mined by DelveDSpace from a corpus of documents. A design "
+                     "space organizes the architectural design decisions the documents discuss: each **dimension** is "
+                     "one decision a designer faces, and its **values** are the alternatives the documents describe. "
+                     "Every page is generated from the run's data, without rewording, and links to the evidence behind "
+                     f"it. New to design spaces or to how they are mined? Start with {link('approach', 'Approach')}.")
+        lines = ["![DelveDSpace](assets/delvedspace-logo.svg)", "", f"# {self.inp.taxonomy_name}", "", intro,
                   "",
                   f"Run {self.inp.run_label} ({self.inp.view} view): {len(self.dims)} dimensions, {values} values, "
                   f"{len(self.source_ids)} sources.", ""]
         if self.inp.use_case:
             lines += ["## Use case", "",
-                      "*What the run was asked to find: the question that oriented the mining.*", "",
+                      ("*What the run was asked to find: the question that oriented the mining.*" if not self.origin()
+                       else "*The question the design space answers.*"), "",
                       self.inp.use_case.strip(), ""]
         lines += ["## Dimensions", "",
                   "*A dimension is one design decision, phrased as a question a designer must answer. Its values are "
@@ -833,8 +860,10 @@ class _Builder:
                       "support, i.e. its position in the design space.*", ""]
             lines += [f"- {link(self.system_path[c], self.system_title(c))}" for c in self.system_codes]
         lines += ["", "## Sources", "",
-                  "*The documents the design space was mined from. A source's page lists the decisions it informs and "
-                  "whether it adopts or rejects each value.*", ""]
+                  ("*The documents the design space was mined from. A source's page lists the decisions it informs "
+                   "and whether it adopts or rejects each value.*" if not self.origin() else
+                   "*The documents the design space's evidence comes from. A source's page lists the decisions it "
+                   "informs and whether it adopts or rejects each value.*"), ""]
         for s in self.source_ids:
             summary = self.inp.source_summaries.get(s)
             lines.append(f"- {link(self.source_path[s], self.source_title(s))}"
@@ -878,8 +907,25 @@ class _Builder:
                   ""]
         self.add("relations", "Relations between dimensions", "reference", {"tags": ["reference"]}, "\n".join(lines))
 
+    def about_page(self, origin: str) -> None:
+        """The reference page of a design space that was not mined: what a design space is and where this one
+        comes from (written at the ``approach`` path, so every link to it holds)."""
+        lines = ["# About this design space", "",
+                 "## What a design space is", "",
+                 "A **design space** organizes the design decisions of a domain. Each **dimension** is one decision "
+                 "point, phrased as a question a designer must answer. Its **values** are the alternative answers. "
+                 "**Relations** link dimensions that interact (*requires*, *affects*, *constrains*, *co-occurs with*; "
+                 f"see {link('relations', 'Relations between dimensions')}). A **design point** chooses one value for "
+                 "some dimensions; a **system** occupies the point its choices make.", "",
+                 "## Where this one comes from", "", ORIGIN_ABOUT[origin]]
+        self.add("approach", "About this design space", "reference", {"tags": ["reference"]}, "\n".join(lines))
+
     def approach_page(self) -> None:
-        """A fixed reference page: grounded theory, the agents, the workflow (same text for every run)."""
+        """A fixed reference page: grounded theory, the agents, the workflow (same text for every run). A design
+        space that was not mined gets :meth:`about_page` instead."""
+        if self.origin():
+            self.about_page(self.origin())
+            return
         m = self.inp.models
         lines = ["# Approach: how DelveDSpace mines a design space", "",
                  "![The DelveDSpace pipeline](assets/delve-pipeline.svg)", "",

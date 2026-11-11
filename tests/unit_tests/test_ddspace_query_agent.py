@@ -143,6 +143,20 @@ def test_guide_for_an_imported_expert_model_drops_passage_citations(tmp_path, mo
     assert "## Sketching a design" in text and "dimension and value ids" in text
 
 
+def test_guide_for_a_curated_space_does_not_call_it_mined(ws, monkeypatch, tmp_path):
+    from delvedspace import agent as agent_mod
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "toy_taxonomy_20261109_000000.json").write_text(json.dumps({"provenance": {"kind": "curated"}}))
+    monkeypatch.setattr(agent_mod.runs, "current_run_dir", lambda w: run_dir)
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    text = (ws.root / "AGENTS.md").read_text()
+    assert "written by hand from practitioner sources" in text and "mined" not in text.split("\n## ", 1)[0]
+    assert "cite passage ids" in text                                    # a curated space keeps its passages
+    monkeypatch.setattr(agent_mod.runs, "current_run_dir", lambda w: None)
+    assert agent_mod._curated(ws) is False
+
+
 def test_setup_from_a_parent_folder_points_commands_at_the_workspace(ws, monkeypatch):
     parent = ws.root.parent
     assert _invoke("agent", "setup", "--dir", str(parent), "--yes").exit_code == 0
@@ -177,13 +191,18 @@ def test_claude_and_copilot_pointers_and_the_allow_rule(ws):
     assert "@AGENTS.md" in (ws.root / "CLAUDE.md").read_text()
     assert "AGENTS.md" in (ws.root / ".github" / "copilot-instructions.md").read_text()
     data = json.loads(settings.read_text())
-    assert data["permissions"]["allow"] == ["Bash(ls:*)", "Bash(ddspace query:*)",
-                                            "Bash(/opt/envs/toy/bin/ddspace query:*)", "Bash(ddspace point:*)",
-                                            "Bash(/opt/envs/toy/bin/ddspace point:*)"] and data["model"] == "x"
+    path = "/opt/envs/toy/bin/ddspace"
+    assert data["permissions"]["allow"] == [
+        "Bash(ls:*)", "Bash(ddspace query:*)", f"Bash({path} query:*)",
+        "Bash(ddspace rationale check:*)", "Bash(ddspace rationale list:*)",
+        f"Bash({path} rationale check:*)", f"Bash({path} rationale list:*)",
+        "Bash(ddspace point:*)", f"Bash({path} point:*)",
+        "Bash(ddspace rationale build:*)", f"Bash({path} rationale build:*)"] and data["model"] == "x"
     _invoke("agent", "setup", "--claude", "--yes")
     allow = json.loads(settings.read_text())["permissions"]["allow"]
     assert allow.count("Bash(ddspace query:*)") == 1 and allow.count("Bash(ddspace point:*)") == 1
-    assert agent.disallow_query(settings) == "cleaned"                 # query and point rules go, the user's stays
+    assert allow.count("Bash(ddspace rationale build:*)") == 1
+    assert agent.disallow_query(settings) == "cleaned"     # query, point and rationale rules go, the user's stays
     assert json.loads(settings.read_text())["permissions"]["allow"] == ["Bash(ls:*)"]
 
 
@@ -201,6 +220,57 @@ def test_guide_says_how_to_reach_ddspace_when_the_shell_lacks_it(ws):
     assert "conda activate toy && ddspace query info" in text            # or activate in the same command
     bare = agent.guide(ws, ws.root, {"path": None, "activate": None})
     assert "ask the user which environment" in bare and "&& ddspace" not in bare
+
+
+def test_rationale_build_can_be_left_to_prompt(ws):
+    assert _invoke("agent", "setup", "--claude", "--no-allow-build", "--yes").exit_code == 0
+    allow = json.loads((ws.root / ".claude" / "settings.json").read_text())["permissions"]["allow"]
+    assert "Bash(ddspace rationale check:*)" in allow and not [r for r in allow if "build" in r]
+
+
+def test_rationale_rules_are_ours_only_for_known_subcommands():
+    ours = agent._ANY_QUERY_PERMISSION.match
+    for rule in ("Bash(ddspace rationale check:*)", "Bash(/x/bin/ddspace rationale list:*)",
+                 "Bash(ddspace rationale build:*)", "Bash(ddspace query:*)", "Bash(ddspace point:*)"):
+        assert ours(rule), rule
+    assert not ours("Bash(ddspace rationale:*)") and not ours("Bash(ddspace wiki build:*)")
+
+
+def test_purge_removes_allow_rules_for_an_install_path_with_spaces(ws, monkeypatch):
+    spaced = {"path": "/Users/A User/My Envs/toy/bin/ddspace", "activate": None}
+    monkeypatch.setattr(agent, "install_info", lambda: dict(spaced))
+    settings = ws.root / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(json.dumps({"permissions": {"allow": ["Bash(ls:*)"]}}))
+    assert _invoke("agent", "setup", "--claude", "--yes").exit_code == 0
+    allow = json.loads(settings.read_text())["permissions"]["allow"]
+    assert f"Bash({spaced['path']} rationale build:*)" in allow
+    result = _invoke("reset", "--purge", "--yes")
+    assert result.exit_code == 0, result.output
+    assert json.loads(settings.read_text())["permissions"]["allow"] == ["Bash(ls:*)"]
+
+
+def test_disallow_removes_rules_of_an_earlier_install_with_spaces(tmp_path):
+    settings = tmp_path / "settings.json"
+    old = "C:\\Program Files\\toy env\\Scripts\\ddspace.exe"
+    settings.write_text(json.dumps({"permissions": {"allow": [
+        "Bash(ls:*)", f"Bash({old} query:*)", "Bash(/a b/bin/ddspace rationale build:*)",
+        "Bash(/a b/bin/ddspace point:*)", "Bash(/a b/bin/ddspace wiki build:*)"]}}))
+    assert agent.disallow_query(settings, {"path": None, "activate": None}) == "cleaned"
+    assert json.loads(settings.read_text())["permissions"]["allow"] == [
+        "Bash(ls:*)", "Bash(/a b/bin/ddspace wiki build:*)"]
+
+
+def test_guide_lets_rationale_build_write_its_folders_only(ws):
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    text = (ws.root / "AGENTS.md").read_text()
+    rule = " ".join(re.search(r"\n1\. (.*?)\n2\. ", text.split("## Rules", 1)[1], re.S).group(1).split())
+    assert "never edit `wiki/`, `site/`, `raw/` or `runs/`" in rule
+    assert "`ddspace rationale build` may write `rationale/` and `site/explainers/`" in rule
+    assert ("`ddspace rationale build --out` may write an `explainers/` folder (and its assets) only inside the "
+            "working directory") in rule
+    assert "Nothing else" in rule
+    assert "ddspace rationale check" in text
 
 
 def test_no_allow_rule_when_declined(ws):

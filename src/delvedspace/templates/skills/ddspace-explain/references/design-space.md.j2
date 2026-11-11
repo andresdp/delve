@@ -1,0 +1,97 @@
+<!-- {{ marker }} -->
+
+# The design space: how explain maps onto ddspace
+
+A design space is available: the working folder is a `ddspace` workspace, a wiki of dimensions, values and
+relations. When the space was built from sources, each value has the evidence passages that accept or reject it;
+a decision model or a space written by hand has none, and you cite its ids. Do not build your own space (step 3 of the skill): map
+the solution onto the wiki's dimensions and values with the commands below, and do every operation of the skill
+with them.
+
+## The operations as commands
+
+| Operation in the skill | Command |
+|---|---|
+| what the space is (for the file's `space`) | `ddspace query info{{ where }}` |
+| list the dimensions | `ddspace query dimensions{{ where }}` |
+| list the values of a dimension (the contrasts' values too) | `ddspace query values "<d:id>"{{ where }}` |
+| find a dimension or value by keyword | `ddspace query search "<keyword>"{{ where }}` |
+| follow the relations of a dimension | `ddspace query relations --from "<d:id>"{{ where }}` |
+| the evidence for a value | `ddspace query evidence "<v:id>"{{ where }}` |
+| evaluate a point, a region or a contrast | `ddspace point "<v:id>" "<v:id>" ...{{ where }}` |
+
+Write every id exactly as `ddspace query` prints it (`d:1`, `v:1.2`, `s:s01`, `s01_p01`), never a label or slug.
+`ddspace query search` matches the whole query as one substring, so a phrase rarely matches: search one keyword
+per call (`replication`, not `data replication strategy`), and try synonyms.
+
+## The steps in the space
+
+- **Map the solution (step 3).** For each decision, find candidate dimensions with `ddspace query dimensions` and
+  `ddspace query search`, list their values, and pick the value the quote describes. Write
+  the wiki's ids, never `Dimension: Value` names: the wiki is the space, and no command changes it.
+- **Uncovered decisions.** A decision with no dimension, or no value that matches its quote, goes in `uncovered`
+  with its `solution_quote` and the `nearest_dimension_id` (or `null`). Do not force a mapping: it is not part
+  of the solution's point. A value that only roughly matches the quote is mapped, with `"fit": "approximate"` and a
+  `fit_note` on the choice and its ADR option. A requirement no dimension bears on goes in `unaddressed` with
+  `reason: "no_dimension"` and the `nearest_dimension_id`. These are the gaps the page reports for whoever
+  maintains the wiki.
+- **Evaluate (steps 4 and 6).** `ddspace point` with the step's values warns about two values of one dimension, a
+  value the evidence rejects and a required dimension left out, and returns the sources that attest the
+  combination (`attested_by`) and a short `description` that ends with the point's trade-off (`Trade-off: …`; one LLM call, or the wiki's own description when the
+  point is already in the wiki). Before you run it, look the values up in the file's `points`: a point already there is reused, without running the command again. Record the `description` and `attested_by` of a new point in its entry in `points`, not in the step. If the description call fails (for example,
+  no API key), run it again with `--no-llm` and record the description as `null`. Evaluate every point of the file with `ddspace point`, one call per point: never judge a point without it. Use that fallback only after a call without it failed, and then keep the description `null`, never one of your own.
+- **Grounded, in the space.** What supports a region is its `attested_by` and the evidence of its values
+  (`ddspace query evidence`). A region is `grounded` when the requirements call for its values and sources attest
+  the combination or the values' evidence accepts them; `partial` when only some of that holds; `ungrounded`
+  otherwise. A region the sources attest but no requirement calls for is a common choice, not a justification:
+  say so in `observation`.
+- **Contrasts in the space.** Change one value to another value of the same dimension (`ddspace query values`).
+  The other values of a dimension are options the space offers, not options the designers considered: say so
+  when you mention them, and keep them out of `considered`.
+- **Evidence for a choice (step 9).** Cite the passage ids (`doc`) that `ddspace query evidence` lists for the
+  value, with their stance.
+- **Dependencies.** Record a relation of the mapped dimensions you rely on with its `source`, `target` and `type`
+  as `ddspace query relations` prints them, and `holds` (whether it holds in the solution).
+
+## After writing the file
+
+Run the check as `ddspace rationale check rationale/<id>.json{{ where }}`: it also checks the ids against the
+space. Set `space.graph_sha256` to the `graph_sha256` the check prints. Warnings: `unmet_requires` (say which
+required dimension the solution leaves out), `graph_changed` (the space changed since you wrote the file: check the
+ids again).
+
+To render the page in interactive use, run `ddspace rationale build rationale/<id>.json{{ where }}` (not `--out`):
+it writes the explainer into the wiki, next to the pages it links to.
+
+## The file with a space
+
+Everything is as in `SKILL.md`, except `space`, which names the wiki instead of `null`, the ids (`d:1`,
+`v:1.2` as `ddspace query` prints them, in place of `Dimension: Value` names), each point's
+`description` and `attested_by` as `ddspace point` printed them, evidence on the choices, and the gaps (`uncovered`, `unaddressed`, `fit`):
+
+```json
+{
+  "space": {"workspace": "<name from ddspace query info>", "run": "<run from ddspace query info>", "graph_sha256": "<from ddspace rationale check>"},
+  "points": [
+    {"id": "P1", "values": ["v:1.1", "v:2.1"], "description": "<the description ddspace point printed>", "attested_by": []}
+  ],
+  "trajectory": [
+    {"step": 1, "move": "solution", "parent": null, "values": ["v:1.1", "v:2.1"],
+     "hypothesis": "the solution as one design point", "assessment": {"R1": "meets", "Q1": "meets"}, "tradeoffs": [],
+     "observation": "<…>", "verdict": "partial", "point": "P1"}
+  ],
+  "alternatives": [
+    {"id": "S", "step": 1,
+     "choices": [
+       {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["Q1"], "forced": true, "reason": "<why>",
+        "evidence": [{"doc": "s01_p01", "stance": "accepts"}], "solution_quote": "<the solution's own words>"}
+     ]}
+  ],
+  "uncovered": [
+    {"decision": "<a decision the space has no dimension or value for>", "solution_quote": "<the solution's own words>", "nearest_dimension_id": "d:3"}
+  ],
+  "unaddressed": [
+    {"requirement": "Q2", "reason": "no_dimension", "nearest_dimension_id": "d:3", "note": "<what the space lacks>"}
+  ]
+}
+```

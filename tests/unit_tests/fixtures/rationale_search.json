@@ -1,0 +1,377 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "toy-store-search",
+  "mode": "search",
+  "space": {
+    "workspace": "toy",
+    "run": "20261008_000000",
+    "graph_sha256": "f5105f2d77b4140a604cd09aa33bd50143340d1eaf6f0c48d47e47dfcf671ffc"
+  },
+  "problem": {
+    "title": "A durable key-value store for a small cluster",
+    "context": "Three nodes in one region keep configuration data that every service reads at start-up.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Every committed write is visible on all nodes."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "durability",
+        "text": "No committed write is lost when one node fails."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The team already runs everything on S3."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if each node kept the truth on its own disk?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if the truth lived in S3, where the team already is?",
+      "status": "live"
+    }
+  ],
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:1.1",
+        "v:2.1"
+      ],
+      "description": "Local disks with a quorum and an explicit commit protocol.",
+      "attested_by": [
+        "s:s1"
+      ]
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:1.1"
+      ],
+      "description": "Local disks with a quorum.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.2"
+      ],
+      "description": "A shared log in S3 as the source of truth.",
+      "attested_by": [
+        "s:s2"
+      ]
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:2.1"
+      ],
+      "hypothesis": "A quorum of local disks with a commit protocol should keep every committed write when a node fails.",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "meets",
+        "C1": "partly"
+      },
+      "observation": "Durable and consistent, and a source attests the combination; it adds disks the S3 platform does not need.",
+      "rating": "strong",
+      "point": "P1",
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.1"
+          ],
+          "gains": [
+            "R1",
+            "Q1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Serves requests durably, but the commit protocol adds cost."
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:1.1"
+      ],
+      "hypothesis": "Without the commit protocol, the disk quorum alone may still be durable.",
+      "assessment": {
+        "R1": "misses",
+        "Q1": "meets"
+      },
+      "observation": "Durable, but a write is no longer visible on every node when acknowledged; nothing attests it.",
+      "rating": "weak",
+      "point": "P2",
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.1"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "Durable on a node failure, but nothing orders concurrent writes."
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "round": 2,
+      "approach": "B",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:1.2"
+      ],
+      "hypothesis": "A log in S3 should be durable and fit the constraint.",
+      "assessment": {
+        "R1": "partly",
+        "Q1": "meets",
+        "C1": "meets"
+      },
+      "observation": "Fits the platform and a source attests it; replication stays open.",
+      "rating": "strong",
+      "point": "P3",
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.2"
+          ],
+          "gains": [
+            "Q1",
+            "C1"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "Cheap durability in S3, at the cost of request latency."
+        }
+      ]
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Disk quorum with three-phase commit",
+      "summary": "Each node keeps the data on its own disk; writes commit on a quorum.",
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A quorum of disks survives one node failure.",
+          "evidence": [
+            {
+              "doc": "s01_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Three-phase commit makes a write visible on every node before it is acknowledged.",
+          "evidence": [
+            {
+              "doc": "s01_p01",
+              "stance": "supports"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.2",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "A WAL in S3 fits the platform, but adds a dependency on S3 for every write."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:1",
+          "target": "d:2",
+          "type": "constrains",
+          "holds": true,
+          "note": "Keeping the truth on local disks is what makes a commit protocol between nodes necessary."
+        }
+      ],
+      "step": 1,
+      "approach": "A"
+    },
+    {
+      "id": "A2",
+      "name": "WAL in S3",
+      "summary": "The nodes write a log to S3 and rebuild their state from it.",
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.2",
+          "drivers": [
+            "C1",
+            "Q1"
+          ],
+          "reason": "S3 is already the team's durable store.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [],
+      "open": [
+        {
+          "dimension_id": "d:2",
+          "reason": "With the log in S3, no requirement decides how the nodes replicate."
+        }
+      ],
+      "relations": [],
+      "step": 3,
+      "approach": "B"
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where the source of truth lives",
+      "drivers": [
+        "Q1",
+        "C1"
+      ],
+      "context": "No committed write may be lost when a node fails, and the team already runs everything on S3.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "A quorum of local disks",
+          "values": [
+            "v:1.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "Survives one node failure without any external service."
+          ],
+          "cons": [
+            "Adds disks to run next to S3."
+          ],
+          "reason": "Durability without depending on S3 for every write."
+        },
+        {
+          "id": "O2",
+          "name": "A write-ahead log in S3",
+          "values": [
+            "v:1.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 3,
+          "pros": [
+            "Uses the platform the team already runs."
+          ],
+          "cons": [
+            "Every write depends on S3."
+          ],
+          "reason": "Fits the S3 constraint."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How replicas agree on a write",
+      "drivers": [
+        "R1"
+      ],
+      "context": "With the truth on local disks, a write must be visible on every node before it is acknowledged.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three-phase commit",
+          "values": [
+            "v:2.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "A write is visible on every node when acknowledged."
+          ],
+          "cons": [
+            "Slower writes."
+          ],
+          "reason": "R1 asks for every committed write on all nodes."
+        },
+        {
+          "id": "O2",
+          "name": "Another replication scheme",
+          "values": [
+            "v:2.2"
+          ],
+          "status": "discarded",
+          "pros": [],
+          "cons": [
+            "Does not make writes visible everywhere at once."
+          ],
+          "reason": "Misses R1."
+        }
+      ]
+    }
+  ],
+  "comparison": [
+    {
+      "dimension_id": "d:1",
+      "note": "A1 keeps the truth on the nodes' disks; A2 keeps it in S3."
+    },
+    {
+      "dimension_id": "d:2",
+      "note": "A1 needs three-phase commit; A2 leaves replication open."
+    }
+  ],
+  "uncovered": [],
+  "unaddressed": []
+}

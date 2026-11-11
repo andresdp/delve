@@ -14,7 +14,17 @@ from typing import List, NoReturn, Optional
 import typer
 from rich.markup import escape
 
-from delvedspace import __version__, agent, chat, importer, query_cli, runs, ui
+from delvedspace import (
+    __version__,
+    agent,
+    chat,
+    importer,
+    query_cli,
+    rationale,
+    rationale_cli,
+    runs,
+    ui,
+)
 from delvedspace import sources as src
 from delvedspace import wiki_build as wb
 from delvedspace import workspace as wsmod
@@ -36,6 +46,7 @@ agent_app = typer.Typer(help="Connect a coding agent (Claude Code, GitHub Copilo
 app.add_typer(agent_app, name="agent")
 wiki_app = typer.Typer(help="Build, check and open the wiki of the current design space.", no_args_is_help=True)
 app.add_typer(wiki_app, name="wiki")
+app.add_typer(rationale_cli.app, name="rationale")
 
 DEFAULT_USE_CASE = ("Identify the design decisions practitioners face, the alternatives they consider for each, "
                     "and the outcomes they report.")
@@ -505,13 +516,35 @@ def update(
 
 @app.command("import")
 def import_cmd(
-    path: Path = typer.Argument(..., help="A run's taxonomy JSON, or a decision model (gt_model.json)."),
-    kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy) or decision-model (expert decisions and options)."),
+    path: Path = typer.Argument(..., help="A run's taxonomy JSON, a decision model (gt_model.json), or a design "
+                                "space written by hand (YAML or JSON)."),
+    kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy), decision-model (expert decisions and "
+                             "options) or space (a hand-written file: a name, dimensions and their values)."),
     corpus: Optional[Path] = typer.Option(None, "--corpus", help="kind run: the corpus JSON, for quotes and design points."),
     sources: Optional[Path] = typer.Option(None, "--sources", help="kind run: sources.csv (id, title, url)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Replace the current run without asking."),
 ) -> None:
-    """Make a design space built elsewhere the current run: a mined [bold]run[/bold] or an expert [bold]decision-model[/bold]."""
+    """Make a design space built elsewhere the current run: a mined [bold]run[/bold], an expert
+    [bold]decision-model[/bold], or a [bold]space[/bold] you wrote by hand.
+
+    A hand-written space (YAML or JSON) needs a name and dimensions with their values; descriptions and relations
+    between dimensions (requires, constrains, affects, co_occurs_with) are optional:
+
+    \b
+        name: git-hosting
+        dimensions:
+          - id: storage
+            name: Source of truth for repository state
+            values:
+              - name: Repository files on server disks
+                description: Plain Git repositories on local disks are the authority.
+              - Write-ahead log in object storage
+          - id: replication
+            name: Replication for durability
+            values: [Three Git replicas with majority writes, Durability delegated to object storage]
+        relations:
+          - {from: replication, to: storage, type: requires}
+    """
     ws = current_workspace()
     if kind not in importer.KINDS:
         fail(f"--kind must be one of: {', '.join(importer.KINDS)}.")
@@ -532,8 +565,8 @@ def import_cmd(
     taxonomy = wsmod.read_json(runs.find_taxonomy(run_dir))
     dims = wb.selected_dims(taxonomy)
     dropped = (taxonomy.get("provenance") or {}).get("relations_dropped") or 0
-    if kind == "decision-model":
-        evidence = "none (a decision model)"
+    if kind in importer.NO_PASSAGES:
+        evidence = f"none (a {'decision model' if kind == 'decision-model' else 'hand-written space'})"
     elif corpus:
         evidence = "quotes from the corpus"
     else:
@@ -559,38 +592,67 @@ def agent_setup(
     allow_point: Optional[bool] = typer.Option(None, "--allow-point/--no-allow-point",
                                                help="With --claude: let Claude Code run `ddspace point` without asking "
                                                     "(one LLM call per combination unless --no-llm)."),
+    allow_build: Optional[bool] = typer.Option(None, "--allow-build/--no-allow-build",
+                                               help="With --claude: let Claude Code run `ddspace rationale build` "
+                                                    "without asking (it writes explainer pages)."),
+    skills: bool = typer.Option(False, "--skills", help="Also install the ddspace-search and ddspace-explain skills "
+                                "for Claude Code (.claude/skills/) and Codex (.agents/skills/)."),
+    no_space: bool = typer.Option(False, "--no-space", help="With --skills: leave out the skills' space reference "
+                                  "(references/design-space.md), so the agent names its own concerns and options."),
     directory: Optional[Path] = typer.Option(None, "--dir", help="Where the agent works: the workspace (default) "
                                              "or a project folder that contains it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
 ) -> None:
-    """Write [bold]AGENTS.md[/bold] (how to query the wiki and cite it) and the files that point agents to it."""
+    """Write [bold]AGENTS.md[/bold] (how to query the wiki and cite it) and the files that point agents to it.
+
+    Outside a workspace, ``--skills --no-space`` installs only the skills, for zero-shot use in any project folder
+    (``--dir``, default: the current folder): the agent names its own decisions and options.
+    """
+    if skills and no_space:
+        try:
+            Workspace.find()
+        except WorkspaceError:
+            _setup_zero_shot((directory or Path.cwd()).resolve(), claude, allow, allow_point, allow_build, yes)
+            return
     ws = current_workspace()
     target = (directory or ws.root).resolve()
     if ws.root != target and target not in ws.root.parents:
         fail(f"{target} does not contain the workspace {ws.root}.")
+    if no_space and not skills:
+        fail("--no-space only applies to --skills.")
     ui.header("agent setup", "Let a coding agent use the wiki")
     install = agent.install_info()
     done = [f"{agent.upsert_block(target / 'AGENTS.md', agent.guide(ws, target, install))} AGENTS.md"]
+
+    def allow_rules(rules: List[str]) -> None:
+        done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
+                    f"({', '.join(rules)})")
+
     if claude:
         done.append(f"{agent.upsert_block(target / 'CLAUDE.md', agent.pointer_claude())} CLAUDE.md")
         if allow is None:
             allow = not interactive(yes) or ui.ask_yes(
                 "Let Claude Code run ddspace query (read-only) without a permission prompt each time?", default=True)
         if allow:
-            rules = agent.query_permissions(install)
-            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
-                        f"({', '.join(rules)})")
+            allow_rules(agent.query_permissions(install) + agent.rationale_permissions(install))
         if allow_point is None:              # without an answer, follow the query answer (scripts) or ask
             allow_point = allow if not interactive(yes) else ui.ask_yes(
                 "Also let Claude Code run ddspace point without a prompt? It makes one LLM call per combination "
                 "(with the workspace's API key) unless --no-llm is passed.", default=True)
         if allow_point:
-            rules = agent.point_permissions(install)
-            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json "
-                        f"({', '.join(rules)})")
+            allow_rules(agent.point_permissions(install))
+        if allow_build is None:
+            allow_build = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace rationale build without a prompt? It writes explainer pages to "
+                "rationale/ and site/explainers/ (no LLM).", default=True)
+        if allow_build:
+            allow_rules(agent.build_permissions(install))
     if copilot:
         done.append(f"{agent.upsert_block(target / '.github' / 'copilot-instructions.md', agent.pointer_copilot())} "
                     ".github/copilot-instructions.md")
+    if skills:
+        for path, action in agent.install_skills(target, space=not no_space, where=agent.graph_option(ws, target)):
+            done.append(f"{action} {path.relative_to(target).as_posix()}")
     if not (ws.root / "raw" / "graph.json").is_file():
         ui.warn("No wiki yet: run ddspace wiki build, then this command again for examples with real names.")
     for line in done:
@@ -600,6 +662,44 @@ def agent_setup(
     ui.summary("Agent setup done", [("Folder", ui.short_path(target)), ("Agents", tools)],
                text="Open the folder in the agent and ask, for example:\n  [italic]What are the alternatives for "
                     "<a decision>, and which sources support each? Cite passages.[/italic]")
+
+
+def _setup_zero_shot(target: Path, claude: bool, allow: Optional[bool], allow_point: Optional[bool],
+                     allow_build: Optional[bool], yes: bool) -> None:
+    """``agent setup --skills --no-space`` outside a workspace: the skills without a space, and with ``--claude``
+    the permissions for ``ddspace rationale`` and ``ddspace point --no-space``."""
+    ui.header("agent setup", "Search and explain without a design space")
+    if not target.is_dir():
+        fail(f"{target} is not a folder.")
+    install = agent.install_info()
+    done = [f"{action} {path.relative_to(target).as_posix()}"
+            for path, action in agent.install_skills(target, space=False)]
+    if claude:
+        rules: List[str] = []
+        if allow is None:
+            allow = not interactive(yes) or ui.ask_yes(
+                "Let Claude Code run ddspace rationale check and list without a permission prompt?", default=True)
+        if allow:
+            rules += agent.rationale_permissions(install)
+        if allow_point is None:
+            allow_point = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace point --no-space without a prompt? It makes one LLM call per design "
+                "point, to describe it.", default=True)
+        if allow_point:
+            rules += agent.point_permissions(install)
+        if allow_build is None:
+            allow_build = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace rationale build without a prompt? It writes explainer pages "
+                "(no LLM).", default=True)
+        if allow_build:
+            rules += agent.build_permissions(install)
+        if rules:
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json")
+    for line in done:
+        ui.ok(line)
+    ui.summary("Agent setup done", [("Folder", ui.short_path(target)), ("Space", "none (zero-shot)")],
+               text="Put the problem in PROBLEM.md (and, to explain a solution, SOLUTION.md), then ask the agent, "
+                    "for example:\n  [italic]Use the ddspace-search skill. The problem is in PROBLEM.md.[/italic]")
 
 
 # ---------------------------------------------------------------- wiki
@@ -703,6 +803,13 @@ def wiki_build_cmd(
         if n_failed:
             ui.warn(f"{n_failed} of {total} {what} failed (first error: {escape(result.first_llm_error)}); "
                     "run ddspace wiki build again to retry.")
+    for e in result.explainers or []:
+        if e["status"] == rationale.BROKEN:
+            codes = ", ".join(sorted({p["code"] for p in e["problems"] if p.get("severity") == "error"}))
+            ui.warn(f"rationale/{escape(Path(e['file']).name)} ({escape(e['id'])}) is broken ({escape(codes)}): "
+                    "its explainer page was not rendered. Fix it with ddspace rationale check, then build again.")
+    rendered = [e for e in result.explainers or [] if e["status"] != rationale.BROKEN]
+    changed = sum(e["status"] == rationale.CHANGED for e in rendered)
     extras = [f"{result.summaries_written} source summaries" if result.summaries_written else "",
               f"{result.descriptions_written} design-point descriptions" if result.descriptions_written else ""]
     check = ("[green]passed[/green]" if not result.okf_errors
@@ -713,6 +820,8 @@ def wiki_build_cmd(
         ("Written by the LLM", ", ".join(e for e in extras if e)),
         ("OKF v0.2 check", check),
         ("Chat index", result.chat),
+        ("Explainers", f"{len(rendered)} in site/explainers/" + (f" ({changed} written against an earlier graph)"
+                                                                   if changed else "") if rendered else ""),
         ("wiki/", f"Markdown for agents and Obsidian {ui.path('(start at wiki/index.md)')}"),
         ("site/", f"HTML for people {ui.path('(site/index.html; graph: site/graph.html)')}"),
         ("raw/", "data for ddspace query"),
@@ -849,7 +958,11 @@ def _purge(ws: Workspace, yes: bool) -> None:
     present = [t for t in managed if (ws.root / t).exists()]
     agent_files = [t for t in ("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md", ".claude/settings.json")
                    if (ws.root / t).is_file()]
-    known = set(managed) | set(PURGE_KEEPS) | {".github", ".claude", "AGENTS.md", "CLAUDE.md"}
+    skill_files = [f"{d}/{n}/SKILL.md" for d in agent.SKILL_DIRS for n in agent.SKILLS
+                   if (ws.root / d / n / "SKILL.md").is_file()]
+    agent_files += skill_files
+    known = set(managed) | set(PURGE_KEEPS) | {".github", ".claude", "AGENTS.md", "CLAUDE.md"} \
+        | ({".agents"} if skill_files else set())
     others = sorted(p.name for p in ws.root.iterdir() if p.name not in known)
     if not present and not agent_files:
         ui.note("Nothing to delete.")
@@ -870,7 +983,10 @@ def _purge(ws: Workspace, yes: bool) -> None:
         path = ws.root / t
         shutil.rmtree(path) if path.is_dir() else path.unlink()
     cleaned: List[str] = []
+    cleaned += [f"{t} (deleted)" for t in agent.remove_skills(ws.root)]
     for t in agent_files:
+        if t in skill_files:
+            continue
         action = agent.disallow_query(ws.root / t) if t.endswith(".json") else agent.remove_block(ws.root / t)
         if action:
             cleaned.append(f"{t} ({action})")
@@ -988,22 +1104,30 @@ def point(
     values: List[str] = typer.Argument(..., help="The values to combine, one per dimension: a value's id or label, "
                                        "or Dimension=Value when the label is not unique."),
     no_llm: bool = typer.Option(False, "--no-llm", help="Only the checks; no description is generated."),
-    model: Optional[str] = typer.Option(None, "--model", help="Model for the description "
-                                        "(default: the one that wrote the wiki's descriptions)."),
+    model: Optional[str] = typer.Option(None, "--model", help="Model for the description (default: the one that "
+                                        "wrote the wiki's descriptions; with --no-space, DDSPACE_POINT_MODEL)."),
+    no_space: bool = typer.Option(False, "--no-space", help="No design space: the values are your own "
+                                  "'Dimension: Value' names, and only the description is generated."),
+    domain: str = typer.Option("", "--domain", help="With --no-space: what the system is, for the description."),
     graph: Optional[Path] = query_cli.GraphOpt,
     table: bool = query_cli.TableOpt,
 ) -> None:
     """Interpret a design point (one value per dimension). Returns the wiki's description when it has this point,
-    else generates one with one LLM call. Nothing is stored; the design space and the wiki do not change."""
+    else generates one with one LLM call; the description ends with the point's trade-off. Nothing is stored; the
+    design space and the wiki do not change."""
     from delvedspace import point as pt
 
-    path = query_cli._graph_path(graph)
+    def run():
+        if no_space:
+            return pt.named_point(values, domain=domain, llm=not no_llm, model_override=model)
+        return pt.point(query_cli._graph_path(graph), values, llm=not no_llm, model_override=model)
+
     try:
         if table:
             with ui.status("Describing the design point..." if not no_llm else "Checking the design point..."):
-                data = pt.point(path, values, llm=not no_llm, model_override=model)
+                data = run()
         else:
-            data = pt.point(path, values, llm=not no_llm, model_override=model)
+            data = run()
     except q.NotFound as exc:
         query_cli.err.print(f"[red]✗ Not found:[/red] {escape(str(exc))}")
         if not table:
@@ -1015,15 +1139,18 @@ def point(
         typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
         return
     ui.table("Design point", ["dimension", "value", "status"],
-             [[escape(v["dimension"]), escape(v["label"]), v["status"]] for v in data["values"]])
-    ex = data["existing"]
-    ui.note(f"In the wiki as {ex['label']} ({ex['group']})" if ex else "Not one of the wiki's design points")
-    ui.note("Attested by " + (", ".join(escape(str(s["label"])) for s in data["attested_by"]) if data["attested_by"]
-                              else "no source: no source adopts every value (novel)"))
-    for r in data["relations"]:
-        ui.note(escape(r["reading"]))
-    for w in data["warnings"]:
-        ui.warn(escape(w))
+             [[escape(v["dimension"]), escape(v["label"]), v.get("status") or ""] for v in data["values"]])
+    if no_space:
+        ui.note("No design space: the values are your own names, so nothing was checked")
+    else:
+        ex = data["existing"]
+        ui.note(f"In the wiki as {ex['label']} ({ex['group']})" if ex else "Not one of the wiki's design points")
+        ui.note("Attested by " + (", ".join(escape(str(s["label"])) for s in data["attested_by"])
+                                  if data["attested_by"] else "no source: no source adopts every value (novel)"))
+        for r in data["relations"]:
+            ui.note(escape(r["reading"]))
+        for w in data["warnings"]:
+            ui.warn(escape(w))
     if data["description"]:
         from rich.panel import Panel
 

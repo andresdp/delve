@@ -107,6 +107,12 @@ def test_every_html_link_resolves(tmp_path):
             assert (f.parent / href).resolve().exists(), (f, href)
 
 
+def test_export_ships_the_shared_layout_script(tmp_path):
+    write(build(_inputs()), tmp_path, "toy")
+    assert (tmp_path / "html" / "assets" / "graph-layout.js").is_file()
+    assert 'src="assets/graph-layout.js"' in (tmp_path / "html" / "graph.html").read_text(encoding="utf-8")
+
+
 def test_without_design_points_nothing_refers_to_them(tmp_path):
     export = build(_inputs())
     assert not any(p.path.startswith("designs/") or p.path == "synthesis/design-points" for p in export.pages)
@@ -307,7 +313,10 @@ def _cli_run(tmp_path):
 
 
 def test_cli_can_sample_design_points_at_export(tmp_path):
-    from taxonomy_generator.evaluation.design_points import load_system_map, sample_points
+    from taxonomy_generator.evaluation.design_points import (
+        load_system_map,
+        sample_points,
+    )
     run, sysmap = _cli_run(tmp_path)
     assert cli.main([str(run), "--systems", str(sysmap), "--sample-design-points", "--dp-k", "2", "--dp-n", "3"]) == 0
     out = tmp_path / "toy_taxonomy_20261008_000000_wiki"
@@ -352,7 +361,9 @@ def test_cli_picks_up_source_summaries_next_to_sources(tmp_path):
 
 
 def test_design_point_descriptions_are_rendered_by_combination():
-    from taxonomy_generator.evaluation.design_points import point_signature as sampler_signature
+    from taxonomy_generator.evaluation.design_points import (
+        point_signature as sampler_signature,
+    )
     from taxonomy_generator.wiki.model import point_signature
     p1 = POINTS["samples"][0]["groups"]["attested"][0]
     assert point_signature(p1) == sampler_signature(p1) == "1=1.1|2=2.1"
@@ -465,6 +476,21 @@ def test_approach_page(tmp_path):
     assert 'class="sidebar-footer">About this wiki · <a href="../approach.html">' in value
     top = value[:value.index("</header>")]
     assert "approach.html" not in top  # not in the header navigation
+
+
+def test_a_space_that_was_not_mined_says_where_it_comes_from(tmp_path):
+    for kind, origin in (("decision model", "imported from a decision model written by experts"),
+                         ("curated", "written by hand")):
+        tax = dict(_taxonomy(), provenance={"kind": kind})
+        export = build(_inputs(taxonomy=tax, models={"generation_llm": "openai/gen"}))
+        pages = {p.path: p for p in export.pages}
+        index, about = pages["index"].body, pages["approach"]
+        assert origin in index and "mined" not in index and "[[approach|About this design space]]" in index
+        assert about.title == "About this design space" and "## Where this one comes from" in about.body
+        assert "Grounded theory" not in about.body and "mine" not in about.body.replace("determine", "")
+        assert "*The question the design space answers.*" in index      # the use case, without "mining"
+    unknown = build(_inputs(taxonomy=dict(_taxonomy(), provenance={"kind": "something else"})))
+    assert "## Grounded theory in brief" in next(p for p in unknown.pages if p.path == "approach").body
 
 
 def test_core_dimensions(tmp_path):
