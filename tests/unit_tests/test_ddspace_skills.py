@@ -71,7 +71,7 @@ def test_skill_text_works_in_design_space_terms(name):
     steps = _steps(text)
     assert steps.rfind("ddspace rationale build") > steps.rfind("ddspace rationale check")  # build comes last
     last = " ".join(re.split(r"\n\d+\. ", steps)[-1].split())
-    assert "In interactive use (not in a study session), finish with `ddspace rationale build" in last
+    assert "In interactive use (not in a study session), when `ddspace` is installed, finish with `ddspace rationale build" in last
 
 
 def test_search_skill_runs_rounds_over_approaches_within_the_budget():
@@ -249,3 +249,14 @@ def test_zero_shot_skills_install_outside_a_workspace(tmp_path, monkeypatch):
     assert not (tmp_path / "AGENTS.md").exists()                     # no space to describe
     with_space = CliRunner().invoke(cli.app, ["agent", "setup", "--skills", "--yes"])
     assert with_space.exit_code != 0 and "ddspace.yaml" in with_space.output   # a space needs a workspace
+
+
+@pytest.mark.parametrize("name", SKILLS)
+def test_a_standalone_skill_finds_its_space_and_works_without_ddspace(name):
+    text = " ".join(agent.skill_text(name, space=False).split())
+    assert "A design space exists only when that command prints one" in text      # the folder, not the install
+    assert "`ddspace` is not installed, keep the description `null`" in text
+    assert "If `ddspace` is not installed, check the file yourself" in text
+    assert "when `ddspace` is installed, finish with `ddspace rationale build" in text
+    reference = agent.skill_files(name, space=True)[agent.REFERENCE]
+    assert "DelveDSpace" not in reference and "mined" not in reference
