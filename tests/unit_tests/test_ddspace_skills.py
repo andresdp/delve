@@ -253,7 +253,7 @@ def test_zero_shot_skills_install_outside_a_workspace(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("name", SKILLS)
 def test_a_standalone_skill_finds_its_space_and_works_without_ddspace(name):
-    text = " ".join(agent.skill_text(name, space=False).split())
+    text = " ".join(agent.skill_text(name).split())
     assert "A design space exists only when that command prints one" in text      # the folder, not the install
     assert "`ddspace` is not installed, keep the description `null`" in text
     assert "If `ddspace` is not installed, check the file yourself" in text
