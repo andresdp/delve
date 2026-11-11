@@ -71,7 +71,7 @@ def test_skill_text_works_in_design_space_terms(name):
     steps = _steps(text)
     assert steps.rfind("ddspace rationale build") > steps.rfind("ddspace rationale check")  # build comes last
     last = " ".join(re.split(r"\n\d+\. ", steps)[-1].split())
-    assert "In interactive use (not in a study session), when `ddspace` is installed, finish with `ddspace rationale build" in last
+    assert "In interactive use (not in a study session), when `ddspace` is installed, render the file" in last
 
 
 def test_search_skill_runs_rounds_over_approaches_within_the_budget():
@@ -257,11 +257,12 @@ def test_a_standalone_skill_finds_its_space_and_works_without_ddspace(name):
     assert "A design space exists only when that command prints one" in text      # the folder, not the install
     assert "`ddspace` is not installed, keep the description `null`" in text
     assert "If `ddspace` is not installed, check the file yourself" in text
-    assert "when `ddspace` is installed, finish with `ddspace rationale build" in text
+    assert "when `ddspace` is installed, render the file" in text and "use the reference's command, without `--out`" in text
     first = "the solution to explain" if name == "ddspace-explain" else "the problem"
     assert f"The user usually gives {first} as text with the request" in text                    # text first
     assert f"(`/{name} ...`)" in text and "may instead name" in text and "PROBLEM.md" in text
-    assert "When `ddspace` runs but finds no space, that is a missing space, not a way to work: warn" in text
+    assert "When `ddspace` runs but finds no space, that is a missing space, not a way to work: your next message" in text
+    assert "repeat the warning in your final summary" in text
     assert ("SOLUTION.md" in text) == (name == "ddspace-explain")
     reference = agent.skill_files(name, space=True)[agent.REFERENCE]
     assert "the working folder is a `ddspace` workspace" in " ".join(reference.split()) and "mined" not in reference
