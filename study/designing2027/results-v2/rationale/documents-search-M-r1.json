@@ -1,0 +1,1149 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer classifies 2\u20138 million documents daily into 60 claim types using an approved-provider LLM. Demand rises fourfold during storm season. Claims handling, fraud investigation and analytics consume results; documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:6.2",
+        "v:29.1",
+        "v:42.3",
+        "v:21.4"
+      ],
+      "description": "Scheduled jobs consume privacy- and policy-validated data arriving through messaging channels, scale compute elastically, score models in batches, and persist results for storage or analytics. A REST prediction microservice exposes model outputs, while monitoring tracks feature-generation changes, schemas, statistics, and unusual inputs to inform corrective action. Trade-off: This gains operational scalability, governed data handling, and visibility into input drift, but batch scoring may reduce freshness and responsiveness compared with fully online prediction. Supporting REST access alongside scheduled deployment may also add interface and operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:6.1",
+        "v:29.1",
+        "v:42.3",
+        "v:21.2"
+      ],
+      "description": "Streaming feature ingestion feeds privacy- and policy-validated data into an elastic, containerized prediction cluster fronted by a queue. A REST microservice exposes predictions, while continuous quality monitoring observes served behavior as demand changes. Trade-off: This provides scalable throughput, low-latency access, governed data handling, and rapid quality visibility, but adds operational complexity across queues, containers, streaming pipelines, autoscaling, and monitoring. It also depends on timely labels for quality measurement and may cost more than simpler batch or static serving.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.4"
+      ],
+      "description": "Solution: Policy-validated data arrives through messaging channels and feeds a REST prediction microservice implemented as serverless functions. The runtime scales to zero when idle, while deployed predictions receive human oversight for review and intervention. Trade-off: Serverless scale-to-zero reduces idle cost and capacity management, but can introduce startup latency and less predictable performance. Privacy checks and human review improve governance and accountability, but add processing overhead and operational effort.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.4"
+      ],
+      "description": "Scheduled jobs consume privacy- and policy-validated records from messaging channels, scale compute elastically as workload changes, and write predictions to storage or analytics systems. A REST prediction microservice can expose model outputs, while human reviewers oversee production behavior and intervene when needed. Trade-off: This combines scalable, governed, reviewable operations with durable batch results and API access, but scheduled scoring sacrifices immediate freshness and elastic scaling can increase infrastructure cost; human oversight also adds operational effort and potential review delays.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.2"
+      ],
+      "description": "A REST prediction microservice runs containerized predictors behind a queue, while elastic resources scale the serving cluster as streaming feature demand changes. Privacy- and policy-validated ingestion feeds predictions, with human reviewers overseeing production behavior and interventions. Trade-off: This combines responsive, scalable serving with governed data handling and operational accountability, but adds queueing, orchestration, compliance-validation, and human-review overhead. Human oversight may also limit fully automated response speed and increase operating cost.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.2"
+      ],
+      "description": "A serverless REST prediction service receives continuously ingested features, scales execution with demand, and uses policy-validated data and pipelines. Human reviewers oversee deployed predictions and intervene when needed. Trade-off: This combines elastic capacity, low idle cost, and stronger privacy and policy control, but scale-to-zero can introduce cold-start latency and less predictable responsiveness for streaming workloads. Human oversight improves control but adds review effort and can limit throughput.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if scheduled batch scoring and elastic compute absorb daily volume, with drift monitoring?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if queue-fronted online serving keeps results responsive under seasonal load?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if serverless execution and scale-to-zero control variable demand and idle cost?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:6.2",
+        "v:29.1",
+        "v:42.3",
+        "v:21.4"
+      ],
+      "hypothesis": "Batch scoring is expected to simplify deadline-oriented volume processing, while drift monitoring should expose layout changes.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.3"
+          ],
+          "gains": [
+            "Q1",
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The serving mode prioritizes deadline responsiveness or scheduled capacity, while runtime cost remains workload-dependent."
+        },
+        {
+          "values": [
+            "v:6.2"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "Q3"
+          ],
+          "note": "Monitoring or review adds visibility and correction opportunities but consumes capacity and operator time."
+        }
+      ],
+      "observation": "The combination supports batch delivery, elastic resources and input drift checks, but supplies no measured completion time or cost.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:6.1",
+        "v:29.1",
+        "v:42.3",
+        "v:21.2"
+      ],
+      "hypothesis": "Queued online scoring with elastic capacity should favor fast, scalable delivery and visible quality drops.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.1"
+          ],
+          "gains": [
+            "Q1",
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The serving mode prioritizes deadline responsiveness or scheduled capacity, while runtime cost remains workload-dependent."
+        },
+        {
+          "values": [
+            "v:6.1"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "Q3"
+          ],
+          "note": "Monitoring or review adds visibility and correction opportunities but consumes capacity and operator time."
+        }
+      ],
+      "observation": "The description supports queued low-latency throughput and quality monitoring; no target benchmark or cost evidence is supplied.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.4"
+      ],
+      "hypothesis": "Serverless scaling and human oversight should support variable demand and review while reducing idle capacity.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.2"
+          ],
+          "gains": [
+            "Q1",
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The serving mode prioritizes deadline responsiveness or scheduled capacity, while runtime cost remains workload-dependent."
+        },
+        {
+          "values": [
+            "v:6.13"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "Q3"
+          ],
+          "note": "Monitoring or review adds visibility and correction opportunities but consumes capacity and operator time."
+        }
+      ],
+      "observation": "The combination includes serverless scale-to-zero and human intervention, but no warm-start or review-capacity evidence.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.4"
+      ],
+      "hypothesis": "Adding human oversight to the batch path should strengthen uncertain-case handling, at the cost of review latency.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.3"
+          ],
+          "gains": [
+            "Q1",
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The serving mode prioritizes deadline responsiveness or scheduled capacity, while runtime cost remains workload-dependent."
+        },
+        {
+          "values": [
+            "v:6.13"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "Q3"
+          ],
+          "note": "Monitoring or review adds visibility and correction opportunities but consumes capacity and operator time."
+        }
+      ],
+      "observation": "Human oversight makes review an explicit operational path; the batch delay remains and correction-driven retraining is not settled.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.2"
+      ],
+      "hypothesis": "Adding human review to queued online serving should support corrections while retaining responsive delivery.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.1"
+          ],
+          "gains": [
+            "Q1",
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The serving mode prioritizes deadline responsiveness or scheduled capacity, while runtime cost remains workload-dependent."
+        },
+        {
+          "values": [
+            "v:6.13"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "Q3"
+          ],
+          "note": "Monitoring or review adds visibility and correction opportunities but consumes capacity and operator time."
+        }
+      ],
+      "observation": "Queued serving and human oversight cover the strongest R1/R3 needs conceptually; no evidence attests the combination or its numeric service levels.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:6.13",
+        "v:29.1",
+        "v:42.3",
+        "v:21.2"
+      ],
+      "hypothesis": "An online serverless variant with human review should preserve variable-load elasticity and cover uncertain cases.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.2"
+          ],
+          "gains": [
+            "Q1",
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The serving mode prioritizes deadline responsiveness or scheduled capacity, while runtime cost remains workload-dependent."
+        },
+        {
+          "values": [
+            "v:6.13"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1",
+            "Q3"
+          ],
+          "note": "Monitoring or review adds visibility and correction opportunities but consumes capacity and operator time."
+        }
+      ],
+      "observation": "Scale-to-zero offers idle cost reduction, while review adds workload; actual annual cost and storm latency remain unmeasured.",
+      "rating": "mixed",
+      "point": "P6"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Elastic batch with review",
+      "summary": "Scheduled scoring and elastic capacity prioritize predictable large-volume processing; human review handles uncertain outcomes.",
+      "approach": "A",
+      "step": 4,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "Q1",
+            "R1"
+          ],
+          "reason": "The serving pattern shapes prediction delivery and response freshness.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value covers serving mode but does not select the approved LLM or provide confidence-calibration behavior."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic or scale-to-zero capacity responds to seasonal load or idle periods.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The space offers scaling strategies but no workload sizing or per-document cost guarantee."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight enables intervention, or drift monitoring makes input changes visible.",
+          "evidence": [
+            {
+              "doc": "s24_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Neither value fully specifies low-confidence routing, correction capture, per-claim-type detection, or retraining feedback."
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A REST interface gives consuming applications an integration boundary.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "REST alone does not define independent team subscriptions or a stable result event contract."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Policy validation provides a privacy and compliance control point.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "It does not establish EU-only storage, processing, logs, backups, or provider region."
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.4",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Ingestion choice feeds the selected serving workflow.",
+          "evidence": [
+            {
+              "doc": "s02_p06",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee end-to-end arrival-to-classification latency."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:21",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The ingestion choice affects production monitoring outcomes."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Queued online with review",
+      "summary": "A queue-fronted online cluster and streaming input favor responsive throughput, with human oversight for uncertain results.",
+      "approach": "B",
+      "step": 5,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "Q1",
+            "R1"
+          ],
+          "reason": "The serving pattern shapes prediction delivery and response freshness.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value covers serving mode but does not select the approved LLM or provide confidence-calibration behavior."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic or scale-to-zero capacity responds to seasonal load or idle periods.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The space offers scaling strategies but no workload sizing or per-document cost guarantee."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight enables intervention, or drift monitoring makes input changes visible.",
+          "evidence": [
+            {
+              "doc": "s24_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Neither value fully specifies low-confidence routing, correction capture, per-claim-type detection, or retraining feedback."
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A REST interface gives consuming applications an integration boundary.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "REST alone does not define independent team subscriptions or a stable result event contract."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Policy validation provides a privacy and compliance control point.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "It does not establish EU-only storage, processing, logs, backups, or provider region."
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Ingestion choice feeds the selected serving workflow.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee end-to-end arrival-to-classification latency."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:21",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The ingestion choice affects production monitoring outcomes."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Serverless review path",
+      "summary": "Serverless execution and scale-to-zero target variable utilization while retaining streaming inputs and human review.",
+      "approach": "C",
+      "step": 6,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.2",
+          "drivers": [
+            "Q1",
+            "R1"
+          ],
+          "reason": "The serving pattern shapes prediction delivery and response freshness.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value covers serving mode but does not select the approved LLM or provide confidence-calibration behavior."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.2",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic or scale-to-zero capacity responds to seasonal load or idle periods.",
+          "evidence": [
+            {
+              "doc": "s11_p04",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The space offers scaling strategies but no workload sizing or per-document cost guarantee."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight enables intervention, or drift monitoring makes input changes visible.",
+          "evidence": [
+            {
+              "doc": "s24_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Neither value fully specifies low-confidence routing, correction capture, per-claim-type detection, or retraining feedback."
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A REST interface gives consuming applications an integration boundary.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "REST alone does not define independent team subscriptions or a stable result event contract."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Policy validation provides a privacy and compliance control point.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "It does not establish EU-only storage, processing, logs, backups, or provider region."
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Ingestion choice feeds the selected serving workflow.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not guarantee end-to-end arrival-to-classification latency."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:21",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The ingestion choice affects production monitoring outcomes."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Prediction serving and delivery",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q1",
+        "Q4"
+      ],
+      "context": "The workload needs high-volume classification and delivery to three teams. The space provides serving patterns and a REST boundary, but does not define confidence output or independent consumer subscriptions.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Scheduled batch",
+          "values": [
+            "v:31.3"
+          ],
+          "status": "chosen",
+          "step": 4,
+          "pros": [
+            "Scales scheduled scoring and persists results for downstream use."
+          ],
+          "cons": [
+            "Freshness depends on schedule; exact two-hour completion is unproven."
+          ],
+          "reason": "A1 favors batch volume processing.",
+          "in": [
+            "A1"
+          ]
+        },
+        {
+          "id": "O2",
+          "name": "Queue-fronted online",
+          "values": [
+            "v:31.1"
+          ],
+          "status": "chosen",
+          "step": 5,
+          "pros": [
+            "Queueing and distributed predictors support low-latency throughput."
+          ],
+          "cons": [
+            "Adds operational components and has no measured storm throughput."
+          ],
+          "reason": "B1 favors responsive serving.",
+          "in": [
+            "B1"
+          ]
+        },
+        {
+          "id": "O3",
+          "name": "Serverless deployment",
+          "values": [
+            "v:31.2"
+          ],
+          "status": "chosen",
+          "step": 6,
+          "pros": [
+            "Managed execution adapts to variable demand."
+          ],
+          "cons": [
+            "Cold-start and concurrency behavior are unmeasured."
+          ],
+          "reason": "C1 favors managed elastic execution.",
+          "in": [
+            "C1"
+          ]
+        },
+        {
+          "id": "O4",
+          "name": "REST interface",
+          "values": [
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "step": 4,
+          "pros": [
+            "Provides an application integration endpoint."
+          ],
+          "cons": [
+            "Does not itself establish loose coupling among consumers."
+          ],
+          "reason": "All three alternatives expose a service boundary.",
+          "in": [
+            "A1",
+            "B1",
+            "C1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Capacity and seasonal cost",
+      "drivers": [
+        "Q1",
+        "Q3"
+      ],
+      "context": "Storm season multiplies volume, while average cost has a strict ceiling. No available value proves either numeric target; capacity strategy must be validated against representative load and annual cost.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Elastic scaling",
+          "values": [
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "step": 4,
+          "pros": [
+            "Capacity can track changing workload."
+          ],
+          "cons": [
+            "May raise costs under sustained peak load."
+          ],
+          "reason": "A1 and B1 select elastic capacity for seasonal changes.",
+          "in": [
+            "A1",
+            "B1"
+          ]
+        },
+        {
+          "id": "O2",
+          "name": "Scale to zero",
+          "values": [
+            "v:26.2"
+          ],
+          "status": "chosen",
+          "step": 6,
+          "pros": [
+            "Reduces idle serving expense."
+          ],
+          "cons": [
+            "Can add startup delay and does not bound peak cost."
+          ],
+          "reason": "C1 prioritizes low utilization cost.",
+          "in": [
+            "C1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Monitoring and uncertain cases",
+      "drivers": [
+        "R3"
+      ],
+      "context": "The system must route uncertain classifications for review and use the corrections to improve the classifier. Human oversight is a partial match; it does not specify confidence thresholds, correction capture, or retraining. The competing drift-monitoring option can surface input changes but does not implement the review workflow.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Input drift monitoring",
+          "values": [
+            "v:6.2"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Can surface schema and input distribution changes."
+          ],
+          "cons": [
+            "Does not route uncertain predictions or verify classification quality by claim type."
+          ],
+          "reason": "P1 exposes the monitoring-first batch hypothesis."
+        },
+        {
+          "id": "O2",
+          "name": "Real-time quality monitoring",
+          "values": [
+            "v:6.1"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Measures quality behavior when labels are available."
+          ],
+          "cons": [
+            "Needs timely labels and does not define human correction feedback."
+          ],
+          "reason": "P2 examines continuous quality visibility."
+        },
+        {
+          "id": "O3",
+          "name": "Human oversight",
+          "values": [
+            "v:6.13"
+          ],
+          "status": "chosen",
+          "step": 4,
+          "pros": [
+            "Provides a human intervention path for predictions."
+          ],
+          "cons": [
+            "Does not alone implement threshold routing or retraining from corrections."
+          ],
+          "reason": "All final alternatives prioritize human review.",
+          "in": [
+            "A1",
+            "B1",
+            "C1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Personal data governance and ingestion",
+      "drivers": [
+        "R1",
+        "Q1",
+        "C1"
+      ],
+      "context": "Personal data requires policy controls and the workload needs an ingestion path suited to batch or streaming. The space contains a privacy-validation value but cannot guarantee EU residency.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Messaging plus policy validation",
+          "values": [
+            "v:21.4",
+            "v:42.3"
+          ],
+          "status": "chosen",
+          "step": 4,
+          "pros": [
+            "Supports queued data delivery and policy checks."
+          ],
+          "cons": [
+            "Does not guarantee regional placement."
+          ],
+          "reason": "Batch and serverless seeds use messaging input with validation.",
+          "in": [
+            "A1"
+          ]
+        },
+        {
+          "id": "O2",
+          "name": "Streaming plus policy validation",
+          "values": [
+            "v:21.2",
+            "v:42.3"
+          ],
+          "status": "chosen",
+          "step": 5,
+          "pros": [
+            "Supports continuous input for responsive serving."
+          ],
+          "cons": [
+            "Does not guarantee EU-only processing or end-to-end latency."
+          ],
+          "reason": "B1 uses streaming ingestion with validation.",
+          "in": [
+            "B1",
+            "C1"
+          ]
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:37",
+      "note": "The design space has no decision about selecting the insurer-approved LLM provider or enforcing its EU region."
+    },
+    {
+      "requirement": "Q2",
+      "reason": "traded_off",
+      "note": "The selected points use human oversight to support the explicit uncertain-case review workflow. They do not select input or prediction-quality monitoring, so a claim-type quality drop within one day is not established."
+    }
+  ]
+}

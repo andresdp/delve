@@ -1,0 +1,1108 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "hosting-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Git hosting for a fast-growing engineering organization",
+    "context": "A software company hosts its own Git service for 3,000 engineers in four regions. Its CI system starts about 40,000 jobs a day, each fetching a repository. The largest repository has 15 years of history and is about 200 GB; most engineers touch only a small part of it. The service runs in the company's cloud account, and a team of five engineers builds and operates it.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes and serve fetches and clones for every repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let engineers work on the largest repository without downloading all of it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "durability",
+        "text": "When any single machine or disk is lost, no pushed commit is lost."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When one server fails during working hours, pushes and fetches continue within one minute, without an operator."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A CI job in any region fetches the latest state of a repository within 30 seconds at the 95th percentile, even right after a push."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A fetch that starts after a push has succeeded always sees that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Five engineers build and run the service."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Engineers keep using standard Git clients; no custom client may be required."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Quorum-committed push metadata with authoritative post-push reads",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "description": "Replicated immutable Git objects are stored in cloud object storage, while stateless gateways in multiple regions serve Git clients. Pushes become visible after quorum-committed metadata updates, and authoritative post-push reads ensure clients observe the committed state; partial clone blob filtering limits large-repository transfers. Trade-off: This provides durable, horizontally scalable, multi-region access and efficient large-repository checkout, but pays replication and quorum latency/costs and depends on object-storage availability. Partial clones also shift some cost and complexity to later blob retrieval.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Repository storage: Synchronously replicated block storage across three zones",
+        "Serving topology: Active-passive Git servers with automatic leader failover",
+        "Consistency: Single-writer repository metadata with synchronous replication",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "description": "The system stores repositories on block storage synchronously replicated across three zones, with one active Git server serving writes and a passive server ready to assume leadership. Repository metadata remains single-writer and synchronously replicated, while clients use partial clone blob filtering for large repositories. Trade-off: This provides strong metadata consistency, zone-level durability, automatic failover, and reduced large-clone transfer. It gives up write latency and operational simplicity due to synchronous cross-zone replication, keeps standby capacity underused, and makes clients depend on fetching omitted blobs when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Repository storage: Eventually replicated object storage with regional caches",
+        "Serving topology: Regional read replicas with a central push endpoint",
+        "Consistency: Asynchronous metadata propagation between regions",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "description": "Repositories are stored in eventually replicated object storage, with regional caches serving regional read replicas while pushes go through a central endpoint. Metadata propagates asynchronously between regions, and clients use Git partial clone with blob filtering to fetch only needed large-repository content. Trade-off: This improves regional read performance, storage scalability, and large-repository transfer efficiency. It gives up immediate cross-region metadata freshness and local write latency, while central pushes remain a potential bottleneck and cached or replica data may temporarily lag.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches",
+        "Consistency: Quorum-committed push metadata with cache invalidation before success",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "description": "Git objects are replicated immutably in cloud object storage, while stateless regional gateways serve Git traffic through commit-aware caches. A push succeeds only after metadata reaches quorum and affected caches are invalidated; clients can use partial clone to fetch only required blobs. Trade-off: This provides durable storage, regional scalability, and fresher read results, but quorum coordination and invalidation increase push latency and operational complexity. Partial clone reduces initial transfer costs but can add on-demand fetch latency and depends on client support.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Repository storage: Synchronously replicated block storage across three zones",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Single-writer repository metadata with synchronous replication",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "description": "Repositories reside on block storage synchronously replicated across three zones, while a single authoritative metadata writer replicates its updates synchronously. Stateless Git gateways in each region serve clients and route operations to that writer and storage, with partial-clone filtering limiting large-repository data transfer. Trade-off: This provides durable multi-zone storage, horizontally scalable regional serving, and reduced clone bandwidth, but synchronous writes and single-writer coordination add latency and make writer or quorum availability a bottleneck; partial clone still requires fetching requested blobs.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Regional read replicas and a designated push leader",
+        "Consistency: Leader-committed metadata with fencing and read barriers",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "description": "The system stores immutable Git objects in replicated cloud object storage, with a designated leader accepting pushes and regional replicas serving reads. The leader commits metadata under fencing, while read barriers ensure replicas expose committed state; partial-clone clients fetch only the blobs they request. Trade-off: This gains durable storage, scalable regional reads, and consistent ref visibility, but gives up local write availability and adds replication, fencing, and barrier complexity. Partial clones reduce initial transfer and local storage while making some operations depend on later blob fetches.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches",
+        "Consistency: Quorum-committed push metadata with cache invalidation before success",
+        "Large repository access: Standard Git partial clone with blob filtering and sparse checkout"
+      ],
+      "description": "Replicated immutable Git objects in cloud object storage are served through stateless, cross-region protocol gateways using commit-aware caches. Pushes succeed only after metadata is quorum-committed and relevant caches are invalidated, while clients can use Git partial clone and sparse checkout to avoid downloading unnecessary blobs. Trade-off: This gains durable replication, scalable regional serving, and reduced large-repository transfer costs. It gives up some push latency and operational simplicity because quorum commits and coordinated cache invalidation are required; partial clones also make access dependent on later blob retrieval.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Repository storage: Synchronously replicated block storage across three zones",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Single-writer repository metadata with synchronous replication",
+        "Large repository access: Standard Git partial clone with blob filtering and sparse checkout"
+      ],
+      "description": "Three-zone synchronous block storage provides durable repository data, while a single writer serializes metadata updates and synchronously replicates them. Stateless gateways in each region serve Git clients and use partial clone, blob filtering, and sparse checkout to limit large-repository transfer. Trade-off: This gains strong durability, metadata consistency, and regional serving with reduced large-repository bandwidth, but synchronous replication and the single writer add write latency and can constrain write availability or throughput. Partial clone also shifts some complexity to clients and later object retrieval.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Leader-committed metadata with fencing and read barriers",
+        "Large repository access: Standard Git partial clone with server-side sparse filtering"
+      ],
+      "description": "Stateless Git protocol gateways in each region serve clients, reading replicated immutable Git objects from cloud object storage. A leader commits metadata, while fencing and read barriers ensure gateways observe authorized, ordered state; standard partial clone with server-side sparse filtering limits large-repository transfers. Trade-off: This provides regional horizontal scalability, durable object replication, and consistent metadata while reducing bandwidth for partial consumers. It gives up simpler serving and some availability or latency during leader coordination, and object-storage access plus filtering add operational complexity.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if replicated immutable cloud objects and quorum commits anchor regional stateless serving?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if synchronous multi-zone storage and a single writer make ordering and recovery direct?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if asynchronous regional replicas and caches optimize local reads?",
+      "status": "dropped",
+      "dropped_because": "Asynchronous metadata propagation can let a fetch started after a successful push observe stale refs, violating Q4."
+    },
+    {
+      "id": "D",
+      "idea": "What if one fenced push leader and regional read replicas provide a clear commit point with local reads?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Quorum-committed push metadata with authoritative post-push reads",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "hypothesis": "Replicated storage and committed metadata directly address durability and read-after-write. Regional gateways support availability and locality; neither failover timing nor the 30-second p95 target is measured. Partial clone addresses the large repository with standard clients.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Consistency: Quorum-committed push metadata with authoritative post-push reads"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Quorum and authoritative reads protect durable, current refs but add latency."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Filtering reduces transfers with standard clients but later blob retrieval can affect fetch time."
+        },
+        {
+          "values": [
+            "Serving topology: Stateless Git protocol gateways across regions"
+          ],
+          "gains": [
+            "Q2",
+            "Q3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Regional stateless gateways improve locality and failover while adding operational coordination."
+        }
+      ],
+      "observation": "The architecture is plausible but quantitative availability, performance and staffing fit remain unverified.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Repository storage: Synchronously replicated block storage across three zones",
+        "Serving topology: Active-passive Git servers with automatic leader failover",
+        "Consistency: Single-writer repository metadata with synchronous replication",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "hypothesis": "Synchronous three-zone replication with active-passive Git servers should protect commits and support automatic failover, while partial clone limits large transfers.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Repository storage: Synchronously replicated block storage across three zones",
+            "Consistency: Single-writer repository metadata with synchronous replication"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Synchronous replication and single-writer ordering protect data and read-after-write behavior but add write latency."
+        },
+        {
+          "values": [
+            "Serving topology: Active-passive Git servers with automatic leader failover"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Automatic standby takeover aids recovery but maintaining failover behavior adds operational work."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Partial clone limits transferred data but later blob requests add work."
+        }
+      ],
+      "observation": "The single writer and synchronous path simplify ordering but raise latency and create failover and operations work.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Repository storage: Eventually replicated object storage with regional caches",
+        "Serving topology: Regional read replicas with a central push endpoint",
+        "Consistency: Asynchronous metadata propagation between regions",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "hypothesis": "Asynchronous regional replicas should improve local read latency and partial clone should reduce transfer; replication delay may compromise post-push visibility.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "misses",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Repository storage: Eventually replicated object storage with regional caches",
+            "Consistency: Asynchronous metadata propagation between regions"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q4",
+            "Q1"
+          ],
+          "note": "Regional asynchronous propagation favors local read speed but cannot guarantee that a post-success fetch sees the push."
+        },
+        {
+          "values": [
+            "Serving topology: Regional read replicas with a central push endpoint"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Regional read replicas aid local reads but the central push endpoint remains a failure and throughput focus."
+        }
+      ],
+      "observation": "The point misses Q4 by design: a fetch can start after the central push succeeds and still reach a lagging regional replica.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches",
+        "Consistency: Quorum-committed push metadata with cache invalidation before success",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "hypothesis": "Add commit-aware caches and invalidate affected views before push success to improve regional fetch speed while preserving Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Consistency: Quorum-committed push metadata with cache invalidation before success"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Invalidating caches before acknowledging a quorum commit makes new refs visible but adds push-path delay."
+        },
+        {
+          "values": [
+            "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches"
+          ],
+          "gains": [
+            "Q2",
+            "Q3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Regional cached gateways improve locality while their coordination adds operations burden."
+        }
+      ],
+      "observation": "Cache invalidation before acknowledgement strengthens freshness but adds push latency and coordination. The numeric performance objective remains unmeasured.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Repository storage: Synchronously replicated block storage across three zones",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Single-writer repository metadata with synchronous replication",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "hypothesis": "Move the synchronous block-storage/single-writer approach to stateless regional gateways to improve regional serving and failure handling.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Repository storage: Synchronously replicated block storage across three zones",
+            "Consistency: Single-writer repository metadata with synchronous replication"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Synchronous three-zone storage and one ordered writer protect commits but increase write latency."
+        },
+        {
+          "values": [
+            "Serving topology: Stateless Git protocol gateways across regions"
+          ],
+          "gains": [
+            "Q2",
+            "Q3"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Regional stateless gateways spread serving but do not remove the single-writer dependency."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Partial clone reduces bulk transfer but may defer required blob transfer."
+        }
+      ],
+      "observation": "Regional gateways improve distribution, while single-writer synchronous replication remains a performance and failover dependency.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Regional read replicas and a designated push leader",
+        "Consistency: Leader-committed metadata with fencing and read barriers",
+        "Large repository access: Standard Git partial clone with blob filtering"
+      ],
+      "hypothesis": "Explore a designated push leader with regional read replicas, fencing and read barriers to preserve ref order while serving reads locally.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Consistency: Leader-committed metadata with fencing and read barriers"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Leader commits, fencing and barriers protect ref order but add coordination latency."
+        },
+        {
+          "values": [
+            "Serving topology: Regional read replicas and a designated push leader"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Regional replicas improve reads but require leader recovery and replica coordination."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Partial clone cuts initial transfer while making later reads dependent on object retrieval."
+        }
+      ],
+      "observation": "Fencing and barriers offer a clear read-after-write mechanism, though leader coordination still needs failover and latency evidence.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches",
+        "Consistency: Quorum-committed push metadata with cache invalidation before success",
+        "Large repository access: Standard Git partial clone with blob filtering and sparse checkout"
+      ],
+      "hypothesis": "Add sparse checkout to the cache-aware quorum design to reduce large-repository materialization further.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Consistency: Quorum-committed push metadata with cache invalidation before success"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Cache invalidation before success improves visibility at the cost of extra push latency."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with blob filtering and sparse checkout"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Sparse checkout further narrows worktree materialization but can add client workflow complexity and deferred transfers."
+        }
+      ],
+      "observation": "The refinement can reduce transferred or checked-out content, but adds deferred retrieval behavior and does not establish the latency target.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Repository storage: Synchronously replicated block storage across three zones",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Single-writer repository metadata with synchronous replication",
+        "Large repository access: Standard Git partial clone with blob filtering and sparse checkout"
+      ],
+      "hypothesis": "Add sparse checkout to the synchronous single-writer design to reduce large-repository transfers.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Repository storage: Synchronously replicated block storage across three zones",
+            "Consistency: Single-writer repository metadata with synchronous replication"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Strong synchronous replication and ordered writes add latency to pushes and the single writer may bottleneck."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with blob filtering and sparse checkout"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Sparse checkout limits materialization with standard Git but can defer needed data retrieval."
+        }
+      ],
+      "observation": "Sparse checkout helps local working sets but leaves synchronous write latency and a single metadata writer unchanged.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Repository storage: Replicated immutable Git objects in cloud object storage",
+        "Serving topology: Stateless Git protocol gateways across regions",
+        "Consistency: Leader-committed metadata with fencing and read barriers",
+        "Large repository access: Standard Git partial clone with server-side sparse filtering"
+      ],
+      "hypothesis": "Use stateless gateways with the leader, fencing and read barriers, and server-side sparse filtering to reduce serving state and transfer.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Consistency: Leader-committed metadata with fencing and read barriers"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Fencing and read barriers ensure committed refs are visible, but leader coordination can add latency."
+        },
+        {
+          "values": [
+            "Large repository access: Standard Git partial clone with server-side sparse filtering"
+          ],
+          "gains": [
+            "R2",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Server-side sparse filtering reduces transfers but adds server work and depends on the filtering implementation."
+        }
+      ],
+      "observation": "The refinements preserve the leader/barrier trade-off and improve transfer efficiency, but do not outperform the previous best on measured evidence because no targets have been benchmarked.",
+      "rating": "mixed",
+      "point": "P9"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Quorum commits with regional commit-aware caches",
+      "summary": "Store immutable objects in replicated cloud storage and use regional stateless gateways with commit-aware caches. A push succeeds after quorum commit and cache invalidation; clients use partial clone.",
+      "approach": "A",
+      "step": 4,
+      "choices": [
+        {
+          "dimension_id": "Repository storage",
+          "value_id": "Repository storage: Replicated immutable Git objects in cloud object storage",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Managed replicated storage protects objects while limiting bespoke storage operations."
+        },
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches",
+          "drivers": [
+            "R1",
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Stateless regional gateways serve Git operations near users and support automatic failover and locality."
+        },
+        {
+          "dimension_id": "Consistency",
+          "value_id": "Consistency: Quorum-committed push metadata with cache invalidation before success",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "The service acknowledges only after quorum commit and cache invalidation, so later fetches see committed refs."
+        },
+        {
+          "dimension_id": "Large repository access",
+          "value_id": "Large repository access: Standard Git partial clone with blob filtering",
+          "drivers": [
+            "R2",
+            "C2"
+          ],
+          "reason": "Standard partial clone avoids transferring unneeded blobs without a custom client."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Synchronous multi-zone storage with regional gateways",
+      "summary": "Use synchronously replicated block storage across three zones and a single metadata writer, with stateless regional Git gateways and standard partial clone.",
+      "approach": "B",
+      "step": 5,
+      "choices": [
+        {
+          "dimension_id": "Repository storage",
+          "value_id": "Repository storage: Synchronously replicated block storage across three zones",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Synchronous zone replication protects repository data from a single machine or disk loss."
+        },
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Stateless Git protocol gateways across regions",
+          "drivers": [
+            "R1",
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Regional stateless gateways support standard Git access and distribute fetch serving."
+        },
+        {
+          "dimension_id": "Consistency",
+          "value_id": "Consistency: Single-writer repository metadata with synchronous replication",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "One synchronously replicated writer orders updates and keeps acknowledged pushes visible."
+        },
+        {
+          "dimension_id": "Large repository access",
+          "value_id": "Large repository access: Standard Git partial clone with blob filtering",
+          "drivers": [
+            "R2",
+            "C2"
+          ],
+          "reason": "Standard partial clone narrows the initial transfer."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Active-passive Git servers with automatic leader failover",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "The active-passive seed ties serving to fewer servers and leaves standby capacity unused."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Fenced leader with regional read replicas",
+      "summary": "Store immutable objects in replicated cloud storage, accept pushes through a designated leader, and serve reads from regional replicas with fencing and read barriers. Use standard partial clone.",
+      "approach": "D",
+      "step": 6,
+      "choices": [
+        {
+          "dimension_id": "Repository storage",
+          "value_id": "Repository storage: Replicated immutable Git objects in cloud object storage",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Replicated managed object storage provides durable objects without operating a bespoke storage cluster."
+        },
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Regional read replicas and a designated push leader",
+          "drivers": [
+            "R1",
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Regional read replicas can serve local fetches while the leader accepts pushes."
+        },
+        {
+          "dimension_id": "Consistency",
+          "value_id": "Consistency: Leader-committed metadata with fencing and read barriers",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Fencing and read barriers keep regional reads behind the committed leader state."
+        },
+        {
+          "dimension_id": "Large repository access",
+          "value_id": "Large repository access: Standard Git partial clone with blob filtering",
+          "drivers": [
+            "R2",
+            "C2"
+          ],
+          "reason": "Standard partial clone limits data transfer without custom clients."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Choose durable repository object storage",
+      "drivers": [
+        "Q1",
+        "C1"
+      ],
+      "context": "A single machine or disk loss must not lose a pushed commit, and five engineers must operate the platform. Managed replicated object storage limits storage operations; synchronous multi-zone block storage offers a direct durability model but introduces a tightly coordinated write path.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Replicated cloud object storage",
+          "values": [
+            "Repository storage: Replicated immutable Git objects in cloud object storage"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 4,
+          "pros": [
+            "Replicated immutable objects tolerate individual machine or disk loss.",
+            "Managed storage reduces custom storage operations."
+          ],
+          "cons": [
+            "The service depends on object-storage availability and replication behavior."
+          ],
+          "reason": "It supports durability while reducing storage maintenance for the small team."
+        },
+        {
+          "id": "O2",
+          "name": "Synchronous three-zone block storage",
+          "values": [
+            "Repository storage: Synchronously replicated block storage across three zones"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 5,
+          "pros": [
+            "Synchronous zone replication protects persisted data."
+          ],
+          "cons": [
+            "Synchronous writes and recovery coordination add latency and operations work."
+          ],
+          "reason": "This option favors a direct replicated volume model and is retained as a distinct durability trade-off."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Serve standard Git traffic and recover from a server failure",
+      "drivers": [
+        "R1",
+        "Q2",
+        "Q3",
+        "C2"
+      ],
+      "context": "The service must use standard Git protocol and clients, continue after a server failure within one minute, and serve CI quickly in four regions. Stateless regional gateways offer replaceable serving capacity; regional read replicas improve locality but depend on leader and replica coordination.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Commit-aware stateless gateways",
+          "values": [
+            "Serving topology: Stateless Git protocol gateways across regions with commit-aware caches"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 4,
+          "pros": [
+            "Regional stateless endpoints support standard Git traffic and automated failover.",
+            "Commit-aware caches can serve recent refs near CI."
+          ],
+          "cons": [
+            "Cache management adds coordination, and latency targets need load evidence."
+          ],
+          "reason": "This pairs regional serving with pre-success invalidation for freshness."
+        },
+        {
+          "id": "O2",
+          "name": "Stateless gateways with a synchronous writer",
+          "values": [
+            "Serving topology: Stateless Git protocol gateways across regions"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 5,
+          "pros": [
+            "Regional gateways distribute Git reads and remain replaceable."
+          ],
+          "cons": [
+            "The writer remains a common dependency and can constrain throughput."
+          ],
+          "reason": "This keeps Git serving stateless while retaining a synchronous central writer."
+        },
+        {
+          "id": "O3",
+          "name": "Regional read replicas with push leader",
+          "values": [
+            "Serving topology: Regional read replicas and a designated push leader"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 6,
+          "pros": [
+            "Local replicas can serve regional fetches."
+          ],
+          "cons": [
+            "Replica lag, leader failover, and barriers need operational handling."
+          ],
+          "reason": "This prioritizes local reads while using leader coordination to preserve commit order."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Make pushes visible and keep large repositories usable",
+      "drivers": [
+        "R2",
+        "Q1",
+        "Q3",
+        "Q4",
+        "C2"
+      ],
+      "context": "The largest repository is about 200 GB, so engineers need selective access through standard Git clients. A fetch after a successful push must see that push. Quorum commits with invalidation and leader commits with read barriers can preserve visibility, while partial clone reduces initial transfers but deferred object reads may affect latency.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Quorum metadata and cache invalidation with partial clone",
+          "values": [
+            "Consistency: Quorum-committed push metadata with cache invalidation before success",
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 4,
+          "pros": [
+            "Pre-success invalidation and quorum commit make pushed refs authoritative.",
+            "Partial clone avoids downloading unneeded blobs with standard Git."
+          ],
+          "cons": [
+            "Quorum coordination and invalidation can add push latency; deferred blobs can affect fetch time."
+          ],
+          "reason": "This directly addresses post-push visibility and large-repository access."
+        },
+        {
+          "id": "O2",
+          "name": "Synchronous single-writer metadata with partial clone",
+          "values": [
+            "Consistency: Single-writer repository metadata with synchronous replication",
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 5,
+          "pros": [
+            "Synchronous single-writer ordering gives a clear read-after-write path.",
+            "Partial clone limits initial transfer."
+          ],
+          "cons": [
+            "Synchronous writes can add latency and the writer can bottleneck."
+          ],
+          "reason": "This trades write latency for straightforward metadata ordering."
+        },
+        {
+          "id": "O3",
+          "name": "Fenced leader and read barriers with partial clone",
+          "values": [
+            "Consistency: Leader-committed metadata with fencing and read barriers",
+            "Large repository access: Standard Git partial clone with blob filtering"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 6,
+          "pros": [
+            "Fencing and barriers keep reads ordered behind committed writes.",
+            "Partial clone limits initial transfer."
+          ],
+          "cons": [
+            "Leader coordination may add latency and complicates failover."
+          ],
+          "reason": "This separates push leadership from regional reads while preserving visibility."
+        },
+        {
+          "id": "O4",
+          "name": "Asynchronous regional propagation",
+          "values": [
+            "Consistency: Asynchronous metadata propagation between regions"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Asynchronous replication can keep regional reads responsive."
+          ],
+          "cons": [
+            "A regional fetch can observe stale refs after a successful push."
+          ],
+          "reason": "It fails the required post-push visibility guarantee."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

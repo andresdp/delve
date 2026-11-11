@@ -1,0 +1,718 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "fraud-explain",
+  "mode": "explain",
+  "space": null,
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores about 3,000 card transactions per second, with seasonal peaks of 15,000. Recent card activity informs scores; fraud labels arrive days to weeks later; auditors may ask months later why a score was produced. Five data scientists and two ML engineers build and run the service without a dedicated ML platform team, while company operations runs data centres and shared infrastructure.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Event ingestion: Kafka topic inside the PCI-certified environment",
+        "Feature computation: Flink per-card streaming aggregates",
+        "Feature state: Redis cluster",
+        "Model family: XGBoost gradient-boosted tree model",
+        "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling",
+        "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging",
+        "Score explanation: return the three features that pushed the score up most",
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+        "Retraining schedule and data: nightly Airflow run on the last 90 days of labelled transactions",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry",
+        "Model release: three days in shadow, risk-team review, manual promotion in MLflow and load at next service restart",
+        "Monitoring: Grafana score and fallback dashboards with alert on drift from last month"
+      ],
+      "description": "The implemented service streams transactions into per-card features, scores synchronously, records provenance, and retrains and promotes models through a monitored workflow.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Feature computation: Flink per-card streaming aggregates",
+        "Feature state: Redis cluster",
+        "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling"
+      ],
+      "description": "Streaming aggregates held in Redis provide recent card activity to a horizontally scaled scoring service.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging"
+      ],
+      "description": "The switch waits briefly for a score and continues authorization using the existing rules when scoring fails or times out.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+      ],
+      "description": "The score record and model-run metadata preserve score inputs, model identity, and training provenance for later investigation.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Retraining schedule and data: nightly Airflow run on the last 90 days of labelled transactions",
+        "Model release: three days in shadow, risk-team review, manual promotion in MLflow and load at next service restart"
+      ],
+      "description": "A nightly labelled-data pipeline produces candidates that are compared in shadow mode and promoted after risk review.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 6 months",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+      ],
+      "description": "This contrast retains the score records for less than the maximum audit lookback.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Model release: one day in shadow, risk-team review, manual promotion in MLflow and load at next service restart"
+      ],
+      "description": "This release alternative compares the candidate for a day, leaving time for promotion within the 48-hour adaptation window.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Call and failover: synchronous call with 25 ms timeout, authorization fails when scoring fails"
+      ],
+      "description": "This contrast makes successful scoring a prerequisite for authorization.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "Event ingestion: Kafka topic inside the PCI-certified environment",
+        "Feature computation: Flink per-card streaming aggregates",
+        "Feature state: Redis cluster",
+        "Model family: XGBoost gradient-boosted tree model",
+        "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling",
+        "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging",
+        "Score explanation: return the three features that pushed the score up most",
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+        "Retraining schedule and data: nightly Airflow run on the last 90 days of labelled transactions",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry",
+        "Model release: three days in shadow, risk-team review, manual promotion in MLflow and load at next service restart",
+        "Monitoring: Grafana score and fallback dashboards with alert on drift from last month"
+      ],
+      "hypothesis": "The full implemented design addresses the transaction path, resilience, provenance, adaptation, constraints, and operations together.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "misses",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "The design has a plausible low-latency path, recent streaming features, an authorization fallback, and records linking scores to model inputs. Internal systems satisfy the PCI boundary, and the existing operations stack plus managed workflow components fit the team's stated setting, though the solution gives no staffing evidence. The 25 ms timeout is not proof of a 30 ms p99 at peak. The score table meets the 13-month lookback, but retention of MLflow's training snapshots is unstated, so answering Q3 completely cannot be confirmed. Three days of shadow comparison exceeds Q4's 48-hour target.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Feature computation: Flink per-card streaming aggregates",
+        "Feature state: Redis cluster",
+        "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling"
+      ],
+      "hypothesis": "R1 and Q1 explain continuously maintained recent aggregates and a service scaled for peak synchronous scoring.",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "partly",
+        "C1": "meets"
+      },
+      "observation": "Streaming per-card hour/day/week features avoid recomputing history for each transaction, supporting R1 and latency. The stack is entirely inside the PCI environment. Replica count and CPU autoscaling are plausible capacity measures, but no load results establish the p99 target.",
+      "verdict": "partial",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging"
+      ],
+      "hypothesis": "Q2 explains the fail-open authorization path; R1 and Q1 explain synchronous scoring before authorization with a bounded wait.",
+      "assessment": {
+        "Q2": "meets",
+        "R1": "meets",
+        "Q1": "partly"
+      },
+      "observation": "The switch proceeds with its rule engine after a timeout or service failure, so scoring failure does not block authorization. A 25 ms timeout is compatible with the 30 ms ceiling, but does not itself establish p99 latency. Fallback behavior for a failed data source is not described separately.",
+      "verdict": "grounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+      ],
+      "hypothesis": "R3 and Q3 explain retaining each score's version and inputs alongside the model's training snapshot and artifact; C1 explains keeping records on premises.",
+      "assessment": {
+        "R3": "meets",
+        "Q3": "partly",
+        "C1": "meets"
+      },
+      "observation": "The append-only score table directly supports identifying model version and inputs and covers the 13-month score lookback. MLflow records the training snapshot, but its retention period and retrieval process are unspecified, leaving the full audit response within one day uncertain. Both stores remain inside the PCI boundary.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Retraining schedule and data: nightly Airflow run on the last 90 days of labelled transactions",
+        "Model release: three days in shadow, risk-team review, manual promotion in MLflow and load at next service restart"
+      ],
+      "hypothesis": "R2 and Q4 explain nightly retraining on confirmed labels and comparison of a candidate against the current model before promotion; C2 favors a workflow using familiar shared infrastructure.",
+      "assessment": {
+        "R2": "meets",
+        "Q4": "misses",
+        "C2": "partly"
+      },
+      "observation": "Nightly retraining incorporates new confirmed cases. Shadow comparison and human review provide a quality gate, but the specified three-day comparison alone exceeds the 48-hour production target. Airflow and MLflow avoid requiring a bespoke platform, though operational effort is not quantified.",
+      "verdict": "partial",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 6 months",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+      ],
+      "hypothesis": "Does Q3 force keeping per-score records for at least 13 months? A shorter retention period should fail the full lookback requirement.",
+      "assessment": {
+        "Q3": "misses",
+        "R3": "partly"
+      },
+      "observation": "Six months of score records cannot answer an audit about a score from 13 months ago, so the 13-month retention choice is forced by Q3. The shorter table may still support some recent R3 queries, but it misses the stated maximum lookback.",
+      "verdict": "ungrounded",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "contrast",
+      "parent": 5,
+      "values": [
+        "Model release: one day in shadow, risk-team review, manual promotion in MLflow and load at next service restart"
+      ],
+      "hypothesis": "Does Q4 require a comparison shorter than the solution's three days? A one-day comparison preserves a recent-transaction gate while allowing a 48-hour release window.",
+      "assessment": {
+        "Q4": "meets"
+      },
+      "observation": "A one-day shadow comparison can leave time for review and promotion inside 48 hours, so the three-day duration is not forced; it conflicts with Q4 as written. Exact operational timing would still depend on prompt review and restart.",
+      "verdict": "grounded",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "move": "contrast",
+      "parent": 3,
+      "values": [
+        "Call and failover: synchronous call with 25 ms timeout, authorization fails when scoring fails"
+      ],
+      "hypothesis": "Does Q2 force continuing authorization when scoring fails? Making scoring failure block authorization should violate the requirement.",
+      "assessment": {
+        "Q2": "misses"
+      },
+      "observation": "Failing authorization when scoring fails violates the explicit no-authorization-failure condition. The fallback behavior is forced by Q2, while use of this particular existing rule engine is a free implementation choice among safe fallback mechanisms.",
+      "verdict": "ungrounded",
+      "point": "P8"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Recent features and synchronous scoring",
+      "step": 2,
+      "drivers": [
+        "R1",
+        "Q1",
+        "C1"
+      ],
+      "values": [
+        "Feature computation: Flink per-card streaming aggregates",
+        "Feature state: Redis cluster",
+        "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling"
+      ],
+      "reason": "Fresh per-card aggregates let the service use recent activity on the transaction path, and internal deployment respects the PCI boundary. The exact products and peak latency remain implementation choices and unverified performance claims."
+    },
+    {
+      "id": "G2",
+      "name": "Authorization continues through scoring failures",
+      "step": 3,
+      "drivers": [
+        "Q2",
+        "R1"
+      ],
+      "values": [
+        "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging"
+      ],
+      "reason": "A bounded scoring call fits pre-authorization scoring, and fallback preserves authorization when scoring is unavailable. Q2 forces a fail-safe path, while the particular rules and timeout are choices."
+    },
+    {
+      "id": "G3",
+      "name": "Score and training provenance",
+      "step": 4,
+      "drivers": [
+        "R3",
+        "Q3",
+        "C1"
+      ],
+      "values": [
+        "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+        "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+      ],
+      "reason": "The table supports historical score reconstruction and the experiment record ties model artifacts to training data. Q3 forces 13-month score retention, but the unspecified training-snapshot retention leaves complete auditability partly supported."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Fraud scoring as built",
+      "summary": "A streaming feature pipeline feeds a synchronous, horizontally scaled XGBoost service. It falls back to rules on failure, retains score inputs and model identity, and uses nightly training with shadow review and manual promotion.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "Event ingestion",
+          "value_id": "Event ingestion: Kafka topic inside the PCI-certified environment",
+          "drivers": [
+            "R1",
+            "C1"
+          ],
+          "forced": false,
+          "reason": "A transaction event stream inside the PCI boundary supports the workload, but these requirements do not require Kafka specifically.",
+          "solution_quote": "The payments switch publishes every card transaction to a Kafka topic inside the PCI-certified environment."
+        },
+        {
+          "dimension_id": "Feature computation",
+          "value_id": "Feature computation: Flink per-card streaming aggregates",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "Continuously updated recent activity serves the transaction path. Flink is one suitable way to compute it, not a uniquely required engine.",
+          "solution_quote": "Flink jobs consume the topic and keep per-card aggregates (spend and counts over the last hour, day and week, and the number of distinct merchants) up to date in a Redis cluster."
+        },
+        {
+          "dimension_id": "Feature state",
+          "value_id": "Feature state: Redis cluster",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "Fast lookup of recent aggregates helps scoring, but Redis is an implementation choice.",
+          "solution_quote": "Flink jobs consume the topic and keep per-card aggregates (spend and counts over the last hour, day and week, and the number of distinct merchants) up to date in a Redis cluster."
+        },
+        {
+          "dimension_id": "Model family",
+          "value_id": "Model family: XGBoost gradient-boosted tree model",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "forced": false,
+          "reason": "The requirements need a fraud score and updateable model, but do not select a model family.",
+          "solution_quote": "The model is a gradient-boosted tree model (XGBoost)."
+        },
+        {
+          "dimension_id": "Serving runtime",
+          "value_id": "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C1",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "An internally hosted, scalable service supports the load and data boundary. The language, container, replica count, and autoscaling policy are not proven necessary by the requirements.",
+          "solution_quote": "It is packaged in a container with a small Python REST service and runs on the company's Kubernetes cluster, with six replicas and autoscaling on CPU."
+        },
+        {
+          "dimension_id": "Call and failover",
+          "value_id": "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2"
+          ],
+          "forced": null,
+          "reason": "Synchronous scoring and a bounded wait fit the authorization path; Q2 forces continuing authorization on scoring failure. The 25 ms timeout and specific existing rule engine were not separately contrasted.",
+          "solution_quote": "The authorization switch calls the service synchronously with a 25 ms timeout. If the call times out or fails, the switch uses the existing rule engine for that transaction and logs that no score was used."
+        },
+        {
+          "dimension_id": "Score explanation",
+          "value_id": "Score explanation: return the three features that pushed the score up most",
+          "drivers": [],
+          "forced": false,
+          "reason": "No stated requirement asks for cardholder-facing feature explanations, so this is a discretionary addition for the dispute team.",
+          "solution_quote": "The service returns, with every score, the three features that pushed the score up the most, which the dispute team uses to explain declines to cardholders."
+        },
+        {
+          "dimension_id": "Score audit record",
+          "value_id": "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+          "drivers": [
+            "R3",
+            "Q3",
+            "C1"
+          ],
+          "forced": true,
+          "reason": "R3 requires model identity and input values for past scores; Q3's maximum lookback forces at least 13 months of score records, and C1 requires internal storage.",
+          "solution_quote": "Every score is written, with the model version and all input values, to an append-only table in the company's on-premises object store, kept for 13 months."
+        },
+        {
+          "dimension_id": "Retraining schedule and data",
+          "value_id": "Retraining schedule and data: nightly Airflow run on the last 90 days of labelled transactions",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "R2 requires incorporating new confirmed fraud cases, and nightly runs do that. The particular cadence, 90-day window, and Airflow are implementation choices.",
+          "solution_quote": "An Airflow pipeline retrains the model every night on the last 90 days of labelled transactions."
+        },
+        {
+          "dimension_id": "Experiment tracking and registry",
+          "value_id": "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry",
+          "drivers": [
+            "R2",
+            "Q3",
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "Tracking the model artifact and training snapshot supports updates and audits; MLflow is not uniquely required. Its snapshot retention period is not stated.",
+          "solution_quote": "MLflow records the parameters, the metrics, the training data snapshot and the model artifact of every run, and holds the model registry."
+        },
+        {
+          "dimension_id": "Model release",
+          "value_id": "Model release: three days in shadow, risk-team review, manual promotion in MLflow and load at next service restart",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "Comparison before promotion serves the review intent, but three days contradicts the 48-hour limit. The risk review, manual promotion, and restart loading method are choices.",
+          "solution_quote": "A new model first runs in shadow mode next to the production model for three days; the risk team reviews the comparison and promotes it by hand in MLflow. The scoring service loads the promoted model at its next restart."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Grafana score and fallback dashboards with alert on drift from last month",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "Monitoring can help the team notice change and operate the service, but no requirement mandates Grafana or this particular drift alert.",
+          "solution_quote": "Grafana dashboards show the score distribution and the share of rule-engine fallbacks, and alert when the score distribution drifts from last month's."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Maintain and serve recent card activity",
+      "drivers": [
+        "R1",
+        "Q1",
+        "C1"
+      ],
+      "context": "Each transaction needs recent card activity before authorization, and the path must work at seasonal peak while card data stays inside the PCI environment.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Kafka, Flink, Redis, and Kubernetes service",
+          "values": [
+            "Event ingestion: Kafka topic inside the PCI-certified environment",
+            "Feature computation: Flink per-card streaming aggregates",
+            "Feature state: Redis cluster",
+            "Model family: XGBoost gradient-boosted tree model",
+            "Serving runtime: containerized Python REST service on Kubernetes with six replicas and CPU autoscaling"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "pros": [
+            "Maintains recent per-card features for lookup on the scoring path.",
+            "Runs within the PCI environment and has replicas with CPU autoscaling."
+          ],
+          "cons": [
+            "The specified implementation has no benchmark evidence for the 30 ms p99 at 15,000 transactions per second.",
+            "The requirements do not uniquely require these technologies or the XGBoost model."
+          ],
+          "reason": "The architecture supports recent-activity scoring and internal processing, but the specific technologies are freely selected and peak latency remains unverified."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Keep authorization available when scoring fails",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2"
+      ],
+      "context": "Scoring must happen before authorization, but its failure must not prevent authorization and the scoring call needs a bounded response window.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Synchronous score with rule fallback",
+          "values": [
+            "Call and failover: synchronous call with 25 ms timeout, rule-engine fallback and fallback logging"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 3,
+          "pros": [
+            "Attempts a score before authorization with a bounded wait.",
+            "Allows authorization to continue with weaker detection when the scoring call fails."
+          ],
+          "cons": [
+            "The precise 25 ms timeout and existing rule engine are not dictated by the requirements.",
+            "Data-source failure handling and peak latency are not fully demonstrated."
+          ],
+          "reason": "Q2 forces a nonblocking authorization fallback. The chosen timeout and rule engine are free implementation details."
+        },
+        {
+          "id": "O2",
+          "name": "Make scoring failure block authorization",
+          "values": [
+            "Call and failover: synchronous call with 25 ms timeout, authorization fails when scoring fails"
+          ],
+          "status": "discarded",
+          "step": 8,
+          "pros": [
+            "Avoids authorizing transactions without a model score."
+          ],
+          "cons": [
+            "Violates Q2's explicit requirement that no authorization fail because of scoring."
+          ],
+          "reason": "This alternative misses Q2, so a fail-safe authorization path is forced."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Retain score evidence and model provenance",
+      "drivers": [
+        "R3",
+        "Q3",
+        "C1"
+      ],
+      "context": "Past score inquiries need the model version and inputs, and the longer audit scenario also needs the model's training data within a one-working-day response and the PCI boundary.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Thirteen-month score log with MLflow provenance",
+          "values": [
+            "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 13 months",
+            "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Records each model version and all input values for the full score lookback.",
+            "Records training snapshots and artifacts, and keeps data inside company systems."
+          ],
+          "cons": [
+            "Retention of MLflow training snapshots and the process for retrieving them within one day are unspecified."
+          ],
+          "reason": "Q3 and R3 force recording the model identity and inputs, with 13-month retention forced by Q3. The unspecified snapshot retention means this choice only partly demonstrates the complete audit response."
+        },
+        {
+          "id": "O2",
+          "name": "Six-month score log",
+          "values": [
+            "Score audit record: append-only on-premises object-store table with model version and all inputs kept for 6 months",
+            "Experiment tracking and registry: MLflow records parameters, metrics, training snapshot and artifact, and holds the model registry"
+          ],
+          "status": "discarded",
+          "step": 6,
+          "pros": [
+            "Uses less storage and still supports some recent score inquiries."
+          ],
+          "cons": [
+            "Cannot answer about scores from 13 months ago."
+          ],
+          "reason": "Six months misses Q3's lookback, so the longer retention is forced."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Retrain and release model candidates",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2"
+      ],
+      "context": "Confirmed fraud labels arrive later, and models need updating and comparison on recent transactions before production. A small team benefits from an established workflow, but candidates must reach production within 48 hours when needed.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Nightly training and three-day shadow review",
+          "values": [
+            "Retraining schedule and data: nightly Airflow run on the last 90 days of labelled transactions",
+            "Model release: three days in shadow, risk-team review, manual promotion in MLflow and load at next service restart"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 5,
+          "pros": [
+            "Uses new labels on a regular schedule.",
+            "Compares a candidate with production and gives the risk team review time."
+          ],
+          "cons": [
+            "Three days in shadow exceeds Q4's 48-hour production window.",
+            "Manual promotion and restart timing add unspecified delay."
+          ],
+          "reason": "Nightly training addresses R2. Shadow comparison supports Q4's review intent but the three-day duration misses its explicit deadline; that duration is a free choice and creates a requirement gap."
+        },
+        {
+          "id": "O2",
+          "name": "Nightly training and one-day shadow review",
+          "values": [
+            "Model release: one day in shadow, risk-team review, manual promotion in MLflow and load at next service restart"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Allows comparison on recent transactions while leaving time for review and promotion inside 48 hours."
+          ],
+          "cons": [
+            "Requires timely risk-team review and prompt model loading."
+          ],
+          "reason": "Unlike the chosen three-day period, a one-day comparison can meet Q4's stated window, subject to timely operations. The three-day choice is therefore not forced."
+        }
+      ]
+    },
+    {
+      "id": "ADR5",
+      "title": "Provide operational explanations and monitoring",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2"
+      ],
+      "context": "The team needs practical signals for service operation and the dispute team wants useful explanations for declines; the stated requirements do not prescribe a monitoring product or explanation format.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Top-feature explanations and Grafana dashboards",
+          "values": [
+            "Score explanation: return the three features that pushed the score up most",
+            "Monitoring: Grafana score and fallback dashboards with alert on drift from last month"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "pros": [
+            "Gives the dispute team concise reasons and operators visibility into score distribution, fallbacks, and drift."
+          ],
+          "cons": [
+            "These details are not required by the stated requirements, and feature contributions alone may not explain every decision fully."
+          ],
+          "reason": "These are discretionary operational and dispute-support choices; no requirement forces their exact form."
+        }
+      ]
+    }
+  ],
+  "uncovered": [],
+  "unaddressed": []
+}

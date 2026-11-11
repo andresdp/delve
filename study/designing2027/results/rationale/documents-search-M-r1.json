@@ -1,0 +1,1488 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives two to eight million scanned forms, e-mails, and PDFs each day, with four times usual volume in storm season. An LLM classifier assigns each to one of 60 claim types for claims handling, fraud investigation, and analytics. Documents contain personal data; the LLM must be the insurer's approved provider in its EU region.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.13",
+        "v:42.3"
+      ],
+      "description": "A privacy- and policy-validated streaming feature pipeline feeds an asynchronously message-driven system whose REST prediction microservice fronts a queue-balanced cluster of online predictors. Elastic scaling adjusts resources to demand, while human oversight reviews deployed-model behavior and intervenes as needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:21.1",
+        "v:31.3",
+        "v:26.2",
+        "v:6.1",
+        "v:42.3"
+      ],
+      "description": "The system batch-ingests and transforms row-level features through privacy- and policy-validated pipelines, then periodically scores them and writes predictions to storage or analytics systems. Scale-to-zero can reduce serving costs between scheduled jobs, while prediction quality is monitored as results and labels become available; this is somewhat in tension with the batch mode because quality assessment is not continuously driven by live predictions.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:21.3",
+        "v:25.3",
+        "v:29.1",
+        "v:31.9",
+        "v:26.6",
+        "v:6.2",
+        "v:42.5"
+      ],
+      "description": "The system routes inputs through both low-latency event processing and durable dense-data pipelines, using horizontally scalable Redis-backed asynchronous services and a REST prediction microservice to support hybrid offline-online serving. Elastic resources accommodate demand, while feature-drift monitoring and integrated governance provide operational adaptation, traceability, preservation, privacy, and compliance.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.8",
+        "v:42.3"
+      ],
+      "description": "The system continuously ingests features, uses asynchronous messaging to distribute work, and exposes predictions through a REST microservice backed by a queue-fronted, elastically scaled serving cluster. Privacy and policy checks govern data pipelines, while performance or feature drift monitoring can trigger retraining.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:21.1",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.1",
+        "v:42.3"
+      ],
+      "description": "The system batch-extracts, transforms, and loads row-level features through privacy- and policy-validated data pipelines, then serves models through REST prediction microservices communicating asynchronously via queues. A queue-fronted, containerized serving cluster elastically scales across servers for online predictions, while real-time prediction-quality monitoring observes behavior when labels are available.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:21.3",
+        "v:25.3",
+        "v:29.1",
+        "v:31.9",
+        "v:26.6",
+        "v:6.13",
+        "v:42.5"
+      ],
+      "description": "The system routes inputs through both low-latency event and durable dense-data pipelines, serving predictions via a horizontally scalable REST microservice backed by asynchronous Redis state and hybrid offline-online computation. Elastic resources support demand changes, while human review guides operation; integrated governance provides traceability, preservation, privacy, cataloging, and policy compliance across the lifecycle.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:21.2",
+        "v:31.6",
+        "v:26.6",
+        "v:6.13",
+        "v:42.3"
+      ],
+      "description": "The system continuously ingests base features, validates them for privacy and policy compliance, and uses elastic compute to periodically generate predictions for later serving. Human reviewers oversee deployed predictions and intervene as needed; however, offline serving may not reflect the most recent streamed features between batch runs.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.8",
+        "v:42.5"
+      ],
+      "description": "The system continuously ingests governed, traceable features and serves predictions through a REST microservice backed by asynchronous messaging and a queue-fronted, distributed online-serving cluster. Resources scale with demand, while performance and feature-drift monitoring can trigger retraining within the governed lifecycle.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:21.1",
+        "v:25.2",
+        "v:29.1",
+        "v:31.9",
+        "v:26.6",
+        "v:6.1",
+        "v:42.5"
+      ],
+      "description": "The system batch-ingests row-level features through ETL, preserves and governs data across its lifecycle, and serves models through REST microservices using asynchronous messaging. Hybrid offline-online predictions combine precomputed results with request-time processing, while elastic resources accommodate demand and continuous prediction-quality monitoring supports operational feedback.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:21.3",
+        "v:25.3",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.2",
+        "v:42.5"
+      ],
+      "description": "The system routes interaction inputs through both low-latency event processing and durable dense-data workflows, then serves models through REST microservices in a queue-fronted, horizontally scalable cluster using Redis for feature or queue storage and asynchronous work exchange. Elastic resources adjust to demand, while feature/input drift monitoring and integrated governance provide lifecycle traceability, preservation, privacy protection, and policy compliance.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.3",
+        "v:26.6",
+        "v:6.13",
+        "v:42.3"
+      ],
+      "description": "The system continuously ingests governed, policy-validated features, uses asynchronous messaging and elastic resources to run scheduled batch scoring, and stores results for analytics or downstream use while exposing model predictions through a REST microservice. Human reviewers oversee deployed predictions and intervene as needed; continuous ingestion and scheduled batch serving may limit prediction freshness compared with real-time scoring.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a streaming, queue-fronted online path and drift-triggered retraining protect the storm-season deadline and model quality?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if batch ingestion and hybrid scoring keep the main data path efficient while elastic serving and continuous quality monitoring preserve responsiveness?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if dual-path ingestion and Redis-backed hybrid serving balance burst handling, freshness, and human operational oversight?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if continuously arriving data feeds scheduled batch predictions to prioritize lower operating cost, with human review for exceptions?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.13",
+        "v:42.3"
+      ],
+      "hypothesis": "Streaming input, queued online prediction, and elastic resources should meet R1 and Q1; asynchronous messaging should help R2 and Q4, while human oversight partly addresses R3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The checked combination is structurally coherent and supports burst scaling. Human oversight is only a rough match for uncertainty routing and correction reuse, and it does not itself surface per-claim-type quality drops. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:21.1",
+        "v:31.3",
+        "v:26.2",
+        "v:6.1",
+        "v:42.3"
+      ],
+      "hypothesis": "Batch extraction and scheduled predictions may lower idle compute for Q3; quality monitoring may support Q2, but batch windows and scale-to-zero may threaten Q1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The point can write batch results for downstream use, but the two-hour deadline depends on batch cadence and capacity. It has no explicit human review path. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:21.3",
+        "v:25.3",
+        "v:29.1",
+        "v:31.9",
+        "v:26.6",
+        "v:6.2",
+        "v:42.5"
+      ],
+      "hypothesis": "Dual-path input and hybrid serving should balance Q1 with fresh predictions; drift monitoring and integrated governance should help Q2 and C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "This balances fresh and precomputed work while exposing input and schema shifts. Drift is a useful signal but not a direct per-claim-type quality measure, and review correction reuse remains unspecified. No source attests the combination.",
+      "rating": "strong",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.8",
+        "v:42.3"
+      ],
+      "hypothesis": "Replace general human oversight with performance- or drift-triggered retraining to improve Q2 and classifier adaptation in R3 while retaining the high-throughput path.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The online queue and elastic scaling remain well aligned with Q1, and a drift-based trigger gives operators a defined response signal. It does not specify who reviews uncertain documents or how corrections become training data. No source attests the combination.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:21.1",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.1",
+        "v:42.3"
+      ],
+      "hypothesis": "Add asynchronous REST serving and queue-fronted elastic online prediction to protect Q1 while retaining batch feature preparation and real-time quality monitoring.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "misses",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The scoring tier no longer waits for the batch preparation cadence and has a better path to the two-hour target. The result delivery contract and human review loop remain absent. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:21.3",
+        "v:25.3",
+        "v:29.1",
+        "v:31.9",
+        "v:26.6",
+        "v:6.13",
+        "v:42.5"
+      ],
+      "hypothesis": "Substitute human oversight for drift monitoring to strengthen R3 while preserving the dual-path serving and governance choices.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The human review fit improves, but changing the monitoring value weakens the direct signal for layout or input shifts. Review corrections still need an explicit learning workflow beyond this space.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:21.2",
+        "v:31.6",
+        "v:26.6",
+        "v:6.13",
+        "v:42.3"
+      ],
+      "hypothesis": "Try continuously ingested data with precomputed offline predictions to reduce per-document work for Q3, while human review catches uncertain outputs.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "misses",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Precomputation may reduce repeated scoring work, but stale results and the lack of an asynchronous consumer interface weaken Q1 and Q4. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.8",
+        "v:42.5"
+      ],
+      "hypothesis": "Upgrade governance to integrated lifecycle controls to strengthen the personal-data handling fit for C1 without changing the high-throughput operational choices.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Integrated governance adds traceability, preservation, privacy practices, and policy checks. It still does not establish an EU boundary, so C1 remains only partly supported by this value. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:21.1",
+        "v:25.2",
+        "v:29.1",
+        "v:31.9",
+        "v:26.6",
+        "v:6.1",
+        "v:42.5"
+      ],
+      "hypothesis": "Use hybrid offline-online scoring and integrated governance to improve freshness and privacy controls while preserving batch feature preparation and real-time quality monitoring.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "misses",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Hybrid scoring reduces the freshness disadvantage of a purely scheduled output, and integrated governance strengthens data handling. It still lacks the human uncertainty-review workflow, and batch preparation's cost benefit is not quantified. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:21.3",
+        "v:25.3",
+        "v:29.1",
+        "v:31.1",
+        "v:26.6",
+        "v:6.2",
+        "v:42.5"
+      ],
+      "hypothesis": "Switch hybrid scoring to the queue-fronted online cluster to prioritize Q1 while retaining dual-path ingestion, drift monitoring, and integrated governance.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The online cluster gives a clearer fit to the two-hour deadline, while feature-drift monitoring retains the form-layout change signal. The change weakens the precomputed cost-efficiency hypothesis and still leaves correction reuse unspecified. No source attests the combination.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:21.2",
+        "v:25.2",
+        "v:29.1",
+        "v:31.3",
+        "v:26.6",
+        "v:6.13",
+        "v:42.3"
+      ],
+      "hypothesis": "Add asynchronous serving and REST access to scheduled batch scoring, improving team decoupling and burst handling while retaining human review and a lower-workload cost hypothesis.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Queues separate scoring work from consumers, but the scheduled prediction cadence still risks the two-hour bound and can leave results stale. Cost remains unproven because LLM inference dominates an unmeasured fraction of the per-document cost.",
+      "rating": "mixed",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Streaming queue with drift-triggered retraining",
+      "summary": "Use continuous ingestion and queue-fronted online prediction with elastic capacity, policy checks, and a drift-triggered retraining response. This is the strongest fit for the storm deadline and quality-change response, while human review remains an implementation gap.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Continuous ingestion supports a fast path into prediction.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Asynchronous queues decouple work and support a scalable serving flow.",
+          "evidence": [
+            {
+              "doc": "s07_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "An API-backed model service gives consumers an integration boundary.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A queue-fronted online cluster is directly aimed at throughput and low latency.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic resources follow seasonal demand, though annual unit cost needs measurement.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.8",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "A drift or performance trigger initiates corrective retraining; review routing and correction ingestion need an additional workflow.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "This trigger addresses degradation but does not specify uncertain-document review or how reviewer corrections enter training."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.5",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Integrated governance contributes privacy and policy controls across the data lifecycle.",
+          "evidence": [
+            {
+              "doc": "s05_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Governance does not itself ensure that storage and processing remain within the EU."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight is relevant to review, but lacks the quality-change trigger selected here.",
+          "evidence": [
+            {
+              "doc": "s24_p05",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The required model-serving interface is selected alongside asynchronous runtime communication."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Batch prepared, hybrid served",
+      "summary": "Prepare features in batch, then combine precomputed and request-time predictions behind asynchronous REST services. This keeps a hybrid freshness path and continuous quality monitoring, but the space does not support a human review workflow in this option.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "ETL-based preparation can batch transformations and may simplify cost control; costs require measurement.",
+          "evidence": [
+            {
+              "doc": "s02_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Asynchronous messages separate prediction from downstream processing.",
+          "evidence": [
+            {
+              "doc": "s07_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "REST exposes prediction through an independent application interface.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.9",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Hybrid serving combines prepared predictions with request-time freshness.",
+          "evidence": [
+            {
+              "doc": "s12_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic scaling can handle varying scoring demand, with cost to be validated.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Continuous prediction-quality monitoring can expose quality loss when labels are available.",
+          "evidence": [
+            {
+              "doc": "s01_p06",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.5",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Lifecycle governance adds privacy and policy processes.",
+          "evidence": [
+            {
+              "doc": "s05_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value supports privacy management but does not specify EU-only residency controls."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "The queue-fronted online cluster offered a stronger explicit throughput fit but omitted precomputed serving.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The REST interface settles the prerequisite for asynchronous runtime communication."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Dual-path hybrid with drift monitoring",
+      "summary": "Route events through low-latency and durable paths, use Redis-backed asynchronous serving with precomputed and request-time predictions, and monitor feature drift. This balances freshness and diagnosis, but reviewer correction reuse remains open.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.3",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Dual-path ingestion retains a low-latency path alongside durable data processing.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.3",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Redis-backed asynchronous serving supports independent scaling and queued work.",
+          "evidence": [
+            {
+              "doc": "s02_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "The REST service provides a consumer-facing prediction interface.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Queue-fronted online scoring prioritizes the storm-season deadline.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic capacity tracks variable workload demand.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Monitoring inputs, features, and schemas is relevant to the form-layout change scenario.",
+          "evidence": [
+            {
+              "doc": "s04_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.5",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Integrated governance supplies lifecycle privacy and policy practices.",
+          "evidence": [
+            {
+              "doc": "s05_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The value does not establish a technical EU-only processing boundary."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight better signals review but loses the direct schema and drift monitoring choice.",
+          "evidence": [
+            {
+              "doc": "s24_p05",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The required REST model interface is included."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Scheduled scoring with human oversight",
+      "summary": "Use streaming input and scheduled batch scoring with elastic resources, asynchronous consumers, and human oversight. This is the cost-focused path, but it carries a real risk against the two-hour deadline and freshness.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Continuous ingestion avoids waiting for periodic data extraction.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Asynchronous messaging separates prediction flow from consumers.",
+          "evidence": [
+            {
+              "doc": "s07_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "REST offers an integration boundary for prediction consumers.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Scheduled scoring may avoid continuously running inference capacity, but the cadence risks Q1.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic resources support seasonal demand without fixed peak capacity.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Human oversight supports intervention on predictions, but uncertainty routing and correction training need concrete workflow design.",
+          "evidence": [
+            {
+              "doc": "s24_p08",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "The broad oversight value does not specify confidence thresholds, reviewer queues, or using corrections for retraining."
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Privacy and policy validation is relevant to handling personal data.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Policy validation does not itself prove EU data residency."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.6",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Precomputed offline serving was considered, but scheduled deployment gave a clearer scoring cadence in the refined point.",
+          "evidence": [
+            {
+              "doc": "s19_p13",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The REST interface satisfies the serving-interface prerequisite."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Ingest document features",
+      "drivers": [
+        "Q1",
+        "Q2",
+        "Q3"
+      ],
+      "context": "Storm volume rewards a continuous path and timely schema visibility, while batch preparation may make workload control simpler. Both must process personal data under the EU boundary, which the available governance choices do not fully establish.",
+      "options": [
+        {
+          "id": "A",
+          "name": "Continuous feature ingestion",
+          "values": [
+            "v:21.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Avoids waiting for scheduled extraction before scoring."
+          ],
+          "cons": [
+            "Does not by itself prove the two-hour end-to-end target or cost ceiling."
+          ],
+          "reason": "Chosen where the fast arrival path is central."
+        },
+        {
+          "id": "B",
+          "name": "ETL feature preparation",
+          "values": [
+            "v:21.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Provides a batch transformation path that can support prepared features."
+          ],
+          "cons": [
+            "Preparation cadence can delay fresh scoring."
+          ],
+          "reason": "Retained for the hybrid option where batch preparation is paired with online freshness."
+        },
+        {
+          "id": "C",
+          "name": "Dual-path ingestion",
+          "values": [
+            "v:21.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Pairs low-latency event processing with durable data processing."
+          ],
+          "cons": [
+            "Runs more than one ingestion path and requires coordination."
+          ],
+          "reason": "Chosen when both immediate handling and durable processing matter."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Expose and distribute predictions",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q1",
+        "Q4"
+      ],
+      "context": "The classifier must return a claim type and confidence at high volume. Three consumers need results without tight coordination, but the space describes model interfaces and asynchronous serving rather than a complete multi-subscriber result contract.",
+      "options": [
+        {
+          "id": "A",
+          "name": "REST service with asynchronous messages",
+          "values": [
+            "v:25.2",
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Separates downstream work from the prediction request path.",
+            "Provides an API boundary for consuming systems."
+          ],
+          "cons": [
+            "Does not define durable fan-out, schemas, or consumer-specific subscriptions."
+          ],
+          "reason": "Provides a practical integration boundary and queue decoupling across these alternatives."
+        },
+        {
+          "id": "B",
+          "name": "Redis-backed asynchronous REST service",
+          "values": [
+            "v:25.3",
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Combines independently scalable services, shared queue or feature storage, and asynchronous processing."
+          ],
+          "cons": [
+            "Adds stateful Redis operations and still leaves multi-team result contracts unspecified."
+          ],
+          "reason": "Fits the hybrid design's need to scale asynchronous work."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Choose scoring mode and capacity",
+      "drivers": [
+        "Q1",
+        "Q3"
+      ],
+      "context": "The daily load rises fourfold in storm season. Online and hybrid modes support freshness and a short arrival-to-result deadline, while scheduled scoring may lower idle capacity. The per-document LLM cost and measured throughput are not in the design space, so neither numerical target is proven.",
+      "options": [
+        {
+          "id": "A",
+          "name": "Queue-fronted online cluster",
+          "values": [
+            "v:31.1",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1"
+          ],
+          "step": 8,
+          "pros": [
+            "Explicitly targets throughput and low latency, with elastic resources for bursts."
+          ],
+          "cons": [
+            "Continuous online capacity may cost more; the unit-cost threshold needs measurement."
+          ],
+          "reason": "Best fit for the strict two-hour storm target."
+        },
+        {
+          "id": "B",
+          "name": "Hybrid scoring with elastic capacity",
+          "values": [
+            "v:31.9",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Combines precomputed work and request-time freshness while resources follow demand."
+          ],
+          "cons": [
+            "More complex than a single scoring path and cost remains unmeasured."
+          ],
+          "reason": "Balances freshness with batch efficiency."
+        },
+        {
+          "id": "C",
+          "name": "Scheduled scoring with elastic capacity",
+          "values": [
+            "v:31.3",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "May limit continuously active scoring capacity."
+          ],
+          "cons": [
+            "A scheduled cadence can violate the two-hour arrival bound and produce stale output."
+          ],
+          "reason": "Kept as a cost-oriented alternative despite its throughput risk."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Observe degradation and involve reviewers",
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "context": "Operators need visibility into per-type quality changes, while uncertain documents need human review whose corrections improve the classifier. These needs pull in different directions in the space because each checked point can choose only one value from this low-exclusivity dimension.",
+      "options": [
+        {
+          "id": "A",
+          "name": "Drift-triggered retraining",
+          "values": [
+            "v:6.8"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Connects detected performance or drift changes to retraining."
+          ],
+          "cons": [
+            "Does not specify reviewer routing or correction ingestion."
+          ],
+          "reason": "Prioritizes a rapid response to model degradation."
+        },
+        {
+          "id": "B",
+          "name": "Real-time prediction-quality monitoring",
+          "values": [
+            "v:6.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Measures prediction quality as labels become available."
+          ],
+          "cons": [
+            "May wait for labels and is not a human review workflow."
+          ],
+          "reason": "Prioritizes direct quality visibility."
+        },
+        {
+          "id": "C",
+          "name": "Input and feature-drift monitoring",
+          "values": [
+            "v:6.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Can flag schema and input changes such as a revised form layout."
+          ],
+          "cons": [
+            "Drift is a proxy and does not guarantee a measured per-type quality drop."
+          ],
+          "reason": "Targets the example form-layout change."
+        },
+        {
+          "id": "D",
+          "name": "Human oversight",
+          "values": [
+            "v:6.13"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Provides a human intervention point for deployed predictions."
+          ],
+          "cons": [
+            "Does not define confidence thresholds, a review queue, or retraining from corrections."
+          ],
+          "reason": "Prioritizes human intervention for the cost-focused batch path."
+        }
+      ]
+    },
+    {
+      "id": "ADR5",
+      "title": "Govern document data",
+      "drivers": [
+        "C1"
+      ],
+      "context": "Sensitive documents require privacy and policy controls. The design space includes governance practices but has no value that guarantees EU-only storage, network paths, or processing; geographic controls must be imposed separately.",
+      "options": [
+        {
+          "id": "A",
+          "name": "Integrated lifecycle governance",
+          "values": [
+            "v:42.5"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Combines traceability, preservation, privacy protection, and policy checks."
+          ],
+          "cons": [
+            "Does not itself enforce EU residency."
+          ],
+          "reason": "Provides the broadest in-space data governance fit."
+        },
+        {
+          "id": "B",
+          "name": "Privacy- and policy-validated data",
+          "values": [
+            "v:42.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Directly addresses sensitive data preparation and policy validation."
+          ],
+          "cons": [
+            "Does not define the full lifecycle or guarantee EU residency."
+          ],
+          "reason": "Keeps the cost-focused option's data controls concise."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": null,
+      "note": "No dimension selects or constrains the LLM provider or its region. The approved provider and its EU region must be explicit deployment invariants."
+    }
+  ]
+}

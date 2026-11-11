@@ -1,0 +1,1530 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Inference: One approved EU LLM call per document",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "description": "Each document is processed by one approved EU LLM call through a durable asynchronous queue, with autoscaling workers publishing versioned results to a shared event stream. Low-confidence cases go to reviewers, whose corrections inform periodic training, while a daily dashboard tracks quality and drift by claim type. Trade-off: This provides scalable, durable, auditable processing and a feedback loop, but asynchronous handling and periodic training delay improvements, daily monitoring may miss rapid changes, and the single approved model limits inference flexibility.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Inference: Low-cost first-stage classifier with approved EU LLM fallback",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "description": "The system applies a low-cost classifier first, using an approved EU LLM fallback for cases that need it, while durable queues and autoscaling workers process documents asynchronously. Versioned results are published to a shared event stream; uncertain cases go to reviewers, whose corrections support periodic training, while a daily dashboard tracks quality and drift by claim type. Trade-off: This gains cost control, scalable processing, traceability, and feedback-driven improvement, but gives up immediacy through asynchronous processing, periodic retraining, and daily rather than real-time monitoring. Reviewer capacity and fallback use can also increase operating costs.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Inference: Approved EU LLM provider batch inference",
+        "Scheduling: Scheduled large microbatches with deadline-aware prioritization",
+        "Delivery: Write versioned results to governed object storage for team consumption",
+        "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "description": "An approved EU LLM provider processes documents in scheduled, large microbatches, prioritizing work against deadlines. Versioned outputs are written to governed object storage, while sampled or uncertain cases go to reviewers whose corrections inform periodic training; daily dashboards track quality and drift by claim type. Trade-off: This gains governed, reproducible team consumption, scalable throughput, and targeted quality improvement. It gives up immediate inference responsiveness and incurs provider, scheduling, review, and periodic-feedback overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Inference: Parallel multi-call LLM consensus per document",
+        "Scheduling: Synchronous request fan-out to inference calls",
+        "Delivery: Direct APIs return results to each consuming team",
+        "Human feedback: All disagreements and low-confidence cases go to reviewers",
+        "Monitoring: Aggregate quality dashboard across all claim types"
+      ],
+      "description": "The system sends each document to multiple LLM calls in parallel, waits synchronously for their responses, and combines their outputs into a consensus. It returns results directly through APIs to consuming teams, routes disagreements and low-confidence cases to human reviewers, and reports aggregate quality across claim types. Trade-off: This improves confidence, visibility, and targeted review, but increases inference cost and synchronous latency while potentially overwhelming reviewers with all flagged cases.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Inference: One approved EU LLM call per document",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "description": "Each document is submitted to a durable asynchronous queue, processed by autoscaling workers using one approved EU LLM call, and emitted as a versioned result on a shared event stream. Confidence thresholds route uncertain classifications to reviewers, whose corrections inform periodic retraining, while a per-claim-type quality dashboard supports daily detection objectives. Trade-off: This gains scalable, auditable processing with human oversight and targeted quality monitoring, but gives up immediate learning from corrections and may incur reviewer workload and event-stream integration complexity. The single-call constraint may also limit classification depth or robustness.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "description": "The system queues documents for autoscaling workers, which try the low-cost approved EU LLM first and escalate uncertain or failed cases to the stronger model. It publishes versioned classifications to a shared event stream, routes low-confidence cases to reviewers, uses corrections for periodic training, and tracks daily quality and drift by claim type. Trade-off: This improves cost control, scalability, traceability, and ongoing quality monitoring, but adds queueing and fallback latency, operational complexity, reviewer workload, and delayed benefit from periodic rather than immediate retraining.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Inference: Approved EU LLM provider batch inference",
+        "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity",
+        "Delivery: Write versioned results to governed object storage for team consumption",
+        "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed periodic training",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "description": "The system runs document jobs through an approved EU LLM provider in deadline-prioritized microbatches, using reserved capacity during storm seasons. It writes versioned outputs to governed object storage, routes sampled or uncertain cases to reviewers, feeds corrections into periodic training, and monitors per-claim-type quality against a daily detection objective. Trade-off: This gains scalable, governed delivery with targeted human improvement and claim-specific oversight. It gives up low-latency results, incurs reserved-capacity and review costs, and may detect quality issues or incorporate corrections less quickly than continuous processes.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Inference: Approved EU LLM specialist prompt selected by claim-type router",
+        "Scheduling: Independent durable queue and autoscaling workers per claim type",
+        "Delivery: Versioned per-type result topics with shared event contracts",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections update versioned specialist prompts",
+        "Monitoring: Per-claim-type quality alerts and reviewer-correction tracking"
+      ],
+      "description": "A claim-type router selects an approved EU LLM specialist prompt, then submits each claim to its independent durable queue and autoscaling workers. Results are published to versioned per-type topics under shared contracts, while confidence thresholds route uncertain cases to reviewers whose corrections update prompts and feed claim-type monitoring. Trade-off: This gains scalable, type-specific processing, traceable outputs, and targeted quality improvement, but requires operating many queues, worker pools, topics, prompt versions, and review workflows. It also risks uneven quality or added latency across claim types, though monitoring exposes those differences.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Inference: One approved EU LLM call per document",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed daily prompt and model release review",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "description": "Documents are placed on a durable asynchronous queue, where autoscaling workers make one approved EU LLM call per document. Versioned classifications are published to a shared event stream; low-confidence claims go to reviewers, whose corrections inform daily prompt and model-release reviews, while per-claim-type dashboards support daily detection objectives. Trade-off: This provides scalable, auditable delivery and a targeted quality-improvement loop, but introduces queueing and review latency, reviewer workload, and ongoing monitoring and release-management costs. It also limits each document to one approved model call, rather than combining multiple calls or models.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Near-real-time per-claim-type quality alerts and fallback-rate dashboard"
+      ],
+      "description": "The system queues documents for autoscaling workers, which try the low-cost approved EU LLM first and send failures or difficult cases to the stronger fallback. It publishes versioned results to a shared event stream, routes low-confidence claims to reviewers, uses corrections in periodic training, and monitors claim-type quality and fallback rates. Trade-off: This reduces inference cost and supports scalable, observable processing, but adds queueing and fallback latency, reviewer workload, training operations, and the complexity of coordinating versioned outputs.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "Inference: Approved EU LLM provider batch inference",
+        "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed daily prompt and model release review",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "description": "Approved EU LLM batch inference processes documents in deadline-prioritized microbatches, using reserved storm-season capacity, and publishes versioned results to a shared event stream. The system routes sampled or uncertain cases to reviewers, incorporates corrections into daily prompt and model-release reviews, and tracks per-claim-type quality against a daily detection objective. Trade-off: This gains predictable peak-period throughput, traceable result versions, and a structured quality-improvement loop, but gives up immediate processing and incurs reviewer and monitoring overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "Inference: Approved EU LLM specialist prompt selected by claim-type router",
+        "Scheduling: Independent durable queue and autoscaling workers per claim type",
+        "Delivery: Versioned per-type result topics with shared event contracts",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections update versioned specialist prompts",
+        "Monitoring: Near-real-time per-claim-type quality alerts and reviewer-correction tracking"
+      ],
+      "description": "The router selects an approved EU LLM specialist prompt for each claim type and sends work to that type’s durable queue, whose workers autoscale independently. Results are published to versioned per-type topics under shared contracts; low-confidence cases go to reviewers, whose corrections update versioned prompts while monitoring alerts on quality and tracks corrections. Trade-off: This gains specialization, scalable isolation, controlled evolution, and type-specific visibility, but gives up architectural simplicity through multiple queues, topics, prompts, and reviewer workflows.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if each document received one approved EU LLM call and a durable event-driven pipeline handled scale and team delivery?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a low-cost approved EU LLM handled easy documents and a stronger approved EU LLM handled difficult ones?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if provider batch inference and deadline-aware microbatches handled peak volume with governed outputs?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if parallel LLM consensus maximized confidence for every document?",
+      "status": "dropped",
+      "dropped_because": "Multiple synchronous model calls per document multiply inference demand and response latency, so the design conflicts with the storm-season two-hour deadline and annual per-document cost target."
+    },
+    {
+      "id": "E",
+      "idea": "What if each claim type had a specialist prompt, isolated queue, and targeted quality loop?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: One approved EU LLM call per document",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "hypothesis": "One EU-provider call per document plus durable autoscaling queues should meet the classification and delivery needs at scale, while the event stream decouples teams; measured provider capacity and cost remain unknown.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: One approved EU LLM call per document"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "The approved single-call path satisfies the required LLM classification while leaving per-document pricing to be validated against the cost ceiling."
+        },
+        {
+          "values": [
+            "Scheduling: Durable asynchronous queue with autoscaling workers"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Durable buffering supports burst handling and event delivery, while worker and provider capacity still need sizing against the deadline and price targets."
+        }
+      ],
+      "observation": "The architecture covers the functional flow and loose coupling. No provider throughput or pricing figures are available to prove Q1 or Q3, so both remain partly satisfied pending measurement.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Low-cost first-stage classifier with approved EU LLM fallback",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "hypothesis": "A cheap first stage should lower average inference cost and the queue and event stream should support scale and independent consumers; the first stage's model type and quality need validation.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: Low-cost first-stage classifier with approved EU LLM fallback"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "R1",
+            "C2"
+          ],
+          "note": "Cost savings depend on a non-LLM first stage that could classify documents without the required approved LLM, so this option needs correction before it can be a compliant design."
+        }
+      ],
+      "observation": "The early cascade could reduce provider calls but does not ensure every classification uses the approved provider LLM. This gap makes the seed mixed and motivates replacing the first stage with a low-cost approved LLM tier.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Approved EU LLM provider batch inference",
+        "Scheduling: Scheduled large microbatches with deadline-aware prioritization",
+        "Delivery: Write versioned results to governed object storage for team consumption",
+        "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "hypothesis": "Batch inference and deadline-aware microbatches should use provider capacity efficiently, and governed versioned outputs should let teams consume results independently; batch completion times and costs need validation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: Approved EU LLM provider batch inference"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Batch efficiency may lower cost but batch completion can delay results against the two-hour deadline."
+        }
+      ],
+      "observation": "Batch processing fits volume variation and governed team access, but target throughput and price remain empirical provider questions. Per-type daily monitoring is aligned to the detection objective.",
+      "rating": "strong",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 1,
+      "approach": "D",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Parallel multi-call LLM consensus per document",
+        "Scheduling: Synchronous request fan-out to inference calls",
+        "Delivery: Direct APIs return results to each consuming team",
+        "Human feedback: All disagreements and low-confidence cases go to reviewers",
+        "Monitoring: Aggregate quality dashboard across all claim types"
+      ],
+      "hypothesis": "Consensus may improve confidence, but multiple calls per document and synchronous fan-out are likely to raise both storm latency and average cost; aggregate-only monitoring may hide a single-claim-type drop.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "misses",
+        "Q2": "partly",
+        "Q3": "misses",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: Parallel multi-call LLM consensus per document"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "More calls can support a consensus confidence but multiply LLM use and likely exceed the cost ceiling."
+        },
+        {
+          "values": [
+            "Scheduling: Synchronous request fan-out to inference calls"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Waiting for multiple responses increases critical-path latency and makes the two-hour deadline harder to meet."
+        }
+      ],
+      "observation": "The synchronous consensus approach sacrifices the two most constrained targets, and aggregate monitoring is too coarse for per-type quality drops. It is dropped; later approaches must avoid multiplied synchronous calls.",
+      "rating": "weak",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Inference: One approved EU LLM call per document",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "hypothesis": "Keeping the queue and one-call path while adding an explicit daily detection objective should make the form-change quality scenario operationally visible within the required day.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: One approved EU LLM call per document"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "A direct approved-model path keeps classification compliant but the provider rate and token cost still need measurement."
+        }
+      ],
+      "observation": "Explicit per-type alerting aligns the monitoring design with the one-day requirement. Actual detection sensitivity and the two-hour throughput target require operational validation.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Daily per-claim-type quality and drift dashboard"
+      ],
+      "hypothesis": "Using an approved low-cost LLM first and an approved stronger LLM only for uncertain cases should fix provider compliance while keeping expected costs below the one-call baseline.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback"
+          ],
+          "gains": [
+            "Q3",
+            "C2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The cheaper first tier can reduce average cost, while fallback calls add latency and still require measured prices and response capacity."
+        }
+      ],
+      "observation": "Every path now uses the approved EU LLM, removing the compliance gap. Cascade economics depend on the difficult-case rate and both provider tiers' prices; fallback latency also needs load testing.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "Inference: Approved EU LLM provider batch inference",
+        "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity",
+        "Delivery: Write versioned results to governed object storage for team consumption",
+        "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed periodic training",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "hypothesis": "Reserved storm capacity and deadline-aware prioritization should improve the chance of classifying every document within two hours; one-day per-type alerts make quality regressions visible.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Reserved peak capacity supports the deadline but can incur costs outside the storm season."
+        }
+      ],
+      "observation": "This directly addresses seasonality and ties quality monitoring to the daily target. Neither provider batch capacity nor reservation pricing is known, so Q1 and Q3 need validation.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 2,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Inference: Approved EU LLM specialist prompt selected by claim-type router",
+        "Scheduling: Independent durable queue and autoscaling workers per claim type",
+        "Delivery: Versioned per-type result topics with shared event contracts",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections update versioned specialist prompts",
+        "Monitoring: Per-claim-type quality alerts and reviewer-correction tracking"
+      ],
+      "hypothesis": "Specialist prompts and isolated queues should expose type-specific failure and let capacity scale where needed; independent workflows add operating overhead and require guarding against uneven quality.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Scheduling: Independent durable queue and autoscaling workers per claim type"
+          ],
+          "gains": [
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Per-type isolation directs capacity and monitoring, but multiple worker pools and review paths add operating cost."
+        }
+      ],
+      "observation": "Specialization gives the strongest way to isolate layout changes and route corrections to a prompt, at the cost of operational complexity. Actual benefit across 60 claim types remains to be measured.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Inference: One approved EU LLM call per document",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed daily prompt and model release review",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "hypothesis": "Daily review of corrections and controlled prompt/model releases should shorten the improvement loop while preserving a stable, versioned classifier and daily quality visibility.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed daily prompt and model release review"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Daily correction review improves the learning cadence but adds review and release operations whose cost must fit the average target."
+        }
+      ],
+      "observation": "The daily correction review creates a practical human improvement loop without automatic unreviewed model changes. Reviewer volume and cost remain to be measured.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback",
+        "Scheduling: Durable asynchronous queue with autoscaling workers",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+        "Monitoring: Near-real-time per-claim-type quality alerts and fallback-rate dashboard"
+      ],
+      "hypothesis": "Near-real-time per-type alerts and fallback-rate monitoring should detect regressions promptly and reveal whether the low-cost tier is sending too many documents to the expensive fallback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Monitoring: Near-real-time per-claim-type quality alerts and fallback-rate dashboard"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Per-type alerts detect quality shifts faster, while monitoring the cascade adds operational work that must fit the average cost target."
+        }
+      ],
+      "observation": "The extra fallback metric makes the cost hypothesis measurable and faster alerts exceed the one-day detection need. Provider throughput and actual cascade economics remain unproven.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Inference: Approved EU LLM provider batch inference",
+        "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity",
+        "Delivery: Publish versioned results to shared event stream",
+        "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed daily prompt and model release review",
+        "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+      ],
+      "hypothesis": "Replacing storage-based delivery with a shared versioned event stream should let each consumer process results independently while retaining batch throughput and deadline controls.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Delivery: Publish versioned results to shared event stream"
+          ],
+          "gains": [
+            "Q4",
+            "R2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Independent subscriptions and versioned events give consumers room to change processing without coupling their changes to the classifier."
+        }
+      ],
+      "observation": "The event stream strengthens loose coupling without removing the batch path's storm reservation. The provider service levels and reservation prices still determine whether numeric targets are met.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "Inference: Approved EU LLM specialist prompt selected by claim-type router",
+        "Scheduling: Independent durable queue and autoscaling workers per claim type",
+        "Delivery: Versioned per-type result topics with shared event contracts",
+        "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections update versioned specialist prompts",
+        "Monitoring: Near-real-time per-claim-type quality alerts and reviewer-correction tracking"
+      ],
+      "hypothesis": "Near-real-time type-specific alerts and correction tracking should shorten the time to spot layout regressions and identify the prompt that needs improvement.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Monitoring: Near-real-time per-claim-type quality alerts and reviewer-correction tracking"
+          ],
+          "gains": [
+            "Q2",
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Detailed per-type signals accelerate correction, while operating many monitors and workflows adds cost that must be budgeted."
+        }
+      ],
+      "observation": "Specialists connect the example layout-change failure directly to per-type prompts and reviewer corrections. This improves diagnosis but increases the number of independently operated artifacts; numeric throughput and price still require trials.",
+      "rating": "strong",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Single-call event pipeline",
+      "summary": "Use one approved EU LLM call for each document, durable autoscaling queues, versioned event delivery, and a daily correction review. This is the simpler baseline with a clear path to consumer independence.",
+      "approach": "A",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: One approved EU LLM call per document",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "A direct approved-provider call classifies each document while keeping inference straightforward."
+        },
+        {
+          "dimension_id": "Scheduling",
+          "value_id": "Scheduling: Durable asynchronous queue with autoscaling workers",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Durable buffering and autoscaling absorb variable volume; capacity tests must confirm the two-hour goal."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Publish versioned results to shared event stream",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Versioned events give all three teams independent subscriptions."
+        },
+        {
+          "dimension_id": "Human feedback",
+          "value_id": "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed daily prompt and model release review",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Review corrections inform controlled daily improvement."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Per-type alerting directly targets the one-day detection scenario."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Human feedback",
+          "value_id": "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Periodic training gives corrections a slower path into the classifier than daily release review."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Daily per-claim-type quality and drift dashboard",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "The dashboard lacks an explicit alerting objective."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Cost-aware LLM cascade",
+      "summary": "Try a low-cost approved EU LLM first and escalate uncertain cases to a stronger approved LLM. Track per-type quality and fallback rates so the cost and quality assumptions can be measured.",
+      "approach": "B",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback",
+          "drivers": [
+            "R1",
+            "Q3",
+            "C2"
+          ],
+          "reason": "Both tiers use the approved EU provider, with the stronger model reserved for difficult cases to control average inference cost."
+        },
+        {
+          "dimension_id": "Scheduling",
+          "value_id": "Scheduling: Durable asynchronous queue with autoscaling workers",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Queues and autoscaling support variable demand, subject to provider capacity validation."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Publish versioned results to shared event stream",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Versioned events decouple the three consumers."
+        },
+        {
+          "dimension_id": "Human feedback",
+          "value_id": "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Reviewer corrections are retained for classifier improvement."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Near-real-time per-claim-type quality alerts and fallback-rate dashboard",
+          "drivers": [
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Type-level alerts and fallback counts expose regressions and the main cost driver."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Low-cost first-stage classifier with approved EU LLM fallback",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "The first-stage classifier was not specified as an approved LLM, so it could violate the required classifier path."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Daily per-claim-type quality and drift dashboard",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Near-real-time alerting also provides fallback-rate visibility needed to test the cost premise."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "C1",
+      "name": "Deadline-managed provider batches",
+      "summary": "Use the approved provider's EU batch inference with storm-season capacity reservations and deadline-prioritized microbatches. Deliver versioned results through an event stream and review corrections daily.",
+      "approach": "C",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Approved EU LLM provider batch inference",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "The approved provider performs classification in its EU region."
+        },
+        {
+          "dimension_id": "Scheduling",
+          "value_id": "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Storm reservations and deadlines target the peak service window; their cost needs validation."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Publish versioned results to shared event stream",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Event subscriptions provide independent consumption for each team."
+        },
+        {
+          "dimension_id": "Human feedback",
+          "value_id": "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed daily prompt and model release review",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Uncertain and sampled cases create a correction set for controlled daily improvements."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Per-type alerts are tied to the required detection window."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Write versioned results to governed object storage for team consumption",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Governed storage is reproducible, while the event stream gives teams a more direct independent update feed."
+        },
+        {
+          "dimension_id": "Scheduling",
+          "value_id": "Scheduling: Scheduled large microbatches with deadline-aware prioritization",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Explicit storm-season reserved capacity makes the peak-volume plan more concrete."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "E1",
+      "name": "Claim-type specialist pipelines",
+      "summary": "Route documents to approved EU LLM specialist prompts, each with its own durable autoscaling queue and versioned result topic. Feed reviewer corrections into the relevant prompt and monitor each type closely.",
+      "approach": "E",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Approved EU LLM specialist prompt selected by claim-type router",
+          "drivers": [
+            "R1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Claim-type prompts target distinct document layouts while retaining the required approved EU LLM."
+        },
+        {
+          "dimension_id": "Scheduling",
+          "value_id": "Scheduling: Independent durable queue and autoscaling workers per claim type",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "reason": "Per-type scaling isolates volume and performance issues, at the cost of more operations."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Versioned per-type result topics with shared event contracts",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Shared contracts keep team integrations stable while topics carry type-specific results."
+        },
+        {
+          "dimension_id": "Human feedback",
+          "value_id": "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections update versioned specialist prompts",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Review corrections are directed to the prompt for the affected claim type."
+        },
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Near-real-time per-claim-type quality alerts and reviewer-correction tracking",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "reason": "Fine-grained alerts connect regressions and reviewer evidence to a specific specialist."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Monitoring",
+          "value_id": "Monitoring: Per-claim-type quality alerts and reviewer-correction tracking",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Near-real-time alerts sharpen the detection window beyond daily review."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Choose the classification inference path",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q3",
+        "C2"
+      ],
+      "context": "Every document needs a confident claim type from the approved provider's EU LLM. Peak throughput and average cost are strict targets, but provider capacity, token pricing, and fallback rates are not provided, so all numeric claims need measurement.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "One approved LLM call",
+          "values": [
+            "Inference: One approved EU LLM call per document"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Simple per-document path",
+            "Uses the approved EU LLM"
+          ],
+          "cons": [
+            "Provider throughput and price determine whether Q1 and Q3 hold"
+          ],
+          "reason": "A1 favors operational simplicity and direct compliance."
+        },
+        {
+          "id": "O2",
+          "name": "Two-tier approved LLM cascade",
+          "values": [
+            "Inference: Two-tier approved EU LLM cascade, low-cost model first and stronger fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 10,
+          "pros": [
+            "Keeps all inference on approved LLMs",
+            "Potentially lowers average cost for easy documents"
+          ],
+          "cons": [
+            "Fallback frequency affects cost and latency"
+          ],
+          "reason": "B1 explicitly trades cascade complexity for cost control and measures fallback rate."
+        },
+        {
+          "id": "O3",
+          "name": "Provider batch inference",
+          "values": [
+            "Inference: Approved EU LLM provider batch inference"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Fits high-volume workloads and approved EU provider use"
+          ],
+          "cons": [
+            "Batch service limits and completion latency need testing"
+          ],
+          "reason": "C1 pairs the provider's batch path with explicit storm capacity planning."
+        },
+        {
+          "id": "O4",
+          "name": "Claim-type specialist prompts",
+          "values": [
+            "Inference: Approved EU LLM specialist prompt selected by claim-type router"
+          ],
+          "status": "chosen",
+          "in": [
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Tailors classification to each claim type and layout"
+          ],
+          "cons": [
+            "Many prompts require versioning and quality governance"
+          ],
+          "reason": "E1 ties specialization to the 60 claim types and layout-change scenario."
+        },
+        {
+          "id": "O5",
+          "name": "Parallel consensus calls",
+          "values": [
+            "Inference: Parallel multi-call LLM consensus per document"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Multiple opinions can increase confidence"
+          ],
+          "cons": [
+            "Multiplies inference cost and response work"
+          ],
+          "reason": "The approach conflicts with both the peak deadline and average cost target."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Schedule work through peak volume",
+      "drivers": [
+        "Q1",
+        "Q3"
+      ],
+      "context": "Storm season multiplies volume, and each document has a two-hour classification deadline. Buffering and capacity controls help, while queues, reservations, and provider limits affect cost and latency.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Autoscaling asynchronous workers",
+          "values": [
+            "Scheduling: Durable asynchronous queue with autoscaling workers"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 10,
+          "pros": [
+            "Buffers bursts and scales worker count"
+          ],
+          "cons": [
+            "Autoscaling cannot exceed provider capacity"
+          ],
+          "reason": "A1 and B1 use the shared queue as a flexible processing baseline."
+        },
+        {
+          "id": "O2",
+          "name": "Deadline-aware reserved microbatches",
+          "values": [
+            "Scheduling: Deadline-prioritized microbatches with reserved storm-season capacity"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Makes storm capacity and deadline priority explicit"
+          ],
+          "cons": [
+            "Capacity reservations may raise annual cost"
+          ],
+          "reason": "C1 prioritizes the two-hour storm requirement and will validate reservation economics."
+        },
+        {
+          "id": "O3",
+          "name": "Independent per-type queues",
+          "values": [
+            "Scheduling: Independent durable queue and autoscaling workers per claim type"
+          ],
+          "status": "chosen",
+          "in": [
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Isolates backlogs and scales claim types separately"
+          ],
+          "cons": [
+            "Adds fleet and queue management overhead"
+          ],
+          "reason": "E1 favors isolation and targeted capacity for claim-type variation."
+        },
+        {
+          "id": "O4",
+          "name": "Synchronous fan-out",
+          "values": [
+            "Scheduling: Synchronous request fan-out to inference calls"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Returns a result in the request path when calls finish"
+          ],
+          "cons": [
+            "Adds latency and lacks durable burst buffering"
+          ],
+          "reason": "Waiting on multiple calls conflicts with peak throughput and cost."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Decouple delivery to consuming teams",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C1"
+      ],
+      "context": "Claims handling, fraud investigation, and analytics need the results, and each team should be able to change its processing independently. Personal data must stay in the EU throughout storage and delivery.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shared versioned event stream",
+          "values": [
+            "Delivery: Publish versioned results to shared event stream"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Supports independent subscriptions and versioned result contracts"
+          ],
+          "cons": [
+            "Requires EU-region stream controls and consumer operations"
+          ],
+          "reason": "The event stream offers one stable publication path to all teams."
+        },
+        {
+          "id": "O2",
+          "name": "Governed versioned object storage",
+          "values": [
+            "Delivery: Write versioned results to governed object storage for team consumption"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Provides durable governed result snapshots"
+          ],
+          "cons": [
+            "Teams may need polling or separate change notifications"
+          ],
+          "reason": "It is viable but less direct for independently changing consumers than event delivery."
+        },
+        {
+          "id": "O3",
+          "name": "Per-type topics with shared contracts",
+          "values": [
+            "Delivery: Versioned per-type result topics with shared event contracts"
+          ],
+          "status": "chosen",
+          "in": [
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Combines type-specific streams with common consumer contracts"
+          ],
+          "cons": [
+            "Creates more topics and access policies to govern in the EU"
+          ],
+          "reason": "E1 uses shared contracts to keep per-type publishing from coupling consumers."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Turn review corrections into model improvement",
+      "drivers": [
+        "R3",
+        "Q2",
+        "Q3"
+      ],
+      "context": "Uncertain classifications must receive human review, and corrections must improve the classifier. The feedback path should support per-type quality diagnosis while keeping review and release costs sustainable.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Periodic correction training",
+          "values": [
+            "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed periodic training"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 10,
+          "pros": [
+            "Collects corrections for a repeatable training cycle"
+          ],
+          "cons": [
+            "Improvements wait for the next periodic cycle"
+          ],
+          "reason": "B1 favors a controlled periodic loop while focusing its primary refinement on cost monitoring."
+        },
+        {
+          "id": "O2",
+          "name": "Daily prompt and model release review",
+          "values": [
+            "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections feed daily prompt and model release review"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 9,
+          "pros": [
+            "Creates a daily, governed path from corrections to improvement"
+          ],
+          "cons": [
+            "Requires reviewer and release-management capacity"
+          ],
+          "reason": "A1 and C1 use daily release review to shorten the feedback cycle."
+        },
+        {
+          "id": "O3",
+          "name": "Update specialist prompts from corrections",
+          "values": [
+            "Human feedback: Confidence threshold routes uncertain cases to reviewers; corrections update versioned specialist prompts"
+          ],
+          "status": "chosen",
+          "in": [
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Directs each correction toward the affected claim type"
+          ],
+          "cons": [
+            "Requires prompt review and version management across types"
+          ],
+          "reason": "E1 aligns correction ownership with claim-type specialization."
+        },
+        {
+          "id": "O4",
+          "name": "Review all disagreements",
+          "values": [
+            "Human feedback: All disagreements and low-confidence cases go to reviewers"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Captures more possible errors for review"
+          ],
+          "cons": [
+            "Can overwhelm human review capacity"
+          ],
+          "reason": "Consensus-driven review volume is costly and was not tied to a sustainable feedback cadence."
+        },
+        {
+          "id": "O5",
+          "name": "Sampled and uncertain review with daily release review",
+          "values": [
+            "Human feedback: Sampled and uncertain cases go to reviewers; corrections feed daily prompt and model release review"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Samples model behavior while prioritizing uncertain documents for review",
+            "Creates a daily governed correction path"
+          ],
+          "cons": [
+            "Sampling and release review require reviewer and operations capacity"
+          ],
+          "reason": "C1 combines broad sampling with targeted uncertainty review to improve confidence in the batch classifier."
+        }
+      ]
+    },
+    {
+      "id": "ADR5",
+      "title": "Detect claim-type quality regressions",
+      "drivers": [
+        "Q2",
+        "R3"
+      ],
+      "context": "A layout change can degrade one type while aggregate quality remains stable. Operators need a signal within one day, with enough detail to connect the regression to reviewer corrections and model changes.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Daily per-type alerting",
+          "values": [
+            "Monitoring: Alerting per-claim-type quality dashboard with daily detection objective"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1"
+          ],
+          "step": 11,
+          "pros": [
+            "Directly measures the one-day detection goal by claim type"
+          ],
+          "cons": [
+            "Detection depends on labeled outcomes and sufficient sample volume"
+          ],
+          "reason": "A1 and C1 target the stated observability window."
+        },
+        {
+          "id": "O2",
+          "name": "Quality and fallback-rate alerts",
+          "values": [
+            "Monitoring: Near-real-time per-claim-type quality alerts and fallback-rate dashboard"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 10,
+          "pros": [
+            "Adds faster type-level signals and a cost-relevant fallback metric"
+          ],
+          "cons": [
+            "More metrics and alerts require tuning"
+          ],
+          "reason": "B1 makes cascade economics and quality shifts visible together."
+        },
+        {
+          "id": "O3",
+          "name": "Quality alerts with correction tracking",
+          "values": [
+            "Monitoring: Near-real-time per-claim-type quality alerts and reviewer-correction tracking"
+          ],
+          "status": "chosen",
+          "in": [
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Links quality shifts to correction patterns by type"
+          ],
+          "cons": [
+            "Requires consistent reviewer labels and many monitored streams"
+          ],
+          "reason": "E1 uses the specialist structure to make regressions actionable."
+        },
+        {
+          "id": "O4",
+          "name": "Aggregate quality only",
+          "values": [
+            "Monitoring: Aggregate quality dashboard across all claim types"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Simple overall health view"
+          ],
+          "cons": [
+            "Can conceal a decline limited to one type"
+          ],
+          "reason": "Aggregate-only quality does not adequately expose the example per-type regression."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

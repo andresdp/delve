@@ -1,0 +1,225 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "Classify every incoming document into a claim type, with a confidence."},
+      {"id": "R2", "kind": "functional", "text": "Deliver the results to the three consuming teams."},
+      {"id": "R3", "kind": "functional", "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."},
+      {"id": "Q1", "kind": "quality", "attribute": "throughput and scalability", "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."},
+      {"id": "Q2", "kind": "quality", "attribute": "observability", "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."},
+      {"id": "Q3", "kind": "quality", "attribute": "cost", "text": "The classification costs less than 0.2 cents per document on average over the year."},
+      {"id": "Q4", "kind": "quality", "attribute": "loose coupling", "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."},
+      {"id": "C1", "kind": "constraint", "text": "The documents contain personal data and may not leave the EU."},
+      {"id": "C2", "kind": "constraint", "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."}
+    ]
+  },
+  "budget": {"max_points": 8},
+  "points": [
+    {
+      "id": "P1",
+      "values": ["v:1.1", "v:2.3", "v:3.4", "v:5.5", "v:7.1", "v:17.2", "v:22.1", "v:24.1", "v:26.9"],
+      "description": "The system ingests continuous data as events into an event store and exposes data through a message/event-queue API, with partitioned pipelines supporting parallel processing and model-quality testing. Each model runs as a service that provides hybrid online and batch predictions; production performance is monitored, and humans manually adjust and redeploy models when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": ["v:7.1", "v:17.2", "v:1.1", "v:5.5"],
+      "description": "The system continuously ingests streamed data and partitions it within the data pipeline to enable parallel processing. A dedicated service hosts each machine-learning model, while predictions are served through a hybrid approach combining online service computations with offline batch computations.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": ["v:2.3", "v:3.4"],
+      "description": "The system stores machine-learning data as events exchanged among system components, preserving data in an event-oriented form. Data access is provided through a message or event queue, where newly available data is queued and a corresponding message or event signals its availability.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": ["v:22.1"],
+      "description": "In production, the system monitors and tracks specific model performance parameters. These observations provide ongoing visibility into the model’s performance after deployment.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": ["v:24.1", "v:26.9"],
+      "description": "The system monitors model performance, and when results indicate a need for change, humans adjust and redeploy the model. The machine-learning pipeline tests the quality of each trained model, providing a quality check alongside the manual adjustment process.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": ["v:7.3", "v:17.2", "v:1.1", "v:5.5"],
+      "description": "The system ingests data in one or more batches, partitions it within the processing pipeline for parallel execution, and integrates each machine-learning model as a separate service. Predictions or scores are produced through a hybrid approach, combining service-based online computation with offline batch computation; batch ingestion may limit online data freshness.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": ["v:2.3", "v:3.2"],
+      "description": "The system stores machine-learning data as events exchanged among system components, preserving the event-oriented representation. A service-based data access API encapsulates the event store and provides access to it through data access services.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": ["v:22.3"],
+      "description": "The model is deployed without in-production monitoring or tracking. Consequently, the system provides no operational mechanism to observe model performance, detect degradation, or track production behavior after deployment.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1, "move": "solution", "parent": null,
+      "values": ["v:1.1", "v:2.3", "v:3.4", "v:5.5", "v:7.1", "v:17.2", "v:22.1", "v:24.1", "v:26.9"],
+      "hypothesis": "The mapped service, event-driven intake and delivery, hybrid serving, parallel processing, monitoring, human adjustment, and quality testing together explain the built classifier.",
+      "assessment": {"R1": "meets", "R2": "meets", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "meets", "C1": "meets", "C2": "meets"},
+      "observation": "The point has no warnings or unmet required dimensions, and the mapped values are all accepted. The point description fits the broad event and service architecture, but its generated text is not evidence; attested_by is empty because this workspace has no sources. Throughput and cost targets are plausible from backlog scaling and small request batches but are not demonstrated numerically. The weekly sample and review-share alert give a quality signal, though they do not establish that every type-specific quality drop is visible within one day.",
+      "verdict": "partial", "point": "P1"
+    },
+    {
+      "step": 2, "move": "region", "parent": 1,
+      "values": ["v:7.1", "v:17.2", "v:1.1", "v:5.5"],
+      "hypothesis": "R1 and Q1 explain the event intake, parallel processing, separate classifier service, and mixed serving path.",
+      "assessment": {"R1": "meets", "Q1": "partly"},
+      "observation": "The point description matches the solution's continuous Kafka intake, classifier service, and separate hourly warehouse consumption. The worker range and backlog scaling support the two-hour target, but this point alone does not prove capacity at eight million documents per day. The design space accepts every value but attests no source combination.",
+      "verdict": "grounded", "point": "P2"
+    },
+    {
+      "step": 3, "move": "region", "parent": 1,
+      "values": ["v:2.3", "v:3.4"],
+      "hypothesis": "R2 and Q4 explain using an event store and a queueing interface for result delivery.",
+      "assessment": {"R2": "meets", "Q4": "meets"},
+      "observation": "The point describes results exchanged as events through a queue. Separate consumer groups let the three teams read at their own pace, which supports independent processing. This accepted combination has no source attestation.",
+      "verdict": "grounded", "point": "P3"
+    },
+    {
+      "step": 4, "move": "region", "parent": 1,
+      "values": ["v:22.1"],
+      "hypothesis": "Q2 explains monitoring production performance by claim type.",
+      "assessment": {"Q2": "partly"},
+      "observation": "The dashboard monitors per-type review share and mean confidence, and a weekly sample adds a quality check. Those are performance signals, but the alert fires on a one-week change, so the stated one-day detection requirement is not established. The point has no source attestation.",
+      "verdict": "partial", "point": "P4"
+    },
+    {
+      "step": 5, "move": "region", "parent": 1,
+      "values": ["v:24.1", "v:26.9"],
+      "hypothesis": "R3 explains human review corrections feeding a manually revised prompt and a test against reviewed cases before release.",
+      "assessment": {"R3": "meets"},
+      "observation": "The point's human adjustment and quality test resemble the monthly prompt-example replacement and 2,000-document check. Both mappings are approximate: the solution adjusts an LLM prompt rather than model parameters, and tests a new prompt rather than a newly trained model. This accepted combination has no source attestation.",
+      "verdict": "partial", "point": "P5"
+    },
+    {
+      "step": 6, "move": "contrast", "parent": 2,
+      "values": ["v:7.3", "v:17.2", "v:1.1", "v:5.5"],
+      "hypothesis": "Does Q1 force streamed ingestion rather than batch ingestion?",
+      "assessment": {"Q1": "partly"},
+      "observation": "The batch alternative remains plausible because the requirement allows up to two hours, and the point description says batching may limit freshness without showing that it necessarily misses that window. The contrast therefore does not establish streaming as forced; it is a design choice that gives more direct support for freshness under load.",
+      "verdict": "partial", "point": "P6"
+    },
+    {
+      "step": 7, "move": "contrast", "parent": 3,
+      "values": ["v:2.3", "v:3.2"],
+      "hypothesis": "Does Q4 force the message/event queueing interface instead of a service-based API?",
+      "assessment": {"Q4": "partly"},
+      "observation": "A service-based API over the same event store could also hide the storage details from each team. The contrast does not show that it would break loose coupling, so the specific queueing interface is not forced by Q4; independent consumer groups make the chosen interface a natural fit. Neither combination is source-attested.",
+      "verdict": "partial", "point": "P7"
+    },
+    {
+      "step": 8, "move": "contrast", "parent": 4,
+      "values": ["v:22.3"],
+      "hypothesis": "Does Q2 force production monitoring rather than no monitoring?",
+      "assessment": {"Q2": "misses"},
+      "observation": "The no-monitoring point provides no way to observe performance or detect degradation after deployment, so it misses Q2. Monitoring is forced by the requirement, although the solution's weekly alert cadence still falls short of the one-day timing stated in Q2.",
+      "verdict": "ungrounded", "point": "P8"
+    }
+  ],
+  "regions": [
+    {"id": "G1", "name": "Event intake and scalable classification", "step": 2, "drivers": ["R1", "Q1"], "values": ["v:7.1", "v:17.2", "v:1.1", "v:5.5"], "reason": "Continuous intake, parallel worker capacity, a dedicated classifier service, and mixed service and batch output form the solution's main path for timely classification. The space accepts these choices, while the exact storm-season capacity remains unverified."},
+    {"id": "G2", "name": "Independent event delivery", "step": 3, "drivers": ["R2", "Q4"], "values": ["v:2.3", "v:3.4"], "reason": "Events on a shared result topic and a queueing interface allow each team's consumer group to process results at its own pace."},
+    {"id": "G3", "name": "Production quality monitoring", "step": 4, "drivers": ["Q2"], "values": ["v:22.1"], "reason": "Per-type review share and confidence are production performance signals, though the one-week alert comparison does not meet the one-day detection timing. The human prompt feedback loop is evaluated separately in the trajectory and ADR5."}
+  ],
+  "alternatives": [
+    {
+      "id": "S", "name": "Document classification as built",
+      "summary": "A streamed, event-driven classification service scales workers with backlog, publishes results for independent team consumers, and uses human corrections to refresh and validate prompt examples.",
+      "step": 1,
+      "choices": [
+        {"dimension_id": "d:1", "value_id": "v:1.1", "drivers": ["R1"], "forced": false, "reason": "A separate classifier service is a reasonable integration boundary, but the requirements do not force this deployment form.", "evidence": [], "solution_quote": "A classifier service, running on Kubernetes, sends the text to the approved provider's LLM in its EU region."},
+        {"dimension_id": "d:2", "value_id": "v:2.3", "drivers": ["R2", "Q4"], "forced": false, "reason": "The Kafka topics exchange results as events and support independent consumers. The design space accepts event storage, but provides no source evidence that this is the only way to meet the requirements.", "evidence": [], "solution_quote": "Results go to a second Kafka topic."},
+        {"dimension_id": "d:3", "value_id": "v:3.4", "drivers": ["R2", "Q4"], "forced": false, "reason": "A queueing interface fits the consumer groups and independent pace. A service API could also preserve loose coupling, so Q4 does not force this exact interface.", "evidence": [], "solution_quote": "Each consuming team has its own consumer group and reads at its own pace; analytics also loads the topic into the data warehouse every hour."},
+        {"dimension_id": "d:5", "value_id": "v:5.5", "drivers": ["R1", "Q1"], "forced": false, "reason": "The event result path and hourly warehouse load combine continuous service activity with scheduled batch use. This is an approximate system-level fit, and the requirements do not force a hybrid serving pattern.", "evidence": [], "solution_quote": "Each consuming team has its own consumer group and reads at its own pace; analytics also loads the topic into the data warehouse every hour.", "fit": "approximate", "fit_note": "The space's value describes hybrid online and offline model computations; the solution instead combines event-delivered results with an hourly warehouse load."},
+        {"dimension_id": "d:7", "value_id": "v:7.1", "drivers": ["Q1"], "forced": false, "reason": "Messages on upload support continuous processing and freshness. The two-hour bound does not by itself rule out suitably frequent batches.", "evidence": [], "solution_quote": "Incoming documents land in an object storage bucket in the EU region, and each upload puts a message on a Kafka topic."},
+        {"dimension_id": "d:17", "value_id": "v:17.2", "drivers": ["Q1"], "forced": null, "reason": "Backlog-based worker scaling supports parallel processing, but the solution does not specify data partitioning as the mechanism and the dimension has no closer value for scaling policy.", "evidence": [], "solution_quote": "The number of classifier workers scales with the length of the Kafka topic's backlog, from 4 to 120.", "fit": "approximate", "fit_note": "The value concerns partitioning data within a pipeline; the solution specifies scaling a worker pool from queue backlog, not partitioning."},
+        {"dimension_id": "d:22", "value_id": "v:22.1", "drivers": ["Q2"], "forced": true, "reason": "Some production monitoring is required because the no-monitoring contrast misses Q2. The chosen metrics are useful signals, but their alert cadence does not satisfy the one-day bound.", "evidence": [], "solution_quote": "A dashboard shows, per claim type, the share of documents sent to review and the mean confidence; an alert fires when the share sent to review for a claim type doubles from one week to the next."},
+        {"dimension_id": "d:24", "value_id": "v:24.1", "drivers": ["R3"], "forced": false, "reason": "Staff manually update examples from corrections, which fits a human-led adjustment loop. The requirement calls for learning from corrections but does not require monthly manual prompt editing over an automated alternative.", "evidence": [], "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it.", "fit": "approximate", "fit_note": "The space describes human adjustment and redeployment of models; this solution revises prompt examples for a hosted LLM."},
+        {"dimension_id": "d:26", "value_id": "v:26.9", "drivers": ["R3"], "forced": false, "reason": "The held-out reviewed documents check whether the changed prompt remains useful. The test is a quality check, but it is not testing a trained model as the value describes.", "evidence": [], "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it.", "fit": "approximate", "fit_note": "The solution tests a prompt against reviewed cases, not the quality of a newly trained model."}
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {"source": "d:1", "target": "d:5", "type": "affects", "holds": true},
+        {"source": "d:2", "target": "d:3", "type": "affects", "holds": true},
+        {"source": "d:5", "target": "d:7", "type": "affects", "holds": true},
+        {"source": "d:22", "target": "d:24", "type": "affects", "holds": true}
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1", "title": "Ingest continuously and scale workers with backlog", "drivers": ["Q1"],
+      "context": "The pipeline must process a highly variable daily volume and keep storm-season arrivals within two hours.",
+      "options": [
+        {"id": "O1", "name": "Stream intake with parallel workers", "values": ["v:7.1", "v:17.2"], "status": "chosen", "in": ["S"], "step": 2, "pros": ["New arrivals enter the processing path continuously.", "A worker pool that grows with backlog can add capacity during peaks."], "cons": ["The design gives no measured evidence that the 120-worker ceiling handles the required peak."], "reason": "This supports freshness and elastic capacity, but the exact two-hour service level is not proven. Streaming is not forced because a batch alternative may still fit a two-hour window."},
+        {"id": "O2", "name": "Batch intake", "values": ["v:7.3", "v:17.2"], "status": "discarded", "step": 6, "pros": ["Batches may simplify scheduled processing."], "cons": ["Batch intervals consume part of the two-hour arrival-to-classification allowance."], "reason": "The contrast showed a freshness risk, but did not establish that all batch schedules miss Q1; this alternative remains plausible and the chosen stream is not forced."}
+      ]
+    },
+    {
+      "id": "ADR2", "title": "Run classification as a service and serve mixed consumers", "drivers": ["R1", "Q1"],
+      "context": "Every incoming document needs a claim type and confidence, with enough capacity to process peak volume.",
+      "options": [
+        {"id": "O1", "name": "Classifier service with event and batch consumers", "values": ["v:1.1", "v:5.5"], "status": "chosen", "in": ["S"], "step": 2, "pros": ["A dedicated service separates classification from the intake and consuming teams.", "The mixed path supports continuous team consumption and scheduled analytics loading."], "cons": ["The point does not establish cost or peak throughput numerically."], "reason": "The service and mixed delivery path fit the built system and its consumers. The requirements do not force these particular service and serving choices."}
+      ]
+    },
+    {
+      "id": "ADR3", "title": "Publish results as events for independent consumers", "drivers": ["R2", "Q4"],
+      "context": "Three teams need the classification results, and each must be able to process them at its own pace.",
+      "options": [
+        {"id": "O1", "name": "Event topic with queueing access", "values": ["v:2.3", "v:3.4"], "status": "chosen", "in": ["S"], "step": 3, "pros": ["Each consumer group can progress independently.", "The event interface decouples producers from consumers."], "cons": ["The design space does not attest this combination with sources."], "reason": "This directly fits the independent consumer groups and satisfies the delivery and loose-coupling needs, but the specific queue interface is not forced."},
+        {"id": "O2", "name": "Event store behind a service API", "values": ["v:2.3", "v:3.2"], "status": "discarded", "step": 7, "pros": ["A service API can encapsulate the data provider."], "cons": ["It does not inherently provide the independent pace of consumer groups described in the solution."], "reason": "The contrast did not show a service API necessarily breaking loose coupling, so this remains a viable alternative rather than a requirement-driven rejection."}
+      ]
+    },
+    {
+      "id": "ADR4", "title": "Monitor production quality signals", "drivers": ["Q2"],
+      "context": "Operators must be able to detect a drop in classification quality for a claim type within one day.",
+      "options": [
+        {"id": "O1", "name": "Monitor per-type review share and confidence", "values": ["v:22.1"], "status": "chosen", "in": ["S"], "step": 4, "pros": ["The dashboard exposes two per-type signals, and weekly sampling adds a manual check."], "cons": ["An alert based on a one-week doubling interval does not meet the one-day detection target."], "reason": "Monitoring is forced by Q2 because no monitoring misses the requirement. The selected signals are useful, but the solution only partly meets the required detection time."},
+        {"id": "O2", "name": "No production monitoring", "values": ["v:22.3"], "status": "discarded", "step": 8, "pros": ["Avoids operating monitoring infrastructure."], "cons": ["Operators have no signal to detect a production quality drop."], "reason": "This contrast misses Q2, so production monitoring is a forced decision."}
+      ]
+    },
+    {
+      "id": "ADR5", "title": "Use reviewer corrections in a manually checked prompt cycle", "drivers": ["R3"],
+      "context": "Uncertain cases need human review, and reviewer corrections must improve later classifications.",
+      "options": [
+        {"id": "O1", "name": "Monthly prompt refresh with reviewed-set check", "values": ["v:24.1", "v:26.9"], "status": "chosen", "in": ["S"], "step": 5, "pros": ["Recent corrections become prompt examples.", "A reviewed set is checked before a prompt change is switched on."], "cons": ["The values only approximately describe prompt changes and prompt evaluation.", "The monthly update cadence may delay incorporation of useful corrections."], "reason": "The human feedback loop addresses R3. The requirement forces using corrections, but does not force this monthly manual update and test process." , "fit": "approximate", "fit_note": "The design space models model adjustment and trained-model quality testing, while the solution changes and evaluates prompts for a hosted LLM."}
+      ]
+    }
+  ],
+  "uncovered": [
+    {"decision": "The EU location of document storage and LLM processing, including the approved provider choice", "solution_quote": "Incoming documents land in an object storage bucket in the EU region, and each upload puts a message on a Kafka topic.\n\nA classifier service, running on Kubernetes, sends the text to the approved provider's LLM in its EU region.", "nearest_dimension_id": "d:2"},
+    {"decision": "Batching small documents into groups of 20 to reduce LLM request cost", "solution_quote": "Small documents are sent in batches of 20 to reduce cost.", "nearest_dimension_id": "d:5"},
+    {"decision": "The confidence threshold and dedicated human review queue for uncertain documents", "solution_quote": "Documents with a confidence below 0.7 go to a review queue in a labelling tool, where claims staff correct the claim type.", "nearest_dimension_id": "d:24"},
+    {"decision": "Recording the prompt version and model name with each result", "solution_quote": "Every result is stored with the prompt version and the model name that produced it.", "nearest_dimension_id": "d:22"},
+    {"decision": "OCR, content-hash deduplication, and text extraction before classification", "solution_quote": "A preprocessing service reads the topic, extracts the text (with OCR for scanned forms), removes duplicates by content hash and writes the text next to the document.", "nearest_dimension_id": "d:14"}
+  ],
+  "unaddressed": [
+    {"requirement": "Q3", "reason": "no_dimension", "nearest_dimension_id": "d:5", "note": "The solution batches small documents to reduce cost, but the design space has no decision about LLM request batching or inference cost, and the stated average cost target cannot be verified from the represented values."},
+    {"requirement": "C1", "reason": "no_dimension", "nearest_dimension_id": "d:2", "note": "The solution places documents in an EU bucket, but the design space has no data-residency or deployment-region decision."},
+    {"requirement": "C2", "reason": "no_dimension", "nearest_dimension_id": "d:1", "note": "The solution names the approved provider's EU region, but the design space has no LLM provider-selection or provider-region decision."}
+  ]
+}

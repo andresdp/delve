@@ -1,0 +1,1394 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company must score about 3,000 card transactions per second and up to 15,000 at seasonal peaks before authorization. Fraud adapts within weeks, chargeback labels arrive days to weeks later, and auditors may ask months later how a score was produced. Five data scientists and two ML engineers build and run the system without an ML platform team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.4",
+        "v:24.1",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "description": "An MLOps design uses streaming data and real-time processing with a feature store and microservice scoring. Batch model training uses versioned data in an automated building pipeline; CI/CD deploys multiple model versions for A/B testing and production tracking supports manual model adjustment.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:3.1",
+        "v:15.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:24.1",
+        "v:8.2",
+        "v:10.2",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "description": "An MLOps design uses a local scoring API and general-purpose feature stores, with batch data processing and data versioning in a code repository. A model builder trains in batches; build scripts, canary tests, logging and rollback support manual operations.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "An MLOps design combines online and offline serving with streaming feature updates and hybrid batch and incremental training. An orchestrator coordinates versioned data, model building, multiple production versions, evidence-based tests and automated model adjustments.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:5.4",
+        "v:4.2",
+        "v:15.1",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:8.2",
+        "v:10.3",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "description": "An MLOps design batch-processes data, trains offline and precomputes predictions for delivery as reports. Code-repository data versioning, deployment scripts, monitoring, canary testing and a single production model support this scheduled path.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.4",
+        "v:24.1",
+        "v:26.2",
+        "v:27.1",
+        "v:12.4"
+      ],
+      "description": "The streaming feature-store design triggers an automated batch training workflow when new training data is available, while keeping versioned data, model tracking, multi-version serving and A/B tests.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:3.1",
+        "v:15.2",
+        "v:7.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:24.1",
+        "v:8.2",
+        "v:10.2",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "description": "A local serving API with streamed real-time features improves freshness while general-purpose data stores and a local access API keep the architecture simple. Batch training, code-based data versioning, manual deployment scripts, canary tests, logging and rollback retain an operator-led workflow.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.4",
+        "v:24.1",
+        "v:26.13",
+        "v:27.1",
+        "v:12.4"
+      ],
+      "description": "The streaming feature-store design adds a new-training-data trigger for batch retraining and performance testing of the prediction service, alongside versioned data, production tracking, multi-version serving and CI/CD.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:3.1",
+        "v:15.2",
+        "v:7.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.4",
+        "v:24.1",
+        "v:8.2",
+        "v:10.2",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "description": "The locally served design adds streamed features and in-production tracking while preserving manual scripted release, code-repository data versioning, canary validation and rollback.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.4",
+        "v:24.1",
+        "v:8.3",
+        "v:10.1",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "description": "The online/offline event-driven design retains hybrid learning and orchestration but uses manual model adjustment and A/B testing to compare candidate and current models before promotion.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.4",
+        "v:24.1",
+        "v:8.3",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "description": "The online/offline event-driven design retains hybrid learning and orchestration but uses manual model adjustment and evidence-based testing before promoting a candidate model.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a streaming feature-store service combines transaction-time scoring with versioned batch retraining and automated releases?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a locally served scoring API and ordinary data stores keep the operating model small, with real-time features and operator-led releases?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if online/offline serving, event-based access and hybrid learning maximize responsiveness to changing fraud patterns?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if precomputed batch scores and a single production model simplify a small team's operations?",
+      "status": "dropped",
+      "dropped_because": "Precomputed reports do not provide a score for every transaction before its authorization using current recent activity."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.4",
+        "v:24.1",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "hypothesis": "Streaming features and microservice scoring should support R1 and Q1; data versioning and production tracking should support R3/Q3; batch training, CI/CD and A/B testing should support R2/Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The generated point description coheres with streaming scoring and versioned batch retraining. No sources attest the combination. The space offers no choices that guarantee the numeric latency target, fail-open authorization behavior, PCI placement or a seven-person operating load.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:3.1",
+        "v:15.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:24.1",
+        "v:8.2",
+        "v:10.2",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "hypothesis": "A local API and generic stores may reduce operational overhead for C2; batch data processing could compromise R1 freshness, while canary and rollback offer cautious release.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The local serving value is explicitly real time, but batch processing weakens the recent-activity path. Code-based data versioning and logging give some audit support. No sources attest the combination.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Hybrid online/offline serving and learning should support current scoring and adaptation; broad orchestration and automated adjustment may create more operating complexity and may react poorly to delayed labels.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Online serving and versioned inputs fit the core flow, but automated adjustment is risky when labels arrive late and orchestration raises the operating burden. No sources attest the combination.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.4",
+        "v:24.1",
+        "v:26.2",
+        "v:27.1",
+        "v:12.4"
+      ],
+      "hypothesis": "Adding a trigger on availability of new training data should make R2 more responsive when delayed confirmed labels arrive without requiring incremental online learning.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The added trigger better links retraining to label availability while retaining batch validation and model comparison. It does not guarantee the 48-hour cycle or resolve audit retention. No sources attest the combination.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:3.1",
+        "v:15.2",
+        "v:7.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:24.1",
+        "v:8.2",
+        "v:10.2",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "hypothesis": "Switching to streamed ingestion and real-time processing should repair the recent-activity weakness while preserving the local API and smaller operational footprint.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The local serving approach can use streamed, current features and remains simpler than a hybrid orchestrated setup. Scripted deployment and canary checks leave the 48-hour path less assured. No sources attest the combination.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.4",
+        "v:24.1",
+        "v:8.3",
+        "v:10.1",
+        "v:26.3",
+        "v:27.1"
+      ],
+      "hypothesis": "Replacing automated adjustment with human review should reduce the risk of reacting to delayed or incomplete fraud labels while retaining hybrid serving and training.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Manual adjustment is a better fit for delayed labels, but can slow Q4 and does not remove the complexity of hybrid serving and orchestration. No sources attest the combination.",
+      "rating": "mixed",
+      "point": "P11"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:5.4",
+        "v:4.2",
+        "v:15.1",
+        "v:19.1",
+        "v:11.2",
+        "v:22.2",
+        "v:8.2",
+        "v:10.3",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "hypothesis": "Explore whether a deliberately simple precompute design reduces operations; it is informed by the C2 concern but expected to fail R1.",
+      "assessment": {
+        "R1": "misses",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The design-space description says precompute serving delivers precomputed predictions as reports. That cannot score every authorization request with recent activity, so the approach is dropped.",
+      "rating": "weak",
+      "point": "P4"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:5.1",
+        "v:4.1",
+        "v:7.1",
+        "v:15.2",
+        "v:8.1",
+        "v:10.1",
+        "v:11.1",
+        "v:18.1",
+        "v:19.1",
+        "v:22.4",
+        "v:24.1",
+        "v:26.13",
+        "v:27.1",
+        "v:12.4"
+      ],
+      "hypothesis": "Prediction-service performance testing should make the 30-ms peak latency criterion measurable before release.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Performance testing directly addresses the latency risk as a release check, but does not establish that the target is met without implementation measurements. No sources attest the combination.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:5.2",
+        "v:4.2",
+        "v:3.1",
+        "v:15.2",
+        "v:7.1",
+        "v:18.2",
+        "v:19.1",
+        "v:11.2",
+        "v:22.4",
+        "v:24.1",
+        "v:8.2",
+        "v:10.2",
+        "v:26.1",
+        "v:27.1"
+      ],
+      "hypothesis": "Production tracking should better connect model version and inputs to individual scores for R3 and Q3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Tracking covers usage and inputs more explicitly than general logging. The point still does not specify 13-month retention or a retrievable training-data lineage. No sources attest the combination.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:5.5",
+        "v:4.1",
+        "v:3.4",
+        "v:7.1",
+        "v:15.2",
+        "v:18.1",
+        "v:19.3",
+        "v:11.1",
+        "v:22.4",
+        "v:24.1",
+        "v:8.3",
+        "v:10.1",
+        "v:26.2",
+        "v:27.1"
+      ],
+      "hypothesis": "A/B testing should provide a direct comparison of candidate and current models on recent transactions, strengthening Q4 while manual review handles delayed labels.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The comparison method is explicit, but labels delayed by days or weeks limit how conclusive a recent comparison can be; the larger operational burden remains. No sources attest the combination.",
+      "rating": "strong",
+      "point": "P10"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Streaming feature service",
+      "summary": "Use streaming features and microservice scoring with versioned batch retraining. Track production inputs, test peak service performance and compare model versions before promotion.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Supports real-time prediction delivery."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Persists and provides access to features."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supplies newly arriving transaction data."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supports recent activity processing."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates integration and delivery."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Controls which model versions serve traffic."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Supports training-data traceability."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates model building and validation."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Defines the model update cadence."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracks production behavior and inputs."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Controls model changes after monitoring."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.13",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Tests releases or model quality."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Frames ML operations."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.4",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Triggers a model-building workflow."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Hybrid incremental learning was set aside because labels arrive with delay."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature persistence and access."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Locally served real-time scorer",
+      "summary": "Keep scoring close to the application and use general-purpose stores with streamed, real-time features. Operators use model tracking, canary checks and rollback.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Supports real-time prediction delivery."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Persists and provides access to features."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Defines the data access path."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supplies newly arriving transaction data."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supports recent activity processing."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates model building and validation."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Defines the model update cadence."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Supports training-data traceability."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracks production behavior and inputs."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Controls model changes after monitoring."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates integration and delivery."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Controls which model versions serve traffic."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.1",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Tests releases or model quality."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Frames ML operations."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Hybrid serving was set aside to keep runtime architecture simpler."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature persistence and access."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Hybrid online and offline pipeline",
+      "summary": "Combine event-driven feature access and online/offline serving with hybrid learning. Keep model changes under manual review and compare candidate and current models with A/B testing.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Supports real-time prediction delivery."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Persists and provides access to features."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.4",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Defines the data access path."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supplies newly arriving transaction data."
+        },
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Supports recent activity processing."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates model building and validation."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Defines the model update cadence."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Supports training-data traceability."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracks production behavior and inputs."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Controls model changes after monitoring."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automates integration and delivery."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Controls which model versions serve traffic."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.2",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Tests releases or model quality."
+        },
+        {
+          "dimension_id": "d:27",
+          "value_id": "v:27.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Frames ML operations."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Automated adjustment was set aside because labels are delayed."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:4",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect feature persistence and access."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Transaction-time scoring and feature access",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Each authorization needs a score using recent card activity. The design needs a fast request path and fresh inputs, while specialized infrastructure can add operating burden.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Streaming feature store and microservice",
+          "values": [
+            "v:5.1",
+            "v:4.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Real-time serving and streamed features fit transaction-time scoring."
+          ],
+          "cons": [
+            "The space does not establish 30 ms p99 latency or failure behavior."
+          ],
+          "reason": "Most direct fit for current activity and high request volume."
+        },
+        {
+          "id": "O2",
+          "name": "Local API with streamed general-purpose features",
+          "values": [
+            "v:5.2",
+            "v:4.2",
+            "v:3.1",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Local real-time serving and streamed features keep scoring current."
+          ],
+          "cons": [
+            "General-purpose storage leaves consistency and peak performance to implementation."
+          ],
+          "reason": "Keeps a simpler access layer while addressing freshness."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid online/offline event-driven access",
+          "values": [
+            "v:5.5",
+            "v:4.1",
+            "v:3.4",
+            "v:7.1",
+            "v:15.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Online scoring, offline computation and event notifications cover both modes."
+          ],
+          "cons": [
+            "Combined paths add operational complexity."
+          ],
+          "reason": "Supports online and offline work when the team can operate the components."
+        },
+        {
+          "id": "O4",
+          "name": "Precomputed reports",
+          "values": [
+            "v:5.4",
+            "v:4.2",
+            "v:15.1"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Scheduled computation reduces online model work."
+          ],
+          "cons": [
+            "It cannot score every authorization using current activity."
+          ],
+          "reason": "Fails the primary transaction-time requirement."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Retraining and score lineage",
+      "drivers": [
+        "R2",
+        "R3",
+        "Q3"
+      ],
+      "context": "Confirmed fraud labels arrive late, so model updates need controlled training while the system preserves enough model, input and training-data identity to answer later audit questions.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Versioned batch training triggered by new labels",
+          "values": [
+            "v:18.1",
+            "v:19.1",
+            "v:11.1",
+            "v:22.4",
+            "v:24.1",
+            "v:12.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Batch training fits delayed labels; versioned data and tracking support lineage."
+          ],
+          "cons": [
+            "Retention duration and a 48-hour training cycle are unspecified."
+          ],
+          "reason": "Connects retraining to new label availability while keeping it reviewable."
+        },
+        {
+          "id": "O2",
+          "name": "Operator-led batch training and data tracking",
+          "values": [
+            "v:18.2",
+            "v:19.1",
+            "v:11.2",
+            "v:22.4",
+            "v:24.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Batch learning and manual adjustment fit delayed labels."
+          ],
+          "cons": [
+            "Manual steps may make the 48-hour goal harder."
+          ],
+          "reason": "Favors a smaller operating footprint over release speed."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid learning with manual adjustment",
+          "values": [
+            "v:18.1",
+            "v:19.3",
+            "v:11.1",
+            "v:22.4",
+            "v:24.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Hybrid learning permits batch and incremental training while human review accounts for label delay."
+          ],
+          "cons": [
+            "Incremental learning and orchestration add complexity."
+          ],
+          "reason": "Retains an adaptable training path with controlled adjustment."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Model validation and release",
+      "drivers": [
+        "Q1",
+        "Q4"
+      ],
+      "context": "A candidate must be compared with the current model and released quickly when fraud performance degrades, while avoiding an unmeasured latency regression. Automation trades off against the operations capacity.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "CI/CD, multiple versions and performance testing",
+          "values": [
+            "v:8.1",
+            "v:10.1",
+            "v:26.13",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Automated delivery, multiple versions and service performance tests support comparison and latency checks."
+          ],
+          "cons": [
+            "Testing does not prove targets without measurements, and ownership is required."
+          ],
+          "reason": "Offers a direct release path for retraining and candidate comparison."
+        },
+        {
+          "id": "O2",
+          "name": "Scripts, canary release and rollback",
+          "values": [
+            "v:8.2",
+            "v:10.2",
+            "v:26.1",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Canary release and rollback provide staged recovery with limited platform machinery."
+          ],
+          "cons": [
+            "Operator-led scripts can slow comparison and promotion."
+          ],
+          "reason": "Keeps deployment modest for a small team."
+        },
+        {
+          "id": "O3",
+          "name": "Orchestrated multi-version A/B comparison",
+          "values": [
+            "v:8.3",
+            "v:10.1",
+            "v:26.2",
+            "v:27.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "A/B testing compares current and candidate models while orchestration coordinates workflows."
+          ],
+          "cons": [
+            "Orchestration raises burden and delayed labels limit early confidence."
+          ],
+          "reason": "Prioritizes explicit comparison and coordination."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space offers serving and access patterns but no fail-open authorization, timeout, circuit-breaker or source-failure behavior."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "No dimension specifies deployment location, PCI boundaries, or whether a service runs inside the company's certified environment."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:27",
+      "note": "The space has an MLOps choice but does not describe staffing effort, ownership or operational burden well enough to establish fit for seven people."
+    }
+  ]
+}

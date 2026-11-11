@@ -1,0 +1,1207 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores every card transaction for fraud before authorization, processing 3,000 transactions per second normally and up to 15,000 during seasonal sales. Fraud patterns adapt within weeks; confirmed labels arrive days to weeks later. Auditors may ask months later why a transaction was scored as it was. Five data scientists and two ML engineers build the system; operations runs the data centres and shared infrastructure, with no ML platform team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Serving: Stateless scoring tier",
+        "Feature state: Stream-processed keyed online store",
+        "Model rollout: Automated champion challenger with canary",
+        "Audit record: Append-only score ledger with immutable model and training snapshots"
+      ],
+      "description": "A stateless scoring tier receives requests, retrieves keyed online features from the stream-processed store, and scores them with the currently approved model. Automated champion–challenger canaries compare model versions, while the append-only ledger records each score alongside immutable model and training snapshots. Trade-off: This supports horizontal scaling, controlled rollout, and strong auditability, but introduces online-store dependency and feature-read latency. Immutable snapshots and score history also increase storage and operational costs, while automated comparison requires reliable monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Serving: Sharded scoring with colocated state",
+        "Feature state: Partitioned stream processor keyed by cardholder",
+        "Model rollout: Shadow evaluation then atomic version switch",
+        "Audit record: Append-only score ledger with immutable model and training snapshots"
+      ],
+      "description": "Shards receive scoring requests and colocate each cardholder’s state with a partitioned stream processor, while scores are evaluated against a shadow model before an atomic version switch. Every score is written to an append-only ledger that retains the model and training snapshots used to produce it. Trade-off: This combines low-latency state access, per-cardholder ordering, controlled rollouts, and reproducible audits. It gives up simplicity through shard balancing and state-management concerns, duplicate shadow-evaluation resources, and continually growing immutable storage.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Serving: Synchronous scoring from shared relational database",
+        "Feature state: Transactional rolling aggregates in database",
+        "Model rollout: Manual shadow evaluation then scheduled switch",
+        "Audit record: Database score history with retained model artifacts"
+      ],
+      "description": "Each transaction is scored synchronously using transactional rolling aggregates in a shared relational database, with the active model producing the score. Candidate models are evaluated manually in shadow mode before a scheduled switch, and each score is recorded with retained model artifacts for auditing. Trade-off: This favors transactional consistency, centralized operation, controlled rollout, and reproducibility. It gives up rollout speed and scalability; synchronous database access and aggregate updates can increase latency and database contention.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Serving: Stateless scoring tier",
+        "Feature state: Stream-processed keyed online store",
+        "Model rollout: Automated champion challenger with canary",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Cached features and fail-open authorization fallback"
+      ],
+      "description": "A stateless scoring tier reads stream-maintained keyed features from the online store and scores requests using the currently deployed model. Automated champion–challenger canaries control rollout, while each score records immutable model and training snapshots; cached features support authorization when dependencies fail. Trade-off: This provides scalable serving, safer model changes, reproducibility, and degraded availability during outages. It gives up strict feature freshness and fraud-blocking guarantees when caches are stale or fail-open behavior permits authorization, while requiring substantial state, rollout, and audit infrastructure.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Serving: Sharded scoring with colocated state",
+        "Feature state: Partitioned stream processor keyed by cardholder",
+        "Model rollout: Shadow evaluation then atomic version switch",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Local last-known features and fail-open authorization fallback"
+      ],
+      "description": "Shards score transactions with colocated state, while a partitioned stream processor keyed by cardholder maintains each cardholder’s features. New models run in shadow, then switch atomically; every score records immutable model and training snapshots, while failures use local last-known features and fail-open authorization. Trade-off: This favors low-latency availability, reproducible audits, and safe model rollout, but fail-open decisions and stale local features can permit more fraud during outages. Colocation and immutable snapshots also increase operational and storage costs.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Serving: Synchronous scoring from shared relational database",
+        "Feature state: Transactional rolling aggregates in database",
+        "Model rollout: Manual shadow evaluation then scheduled switch",
+        "Audit record: Database score history with retained model artifacts",
+        "Failure handling: Cached aggregates and fail-open authorization fallback"
+      ],
+      "description": "The service synchronously reads transactionally maintained rolling aggregates from a shared relational database, scores each authorization request, and records the score with the retained model artifact. New models are evaluated manually in shadow mode before a scheduled switch; if scoring is unavailable, cached aggregates support a fail-open authorization fallback. Trade-off: This favors consistency, traceability, and controlled rollout. It gives up resilience and potentially fraud-prevention strength during outages, because synchronous database dependence and fail-open behavior can permit transactions without a fresh score.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Serving: Embedded model in authorization service",
+        "Feature state: Replicated in-memory rolling aggregates",
+        "Model rollout: Signed model bundles staged to each shard",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Cached aggregates and fail-open authorization fallback"
+      ],
+      "description": "Each authorization shard runs the embedded model against replicated in-memory rolling aggregates, while signed model bundles are staged to shards for controlled updates. For every decision, the service appends a score record referencing immutable model and training snapshots; if aggregate state or scoring dependencies fail, it uses cached aggregates and fails open, allowing authorization to proceed. Trade-off: This favors low-latency, locally available scoring and strong provenance, but replication and staging add memory, distribution, and rollout-coordination costs. Fail-open behavior and cached or stale aggregates preserve availability but can reduce fraud-detection accuracy and permit fraudulent transactions during failures.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Serving: Stateless scoring tier",
+        "Feature state: Stream-processed keyed online store",
+        "Model rollout: Automated champion challenger with canary",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Local feature cache with circuit breaker and fail-open authorization fallback"
+      ],
+      "description": "The stateless scoring tier retrieves keyed, stream-maintained features from the online store and scores requests using the current champion or canary model. It records each score with immutable model and training snapshots, while a local feature cache and circuit breaker enable a fail-open authorization fallback during dependency failures. Trade-off: This supports horizontal scaling, controlled rollouts, reproducible audits, and continued authorization availability. It gives up some protection during outages because fail-open decisions may approve fraudulent transactions, and cache staleness can reduce scoring accuracy.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Serving: Sharded scoring with colocated state",
+        "Feature state: Partitioned stream processor keyed by cardholder",
+        "Model rollout: Automated shadow validation and atomic version switch",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Local last-known features and fail-open authorization fallback"
+      ],
+      "description": "Shards host scoring and cardholder-keyed feature state together, allowing low-latency scoring from colocated stream-processed features. Automated shadow tests validate new models before an atomic switch, while an append-only ledger records scores alongside immutable model and training snapshots; if dependencies fail, scoring uses local last-known features and fail-open authorization. Trade-off: This favors latency, rollout safety, and auditability, but requires stateful shard coordination and storage. Stale features and fail-open behavior preserve availability while weakening fraud protection during failures.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Serving: Synchronous scoring from shared relational database with read replicas",
+        "Feature state: Transactional rolling aggregates with asynchronous local cache",
+        "Model rollout: Manual shadow evaluation then scheduled switch",
+        "Audit record: Database score history with retained model artifacts",
+        "Failure handling: Cached aggregates and fail-open authorization fallback"
+      ],
+      "description": "The service synchronously scores each transaction using rolling aggregates maintained transactionally and served through an asynchronous local cache, with relational read replicas supporting scoring. Scores are recorded with the model artifacts, while models undergo manual shadow evaluation before scheduled activation; if dependencies fail, cached aggregates support a fail-open authorization fallback. Trade-off: This favors auditable, controlled model changes and continued authorization during failures, but accepts cache staleness, replica lag, database dependence, slower rollouts, and the fraud exposure of fail-open decisions.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "Serving: Embedded model in authorization service",
+        "Feature state: Replicated in-memory rolling aggregates with event replay",
+        "Model rollout: Signed model bundles staged to each shard",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Cached aggregates with health-gated fail-open authorization fallback"
+      ],
+      "description": "Each authorization shard runs the embedded model against replicated in-memory rolling aggregates, rebuilding them through event replay and using signed model bundles staged locally. It appends scores with immutable model and training snapshots, while health checks determine whether to use cached aggregates or fail open when scoring dependencies are unhealthy. Trade-off: This provides low-latency, shard-local decisions, reproducibility, and strong auditability, but duplicates state and requires replay, bundle distribution, and ledger storage. It also accepts increased fraud exposure during health-gated fail-open periods and possible aggregate staleness.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a stateless scoring tier reads stream-maintained online features and automates champion/challenger rollout?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if scoring and keyed feature state are colocated by cardholder, with shadow validation before model switch?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a shared relational database owns rolling aggregates, score history and the synchronous scoring path?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if the authorization service embeds the model and keeps replicated rolling state on each shard?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Serving: Stateless scoring tier",
+        "Feature state: Stream-processed keyed online store",
+        "Model rollout: Automated champion challenger with canary",
+        "Audit record: Append-only score ledger with immutable model and training snapshots"
+      ],
+      "hypothesis": "A stream-maintained keyed store should supply recent activity at scoring time; automated comparisons and immutable provenance should support R2, R3, Q3 and Q4. Centralized feature reads may strain Q1 and dependencies may hurt Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving: Stateless scoring tier",
+            "Feature state: Stream-processed keyed online store"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The remote online feature lookup provides recent keyed activity but adds a hop whose peak latency needs measurement."
+        }
+      ],
+      "observation": "Recent keyed features and versioned score lineage are represented directly, but no failure fallback is present. The numeric latency target and 48-hour retrain cycle need measurement; several moving services add work for the small team.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Serving: Sharded scoring with colocated state",
+        "Feature state: Partitioned stream processor keyed by cardholder",
+        "Model rollout: Shadow evaluation then atomic version switch",
+        "Audit record: Append-only score ledger with immutable model and training snapshots"
+      ],
+      "hypothesis": "Colocating cardholder state and scoring should support R1 and Q1, while shadow comparison and immutable snapshots support R2, R3, Q3 and Q4. Missing fallback risks Q2 and stateful shards add operational load.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "misses",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving: Sharded scoring with colocated state",
+            "Feature state: Partitioned stream processor keyed by cardholder"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Cardholder-local state supports recent-activity scoring but creates shard balancing and state-recovery work for the small team."
+        }
+      ],
+      "observation": "Colocation reduces a remote feature lookup, and the ledger makes past scores reproducible. A service or state failure still has no authorization fallback, and shadow comparison duration is unspecified.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Serving: Synchronous scoring from shared relational database",
+        "Feature state: Transactional rolling aggregates in database",
+        "Model rollout: Manual shadow evaluation then scheduled switch",
+        "Audit record: Database score history with retained model artifacts"
+      ],
+      "hypothesis": "A shared relational system could reduce platform components for C2 and simplify consistency and history, but synchronous aggregate access may miss Q1 and a database failure could block Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving: Synchronous scoring from shared relational database",
+            "Feature state: Transactional rolling aggregates in database"
+          ],
+          "gains": [
+            "C2"
+          ],
+          "costs": [
+            "Q1",
+            "Q2"
+          ],
+          "note": "Centralized transactions reduce platform components but make database contention and failure affect the authorization path."
+        }
+      ],
+      "observation": "Centralized transactions and model history fit a small operations footprint, but synchronous database work is a poor fit for the 30 ms peak target and has a large failure blast radius. Manual rollout also leaves Q4 timing uncertain.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Serving: Stateless scoring tier",
+        "Feature state: Stream-processed keyed online store",
+        "Model rollout: Automated champion challenger with canary",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Cached features and fail-open authorization fallback"
+      ],
+      "hypothesis": "Add cached features and fail-open authorization to address Q2 while preserving stream features and automated rollout; stale cache may trade some R1 accuracy for continued authorization.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Failure handling: Cached features and fail-open authorization fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "The fallback keeps authorizations moving, but cache and outage behavior add operating policy for the team."
+        }
+      ],
+      "observation": "The explicit fallback addresses the no-decline behavior and bounded weaker-detection allowance in Q2. Cache age limits and circuit behavior still need operational definition; latency and retraining targets remain unmeasured.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Serving: Sharded scoring with colocated state",
+        "Feature state: Partitioned stream processor keyed by cardholder",
+        "Model rollout: Shadow evaluation then atomic version switch",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Local last-known features and fail-open authorization fallback"
+      ],
+      "hypothesis": "Add local last-known features and fail-open authorization to address Q2 without a remote dependency on the failure path; this trades freshness for availability.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Failure handling: Local last-known features and fail-open authorization fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Local fallback preserves authorization but requires state freshness and fail-open behavior to be operated."
+        }
+      ],
+      "observation": "The design now keeps authorization moving through service or source failures using local state. Shadow comparison supports Q4, but its elapsed time and the 30 ms peak percentile require capacity validation.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "Serving: Synchronous scoring from shared relational database",
+        "Feature state: Transactional rolling aggregates in database",
+        "Model rollout: Manual shadow evaluation then scheduled switch",
+        "Audit record: Database score history with retained model artifacts",
+        "Failure handling: Cached aggregates and fail-open authorization fallback"
+      ],
+      "hypothesis": "Add cached aggregates and fail-open authorization to fix Q2 while retaining the simplest centralized operating model; database contention remains a Q1 concern.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Failure handling: Cached aggregates and fail-open authorization fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The fallback handles service failure, while the synchronous database path still misses the peak latency objective."
+        }
+      ],
+      "observation": "A failed scoring dependency no longer prevents authorization, but the synchronous database path still plausibly misses the peak latency objective. Model and input history is retained, while the training-data lineage and manual retrain duration are not fully specified.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Serving: Embedded model in authorization service",
+        "Feature state: Replicated in-memory rolling aggregates",
+        "Model rollout: Signed model bundles staged to each shard",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Cached aggregates and fail-open authorization fallback"
+      ],
+      "hypothesis": "Embed scoring and replicated rolling state in the authorization shards to explore a local, low-hop path for R1, Q1 and Q2. Signed bundles and immutable score records aim to retain model control and auditability, at the cost of distribution work.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving: Embedded model in authorization service",
+            "Feature state: Replicated in-memory rolling aggregates"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Local state avoids a network feature hop but makes replication and consistency the small teams responsibility."
+        }
+      ],
+      "observation": "A shard-local path removes the central feature read and includes a fail-open route. Replication, bundle staging and immutable history still require careful ownership by a small team; the numeric service objectives are not proven.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Serving: Stateless scoring tier",
+        "Feature state: Stream-processed keyed online store",
+        "Model rollout: Automated champion challenger with canary",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Local feature cache with circuit breaker and fail-open authorization fallback"
+      ],
+      "hypothesis": "Strengthen failure handling with a local cache and circuit breaker to make Q2 behavior explicit and bounded, retaining the rest of A.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Failure handling: Local feature cache with circuit breaker and fail-open authorization fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Circuit breaking makes the fallback explicit, adding cache and threshold policy to operations."
+        }
+      ],
+      "observation": "The circuit breaker makes failure routing explicit while cache use preserves authorization. It still needs a 15-minute stale-feature policy and load tests against Q1; audit snapshots carry storage cost.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Serving: Sharded scoring with colocated state",
+        "Feature state: Partitioned stream processor keyed by cardholder",
+        "Model rollout: Automated shadow validation and atomic version switch",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Local last-known features and fail-open authorization fallback"
+      ],
+      "hypothesis": "Automate shadow validation and atomic model activation to reduce the time and operator effort for R2 and Q4 while retaining colocated state and fallback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model rollout: Automated shadow validation and atomic version switch"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Automating comparison supports the 48-hour target but adds shadow capacity and release automation to operate."
+        }
+      ],
+      "observation": "Automated comparison and activation make the 48-hour change path more plausible without sacrificing rollback control. The 48-hour threshold and 15,000 TPS/30 ms target still need measured pipeline and capacity results.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Serving: Synchronous scoring from shared relational database with read replicas",
+        "Feature state: Transactional rolling aggregates with asynchronous local cache",
+        "Model rollout: Manual shadow evaluation then scheduled switch",
+        "Audit record: Database score history with retained model artifacts",
+        "Failure handling: Cached aggregates and fail-open authorization fallback"
+      ],
+      "hypothesis": "Add database read replicas and an asynchronous local aggregate cache to reduce Q1 contention while preserving the centralized operating model and fail-open fallback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Audit record: Database score history with retained model artifacts"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Central score history enables lookup, but retained artifacts alone may not preserve the training data needed for the 13-month audit."
+        }
+      ],
+      "observation": "Replicas and cache reduce synchronous read pressure, but replica lag and cache freshness complicate recent-activity correctness. The database remains a shared bottleneck, and manual rollout plus database-only history leave Q4 and Q3 weaker than the stream-led designs.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Serving: Embedded model in authorization service",
+        "Feature state: Replicated in-memory rolling aggregates with event replay",
+        "Model rollout: Signed model bundles staged to each shard",
+        "Audit record: Append-only score ledger with immutable model and training snapshots",
+        "Failure handling: Cached aggregates with health-gated fail-open authorization fallback"
+      ],
+      "hypothesis": "Add event replay for replicated aggregates and health-gated fail-open behavior, improving R1 recovery and Q2 handling while preserving local scoring and signed bundles.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Failure handling: Cached aggregates with health-gated fail-open authorization fallback"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "Health-gated fallback protects authorization availability but adds per-shard health and cache behavior to operate."
+        }
+      ],
+      "observation": "Replay gives a recovery path for local rolling state and health gating clarifies fail-open behavior. Per-shard replay, bundle coordination and audit retention remain the main risks for the seven-person team.",
+      "rating": "strong",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Stream store with cached fail-open",
+      "summary": "Scale stateless scoring over stream-maintained keyed features, with automated canaries, an immutable audit ledger and a circuit-breaker fallback.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: Stateless scoring tier",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C1"
+          ],
+          "reason": "A stateless tier can scale inside the PCI environment while keeping scoring separate from authorization."
+        },
+        {
+          "dimension_id": "Feature state",
+          "value_id": "Feature state: Stream-processed keyed online store",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Keyed rolling activity provides the recent cardholder features required at score time."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Automated champion challenger with canary",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated candidate comparison and canaries give the team a repeatable path to update models."
+        },
+        {
+          "dimension_id": "Audit record",
+          "value_id": "Audit record: Append-only score ledger with immutable model and training snapshots",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "The ledger binds scores to model, inputs and retained training snapshots."
+        },
+        {
+          "dimension_id": "Failure handling",
+          "value_id": "Failure handling: Local feature cache with circuit breaker and fail-open authorization fallback",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Cached inputs and a circuit breaker let authorization proceed during scoring dependency failures."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Failure handling",
+          "value_id": "Failure handling: Cached features and fail-open authorization fallback",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "The simpler cache fallback lacks the explicit circuit breaker added after review."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Colocated stateful shards",
+      "summary": "Keep per-cardholder rolling state beside scoring shards, automate shadow comparison and activation, and use local last-known features when dependencies fail.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: Sharded scoring with colocated state",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C1"
+          ],
+          "reason": "Colocation avoids a remote feature lookup on the authorization path."
+        },
+        {
+          "dimension_id": "Feature state",
+          "value_id": "Feature state: Partitioned stream processor keyed by cardholder",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Partitioned stream state maintains each cardholder's recent activity."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Automated shadow validation and atomic version switch",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated shadow validation and atomic switching improve update speed while comparing against the live model."
+        },
+        {
+          "dimension_id": "Audit record",
+          "value_id": "Audit record: Append-only score ledger with immutable model and training snapshots",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Immutable score and training snapshots support later explanation."
+        },
+        {
+          "dimension_id": "Failure handling",
+          "value_id": "Failure handling: Local last-known features and fail-open authorization fallback",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Local last-known features permit fail-open authorization if scoring dependencies fail."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Shadow evaluation then atomic version switch",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "The initial shadow-and-switch design left more of the 48-hour process manual."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "C1",
+      "name": "Relational scoring with cache and replicas",
+      "summary": "Use transactional rolling aggregates and database history with read replicas, local cache, and a manual shadow release process.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: Synchronous scoring from shared relational database with read replicas",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C1"
+          ],
+          "reason": "Read replicas and an in-environment service retain the central operating model while reducing read contention."
+        },
+        {
+          "dimension_id": "Feature state",
+          "value_id": "Feature state: Transactional rolling aggregates with asynchronous local cache",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Transactional aggregates maintain rolling activity, with the cache reducing synchronous work."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Manual shadow evaluation then scheduled switch",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C2"
+          ],
+          "reason": "Manual shadow evaluation is straightforward for the small team, though the time window is less certain."
+        },
+        {
+          "dimension_id": "Audit record",
+          "value_id": "Audit record: Database score history with retained model artifacts",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Database history gives a central score lookup, but training-data lineage needs additional retention discipline."
+        },
+        {
+          "dimension_id": "Failure handling",
+          "value_id": "Failure handling: Cached aggregates and fail-open authorization fallback",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Cached aggregates and fail-open authorization keep scoring failures from blocking payment."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: Synchronous scoring from shared relational database",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "The original single synchronous database path had greater contention risk."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Embedded shard-local scoring",
+      "summary": "Embed the model beside replicated rolling aggregates in each authorization shard, distribute signed model bundles, replay events for recovery, and retain score provenance.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "Serving",
+          "value_id": "Serving: Embedded model in authorization service",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C1"
+          ],
+          "reason": "Embedded scoring keeps the decision path local within the PCI environment."
+        },
+        {
+          "dimension_id": "Feature state",
+          "value_id": "Feature state: Replicated in-memory rolling aggregates with event replay",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Replicated in-memory rolling aggregates support low-hop recent-activity scoring and can be rebuilt by replay."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Signed model bundles staged to each shard",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Signed bundles provide controlled model distribution to each shard."
+        },
+        {
+          "dimension_id": "Audit record",
+          "value_id": "Audit record: Append-only score ledger with immutable model and training snapshots",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "The immutable ledger retains score inputs, model version and training provenance."
+        },
+        {
+          "dimension_id": "Failure handling",
+          "value_id": "Failure handling: Cached aggregates with health-gated fail-open authorization fallback",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Health-gated fallback preserves authorization during scoring or source failure."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Feature state",
+          "value_id": "Feature state: Replicated in-memory rolling aggregates",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Without event replay, local aggregates have a less explicit recovery path."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where scoring and recent activity state run",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "C1",
+        "C2"
+      ],
+      "context": "The service must use current cardholder activity before authorization at seasonal peak, remain available during component failure, and keep card data within the PCI environment. A local path reduces hops but increases state ownership; shared services reduce duplication but can add latency and failure concentration.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Stream-maintained online store",
+          "values": [
+            "Serving: Stateless scoring tier",
+            "Feature state: Stream-processed keyed online store",
+            "Failure handling: Local feature cache with circuit breaker and fail-open authorization fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Separates scoring from keyed state and supports horizontal scaling.",
+            "Cache fallback keeps authorizations moving."
+          ],
+          "cons": [
+            "Online lookup adds a dependency and cache staleness can weaken detection.",
+            "Several services add operational work."
+          ],
+          "reason": "Choose when independent scaling and explicit online feature processing are priorities."
+        },
+        {
+          "id": "O2",
+          "name": "Colocated partitioned state",
+          "values": [
+            "Serving: Sharded scoring with colocated state",
+            "Feature state: Partitioned stream processor keyed by cardholder",
+            "Failure handling: Local last-known features and fail-open authorization fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Avoids a remote feature hop and maintains per-cardholder ordering.",
+            "Local state supports fail-open authorization."
+          ],
+          "cons": [
+            "Stateful shards need balancing and recovery operations.",
+            "Stale local state can degrade detection."
+          ],
+          "reason": "Choose when local latency and cardholder-level state locality justify shard ownership."
+        },
+        {
+          "id": "O3",
+          "name": "Relational aggregates with local cache",
+          "values": [
+            "Serving: Synchronous scoring from shared relational database with read replicas",
+            "Feature state: Transactional rolling aggregates with asynchronous local cache",
+            "Failure handling: Cached aggregates and fail-open authorization fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Central transactional operations are familiar to the existing infrastructure team.",
+            "Replicas and cache reduce contention."
+          ],
+          "cons": [
+            "Database dependence and replica lag still threaten peak latency and freshness."
+          ],
+          "reason": "Choose when minimizing distinct platform components outweighs peak-path latency concerns."
+        },
+        {
+          "id": "O4",
+          "name": "Embedded shard-local state",
+          "values": [
+            "Serving: Embedded model in authorization service",
+            "Feature state: Replicated in-memory rolling aggregates with event replay",
+            "Failure handling: Cached aggregates with health-gated fail-open authorization fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Avoids network feature reads and keeps a local authorization fallback."
+          ],
+          "cons": [
+            "Replication and replay create state consistency work for a small team."
+          ],
+          "reason": "Choose when minimum scoring-path hops matter most and shard operations are manageable."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How confirmed fraud labels reach production models",
+      "drivers": [
+        "R2",
+        "Q4",
+        "C2"
+      ],
+      "context": "New confirmed cases arrive days or weeks later, and a segment loss increase must lead to a compared model within 48 hours. More automation shortens the release path but adds platform and monitoring ownership.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Automated champion challenger canary",
+          "values": [
+            "Model rollout: Automated champion challenger with canary"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Automates comparison and staged exposure."
+          ],
+          "cons": [
+            "Requires monitoring and reliable model evaluation automation."
+          ],
+          "reason": "Choose for repeatable, fast releases when the team can operate automation."
+        },
+        {
+          "id": "O2",
+          "name": "Automated shadow validation and atomic switch",
+          "values": [
+            "Model rollout: Automated shadow validation and atomic version switch"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Compares the candidate with current traffic before a controlled switch."
+          ],
+          "cons": [
+            "Shadow inference consumes extra capacity and the total pipeline time remains to be measured."
+          ],
+          "reason": "Choose for explicit comparison and rollback while reducing manual activation work."
+        },
+        {
+          "id": "O3",
+          "name": "Manual shadow and scheduled switch",
+          "values": [
+            "Model rollout: Manual shadow evaluation then scheduled switch"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Familiar and bounded operator workflow."
+          ],
+          "cons": [
+            "Manual scheduling makes the 48-hour target less dependable."
+          ],
+          "reason": "Choose when operational simplicity outweighs release speed."
+        },
+        {
+          "id": "O4",
+          "name": "Signed bundles staged per shard",
+          "values": [
+            "Model rollout: Signed model bundles staged to each shard"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Controlled, verifiable distribution to local scoring instances."
+          ],
+          "cons": [
+            "Bundle staging by itself does not specify the required recent-transaction comparison."
+          ],
+          "reason": "Choose for local deployment control, paired with a separately owned evaluation process."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "What evidence is retained for each historical score",
+      "drivers": [
+        "R3",
+        "Q3"
+      ],
+      "context": "A score must remain explainable for 13 months, including model version, input values and training data, with an answer within one working day. Immutable artifacts strengthen reproducibility but increase storage and retention management.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Immutable score and training ledger",
+          "values": [
+            "Audit record: Append-only score ledger with immutable model and training snapshots"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Binds a score to input and model provenance and retained training snapshots."
+          ],
+          "cons": [
+            "Requires durable storage, retention controls and retrieval tooling."
+          ],
+          "reason": "Choose where reproducible audit answers are central."
+        },
+        {
+          "id": "O2",
+          "name": "Database score history and retained model artifacts",
+          "values": [
+            "Audit record: Database score history with retained model artifacts"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Central history is easy to query operationally."
+          ],
+          "cons": [
+            "Artifact retention alone may not preserve exact training data and inputs for the full period."
+          ],
+          "reason": "Choose for centralized retrieval only if training-data lineage is added to the retention process."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

@@ -1,0 +1,1388 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives two to eight million personal documents per day, with storm season bringing four times the usual load. An LLM classifier from the insurer's approved EU provider assigns each document to one of 60 claim types. Claims handling, fraud investigation, and analytics consume the results.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:15.1",
+        "v:5.3",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "description": "The system queues newly available data through an event-based API, partitions it for parallel batch processing, and runs scheduled model scoring jobs. Predictions are written to data storage, with clients receiving push notifications when results become available; model performance parameters are monitored in production. Trade-off: This design supports scalable, observable processing and decouples clients from computation, but results are delayed until scheduled batches run and require notification and storage coordination.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.3",
+        "v:3.3",
+        "v:6.1",
+        "v:22.2"
+      ],
+      "description": "A real-time stream feeds a pub/sub data-access API, with hybrid parallel processing distributing work across suitable mechanisms. Model-serving microservices produce predictions or scores and push results to subscribed clients, while system data and predictions are logged and monitored in production. Trade-off: This gains low-latency delivery, decoupled access, scalable processing, and operational visibility. It gives up simplicity, requiring coordination across streaming, parallel-processing, notification, serving, and monitoring components, with associated operational overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.1",
+        "v:3.4",
+        "v:6.2",
+        "v:22.4"
+      ],
+      "description": "Dedicated pipelines process each dataset in batches, with new data exposed through a message/event queue API. Services provide online computations alongside offline batch predictions, while clients poll for results and production tracking records usage, inputs, outputs, interpretability, and fairness. Trade-off: This provides dataset isolation, flexible online/offline serving, and broad operational visibility. It sacrifices batch-level freshness and simplicity, and polling can add request overhead and detection delay compared with event-driven result notification.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "description": "A batch-oriented pipeline partitions incoming data for parallel processing, while services handle online computations and batches handle offline scoring. Data access is exposed through message/event queues, and clients receive push notifications when prediction results are available; model performance is monitored in production. Trade-off: This design improves scalable throughput, decouples producers and consumers, and supports both timely and bulk predictions. It gives up the simplicity of a purely synchronous interface and may introduce batch latency, queue-management complexity, and the need to monitor model behavior over time.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.3",
+        "v:3.3",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "description": "A real-time stream-processing pipeline uses hybrid parallelization to handle incoming data and publishes access through a subscription-based API. A distributed model-serving microservice produces predictions in real time, pushes results to subscribed clients, and is monitored for performance. Trade-off: This design improves responsiveness, scalability, and timely visibility into model behavior, but increases operational complexity, coordination demands, and monitoring overhead compared with simpler batch or request-based designs.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.1",
+        "v:3.4",
+        "v:6.1",
+        "v:22.4"
+      ],
+      "description": "Batch pipelines process each dataset independently, while queued messages expose new data and trigger online services or offline batch jobs as appropriate. Clients receive push notifications when prediction results are available, and production tracking records model usage, inputs, outputs, interpretability, and fairness. Trade-off: This provides dataset isolation, scalable batch computation, responsive online serving, and proactive result delivery, but requires operating separate serving paths and pipelines, managing queue and notification reliability, and accepting possible staleness for batch-produced results. It also adds monitoring and operational overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:15.2",
+        "v:5.3",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "description": "1. Incoming data is handled as a real-time stream, exposed through a message/event queue, and partitioned within the pipeline for parallel processing. Model predictions are generated on schedule in batches, written to storage, and clients receive push notifications when results are available; model-performance parameters are monitored in production. 2. Trade-off: This gains scalable stream ingestion, parallel throughput, decoupled access, and observable model behavior, but gives up immediate prediction availability and adds batch-scheduling and notification latency. The real-time processing and batch-serving choices are in tension because batch serving delays results despite real-time data handling.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.2"
+      ],
+      "description": "Incoming data is placed on a message/event queue and processed in partitioned batches for parallelism. Offline batches produce scores while services handle online computations; clients receive push notifications when results are available, and system data and predictions are logged and monitored. Trade-off: This combines scalable batch throughput, asynchronous access, and explicit result notification with both serving modes. It gives up the simplicity of a single serving path, and queued batch processing may delay results compared with fully realtime processing.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.3",
+        "v:3.3",
+        "v:6.1",
+        "v:22.4"
+      ],
+      "description": "A real-time stream-processing pipeline uses hybrid parallelization to handle incoming data and a pub/sub API to distribute it to model-serving microservices. The services return predictions in real time and push result-availability notifications to clients, while in-production tracking records model usage, inputs, outputs, interpretability, and fairness. Trade-off: This combination supports responsive, scalable processing and rich operational oversight. It adds distributed-system complexity, and hybrid execution plus detailed tracking can increase coordination, implementation, and runtime overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.3",
+        "v:3.4",
+        "v:6.1",
+        "v:22.4"
+      ],
+      "description": "The system processes data in batches, using hybrid parallelization, while combining offline batch predictions with online service computations. A message/event-based API queues newly available data, and clients receive push notifications when prediction results are ready; production tracking records usage, inputs, outputs, interpretability, and fairness. Trade-off: This combines scalable batch processing with responsive online serving and proactive result delivery, while providing broad operational oversight. It gives up the simplicity and lower coordination overhead of a single processing and serving mode, requiring more components and monitoring across asynchronous workflows.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "description": "1. A real-time stream is partitioned within the pipeline for parallel processing and sent to distributed model-serving microservices. An event queue provides the data-access interface, while push notifications deliver prediction results to clients and performance monitoring tracks the deployed model. 2. Trade-off: This gains low-latency responses, scalable throughput, and decoupled communication, but introduces coordination and operational complexity across partitions, queues, services, and notifications. It also requires ongoing monitoring to detect changes in model performance.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if scheduled batch scoring and partitioned data maximize economical storm-season throughput?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a fully event-driven streaming path prioritizes low latency and team decoupling?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if dataset-specific pipelines combine offline bulk scoring with online serving?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if intake streams in real time but scoring remains scheduled, making the freshness cost explicit?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:15.1",
+        "v:5.3",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "hypothesis": "Scheduled batch scoring with partitioning should aid throughput and cost (Q1,Q3), while queue access and push delivery serve teams independently (R2,Q4).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:15.1",
+            "v:5.3"
+          ],
+          "gains": [
+            "Q1",
+            "Q3"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "Batching may improve throughput and unit cost but delays each document's result and the two-hour target is unproven."
+        }
+      ],
+      "observation": "Partitioning and event queues support an asynchronous scalable path, but the space supplies no capacity, batch interval, cost, EU placement, or provider data. The design does not specify confidence output or the human review loop. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.3",
+        "v:3.3",
+        "v:6.1",
+        "v:22.2"
+      ],
+      "hypothesis": "Streaming, distributed serving and hybrid parallelism should improve freshness and storm throughput (Q1); pub/sub and push support decoupling (R2,Q4), with logs supporting Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:15.2",
+            "v:5.1",
+            "v:17.3"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Continuous distributed processing supports responsiveness and scaling but brings operational overhead whose cost target is unproven."
+        }
+      ],
+      "observation": "The point emphasizes timely and decoupled delivery. Logs alone do not guarantee a claim-type quality alert within a day. No source attests the combination, and numeric throughput, cost, and regional constraints remain unproven.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.1",
+        "v:3.4",
+        "v:6.2",
+        "v:22.4"
+      ],
+      "hypothesis": "Dataset-specific pipelines with hybrid online/offline serving should balance bulk throughput and freshness (Q1); tracking helps Q2 and queue access helps Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:17.1",
+            "v:5.5"
+          ],
+          "gains": [
+            "Q1",
+            "R2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Separate pipelines and serving paths isolate work and allow online responses but add operational components and cost."
+        }
+      ],
+      "observation": "Hybrid serving balances bulk work and online requests, but polling delays availability detection and the target cost and throughput cannot be calculated. No source attests this combination.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "hypothesis": "Adding online serving to the partitioned batch path should reduce freshness loss while preserving Q1 and supporting R2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5"
+          ],
+          "gains": [
+            "R2",
+            "Q1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Online and offline serving broaden timeliness but create a second serving path and potential cost overhead."
+        }
+      ],
+      "observation": "The point trades simpler batch operation for online availability. It improves the freshness hypothesis, but no measurements establish the two-hour or cost goals. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.3",
+        "v:3.3",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "hypothesis": "Monitoring model performance directly should make Q2 more actionable alongside the event-driven delivery path.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:15.2",
+            "v:5.1",
+            "v:17.3"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Low-latency parallel services support response and decoupling, while their complexity pulls against the average-cost cap."
+        }
+      ],
+      "observation": "Specific performance monitoring is a better conceptual fit for detecting model quality loss than generic logging, but the per-type threshold and alert timing are unspecified. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.1",
+        "v:3.4",
+        "v:6.1",
+        "v:22.4"
+      ],
+      "hypothesis": "Push delivery should reduce the result discovery delay while preserving the dataset-specific hybrid serving approach (R2,Q4).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:6.1"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Push avoids repeated polling but requires notification delivery infrastructure and does not establish the cost target."
+        }
+      ],
+      "observation": "Push better suits timely result availability than polling; tracking broadens operational visibility but is not a claim-type alert guarantee. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:15.2",
+        "v:5.3",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "hypothesis": "Streaming intake and partitioning may absorb bursts, but scheduled batch serving may defeat the two-hour freshness target (Q1); this tests the intake/scoring boundary.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:15.2",
+            "v:5.3"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "R1",
+            "Q1"
+          ],
+          "note": "Streaming handles intake continuously, but batch scoring delays the prediction that fulfills each document's classification and freshness need."
+        }
+      ],
+      "observation": "This isolates a key mismatch: real-time ingestion does not deliver real-time classification when serving remains scheduled. All operational targets remain unproven; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.2"
+      ],
+      "hypothesis": "Logging data and predictions in addition to online/offline service paths may improve diagnostic evidence for Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:22.2"
+          ],
+          "gains": [
+            "Q2",
+            "R2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Richer logging and dual serving paths help diagnostics and delivery but add storage and operational costs."
+        }
+      ],
+      "observation": "Logging inputs and outputs gives operators evidence to investigate changes, but does not itself detect per-class quality drops within one day. The refinement does not establish a numeric target; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.3",
+        "v:3.3",
+        "v:6.1",
+        "v:22.4"
+      ],
+      "hypothesis": "Logging data and predictions may strengthen investigation of quality changes in the streaming design (Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:15.2",
+            "v:5.1",
+            "v:17.3"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Streaming, hybrid parallelism and service delivery can meet timely scaling needs, with the cost of greater component and operations load."
+        }
+      ],
+      "observation": "The event-driven design remains the strongest fit for low latency and loose coupling, while logs improve investigation but require a separate alert rule for each claim type. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:15.1",
+        "v:5.5",
+        "v:17.3",
+        "v:3.4",
+        "v:6.1",
+        "v:22.4"
+      ],
+      "hypothesis": "Hybrid parallelization should improve burst handling over one pipeline per dataset while retaining the online/offline balance (Q1,R2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:17.3",
+            "v:5.5"
+          ],
+          "gains": [
+            "Q1",
+            "R2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Hybrid parallel processing and serving balance load and responsiveness but add configuration and operations cost."
+        }
+      ],
+      "observation": "Hybrid parallelization broadens the scaling strategy, retaining both bulk and online work; it does not demonstrate storm capacity or the annual cost bound. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:15.2",
+        "v:5.1",
+        "v:17.2",
+        "v:3.4",
+        "v:6.1",
+        "v:22.1"
+      ],
+      "hypothesis": "Replacing batch scoring with microservice serving should remove the latency bottleneck while preserving stream intake and partitioned throughput (Q1).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:15.2",
+            "v:5.1",
+            "v:17.2"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Continuous partitioned service removes scheduled scoring delay and supports decoupling, but may cost more to operate."
+        }
+      ],
+      "observation": "This resolves the explicit intake/scoring mismatch from the exploratory point. It is the low-latency variant, but it adds service complexity and capacity, cost, and compliance remain unverified. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Partitioned hybrid serving",
+      "summary": "Use partitioned batch processing with online/offline serving, event queues, and push delivery. This balances bulk throughput and timely results, subject to measuring batch delay and operating both serving paths.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Scheduled batches can aggregate work; interval and unit cost need validation."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1"
+          ],
+          "reason": "Combines bulk scoring with online computations for timely and batch results.",
+          "fit": "approximate",
+          "fit_note": "Prediction serving is relevant to classification delivery but does not specify LLM classification, confidence output, or the classifier implementation."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Partitions pipeline work to support parallel processing."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Queued events decouple result availability from consumers."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push informs each consuming client when results are available."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Logged inputs and predictions support investigation of quality changes."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Pure scheduled batch serving is simpler but does not cover timely online results."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving mode shapes how clients are notified that results are available."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Event-driven low latency",
+      "summary": "Stream and partition incoming work, serve predictions through microservices, and notify subscribed consumers. It best fits fresh delivery and loose coupling, with greater operational cost and complexity to validate.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "reason": "Continuous processing avoids waiting for scheduled batch intake."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1"
+          ],
+          "reason": "Distributed services deliver predictions in real time.",
+          "fit": "approximate",
+          "fit_note": "Prediction serving is relevant to classification delivery but does not specify LLM classification, confidence output, or the classifier implementation."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Hybrid parallelism can distribute work across suitable mechanisms."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Subscriptions decouple consumer access from publication."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push delivers timely result availability notifications."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Tracks production usage, inputs, and outputs to provide operational context."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Direct model performance monitoring more specifically targets quality parameters but does not define per-type alerts or a one-day detection guarantee."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Real-time service results allow push notifications as soon as they are available."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Dataset-isolated hybrid path",
+      "summary": "Keep dataset-specific pipelines and hybrid online/offline serving with event queues and push delivery. Dataset isolation and broad tracking support operations but require more paths to manage.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Batch processing supports bulk work and may reduce per-item overhead."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1"
+          ],
+          "reason": "Online and offline modes balance freshness and bulk scoring.",
+          "fit": "approximate",
+          "fit_note": "Prediction serving is relevant to classification delivery but does not specify LLM classification, confidence output, or the classifier implementation."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Hybrid parallelism offers more than one way to distribute burst work."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Queued access decouples producers and consumers."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push informs consuming teams when results are ready."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Tracking model usage and inputs/outputs provides operational context."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.1",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A pipeline per dataset provides isolation but is less flexible for burst parallelization."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Polling is simpler for clients but can delay result discovery and adds repeated requests."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "The serving mode determines when clients can be told results are available."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Streaming intake with immediate serving",
+      "summary": "Use continuous intake, partitioned work, and real-time model-serving services behind an event queue. This removes batch scoring delay while retaining the operational overhead of a distributed path.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:15",
+          "value_id": "v:15.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Streaming avoids an intake schedule delay."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1"
+          ],
+          "reason": "Microservices produce prediction results in real time.",
+          "fit": "approximate",
+          "fit_note": "Prediction serving is relevant to classification delivery but does not specify LLM classification, confidence output, or the classifier implementation."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Pipeline partitioning supports parallel execution."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Event queues decouple consumer access from classification processing."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Push signals results when they become available."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Performance monitoring directly observes model parameters relevant to quality."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Batch serving was explored and shown to reintroduce scoring delay despite stream intake."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Immediate prediction serving enables timely result notification."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Choose the processing and scoring cadence",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "The classifier must complete work promptly at storm-season volume while keeping annual unit cost below the stated cap. The design space offers batch, streaming, and hybrid-serving patterns but provides no benchmark to prove either numeric target.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Partitioned batches with hybrid serving",
+          "values": [
+            "v:15.1",
+            "v:5.5"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1"
+          ],
+          "step": 8,
+          "pros": [
+            "Partitions work for parallel batch throughput.",
+            "Online and offline paths cover both immediate and bulk requests."
+          ],
+          "cons": [
+            "Batch schedules can delay some documents.",
+            "Two serving paths add operating cost."
+          ],
+          "reason": "Chosen by A1 and C1 to balance the storm load with fresher results; capacity and cost require measurement."
+        },
+        {
+          "id": "O2",
+          "name": "Continuous stream and microservice serving",
+          "values": [
+            "v:15.2",
+            "v:5.1",
+            "v:17.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Continuous processing and distributed serving favor low latency.",
+            "Hybrid parallelism can distribute work."
+          ],
+          "cons": [
+            "More distributed components increase operational complexity and potentially cost."
+          ],
+          "reason": "B1 prioritizes freshness and team independence, accepting operational cost uncertainty."
+        },
+        {
+          "id": "O3",
+          "name": "Streaming intake with partitioned immediate serving",
+          "values": [
+            "v:15.2",
+            "v:5.1",
+            "v:17.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Avoids scheduled scoring delay while partitioning work for parallel execution."
+          ],
+          "cons": [
+            "Service capacity, scaling behavior and cost are unmeasured."
+          ],
+          "reason": "D1 resolves the mismatch between streaming intake and batch scoring observed during exploration."
+        },
+        {
+          "id": "O4",
+          "name": "Streaming intake with batch scoring",
+          "values": [
+            "v:15.2",
+            "v:5.3",
+            "v:17.2"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Continuous intake and partitioned work can absorb bursts."
+          ],
+          "cons": [
+            "Scheduled batch serving can miss the two-hour freshness target."
+          ],
+          "reason": "The exploration exposed that real-time intake does not help a document whose scoring waits for a batch."
+        },
+        {
+          "id": "O5",
+          "name": "Partitioned pipeline parallelism",
+          "values": [
+            "v:17.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Partitions data within the pipeline for parallel work."
+          ],
+          "cons": [
+            "Requires tuning and monitoring partitioned jobs."
+          ],
+          "reason": "A1 uses partitioning to support the batch path."
+        },
+        {
+          "id": "O6",
+          "name": "Hybrid pipeline parallelism",
+          "values": [
+            "v:17.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Combines parallelization approaches for different workloads."
+          ],
+          "cons": [
+            "Adds choices and coordination to pipeline operations."
+          ],
+          "reason": "C1 retains dataset isolation while allowing hybrid distribution of burst work."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Decouple result consumers",
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "context": "Three teams need results, and each should be able to change its processing independently. Event queues, subscriptions, and push or polling provide alternatives for result access and notification.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Event queue with push notifications",
+          "values": [
+            "v:3.4",
+            "v:6.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1",
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "Asynchronous queues decouple producer and consumer timing.",
+            "Push signals availability without repeated polling."
+          ],
+          "cons": [
+            "Queue and notification delivery need reliability management."
+          ],
+          "reason": "Provides an asynchronous contract for all consuming teams and notification on availability."
+        },
+        {
+          "id": "O2",
+          "name": "Pub/sub with push notifications",
+          "values": [
+            "v:3.3",
+            "v:6.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Subscriptions decouple teams and push alerts them when predictions are available."
+          ],
+          "cons": [
+            "Subscription and notification coordination adds operational work."
+          ],
+          "reason": "Fits independently evolving subscribers in the low-latency event-driven path."
+        },
+        {
+          "id": "O3",
+          "name": "Event queue with polling",
+          "values": [
+            "v:3.4",
+            "v:6.2"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Consumers can request results when convenient."
+          ],
+          "cons": [
+            "Repeated polling can add load and delay result discovery."
+          ],
+          "reason": "Set aside in favor of proactive result notification for the stated availability needs."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Monitor model behavior in production",
+      "drivers": [
+        "Q2"
+      ],
+      "context": "Operators need to notice quality drops for a particular claim type within one day. Performance monitoring, prediction logging, and model tracking provide operational evidence, but the space does not define claim-type metrics, alert thresholds, or alert timing.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Monitor model performance parameters",
+          "values": [
+            "v:22.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Directly observes model performance parameters."
+          ],
+          "cons": [
+            "Does not specify per-claim-type quality metrics or one-day alerts."
+          ],
+          "reason": "Best conceptual match for direct quality monitoring; explicit per-type alerting must be designed outside the available choices."
+        },
+        {
+          "id": "O2",
+          "name": "Log data and predictions",
+          "values": [
+            "v:22.2"
+          ],
+          "status": "chosen",
+          "step": 8,
+          "pros": [
+            "Inputs and outputs enable investigations of quality changes."
+          ],
+          "cons": [
+            "Logs alone do not detect or alert on a per-type drop."
+          ],
+          "reason": "Provides diagnostic evidence through logged inputs and outputs for the hybrid batch and online path.",
+          "in": [
+            "A1"
+          ]
+        },
+        {
+          "id": "O3",
+          "name": "Track production usage and inputs/outputs",
+          "values": [
+            "v:22.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1",
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Broad tracking provides context about model use, inputs and outputs."
+          ],
+          "cons": [
+            "Tracking does not define a quality alert or its timing."
+          ],
+          "reason": "Provides broad operational context for the dataset-isolated and event-driven paths."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "R3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:24",
+      "note": "The space has no decision for confidence thresholds, human review queues, or feeding reviewer corrections back into the classifier; model adjustment based on monitoring is only adjacent."
+    },
+    {
+      "requirement": "Q3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "No dimension represents inference cost, provider pricing, or a cost budget; serving choices alone cannot establish the annual average below 0.2 cents per document."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:7",
+      "note": "The space has no data residency, EU-only storage/processing, or personal-data protection decision."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space has no LLM provider selection or EU-region deployment decision."
+    }
+  ]
+}

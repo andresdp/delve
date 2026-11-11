@@ -1,0 +1,1973 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "fraud-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Card-fraud scoring service",
+    "context": "A payments company scores about 3,000 card transactions per second and up to 15,000 during seasonal sales before authorization. Fraud labels arrive days to weeks later, fraudsters adapt within weeks, and auditors may ask months later why a score was produced. Five data scientists, two ML engineers, and the operations team run the system; there is no ML platform team.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Score every card transaction before the authorization decision, using the cardholder's recent activity (for example, the spending of the last hour and the last day)."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Update the model as new confirmed fraud cases arrive."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "For any past score, show which model version and which input values produced it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "During a seasonal peak of 15,000 transactions per second, a score comes back within 30 ms at the 99th percentile."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When the scoring service or one of its data sources fails, authorizations go on. The business accepts weaker fraud detection for up to 15 minutes, but no authorization may fail because of scoring."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "auditability",
+        "text": "An auditor asks about a score from up to 13 months ago. Within one working day the team answers with the model version, the input values and the training data that model was built from."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When the fraud loss rate rises in one segment, a retrained model can be in production within 48 hours, after it has been compared with the current model on recent transactions."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Card data must stay inside the company's PCI-certified environment: no external service may process it."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Seven people build and run the system, with no dedicated ML platform team."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:31.1",
+        "v:25.3",
+        "v:29.1",
+        "v:30.23",
+        "v:43.3",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.3",
+        "v:20.4",
+        "v:42.1",
+        "v:39.1"
+      ],
+      "description": "This combination describes an in-house MLOps system that ingests events through both low-latency and durable paths, preserves traceable data, and uses a durable feature platform to feed an orchestrated pipeline. Containerized REST predictors scale asynchronously behind a queue with Redis, while candidate models are metric-evaluated, versioned with data-to-model lineage, deployed online, and incrementally updated; automated retraining is a separate refresh mechanism that may require coordination with online updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:31.7",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.4",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "description": "An internally operated MLOps platform would use ETL ingestion and governed online/offline feature stores to feed orchestrated pipelines for automated hyperparameter tuning, offline evaluation, versioned artifacts, and schedule-based retraining. Deployed models would run as stateless, horizontally scaled REST services, with applications using the model-as-a-service interface and falling back to precomputed results when online serving cannot meet availability or latency needs.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:31.2",
+        "v:25.1",
+        "v:29.7",
+        "v:30.20",
+        "v:43.2",
+        "v:28.3",
+        "v:6.14",
+        "v:13.6",
+        "v:32.1",
+        "v:21.2",
+        "v:20.3",
+        "v:42.3",
+        "v:39.1"
+      ],
+      "description": "This system uses zip-packaged serverless functions for stateless, horizontally scaled prediction, exposing models through gRPC and retrieving features from an online feature-serving pipeline fed by streaming ingestion. Incremental training, metric-based candidate evaluation, privacy and policy checks, and comprehensive lifecycle traceability are managed through manual scripts and practitioner-triggered retraining on in-house infrastructure; manual operations may limit the responsiveness expected from online learning and serverless serving.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:31.9",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.4",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "description": "This system would use ETL-fed online/offline feature stores and an orchestrated pipeline for automated hyperparameter tuning, offline evaluation, and schedule-based retraining, with end-to-end artifact and data governance. A stateless, horizontally scaled REST model-as-a-service would combine precomputed predictions with online processing for freshness; in-house infrastructure would operate the platform.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:31.2",
+        "v:25.1",
+        "v:29.7",
+        "v:30.20",
+        "v:43.2",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.2",
+        "v:20.3",
+        "v:42.3",
+        "v:39.1"
+      ],
+      "description": "This system ingests streaming data into an online feature-serving pipeline and uses orchestrated, traceable workflows for incremental training, metric-based candidate evaluation, privacy validation, and automated retraining. Models are packaged as serverless zip deployments, exposed through gRPC, and served statelessly with horizontal scaling; in-house ownership may be in tension with reliance on a serverless runtime’s operational management.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:31.1",
+        "v:25.4",
+        "v:29.1",
+        "v:30.23",
+        "v:43.3",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.3",
+        "v:20.4",
+        "v:42.1",
+        "v:39.1"
+      ],
+      "description": "This system uses an in-house, container-orchestrated MLOps platform with a REST prediction microservice, queue-fronted serving clusters, and geographically redundant asynchronous operation. A durable feature platform and dual-path ingestion support incremental online training, while lineage, preserved data, orchestrated pipelines, metric-based candidate evaluation, and automated retraining manage the lifecycle. Online updates and automated retraining may require coordination to avoid conflicting model versions.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:31.5",
+        "v:25.1",
+        "v:29.1",
+        "v:30.18",
+        "v:43.2",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "description": "This system uses an orchestrated, reproducible in-house MLOps pipeline to ETL-ingest governed data, materialize online features, automatically tune and offline-evaluate models, and retrain them on a schedule. Deployed models serve online predictions through stateless, horizontally scaled REST services, while model-as-dependency packaging provides runtime availability; batch ETL may limit feature freshness unless complemented by more frequent updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:31.1",
+        "v:25.4",
+        "v:29.1",
+        "v:30.23",
+        "v:43.3",
+        "v:28.4",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.3",
+        "v:20.4",
+        "v:42.1",
+        "v:39.1"
+      ],
+      "description": "An in-house MLOps platform ingests events through low-latency and durable paths, preserves traceable data, and maintains reusable online and training features. An orchestrated pipeline performs automated hyperparameter optimization, metric-based candidate evaluation, lineage tracking, and retraining, then deploys containerized REST predictors behind a queue across geographically redundant regions with asynchronous failover.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:31.9",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.4",
+        "v:28.4",
+        "v:6.8",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "description": "An internally operated MLOps platform would use ETL to populate governed, versioned offline and online feature stores, then run an orchestrated pipeline with automated hyperparameter optimization and offline evaluation to produce reproducible model artifacts. Those artifacts would be exposed through a REST model-as-a-service with stateless horizontal scaling and hybrid offline/online prediction, while monitoring triggers retraining on performance or drift.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:31.5",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.2",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "description": "An internally operated MLOps platform would orchestrate ETL-based feature ingestion, online feature materialization, automated hyperparameter tuning, offline evaluation, and scheduled retraining, with end-to-end artifact and data governance. A stateless, horizontally scaled REST model-as-a-service would compute predictions online from current context and recently served features; batch ETL may limit feature freshness between updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:31.2",
+        "v:25.1",
+        "v:29.7",
+        "v:30.23",
+        "v:43.2",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.2",
+        "v:20.3",
+        "v:42.3",
+        "v:39.1"
+      ],
+      "description": "The system streams incoming data into a governed feature pipeline and online serving store, while stateless, horizontally scaled serverless functions expose independently deployed models through gRPC. An orchestrated workflow performs incremental updates and automated retraining, evaluates candidates by metrics, and tracks artifacts, runs, data, and deployment health; serverless function deployment and container-orchestrated runtime are compatible only where the orchestrator supports serverless container execution.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if peak throughput and regional failover define the online path, while durable features and lifecycle automation keep model changes reproducible?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a hybrid online/offline prediction path supplies a precomputed fallback, while a compact retraining workflow preserves audit lineage?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if serverless functions minimize serving operations while streaming features keep scores fresh?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if a simple stateless model service computes online from materialized features and relies on scheduled refresh to limit operating complexity?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.1",
+        "v:25.3",
+        "v:29.1",
+        "v:30.23",
+        "v:43.3",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.3",
+        "v:20.4",
+        "v:42.1",
+        "v:39.1"
+      ],
+      "hypothesis": "Queue-fronted serving and Redis-backed asynchronous state should support Q1 and Q2; durable online features and dual-path ingestion should support R1 and Q3, while incremental updates and automated retraining should support R2 and Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point combines low-latency and durable paths with online feature serving and candidate evaluation. The generated description flags coordination between incremental updates and automated retraining; no source attests the full combination. Per-score input snapshots and the latency target still need implementation evidence.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.7",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.4",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "hypothesis": "Precomputed fallback should support Q2, while online/offline features, workflow orchestration, and end-to-end lineage should support R1, Q3, and Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The checked point provides precomputed fallback and strong offline lineage, but its single serving choice does not establish normal online scoring for R1. Schedule-based retraining may lag segment-specific change, so the next member switches to hybrid serving and drift-based retraining.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.2",
+        "v:25.1",
+        "v:29.7",
+        "v:30.20",
+        "v:43.2",
+        "v:28.3",
+        "v:6.14",
+        "v:13.6",
+        "v:32.1",
+        "v:21.2",
+        "v:20.3",
+        "v:42.3",
+        "v:39.1"
+      ],
+      "hypothesis": "Serverless deployment and stateless scaling should reduce operations for C2; streaming features should support R1, and lifecycle tracking and candidate evaluation should support Q3 and Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "misses",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Online features are present, but manual workflows and manual retraining conflict with the 48-hour adaptation requirement. Zip-based serverless packaging and an externally managed function runtime also leave latency and PCI placement uncertain.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:31.1",
+        "v:25.4",
+        "v:29.1",
+        "v:30.23",
+        "v:43.3",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.3",
+        "v:20.4",
+        "v:42.1",
+        "v:39.1"
+      ],
+      "hypothesis": "Replace Redis-backed asynchronous serving with geographic redundancy to strengthen Q2 while retaining the queue-fronted throughput path and lifecycle choices.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point adds a failover strategy for regional failures, but it still does not specify fail-open authorization behavior when scoring or features fail. Incremental updates and full retraining remain coordination risks.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:31.9",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.4",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "hypothesis": "Change normal scoring to hybrid online/offline serving so fresh scoring is combined with precomputed results; retain schedule-based retraining and reproducible offline evaluation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Hybrid serving addresses freshness and fallback together, but a fixed schedule is less responsive to segment loss changes than a drift/performance trigger. The online/offline store adds operational components.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:31.2",
+        "v:25.1",
+        "v:29.7",
+        "v:30.20",
+        "v:43.2",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.2",
+        "v:20.3",
+        "v:42.3",
+        "v:39.1"
+      ],
+      "hypothesis": "Replace manual retraining with automation and manual workflow with orchestration to improve R2 and Q4 while preserving streaming features and serverless operations.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Automation and candidate evaluation fix the seed's retraining gap. Serverless runtime placement and a 15,000 TPS latency guarantee remain uncertain, so this approach is dropped after the round.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:31.5",
+        "v:25.1",
+        "v:29.1",
+        "v:30.18",
+        "v:43.2",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "hypothesis": "A model packaged with its consuming application may reduce service dependencies for C2 while online computation and materialized features support R1; scheduled retraining and lifecycle governance should support Q3 and Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "This simpler deployment still depends on a separate feature-serving path, and batch ETL can leave features stale. It offers a different operational balance from queue-fronted and hybrid fallback candidates, so the next round tests an independently deployed service boundary.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:31.1",
+        "v:25.4",
+        "v:29.1",
+        "v:30.23",
+        "v:43.3",
+        "v:28.4",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.3",
+        "v:20.4",
+        "v:42.1",
+        "v:39.1"
+      ],
+      "hypothesis": "Replace incremental online training with automated hyperparameter optimization to reduce competing model updates while retaining automated retraining and recent-candidate evaluation for R2 and Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "This removes the coordination issue between online updates and retraining; automated retraining, metric comparison, and regional redundancy remain. Runtime latency and per-score audit capture still require explicit design and measurement.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:31.9",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.4",
+        "v:28.4",
+        "v:6.8",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "hypothesis": "Replace schedule-based refresh with performance- or drift-triggered retraining so rising loss in one segment can start a candidate cycle within Q4's window.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The drift trigger improves responsiveness while hybrid scoring keeps a precomputed fallback. Offline evaluation supports comparison, though the point does not establish a 48-hour end-to-end duration or a fail-open authorization contract.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:31.5",
+        "v:25.1",
+        "v:29.1",
+        "v:30.3",
+        "v:43.2",
+        "v:28.4",
+        "v:6.6",
+        "v:13.1",
+        "v:32.2",
+        "v:21.1",
+        "v:20.6",
+        "v:42.5",
+        "v:39.1"
+      ],
+      "hypothesis": "Move from model-as-dependency packaging to an independent model service to make production updates and rollback easier while preserving online scoring and stateless scaling.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Independent deployment improves model replacement but leaves feature freshness dependent on ETL cadence and availability dependent on the service path. It remains the lower-infrastructure alternative, with weaker fallback than the hybrid design.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:31.2",
+        "v:25.1",
+        "v:29.7",
+        "v:30.23",
+        "v:43.2",
+        "v:28.3",
+        "v:6.5",
+        "v:13.6",
+        "v:32.2",
+        "v:21.2",
+        "v:20.3",
+        "v:42.3",
+        "v:39.1"
+      ],
+      "hypothesis": "Replace the zip-package runtime with container orchestration to improve internal placement control and reduce C1 uncertainty while retaining automated updates and streaming features.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The generated point notes serverless functions and container orchestration are compatible only where the orchestrator supports serverless containers. That narrows the runtime choice but does not resolve the strict latency target or prove PCI placement.",
+      "rating": "mixed",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Queue-fronted regional service",
+      "summary": "Use queue-fronted, container-orchestrated REST predictors with durable online features and regional asynchronous failover. Automated retraining and candidate evaluation support model updates, with traceable data and lineage supporting audit reconstruction.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "A queue-fronted online cluster is the best fit in the space for high request volume and low-latency prediction.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.4",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Regional asynchronous failover supports service availability during regional faults, though fail-open authorization behavior remains unspecified.",
+          "evidence": [
+            {
+              "doc": "s13_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "An API prediction service provides a direct synchronous integration point for authorization scoring.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.23",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "Container orchestration permits a self-operated runtime; keep it within the PCI environment and use the existing operations team.",
+          "fit": "approximate",
+          "fit_note": "The value describes orchestration, not PCI certification or the team's ability to operate it.",
+          "evidence": [
+            {
+              "doc": "s04_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.3",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "A durable feature platform serves real-time features and preserves engineered data for training and recovery.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated tuning supports candidate preparation without competing with online parameter updates.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated retraining uses newly confirmed labels to produce replacement candidates.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.6",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Metric-driven candidate evaluation provides the comparison gate before promotion.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "An orchestrated pipeline makes preparation, training, evaluation, and deployment repeatable.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.3",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "Dual-path ingestion feeds low-latency features and a durable data path for training and traceability.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Data-to-model lineage links dataset versions and profiles to the training context, model metadata, and deployment.",
+          "fit": "approximate",
+          "fit_note": "This does not by itself persist the exact input snapshot for each individual score.",
+          "evidence": [
+            {
+              "doc": "s10_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.1",
+          "drivers": [
+            "R3",
+            "Q3",
+            "C1"
+          ],
+          "reason": "Preserved, traceable source data supports later reconstruction and controlled retention.",
+          "fit": "approximate",
+          "fit_note": "Preserving source data does not guarantee a per-score record of the exact feature values presented to the model.",
+          "evidence": [
+            {
+              "doc": "s02_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "In-house ownership keeps platform operation under company control and avoids an externally managed MLOps service.",
+          "fit": "approximate",
+          "fit_note": "In-house infrastructure alone does not prove PCI certification or eliminate the operational burden on seven people.",
+          "evidence": [
+            {
+              "doc": "s13_p12",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Incremental online updates are fast but the point description identified coordination risk with automated retraining."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The REST interface is specified alongside the runtime state and communication choice."
+        },
+        {
+          "source": "d:13",
+          "target": "d:32",
+          "type": "requires",
+          "holds": true,
+          "note": "Candidate evaluation is placed in an orchestrated workflow."
+        },
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Workflow coordination is paired with a specified ingestion mechanism."
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Hybrid scoring with drift-triggered refresh",
+      "summary": "Combine online scoring with precomputed results and a stateless service, then trigger retraining when performance or feature drift appears. This balances freshness and fallback with a governed online/offline feature store.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.9",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "Hybrid offline-online serving keeps online freshness while allowing a precomputed result when live scoring is unavailable.",
+          "evidence": [
+            {
+              "doc": "s12_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Stateless horizontal scaling supports service replication and independent request handling.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "The REST prediction microservice integrates scoring with the authorization application.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Model-as-a-service separates model release from the payments application while retaining an in-house operating option.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.4",
+          "drivers": [
+            "R1",
+            "R3",
+            "Q3"
+          ],
+          "reason": "Complementary online and durable stores support low-latency inference and training reuse.",
+          "evidence": [
+            {
+              "doc": "s06_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated optimization prepares candidate configurations for evaluation.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.8",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A performance or drift signal can start retraining as segment quality changes.",
+          "evidence": [
+            {
+              "doc": "s04_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Offline evaluation on held-out data gates candidate selection before deployment.",
+          "evidence": [
+            {
+              "doc": "s04_p15",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "A connected pipeline automates repeatable stages without requiring a large dedicated ML platform team.",
+          "evidence": [
+            {
+              "doc": "s04_p07",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.1",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "ETL ingestion supports the durable feature and training path, with freshness bounded by its update cadence.",
+          "evidence": [
+            {
+              "doc": "s02_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.6",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "End-to-end lifecycle governance versions datasets, runs, artifacts, and deployment information.",
+          "fit": "approximate",
+          "fit_note": "It does not alone capture exact request-level model inputs for every score.",
+          "evidence": [
+            {
+              "doc": "s21_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.5",
+          "drivers": [
+            "R3",
+            "Q3",
+            "C1"
+          ],
+          "reason": "Integrated governance combines provenance, preservation, privacy, and policy checks.",
+          "fit": "approximate",
+          "fit_note": "It supports controlled data handling but does not certify that all execution stays in the PCI environment.",
+          "evidence": [
+            {
+              "doc": "s05_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "Internal operation gives the company control over where the platform runs, with an operational workload to manage.",
+          "fit": "approximate",
+          "fit_note": "The value does not establish PCI certification or staffing sufficiency.",
+          "evidence": [
+            {
+              "doc": "s13_p12",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.6",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Schedule-based retraining is simpler but less responsive to a rise in fraud loss within one segment."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The REST interface is specified alongside stateless runtime communication."
+        },
+        {
+          "source": "d:13",
+          "target": "d:32",
+          "type": "requires",
+          "holds": true,
+          "note": "Offline evaluation is incorporated in the orchestrated pipeline."
+        },
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Workflow coordination is paired with a specified ingestion mechanism."
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Simple online model service",
+      "summary": "Serve online predictions from a materialized feature pipeline with a stateless model service and scheduled retraining. This reduces the use of a durable feature platform at the cost of weaker fallback and freshness controls.",
+      "approach": "D",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Online computation uses request context and recent feature values for fresh scoring.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Stateless horizontal scaling allows service replicas to handle requests independently.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "REST is a simple integration boundary for scoring requests.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.3",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "A model service allows independent model deployment while keeping operation in-house.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "A low-latency feature-serving pipeline materializes features for online inference.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated tuning supports regular candidate preparation.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.6",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A scheduled trigger is straightforward for a small team to operate, though it may react slowly to segment shifts.",
+          "evidence": [
+            {
+              "doc": "s02_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Offline evaluation compares candidate models on held-out data before deployment.",
+          "evidence": [
+            {
+              "doc": "s04_p15",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "A repeatable pipeline helps a small group run training and deployment consistently.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.1",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "ETL supplies prepared source data but its cadence can limit recent-activity freshness.",
+          "evidence": [
+            {
+              "doc": "s02_p12",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.6",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Lifecycle governance keeps dataset, experiment, artifact, and deployment versions linked.",
+          "fit": "approximate",
+          "fit_note": "Request-level input snapshots still need to be captured separately.",
+          "evidence": [
+            {
+              "doc": "s21_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.5",
+          "drivers": [
+            "R3",
+            "Q3",
+            "C1"
+          ],
+          "reason": "Integrated governance supports provenance and controlled data processing.",
+          "fit": "approximate",
+          "fit_note": "This value does not guarantee per-score input persistence or PCI certification.",
+          "evidence": [
+            {
+              "doc": "s05_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "In-house infrastructure keeps the service under company control without relying on an externally run MLOps platform.",
+          "fit": "approximate",
+          "fit_note": "It does not establish PCI certification or the ongoing staffing effort.",
+          "evidence": [
+            {
+              "doc": "s13_p12",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.18",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "Packaging the model with the consuming application reduces an independent service boundary, but makes model release less independent."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The REST interface is specified with the stateless communication strategy."
+        },
+        {
+          "source": "d:13",
+          "target": "d:32",
+          "type": "requires",
+          "holds": true,
+          "note": "Evaluation is part of the orchestrated workflow."
+        },
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "The workflow has a specified ETL ingestion mechanism."
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "name": "Streaming serverless container service",
+      "summary": "Stream transaction features into an online feature pipeline and run stateless model functions through an internally controlled container orchestrator. Automated retraining and lifecycle tracking support updates, but p99 latency and PCI placement remain to be demonstrated.",
+      "approach": "C",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.2",
+          "drivers": [
+            "R1",
+            "Q1",
+            "C2"
+          ],
+          "reason": "Serverless function deployment reduces direct scaling work while providing online inference.",
+          "fit": "approximate",
+          "fit_note": "The function pattern does not establish a 30 ms p99 at 15,000 TPS.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Stateless horizontal scaling allows function replicas to process requests independently.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.7",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "gRPC exposes the independently deployed model to the authorization system.",
+          "evidence": [
+            {
+              "doc": "s21_p10",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.23",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "Container orchestration may provide an internally operated execution boundary for serverless functions.",
+          "fit": "approximate",
+          "fit_note": "The checked combination says serverless functions and orchestration are compatible only where the orchestrator supports serverless containers; PCI certification must be verified.",
+          "evidence": [
+            {
+              "doc": "s04_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:43",
+          "value_id": "v:43.2",
+          "drivers": [
+            "R1"
+          ],
+          "reason": "Online materialization makes prepared features available to inference.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Incremental updates can incorporate new examples as they become available.",
+          "evidence": [
+            {
+              "doc": "s12_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.5",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Automated retraining brings confirmed labels into a candidate model workflow.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.6",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Metric-driven candidate evaluation supports a comparison gate before promotion.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "Q4",
+            "C2"
+          ],
+          "reason": "An orchestrated pipeline reduces manual coordination across repeatable model lifecycle stages.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.2",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Streaming ingestion supports fresh feature and model data paths.",
+          "evidence": [
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.3",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Comprehensive lifecycle traceability links runs, datasets, artifacts, and deployment health.",
+          "fit": "approximate",
+          "fit_note": "Per-score exact input values still require request-level persistence.",
+          "evidence": [
+            {
+              "doc": "s22_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "R3",
+            "Q3",
+            "C1"
+          ],
+          "reason": "Privacy and policy validation helps constrain sensitive data processing.",
+          "fit": "approximate",
+          "fit_note": "Policy validation is not proof of PCI certification or exact input retention.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:39",
+          "value_id": "v:39.1",
+          "drivers": [
+            "C1",
+            "C2"
+          ],
+          "reason": "In-house infrastructure retains company control over runtime placement.",
+          "fit": "approximate",
+          "fit_note": "The value does not establish PCI certification or the team's ability to operate the platform.",
+          "evidence": [
+            {
+              "doc": "s13_p12",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:30",
+          "value_id": "v:30.20",
+          "drivers": [
+            "C2"
+          ],
+          "reason": "A zip package is the serverless-specific packaging option, but container orchestration offers more control over runtime placement."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The gRPC interface is selected together with stateless runtime communication."
+        },
+        {
+          "source": "d:13",
+          "target": "d:32",
+          "type": "requires",
+          "holds": true,
+          "note": "Metric evaluation is part of the orchestrated workflow."
+        },
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true,
+          "note": "Workflow coordination is paired with streaming ingestion."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Online scoring and runtime availability",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q2",
+        "C1",
+        "C2"
+      ],
+      "context": "The service must score each transaction from recent activity under a 15,000 TPS peak and tolerate scoring or data-source failures without blocking authorizations. The space offers online, hybrid, and precomputed serving patterns, but does not define a fail-open authorization contract or guarantee a numerical latency. Runtime placement must remain inside the PCI-certified environment, and operational complexity must fit a small team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Queue-fronted service with regional failover",
+          "values": [
+            "v:31.1",
+            "v:25.4",
+            "v:29.1",
+            "v:30.23",
+            "v:43.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Queue-fronted serving targets throughput and low latency.",
+            "Regional asynchronous failover and durable features improve resilience and recovery."
+          ],
+          "cons": [
+            "A queue, container orchestration, feature platform, and regional operation raise operational burden.",
+            "The values do not specify fail-open authorization or prove p99 latency."
+          ],
+          "reason": "Choose this where peak throughput and fault recovery dominate, with operations explicitly kept inside PCI."
+        },
+        {
+          "id": "O2",
+          "name": "Hybrid online/offline fallback",
+          "values": [
+            "v:31.9",
+            "v:25.1",
+            "v:29.1",
+            "v:30.3",
+            "v:43.4"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 9,
+          "pros": [
+            "Combines fresh online scoring with precomputed results and separates online from durable features."
+          ],
+          "cons": [
+            "The feature stores and fallback freshness add complexity; the design does not state the authorization fail-open contract or prove 30 ms p99."
+          ],
+          "reason": "Choose this where graceful degraded scoring and audit reuse matter more than the smallest serving path."
+        },
+        {
+          "id": "O3",
+          "name": "Stateless online model service",
+          "values": [
+            "v:31.5",
+            "v:25.1",
+            "v:29.1",
+            "v:30.3",
+            "v:43.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 10,
+          "pros": [
+            "Online computation uses current context and the serving path has fewer feature-storage components."
+          ],
+          "cons": [
+            "No explicit precomputed fallback is selected, and ETL can make recent features stale."
+          ],
+          "reason": "Choose this when a smaller feature stack and straightforward online service are preferred, accepting weaker fallback behavior."
+        },
+        {
+          "id": "O4",
+          "name": "Serverless function serving",
+          "values": [
+            "v:31.2",
+            "v:25.1",
+            "v:29.7",
+            "v:30.20",
+            "v:43.2"
+          ],
+          "status": "discarded",
+          "step": 6,
+          "pros": [
+            "Automated function scaling can reduce direct serving operations."
+          ],
+          "cons": [
+            "The 30 ms p99 target, artifact constraints, and PCI runtime placement remain uncertain."
+          ],
+          "reason": "The first packaging choice was refined to container orchestration for greater internal runtime control."
+        },
+        {
+          "id": "O5",
+          "name": "Serverless functions under container orchestration",
+          "values": [
+            "v:31.2",
+            "v:25.1",
+            "v:29.7",
+            "v:30.23",
+            "v:43.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A4"
+          ],
+          "step": 11,
+          "pros": [
+            "Streaming features and automated scaling reduce manual serving and update work."
+          ],
+          "cons": [
+            "The orchestration must support serverless containers; latency and PCI placement remain unproven."
+          ],
+          "reason": "Choose only where internal orchestration supports serverless execution and measured latency meets the target."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Model updates, evaluation, and audit lineage",
+      "drivers": [
+        "R2",
+        "R3",
+        "Q3",
+        "Q4",
+        "C1",
+        "C2"
+      ],
+      "context": "Confirmed fraud arrives late, so model updates must incorporate new labels, compare candidates with recent production data, and preserve enough context for a 13-month audit. The space contains retraining triggers, candidate evaluation, workflow orchestration, and lifecycle lineage. These practices support model and dataset provenance but do not alone guarantee a per-score input snapshot.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Automated retraining with metric evaluation and data lineage",
+          "values": [
+            "v:28.4",
+            "v:6.5",
+            "v:13.6",
+            "v:32.2",
+            "v:21.3",
+            "v:20.4",
+            "v:42.1",
+            "v:39.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Automated retraining and metric comparison support candidate replacement.",
+            "Dual-path ingestion, preserved data, and lineage support reproducible training and audit investigation."
+          ],
+          "cons": [
+            "Online update coordination must be managed if added later.",
+            "Seven people still have to operate the in-house platform; exact request inputs need separate durable capture."
+          ],
+          "reason": "Choose for automated candidate refresh and traceable training datasets, keeping model and input logging as explicit implementation requirements."
+        },
+        {
+          "id": "O2",
+          "name": "Drift-triggered retraining with governed online/offline data",
+          "values": [
+            "v:28.4",
+            "v:6.8",
+            "v:13.1",
+            "v:32.2",
+            "v:21.1",
+            "v:20.6",
+            "v:42.5",
+            "v:39.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 9,
+          "pros": [
+            "Performance or drift can trigger a new candidate when a segment deteriorates.",
+            "Offline evaluation and lifecycle governance support comparison and audit."
+          ],
+          "cons": [
+            "ETL freshness and trigger-to-production duration must be measured against the 48-hour target.",
+            "Governance and data stores increase operational responsibilities."
+          ],
+          "reason": "Choose where segment responsiveness and governed recovery matter, with an explicit 48-hour release objective."
+        },
+        {
+          "id": "O3",
+          "name": "Scheduled refresh with compact online feature serving",
+          "values": [
+            "v:28.4",
+            "v:6.6",
+            "v:13.1",
+            "v:32.2",
+            "v:21.1",
+            "v:20.6",
+            "v:42.5",
+            "v:39.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 10,
+          "pros": [
+            "Scheduled operations are predictable and candidate evaluation and lineage remain available."
+          ],
+          "cons": [
+            "Periodic refresh may be slow to react when one segment's loss rises, and ETL can make inputs stale."
+          ],
+          "reason": "Choose when operating simplicity matters more than fast response to drift."
+        },
+        {
+          "id": "O4",
+          "name": "Manual scripts and manual retraining",
+          "values": [
+            "v:28.3",
+            "v:6.14",
+            "v:13.6",
+            "v:32.1",
+            "v:21.2",
+            "v:20.3",
+            "v:42.3",
+            "v:39.1"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Fewer automated workflow components may ease initial setup."
+          ],
+          "cons": [
+            "Manual workflow and trigger make the 48-hour response target unreliable."
+          ],
+          "reason": "The seed was refined to automated retraining and orchestration."
+        },
+        {
+          "id": "O5",
+          "name": "Streaming updates with automated retraining",
+          "values": [
+            "v:28.3",
+            "v:6.5",
+            "v:13.6",
+            "v:32.2",
+            "v:21.2",
+            "v:20.3",
+            "v:42.3",
+            "v:39.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A4"
+          ],
+          "step": 11,
+          "pros": [
+            "Streaming inputs and automated retraining support fresh candidates and a repeatable comparison path."
+          ],
+          "cons": [
+            "Incremental updates and retraining need coordination; exact score inputs still need persistence."
+          ],
+          "reason": "Choose where streaming adaptation is valuable and use the orchestrated candidate process to govern promotions."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

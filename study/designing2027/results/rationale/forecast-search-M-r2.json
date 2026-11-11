@@ -1,0 +1,189 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "forecast-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Retail demand forecasting",
+    "context": "Forecast weekly demand for each of 400 stores and 30,000 products. Every Monday the next eight weeks of forecasts feed replenishment. Till sales reach the central data warehouse nightly; promotions and public holidays strongly affect demand. Three data scientists own the pipeline, and central IT controls the warehouse.",
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "Produce, every week, the forecast per store and product for the next eight weeks, and deliver it to the replenishment system by Monday 06:00."},
+      {"id": "R2", "kind": "functional", "text": "Run the forecast again for any past week exactly as it was produced."},
+      {"id": "R3", "kind": "functional", "text": "Try new model ideas and compare them with the production model on past weeks before they replace it."},
+      {"id": "Q1", "kind": "quality", "attribute": "reproducibility", "text": "Asked for the forecast of a week up to two years back, the team produces the same numbers within one working day."},
+      {"id": "Q2", "kind": "quality", "attribute": "development velocity", "text": "A new model idea that beats the production model on past weeks reaches production within one week, with no manual step except the approval."},
+      {"id": "Q3", "kind": "quality", "attribute": "reliability", "text": "When a weekly run fails, the team is told within 15 minutes, and the replenishment system never receives a partial forecast."},
+      {"id": "Q4", "kind": "quality", "attribute": "maintainability", "text": "A new team member can run the whole pipeline on their own machine within their first week."},
+      {"id": "C1", "kind": "constraint", "text": "Three data scientists, with no data engineers; the data warehouse stays as it is."},
+      {"id": "C2", "kind": "constraint", "text": "The weekly run must fit in the six hours between the nightly load and the Monday deadline."}
+    ]
+  },
+  "budget": {"max_points": 12},
+  "points": [
+    {"id": "P1", "values": ["v:21.1", "v:32.2", "v:33.2", "v:13.1", "v:20.6", "v:19.2", "v:31.3", "v:6.23", "v:47.1"], "description": "This system ingests external records through batch ETL and runs preparation, feature extraction, training, tuning, evaluation, and deployment as an orchestrated pipeline on managed infrastructure. End-to-end lifecycle governance, offline evaluation, and commit-triggered staged releases support reproducibility and promotion, while scheduled batch predictions write results to storage and service-health/data-quality monitoring detects operational or data issues.", "attested_by": []},
+    {"id": "P2", "values": ["v:21.9", "v:32.2", "v:33.1", "v:13.6", "v:20.2", "v:19.3", "v:31.3", "v:6.16", "v:47.1"], "description": "Source data is queried into an orchestrated, repeatable ML pipeline running on a standalone managed cloud ML platform, with versioned pipeline definitions, artifacts, experiments, and explicitly declared production dependencies. Candidate models are metric-evaluated, promoted through environment-gated deployment automation, and used for scheduled batch predictions written to storage or analytics systems, with production logging, security controls, and observability.", "attested_by": []},
+    {"id": "P3", "values": ["v:21.8", "v:32.1", "v:33.1", "v:13.1", "v:20.1", "v:19.1", "v:31.6", "v:6.18", "v:47.2"], "description": "The system sources data from database dumps or data-lake schemas, uses manually run scripts for preparation, training, validation, and deployment on a managed cloud ML platform, and evaluates candidates offline before selecting versioned artifacts for release. A unified automated release process packages models and services, while predictions are precomputed periodically and deployed models receive periodic health checks; unpinned development environments may reduce reproducibility despite managed production dependencies.", "attested_by": []},
+    {"id": "P4", "values": ["v:21.1", "v:32.2", "v:33.2", "v:13.2", "v:20.6", "v:19.5", "v:31.3", "v:6.23", "v:47.1"], "description": "An orchestrated, managed ML pipeline would batch-ingest row-level features, prepare/train/evaluate models, apply threshold regression tests, and govern datasets, artifacts, experiments, metadata, and health for reproducibility. Explicit production dependencies and progressive release with rollback would support scheduled batch scoring to storage or analytics, while monitoring job health, data quality and shifts, dependencies, and model performance; latency monitoring is less directly relevant to batch serving.", "attested_by": []},
+    {"id": "P5", "values": ["v:21.9", "v:32.2", "v:33.2", "v:13.6", "v:20.6", "v:19.3", "v:31.3", "v:6.16", "v:47.1"], "description": "The system queries source systems for data, then runs an orchestrated, managed ML pipeline for preparation, feature extraction, training, tuning, evaluation, and deployment, selecting candidate models by a chosen validation metric. End-to-end lifecycle artifacts and dependencies are governed for reproducibility, releases use progressively gated environments, predictions run on a schedule as batch outputs, and production is supported by explicit runtime specifications plus logging, security controls, and observability.", "attested_by": []},
+    {"id": "P6", "values": ["v:21.1", "v:32.2", "v:33.2", "v:13.1", "v:20.6", "v:19.4", "v:31.3", "v:6.12", "v:47.1", "v:14.1"], "description": "This system uses ETL to feed a repeatable, orchestrated ML pipeline on managed infrastructure, with offline evaluation, end-to-end artifact and dataset governance, explicit production dependencies, and automated full-pipeline integration tests. It releases and can restore pipeline or model versions through recovery-oriented automation, schedules batch predictions to storage or analytics systems, and automatically recovers operational failures, while permitting manual intervention during service recovery.", "attested_by": []},
+    {"id": "P7", "values": ["v:21.1", "v:32.2", "v:33.2", "v:3.2", "v:13.2", "v:20.6", "v:19.5", "v:31.3", "v:6.23", "v:47.1", "v:46.1"], "description": "This system uses ETL-fed features in an orchestrated, managed ML pipeline for horizontally and vertically scalable training, threshold-based regression testing, and end-to-end versioned governance. Explicit production dependencies and object-oriented code support progressive releases with rollback, while scheduled batch predictions write results to storage or analytics systems and are monitored for service health, data quality, shifts, and model performance.", "attested_by": []},
+    {"id": "P8", "values": ["v:21.9", "v:32.2", "v:33.2", "v:3.2", "v:13.6", "v:20.6", "v:19.3", "v:31.3", "v:6.23", "v:47.1", "v:46.1"], "description": "The system queries source systems into an orchestrated, managed ML pipeline, using explicitly specified production dependencies and object-oriented code; training scales horizontally or vertically, candidate models are metric-evaluated, and artifacts and datasets receive end-to-end lifecycle governance. Environment-gated automation promotes releases, scheduled batch predictions write results to storage or analytics systems, and monitoring covers service health, data quality and shifts, and model performance.", "attested_by": []},
+    {"id": "P9", "values": ["v:21.1", "v:32.2", "v:33.2", "v:3.2", "v:13.1", "v:20.6", "v:19.4", "v:31.3", "v:6.12", "v:47.1", "v:46.1", "v:14.1"], "description": "External records are batch-loaded as features into a managed, orchestrated ML pipeline whose horizontally and vertically scalable training stages are fully integration-tested and evaluated offline before deployment. End-to-end versioning, explicit production dependencies, object-oriented code, and recovery-oriented release automation support reproducibility; scheduled batch predictions are monitored with automated failure recovery, while releases may still require manual intervention during recovery.", "attested_by": []}
+  ],
+  "approaches": [
+    {"id": "A", "idea": "What if a managed pipeline, full lifecycle traceability, regression gates, and progressive rollout formed the standard path from model comparison to weekly forecasts?", "status": "live"},
+    {"id": "B", "idea": "What if queried warehouse data fed an approval-gated managed pipeline optimized for fast metric-based model promotion?", "status": "live"},
+    {"id": "C", "idea": "What if a small team kept the workflow lightweight with manual scripts and periodic offline runs?", "status": "dropped", "dropped_because": "Manual script-driven coordination and unpinned development dependencies cannot support a one-week, approval-only promotion path or reliable first-week setup."},
+    {"id": "D", "idea": "What if managed orchestration and full-pipeline tests prioritized recoverability, with rollback and automated failure recovery?", "status": "live"}
+  ],
+  "trajectory": [
+    {"step": 1, "round": 1, "approach": "A", "move": "seed", "parent": null, "values": ["v:21.1", "v:32.2", "v:33.2", "v:13.1", "v:20.6", "v:19.2", "v:31.3", "v:6.23", "v:47.1"], "hypothesis": "Batch ETL and managed orchestration should deliver recurring batch forecasts, while offline evaluation, lifecycle traceability, staged release, and monitoring support R1-R3 and Q1-Q3 with limited team operations.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "meets", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "The generated point description confirms a coherent batch pipeline and traceability story. No source attests the full combination. Scheduled batch output does not establish Monday 06:00 completion or atomic publication, and the point has not settled training scale.", "rating": "strong", "point": "P1"},
+    {"step": 2, "round": 1, "approach": "B", "move": "seed", "parent": null, "values": ["v:21.9", "v:32.2", "v:33.1", "v:13.6", "v:20.2", "v:19.3", "v:31.3", "v:6.16", "v:47.1"], "hypothesis": "A managed cloud platform, metric comparison, experiment versioning, and environment gates should make R3 and Q2 fast to iterate while keeping weekly scheduled predictions and operational visibility.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "Metric-based candidate evaluation and environment gates give a plausible human approval path. The generated description and empty attested_by show no source confirms this whole combination; exact retrospective equality and the run deadline remain unproven.", "rating": "strong", "point": "P2"},
+    {"step": 3, "round": 1, "approach": "C", "move": "seed", "parent": null, "values": ["v:21.8", "v:32.1", "v:33.1", "v:13.1", "v:20.1", "v:19.1", "v:31.6", "v:6.18", "v:47.2"], "hypothesis": "Keeping operations lightweight may suit three data scientists and nightly warehouse inputs, although manual coordination and unpinned developer environments could impede Q2 and Q4.", "assessment": {"R1": "partly", "R2": "partly", "R3": "partly", "Q1": "partly", "Q2": "misses", "Q3": "partly", "Q4": "misses", "C1": "partly", "C2": "partly"}, "observation": "The point description explicitly retains manual script transitions and unpinned development dependencies. Those choices conflict with approval-only weekly model promotion and first-week local setup; changing a value would abandon this lightweight manual approach, so it is dropped.", "rating": "weak", "point": "P3"},
+    {"step": 4, "round": 2, "approach": "A", "move": "exploit", "parent": 1, "values": ["v:21.1", "v:32.2", "v:33.2", "v:13.2", "v:20.6", "v:19.5", "v:31.3", "v:6.23", "v:47.1"], "hypothesis": "Replace basic offline candidate evaluation and staged promotion with quality regression thresholds and progressive rollback to strengthen R3 and Q3 while preserving traceability.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "meets", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "Threshold checks and rollback add safeguards but still do not establish all-or-nothing forecast delivery or alert timing. The managed pipeline and versioned context remain the strongest parts.", "rating": "strong", "point": "P4"},
+    {"step": 5, "round": 2, "approach": "B", "move": "exploit", "parent": 2, "values": ["v:21.9", "v:32.2", "v:33.2", "v:13.6", "v:20.6", "v:19.3", "v:31.3", "v:6.16", "v:47.1"], "hypothesis": "Use pipeline-centered infrastructure and end-to-end lifecycle governance instead of a standalone platform and narrower experiment versioning to improve Q1 and Q4 without losing B's approval gates.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "The generated description broadens traceability across data, runs, and model health. The combination remains unattested and does not quantify the six-hour workload.", "rating": "strong", "point": "P5"},
+    {"step": 6, "round": 2, "approach": "D", "move": "explore", "parent": 4, "values": ["v:21.1", "v:32.2", "v:33.2", "v:13.1", "v:20.6", "v:19.4", "v:31.3", "v:6.12", "v:47.1", "v:14.1"], "hypothesis": "Build the managed approach around full-pipeline integration tests, recovery-oriented release automation, and automated failure recovery to strengthen Q3 while retaining R2-R3 traceability.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "The source-inspired combination directly adds end-to-end integration testing and automatic recovery, but does not promise a 15-minute notification or prevent partial forecast publication. No source attests the combined point.", "rating": "strong", "point": "P6"},
+    {"step": 7, "round": 3, "approach": "A", "move": "exploit", "parent": 4, "values": ["v:21.1", "v:32.2", "v:33.2", "v:3.2", "v:13.2", "v:20.6", "v:19.5", "v:31.3", "v:6.23", "v:47.1", "v:46.1"], "hypothesis": "Add horizontal and vertical training scalability and maintainable production code to P4 to address the run-window concern and Q4 while preserving its gates and monitoring.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "meets", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "Training can scale through larger or additional resources and production code is structured for maintainability. Neither establishes that this specific workload finishes in six hours or that a new member can reproduce the full environment locally. This refinement is the best balanced point in A.", "rating": "strong", "point": "P7"},
+    {"step": 8, "round": 3, "approach": "B", "move": "exploit", "parent": 5, "values": ["v:21.9", "v:32.2", "v:33.2", "v:3.2", "v:13.6", "v:20.6", "v:19.3", "v:31.3", "v:6.23", "v:47.1", "v:46.1"], "hypothesis": "Add scalable training and object-oriented production code, and replace general logging with service/data-quality monitoring to strengthen C2, Q4, and Q3 while retaining B's metric comparison and approval gate.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "B now addresses run capacity and service/data monitoring more directly, while keeping metric-based selection and environment gates. Exact run duration and no-partial delivery remain outside the evidence.", "rating": "strong", "point": "P8"},
+    {"step": 9, "round": 3, "approach": "D", "move": "exploit", "parent": 6, "values": ["v:21.1", "v:32.2", "v:33.2", "v:3.2", "v:13.1", "v:20.6", "v:19.4", "v:31.3", "v:6.12", "v:47.1", "v:46.1", "v:14.1"], "hypothesis": "Add scalable training and maintainable code to the recovery-first point to improve C2 and Q4 without losing full-pipeline checks, rollback, or automated recovery.", "assessment": {"R1": "partly", "R2": "partly", "R3": "meets", "Q1": "partly", "Q2": "partly", "Q3": "partly", "Q4": "partly", "C1": "partly", "C2": "partly"}, "observation": "The final point retains automated recovery and adds training scaling and maintainable code. Its recovery emphasis still lacks evidence for alert latency or atomic publication, and its recovery-oriented release allows manual intervention during service recovery.", "rating": "strong", "point": "P9"}
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Governed progressive batch pipeline",
+      "summary": "A managed orchestrated batch workflow combines lifecycle traceability, regression thresholds, rollback, and service/data monitoring. It is the broadest balanced fit, though the space cannot establish the deadline, atomic delivery, or local reproduction targets.",
+      "approach": "A",
+      "step": 7,
+      "choices": [
+        {"dimension_id": "d:21", "value_id": "v:21.1", "drivers": ["R1", "C1"], "reason": "Batch ETL fits nightly warehouse-fed inputs and avoids requiring a streaming path.", "evidence": [{"doc": "s02_p12", "stance": "accepts"}]},
+        {"dimension_id": "d:32", "value_id": "v:32.2", "drivers": ["R1", "R3", "Q2"], "reason": "Repeatable stages support weekly forecasting and automated candidate evaluation and promotion.", "evidence": [{"doc": "s06_p13", "stance": "accepts"}]},
+        {"dimension_id": "d:33", "value_id": "v:33.2", "drivers": ["C1", "Q4"], "reason": "Managed pipeline infrastructure limits the operational platform burden on a three-person team.", "evidence": [{"doc": "s21_p11", "stance": "accepts"}]},
+        {"dimension_id": "d:3", "value_id": "v:3.2", "drivers": ["C2"], "reason": "Horizontal and vertical capacity options give a way to scale training, but do not prove the workload fits six hours.", "fit": "approximate", "fit_note": "The value covers training scalability but contains no capacity or runtime guarantee for 12 billion store-product-week forecasts.", "evidence": [{"doc": "s02_p08", "stance": "accepts"}]},
+        {"dimension_id": "d:13", "value_id": "v:13.2", "drivers": ["R3", "Q2"], "reason": "Quality thresholds can gate candidate promotion against the production baseline.", "evidence": [{"doc": "s06_p08", "stance": "accepts"}]},
+        {"dimension_id": "d:20", "value_id": "v:20.6", "drivers": ["R2", "Q1"], "reason": "Lifecycle governance records datasets, artifacts, runs, and metadata needed to reconstruct past forecasts.", "fit": "approximate", "fit_note": "The value promotes traceability and reproducibility but does not guarantee bit-for-bit identical numbers within one day.", "evidence": [{"doc": "s21_p10", "stance": "accepts"}]},
+        {"dimension_id": "d:19", "value_id": "v:19.5", "drivers": ["Q2", "Q3"], "reason": "Progressive release automation adds rollback for problematic model updates.", "evidence": [{"doc": "s04_p12", "stance": "accepts"}]},
+        {"dimension_id": "d:31", "value_id": "v:31.3", "drivers": ["R1", "Q3"], "reason": "Scheduled batch predictions match the weekly forecast cadence and write results to downstream storage.", "fit": "approximate", "fit_note": "The value does not specify a Monday 06:00 deadline, eight-week horizon, replenishment integration, or atomic publication.", "evidence": [{"doc": "s02_p12", "stance": "accepts"}]},
+        {"dimension_id": "d:6", "value_id": "v:6.23", "drivers": ["Q3"], "reason": "Service-health and data-quality monitoring covers job, dependency, and input problems relevant to run failures.", "fit": "approximate", "fit_note": "The value does not specify a 15-minute alert objective or guarantee that partial results are withheld.", "evidence": [{"doc": "s06_p13", "stance": "accepts"}]},
+        {"dimension_id": "d:47", "value_id": "v:47.1", "drivers": ["R2", "Q1", "Q4"], "reason": "Explicit production dependencies support recreating the deployed runtime.", "fit": "approximate", "fit_note": "The value governs production packages and resources, but does not require a pinned developer environment on a new member's own machine.", "evidence": [{"doc": "s04_p13", "stance": "accepts"}]},
+        {"dimension_id": "d:46", "value_id": "v:46.1", "drivers": ["Q4"], "reason": "Production-oriented code organization is easier to understand and maintain than notebook-only implementation.", "evidence": [{"doc": "s10_p07", "stance": "accepts"}]}
+      ],
+      "considered": [
+        {"dimension_id": "d:13", "value_id": "v:13.1", "drivers": ["R3"], "reason": "Offline evaluation compares candidate models on held-out data, but thresholded regression tests better express a promotion gate."},
+        {"dimension_id": "d:19", "value_id": "v:19.2", "drivers": ["Q2"], "reason": "Commit-triggered staged automation was the seed; progressive rollback better serves the reliability tradeoff."}
+      ],
+      "open": [],
+      "relations": [
+        {"source": "d:32", "target": "d:21", "type": "requires", "holds": true, "note": "The point settles data ingestion together with workflow coordination."},
+        {"source": "d:13", "target": "d:32", "type": "requires", "holds": true, "note": "Evaluation is paired with an orchestrated workflow."},
+        {"source": "d:21", "target": "d:3", "type": "affects", "holds": true, "note": "Batch source ingestion influences training execution needs."},
+        {"source": "d:21", "target": "d:6", "type": "affects", "holds": true, "note": "Input delivery choices affect monitoring."},
+        {"source": "d:13", "target": "d:6", "type": "affects", "holds": true, "note": "Evaluation and monitoring inform one another."}
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Approval-gated managed evaluation",
+      "summary": "A query-fed managed pipeline centers on metric-based candidate comparison and environment-gated approval before production, with lifecycle governance and service monitoring.",
+      "approach": "B",
+      "step": 8,
+      "choices": [
+        {"dimension_id": "d:21", "value_id": "v:21.9", "drivers": ["R1", "C1"], "reason": "Query-based extraction uses the existing warehouse as a source without prescribing changes to it.", "evidence": [{"doc": "s04_p17", "stance": "accepts"}]},
+        {"dimension_id": "d:32", "value_id": "v:32.2", "drivers": ["R1", "R3", "Q2"], "reason": "Orchestration connects repeatable preparation, training, evaluation, and deployment stages.", "evidence": [{"doc": "s21_p10", "stance": "accepts"}]},
+        {"dimension_id": "d:33", "value_id": "v:33.2", "drivers": ["C1", "Q4"], "reason": "Pipeline-centered managed infrastructure minimizes in-house platform operations.", "evidence": [{"doc": "s25_p02", "stance": "accepts"}]},
+        {"dimension_id": "d:3", "value_id": "v:3.2", "drivers": ["C2"], "reason": "Training can scale up or out if profiling shows the six-hour window needs more capacity.", "fit": "approximate", "fit_note": "No source establishes a runtime for this specific forecast volume.", "evidence": [{"doc": "s12_p03", "stance": "accepts"}]},
+        {"dimension_id": "d:13", "value_id": "v:13.6", "drivers": ["R3", "Q2"], "reason": "Metric-driven evaluation directly supports comparing candidate models on historical data.", "evidence": [{"doc": "s09_p04", "stance": "accepts"}]},
+        {"dimension_id": "d:20", "value_id": "v:20.6", "drivers": ["R2", "Q1"], "reason": "End-to-end records preserve the experiment and data context for reruns.", "fit": "approximate", "fit_note": "The value supports reproducibility but does not guarantee identical output within the specified one-day service level.", "evidence": [{"doc": "s25_p07", "stance": "accepts"}]},
+        {"dimension_id": "d:19", "value_id": "v:19.3", "drivers": ["Q2"], "reason": "Environment gates allow automated progression with an approval at the production boundary.", "evidence": [{"doc": "s10_p07", "stance": "accepts"}]},
+        {"dimension_id": "d:31", "value_id": "v:31.3", "drivers": ["R1", "Q3"], "reason": "Scheduled batch scoring fits periodic forecasts and persists outputs for downstream use.", "fit": "approximate", "fit_note": "The value does not define deadline, replenishment interface, or all-or-nothing publication.", "evidence": [{"doc": "s25_p06", "stance": "accepts"}]},
+        {"dimension_id": "d:6", "value_id": "v:6.23", "drivers": ["Q3"], "reason": "Service and data-quality monitoring gives visibility into failed jobs and bad inputs.", "fit": "approximate", "fit_note": "It does not establish a 15-minute notification service level or prevent partial output delivery.", "evidence": [{"doc": "s22_p04", "stance": "accepts"}]},
+        {"dimension_id": "d:47", "value_id": "v:47.1", "drivers": ["R2", "Q1", "Q4"], "reason": "Declared production dependencies help reconstruct the production environment.", "fit": "approximate", "fit_note": "It does not explicitly prescribe the local developer environment.", "evidence": [{"doc": "s25_p06", "stance": "accepts"}]},
+        {"dimension_id": "d:46", "value_id": "v:46.1", "drivers": ["Q4"], "reason": "Structured production code improves readability for a new pipeline maintainer.", "evidence": [{"doc": "s21_p06", "stance": "accepts"}]}
+      ],
+      "considered": [
+        {"dimension_id": "d:33", "value_id": "v:33.1", "drivers": ["C1"], "reason": "The seed used a standalone managed service; pipeline-centered infrastructure better emphasizes reusable weekly workflow stages."},
+        {"dimension_id": "d:20", "value_id": "v:20.2", "drivers": ["R2", "Q1"], "reason": "Pipeline and experiment version control was the seed; end-to-end governance covers more of the replay context."}
+      ],
+      "open": [],
+      "relations": [
+        {"source": "d:32", "target": "d:21", "type": "requires", "holds": true, "note": "The point settles the required ingestion decision."},
+        {"source": "d:13", "target": "d:32", "type": "requires", "holds": true, "note": "Candidate evaluation is within the orchestrated workflow."},
+        {"source": "d:21", "target": "d:3", "type": "affects", "holds": true, "note": "Data access affects training execution needs."},
+        {"source": "d:21", "target": "d:6", "type": "affects", "holds": true, "note": "Data access affects monitoring choices."},
+        {"source": "d:13", "target": "d:6", "type": "affects", "holds": true, "note": "Evaluation choices affect production monitoring."}
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Recovery-first tested pipeline",
+      "summary": "A managed orchestrated batch pipeline emphasizes full-pipeline integration checks, offline candidate evaluation, rollback, and automated failure recovery. It favors recovery assurance over the strongest automated promotion path.",
+      "approach": "D",
+      "step": 9,
+      "choices": [
+        {"dimension_id": "d:21", "value_id": "v:21.1", "drivers": ["R1", "C1"], "reason": "Batch ETL works with nightly records and keeps the ingestion path simple.", "evidence": [{"doc": "s02_p12", "stance": "accepts"}]},
+        {"dimension_id": "d:32", "value_id": "v:32.2", "drivers": ["R1", "R3"], "reason": "Orchestrated stages support recurring forecasts and repeatable candidate evaluation.", "evidence": [{"doc": "s04_p07", "stance": "accepts"}]},
+        {"dimension_id": "d:33", "value_id": "v:33.2", "drivers": ["C1", "Q4"], "reason": "Managed pipeline components limit in-house platform maintenance.", "evidence": [{"doc": "s22_p08", "stance": "accepts"}]},
+        {"dimension_id": "d:3", "value_id": "v:3.2", "drivers": ["C2"], "reason": "Scalable training provides a capacity adjustment path.", "fit": "approximate", "fit_note": "Scaling options alone cannot determine whether the workload finishes within six hours.", "evidence": [{"doc": "s02_p08", "stance": "accepts"}]},
+        {"dimension_id": "d:13", "value_id": "v:13.1", "drivers": ["R3"], "reason": "Offline evaluation supports side-by-side testing of candidate models before selection.", "evidence": [{"doc": "s06_p08", "stance": "accepts"}]},
+        {"dimension_id": "d:20", "value_id": "v:20.6", "drivers": ["R2", "Q1"], "reason": "Lifecycle governance retains the data, run, and artifact record needed for reproducible reruns.", "fit": "approximate", "fit_note": "It does not guarantee exact numerical reproduction or the one-day turnaround.", "evidence": [{"doc": "s21_p17", "stance": "accepts"}]},
+        {"dimension_id": "d:19", "value_id": "v:19.4", "drivers": ["Q2", "Q3"], "reason": "Recovery-oriented automation can restore prior versions while permitting manual recovery work.", "evidence": [{"doc": "s21_p09", "stance": "accepts"}]},
+        {"dimension_id": "d:31", "value_id": "v:31.3", "drivers": ["R1", "Q3"], "reason": "Scheduled batch prediction creates periodic outputs for later downstream use.", "fit": "approximate", "fit_note": "No deadline, atomic publishing, or replenishment interface is specified.", "evidence": [{"doc": "s19_p14", "stance": "accepts"}]},
+        {"dimension_id": "d:6", "value_id": "v:6.12", "drivers": ["Q3"], "reason": "Automated failure recovery minimizes manual intervention after operational failures.", "fit": "approximate", "fit_note": "It does not define notification timing or atomic output handling.", "evidence": [{"doc": "s21_p17", "stance": "accepts"}]},
+        {"dimension_id": "d:47", "value_id": "v:47.1", "drivers": ["R2", "Q1", "Q4"], "reason": "Explicit production environments make recovery and reruns more repeatable.", "fit": "approximate", "fit_note": "The value does not specify a new member's local setup.", "evidence": [{"doc": "s04_p13", "stance": "accepts"}]},
+        {"dimension_id": "d:46", "value_id": "v:46.1", "drivers": ["Q4"], "reason": "Maintainable production code supports handover and independent operation.", "evidence": [{"doc": "s10_p07", "stance": "accepts"}]},
+        {"dimension_id": "d:14", "value_id": "v:14.1", "drivers": ["Q3", "Q4"], "reason": "Repeated full-pipeline integration tests validate interactions across data, code, training, and evaluation.", "evidence": [{"doc": "s02_p11", "stance": "accepts"}]}
+      ],
+      "considered": [
+        {"dimension_id": "d:19", "value_id": "v:19.5", "drivers": ["Q2", "Q3"], "reason": "Progressive automated rollout with rollback was considered but gives less emphasis to manual recovery work."},
+        {"dimension_id": "d:6", "value_id": "v:6.23", "drivers": ["Q3"], "reason": "Service and data-quality monitoring was considered, but this approach prioritizes automated failure recovery."}
+      ],
+      "open": [],
+      "relations": [
+        {"source": "d:32", "target": "d:21", "type": "requires", "holds": true, "note": "The point decides ingestion alongside workflow coordination."},
+        {"source": "d:13", "target": "d:32", "type": "requires", "holds": true, "note": "Evaluation is part of orchestrated execution."},
+        {"source": "d:21", "target": "d:3", "type": "affects", "holds": true, "note": "Batch input flow informs training execution."},
+        {"source": "d:21", "target": "d:6", "type": "affects", "holds": true, "note": "Input flow informs production monitoring."},
+        {"source": "d:13", "target": "d:6", "type": "affects", "holds": true, "note": "Evaluation choices affect production monitoring."}
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Weekly data, workflow, training, and batch delivery",
+      "drivers": ["R1", "C1", "C2"],
+      "context": "The system must consume nightly warehouse data and deliver a recurring eight-week forecast, while a small team cannot change the warehouse and has a six-hour run window. The space supports batch ingestion, orchestration, managed pipeline infrastructure, scalable training, and scheduled batch output, but contains no benchmark for this workload or end-to-end delivery service level.",
+      "options": [
+        {"id": "O1", "name": "ETL-fed managed batch pipeline", "values": ["v:21.1", "v:32.2", "v:33.2", "v:3.2", "v:31.3"], "status": "chosen", "in": ["A1", "D1"], "step": 7, "pros": ["Fits the nightly batch input and weekly forecast cadence.", "Managed stages and scalable training reduce bespoke operations."], "cons": ["Capacity scaling does not prove completion within six hours.", "The space does not specify atomic publication to replenishment."] , "reason": "A1 favors regression gates and monitoring; D1 adds full-pipeline tests and recovery."},
+        {"id": "O2", "name": "Query-fed managed batch pipeline", "values": ["v:21.9", "v:32.2", "v:33.2", "v:3.2", "v:31.3"], "status": "chosen", "in": ["B1"], "step": 8, "pros": ["Queries the warehouse as an existing source and keeps weekly execution orchestrated.", "Scalable training offers a capacity adjustment path."], "cons": ["Query access throughput and warehouse impact are not established.", "The six-hour deadline and atomic output remain unverified."], "reason": "B1 emphasizes an approval-ready managed path and metric-based comparisons."},
+        {"id": "O3", "name": "Manual scripts with periodic precomputation", "values": ["v:21.8", "v:32.1", "v:33.1", "v:31.6"], "status": "discarded", "step": 3, "pros": ["Few workflow components and precomputed output are conceptually simple."], "cons": ["Manual transitions and unpinned development dependencies undermine weekly release speed and handover."], "reason": "Dropped with approach C because its manual and loosely governed character misses Q2 and Q4."}
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Candidate evaluation, replay, and release governance",
+      "drivers": ["R2", "R3", "Q1", "Q2", "Q4"],
+      "context": "The team needs historical comparisons, reproducible reruns, quick approval-based promotion, and a maintainable handover path. The design space offers candidate evaluation, lifecycle records, release automation, dependency declarations, code organization, and integration tests, but none guarantees exact numerical replay or local setup in one week.",
+      "options": [
+        {"id": "O1", "name": "Regression-gated progressive release", "values": ["v:13.2", "v:20.6", "v:19.5", "v:47.1", "v:46.1"], "status": "chosen", "in": ["A1"], "step": 7, "pros": ["Thresholds gate model promotion and rollback supports recovery.", "End-to-end lifecycle records cover data, runs, and artifacts."], "cons": ["Exact reproduction and local environment recreation are not guaranteed."], "reason": "A1 balances traceability with regression control and progressive rollback."},
+        {"id": "O2", "name": "Metric selection with environment approval gates", "values": ["v:13.6", "v:20.6", "v:19.3", "v:47.1", "v:46.1"], "status": "chosen", "in": ["B1"], "step": 8, "pros": ["Directly compares candidates on a selected metric.", "Environment gates provide an approval boundary before production."], "cons": ["The approval path may still need configuration to meet the one-week target.", "Reproduction and local setup remain approximate."], "reason": "B1 gives priority to fast metric-driven evaluation with explicit production approval."},
+        {"id": "O3", "name": "Offline evaluation with recovery-oriented release", "values": ["v:13.1", "v:20.6", "v:19.4", "v:47.1", "v:46.1", "v:14.1"], "status": "chosen", "in": ["D1"], "step": 9, "pros": ["Offline candidate validation and full-pipeline integration tests improve release confidence.", "Recovery automation can restore an earlier version."], "cons": ["Manual intervention during service recovery weakens the approval-only speed target."], "reason": "D1 prioritizes operational recoverability and integration assurance."},
+        {"id": "O4", "name": "Narrow artifact versioning and unified release", "values": ["v:20.1", "v:19.1", "v:47.2"], "status": "discarded", "step": 3, "pros": ["A smaller set of tracked artifacts and a unified release process are simpler."], "cons": ["Unpinned development environments and narrower lifecycle records leave reproducibility and handover gaps."], "reason": "Approach C's seed did not support the stated local setup and replay needs sufficiently."}
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Operational monitoring and recovery",
+      "drivers": ["Q3"],
+      "context": "A failed weekly run must be visible quickly and partial forecasts must not reach replenishment. The space includes service/data monitoring and automated recovery, but neither choice defines a 15-minute notification objective or transactional publication of a complete forecast.",
+      "options": [
+        {"id": "O1", "name": "Service and data quality monitoring", "values": ["v:6.23"], "status": "chosen", "in": ["A1", "B1"], "step": 8, "pros": ["Covers service health, dependencies, data quality, and data shifts."], "cons": ["Does not specify alert latency, escalation, or all-or-nothing delivery."], "reason": "A1 and B1 favor detection breadth for scheduled batch operations."},
+        {"id": "O2", "name": "Automated failure recovery", "values": ["v:6.12"], "status": "chosen", "in": ["D1"], "step": 9, "pros": ["Can recover deployed operations with minimal intervention."], "cons": ["Recovery does not itself guarantee timely notification or prevent partial output."], "reason": "D1 chooses recovery as its main operational emphasis."}
+      ]
+    }
+  ],
+  "unaddressed": []
+}

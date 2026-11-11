@@ -1,0 +1,549 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:17.2",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "A pub/sub API lets applications subscribe to data and receive publisher notifications as a continuous stream. The pipeline partitions that stream for parallel processing, while monitoring observes model-performance parameters and humans manually adjust and redeploy models when needed. Trade-off: This supports scalable, continuously updated processing with human oversight, but manual adjustment can delay responses to detected degradation and requires operational effort. Streaming and partitioning also add coordination complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:7.1",
+        "v:17.2"
+      ],
+      "description": "A continuous stream of incoming data is fed into the ML project or application as it arrives. The data pipeline partitions that stream into subsets so processing can occur in parallel across those partitions. Trade-off: This supports continuous ingestion with greater processing throughput and scalability. It adds partitioning and coordination overhead, and processing may need to account for how records are distributed across partitions.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:3.3"
+      ],
+      "description": "The system exposes a publish/subscribe data-access API through which clients subscribe to the data they need. When data becomes available, the publisher notifies matching subscribers so they can access it without repeatedly polling. Trade-off: This enables event-driven, timely access and reduces unnecessary polling, but requires subscribers to manage subscriptions and handle asynchronous notifications, while publishers must track and notify relevant subscribers.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "The system monitors selected model performance parameters in production and records their status over time. When monitoring indicates a problem or degradation, human operators assess the results, modify the model, and redeploy the updated version. Trade-off: This provides human oversight and deliberate, context-aware adjustments, but requires ongoing labor and can slow responses to changing conditions. Manual decisions and redeployments may also introduce inconsistency or operational error.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:22.1",
+        "v:24.2"
+      ],
+      "description": "The system continuously monitors specified model performance parameters in production. When those parameters indicate a need for change, automated measures trigger model adjustments without waiting for manual intervention. Trade-off: This gains rapid, consistent responses to performance changes and reduces operational effort. It gives up some human oversight and predictability, since inaccurate, noisy, or incomplete monitoring signals could trigger unsuitable adjustments.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "v:3.3",
+        "v:7.1",
+        "v:17.2",
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "The solution combines event-driven delivery, continuous ingestion and parallel processing with monitored, human-led correction.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "gains": [
+            "R3",
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Human-led adjustment preserves reviewer oversight for R3 but takes staff time and can delay response to load or drift, pulling against the storm-season processing objective in Q1."
+        }
+      ],
+      "observation": "The point captures the stream, parallelism, result interface and human adjustment pattern. The point description identifies coordination overhead and slower manual responses. The two-hour, one-day and cost thresholds cannot be established by these values; EU location and provider choice are outside this mapped point.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:7.1",
+        "v:17.2"
+      ],
+      "hypothesis": "Q1 calls for continuous arrival handling and parallel work to absorb storm-season volume.",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "misses"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:7.1",
+            "v:17.2"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Continuous ingestion supports R1 coverage of incoming records, while the point does not establish the storm-season deadline in Q1."
+        }
+      ],
+      "observation": "The values explain the architectural direction for scaling, but the space offers no measured capacity result and the design point does not establish the two-hour service level. Kafka backlog scaling and batch size are implementation details beyond these dimensions.",
+      "verdict": "partial",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:3.3"
+      ],
+      "hypothesis": "R2 and Q4 call for an asynchronous interface that lets each consuming team process results independently.",
+      "assessment": {
+        "R2": "meets",
+        "Q4": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "Pub/sub supports independent consumers and asynchronous delivery, consistent with separate consumer groups. The design space does not distinguish Kafka from other implementations, so the exact technology is not implied.",
+      "verdict": "grounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "R3 and Q2 call for monitoring quality signals and human review that can guide deliberate prompt updates.",
+      "assessment": {
+        "R3": "meets",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Review signals and human corrections help R3, but a review-share proxy can miss some quality deterioration, limiting Q2 observability."
+        }
+      ],
+      "observation": "The weekly random audit and review-share dashboard provide signals, but the doubled-review alert is a proxy and can miss quality deterioration that does not increase review share. Actual detection latency remains unproven.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "v:22.1",
+        "v:24.2"
+      ],
+      "hypothesis": "Does R3 force manual adjustment over automated adjustment?",
+      "assessment": {
+        "R3": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:22.1",
+            "v:24.2"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R3"
+          ],
+          "note": "Automated adjustments can react more quickly, but the stated requirement specifically calls for reviewer corrections to improve the classifier, a human-in-the-loop function not supplied by automated adjustment alone."
+        }
+      ],
+      "observation": "The contrast suggests manual adjustment is required for the correction loop as described in R3. Automation could supplement it, but does not replace the stated staff corrections; neither option alone proves Q2's one-day detection threshold.",
+      "verdict": "ungrounded",
+      "point": "P5"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Independent result delivery",
+      "step": 3,
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "values": [
+        "v:3.3"
+      ],
+      "reason": "The pub/sub value matches the result topic and separate consumer groups, enabling each team to consume at its own pace."
+    },
+    {
+      "id": "G2",
+      "name": "Human-monitored correction loop",
+      "step": 4,
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "values": [
+        "v:22.1",
+        "v:24.1"
+      ],
+      "reason": "Monitoring plus human adjustment explains review signals and correction-driven prompt updates, though the detection deadline is not established."
+    },
+    {
+      "id": "G3",
+      "name": "Scalable stream processing",
+      "step": 2,
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "values": [
+        "v:7.1",
+        "v:17.2"
+      ],
+      "reason": "Continuous ingestion and partitioned processing align with high variable volume; the numerical latency target remains to be demonstrated."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Document classification as built",
+      "summary": "A continuous, partitioned document pipeline delivers results through independent subscriptions, with production monitoring and human-led prompt corrections.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.3",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "forced": null,
+          "reason": "Independent consumers and asynchronous access directly serve separate teams and loose coupling.",
+          "evidence": [],
+          "solution_quote": "Results go to a second Kafka topic. Each consuming team has its own consumer group and reads at its own pace; analytics also loads the topic into the data warehouse every hour."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "Continuous arrival handling fits the two-hour objective at variable high volume, though the target needs measurement.",
+          "evidence": [],
+          "solution_quote": "each upload puts a message on a Kafka topic."
+        },
+        {
+          "dimension_id": "d:17",
+          "value_id": "v:17.2",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "Partitioning work across variable numbers of workers is the space's closest representation of the parallel throughput design.",
+          "evidence": [],
+          "solution_quote": "The number of classifier workers scales with the length of the Kafka topic's backlog, from 4 to 120."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "Q2",
+            "R3"
+          ],
+          "forced": null,
+          "reason": "Per-type review share and confidence are monitored performance signals, although they do not prove actual quality detection within one day.",
+          "evidence": [],
+          "solution_quote": "A dashboard shows, per claim type, the share of documents sent to review and the mean confidence; an alert fires when the share sent to review for a claim type doubles from one week to the next."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R3"
+          ],
+          "forced": true,
+          "reason": "Staff corrections and human review directly meet the human-in-the-loop correction requirement; the contrast does not replace that requirement with automation.",
+          "evidence": [],
+          "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Deliver classifications through independent event consumers",
+      "drivers": [
+        "R2",
+        "Q4"
+      ],
+      "context": "Three teams need results, and each must be able to change its processing independently.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Publish results for independent subscribers",
+          "values": [
+            "v:3.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 3,
+          "pros": [
+            "Teams consume at their own pace without coupling changes to the classifier or one another."
+          ],
+          "cons": [
+            "Consumers must handle asynchronous delivery and manage their own subscriptions."
+          ],
+          "reason": "Chosen and supported by the pub/sub region; the requirements strongly favor independent consumption."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Ingest continuously and parallelize the pipeline",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Documents arrive continuously and storm-season volume requires high throughput within a two-hour bound.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Streamed ingestion with partitioned processing",
+          "values": [
+            "v:7.1",
+            "v:17.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "Supports continuous arrival and parallel throughput."
+          ],
+          "cons": [
+            "Adds coordination overhead; no measured evidence here establishes the two-hour target."
+          ],
+          "reason": "The requirements call for continuous, scalable processing, so these choices are directionally forced; precise worker counts, batch size and achieved latency remain implementation questions."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Monitor signals and use human corrections to adjust the classifier",
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "context": "Uncertain documents must receive human review, corrections must improve future classifications, and quality problems should become visible quickly.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Monitor performance and adjust manually",
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Keeps reviewers in the correction loop and lets staff update examples deliberately."
+          ],
+          "cons": [
+            "Requires labor and can respond slowly; monitoring proxies may not reveal every quality drop."
+          ],
+          "reason": "Manual adjustment is forced by the explicit human-correction loop in R3. The monitoring choice is a reasonable fit, but the design does not prove Q2's one-day detection requirement."
+        },
+        {
+          "id": "O2",
+          "name": "Monitor performance and adjust automatically",
+          "values": [
+            "v:22.1",
+            "v:24.2"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Could react faster and reduce routine manual work."
+          ],
+          "cons": [
+            "Does not itself incorporate the required reviewer corrections."
+          ],
+          "reason": "The contrast weakens the R3 fit because automated adjustment alone omits the explicit correction loop."
+        }
+      ]
+    }
+  ],
+  "uncovered": [
+    {
+      "decision": "Where to host data and processing to enforce EU residency",
+      "solution_quote": "Incoming documents land in an object storage bucket in the EU region",
+      "nearest_dimension_id": "d:2"
+    },
+    {
+      "decision": "Which LLM provider and provider region to use",
+      "solution_quote": "sends the text to the approved provider's LLM in its EU region",
+      "nearest_dimension_id": "d:5"
+    },
+    {
+      "decision": "How to set prompt contents, confidence threshold, internal batching, and worker autoscaling bounds",
+      "solution_quote": "Small documents are sent in batches of 20 to reduce cost. The number of classifier workers scales with the length of the Kafka topic's backlog, from 4 to 120.",
+      "nearest_dimension_id": "d:17"
+    },
+    {
+      "decision": "How to perform OCR and deduplicate by content hash",
+      "solution_quote": "extracts the text (with OCR for scanned forms), removes duplicates by content hash",
+      "nearest_dimension_id": "d:16"
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q3",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space has no value expressing a per-document cost limit or a cost model; batching is described as cost reducing but the stated average remains unproven."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "The space has no data residency or geographic placement value to express the EU-only constraint."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "The space has no provider selection or provider-region value to express the approved EU LLM constraint."
+    }
+  ]
+}

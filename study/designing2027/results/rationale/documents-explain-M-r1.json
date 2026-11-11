@@ -1,0 +1,909 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million scanned forms, e-mails and PDFs a day, with four times the usual load during storm season. An LLM classifier assigns each document to one of 60 claim types. Claims handling, fraud investigation and analytics consume the results. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:21.4",
+        "v:26.6",
+        "v:23.1",
+        "v:32.2",
+        "v:13.1",
+        "v:6.20",
+        "v:20.1"
+      ],
+      "description": "The system ingests source events through messaging channels, automatically scales compute resources, and uses human-in-the-loop labeling to produce training data for an orchestrated, repeatable ML pipeline. Candidate models are selected through offline evaluation, while version-controlled artifacts support reproducibility and a custom monitoring dashboard observes deployed model behavior and operations.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:21.4",
+        "v:26.6"
+      ],
+      "description": "The system would deliver source events and records to ML data workflows through message queues, middleware, or publish-subscribe channels. Compute resources supporting those workflows would automatically scale with workload demand, allowing ingestion and processing capacity to adjust together.",
+      "attested_by": [
+        {
+          "id": "s:s2",
+          "label": "Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2",
+          "href": "sources/s2"
+        },
+        {
+          "id": "s:s15",
+          "label": "Scalable Software and Big Data Architecture - Big Data and Analytics Architectural Patterns",
+          "href": "sources/s15"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:21.4",
+        "v:23.1",
+        "v:32.2",
+        "v:13.1"
+      ],
+      "description": "Source events and records enter the ML workflow through messaging queues, middleware, or publish-subscribe channels. Domain experts label selected examples through controlled review workflows, while an orchestrated pipeline prepares data, extracts features, trains and tunes candidates, and uses held-out data with true values for offline evaluation before deployment selection.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:6.20"
+      ],
+      "description": "The system uses an internally tailored model-monitoring dashboard to present model-specific quality, data-change, and resource-behavior checks alongside operational views. These signals support identifying issues and initiating corrective model-development actions.",
+      "attested_by": [
+        {
+          "id": "s:s20",
+          "label": "MLOps: Methods and Tools of DevOps for Machine Learning",
+          "href": "sources/s20"
+        },
+        {
+          "id": "s:s23",
+          "label": "Machine Learning Monitoring: What It Is, and What We Are Missing",
+          "href": "sources/s23"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:6.4"
+      ],
+      "description": "The deployed system operates passively, without actively tracking prediction quality, data changes, or model performance after deployment. Consequently, corrective model-development actions are not triggered by production observations within this design choice.",
+      "attested_by": [
+        {
+          "id": "s:s13",
+          "label": "Architectural thinking in the Wild West of data science",
+          "href": "sources/s13"
+        },
+        {
+          "id": "s:s21",
+          "label": "MLOps: What It Is, Why it Matters, and How To Implement It (from a Data Scientist Perspective)",
+          "href": "sources/s21"
+        },
+        {
+          "id": "s:s23",
+          "label": "Machine Learning Monitoring: What It Is, and What We Are Missing",
+          "href": "sources/s23"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:26.2"
+      ],
+      "description": "The ML serving system scales its serving capacity down to zero when demand is absent or sufficiently low, reducing operating costs. When requests return, capacity must be brought back online to serve them, potentially introducing startup delay.",
+      "attested_by": [
+        {
+          "id": "s:s11",
+          "label": "Architecting a Scalable Real Time Learning System",
+          "href": "sources/s11"
+        },
+        {
+          "id": "s:s13",
+          "label": "Architectural thinking in the Wild West of data science",
+          "href": "sources/s13"
+        }
+      ]
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "v:21.4",
+        "v:26.6",
+        "v:23.1",
+        "v:32.2",
+        "v:13.1",
+        "v:6.20",
+        "v:20.1"
+      ],
+      "hypothesis": "This combination captures the solution's event-driven flow, scalable processing, human correction loop, monitored operation, and prompt/model provenance.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point is a novel combination: the checker attests no source to the whole set, although the selected values have accepting evidence individually. Messaging and elastic scaling support the required flow and capacity, and review plus evaluation supports correction and controlled updates. The dashboard's review-rate proxy does not establish one-day detection of actual quality loss. The point cannot represent the LLM classifier, batching, or EU residency decisions, and it cannot establish the numeric latency or cost targets.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:21.4",
+        "v:26.6"
+      ],
+      "hypothesis": "Q1 and Q4 explain the queue-based ingestion and demand-scaled capacity: the queue absorbs variable arrivals, and independent processing can scale against backlog.",
+      "assessment": {
+        "Q1": "partly",
+        "Q4": "meets",
+        "R2": "partly"
+      },
+      "observation": "This region is attested by two sources and matches the solution's message queue and backlog-based worker scaling. It supports the mechanism for variable load and independent consumption, but neither evidence nor the solution proves the two-hour ceiling at eight million documents per day. The input-ingestion value only approximately represents the result topic and its separate consumer groups.",
+      "verdict": "grounded",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:21.4",
+        "v:23.1",
+        "v:32.2",
+        "v:13.1"
+      ],
+      "hypothesis": "R3 explains review by claims staff and the repeated, evaluated update workflow; the messaging path supplies new examples and the evaluation gate protects each update.",
+      "assessment": {
+        "R3": "meets"
+      },
+      "observation": "The point has no source attesting the entire combination, but its component values are accepted and the evidence for human labeling supports the review loop. The solution's two-thousand-document prompt check is a good fit for offline evaluation, while the space's evaluation value describes candidate models more generally. The requirement calls for corrections to improve the classifier, and the monthly prompt update implements that feedback path.",
+      "verdict": "grounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:6.20"
+      ],
+      "hypothesis": "Q2 explains the per-claim-type dashboard and alert as a monitoring choice.",
+      "assessment": {
+        "Q2": "partly"
+      },
+      "observation": "The value is attested by two sources and describes a custom monitoring dashboard, but the solution watches the share sent to review rather than measured classification quality. A weekly comparison can also take longer than the one-day detection limit. The dashboard is a grounded monitoring choice, while this implementation only partly meets Q2.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "v:6.4"
+      ],
+      "hypothesis": "Would passive production operation be sufficient for Q2? The contrast tests whether Q2 forces active monitoring.",
+      "assessment": {
+        "Q2": "misses"
+      },
+      "observation": "Passive operation provides no active signal for operators, so it misses the requirement to see a quality drop within one day. Q2 forces monitoring, but it does not force this particular dashboard or its weekly review-rate metric; the chosen dashboard is a free implementation choice and is weaker than the requirement needs.",
+      "verdict": "ungrounded",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "v:26.2"
+      ],
+      "hypothesis": "Would scale-to-zero be a better fit under Q3, and does Q1 force the chosen elastic worker scaling?",
+      "assessment": {
+        "Q1": "partly",
+        "Q3": "partly"
+      },
+      "observation": "Scale-to-zero offers a cost advantage at low demand but can add startup delay when volume returns. The brief requires throughput during a large storm peak, yet it does not require this exact autoscaling policy: warm capacity or another provisioned strategy could also meet the deadline. Therefore elastic scaling is supported and sensible, but the requirement does not force it; the point does not establish the annual unit-cost target.",
+      "verdict": "partial",
+      "point": "P6"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Queue-backed elastic processing",
+      "step": 2,
+      "drivers": [
+        "Q1",
+        "Q4",
+        "R2"
+      ],
+      "values": [
+        "v:21.4",
+        "v:26.6"
+      ],
+      "reason": "The message queue and backlog-responsive workers address variable arrivals and throughput, while independent consumers support the teams' separate processing. The mechanism is supported by the sources, though the numeric deadline is not demonstrated."
+    },
+    {
+      "id": "G2",
+      "name": "Human correction and guarded updates",
+      "step": 3,
+      "drivers": [
+        "R3"
+      ],
+      "values": [
+        "v:23.1",
+        "v:32.2",
+        "v:13.1",
+        "v:21.4"
+      ],
+      "reason": "Claims staff provide labels, and a repeatable workflow checks prompt changes against reviewed examples before adoption. The combinations are not jointly attested, but the human-labeling and evaluation practices have accepted evidence."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Document classification as built",
+      "summary": "An event-driven document pipeline uses a provider LLM for classification, scales workers with backlog, publishes results to separate consumers, and sends low-confidence cases to review. Corrected examples are used in a monthly prompt refresh, with monitoring and a held-out prompt check.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:21",
+          "value_id": "v:21.4",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "forced": true,
+          "fit": "approximate",
+          "fit_note": "Messaging-based ingestion directly describes Kafka at input; using a second topic and separate consumer groups for results is a close messaging-based decoupling pattern but is not the dimension's stated ingestion concern.",
+          "reason": "Kafka messages support asynchronous handoff and team-specific consumer groups. Q4 requires independent consumption, though the exact Kafka arrangement is an implementation choice. Supporting evidence appears in 'Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2' (s02_p06) and 'Scalable Software and Big Data Architecture - Big Data and Analytics Architectural Patterns' (s15_p03).",
+          "evidence": [
+            {
+              "doc": "s02_p06",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s15_p03",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Incoming documents land in an object storage bucket in the EU region, and each upload puts a message on a Kafka topic."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "forced": false,
+          "reason": "Backlog-based scaling is a direct response to variable throughput and may control idle capacity. Q1 requires the deadline, not this scaling policy; Q3's numeric ceiling remains unverified. Examples are documented in 'Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2' (s02_p01) and 'Productionizing Machine Learning with a Microservices Architecture' (s04_p02, s04_p06).",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p06",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s13_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s13_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s15_p04",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s21_p15",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "The number of classifier workers scales with the length of the Kafka topic's backlog, from 4 to 120."
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.1",
+          "drivers": [
+            "R3"
+          ],
+          "forced": true,
+          "reason": "R3 explicitly requires human review and correction. The design space supports domain-expert labeling, while choosing the particular labelling tool and threshold is free. 'Architecture of a real-world Machine Learning system' (s09_p03, s09_p04, s09_p09) and 'Architecting a Machine Learning System for Risk' (s10_p08) support expert labeling and review.",
+          "evidence": [
+            {
+              "doc": "s09_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s09_p04",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s09_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s10_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s22_p17",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s23_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s24_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s24_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s24_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s24_p11",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Documents with a confidence below 0.7 go to a review queue in a labelling tool, where claims staff correct the claim type."
+        },
+        {
+          "dimension_id": "d:32",
+          "value_id": "v:32.2",
+          "drivers": [
+            "R3"
+          ],
+          "forced": null,
+          "reason": "The repeated preparation, prompt checking, and promotion workflow fits repeatable orchestration, but R3 does not prescribe workflow automation or orchestration. Repeatable workflows are described in 'Architecting a Machine Learning Pipeline: How to build scalable Machine Learning systems - Part 2/2' (s02_p09) and 'MLOps: Continuous delivery and automation pipelines in machine learning' (s06_p07).",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p15",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p17",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p18",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s06_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s06_p13",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s06_p15",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s08_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s08_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s09_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s09_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s10_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s17_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s17_p06",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s19_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s19_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s20_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s20_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s21_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s25_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s25_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s25_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s28_p03",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "R3"
+          ],
+          "forced": true,
+          "fit": "approximate",
+          "fit_note": "The value describes offline candidate-model evaluation against held-out data; the solution instead evaluates a revised prompt against reviewed documents before promotion.",
+          "reason": "R3 requires reviewer corrections to improve the classifier. The review set and pre-switch check make those changes evaluable before use, though the space frames the choice as model evaluation. 'MLOps Principles' (s22_p08) and 'MLOps: Continuous delivery and automation pipelines in machine learning' (s06_p08) support evaluation before promotion.",
+          "evidence": [
+            {
+              "doc": "s02_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s04_p15",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s06_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s08_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s09_p04",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s20_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s20_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s22_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s25_p09",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.20",
+          "drivers": [
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Q2 forces active monitoring, but a dashboard is one implementation among possible monitoring approaches. Its review-rate proxy and weekly window do not guarantee one-day visibility of quality loss. 'Machine Learning Monitoring: What It Is, and What We Are Missing' (s23_p03, s23_p09) describes model-specific monitoring and dashboard practices.",
+          "evidence": [
+            {
+              "doc": "s20_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s23_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s23_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s23_p11",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "A dashboard shows, per claim type, the share of documents sent to review and the mean confidence; an alert fires when the share sent to review for a claim type doubles from one week to the next."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.1",
+          "drivers": [
+            "R3"
+          ],
+          "forced": null,
+          "fit": "approximate",
+          "fit_note": "The value concerns versioning managed ML artifacts; the solution explicitly records prompt version and model name with each result, but does not describe a broader artifact repository.",
+          "reason": "Prompt and model provenance helps relate a corrected result to the configuration that produced it and supports the improvement loop. The exact storage format is not required by R3. 'Three Levels of ML Software' (s19_p05) and 'System Architectures for Personalization and Recommendation' (s12_p05) support managed artifact versioning.",
+          "evidence": [
+            {
+              "doc": "s12_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s19_p05",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Every result is stored with the prompt version and the model name that produced it."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:32",
+          "target": "d:21",
+          "type": "requires",
+          "holds": true
+        },
+        {
+          "source": "d:13",
+          "target": "d:32",
+          "type": "requires",
+          "holds": true
+        },
+        {
+          "source": "d:21",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true
+        },
+        {
+          "source": "d:13",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Buffer arrivals and scale classification capacity",
+      "drivers": [
+        "R2",
+        "Q1",
+        "Q3",
+        "Q4"
+      ],
+      "context": "The system must absorb highly variable arrivals, meet the storm-season deadline, publish to three independent consumers, and stay within an annual per-document cost ceiling.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Kafka messaging with backlog-based elastic workers",
+          "values": [
+            "v:21.4",
+            "v:26.6"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "Separates upload from classification work and allows worker count to follow queued demand.",
+            "Supports independent downstream consumption through message-based handoff."
+          ],
+          "cons": [
+            "The queue and worker range alone do not demonstrate the two-hour deadline or the unit-cost ceiling."
+          ],
+          "reason": "The solution chooses a supported mechanism for variable demand. Elasticity is a free implementation choice; the requirement fixes throughput, while capacity sizing and measured cost remain unproven."
+        },
+        {
+          "id": "O2",
+          "name": "Scale-to-zero serving",
+          "values": [
+            "v:26.2"
+          ],
+          "status": "discarded",
+          "step": 6,
+          "pros": [
+            "Can reduce runtime cost when demand is low."
+          ],
+          "cons": [
+            "Returning capacity may add startup delay during a surge."
+          ],
+          "reason": "This contrast is supported as a cost-saving option, but does not improve confidence in meeting the storm peak. The brief does not prove it impossible, so it is not rejected as a requirement violation. 'Architecting a Scalable Real Time Learning System' and 'Architectural thinking in the Wild West of data science' document scale-to-zero as an option."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Route uncertain documents through expert correction",
+      "drivers": [
+        "R3"
+      ],
+      "context": "The classifier must expose uncertain cases to claims staff and feed corrections into future classification behavior.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Human review with a checked prompt update",
+          "values": [
+            "v:23.1",
+            "v:32.2",
+            "v:13.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 3,
+          "pros": [
+            "Experts create corrected labels from uncertain cases.",
+            "A reviewed set checks each prompt update before it is adopted."
+          ],
+          "cons": [
+            "The space does not attest this complete combination, and its evaluation value is framed around candidate models rather than prompt revisions."
+          ],
+          "reason": "R3 forces the human correction loop. The exact confidence threshold, monthly cadence, and repeatable workflow are free choices; the evaluation mapping is approximate to prompt checking."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Monitor model behavior by claim type",
+      "drivers": [
+        "Q2"
+      ],
+      "context": "Operators must see a quality drop for an individual claim type within one day.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Custom dashboard with review-rate alert",
+          "values": [
+            "v:6.20"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Shows claim-type-specific signals and alerts when the review share changes sharply."
+          ],
+          "cons": [
+            "Review share and mean confidence are indirect quality indicators, and a week-over-week alert may miss the one-day visibility target."
+          ],
+          "reason": "Active monitoring is forced by Q2, but the dashboard metric and threshold are free choices. As implemented, they only partly meet the stated detection time."
+        },
+        {
+          "id": "O2",
+          "name": "Passive production operation",
+          "values": [
+            "v:6.4"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Requires little ongoing monitoring effort."
+          ],
+          "cons": [
+            "Provides no active indication that quality has fallen."
+          ],
+          "reason": "It misses Q2 and is therefore not an acceptable alternative when the one-day visibility requirement applies. 'MLOps: What It Is, Why it Matters, and How To Implement It (from a Data Scientist Perspective)' describes passive operation as a production choice."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Record the configuration that produced each result",
+      "drivers": [
+        "R3"
+      ],
+      "context": "Reviewers' corrections should be traceable to the prompt and model that generated the classification.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Versioned prompt and model metadata with monthly refresh",
+          "values": [
+            "v:20.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "pros": [
+            "Makes the producing prompt and model identifiable, supporting review and reproducibility."
+          ],
+          "cons": [
+            "The value describes versioned ML artifacts; the solution records result metadata but does not describe a broader artifact repository."
+          ],
+          "reason": "Recording prompt and model identity supports investigation of corrected results. It is an approximate fit and a free implementation choice."
+        }
+      ]
+    }
+  ],
+  "uncovered": [
+    {
+      "decision": "EU-region placement for original documents and extracted text",
+      "solution_quote": "Incoming documents land in an object storage bucket in the EU region, and each upload puts a message on a Kafka topic.",
+      "nearest_dimension_id": "d:42"
+    },
+    {
+      "decision": "OCR, content-hash deduplication, and storing extracted text beside the source document",
+      "solution_quote": "A preprocessing service reads the topic, extracts the text (with OCR for scanned forms), removes duplicates by content hash and writes the text next to the document.",
+      "nearest_dimension_id": "d:41"
+    },
+    {
+      "decision": "Kubernetes placement of the classifier service",
+      "solution_quote": "A classifier service, running on Kubernetes, sends the text to the approved provider's LLM in its EU region.",
+      "nearest_dimension_id": "d:30"
+    },
+    {
+      "decision": "Prompt-based LLM claim classification, including the taxonomy prompt and confidence output",
+      "solution_quote": "The prompt lists the 60 claim types with a short definition and ten labelled examples, and asks for a claim type and a confidence between 0 and 1.",
+      "nearest_dimension_id": "d:27"
+    },
+    {
+      "decision": "Use of an insurer-approved LLM provider in its EU region",
+      "solution_quote": "A classifier service, running on Kubernetes, sends the text to the approved provider's LLM in its EU region.",
+      "nearest_dimension_id": "d:37"
+    },
+    {
+      "decision": "Cost-aware micro-batching of 20 small documents per provider request",
+      "solution_quote": "Small documents are sent in batches of 20 to reduce cost.",
+      "nearest_dimension_id": "d:31"
+    },
+    {
+      "decision": "Per-result delivery through an output topic, separate team consumer groups, and hourly warehouse loading",
+      "solution_quote": "Results go to a second Kafka topic. Each consuming team has its own consumer group and reads at its own pace; analytics also loads the topic into the data warehouse every hour.",
+      "nearest_dimension_id": "d:29"
+    },
+    {
+      "decision": "Weekly random sampling of 300 classified documents for analyst review",
+      "solution_quote": "Each week, analysts review a random sample of 300 classified documents.",
+      "nearest_dimension_id": "d:6"
+    },
+    {
+      "decision": "Monthly replacement of prompt examples with recent corrections, with the update cadence chosen by the team",
+      "solution_quote": "Every month the team replaces the prompt's examples with recent corrected documents, and checks the new prompt against 2,000 reviewed documents before switching to it.",
+      "nearest_dimension_id": "d:6"
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "R1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:27",
+      "note": "The solution performs classification and returns a confidence, but the space has no value for prompt-based LLM classification; the nearby model-family dimension does not represent this implementation."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:42",
+      "note": "The solution places storage and LLM processing in the EU, but the space's data-governance values do not specify geographic residency or regional processing constraints."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:37",
+      "note": "The solution uses the approved provider in its EU region, but the space does not express approved-provider selection or provider-region constraints."
+    }
+  ]
+}

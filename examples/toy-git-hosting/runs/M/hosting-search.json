@@ -1,0 +1,1083 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "hosting-search",
+  "mode": "search",
+  "space": {
+    "workspace": "toy-git-hosting",
+    "run": "20261109_000000",
+    "graph_sha256": "2dffd33ca0c9591431be414f303ce088b16bf31021ba90e13086a4cead77fc57"
+  },
+  "problem": {
+    "title": "Git hosting for a fast-growing engineering organization",
+    "context": "A company-operated Git service supports 3,000 engineers in four regions and about 40,000 CI fetches per day. The largest repository has 15 years of history and is about 200 GB. A five-engineer team builds and operates the service in the company's cloud account.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes and serve fetches and clones for every repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let engineers work on the largest repository without downloading all of it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "durability",
+        "text": "When any single machine or disk is lost, no pushed commit is lost."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When one server fails during working hours, pushes and fetches continue within one minute, without an operator."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A CI job in any region fetches the latest state of a repository within 30 seconds at the 95th percentile, even right after a push."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A fetch that starts after a push has succeeded always sees that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Five engineers build and run the service."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Engineers keep using standard Git clients; no custom client may be required."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "description": "Servers keep plain Git repositories as the authoritative state, with each repository replicated three ways and reference updates coordinated by three-phase commit. Writes succeed after a majority commits, reads use the nearest replica with current state, and clients use Git partial clone with sparse checkout. Trade-off: This provides durable copies, atomic reference updates, geographically efficient reads, and reduced client transfer, but replica coordination adds write latency and operational complexity. Partial clones reduce bandwidth while making some local history or files unavailable until fetched.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:1.2",
+        "v:2.3",
+        "v:3.2",
+        "v:4.2",
+        "v:5.3"
+      ],
+      "description": "The object-storage append-only log is the authoritative repository state, with reference updates serialized by compare-and-swap. Stateless servers rebuild or refresh local cached copies from that log and serve partial-clone and sparse-checkout requests. Trade-off: This provides durable centralized history, interchangeable serving machines, and reduced client transfer. It gives up fast cold-cache reads and makes serving dependent on object-storage availability and log replay; concurrent update coordination is limited to what the storage system’s compare-and-swap can provide.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.1",
+        "v:2.4",
+        "v:3.3",
+        "v:4.3",
+        "v:5.2"
+      ],
+      "description": "Each repository’s authoritative Git files reside on one file server, which serializes reference updates. Developers use a virtual filesystem that fetches objects on demand, while nearby cache servers serve reads and forward misses to the file-server origin. Trade-off: This provides simple centralized consistency, reduced client downloads, and geographically closer read service. It gives up durability against file-server loss, and the single server can bottleneck updates or uncached reads.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.3",
+        "v:5.1"
+      ],
+      "description": "Each server stores an authoritative plain Git repository locally, with three replicas accepting writes only after a majority acknowledges them. Reference changes use three-phase commit across replicas, while clients access files through an on-demand virtual filesystem and reads are routed to the nearest replica with current state. Trade-off: This provides durable majority-backed storage, atomic reference updates, and potentially lower read latency and client download costs. It gives up write and reference-update latency, availability during coordination failures, and storage capacity for three copies; the virtual filesystem also adds client-side complexity and was not fully settled.",
+      "attested_by": [
+        "s:s1"
+      ]
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:1.2",
+        "v:2.3",
+        "v:3.2",
+        "v:4.3",
+        "v:5.3"
+      ],
+      "description": "The object-storage log is authoritative for repository objects and references, with reference writers using compare-and-swap to order atomic updates. Stateless servers rebuild or refresh local disk caches from that log, while clients use a virtual filesystem that fetches objects on demand. Trade-off: This provides durable, server-independent state and avoids dedicated replication, but depends on object-storage access and can add latency for cache rebuilding and first-time file access. The virtualized client may also perform less predictably than a fully local checkout.",
+      "attested_by": [
+        "s:s1"
+      ]
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:1.3",
+        "v:2.2",
+        "v:3.1",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "description": "The system stores Git objects and references in a distributed key-value store while maintaining three Git replicas for durability. Reference changes use three-phase commit with majority-write success; clients use partial clone with sparse checkout, and reads go to the nearest up-to-date replica. Trade-off: This provides durable, locality-aware reads and reduced client transfer, but adds coordination, replica-management, and quorum/freshness costs. The DHT source of truth conflicts with “plain Git replicas” as authoritative repository copies; they must instead be projections or caches of the DHT.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.2",
+        "v:5.3"
+      ],
+      "description": "Each server stores an authoritative plain Git repository locally, with three replicas accepting writes only after a majority acknowledges them. Reference changes use three-phase commit across replicas; clients use partial clone with sparse checkout, and any server can serve reads from its local disk cache. Trade-off: This keeps the Git state durable and reduces client transfer while allowing flexible cache-based serving. It adds quorum and reference-update coordination costs, and a cold or stale cache can delay a read while it is brought current.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:1.2",
+        "v:2.3",
+        "v:3.2",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "description": "The object-storage append-only log is the authoritative repository state, with compare-and-swap ordering reference updates atomically. Disk repositories are disposable derived replicas; clients use partial clone and sparse checkout, while reads are routed to the nearest replica confirmed current with the log. Trade-off: This combines durable centralized history, coordination without consensus, reduced client transfer, and geographically efficient reads. It gives up local independence and requires reliable object-storage access, log-based update coordination, and mechanisms to keep serving replicas current.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if ordinary Git repositories were authoritative and three replicas coordinated writes, with partial clone for the large working copy?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if an object-storage log were authoritative and stateless servers served derived local copies?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if one file server kept the repository and regional caches plus a virtual filesystem made access feel local?",
+      "status": "dropped",
+      "dropped_because": "A single file server has no replica and cannot meet the explicit requirement that loss of any one machine or disk lose no pushed commit."
+    },
+    {
+      "id": "D",
+      "idea": "What if objects in a distributed hash table were the source of truth while Git replicas handled protocol serving?",
+      "status": "dropped",
+      "dropped_because": "The mixed-evidence DHT source of truth clashes with treating plain Git replicas as authoritative; this adds a second representation without evidence that it improves a stated driver."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "hypothesis": "Three majority-write Git replicas should address Q1; transactional reference updates should support Q4; sparse partial clone should address R2 and C2; nearby current replicas may help Q3.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.2",
+            "v:3.1"
+          ],
+          "gains": [
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q2",
+            "Q3"
+          ],
+          "note": "Majority replication and coordinated commits protect accepted writes and order reference changes, but add coordination on writes and do not establish the stated failover or latency bounds."
+        }
+      ],
+      "observation": "The point is structurally coherent and has no point-check warnings, but no source attests the full combination. It gives a plausible durability and standard-client path; the evidence does not establish the timed availability or performance scenarios.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.2",
+        "v:2.3",
+        "v:3.2",
+        "v:4.2",
+        "v:5.3"
+      ],
+      "hypothesis": "An object-storage log should preserve accepted writes independently of serving machines, while compare-and-swap orders references; sparse partial clone serves R2/C2 and stateless caches can scale reads.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.2",
+            "v:2.3",
+            "v:5.3"
+          ],
+          "gains": [
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Server-independent durable state and interchangeable caches help recovery and read distribution, but cold-cache reconstruction pulls reads through the log and leaves the 30-second target unproven."
+        }
+      ],
+      "observation": "The point check found no warning, but the combination is novel in the space. It lowers dependence on a particular serving machine while making log access and cache freshness central to serving.",
+      "rating": "strong",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:2.4",
+        "v:3.3",
+        "v:4.3",
+        "v:5.2"
+      ],
+      "hypothesis": "A single serialized repository server should make reference ordering simple, while nearby caches and on-demand object access should reduce transfer for engineers.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.4",
+            "v:3.3"
+          ],
+          "gains": [
+            "C1",
+            "Q4"
+          ],
+          "costs": [
+            "Q1",
+            "Q2"
+          ],
+          "note": "A single serialized server simplifies operations and ordering, but its unreplicated disk loses the only copy on machine or disk failure and it is a failure point."
+        }
+      ],
+      "observation": "The local design point offers operational simplicity but directly contradicts the required single-machine/disk durability and operator-free failover. Drop this approach rather than layering caches over the same single origin.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.3",
+        "v:5.1"
+      ],
+      "hypothesis": "Keep the durable replicated core but test on-demand virtualization for R2, expecting smaller transfers while retaining standard Git semantics only partly.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:4.3"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "On-demand objects reduce local transfer, but virtualized filesystems may require client-side components and have mixed evidence, weakening the standard-client constraint."
+        }
+      ],
+      "observation": "The point is attested by Git at any scale, but its client fit is less secure than partial clone with sparse checkout. No source demonstrates the exact standard-client requirement or timed targets.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:1.2",
+        "v:2.3",
+        "v:3.2",
+        "v:4.3",
+        "v:5.3"
+      ],
+      "hypothesis": "Keep the log and stateless serving architecture while testing virtualized file access, expecting lower client transfer but more C2 risk.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:4.3"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "C2"
+          ],
+          "note": "On-demand files reduce downloads, but mixed evidence and client integration risk make standard-client use less certain."
+        }
+      ],
+      "observation": "The combination is attested by Git at any scale, but first access and cache rebuilds remain risks. The client change does not improve on the established sparse partial-clone option for this brief.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:1.3",
+        "v:2.2",
+        "v:3.1",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "hypothesis": "Test whether a distributed object store as authority can combine replicated durability and locality-aware reads while preserving a plain-Git client path.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "misses",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.3",
+            "v:2.2",
+            "v:3.1"
+          ],
+          "gains": [
+            "Q1",
+            "Q3"
+          ],
+          "costs": [
+            "C1",
+            "Q4"
+          ],
+          "note": "A DHT plus Git replicas may offer durable distributed objects and replicas near readers, but maintaining two authoritative forms expands operating and freshness work without a clear small-team path."
+        }
+      ],
+      "observation": "The point has no warnings, yet no source attests the combination. The source for the DHT value is mixed, and its combination with authoritative Git replicas requires deciding which representation wins; drop it as added complexity without evidenced benefit.",
+      "rating": "weak",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.2",
+        "v:5.3"
+      ],
+      "hypothesis": "Keep majority writes and partial clone, changing reads to local cache servers to see whether a flexible serving tier helps multi-region CI without weakening data durability.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.3"
+          ],
+          "gains": [
+            "Q2",
+            "Q3"
+          ],
+          "costs": [
+            "Q4"
+          ],
+          "note": "Any server can serve from a local cache, aiding recovery and distribution, but freshness must be confirmed before serving to preserve read-after-push behavior."
+        }
+      ],
+      "observation": "The space accepts this serving mechanism, but its point-check has no warnings and no source attests this full combination. The requirement's latency and failover thresholds still need workload and failure testing; Q4 depends on routing only to a current copy.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:1.2",
+        "v:2.3",
+        "v:3.2",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "hypothesis": "Keep the object-storage log and sparse partial clone, changing reads to the nearest current replica to improve regional fetches while making freshness explicit for Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1"
+          ],
+          "gains": [
+            "Q3",
+            "Q4"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Routing reads to a nearby current replica helps regional speed and freshness, while selecting only a confirmed current replica can delay service during recovery or replication lag."
+        }
+      ],
+      "observation": "This is a novel combination with no attesting source and no point-check warnings. It combines a durable log with locality-aware reads, but replicas must be proven current and numerical service targets remain unverified.",
+      "rating": "strong",
+      "point": "P8"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Replicated Git with flexible read caches",
+      "summary": "Keep plain Git repositories authoritative, replicate writes to a majority, and use partial clone with sparse checkout. Serve through local disk caches that can be confirmed current.",
+      "approach": "A",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "R1",
+            "Q4"
+          ],
+          "reason": "Plain Git repositories are the authority; reference updates stay transactional across replicas.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A majority write across three copies protects acknowledged commits against one machine or disk loss.",
+          "evidence": [
+            {
+              "doc": "s01_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Transactional reference updates provide a clear coordination point for successful pushes.",
+          "evidence": [
+            {
+              "doc": "s01_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R2",
+            "C2"
+          ],
+          "reason": "Partial clone and sparse checkout reduce the downloaded worktree using standard Git features.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s05_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "Q2",
+            "Q3",
+            "Q4"
+          ],
+          "reason": "Stateless serving machines with local caches allow read capacity to move across regions; only a current cache should serve a post-push read.",
+          "evidence": [
+            {
+              "doc": "s01_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p13",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "On-demand virtualization may reduce transfer further, but its mixed evidence makes the standard-client constraint less certain."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true,
+          "note": "Durability replication is selected after choosing the authoritative repository state."
+        },
+        {
+          "source": "d:2",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true,
+          "note": "The read path is chosen to work with three Git replicas."
+        },
+        {
+          "source": "d:3",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true,
+          "note": "Reference coordination operates on the selected repository authority."
+        },
+        {
+          "source": "d:4",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true,
+          "note": "Partial clone affects which read objects serving must supply."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Object-storage log with current regional replicas",
+      "summary": "Make an append-only object-storage log authoritative, use compare-and-swap for references, and serve sparse partial clones from nearby replicas only after they are current.",
+      "approach": "B",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.2",
+          "drivers": [
+            "R1",
+            "Q4"
+          ],
+          "reason": "The log is the authoritative state from which serving repositories are derived.",
+          "evidence": [
+            {
+              "doc": "s01_p09",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p14",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.3",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Durability is delegated to object storage so serving machines do not hold unique copies.",
+          "evidence": [
+            {
+              "doc": "s01_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p14",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.2",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Compare-and-swap on the authoritative log orders reference updates atomically.",
+          "evidence": [
+            {
+              "doc": "s01_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R2",
+            "C2"
+          ],
+          "reason": "Sparse partial clone limits the client data transfer through standard Git features.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s05_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "Q3",
+            "Q4"
+          ],
+          "reason": "Routing to the nearest replica that is confirmed current aims to serve regional CI quickly without returning stale refs.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p04",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Locality and freshness are relevant to the target, but the space gives no measurements or guarantee for 30-second p95 fetches after a push."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Any stateless server can rebuild a local cache, but cold cache reconstruction may delay reads."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true,
+          "note": "Object-storage durability depends on the log being the repository authority."
+        },
+        {
+          "source": "d:2",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true,
+          "note": "The serving path reads derived replicas of the durable log."
+        },
+        {
+          "source": "d:3",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true,
+          "note": "Compare-and-swap coordinates updates on the chosen log."
+        },
+        {
+          "source": "d:4",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true,
+          "note": "Partial clone requests are handled by the read-serving path."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where repository state is authoritative and durable",
+      "drivers": [
+        "Q1"
+      ],
+      "context": "The service must preserve successful pushes through a single machine or disk loss. The design space compares authoritative Git repositories on disks with an authoritative object-storage log; it does not quantify failover time or the team's operational workload.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Replicated Git repositories",
+          "values": [
+            "v:1.1",
+            "v:2.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Three copies with majority-write success protect accepted commits.",
+            "Plain Git repositories are the authority and serve as familiar units of state."
+          ],
+          "cons": [
+            "Replica coordination adds operational and write-path complexity.",
+            "The space does not establish one-minute operator-free failover."
+          ],
+          "reason": "This is the most direct supported match for durable Git state and avoids an extra log-to-repository derivation path."
+        },
+        {
+          "id": "O2",
+          "name": "Object-storage log",
+          "values": [
+            "v:1.2",
+            "v:2.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Server machines hold no unique repository data.",
+            "Object storage provides the log's durability."
+          ],
+          "cons": [
+            "Serving depends on log and object-storage access.",
+            "The space does not establish service recovery within one minute."
+          ],
+          "reason": "This reduces dependence on any one serving machine and keeps the durable history independent of the cache fleet."
+        },
+        {
+          "id": "O3",
+          "name": "Single unreplicated file server",
+          "values": [
+            "v:1.1",
+            "v:2.4"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "A single server provides a simple authority and avoids replica coordination."
+          ],
+          "cons": [
+            "Loss of its machine or disk loses the only copy and fails Q1."
+          ],
+          "reason": "It cannot meet the explicit durability requirement."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How successful pushes order repository references",
+      "drivers": [
+        "Q4"
+      ],
+      "context": "Pushes must update repository refs atomically enough that a fetch beginning after success sees the pushed state. The alternatives coordinate updates across replicas or serialize them with compare-and-swap on a log. Neither the dimension nor its evidence gives a complete end-to-end guarantee for fetch routing.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three-phase commit across replicas",
+          "values": [
+            "v:3.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "All replicas vote on a reference update transaction.",
+            "Fits the replicated Git repository approach."
+          ],
+          "cons": [
+            "Coordination may add latency and availability dependence on participants."
+          ],
+          "reason": "Choose this with majority Git replicas so push completion follows coordinated reference updates."
+        },
+        {
+          "id": "O2",
+          "name": "Compare-and-swap on the log",
+          "values": [
+            "v:3.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Orders log appends without a separate consensus protocol.",
+            "Matches the object-storage authority."
+          ],
+          "cons": [
+            "The source does not prove all derived read replicas observe the update before a fetch starts."
+          ],
+          "reason": "This provides a single ordered update point in the log-based alternative."
+        },
+        {
+          "id": "O3",
+          "name": "Single-server serialization",
+          "values": [
+            "v:3.3"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "One server applies updates one at a time."
+          ],
+          "cons": [
+            "It retains the single-server failure and durability problem."
+          ],
+          "reason": "Its simple ordering does not compensate for the unreplicated authority."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How developers and CI obtain repository data",
+      "drivers": [
+        "R2",
+        "Q3",
+        "Q4",
+        "C2"
+      ],
+      "context": "Engineers need to work in a 200 GB repository without downloading all its history, while CI in four regions needs current reads. Standard Git clients are required. Partial clone with sparse checkout is explicitly described as using standard Git features; virtualized filesystems have mixed evidence and may add client integration. The space does not give latency measurements or a standard Git wire-protocol architecture.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Partial clone with sparse checkout",
+          "values": [
+            "v:4.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Fetches only needed history and files.",
+            "Uses standard Git features and best matches C2."
+          ],
+          "cons": [
+            "Some data remains unavailable locally until fetched; the space does not quantify developer or CI latency."
+          ],
+          "reason": "This is the strongest evidence-backed fit for reduced developer downloads while keeping standard clients."
+        },
+        {
+          "id": "O2",
+          "name": "Virtualized filesystem with on-demand objects",
+          "values": [
+            "v:4.3"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Downloads objects only when files are opened."
+          ],
+          "cons": [
+            "Evidence is mixed and includes a rejection; client integration may conflict with C2."
+          ],
+          "reason": "The small transfer benefit does not justify the client compatibility uncertainty."
+        },
+        {
+          "id": "O3",
+          "name": "Nearest up-to-date replica",
+          "values": [
+            "v:5.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Regional reads can use the closest replica that has current state.",
+            "Freshness selection supports read-after-push behavior."
+          ],
+          "cons": [
+            "The space gives no measured 30-second p95 or behavior during replica lag."
+          ],
+          "reason": "Choose locality with an explicit current-state condition to balance Q3 and Q4."
+        },
+        {
+          "id": "O4",
+          "name": "Stateless servers with a local disk cache",
+          "values": [
+            "v:5.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Any server can serve any repository from a local cache.",
+            "Supports a flexible multi-region serving tier."
+          ],
+          "cons": [
+            "Cold caches need rebuilding, and freshness enforcement is unspecified."
+          ],
+          "reason": "This keeps serving capacity flexible in the replicated Git alternative, provided reads are routed only to current copies."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "R1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:3",
+      "note": "The space covers repository state and reference update coordination but has no dimension for Git protocol endpoints, push/fetch/clone coverage, or an end-to-end hosting service interface."
+    },
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:5",
+      "note": "There is no failover or availability dimension and no evidence for operator-free recovery within one minute after a server failure."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "The space does not compare staffing needs, operational toil, or the capacity of a five-engineer team."
+    }
+  ]
+}

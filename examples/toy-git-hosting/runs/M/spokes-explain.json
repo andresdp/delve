@@ -1,0 +1,691 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "spokes-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "toy-git-hosting",
+    "run": "20261109_000000",
+    "graph_sha256": "2dffd33ca0c9591431be414f303ce088b16bf31021ba90e13086a4cead77fc57"
+  },
+  "problem": {
+    "title": "Git hosting for a fast-growing engineering organization",
+    "context": "A self-hosted Git service must support 3,000 engineers in four regions and about 40,000 CI jobs per day, including use of a 200 GB repository with 15 years of history. Five engineers build and operate it in the company's cloud account.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes and serve fetches and clones for every repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let engineers work on the largest repository without downloading all of it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "durability",
+        "text": "When any single machine or disk is lost, no pushed commit is lost."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When one server fails during working hours, pushes and fetches continue within one minute, without an operator."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A CI job in any region fetches the latest state of a repository within 30 seconds at the 95th percentile, even right after a push."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A fetch that starts after a push has succeeded always sees that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Five engineers build and run the service."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "Engineers keep using standard Git clients; no custom client may be required."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.1",
+        "v:5.1"
+      ],
+      "description": "Plain Git repositories on local server disks are authoritative, with three replicas for each repository. Reference updates use three-phase commit across replicas, writes succeed after a majority, and clients perform full Git clones from the nearest replica with the latest state. Trade-off: This provides durable copies, coordinated reference updates, and lower read latency. It sacrifices storage efficiency and write performance to maintain three replicas and coordinate commits, while full clones consume substantial client bandwidth and time.",
+      "attested_by": [
+        "s:s1"
+      ]
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1"
+      ],
+      "description": "Each repository’s authoritative state is stored as plain Git repositories on server disks, with three replicas maintained for every repository. Reference updates run through a three-phase transaction across replicas, while a write is considered durable after a majority has recorded it. Trade-off: This provides disk-based simplicity, replication-based durability, and coordinated reference updates, but adds replication and transaction latency and operational complexity. The majority-write rule is in tension with all-replica voting: an unavailable replica may prevent a transaction even when two replicas are ready.",
+      "attested_by": [
+        "s:s1",
+        "s:s2"
+      ]
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.1",
+        "v:2.4",
+        "v:3.1"
+      ],
+      "description": "The system would expose a plain Git repository stored on a file server’s local disk as the authoritative state, accessed by RPC. Reference updates would be handled as three-phase transactions requiring replica votes. Trade-off: This saves storage and replication overhead, but failure of the file server can lose the sole copy, while three-phase coordination adds complexity without improving durability. The single-copy choice conflicts with three-phase commit across replicas because it provides no replica participants to vote.",
+      "attested_by": [
+        "s:s1"
+      ]
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:4.1"
+      ],
+      "description": "The system lets a developer obtain a repository by performing a standard Git clone over the Git protocol. The clone includes the repository’s complete history, enabling normal local Git work against that full copy. Trade-off: This provides compatibility with standard Git and complete local history, but increases initial download time, bandwidth use, and local storage compared with a partial or shallow transfer.",
+      "attested_by": [
+        "s:s1",
+        "s:s5"
+      ]
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:4.2"
+      ],
+      "description": "Each developer uses standard Git to create a partial clone, configuring sparse checkout to materialize only the files needed for their work. The client fetches only the relevant history and content while retaining standard Git features for that reduced view. Trade-off: This reduces download size and local storage for focused work, but unselected files or history are unavailable locally and may require later fetching. Workflows requiring the complete repository may be less convenient.",
+      "attested_by": [
+        "s:s4",
+        "s:s5"
+      ]
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:5.1"
+      ],
+      "description": "Each repository is stored as a plain Git repository on server disks, with three replicas maintained for every repository. Writes complete after a majority of replicas records them, while fetches, clones, and checkouts are routed to the nearest replica with the latest state. Trade-off: This provides durable data across one machine failure and reduces read latency through locality. It requires maintaining three copies and coordinating majority writes, and reads may need to bypass a nearer replica if it is stale.",
+      "attested_by": [
+        "s:s1",
+        "s:s2"
+      ]
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1",
+        "v:4.1",
+        "v:5.1"
+      ],
+      "hypothesis": "The complete solution combines disk-backed Git repositories, three replicas, transactional ref updates, full client clones, and locality-aware reads.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:4.1"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Full Git clones support standard-client repository access but transfer the whole history, which conflicts with working on the largest repository without downloading it all."
+        }
+      ],
+      "observation": "The combination is attested by Git at any scale. The value descriptions support standard Git use, durability, and read-after-push routing. The stated 30-second P95 and one-minute operator-free failover targets are not demonstrated by the design-space evidence or solution details; they remain unproven rather than measured misses. Full clones directly conflict with R2. The five-person staffing constraint is not addressed by an operational-effort dimension.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1"
+      ],
+      "hypothesis": "Q1 and Q4 call for authoritative repository state on servers with replicated writes and coordinated reference updates.",
+      "assessment": {
+        "Q1": "meets",
+        "Q4": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "The point has no warnings, satisfies the required source-of-truth dependency, and is attested by Git at any scale and Stretching Spokes. Its replica and majority-write choices directly support loss tolerance; transactional ref updates and latest-state reads support the consistency requirement. The point description flags added write and transaction latency, but neither requirement sets a write-latency target.",
+      "verdict": "grounded",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "v:1.1",
+        "v:2.4",
+        "v:3.1"
+      ],
+      "hypothesis": "Does Q1 force three replicas rather than the single-copy alternative offered for durability?",
+      "assessment": {
+        "Q1": "misses"
+      },
+      "tradeoffs": [],
+      "observation": "This contrast changes the replication value to a single copy. Its point description says loss of the file server can lose the sole copy, so it misses Q1. Q1 therefore forces the three-replica choice among this contrast and the solution value.",
+      "verdict": "ungrounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:4.1"
+      ],
+      "hypothesis": "R1 and C2 call for full repository access through the standard Git protocol and clients.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "C2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:4.1"
+          ],
+          "gains": [
+            "R1",
+            "C2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "A full clone offers standard Git access and a complete local history, but requires downloading all of the large repository."
+        }
+      ],
+      "observation": "Git at any scale and Introducing Scalar attest full clone over the Git protocol. This choice preserves the standard client constraint but fails the explicit requirement to work without downloading all of the largest repository.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "v:4.2"
+      ],
+      "hypothesis": "Does R2 force a partial clone rather than the solution's full-clone choice, while retaining C2?",
+      "assessment": {
+        "R2": "meets",
+        "C2": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "The partial-clone contrast is supported by Scalar philosophy and Introducing Scalar, and it meets both R2 and the standard-Git-client constraint. The design space therefore offers an alternative that better meets these requirements; full clone is not forced and appears to be a free choice that conflicts with R2.",
+      "verdict": "grounded",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:5.1"
+      ],
+      "hypothesis": "Q3 and Q4 call for serving reads from a nearby replica that already has the latest state.",
+      "assessment": {
+        "Q3": "partly",
+        "Q4": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1"
+          ],
+          "gains": [
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Routing to the nearest current replica supports read-after-push consistency and regional locality, but does not by itself establish the 30-second P95 fetch bound."
+        }
+      ],
+      "observation": "The solution's routing rule matches nearest up-to-date replica and the point is attested by Git at any scale and Stretching Spokes. This gives a plausible basis for low-latency regional fetches and directly serves read-after-success consistency. The space and solution provide no benchmark for the 30-second P95 target, so Q3 is only partly supported. Remote non-voting replicas also extend the mapped value, which does not encode voting status.",
+      "verdict": "partial",
+      "point": "P6"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Replicated authoritative state and coordinated refs",
+      "step": 2,
+      "drivers": [
+        "Q1",
+        "Q4"
+      ],
+      "values": [
+        "v:1.1",
+        "v:2.2",
+        "v:3.1"
+      ],
+      "reason": "This grounded region is attested by two sources and meets the requirements for no lost pushes after one machine or disk failure and for fetches to see successful pushes. A single-copy contrast misses durability, so the three-replica choice is forced by Q1 among the evaluated alternatives."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Replicated Git file servers with Spokes-style routing",
+      "summary": "Plain Git repositories on local server disks are replicated three ways, reference writes use three-phase commit, and reads go to the nearest current replica. Engineers use standard Git clients and full clones.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "forced": null,
+          "reason": "Server disks are the authoritative repository state in the solution and fit the replica and ref-coordination choices. The requirements and evaluated contrasts do not establish that this source of truth is forced over every other source option.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p04",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Every repository is stored as a plain Git repository on the local disks of three file servers, placed in different racks. The three replicas are the authoritative copies; there is no separate database of repository contents."
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.2",
+          "drivers": [
+            "Q1",
+            "Q4"
+          ],
+          "forced": true,
+          "reason": "Q1 requires surviving any single machine or disk loss without losing pushed commits. Three replicas with majority writes satisfy that need; the evaluated single-copy contrast loses the only copy on server failure and misses Q1.",
+          "evidence": [
+            {
+              "doc": "s01_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p05",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p06",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p09",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "The three replicas are the authoritative copies; there is no separate database of repository contents."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.1",
+          "drivers": [
+            "R1",
+            "Q4"
+          ],
+          "forced": null,
+          "reason": "Three-phase commit coordinates push reference updates across the replicas, supporting standard Git pushes and the requirement that subsequent fetches see a successful push. The evaluated points did not compare another coordination value, so this specific protocol is not established as forced.",
+          "evidence": [
+            {
+              "doc": "s01_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p08",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p04",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "A push updates references through a three-phase commit: a proxy sends the update to all three replicas, each takes a lock and votes, and the update commits once a majority has agreed."
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.1",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "forced": false,
+          "reason": "Full clones use standard Git and provide the full repository, but the contrast shows partial clone also retains standard Git while meeting R2. Full clone is therefore not forced and conflicts with the large-repository download requirement.",
+          "evidence": [
+            {
+              "doc": "s01_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p06",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s01_p10",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s05_p03",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Engineers use standard Git clients and full clones."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "Q3",
+            "Q4"
+          ],
+          "forced": null,
+          "reason": "Routing reads to the closest replica that has the latest state supports regional fetch performance and read-after-push consistency. The solution adds non-voting regional replicas, a detail not represented by the value; the numeric latency target is not established, so the choice is not proven forced.",
+          "fit": "approximate",
+          "fit_note": "The value captures reads from the nearest replica that is up to date, but does not capture the solution's additional non-voting replicas in remote regions.",
+          "evidence": [
+            {
+              "doc": "s01_p07",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p06",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s03_p04",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Reads go to the closest replica that is up to date; in remote regions, extra non-voting replicas serve reads without slowing down writes."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true
+        },
+        {
+          "source": "d:2",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true
+        },
+        {
+          "source": "d:3",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true
+        },
+        {
+          "source": "d:4",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Authoritative state, replication, and reference updates",
+      "drivers": [
+        "Q1",
+        "Q4",
+        "R1"
+      ],
+      "context": "The service must preserve every accepted push through one machine or disk loss and let subsequent fetches observe committed reference updates. Pushes must continue to use standard Git.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Three server-disk Git replicas with majority writes and three-phase commit",
+          "values": [
+            "v:1.1",
+            "v:2.2",
+            "v:3.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "Meets the single-machine durability scenario through three copies and majority writes.",
+            "Coordinates reference updates across replicas and supports current-state reads.",
+            "Attested in combination by Git at any scale and Stretching Spokes."
+          ],
+          "cons": [
+            "Adds replication and transaction overhead to writes.",
+            "The solution does not quantify failure recovery time."
+          ],
+          "reason": "The requirements force a replicated durable design among the evaluated options: the single-copy contrast misses Q1. The exact server-disk authority and three-phase commit are not shown to be forced by the requirements."
+        },
+        {
+          "id": "O2",
+          "name": "Single copy on a file server",
+          "values": [
+            "v:1.1",
+            "v:2.4"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Avoids the storage overhead of multiple repository copies."
+          ],
+          "cons": [
+            "Loss of the file server can lose the only copy, failing Q1.",
+            "Does not provide replica participants for three-phase commit."
+          ],
+          "reason": "Rejected by the durability requirement; this is a design-space contrast, not an option the solution says its designers considered."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Client transfer for large repositories",
+      "drivers": [
+        "R1",
+        "R2",
+        "C2"
+      ],
+      "context": "Engineers must use standard Git, and the largest repository must be usable without downloading its full contents and history.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Full clone over the Git protocol",
+          "values": [
+            "v:4.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Uses the standard Git protocol and client features.",
+            "Provides a complete local history."
+          ],
+          "cons": [
+            "Downloads the whole repository, failing R2 for the largest repository."
+          ],
+          "reason": "The solution chooses this option freely, but it does not satisfy R2. The contrast shows partial clone can retain standard Git while meeting R2."
+        },
+        {
+          "id": "O2",
+          "name": "Partial clone with sparse checkout",
+          "values": [
+            "v:4.2"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Meets R2 by fetching only needed history and files.",
+            "Retains standard Git features, satisfying C2."
+          ],
+          "cons": [
+            "Unselected files or history may need to be fetched later."
+          ],
+          "reason": "This design-space contrast would better fit the problem's large-repository requirement, but the solution text does not choose it."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Regional read routing",
+      "drivers": [
+        "Q3",
+        "Q4"
+      ],
+      "context": "CI and engineers across regions need reads from the latest repository state with low latency, including after a successful push.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Nearest up-to-date replica, including remote read replicas",
+          "values": [
+            "v:5.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 6,
+          "fit": "approximate",
+          "fit_note": "The mapped value captures nearest up-to-date reads but not the non-voting status of the extra remote replicas.",
+          "pros": [
+            "Serves reads near clients when a current replica is available.",
+            "Supports the requirement that a post-push fetch sees the committed state."
+          ],
+          "cons": [
+            "The 30-second P95 fetch target has no measured validation in the solution or design space.",
+            "A stale nearby replica must be bypassed."
+          ],
+          "reason": "The routing choice is supported and directly fits Q4, while it only partly supports Q3 because no latency measurements establish the target. The extra non-voting replica detail is not represented by the value."
+        }
+      ]
+    }
+  ],
+  "uncovered": [
+    {
+      "decision": "Repair missed reference updates by comparing checksums and restoring replicas in the background, and re-replicate after a server failure until three copies are restored.",
+      "solution_quote": "Replicas that miss an update are detected by comparing checksums of their references and repaired in the background from a healthy replica. When a replica fails, its repositories are re-replicated to other servers from the remaining copies until each again has three.",
+      "nearest_dimension_id": "d:2"
+    },
+    {
+      "decision": "Use Git's packfile format and periodically repack each replica.",
+      "solution_quote": "The team relies on Git's own packfile format and runs periodic repacking on every replica.",
+      "nearest_dimension_id": "d:1"
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "Replication is the closest concern, but the design space has no dimension for automatic failover or a one-minute availability bound. The solution says replicas are restored in the background but gives no operator-free recovery time."
+    },
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": null,
+      "note": "The design space has no dimension for operating-team size or operational burden, so it cannot evaluate whether five engineers can build and run this design."
+    }
+  ]
+}

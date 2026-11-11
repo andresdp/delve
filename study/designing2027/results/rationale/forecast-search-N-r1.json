@@ -1,0 +1,1126 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "forecast-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Retail demand forecasting",
+    "context": "A three-person data science team forecasts weekly demand for 400 stores and 30,000 products over an eight-week horizon. Nightly sales data and promotion and holiday effects feed Monday replenishment. The central data warehouse is outside the team's control.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Produce, every week, the forecast per store and product for the next eight weeks, and deliver it to the replenishment system by Monday 06:00."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Run the forecast again for any past week exactly as it was produced."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Try new model ideas and compare them with the production model on past weeks before they replace it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "reproducibility",
+        "text": "Asked for the forecast of a week up to two years back, the team produces the same numbers within one working day."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "development velocity",
+        "text": "A new model idea that beats the production model on past weeks reaches production within one week, with no manual step except the approval."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "reliability",
+        "text": "When a weekly run fails, the team is told within 15 minutes, and the replenishment system never receives a partial forecast."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "maintainability",
+        "text": "A new team member can run the whole pipeline on their own machine within their first week."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three data scientists, with no data engineers; the data warehouse stays as it is."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The weekly run must fit in the six hours between the nightly load and the Monday deadline."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Execution: Managed batch cloud",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Versioned code and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "description": "A managed batch pipeline freezes each run's inputs and model, validates a complete output, then publishes it atomically.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Execution: Warehouse-native SQL",
+        "Data history: Warehouse tables queried in place",
+        "Model lifecycle: SQL model versions in source control",
+        "Delivery: Direct warehouse output",
+        "Operations: Team-maintained scheduler and checks"
+      ],
+      "description": "Forecasting runs as warehouse SQL with source controlled model logic and direct output tables.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Execution: Managed ML platform",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "description": "A managed ML service handles experiments, model promotion and scheduled forecasts against frozen data snapshots.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Execution: Containerized cloud batch",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Versioned code and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Team-maintained scheduler and checks"
+      ],
+      "description": "A portable container runs in cloud batch with frozen inputs, versioned models and validated staged delivery.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Execution: Managed batch cloud",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "description": "Managed batch execution is paired with automated experiment tracking to shorten model promotion.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Execution: Containerized cloud batch",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "description": "A container-based batch pipeline uses managed operations and experiment tracking while preserving frozen inputs and atomic delivery.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Execution: Managed batch cloud",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Versioned code and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "description": "Parallel partitions are added to the managed frozen-input pipeline to meet the six-hour window at scale.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Execution: Warehouse-native SQL",
+        "Data history: Warehouse tables queried in place",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "description": "Warehouse-native computation gains automated model tracking and a staged, validated publication path.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Execution: Managed ML platform",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "description": "The managed ML platform is sized for parallel forecasts while retaining full run snapshots and safe publication.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "Execution: Containerized cloud batch",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "description": "The portable cloud batch pipeline receives parallel capacity and automated model promotion for production scale.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "Execution: Warehouse-native SQL",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "description": "Warehouse-native computation is paired with frozen input snapshots, automated model tracking and safe publication.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a managed batch service owns routine execution and operations while the team keeps the modeling workflow portable?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if forecasting stays close to the warehouse to minimize data movement and infrastructure?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a managed ML platform owns experimentation and model promotion?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if one containerized workflow runs locally and in cloud batch for portability?",
+      "status": "live"
+    },
+    {
+      "id": "E",
+      "idea": "What if warehouse compute is retained but input history and release controls are made reproducible and safe?",
+      "status": "dropped",
+      "dropped_because": "Frozen extracts and managed release controls do not resolve uncertain warehouse compute capacity within the six-hour deadline."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Execution: Managed batch cloud",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Versioned code and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "hypothesis": "Frozen inputs and code should satisfy R2 and Q1; atomic delivery and managed alerts target Q3, while managed scheduling should fit R1 and C2 with a small team (C1).",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Reproducible snapshots and safe publication cover core operational needs; candidate comparisons still need some team wiring.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Execution: Warehouse-native SQL",
+        "Data history: Warehouse tables queried in place",
+        "Model lifecycle: SQL model versions in source control",
+        "Delivery: Direct warehouse output",
+        "Operations: Team-maintained scheduler and checks"
+      ],
+      "hypothesis": "Warehouse proximity can simplify R1 and C1, but mutable source tables and direct output may weaken R2, Q1 and Q3.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "misses",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "partly",
+        "Q3": "misses",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "The team's small footprint and warehouse proximity are attractive, but mutable inputs prevent exact reruns and direct writes risk partial delivery.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Execution: Managed ML platform",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "hypothesis": "Managed experiment and promotion tools should serve R3 and Q2 while snapshots and atomic publication meet Q1 and Q3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "This is the strongest automation path, with onboarding and platform complexity as its main costs for the small team.",
+      "rating": "strong",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 1,
+      "approach": "D",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Execution: Containerized cloud batch",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Versioned code and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Team-maintained scheduler and checks"
+      ],
+      "hypothesis": "A single portable container should help Q4 and replay while avoiding platform lock-in; team-owned operations could burden C1 and Q3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Portability is useful, but alerting and promotion remain manual responsibilities for the three scientists.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Execution: Managed batch cloud",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "hypothesis": "Automated experiment tracking should improve R3 and Q2 without weakening A's reproducibility and reliability.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "This combines managed operations with automated promotion and addresses A's main gap.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Execution: Warehouse-native SQL",
+        "Data history: Warehouse tables queried in place",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "hypothesis": "Automated comparisons, safe publishing and managed alerts should improve B, though mutable source history remains a replay risk.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "misses",
+        "R3": "meets",
+        "Q1": "misses",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "Safer release automation does not solve historical data reconstruction or warehouse throughput uncertainty.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "Execution: Managed ML platform",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "hypothesis": "Explicit partition parallelism should protect the six-hour deadline (C2) at the forecast scale without reducing C's automation benefits.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Parallel capacity improves deadline confidence; platform onboarding and cost remain tradeoffs.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 8,
+      "round": 2,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Execution: Containerized cloud batch",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "hypothesis": "Managed alerts and experiment tracking should reduce D's operational burden and shorten promotion while preserving container portability.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The hybrid keeps portable execution while closing the key alerting and promotion gaps.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 9,
+      "round": 2,
+      "approach": "E",
+      "move": "explore",
+      "parent": 6,
+      "values": [
+        "Execution: Warehouse-native SQL",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting"
+      ],
+      "hypothesis": "Freezing warehouse extracts and staging publication may resolve B's replay and partial-output weaknesses without giving up warehouse-native compute.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "Snapshots and safe publishing resolve the primary data integrity gaps, but warehouse compute capacity is still uncertain for the six-hour window; this idea is dropped.",
+      "rating": "mixed",
+      "point": "P12"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Execution: Managed batch cloud",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Versioned code and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "hypothesis": "Partition sizing should increase deadline margin while retaining the fully automated pipeline.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Capacity tuning strengthens deadline confidence; reverting to simple versioned promotion gives up experiment automation, so P5 remains A's best point.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Execution: Managed ML platform",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "hypothesis": "The platform's experiment automation plus explicit partition sizing should preserve model velocity and reduce deadline risk.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Scaling is well covered, though the platform's added concepts remain a real onboarding cost; P10 remains C's best point.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "Execution: Containerized cloud batch",
+        "Data history: Versioned source snapshot and run manifest",
+        "Model lifecycle: Automated experiment tracking and model registry",
+        "Delivery: Staged output with atomic publish",
+        "Operations: Managed scheduling and alerting",
+        "Compute sizing: Parallel store-product partitions"
+      ],
+      "hypothesis": "Partition sizing should protect R1 and C2 at scale while managed operations and tracking retain the hybrid's strengths.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "This retains portability and closes the remaining scale uncertainty; it is a balanced alternative for a small team.",
+      "rating": "strong",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Managed batch with automated promotion",
+      "summary": "Managed batch, frozen run inputs and atomic publication provide an operationally complete pipeline with experiment automation.",
+      "approach": "A",
+      "step": 5,
+      "choices": [
+        {
+          "dimension_id": "Execution",
+          "value_id": "Execution: Managed batch cloud",
+          "drivers": [
+            "R1",
+            "C1",
+            "C2"
+          ],
+          "reason": "Managed compute and scheduling fit the deadline without an engineering team."
+        },
+        {
+          "dimension_id": "Data history",
+          "value_id": "Data history: Versioned source snapshot and run manifest",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Recorded inputs make historical forecasts replayable."
+        },
+        {
+          "dimension_id": "Model lifecycle",
+          "value_id": "Model lifecycle: Automated experiment tracking and model registry",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Automated comparison and promotion support quick approved releases."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Staged output with atomic publish",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "Validation before publication prevents partial forecasts."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Managed scheduling and alerting",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Managed alerts and scheduling reduce team operations."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model lifecycle",
+          "value_id": "Model lifecycle: Versioned code and model registry",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Simpler, but comparisons and releases require more team work."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "Compute sizing",
+          "reason": "Partition strategy can follow runtime measurement."
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "C1",
+      "name": "Managed ML platform",
+      "summary": "A managed ML platform combines experiment automation with frozen data and safe delivery, at the cost of platform complexity.",
+      "approach": "C",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "Execution",
+          "value_id": "Execution: Managed ML platform",
+          "drivers": [
+            "R1",
+            "C1",
+            "C2"
+          ],
+          "reason": "Managed execution avoids building an operations platform."
+        },
+        {
+          "dimension_id": "Data history",
+          "value_id": "Data history: Versioned source snapshot and run manifest",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Frozen inputs preserve replay capability."
+        },
+        {
+          "dimension_id": "Model lifecycle",
+          "value_id": "Model lifecycle: Automated experiment tracking and model registry",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Built-in tracking and registry accelerate promotion."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Staged output with atomic publish",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "Atomic publication protects replenishment."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Managed scheduling and alerting",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Managed operations support a small team."
+        },
+        {
+          "dimension_id": "Compute sizing",
+          "value_id": "Compute sizing: Parallel store-product partitions",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Parallel partitions provide deadline capacity at forecast scale."
+        }
+      ],
+      "considered": [],
+      "open": [
+        {
+          "dimension_id": "Compute sizing",
+          "reason": "The service can be sized after runtime measurement."
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Portable container batch",
+      "summary": "A portable container runs in cloud batch with managed operational controls, joining local reproducibility with production automation.",
+      "approach": "D",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "Execution",
+          "value_id": "Execution: Containerized cloud batch",
+          "drivers": [
+            "R1",
+            "Q4",
+            "C1",
+            "C2"
+          ],
+          "reason": "The same container supports local onboarding and scalable production."
+        },
+        {
+          "dimension_id": "Data history",
+          "value_id": "Data history: Versioned source snapshot and run manifest",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Frozen inputs and configuration support replay."
+        },
+        {
+          "dimension_id": "Model lifecycle",
+          "value_id": "Model lifecycle: Automated experiment tracking and model registry",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Automated comparison shortens approved release."
+        },
+        {
+          "dimension_id": "Delivery",
+          "value_id": "Delivery: Staged output with atomic publish",
+          "drivers": [
+            "R1",
+            "Q3"
+          ],
+          "reason": "Atomic publication prevents partial forecasts."
+        },
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Managed scheduling and alerting",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Managed operations avoid on-call burden."
+        },
+        {
+          "dimension_id": "Compute sizing",
+          "value_id": "Compute sizing: Parallel store-product partitions",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Parallel partitions provide deadline capacity at forecast scale."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Operations",
+          "value_id": "Operations: Team-maintained scheduler and checks",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "More control, but adds maintenance work."
+        }
+      ],
+      "open": [
+        {
+          "dimension_id": "Compute sizing",
+          "reason": "Partition strategy can follow runtime measurement."
+        }
+      ],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where should forecast computation run?",
+      "drivers": [
+        "R1",
+        "Q4",
+        "C1",
+        "C2"
+      ],
+      "context": "The workload must finish by Monday 06:00 and a small team cannot maintain complex infrastructure. Managed operations, portability and modeling features have different costs.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Managed batch",
+          "values": [
+            "Execution: Managed batch cloud"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 5,
+          "pros": [
+            "Managed scheduling and elastic capacity."
+          ],
+          "cons": [
+            "Cloud cost and data transfer need controls."
+          ],
+          "reason": "Lowest operations burden for a batch-first workflow."
+        },
+        {
+          "id": "O2",
+          "name": "Managed ML platform",
+          "values": [
+            "Execution: Managed ML platform"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 7,
+          "pros": [
+            "Integrated experiment and model features."
+          ],
+          "cons": [
+            "More concepts and service dependence."
+          ],
+          "reason": "Choose when built-in model workflow justifies complexity."
+        },
+        {
+          "id": "O3",
+          "name": "Containerized batch",
+          "values": [
+            "Execution: Containerized cloud batch"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 12,
+          "pros": [
+            "Portable local and production runtime."
+          ],
+          "cons": [
+            "Team maintains image and deployment configuration."
+          ],
+          "reason": "Balances portability and scalable production."
+        },
+        {
+          "id": "O4",
+          "name": "Warehouse SQL",
+          "values": [
+            "Execution: Warehouse-native SQL"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Computation stays close to data."
+          ],
+          "cons": [
+            "Six-hour throughput is uncertain."
+          ],
+          "reason": "Data proximity does not establish deadline capacity."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How should runs be reproducible?",
+      "drivers": [
+        "R2",
+        "Q1"
+      ],
+      "context": "Historical forecasts must reproduce their exact numbers despite changing source tables. Model code alone is not enough.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Frozen snapshot and manifest",
+          "values": [
+            "Data history: Versioned source snapshot and run manifest"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1",
+            "D1"
+          ],
+          "step": 1,
+          "pros": [
+            "Retains data and configuration used."
+          ],
+          "cons": [
+            "Requires storage retention."
+          ],
+          "reason": "Enables replay independent of later warehouse changes."
+        },
+        {
+          "id": "O2",
+          "name": "Query current warehouse tables",
+          "values": [
+            "Data history: Warehouse tables queried in place"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "No separate snapshot store."
+          ],
+          "cons": [
+            "Later table changes alter results."
+          ],
+          "reason": "Cannot guarantee exact historical reruns."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How should models be compared and promoted?",
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "context": "Candidates need backtests against production and an approval-only path to release within a week.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Automated tracking and registry",
+          "values": [
+            "Model lifecycle: Automated experiment tracking and model registry"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1",
+            "D1"
+          ],
+          "step": 5,
+          "pros": [
+            "Repeatable comparisons and fast promotion."
+          ],
+          "cons": [
+            "Requires experiment conventions."
+          ],
+          "reason": "Reduces manual comparison and release work."
+        },
+        {
+          "id": "O2",
+          "name": "Versioned code and registry",
+          "values": [
+            "Model lifecycle: Versioned code and model registry"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Simple artifact versioning."
+          ],
+          "cons": [
+            "Comparisons and promotion remain manual."
+          ],
+          "reason": "Weaker fit for the approval-only release target."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "How should forecasts reach replenishment?",
+      "drivers": [
+        "R1",
+        "Q3"
+      ],
+      "context": "The forecast must arrive on time, failures must be reported quickly, and incomplete runs must not be consumed.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Staged atomic publication",
+          "values": [
+            "Delivery: Staged output with atomic publish"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1",
+            "D1"
+          ],
+          "step": 1,
+          "pros": [
+            "Incomplete runs stay invisible."
+          ],
+          "cons": [
+            "Needs staging and validation."
+          ],
+          "reason": "Provides a complete-output publication boundary."
+        },
+        {
+          "id": "O2",
+          "name": "Direct table output",
+          "values": [
+            "Delivery: Direct warehouse output"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Fewer components."
+          ],
+          "cons": [
+            "Failed writes can expose partial rows."
+          ],
+          "reason": "Conflicts with the no-partial-forecast guarantee."
+        }
+      ]
+    },
+    {
+      "id": "ADR5",
+      "title": "Who operates scheduling and alerts?",
+      "drivers": [
+        "Q3",
+        "C1",
+        "Q4"
+      ],
+      "context": "The team needs prompt failure notices and a workflow that new members can run, without dedicating data engineers to operations.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Managed schedule and alerts",
+          "values": [
+            "Operations: Managed scheduling and alerting"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1",
+            "D1"
+          ],
+          "step": 5,
+          "pros": [
+            "Routine schedule and prompt notifications."
+          ],
+          "cons": [
+            "Behavior depends on selected service."
+          ],
+          "reason": "Fits the small team and alert objective."
+        },
+        {
+          "id": "O2",
+          "name": "Team-owned scheduler",
+          "values": [
+            "Operations: Team-maintained scheduler and checks"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "Direct control."
+          ],
+          "cons": [
+            "Adds maintenance and alerting work."
+          ],
+          "reason": "Uses scarce scientist time on routine operations."
+        }
+      ]
+    },
+    {
+      "id": "ADR6",
+      "title": "How should compute capacity scale?",
+      "drivers": [
+        "R1",
+        "C2"
+      ],
+      "context": "The forecast covers many store and product combinations and must complete within six hours. Explicit parallel partitioning can add capacity, with some sizing and coordination overhead.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Parallel store-product partitions",
+          "values": [
+            "Compute sizing: Parallel store-product partitions"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1",
+            "D1"
+          ],
+          "step": 7,
+          "pros": [
+            "Exposes independent forecast work for parallel execution."
+          ],
+          "cons": [
+            "Requires partition sizing and coordination overhead."
+          ],
+          "reason": "Provides deadline capacity for the platform and portable batch alternatives."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

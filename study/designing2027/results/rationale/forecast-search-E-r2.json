@@ -1,0 +1,1315 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "forecast-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "Retail demand forecasting",
+    "context": "A retailer forecasts weekly demand per store and product for 400 stores and 30,000 products. Monday forecasts for the next eight weeks feed replenishment. Till sales arrive nightly; promotions and holidays strongly affect demand. Three data scientists own the pipeline; central IT operates an unchangeable warehouse.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Produce, every week, the forecast per store and product for the next eight weeks, and deliver it to the replenishment system by Monday 06:00."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Run the forecast again for any past week exactly as it was produced."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Try new model ideas and compare them with the production model on past weeks before they replace it."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "reproducibility",
+        "text": "Asked for the forecast of a week up to two years back, the team produces the same numbers within one working day."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "development velocity",
+        "text": "A new model idea that beats the production model on past weeks reaches production within one week, with no manual step except the approval."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "reliability",
+        "text": "When a weekly run fails, the team is told within 15 minutes, and the replenishment system never receives a partial forecast."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "maintainability",
+        "text": "A new team member can run the whole pipeline on their own machine within their first week."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three data scientists, with no data engineers; the data warehouse stays as it is."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The weekly run must fit in the six hours between the nightly load and the Monday deadline."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:10.2"
+      ],
+      "description": "A scheduled ML orchestrator uses versioned data to run automated, provisioned training, evaluation, validation, and model-quality testing pipelines, with CI/CD building, testing, and deploying the required pipelines and components. Approved models are precomputed into forecasts or reports for serving, with the ability to redeploy and switch back to a previous model version if needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:5.3",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.1"
+      ],
+      "description": "A versioned-data repository supports scheduled automated pipelines for model training, evaluation, validation, and evidence-based hypothesis testing, with environments provisioned automatically. CI/CD builds, tests, and deploys models and supporting components, while scheduled batch serving writes predictions to storage; multiple model versions can run in production concurrently.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:5.4",
+        "v:8.2",
+        "v:11.3",
+        "v:12.3",
+        "v:18.3",
+        "v:13.2",
+        "v:25.3",
+        "v:26.14",
+        "v:10.3"
+      ],
+      "description": "Models are built in a development sandbox and periodically triggered on a schedule, then precomputed and delivered as forecasts or reports, with a single model version in production. Deployment relies on scripts rather than CI/CD automation, and the system has no data versioning, automated environment provisioning, or pipeline testing.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:10.2",
+        "v:20.5"
+      ],
+      "description": "A scheduled ML orchestrator uses versioned data and automatically provisioned environments to run CI/CD-built pipelines that select, train, evaluate, validate, and quality-test models. Approved models are precomputed into forecasts or scores for report delivery, with deployment supporting rollback to a previous model version when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:5.3",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.1",
+        "v:20.9"
+      ],
+      "description": "A scheduled ML pipeline uses data versioned in the code repository, automatically provisions its environment, and trains and evaluates multiple model variants through evidence-based hypothesis testing. CI/CD builds, tests, and deploys the models and related components, while batch serving periodically writes predictions to storage and supports multiple model versions in production.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:5.4",
+        "v:8.1",
+        "v:11.1",
+        "v:12.3",
+        "v:18.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:10.2",
+        "v:20.4"
+      ],
+      "description": "A scheduled ML pipeline retrieves versioned data, uses a dedicated model builder for training, evaluation, and validation, and is supported by automated provisioning and system integration tests. CI/CD builds, tests, and deploys the pipeline components; validated models are precomputed into reports for serving, with rollback to a previous model version when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:5.3",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "description": "A scheduled ML pipeline uses data versioned in the code repository to train, evaluate, and validate multiple model variants through evidence-based hypothesis testing. CI/CD automatically provisions environments, builds/tests/deploys models and components, and serves predictions in scheduled data batches; if needed, production can roll back to a previous model version.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:10.2",
+        "v:20.5"
+      ],
+      "description": "A scheduled ML orchestrator uses versioned data and automatically provisioned environments to run model-selection, training, evaluation, and validation pipelines. CI/CD builds, integration-tests, and deploys the required pipeline components; predictions are precomputed and delivered as reports, with the option to roll back to a previous model version if needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:5.4",
+        "v:8.1",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "description": "A scheduled ML pipeline uses versioned data to train and evaluate multiple model variants, applying evidence-based hypothesis tests before CI/CD builds, tests, provisions, and deploys the selected model and supporting components. Predictions are precomputed and delivered as reports; if necessary, the system can redeploy and switch back to a previous model version.",
+      "attested_by": []
+    },
+    {
+      "id": "P13",
+      "values": [
+        "v:5.3",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "description": "A scheduled ML orchestrator provisions environments, retrieves versioned data, and runs model-building components that train and validate multiple model versions. CI/CD builds, tests, and deploys the required pipelines and components with system integration testing; selected models serve batch predictions to storage, with rollback enabling redeployment of a previous version.",
+      "attested_by": []
+    },
+    {
+      "id": "P14",
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.10",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "description": "A scheduled ML orchestrator provisions environments, retrieves versioned data, and runs a model-building component that trains and evaluates multiple algorithm or parameter variants, with unit tests for pipeline components. CI/CD builds, tests, and deploys the required pipelines and components; selected model outputs are precomputed and delivered as reports, with rollback to a previous model version if needed.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a scheduled orchestrator owns reproducible training, selection, and batch forecast publication?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if CI/CD and competing model runs accelerate evidence-based model promotion?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a small team keeps the workflow in a development tool and scripts?",
+      "status": "dropped",
+      "dropped_because": "Without data versioning, tests, or automated deployment this cannot support exact historical reruns, safe promotion, and the low-manual-step delivery requirement."
+    },
+    {
+      "id": "D",
+      "idea": "What if a dedicated model-builder component and integration checks keep orchestration lighter while preserving repeatable batch delivery?",
+      "status": "dropped",
+      "dropped_because": "Its component-centered option was folded into E, which combines that modular builder with explicit multi-model evaluation and scheduled batch delivery."
+    },
+    {
+      "id": "E",
+      "idea": "What if a dedicated model-builder component combines with multiple candidate training and scheduled batch delivery?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:10.2"
+      ],
+      "hypothesis": "Scheduled precomputation should meet R1 and C2; versioned data and rollback should support R2; automated model quality testing and deployment should support R3 and Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The combination is valid and unattested. Its automated pieces address repeatability and promotion, but the space does not settle atomic publication, alert timing, point-in-time input capture, or runtime within six hours.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.3",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.1"
+      ],
+      "hypothesis": "Scheduled batch forecasts and CI/CD should meet R1 and Q2; concurrent model versions and hypothesis testing should support R3, while repository data versioning supports Q1/R2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The point is valid and unattested. It strongly expresses model comparison, but multiple production versions add operational complexity for three scientists and do not alone specify safe all-or-nothing forecast delivery.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.4",
+        "v:8.2",
+        "v:11.3",
+        "v:12.3",
+        "v:18.3",
+        "v:13.2",
+        "v:25.3",
+        "v:26.14",
+        "v:10.3"
+      ],
+      "hypothesis": "A lightweight scheduled development-tool workflow should reduce overhead for C1 and may deliver reports for R1, but it is unlikely to provide exact reruns or safe rapid promotion.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "misses",
+        "R3": "misses",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "misses",
+        "Q4": "partly",
+        "C1": "meets",
+        "C2": "partly"
+      },
+      "observation": "The valid but unattested point keeps operational burden low, yet no versioning, tests, or deployment automation leave the most constraining reproducibility, comparison, and promotion needs unsupported. Dropped.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:10.2",
+        "v:20.5"
+      ],
+      "hypothesis": "Add automated model selection to make the winning backtest candidate explicit, improving R3 and Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Model selection strengthens the candidate-to-production path. The point is valid and unattested; a single selected model avoids the complexity of concurrent production versions.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:5.3",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.1",
+        "v:20.9"
+      ],
+      "hypothesis": "Train multiple candidates in the pipeline to support R3 and strengthen selection before promotion.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested point makes comparison concrete, though N production versions are not necessary to compare on historical weeks and increase operational burden.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": 4,
+      "values": [
+        "v:5.4",
+        "v:8.1",
+        "v:11.1",
+        "v:12.3",
+        "v:18.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:10.2",
+        "v:20.4"
+      ],
+      "hypothesis": "Replace the monolithic model-building pipeline with a dedicated builder component and system integration testing, retaining versioned data and scheduled batch output; this may improve Q4 and Q3 while keeping R1/R2 support.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested point provides a distinct component-centered option; integration tests address pipeline seams, but the space offers no alerting or atomic-publication decision.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.9",
+        "v:10.2",
+        "v:20.5"
+      ],
+      "hypothesis": "Retain model selection, versioned inputs, rollback, and scheduled precomputation as the strongest integrated path for R1-R3 and Q1-Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Reuses P4; it remains the best balanced point for selection and rollback. Exact reruns still require immutable snapshots of source data, code, and configuration beyond what the represented choices guarantee.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:5.3",
+        "v:8.1",
+        "v:11.2",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "hypothesis": "Keep multi-candidate historical evaluation but use rollback to a single active production model, reducing burden while retaining R3 and Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested point preserves parallel model exploration while avoiding concurrent production operations. This is a better operational balance than P5.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "E",
+      "move": "explore",
+      "parent": 6,
+      "values": [
+        "v:5.3",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "hypothesis": "Fold the component-centered member into a new approach that trains several candidates and emits scheduled batch predictions, combining Q4-oriented modularity with R3 comparison.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested combination brings multiple candidate training into the dedicated builder and uses batch writes for scheduled output; it retains the integration-test focus.",
+      "rating": "strong",
+      "point": "P13"
+    },
+    {
+      "step": 10,
+      "round": 4,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.2",
+        "v:26.5",
+        "v:10.2",
+        "v:20.5"
+      ],
+      "hypothesis": "Switch the validation focus from model-quality tests to end-to-end system integration, seeking stronger reliability at system boundaries while retaining automated model selection.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested point strengthens system-level integration coverage while preserving selection and rollback; alert timing and atomic publication remain outside the space.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 4,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:5.4",
+        "v:8.1",
+        "v:11.1",
+        "v:12.3",
+        "v:18.1",
+        "v:13.1",
+        "v:25.1",
+        "v:26.3",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "hypothesis": "Use a dedicated data-version repository and precomputed forecast reports while retaining multi-candidate evaluation, addressing Q1 and R1 without concurrent production models.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested point aligns the output more closely with precomputed forecasts and uses a dedicated version repository; model variant comparison remains explicit.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 4,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "v:5.4",
+        "v:8.3",
+        "v:11.1",
+        "v:12.3",
+        "v:18.2",
+        "v:13.1",
+        "v:25.2",
+        "v:26.10",
+        "v:10.2",
+        "v:20.9"
+      ],
+      "hypothesis": "Refine the new component-centered approach with precomputed report delivery and component unit tests while retaining candidate comparison and rollback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "The valid, unattested refinement keeps the candidate tournament and modular builder, aligns output with precomputed forecasts, and adds component-level unit tests.",
+      "rating": "strong",
+      "point": "P14"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Orchestrated model selection",
+      "summary": "A scheduled orchestrator runs versioned, provisioned training and model selection, then precomputes forecasts and supports rollback.",
+      "approach": "A",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.4",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Precomputes forecast outputs for scheduled delivery."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Coordinates training and forecast stages."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Provides a dedicated path to version data."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Matches weekly operation."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Automates environment setup."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Automates training, evaluation, and validation."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.5",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Selects the backtest winner."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automates delivery of pipeline components."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Tests trained model quality."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Allows return to a previous model version."
+        }
+      ],
+      "considered": [],
+      "open": [
+        {
+          "dimension_id": "d:6",
+          "reason": "No requirement settles how the replenishment system is notified of completed forecast availability."
+        }
+      ],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects model deployment choices."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects data-versioning choices."
+        },
+        {
+          "source": "d:8",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects pipeline triggers."
+        },
+        {
+          "source": "d:25",
+          "target": "d:8",
+          "type": "affects",
+          "holds": true,
+          "note": "CI/CD scope affects integration and delivery automation."
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "CI/CD model tournament",
+      "summary": "A scheduled batch pipeline uses CI/CD and versioned data to evaluate multiple candidates, then promotes one model with rollback available.",
+      "approach": "B",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Writes scheduled prediction batches to storage."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automates model delivery on pipeline changes."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.2",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Keeps data version decisions with the code repository."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Schedules the weekly forecast run."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Automates environment setup."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Automates training and evaluation."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.9",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Trains several candidates for comparison."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automates building, testing, and deploying models."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Provides evidence-based candidate comparison."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Keeps one active model and supports rollback."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Concurrent production versions can aid comparisons but increase operations and are unnecessary for historical evaluation."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects model deployment choices."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects data-versioning choices."
+        },
+        {
+          "source": "d:8",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects pipeline triggers."
+        },
+        {
+          "source": "d:25",
+          "target": "d:8",
+          "type": "affects",
+          "holds": true,
+          "note": "CI/CD scope affects integration and delivery automation."
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "name": "Component-centered candidate pipeline",
+      "summary": "A scheduled orchestrator runs a dedicated model-builder component over versioned data, compares multiple candidates, tests components, and precomputes reports with rollback.",
+      "approach": "E",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.4",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Precomputes forecast reports for scheduled delivery."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Coordinates the modular build and forecast workflow."
+        },
+        {
+          "dimension_id": "d:11",
+          "value_id": "v:11.1",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Versions data for historical runs."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R1",
+            "C2"
+          ],
+          "reason": "Schedules weekly runs."
+        },
+        {
+          "dimension_id": "d:13",
+          "value_id": "v:13.1",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Automates environment setup."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.2",
+          "drivers": [
+            "Q4",
+            "R3"
+          ],
+          "reason": "Encapsulates model building in a dedicated component."
+        },
+        {
+          "dimension_id": "d:20",
+          "value_id": "v:20.9",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Trains multiple candidates for comparison."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Automates delivery of pipeline components."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.10",
+          "drivers": [
+            "Q4"
+          ],
+          "reason": "Tests pipeline components individually."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Allows rollback to a previous model version."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects model deployment choices."
+        },
+        {
+          "source": "d:8",
+          "target": "d:11",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects data-versioning choices."
+        },
+        {
+          "source": "d:8",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true,
+          "note": "Delivery automation affects pipeline triggers."
+        },
+        {
+          "source": "d:25",
+          "target": "d:8",
+          "type": "affects",
+          "holds": true,
+          "note": "CI/CD scope affects integration and delivery automation."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Schedule and publish weekly forecasts",
+      "drivers": [
+        "R1",
+        "C2",
+        "Q3"
+      ],
+      "context": "The weekly deadline favors precomputed batch output on a schedule. The space offers batch and precompute serving, but does not decide atomic publication, failure alerting within 15 minutes, warehouse integration details, or six-hour capacity.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Precomputed report delivery",
+          "values": [
+            "v:5.4",
+            "v:12.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "A3"
+          ],
+          "step": 12,
+          "pros": [
+            "Fits weekly scheduled forecast publication."
+          ],
+          "cons": [
+            "No value specifies atomic handoff or deadline/runtime guarantees."
+          ],
+          "reason": "The brief asks for an eight-week forecast delivered on Monday, favoring offline precomputation."
+        },
+        {
+          "id": "O2",
+          "name": "Scheduled batch writes",
+          "values": [
+            "v:5.3",
+            "v:12.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 8,
+          "pros": [
+            "Directly writes scheduled prediction batches to storage."
+          ],
+          "cons": [
+            "Still leaves completeness and notification mechanics open."
+          ],
+          "reason": "A batch output aligns with the warehouse-fed replenishment workflow."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Reproduce historical forecasts and compare candidates",
+      "drivers": [
+        "R2",
+        "R3",
+        "Q1",
+        "Q2"
+      ],
+      "context": "Historical reruns require preserved inputs and candidate comparison requires repeatable training and evaluation. The space covers data-versioning and model-building choices, but does not specify immutable snapshots of source records, code, configuration, or a full backtest protocol.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Orchestrated selection on versioned data",
+          "values": [
+            "v:11.1",
+            "v:18.1",
+            "v:20.5",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Automates model training and selection.",
+            "Checks the quality of trained candidates before selection."
+          ],
+          "cons": [
+            "Versioned data alone may not preserve every input and execution detail."
+          ],
+          "reason": "Selection in the automated pipeline creates a direct route from backtest to chosen candidate."
+        },
+        {
+          "id": "O2",
+          "name": "CI/CD candidate tournament",
+          "values": [
+            "v:11.2",
+            "v:18.1",
+            "v:20.9",
+            "v:26.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 8,
+          "pros": [
+            "Trains multiple variants and evaluates them with evidence-based hypothesis testing."
+          ],
+          "cons": [
+            "Repository-based data versioning and automated candidate handling need careful scale management."
+          ],
+          "reason": "This gives model experimentation a first-class path while keeping one active production model."
+        },
+        {
+          "id": "O3",
+          "name": "Component validation workflow",
+          "values": [
+            "v:11.1",
+            "v:18.2",
+            "v:20.9",
+            "v:26.10"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 12,
+          "pros": [
+            "Encapsulation and integration checks make pipeline behavior easier to run and inspect."
+          ],
+          "cons": [
+            "The selected values do not themselves define candidate backtesting or exact historical reconstruction."
+          ],
+          "reason": "A dedicated builder and integration checks suit a small team maintaining a modular pipeline."
+        },
+        {
+          "id": "O4",
+          "name": "No reproducible automation",
+          "values": [
+            "v:11.3",
+            "v:18.3",
+            "v:26.14"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Low initial setup burden."
+          ],
+          "cons": [
+            "Cannot support reliable historical reruns or systematic candidate comparison."
+          ],
+          "reason": "Dropped because it misses the central reproducibility and model comparison needs."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Promote models and operate environments",
+      "drivers": [
+        "Q2",
+        "Q3",
+        "Q4",
+        "C1"
+      ],
+      "context": "The small team needs a low-manual-step release path, rollback, and reproducible local environments. The space covers CI/CD scope, provisioning, and rollback, but does not specify approval gates, monitoring alerts, or atomic forecast output.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Orchestrated component delivery with rollback",
+          "values": [
+            "v:8.3",
+            "v:13.1",
+            "v:25.2",
+            "v:10.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Coordinates components and enables return to a previous model."
+          ],
+          "cons": [
+            "An orchestrator can add operational weight for three scientists."
+          ],
+          "reason": "Choose when integrated run coordination is worth the added platform responsibility."
+        },
+        {
+          "id": "O2",
+          "name": "CI/CD with model rollback",
+          "values": [
+            "v:8.1",
+            "v:13.1",
+            "v:25.1",
+            "v:10.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 8,
+          "pros": [
+            "Automates model build and deployment while retaining rollback."
+          ],
+          "cons": [
+            "The team must define an approval gate and operational controls."
+          ],
+          "reason": "Automates the model release path without requiring concurrent production versions."
+        },
+        {
+          "id": "O3",
+          "name": "CI/CD for modular components",
+          "values": [
+            "v:8.3",
+            "v:13.1",
+            "v:25.2",
+            "v:10.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "A3"
+          ],
+          "step": 12,
+          "pros": [
+            "Automates component delivery and environment setup."
+          ],
+          "cons": [
+            "Component boundaries and failure handling require team ownership."
+          ],
+          "reason": "Pairs a dedicated builder with automated delivery and rollback."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

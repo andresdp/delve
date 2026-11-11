@@ -1,0 +1,1167 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "vision-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261108_202031",
+    "graph_sha256": "cd8934b6459235088717ad1d87552c7a380980450c792c1e3e3d0dada88fde9c"
+  },
+  "problem": {
+    "title": "On-device visual inspection",
+    "context": "A manufacturer needs defect inspection across 40 lines in three plants. Each line has two to four cameras and a fixed ARM edge computer with a small neural accelerator. Plant connectivity can be unavailable for days. Inspectors label about 5,000 defect images each week, and the model is retrained weekly. The team has two ML engineers and half-time operations support, with a tight infrastructure budget.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Check every part as it passes the camera and signal a defective part to the line operator."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Retrain the model every week from the newly labelled images and roll the new model out to every line."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Collect the images the model was unsure about, or got wrong, so that inspectors can label them."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "Each image is classified on the line within 200 ms, so the line never slows down."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a plant's network is down for up to seven days, its lines keep inspecting with the model they have; the images collected in the meantime are uploaded when the network returns."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "deployability",
+        "text": "A new model reaches every connected line within 24 hours of approval. When a new model misbehaves on a line, the line operator can go back to the previous one within 15 minutes, without the ML team."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "Cloud and infrastructure spending stays under 2,000 euros a month."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three people build and run the system, with no support outside working hours."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The edge computers (an ARM processor with a small neural accelerator) cannot be replaced this year."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2"
+      ],
+      "description": "A local service/API serves real-time predictions while continuously streamed data is logged and monitored. On a schedule, the pipeline trains models in batches; CI/CD deploys updates, with rollback to the previous model version if needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:5.5",
+        "v:7.1",
+        "v:8.3",
+        "v:10.1",
+        "v:12.4",
+        "v:19.1",
+        "v:22.4"
+      ],
+      "description": "A continuous stream of incoming data is collected into data stores, and newly available training data triggers an orchestrated, batch-based training pipeline. The resulting multiple model versions are deployed concurrently through hybrid online/offline serving, with production usage, inputs, outputs, interpretability, and fairness tracked.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:7.2",
+        "v:8.2",
+        "v:10.2",
+        "v:12.1",
+        "v:19.1",
+        "v:22.2"
+      ],
+      "description": "The application contains the model as a module in a modular monolith and serves predictions through a local service/API, obtaining raw data on request and training in offline batches. An operator or another service triggers the pipeline on demand; build and deployment scripts deploy models, with rollback to a previous version when needed, while system data and predictions are logged and monitored.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:5.2",
+        "v:7.3",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.1"
+      ],
+      "description": "Data is ingested in batches and used for scheduled, batch-based model training. A CI/CD pipeline deploys the resulting model to a local real-time serving API, while model performance is monitored in production and a previous model version can be redeployed and switched to if necessary.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1",
+        "v:9.4"
+      ],
+      "description": "A shared data store receives continuously streamed data, while a scheduled orchestrator runs batch-based training and a CI/CD pipeline deploys resulting models through a local real-time service/API. The system logs data and predictions for monitoring, and can roll back production to a previous model version when needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:5.5",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.4",
+        "v:2.3",
+        "v:9.6"
+      ],
+      "description": "The system ingests continuous data into an event store, trains models in scheduled batches, and serves predictions through a hybrid of online services and offline batch computations. CI/CD deploys models with canary testing, production monitoring, and rollback to a previous version; scheduled batch training may not immediately reflect the latest streamed data.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:7.2",
+        "v:8.2",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2"
+      ],
+      "description": "The application contains the ML model as a module in a modular monolith and serves predictions through a local service/API, obtaining raw data on request. A scheduled pipeline performs batch training; build and deployment scripts deploy models, with rollback to a previous version when needed, while system data and predictions are logged and monitored.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.1",
+        "v:26.9"
+      ],
+      "description": "A system continuously ingests streamed data, periodically trains models in batches on a schedule, tests trained-model quality, and uses CI/CD to deploy approved versions through a local real-time serving API. Model performance is monitored in production, with rollback to the previous model version if needed; scheduled batch training and streaming ingestion are compatible when streams are accumulated for training.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:5.1",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1"
+      ],
+      "description": "A streaming ingestion layer writes data to a shared store, where scheduled pipeline runs train models in batches and CI/CD deploys them through a real-time model-serving microservice. Production data and predictions are monitored and logged, with rollback enabling redeployment of a previous model version if needed.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1",
+        "v:9.4",
+        "v:20.4"
+      ],
+      "description": "A shared data store receives continuously streamed data, while a scheduled pipeline runs batch-based training and a CI/CD pipeline deploys resulting models through a local real-time service/API. The system logs data and predictions for monitoring, rolls back to a previous model version when needed, and includes validation of trained models before deployment.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.4",
+        "v:2.3",
+        "v:9.6",
+        "v:26.1"
+      ],
+      "description": "A local real-time service/API serves streamed data while batch training runs on a schedule. CI/CD deploys validated versions with canary testing and rollback; an event store records events, while production usage, inputs, outputs, interpretability, and fairness are tracked.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1",
+        "v:9.4",
+        "v:26.9"
+      ],
+      "description": "A shared data store receives continuously streamed data, while a scheduled pipeline runs batch-based training and a CI/CD pipeline deploys resulting models through a local real-time service/API. The system logs data and predictions for monitoring, rolls back to a previous model version when needed, and tests trained-model quality before deployment.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a local prediction service and a small scheduled delivery pipeline keep the line independent of plant connectivity?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if hybrid online/offline operation, event logging, and canary delivery make collection and rollout safer?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if a modular monolith and operator-run scripts minimize infrastructure and tooling?",
+      "status": "dropped",
+      "dropped_because": "manual scripts and on-demand execution depend on operator availability and do not reliably meet unattended weekly retraining and rollout across every connected line."
+    },
+    {
+      "id": "D",
+      "idea": "What if the edge pipeline adds explicit trained-model quality testing before deployment?",
+      "status": "live"
+    },
+    {
+      "id": "E",
+      "idea": "What if a central model-serving microservice handles inference while edge clients stream data?",
+      "status": "dropped",
+      "dropped_because": "remote microservice inference introduces a network dependency on the per-part inspection path, conflicting with seven-day plant outages and the fixed low-latency line requirement."
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2"
+      ],
+      "hypothesis": "Local serving should meet R1 and Q1 without a plant network. Scheduled batch training and automated delivery should help R2 and Q3; streamed data and logging may partly support Q2 and R3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The generated point description supports local real-time inference, scheduled batch training, and rollback. No source attests the combination. Streaming and logging do not specify offline buffering, image selection, or an upload retry policy; CI/CD alone does not establish the 24-hour fleet rollout target.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:5.5",
+        "v:7.1",
+        "v:8.3",
+        "v:10.1",
+        "v:12.4",
+        "v:19.1",
+        "v:22.4"
+      ],
+      "hypothesis": "Hybrid serving and event-aware orchestration may help data collection and model tracking, while multiple deployed versions may ease comparison. The extra operational pieces may strain C1 and Q4.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "misses",
+        "C1": "misses",
+        "C2": "partly"
+      },
+      "observation": "The description combines online and batch serving but does not ensure local inference on fixed edge computers. Multiple versions lack a direct operator rollback guarantee. The orchestrator and concurrent version operation appear too costly for the small team; the point is unattested.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:7.2",
+        "v:8.2",
+        "v:10.2",
+        "v:12.1",
+        "v:19.1",
+        "v:22.2"
+      ],
+      "hypothesis": "A modular application and scripts may reduce infrastructure cost, and local serving plus rollback may protect line operation. Manual triggers and delivery are likely to miss R2 and Q3 under limited staffing.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "misses",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "misses",
+        "Q4": "meets",
+        "C1": "misses",
+        "C2": "meets"
+      },
+      "observation": "Local service supports the line path, but on-demand retraining and deployment scripts leave weekly execution and fleet delivery dependent on people. That repeats the identified staffing failure, so this approach is dropped.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 1,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:5.2",
+        "v:7.3",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.1"
+      ],
+      "hypothesis": "A simpler batch-ingestion and performance-monitoring design may reduce infrastructure and operations load while preserving local inference, weekly training, and rollback.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "misses",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The point remains edge-capable and inexpensive, but batch ingestion and performance metrics alone do not collect uncertain or incorrect images. Collection must be added to a stronger edge design.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1",
+        "v:9.4"
+      ],
+      "hypothesis": "Add a shared store and automated deployment task to the edge seed. This may strengthen R2 and Q3 and provide a destination for collected images, although shared storage does not guarantee outage buffering.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The description supports local serving, scheduled batches, rollout automation, and logging. It still does not specify a durable edge queue or selection of uncertain/wrong images, and no source attests this combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:5.5",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.4",
+        "v:2.3",
+        "v:9.6"
+      ],
+      "hypothesis": "Replace concurrent versions with rollback and orchestration with CI/CD, retaining hybrid serving, event storage, and canary testing. This should improve Q3 and C1 while preserving safer rollout and auditability.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "partly"
+      },
+      "observation": "Rollback and canary testing improve deployability. Hybrid serving still does not establish that inference is fully local on the fixed ARM device. Event storage may retain events, but the point does not establish seven-day local buffering. Nothing attests the combination.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:1.3",
+        "v:5.2",
+        "v:7.2",
+        "v:8.2",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2"
+      ],
+      "hypothesis": "A scheduled trigger may fix the missed weekly cadence while keeping the modular application and scripts inexpensive; deployment timing and staffing remain concerns.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "misses",
+        "Q4": "meets",
+        "C1": "misses",
+        "C2": "meets"
+      },
+      "observation": "Scheduling improves cadence but does not make script-driven fleet rollout reliable within the stated window or remove operator dependence. It repeats the dropped approach's staffing failure.",
+      "rating": "weak",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 2,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.1",
+        "v:26.9"
+      ],
+      "hypothesis": "Restore continuous ingestion and add trained-model quality testing to the local, scheduled, rollback-capable design. Testing should help prevent harmful updates; monitoring should support follow-up on R3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The point description supports local serving, weekly-compatible scheduled batches, and quality testing before deployment. It still lacks explicit image uncertainty selection and offline upload buffering. No source attests it.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 2,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:5.1",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1"
+      ],
+      "hypothesis": "A central real-time serving service with shared storage may simplify model management and collection, but its network path may compromise R1, Q1, Q2, and C2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "misses"
+      },
+      "observation": "The point uses a distributed model-serving service for inference, which cannot assure inspection during plant outages or fit inference on the fixed edge hardware. The offline and latency conflict is intrinsic to this approach, so it is dropped.",
+      "rating": "weak",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1",
+        "v:9.4",
+        "v:20.4"
+      ],
+      "hypothesis": "Add trained-model validation before deploying the compact automated edge design. This should improve R2 and Q3 by stopping a bad weekly model before it reaches lines.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Validation makes the rollout safer, but neither the space nor generated description defines the checks, fleet rollout guarantees, or local buffering. This is a viable baseline but the dedicated quality test added in D3 provides more explicit model-quality coverage.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.4",
+        "v:2.3",
+        "v:9.6",
+        "v:26.1"
+      ],
+      "hypothesis": "Move hybrid serving to a local API while retaining event logging, canary testing, rollback, and model tracking. Local inference should improve R1, Q1, Q2, and C2 while canary rollout supports Q3.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Local serving resolves the largest weakness in B. Canary plus rollback strengthens Q3, and event logging supports later review. This adds operational pieces and still does not specify edge buffering or uncertainty filtering. It is a distinct alternative to the simpler validated design; no source attests it.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "v:5.2",
+        "v:7.1",
+        "v:8.1",
+        "v:10.2",
+        "v:12.3",
+        "v:19.1",
+        "v:22.2",
+        "v:2.1",
+        "v:9.4",
+        "v:26.9"
+      ],
+      "hypothesis": "Combine the shared store and deployment task from A with D's trained-model quality test. This should retain simple local operation while adding a quality gate before weekly rollout.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "This improves model screening and gives logged images a shared destination when connectivity returns, but it does not define local buffering or the uncertainty-selection rule. It is the strongest low-complexity point and remains unattested.",
+      "rating": "strong",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Validated edge pipeline",
+      "summary": "Serve locally on each edge computer, stream images and predictions for collection, retrain in scheduled batches, validate model quality, and deploy automatically with rollback.",
+      "approach": "D",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Local real-time service is the closest modeled fit for line-speed inference on fixed edge devices and avoids a plant network dependency.",
+          "fit": "approximate",
+          "fit_note": "The space identifies local serving but does not specify the ARM accelerator, latency target, or offline model persistence."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "A stream matches continuous camera data and can feed collection and later training.",
+          "fit": "approximate",
+          "fit_note": "Streamed ingestion does not itself define an edge queue, outage retention, uncertain-image selection, or upload retry behavior."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q3",
+            "C1"
+          ],
+          "reason": "A delivery pipeline reduces repeated manual work and supports model rollout automation."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Keeping a previous model version available provides a direct rollback path."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "A scheduled trigger matches weekly retraining cadence."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Batch learning fits weekly training from newly labelled images."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Logging data and predictions gives inspectors and the training pipeline records to review.",
+          "fit": "approximate",
+          "fit_note": "The value does not define confidence-based or error-based selection, nor labeling workflow or disconnected upload."
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R2",
+            "R3",
+            "Q2"
+          ],
+          "reason": "A shared data store is a destination for accumulated images and training inputs.",
+          "fit": "approximate",
+          "fit_note": "A shared store is not a disconnected edge cache and does not ensure later synchronization."
+        },
+        {
+          "dimension_id": "d:9",
+          "value_id": "v:9.4",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Deployment is the delivery task that moves approved models to lines."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.9",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Testing trained-model quality provides a gate before production rollout."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Batch ingestion reduces stream handling but does not fit continuous camera capture or solve disconnected buffering."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Performance metrics alone do not provide the input and prediction records needed to find uncertain or wrong images."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "Automated delivery affects model-version deployment; this point pairs CI/CD with rollback."
+        },
+        {
+          "source": "d:5",
+          "target": "d:7",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving affects ingestion; local online predictions are paired with streamed image data."
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "name": "Canary monitored edge pipeline",
+      "summary": "Use the same local inference and weekly batch path, with event logging, canary testing, detailed model tracking, and rollback for cautious fleet rollout.",
+      "approach": "B",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Local serving addresses line latency and outage independence.",
+          "fit": "approximate",
+          "fit_note": "The space does not specify accelerator support or edge model lifecycle."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Streamed ingestion captures continuous camera data.",
+          "fit": "approximate",
+          "fit_note": "It does not define offline buffering, confidence filtering, or resynchronization."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "R2",
+            "Q3",
+            "C1"
+          ],
+          "reason": "CI/CD can automate deployment steps for the fleet."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Rollback to a previous version supports operator recovery."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Scheduled runs encode weekly cadence."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Batch training matches the weekly label set."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R3",
+            "Q3"
+          ],
+          "reason": "Tracking inputs and outputs supports investigations of model behavior.",
+          "fit": "approximate",
+          "fit_note": "Tracking does not prescribe uncertainty or error selection, nor an inspector labeling interface."
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.3",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "An event store preserves image and prediction events for later processing.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify a local store per disconnected plant or retention capacity."
+        },
+        {
+          "dimension_id": "d:9",
+          "value_id": "v:9.6",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Canary testing limits exposure while a new version is assessed."
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Canary testing makes rollout staged before wider deployment."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.1",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Concurrent versions permit comparison but do not give operators the requested rapid previous-version rollback."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "An orchestrator coordinates more components but adds operational burden beyond the lean CI/CD path."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:8",
+          "target": "d:10",
+          "type": "affects",
+          "holds": true,
+          "note": "CI/CD decisions affect model-version deployment; this option uses staged rollout and rollback."
+        },
+        {
+          "source": "d:5",
+          "target": "d:7",
+          "type": "affects",
+          "holds": true,
+          "note": "Local predictions and streamed image ingestion are paired."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where to serve inference and how to collect production images",
+      "drivers": [
+        "R1",
+        "R3",
+        "Q1",
+        "Q2",
+        "C2"
+      ],
+      "context": "Every part needs a prediction within 200 ms, including during a seven-day plant outage, on fixed ARM edge computers. The system must also preserve useful images for inspection and later labeling. The space offers local or distributed serving and several ingestion and storage patterns, but no explicit decision for offline buffering, confidence-based sampling, or inspector labeling.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Local inference with streamed collection",
+          "values": [
+            "v:5.2",
+            "v:7.1",
+            "v:22.2",
+            "v:2.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 12,
+          "pros": [
+            "Keeps the prediction path local and real time.",
+            "Streams image and prediction records toward shared storage when connected."
+          ],
+          "cons": [
+            "Offline queueing, seven-day capacity, and selective capture are not specified by these values."
+          ],
+          "reason": "Best fit for line continuity and latency while keeping the collection path simple.",
+          "fit": "approximate",
+          "fit_note": "The selected values do not define offline buffering or selection of uncertain and incorrect images."
+        },
+        {
+          "id": "O2",
+          "name": "Local inference with event logging",
+          "values": [
+            "v:5.2",
+            "v:7.1",
+            "v:22.4",
+            "v:2.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 11,
+          "pros": [
+            "Local serving protects line inference from plant network loss.",
+            "Event records and tracking provide richer investigation data."
+          ],
+          "cons": [
+            "Event storage and tracking increase implementation and operations needs; neither defines offline cache semantics."
+          ],
+          "reason": "Choose this when richer event traceability and staged rollout justify extra operational complexity.",
+          "fit": "approximate",
+          "fit_note": "The values do not define edge event retention through a seven-day outage or selective labeling."
+        },
+        {
+          "id": "O3",
+          "name": "Hybrid or remote inference",
+          "values": [
+            "v:5.5"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Combines service and batch prediction modes."
+          ],
+          "cons": [
+            "Does not establish local inference against the latency, outage, and fixed-hardware requirements."
+          ],
+          "reason": "Set aside because the local edge path is a stronger fit for R1, Q1, Q2, and C2."
+        },
+        {
+          "id": "O4",
+          "name": "Distributed prediction service",
+          "values": [
+            "v:5.1"
+          ],
+          "status": "discarded",
+          "step": 9,
+          "pros": [
+            "Separates prediction service from clients."
+          ],
+          "cons": [
+            "A network outage can interrupt the line prediction path."
+          ],
+          "reason": "Dropped because the remote dependency conflicts with continuous inspection during outages."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How to retrain and release weekly models safely",
+      "drivers": [
+        "R2",
+        "Q3",
+        "C1"
+      ],
+      "context": "New labels arrive weekly; every connected line needs an approved model within a day, and an operator needs a rapid rollback path. A small team and strict spending limit favor automation, while unsafe changes require a quality gate or staged rollout.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Scheduled validated CI/CD with rollback",
+          "values": [
+            "v:8.1",
+            "v:10.2",
+            "v:12.3",
+            "v:19.1",
+            "v:9.4",
+            "v:26.9"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 12,
+          "pros": [
+            "Scheduled batch learning matches weekly labels.",
+            "Automated deployment and rollback reduce manual fleet operations.",
+            "Trained-model quality testing adds a predeployment gate."
+          ],
+          "cons": [
+            "The space does not promise a 24-hour fleet delivery SLA or a 15-minute local operator switch."
+          ],
+          "reason": "This is the leanest point that combines weekly training, quality screening, automated deployment, and rollback."
+        },
+        {
+          "id": "O2",
+          "name": "Canary deployment with rollback and model tracking",
+          "values": [
+            "v:8.1",
+            "v:10.2",
+            "v:12.3",
+            "v:19.1",
+            "v:9.6",
+            "v:26.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A2"
+          ],
+          "step": 11,
+          "pros": [
+            "Canary testing limits exposure before rollout to all lines.",
+            "Rollback supports rapid recovery from a problematic version."
+          ],
+          "cons": [
+            "Canary and event tracking add more operational state, and model-quality acceptance criteria remain unspecified."
+          ],
+          "reason": "Select this when staged deployment safeguards are worth more complexity than the simplest validated pipeline."
+        },
+        {
+          "id": "O3",
+          "name": "Concurrent model versions with orchestration",
+          "values": [
+            "v:8.3",
+            "v:10.1",
+            "v:12.4",
+            "v:19.1"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Orchestration coordinates components and concurrent versions can support comparison."
+          ],
+          "cons": [
+            "This does not directly satisfy operator rollback and adds cost and support demands."
+          ],
+          "reason": "Set aside for weak fit with Q3, C1, and Q4."
+        },
+        {
+          "id": "O4",
+          "name": "Operator-run scripts",
+          "values": [
+            "v:8.2",
+            "v:10.2",
+            "v:12.1",
+            "v:19.1"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Low infrastructure requirements."
+          ],
+          "cons": [
+            "Manual execution depends on staff availability and cannot reliably meet fleet timing."
+          ],
+          "reason": "Dropped because the approach misses unattended weekly retraining and rollout under C1."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "Q4",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:8",
+      "note": "The space has no dimension for infrastructure budget or euro cost estimates. Choosing a compact local delivery pipeline cannot establish whether spending stays under 2,000 euros per month."
+    }
+  ]
+}

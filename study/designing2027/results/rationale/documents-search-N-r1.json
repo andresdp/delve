@@ -1,0 +1,835 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "documents-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives between two and eight million documents a day (scanned forms, e-mails, PDFs) and classifies each one into one of 60 claim types with an LLM-based classifier. Volume varies strongly over the year: storm season brings four times the usual load. Three teams use the results: claims handling, fraud investigation and analytics. The documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival.",
+        "constraining": true
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day.",
+        "constraining": true
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year.",
+        "constraining": true
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU.",
+        "constraining": true
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region.",
+        "constraining": true
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Inference architecture: Scheduled bulk inference",
+        "Uncertainty and learning: Confidence threshold with daily reviewer feedback",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Daily type-level quality dashboard"
+      ],
+      "description": "Run approved-provider LLM inference in scheduled bulk windows and publish each result for independent consumers.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Inference architecture: Cheap-first cascade with approved LLM fallback",
+        "Uncertainty and learning: Confidence threshold with daily reviewer feedback",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Daily type-level quality dashboard"
+      ],
+      "description": "Use inexpensive deterministic extraction for clear cases and the approved LLM for ambiguous cases, initially with daily review and aggregate monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Inference architecture: Per-document autoscaled approved-LLM workers",
+        "Uncertainty and learning: Confidence threshold with daily reviewer feedback",
+        "Results integration: Direct team-specific APIs",
+        "Quality monitoring: Daily type-level quality dashboard"
+      ],
+      "description": "Scale one approved-LLM worker per document and deliver results directly to each consuming team.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Inference architecture: Scheduled bulk inference",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Retain bulk inference while prioritizing uncertain examples for review and adding type-level drift detection.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Inference architecture: Cheap-first cascade with approved LLM fallback",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Combine selective LLM calls with prioritized review, reusable result events and per-type outcome monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Inference architecture: Per-document autoscaled approved-LLM workers",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Keep per-document autoscaling but add decoupled delivery, prioritized feedback and type-level monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Inference architecture: Regional queue with microbatch approved-LLM workers",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Explore regional queueing and microbatches to absorb peaks while retaining selective review and observable outcomes.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Inference architecture: Scheduled bulk inference with priority lanes",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Refine bulk scheduling with peak-capacity reservations and feedback-driven review prioritization.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Inference architecture: Selective cascade with reserved LLM fallback",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Refine the cascade by calibrating thresholds per claim type and routing uncertain outputs for correction.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Inference architecture: Regional queue with adaptive microbatch workers",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "description": "Refine queued microbatches with reserved storm-season capacity and idempotent event publication.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if scheduled bulk inference is the primary scaling and cost-control mechanism?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a cheap-first cascade preserves approved-LLM accuracy while reducing average inference cost?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if per-document autoscaling provides the simplest path to the two-hour peak target?",
+      "status": "dropped",
+      "dropped_because": "One paid LLM invocation per document gives weaker average-cost control than selective inference, and per-document calls add concurrency and delivery pressure."
+    },
+    {
+      "id": "D",
+      "idea": "What if a regional queue with microbatch workers combines burst absorption with bounded provider concurrency?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "point": "P1",
+      "values": [
+        "Inference architecture: Scheduled bulk inference",
+        "Uncertainty and learning: Confidence threshold with daily reviewer feedback",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Daily type-level quality dashboard"
+      ],
+      "hypothesis": "Bulk windows should improve provider utilization and control average cost (Q1,Q3); event publication should isolate consumers (Q4).",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Batching helps utilization, but peak scheduling and ordinary daily dashboards do not establish the two-hour or one-day targets; feedback is not prioritized.",
+      "rating": "mixed"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "point": "P2",
+      "values": [
+        "Inference architecture: Cheap-first cascade with approved LLM fallback",
+        "Uncertainty and learning: Confidence threshold with daily reviewer feedback",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Daily type-level quality dashboard"
+      ],
+      "hypothesis": "Routing easy cases away from the LLM should reduce average cost while preserving classification coverage (R1,Q3); targeted review and alerts should improve R3 and Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Selective inference offers a credible cost path, but daily review and aggregate monitoring leave feedback prioritization and type-level detection weaker; peak throughput and provider pricing still need measurement.",
+      "rating": "strong"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "point": "P3",
+      "values": [
+        "Inference architecture: Per-document autoscaled approved-LLM workers",
+        "Uncertainty and learning: Confidence threshold with daily reviewer feedback",
+        "Results integration: Direct team-specific APIs",
+        "Quality monitoring: Daily type-level quality dashboard"
+      ],
+      "hypothesis": "Autoscaling should handle variable volume and direct APIs should deliver results quickly (Q1,R2).",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "misses",
+        "Q4": "misses",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "One provider call per document has no credible path to the strict average-cost ceiling, and team-specific APIs couple producers to consumers. Refining worker scaling cannot fix those structural problems.",
+      "rating": "weak"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "point": "P4",
+      "values": [
+        "Inference architecture: Scheduled bulk inference",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "Keep bulk utilization but prioritize uncertain reviews and add type-level signals to close the main R3 and Q2 gaps.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Feedback and monitoring now address their requirements, while batch-window latency remains the main uncertainty for Q1.",
+      "rating": "strong"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "point": "P5",
+      "values": [
+        "Inference architecture: Cheap-first cascade with approved LLM fallback",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "Calibrating the cascade against type-specific review outcomes should protect R1 and Q2 while retaining the expected Q3 advantage.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "This remains the strongest cost-oriented combination, though empirical calibration is needed to show both quality and cost targets.",
+      "rating": "strong"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "point": "P6",
+      "values": [
+        "Inference architecture: Per-document autoscaled approved-LLM workers",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "Decoupled events and better review signals should fix Q4 and Q2 without changing the per-document inference model.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "misses",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "The refinements improve integration and feedback but do not change the structural cost exposure; the approach is dropped.",
+      "rating": "weak"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "point": "P7",
+      "values": [
+        "Inference architecture: Regional queue with microbatch approved-LLM workers",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "A regional queue can absorb bursts and microbatches can bound provider concurrency while active review and alerts meet R3 and Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Queueing offers a plausible operating envelope across demand spikes; microbatch sizing and provider limits must be validated against the latency target.",
+      "rating": "strong"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "point": "P8",
+      "values": [
+        "Inference architecture: Scheduled bulk inference with priority lanes",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "Peak-capacity reservations and prioritized review improve Q1 while retaining the strengths of bulk processing.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Reservations reduce scheduling risk but do not remove the dependence on batch-window duration; no new requirement is improved decisively.",
+      "rating": "strong"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "point": "P9",
+      "values": [
+        "Inference architecture: Selective cascade with reserved LLM fallback",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "Per-type thresholds should reduce unnecessary LLM fallbacks while maintaining quality and catching type-specific degradation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Threshold calibration strengthens the cost rationale, with cost and recall still requiring measured validation on representative documents.",
+      "rating": "strong"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "point": "P10",
+      "values": [
+        "Inference architecture: Regional queue with adaptive microbatch workers",
+        "Uncertainty and learning: Confidence threshold with active-learning review queue",
+        "Results integration: Durable result event stream",
+        "Quality monitoring: Per-type drift and labeled-outcome alerts"
+      ],
+      "hypothesis": "Reserved storm capacity and idempotent publication should improve Q1 and reliable R2 delivery.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Queue controls and replay-safe publication make the design operationally resilient, but provider service limits and end-to-end latency remain to be benchmarked.",
+      "rating": "strong"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Reserved bulk classification",
+      "summary": "Schedule approved-provider EU inference in bulk windows, reserve peak capacity, publish durable result events, and route uncertain cases to prioritized review with per-type alerts.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "Inference architecture",
+          "value_id": "Inference architecture: Scheduled bulk inference with priority lanes",
+          "drivers": [
+            "Q1",
+            "Q3",
+            "C1",
+            "C2"
+          ],
+          "reason": "Priority lanes and peak reservations protect urgent storm-season work while preserving bulk utilization in the approved EU region."
+        },
+        {
+          "dimension_id": "Uncertainty and learning",
+          "value_id": "Uncertainty and learning: Confidence threshold with active-learning review queue",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Confidence routes uncertain cases to prioritized correction, whose labels feed improvement."
+        },
+        {
+          "dimension_id": "Results integration",
+          "value_id": "Results integration: Durable result event stream",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Each team consumes stable result events independently."
+        },
+        {
+          "dimension_id": "Quality monitoring",
+          "value_id": "Quality monitoring: Per-type drift and labeled-outcome alerts",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Type-specific drift and reviewed outcomes can alert operators within a day."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Inference architecture",
+          "value_id": "Inference architecture: Cheap-first cascade with approved LLM fallback",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Could reduce LLM calls further, but changes the primary inference strategy."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Selective LLM cascade",
+      "summary": "Apply inexpensive deterministic checks first and reserve the approved EU LLM for ambiguous documents, with active review, event delivery and per-type monitoring.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "Inference architecture",
+          "value_id": "Inference architecture: Selective cascade with reserved LLM fallback",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q3",
+            "C1",
+            "C2"
+          ],
+          "reason": "A reserved fallback capacity keeps ambiguous cases moving while selective use of the approved EU LLM controls spend."
+        },
+        {
+          "dimension_id": "Uncertainty and learning",
+          "value_id": "Uncertainty and learning: Confidence threshold with active-learning review queue",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Type-calibrated uncertainty prioritizes corrections and learning."
+        },
+        {
+          "dimension_id": "Results integration",
+          "value_id": "Results integration: Durable result event stream",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Stable events keep downstream processing independent."
+        },
+        {
+          "dimension_id": "Quality monitoring",
+          "value_id": "Quality monitoring: Per-type drift and labeled-outcome alerts",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Type-level signals expose drops within the required window."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Inference architecture",
+          "value_id": "Inference architecture: Scheduled bulk inference",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Bulk processing may improve utilization but can spend LLM capacity on clear cases and introduces window latency."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Queued microbatch inference",
+      "summary": "Buffer regional demand in a durable queue and dispatch approved-provider EU microbatches with reserved storm capacity; use the same review, event and alert feedback loops.",
+      "approach": "D",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Inference architecture",
+          "value_id": "Inference architecture: Regional queue with adaptive microbatch workers",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q3",
+            "C1",
+            "C2"
+          ],
+          "reason": "Adaptive microbatches regulate provider concurrency as queued volume changes, with storm capacity reserved in the EU region."
+        },
+        {
+          "dimension_id": "Uncertainty and learning",
+          "value_id": "Uncertainty and learning: Confidence threshold with active-learning review queue",
+          "drivers": [
+            "R1",
+            "R3"
+          ],
+          "reason": "Uncertain cases receive human correction and contribute learning data."
+        },
+        {
+          "dimension_id": "Results integration",
+          "value_id": "Results integration: Durable result event stream",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Durable events let teams evolve consumers independently."
+        },
+        {
+          "dimension_id": "Quality monitoring",
+          "value_id": "Quality monitoring: Per-type drift and labeled-outcome alerts",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Labeled outcomes and drift signals can identify a failing claim type quickly."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "How should inference absorb demand while controlling LLM spend?",
+      "drivers": [
+        "R1",
+        "Q1",
+        "Q3",
+        "C1",
+        "C2"
+      ],
+      "context": "The system must classify millions of documents, meet a two-hour storm-season deadline and stay under a strict annual average cost. All paths must keep personal data in the EU and use the insurer's approved provider in its EU region. Actual throughput and pricing require workload benchmarks.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Reserved bulk inference",
+          "values": [
+            "Inference architecture: Scheduled bulk inference with priority lanes"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Batching can improve utilization and cost predictability.",
+            "Peak reservations make capacity planning explicit."
+          ],
+          "cons": [
+            "Long batch windows can consume the two-hour latency budget."
+          ],
+          "reason": "Choose when predictable bulk utilization outweighs tighter response-time needs."
+        },
+        {
+          "id": "O2",
+          "name": "Selective LLM cascade",
+          "values": [
+            "Inference architecture: Selective cascade with reserved LLM fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Clear cases can avoid LLM expense.",
+            "Approved LLM remains available for ambiguous documents."
+          ],
+          "cons": [
+            "The inexpensive stage needs validated accuracy and calibrated routing."
+          ],
+          "reason": "Choose when reducing paid LLM volume is the leading cost strategy."
+        },
+        {
+          "id": "O3",
+          "name": "Queued microbatch inference",
+          "values": [
+            "Inference architecture: Regional queue with adaptive microbatch workers"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 10,
+          "pros": [
+            "Queues absorb bursts and regulate provider concurrency.",
+            "Reserved capacity can protect peak throughput."
+          ],
+          "cons": [
+            "Queue delay and microbatch sizing must be measured against the deadline."
+          ],
+          "reason": "Choose when buffering and bounded concurrency are central operating needs."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How should uncertain classifications feed human review and model improvement?",
+      "drivers": [
+        "R1",
+        "R3"
+      ],
+      "context": "Every document needs a classification and confidence, while low-confidence cases need timely human correction. Corrections should create useful learning data without overwhelming reviewers.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Daily threshold review",
+          "values": [
+            "Uncertainty and learning: Confidence threshold with daily reviewer feedback"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Simple to operate and understand."
+          ],
+          "cons": [
+            "Daily routing can delay correction and does not prioritize informative examples."
+          ],
+          "reason": "Superseded by active-learning prioritization for more timely and useful feedback."
+        },
+        {
+          "id": "O2",
+          "name": "Prioritized active-learning queue",
+          "values": [
+            "Uncertainty and learning: Confidence threshold with active-learning review queue"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Routes uncertain documents for correction.",
+            "Prioritization directs reviewer effort toward informative cases."
+          ],
+          "cons": [
+            "Needs threshold calibration and a review workflow sized to incoming uncertainty."
+          ],
+          "reason": "Use corrected labels to improve the classifier while managing review demand."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How should results reach teams and quality issues become visible?",
+      "drivers": [
+        "R2",
+        "Q2",
+        "Q4"
+      ],
+      "context": "Three teams consume classification results and need to evolve independently. Operators need to notice claim-type-specific quality drops within one day, including changes caused by forms or layouts.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Team-specific APIs with daily aggregate dashboard",
+          "values": [
+            "Results integration: Direct team-specific APIs",
+            "Quality monitoring: Daily type-level quality dashboard"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Direct calls can be straightforward for a small integration."
+          ],
+          "cons": [
+            "Team-specific interfaces couple consumers to the classifier.",
+            "Daily aggregate views can miss timely type-level signals."
+          ],
+          "reason": "Does not support loose coupling and timely per-type alerting as well as event delivery and labeled outcomes."
+        },
+        {
+          "id": "O2",
+          "name": "Durable events with per-type outcome alerts",
+          "values": [
+            "Results integration: Durable result event stream",
+            "Quality monitoring: Per-type drift and labeled-outcome alerts"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Consumers evolve independently against stable events.",
+            "Drift and reviewed labels can expose type-specific degradation."
+          ],
+          "cons": [
+            "Requires event schema governance and representative outcome labels."
+          ],
+          "reason": "Use durable delivery and type-level monitoring to meet independent consumption and timely diagnosis."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

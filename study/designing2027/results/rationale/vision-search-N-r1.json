@@ -1,0 +1,1081 @@
+{
+  "schema": "ddspace-rationale/5",
+  "id": "vision-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "On-device visual inspection",
+    "context": "A manufacturer inspects parts across 40 lines in three plants. Each line has two to four cameras attached to a small ARM edge computer with a neural accelerator. Plant networks can be unavailable for days. Inspectors label about 5,000 defect images weekly; a small team of two ML engineers and a half-time operations person retrains weekly and operates on a tight infrastructure budget.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Check every part as it passes the camera and signal a defective part to the line operator."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Retrain the model every week from the newly labelled images and roll the new model out to every line."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Collect the images the model was unsure about, or got wrong, so that inspectors can label them."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "Each image is classified on the line within 200 ms, so the line never slows down."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a plant's network is down for up to seven days, its lines keep inspecting with the model they have; the images collected in the meantime are uploaded when the network returns."
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "deployability",
+        "text": "A new model reaches every connected line within 24 hours of approval. When a new model misbehaves on a line, the line operator can go back to the previous one within 15 minutes, without the ML team."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "Cloud and infrastructure spending stays under 2,000 euros a month."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Three people build and run the system, with no support outside working hours."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The edge computers (an ARM processor with a small neural accelerator) cannot be replaced this year."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Device-initiated direct pull"
+      ],
+      "description": "Each line classifies locally, queues selected images, and pulls central weekly model releases.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Gateway-coordinated staged rollout"
+      ],
+      "description": "Line inference remains local while a plant gateway buffers images and coordinates staged model updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Inference: Cloud service",
+        "Training: Central weekly training",
+        "Image buffer: Cloud streaming queue",
+        "Model rollout: Central service deployment"
+      ],
+      "description": "Cameras stream images to a central inference service that also handles weekly model releases.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Central staged fleet rollout"
+      ],
+      "description": "Devices retain local inference and queues while a central controller stages and tracks their model pulls.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Gateway-coordinated staged rollout",
+        "Rollback: Operator local version switch"
+      ],
+      "description": "Plant gateways coordinate releases and retain a previous model for an operator-triggered local rollback.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Immutable release with gateway cache",
+        "Rollback: Operator local version switch"
+      ],
+      "description": "Approved immutable releases are cached at each plant, and line operators control local version switching.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch"
+      ],
+      "description": "The central controller stages releases, while each operator can promptly switch the line back locally.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch"
+      ],
+      "description": "Line inference and plant image spooling pair with centrally staged releases and local operator rollback.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Immutable release with gateway cache",
+        "Rollback: Operator local version switch",
+        "Model package: Hardware-validated compact package"
+      ],
+      "description": "Compact validated packages are cached per plant and switched locally by operators after staged approval.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch",
+        "Fleet operations: Automated health monitoring and recovery"
+      ],
+      "description": "Each line classifies locally, queues selected images, and uses centrally staged releases with local rollback and automated health recovery.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Immutable release with gateway cache",
+        "Rollback: Operator local version switch",
+        "Model package: Hardware-validated compact package",
+        "Fleet operations: Automated health monitoring and recovery"
+      ],
+      "description": "Immutable compact releases are cached at each plant, with local operator switching and automated health recovery.",
+      "attested_by": []
+    },
+    {
+      "id": "P12",
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch",
+        "Fleet operations: Automated health monitoring and recovery"
+      ],
+      "description": "Plant gateways spool images while central services stage line releases, with local rollback and automated fleet health recovery.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if each edge computer owned inspection and buffering, with a central service publishing weekly releases?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if a plant gateway coordinated offline buffering and staged updates for its lines?",
+      "status": "dropped",
+      "dropped_because": "A single gateway coordinating the plant creates a plant-level failure dependency: if it fails during an outage, selected images cannot be retained and forwarded as Q2 requires."
+    },
+    {
+      "id": "C",
+      "idea": "What if image inference ran centrally so the line devices stayed thin?",
+      "status": "dropped",
+      "dropped_because": "Central inference depends on plant connectivity and therefore cannot sustain inspection during a seven-day outage."
+    },
+    {
+      "id": "D",
+      "idea": "What if immutable releases were cached per plant and line operators controlled local activation and rollback?",
+      "status": "live"
+    },
+    {
+      "id": "E",
+      "idea": "What if a plant gateway only buffered images while central services staged releases and operators controlled rollback?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Device-initiated direct pull"
+      ],
+      "hypothesis": "Local accelerator inference should meet R1 and Q1 and continue during outages for Q2; local buffering supports R3 and Q2, while device pulls should make weekly retraining rollout affordable for R2 and Q4.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Local inference and bounded storage fit the fixed hardware and outage pattern. Direct device pulls make fleet coverage and a rapid operator rollback less assured, and per-device operations still burden the small team.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Gateway-coordinated staged rollout"
+      ],
+      "hypothesis": "Local inference should meet R1 and Q1/Q2; a gateway spool should hold outage images for R3, while staged plant coordination should improve R2/Q3 with modest additional cost and operations effort.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "This covers disconnected operation and coordinated fleet rollout. A gateway can become a plant-level failure point, and dedicated gateway capacity adds cost and operational work; operator rollback is not yet explicit.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference: Cloud service",
+        "Training: Central weekly training",
+        "Image buffer: Cloud streaming queue",
+        "Model rollout: Central service deployment"
+      ],
+      "hypothesis": "Central inference and training should simplify R2 and routine operations, but image transport may undermine Q1 and Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "misses",
+        "Q2": "misses",
+        "Q3": "partly",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Classification and image collection stop when plant connectivity fails, and network round trips cannot assure the 200 ms limit. The defining cloud-inference premise cannot meet Q2, so this approach is dropped.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Central staged fleet rollout"
+      ],
+      "hypothesis": "Changing direct pulls to centrally tracked staged pulls should improve R2 and Q3 fleet coverage while retaining local Q1/Q2 behavior and low infrastructure cost.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "partly",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Central staging improves release coverage and sequencing without changing inference or outage behavior. A local operator rollback path is still needed for Q3.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Gateway-coordinated staged rollout",
+        "Rollback: Operator local version switch"
+      ],
+      "hypothesis": "An operator-controlled local version switch should satisfy Q3 rollback while the gateway retains staged rollout and outage buffering; added plant hardware may still pressure Q4 and C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "partly",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "misses",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The local operator rollback works, but the gateway is a single plant-level dependency for image forwarding and staged rollout. If it fails during a network outage, selected images cannot be retained as required. The gateway-coordination approach is dropped because its coordination premise leaves that outage path exposed.",
+      "rating": "weak",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": 5,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Immutable release with gateway cache",
+        "Rollback: Operator local version switch"
+      ],
+      "hypothesis": "Immutable releases cached at each plant should retain offline availability and simplify repeatable deployment while operators activate or roll back locally; caching should cost less operational effort than a gateway-managed rollout.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Plant caching and immutable artifacts preserve disconnected operation and operator rollback, with a simpler release contract. A gateway still needs care, and cache and validation capacity count against budget.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch"
+      ],
+      "hypothesis": "Adding a retained prior version and local operator switch should close the Q3 rollback gap while leaving central rollout tracking and line-local outage behavior intact.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The operator can revert without waiting for the network or ML team, while line-local queues and central staging preserve the other capabilities. The team still has a fleet of individual devices to support.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Immutable release with gateway cache",
+        "Rollback: Operator local version switch",
+        "Model package: Hardware-validated compact package"
+      ],
+      "hypothesis": "Hardware-validated compact packages should preserve immutable releases while reducing edge compatibility and transfer risks, improving Q1, Q4, and C2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "The package check pairs naturally with immutable releases and the existing accelerator. This gives repeatable offline rollout and operator rollback, though plant gateways still need maintenance.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "E",
+      "move": "explore",
+      "parent": 8,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch"
+      ],
+      "hypothesis": "What if a plant gateway only spooled outage images while central fleet services staged releases? This should retain shared buffering and fleet visibility without making gateway availability a condition of rollout coordination.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "partly",
+        "C1": "partly",
+        "C2": "meets"
+      },
+      "observation": "Separating image spooling from release coordination avoids the weak approach’s single coordinator role. The gateway remains a buffer dependency, so its capacity and care still affect cost and operations.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 10,
+      "round": 4,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Line-local bounded queue",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch",
+        "Fleet operations: Automated health monitoring and recovery"
+      ],
+      "hypothesis": "Automated health checks and recovery should reduce routine fleet intervention so the small team can meet C1 while retaining this approach’s evaluated inspection, buffering, rollout, and rollback behavior.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Central health visibility and automatic recovery reduce routine manual checks; exceptional faults remain within the stated staffed support model.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 4,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 8,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Immutable release with gateway cache",
+        "Rollback: Operator local version switch",
+        "Model package: Hardware-validated compact package",
+        "Fleet operations: Automated health monitoring and recovery"
+      ],
+      "hypothesis": "Automated health checks and recovery should reduce routine fleet intervention so the small team can meet C1 while retaining this approach’s evaluated inspection, buffering, rollout, and rollback behavior.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Central health visibility and automatic recovery reduce routine manual checks; exceptional faults remain within the stated staffed support model.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 12,
+      "round": 4,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 9,
+      "values": [
+        "Inference: Edge accelerator",
+        "Training: Central weekly training",
+        "Image buffer: Plant gateway spool",
+        "Model rollout: Central staged fleet rollout",
+        "Rollback: Operator local version switch",
+        "Fleet operations: Automated health monitoring and recovery"
+      ],
+      "hypothesis": "Automated health checks and recovery should reduce routine fleet intervention so the small team can meet C1 while retaining this approach’s evaluated inspection, buffering, rollout, and rollback behavior.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "R3": "meets",
+        "Q1": "meets",
+        "Q2": "meets",
+        "Q3": "meets",
+        "Q4": "meets",
+        "C1": "meets",
+        "C2": "meets"
+      },
+      "observation": "Central health visibility and automatic recovery reduce routine manual checks; exceptional faults remain within the stated staffed support model.",
+      "rating": "strong",
+      "point": "P12"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Staged edge fleet",
+      "summary": "Run inspection and image queues on each line, centrally stage weekly releases, and let the operator revert locally.",
+      "approach": "A",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Edge accelerator",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Uses the installed accelerator for low-latency inspection that continues offline."
+        },
+        {
+          "dimension_id": "Training",
+          "value_id": "Training: Central weekly training",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C1"
+          ],
+          "reason": "One centrally managed weekly training job avoids duplicating training operations at plants."
+        },
+        {
+          "dimension_id": "Image buffer",
+          "value_id": "Image buffer: Line-local bounded queue",
+          "drivers": [
+            "R3",
+            "Q2",
+            "Q4"
+          ],
+          "reason": "Queues selected images locally and uploads them after connectivity returns without requiring a separate gateway."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Central staged fleet rollout",
+          "drivers": [
+            "R2",
+            "Q3",
+            "C1"
+          ],
+          "reason": "Tracks connected-line deployment while keeping the release process centrally coordinated."
+        },
+        {
+          "dimension_id": "Rollback",
+          "value_id": "Rollback: Operator local version switch",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Keeps the prior version available for a line operator to restore without ML team intervention."
+        },
+        {
+          "dimension_id": "Fleet operations",
+          "value_id": "Fleet operations: Automated health monitoring and recovery",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Automates routine health checks and recovery so the small team does not need continuous manual fleet watching."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Device-initiated direct pull",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Direct pulls are simpler but provide less assurance of tracked fleet coverage and timely rollout."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Cached immutable releases",
+      "summary": "Keep edge inference and plant image spooling, cache immutable central releases at each plant, and allow operators to activate or restore validated packages locally. Automated fleet health reduces routine gateway and line care.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Edge accelerator",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Runs inspection on the installed accelerator regardless of plant connectivity."
+        },
+        {
+          "dimension_id": "Training",
+          "value_id": "Training: Central weekly training",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C1"
+          ],
+          "reason": "Uses one central weekly retraining workflow."
+        },
+        {
+          "dimension_id": "Image buffer",
+          "value_id": "Image buffer: Plant gateway spool",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Retains uncertain or incorrect images during outages and forwards them after recovery."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Immutable release with gateway cache",
+          "drivers": [
+            "R2",
+            "Q2",
+            "Q3"
+          ],
+          "reason": "Caches approved artifacts at the plant for repeatable deployment across disconnected lines."
+        },
+        {
+          "dimension_id": "Rollback",
+          "value_id": "Rollback: Operator local version switch",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Lets operators switch to the previous version without waiting for the central service or ML staff."
+        },
+        {
+          "dimension_id": "Model package",
+          "value_id": "Model package: Hardware-validated compact package",
+          "drivers": [
+            "Q1",
+            "Q4",
+            "C2"
+          ],
+          "reason": "Checks compatibility with the fixed accelerator and limits deployment payload size."
+        },
+        {
+          "dimension_id": "Fleet operations",
+          "value_id": "Fleet operations: Automated health monitoring and recovery",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Automates routine health checks and recovery so the small team does not need continuous manual fleet watching."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "E1",
+      "name": "Central rollout with plant spooling",
+      "summary": "Keep inference on the line and spool images at the plant, while central services stage releases and operators can roll back locally. Automated health monitoring limits routine fleet work.",
+      "approach": "E",
+      "step": 12,
+      "choices": [
+        {
+          "dimension_id": "Inference",
+          "value_id": "Inference: Edge accelerator",
+          "drivers": [
+            "R1",
+            "Q1",
+            "Q2",
+            "C2"
+          ],
+          "reason": "Runs low-latency inspection on installed hardware through outages."
+        },
+        {
+          "dimension_id": "Training",
+          "value_id": "Training: Central weekly training",
+          "drivers": [
+            "R2",
+            "Q4",
+            "C1"
+          ],
+          "reason": "Uses one centrally managed weekly training workflow."
+        },
+        {
+          "dimension_id": "Image buffer",
+          "value_id": "Image buffer: Plant gateway spool",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Retains selected images at the plant until connectivity returns."
+        },
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Central staged fleet rollout",
+          "drivers": [
+            "R2",
+            "Q3"
+          ],
+          "reason": "Central tracking drives connected-line coverage without relying on the plant gateway to coordinate releases."
+        },
+        {
+          "dimension_id": "Rollback",
+          "value_id": "Rollback: Operator local version switch",
+          "drivers": [
+            "Q3",
+            "C1"
+          ],
+          "reason": "Lets operators promptly restore the previous line version."
+        },
+        {
+          "dimension_id": "Fleet operations",
+          "value_id": "Fleet operations: Automated health monitoring and recovery",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Automates routine health checks and recovery across devices."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model rollout",
+          "value_id": "Model rollout: Gateway-coordinated staged rollout",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Gateway-dependent coordination couples release progress to a single plant component."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where should inspection and selected-image buffering run?",
+      "drivers": [
+        "R1",
+        "R3",
+        "Q1",
+        "Q2",
+        "C2"
+      ],
+      "context": "Inspection must stay within the line latency limit and continue during week-long network interruptions on computers that cannot be replaced. Selected images also need durable local retention until upload can resume.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Line-local inference and queues",
+          "values": [
+            "Inference: Edge accelerator",
+            "Image buffer: Line-local bounded queue"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 7,
+          "pros": [
+            "Avoids network dependence in the inspection path.",
+            "Uses installed hardware and retains images through outages."
+          ],
+          "cons": [
+            "Each line device must be monitored and have sufficient bounded storage."
+          ],
+          "reason": "A1 minimizes additional infrastructure while meeting local inspection and store-forward needs."
+        },
+        {
+          "id": "O2",
+          "name": "Line inference with plant spool",
+          "values": [
+            "Inference: Edge accelerator",
+            "Image buffer: Plant gateway spool"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1",
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Preserves local inference and centralizes outage buffering at the plant."
+          ],
+          "cons": [
+            "Adds gateway cost and a plant-level component to operate."
+          ],
+          "reason": "B1 and D1 use the gateway as a shared buffer while keeping classification on the line."
+        },
+        {
+          "id": "O3",
+          "name": "Central cloud inference",
+          "values": [
+            "Inference: Cloud service",
+            "Image buffer: Cloud streaming queue"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Centralizes inference services and image ingestion."
+          ],
+          "cons": [
+            "Inspection and image capture fail during plant outages, and network latency cannot assure the line target."
+          ],
+          "reason": "This fails the stressed availability and latency requirements."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How should weekly model releases reach lines and support recovery?",
+      "drivers": [
+        "R2",
+        "Q3",
+        "C1"
+      ],
+      "context": "A weekly release must reach every connected line promptly, while an operator needs to restore the previous version quickly without the ML team. Fleet coordination must fit the small operations team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Central staged fleet rollout with local rollback",
+          "values": [
+            "Model rollout: Central staged fleet rollout",
+            "Rollback: Operator local version switch"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "Central tracking supports fleet coverage and sequencing.",
+            "Local version selection permits operator rollback."
+          ],
+          "cons": [
+            "Many individual edge devices remain in the fleet to support."
+          ],
+          "reason": "A1 and E1 keep rollout coordination central while preserving autonomous line recovery."
+        },
+        {
+          "id": "O2",
+          "name": "Immutable cached release and local activation",
+          "values": [
+            "Model rollout: Immutable release with gateway cache",
+            "Rollback: Operator local version switch"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Repeatable artifacts remain available during network interruptions.",
+            "Operators can activate a prior cached release."
+          ],
+          "cons": [
+            "Cache capacity and gateway maintenance add cost and care."
+          ],
+          "reason": "D1 favors stable artifacts and local release control."
+        },
+        {
+          "id": "O3",
+          "name": "Gateway-coordinated rollout",
+          "values": [
+            "Model rollout: Gateway-coordinated staged rollout",
+            "Rollback: Operator local version switch"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Coordinates lines by plant."
+          ],
+          "cons": [
+            "A gateway failure can block the plant release and image-forwarding path during an outage."
+          ],
+          "reason": "The evaluated single-coordinator design exposes the outage path to one plant-level dependency."
+        },
+        {
+          "id": "O4",
+          "name": "Direct device pulls",
+          "values": [
+            "Model rollout: Device-initiated direct pull"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Simple distribution without a plant coordination service."
+          ],
+          "cons": [
+            "Provides less confidence in tracked fleet completion and rapid rollback."
+          ],
+          "reason": "Central staging provides clearer fleet coverage."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Where and how should weekly training and model packaging run?",
+      "drivers": [
+        "R2",
+        "Q1",
+        "Q4",
+        "C1",
+        "C2"
+      ],
+      "context": "The system needs a weekly model trained from newly labelled images and a package that runs on fixed ARM accelerator hardware. Training and validation must fit the infrastructure cap and a small on-call-free team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Central weekly training with validated compact package",
+          "values": [
+            "Training: Central weekly training",
+            "Model package: Hardware-validated compact package"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 8,
+          "pros": [
+            "One weekly training workflow checks packages against installed hardware."
+          ],
+          "cons": [
+            "The central pipeline still needs routine ownership."
+          ],
+          "reason": "D1 pairs central retraining with explicit accelerator validation."
+        },
+        {
+          "id": "O2",
+          "name": "Central weekly training for staged edge releases",
+          "values": [
+            "Training: Central weekly training"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "E1"
+          ],
+          "step": 12,
+          "pros": [
+            "One central weekly workflow avoids duplicated training infrastructure."
+          ],
+          "cons": [
+            "Hardware compatibility must be handled in the release workflow."
+          ],
+          "reason": "A1 and E1 retain central training while deploying to the existing edge hardware."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "How should routine fleet health work be handled?",
+      "drivers": [
+        "C1",
+        "Q3"
+      ],
+      "context": "A three-person team cannot continuously watch every line or rely on support outside working hours. Routine device, gateway, and release health needs to be visible and recoverable without repeated manual intervention, while operators retain control of line rollback.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Automated health monitoring and recovery",
+          "values": [
+            "Fleet operations: Automated health monitoring and recovery"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1",
+            "E1"
+          ],
+          "step": 10,
+          "pros": [
+            "Reduces routine manual checks across the fleet.",
+            "Supports recovery within the small team’s staffed operating model."
+          ],
+          "cons": [
+            "Automation needs initial configuration and monitoring for false alerts or failed recovery."
+          ],
+          "reason": "All alternatives need routine health visibility and recovery to remain operable by the stated team."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

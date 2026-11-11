@@ -1,0 +1,986 @@
+{
+ "taxonomy_name": "toy-git-hosting",
+ "run_metrics": {},
+ "selected_clusters": [
+  {
+   "id": "1",
+   "name": "Source of truth for repository state",
+   "description": "Where the authoritative copy of each repository's objects and references lives.",
+   "relations": [],
+   "values": [
+    {
+     "id": "1.1",
+     "dimension_id": "1",
+     "label": "Repository files on server disks",
+     "description": "Plain Git repositories on the servers' local disks are the authoritative state.",
+     "supporting_doc_ids": [
+      "s01_p04",
+      "s01_p05",
+      "s01_p02",
+      "s01_p07",
+      "s02_p01",
+      "s02_p02"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s01_p04",
+       "s01_p05",
+       "s01_p02",
+       "s01_p07",
+       "s02_p01",
+       "s02_p02"
+      ]
+     }
+    },
+    {
+     "id": "1.2",
+     "dimension_id": "1",
+     "label": "Write-ahead log in object storage",
+     "description": "An append-only log in object storage is the authority; repositories on disk are derived from it.",
+     "supporting_doc_ids": [
+      "s01_p09",
+      "s01_p10",
+      "s01_p11",
+      "s01_p12",
+      "s01_p14",
+      "s01_p15"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s01_p09",
+       "s01_p10",
+       "s01_p11",
+       "s01_p12",
+       "s01_p14",
+       "s01_p15"
+      ]
+     }
+    },
+    {
+     "id": "1.3",
+     "dimension_id": "1",
+     "label": "Objects in a distributed hash table",
+     "description": "Git objects are stored individually in a distributed key-value store.",
+     "supporting_doc_ids": [
+      "s01_p03",
+      "s01_p09"
+     ],
+     "merged_from": [],
+     "status": "mixed",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s01_p03",
+       "s01_p09"
+      ],
+      "rejected": [
+       "s01_p03"
+      ]
+     }
+    },
+    {
+     "id": "1.4",
+     "dimension_id": "1",
+     "label": "Blobs plus a relational reference database",
+     "description": "Pack data in blob storage and references in a relational database, two stores to keep consistent.",
+     "supporting_doc_ids": [
+      "s01_p15"
+     ],
+     "merged_from": [],
+     "status": "rejected",
+     "evidence_code_count": 1,
+     "stances": {
+      "rejected": [
+       "s01_p15"
+      ]
+     }
+    }
+   ],
+   "evidence": {
+    "codes": 5,
+    "documents": 13,
+    "sources": 2
+   }
+  },
+  {
+   "id": "2",
+   "name": "Replication for durability",
+   "description": "How copies of a repository are kept so that a lost machine loses no data.",
+   "relations": [
+    {
+     "target_id": "1",
+     "type": "requires",
+     "reading": "Choices on Replication for durability require a decision on Source of truth for repository state",
+     "rationale": "What must be replicated, and where, follows from where the authoritative state lives."
+    },
+    {
+     "target_id": "5",
+     "type": "constrains",
+     "reading": "Choices on Replication for durability limit the options on Serving reads",
+     "rationale": "Serving from the nearest replica needs replicas; a single copy leaves one place to read from."
+    }
+   ],
+   "values": [
+    {
+     "id": "2.1",
+     "dimension_id": "2",
+     "label": "Block-level filesystem replication",
+     "description": "The filesystem under Git is replicated block by block between paired machines.",
+     "supporting_doc_ids": [
+      "s01_p05",
+      "s02_p01",
+      "s02_p02"
+     ],
+     "merged_from": [],
+     "status": "rejected",
+     "evidence_code_count": 1,
+     "stances": {
+      "rejected": [
+       "s01_p05",
+       "s02_p01",
+       "s02_p02"
+      ]
+     }
+    },
+    {
+     "id": "2.2",
+     "dimension_id": "2",
+     "label": "Three Git replicas with majority writes",
+     "description": "Each repository has three plain Git replicas; a write succeeds once a majority has it.",
+     "supporting_doc_ids": [
+      "s02_p01",
+      "s03_p01",
+      "s03_p02",
+      "s03_p05",
+      "s03_p06",
+      "s03_p09",
+      "s01_p08",
+      "s03_p03"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s02_p01",
+       "s03_p01",
+       "s03_p02",
+       "s03_p05",
+       "s03_p06",
+       "s03_p09",
+       "s01_p08",
+       "s03_p03"
+      ]
+     }
+    },
+    {
+     "id": "2.3",
+     "dimension_id": "2",
+     "label": "Durability delegated to object storage",
+     "description": "The object store holding the log keeps the data durable; servers hold no unique data.",
+     "supporting_doc_ids": [
+      "s01_p10",
+      "s01_p11",
+      "s01_p12",
+      "s01_p14"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s01_p10",
+       "s01_p11",
+       "s01_p12",
+       "s01_p14"
+      ]
+     }
+    },
+    {
+     "id": "2.4",
+     "dimension_id": "2",
+     "label": "Single copy on a file server",
+     "description": "One file server holds each repository, reached by RPC, with no replica.",
+     "supporting_doc_ids": [
+      "s01_p05"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s01_p05"
+      ]
+     }
+    }
+   ],
+   "evidence": {
+    "codes": 7,
+    "documents": 14,
+    "sources": 3
+   }
+  },
+  {
+   "id": "3",
+   "name": "Reference update coordination",
+   "description": "How concurrent updates to a repository's references are ordered and made atomic.",
+   "relations": [
+    {
+     "target_id": "1",
+     "type": "requires",
+     "reading": "Choices on Reference update coordination require a decision on Source of truth for repository state",
+     "rationale": "Updates are ordered by whatever holds the authoritative references."
+    }
+   ],
+   "values": [
+    {
+     "id": "3.1",
+     "dimension_id": "3",
+     "label": "Three-phase commit across replicas",
+     "description": "Reference updates run as a transaction that all replicas vote on.",
+     "supporting_doc_ids": [
+      "s01_p07",
+      "s01_p08",
+      "s02_p03",
+      "s02_p04"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s01_p07",
+       "s01_p08",
+       "s02_p03",
+       "s02_p04"
+      ]
+     }
+    },
+    {
+     "id": "3.2",
+     "dimension_id": "3",
+     "label": "Compare-and-swap on the log",
+     "description": "Writers append to the log with a compare-and-swap, without a consensus protocol.",
+     "supporting_doc_ids": [
+      "s01_p10",
+      "s01_p11"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s01_p10",
+       "s01_p11"
+      ]
+     }
+    },
+    {
+     "id": "3.3",
+     "dimension_id": "3",
+     "label": "One server serializes the updates",
+     "description": "The single file server holding the repository applies updates one at a time.",
+     "supporting_doc_ids": [
+      "s01_p05"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s01_p05"
+      ]
+     }
+    }
+   ],
+   "evidence": {
+    "codes": 3,
+    "documents": 7,
+    "sources": 2
+   }
+  },
+  {
+   "id": "4",
+   "name": "Client data transfer",
+   "description": "What a developer's machine downloads to work on a repository.",
+   "relations": [
+    {
+     "target_id": "5",
+     "type": "constrains",
+     "reading": "Choices on Client data transfer limit the options on Serving reads",
+     "rationale": "On-demand object downloads put every file open on the network, which cache servers near the clients absorb."
+    }
+   ],
+   "values": [
+    {
+     "id": "4.1",
+     "dimension_id": "4",
+     "label": "Full clone over the Git protocol",
+     "description": "The client fetches the whole history with standard Git.",
+     "supporting_doc_ids": [
+      "s01_p03",
+      "s01_p06",
+      "s01_p10",
+      "s05_p03"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s01_p03",
+       "s01_p06",
+       "s01_p10",
+       "s05_p03"
+      ]
+     }
+    },
+    {
+     "id": "4.2",
+     "dimension_id": "4",
+     "label": "Partial clone with sparse checkout",
+     "description": "The client fetches only the history and files it needs, with standard Git features.",
+     "supporting_doc_ids": [
+      "s04_p01",
+      "s04_p02",
+      "s05_p01",
+      "s05_p04",
+      "s05_p06",
+      "s05_p08",
+      "s05_p15"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s04_p01",
+       "s04_p02",
+       "s05_p01",
+       "s05_p04",
+       "s05_p06",
+       "s05_p08",
+       "s05_p15"
+      ]
+     }
+    },
+    {
+     "id": "4.3",
+     "dimension_id": "4",
+     "label": "Virtualized filesystem with on-demand objects",
+     "description": "A virtual filesystem shows every file and downloads objects only when a file is opened.",
+     "supporting_doc_ids": [
+      "s05_p01",
+      "s05_p06",
+      "s05_p15",
+      "s05_p03",
+      "s05_p08",
+      "s01_p03"
+     ],
+     "merged_from": [],
+     "status": "mixed",
+     "evidence_code_count": 3,
+     "stances": {
+      "accepted": [
+       "s05_p01",
+       "s05_p06",
+       "s05_p03",
+       "s05_p08",
+       "s01_p03"
+      ],
+      "rejected": [
+       "s05_p15"
+      ]
+     }
+    }
+   ],
+   "evidence": {
+    "codes": 6,
+    "documents": 11,
+    "sources": 3
+   }
+  },
+  {
+   "id": "5",
+   "name": "Serving reads",
+   "description": "Where read traffic (fetches, clones, CI checkouts) is served from.",
+   "relations": [],
+   "values": [
+    {
+     "id": "5.1",
+     "dimension_id": "5",
+     "label": "Nearest up-to-date replica",
+     "description": "Reads go to the closest replica that has the latest state.",
+     "supporting_doc_ids": [
+      "s02_p06",
+      "s03_p04",
+      "s01_p07",
+      "s02_p01"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s02_p06",
+       "s03_p04",
+       "s01_p07",
+       "s02_p01"
+      ]
+     }
+    },
+    {
+     "id": "5.2",
+     "dimension_id": "5",
+     "label": "Cache servers near the clients",
+     "description": "Cache servers in each office or region serve objects and forward misses to the origin.",
+     "supporting_doc_ids": [
+      "s05_p03",
+      "s05_p08"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 1,
+     "stances": {
+      "accepted": [
+       "s05_p03",
+       "s05_p08"
+      ]
+     }
+    },
+    {
+     "id": "5.3",
+     "dimension_id": "5",
+     "label": "Stateless servers with a local disk cache",
+     "description": "Any server can serve any repository, rebuilding a warm copy on its local disk from the log.",
+     "supporting_doc_ids": [
+      "s01_p02",
+      "s01_p11",
+      "s01_p07",
+      "s01_p13",
+      "s05_p08"
+     ],
+     "merged_from": [],
+     "status": "accepted",
+     "evidence_code_count": 2,
+     "stances": {
+      "accepted": [
+       "s01_p02",
+       "s01_p11",
+       "s01_p07",
+       "s01_p13",
+       "s05_p08"
+      ]
+     }
+    }
+   ],
+   "evidence": {
+    "codes": 5,
+    "documents": 9,
+    "sources": 4
+   }
+  }
+ ],
+ "dropped_dimensions": [],
+ "evaluation": {},
+ "iterations": [
+  {
+   "explanation": "Git hosting at scale (toy)",
+   "clusters": [
+    {
+     "id": "1",
+     "name": "Source of truth for repository state",
+     "description": "Where the authoritative copy of each repository's objects and references lives.",
+     "relations": [],
+     "values": [
+      {
+       "id": "1.1",
+       "dimension_id": "1",
+       "label": "Repository files on server disks",
+       "description": "Plain Git repositories on the servers' local disks are the authoritative state.",
+       "supporting_doc_ids": [
+        "s01_p04",
+        "s01_p05",
+        "s01_p02",
+        "s01_p07",
+        "s02_p01",
+        "s02_p02"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s01_p04",
+         "s01_p05",
+         "s01_p02",
+         "s01_p07",
+         "s02_p01",
+         "s02_p02"
+        ]
+       }
+      },
+      {
+       "id": "1.2",
+       "dimension_id": "1",
+       "label": "Write-ahead log in object storage",
+       "description": "An append-only log in object storage is the authority; repositories on disk are derived from it.",
+       "supporting_doc_ids": [
+        "s01_p09",
+        "s01_p10",
+        "s01_p11",
+        "s01_p12",
+        "s01_p14",
+        "s01_p15"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s01_p09",
+         "s01_p10",
+         "s01_p11",
+         "s01_p12",
+         "s01_p14",
+         "s01_p15"
+        ]
+       }
+      },
+      {
+       "id": "1.3",
+       "dimension_id": "1",
+       "label": "Objects in a distributed hash table",
+       "description": "Git objects are stored individually in a distributed key-value store.",
+       "supporting_doc_ids": [
+        "s01_p03",
+        "s01_p09"
+       ],
+       "merged_from": [],
+       "status": "mixed",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s01_p03",
+         "s01_p09"
+        ],
+        "rejected": [
+         "s01_p03"
+        ]
+       }
+      },
+      {
+       "id": "1.4",
+       "dimension_id": "1",
+       "label": "Blobs plus a relational reference database",
+       "description": "Pack data in blob storage and references in a relational database, two stores to keep consistent.",
+       "supporting_doc_ids": [
+        "s01_p15"
+       ],
+       "merged_from": [],
+       "status": "rejected",
+       "evidence_code_count": 1,
+       "stances": {
+        "rejected": [
+         "s01_p15"
+        ]
+       }
+      }
+     ],
+     "evidence": {
+      "codes": 5,
+      "documents": 13,
+      "sources": 2
+     }
+    },
+    {
+     "id": "2",
+     "name": "Replication for durability",
+     "description": "How copies of a repository are kept so that a lost machine loses no data.",
+     "relations": [
+      {
+       "target_id": "1",
+       "type": "requires",
+       "reading": "Choices on Replication for durability require a decision on Source of truth for repository state",
+       "rationale": "What must be replicated, and where, follows from where the authoritative state lives."
+      },
+      {
+       "target_id": "5",
+       "type": "constrains",
+       "reading": "Choices on Replication for durability limit the options on Serving reads",
+       "rationale": "Serving from the nearest replica needs replicas; a single copy leaves one place to read from."
+      }
+     ],
+     "values": [
+      {
+       "id": "2.1",
+       "dimension_id": "2",
+       "label": "Block-level filesystem replication",
+       "description": "The filesystem under Git is replicated block by block between paired machines.",
+       "supporting_doc_ids": [
+        "s01_p05",
+        "s02_p01",
+        "s02_p02"
+       ],
+       "merged_from": [],
+       "status": "rejected",
+       "evidence_code_count": 1,
+       "stances": {
+        "rejected": [
+         "s01_p05",
+         "s02_p01",
+         "s02_p02"
+        ]
+       }
+      },
+      {
+       "id": "2.2",
+       "dimension_id": "2",
+       "label": "Three Git replicas with majority writes",
+       "description": "Each repository has three plain Git replicas; a write succeeds once a majority has it.",
+       "supporting_doc_ids": [
+        "s02_p01",
+        "s03_p01",
+        "s03_p02",
+        "s03_p05",
+        "s03_p06",
+        "s03_p09",
+        "s01_p08",
+        "s03_p03"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s02_p01",
+         "s03_p01",
+         "s03_p02",
+         "s03_p05",
+         "s03_p06",
+         "s03_p09",
+         "s01_p08",
+         "s03_p03"
+        ]
+       }
+      },
+      {
+       "id": "2.3",
+       "dimension_id": "2",
+       "label": "Durability delegated to object storage",
+       "description": "The object store holding the log keeps the data durable; servers hold no unique data.",
+       "supporting_doc_ids": [
+        "s01_p10",
+        "s01_p11",
+        "s01_p12",
+        "s01_p14"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s01_p10",
+         "s01_p11",
+         "s01_p12",
+         "s01_p14"
+        ]
+       }
+      },
+      {
+       "id": "2.4",
+       "dimension_id": "2",
+       "label": "Single copy on a file server",
+       "description": "One file server holds each repository, reached by RPC, with no replica.",
+       "supporting_doc_ids": [
+        "s01_p05"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s01_p05"
+        ]
+       }
+      }
+     ],
+     "evidence": {
+      "codes": 7,
+      "documents": 14,
+      "sources": 3
+     }
+    },
+    {
+     "id": "3",
+     "name": "Reference update coordination",
+     "description": "How concurrent updates to a repository's references are ordered and made atomic.",
+     "relations": [
+      {
+       "target_id": "1",
+       "type": "requires",
+       "reading": "Choices on Reference update coordination require a decision on Source of truth for repository state",
+       "rationale": "Updates are ordered by whatever holds the authoritative references."
+      }
+     ],
+     "values": [
+      {
+       "id": "3.1",
+       "dimension_id": "3",
+       "label": "Three-phase commit across replicas",
+       "description": "Reference updates run as a transaction that all replicas vote on.",
+       "supporting_doc_ids": [
+        "s01_p07",
+        "s01_p08",
+        "s02_p03",
+        "s02_p04"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s01_p07",
+         "s01_p08",
+         "s02_p03",
+         "s02_p04"
+        ]
+       }
+      },
+      {
+       "id": "3.2",
+       "dimension_id": "3",
+       "label": "Compare-and-swap on the log",
+       "description": "Writers append to the log with a compare-and-swap, without a consensus protocol.",
+       "supporting_doc_ids": [
+        "s01_p10",
+        "s01_p11"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s01_p10",
+         "s01_p11"
+        ]
+       }
+      },
+      {
+       "id": "3.3",
+       "dimension_id": "3",
+       "label": "One server serializes the updates",
+       "description": "The single file server holding the repository applies updates one at a time.",
+       "supporting_doc_ids": [
+        "s01_p05"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s01_p05"
+        ]
+       }
+      }
+     ],
+     "evidence": {
+      "codes": 3,
+      "documents": 7,
+      "sources": 2
+     }
+    },
+    {
+     "id": "4",
+     "name": "Client data transfer",
+     "description": "What a developer's machine downloads to work on a repository.",
+     "relations": [
+      {
+       "target_id": "5",
+       "type": "constrains",
+       "reading": "Choices on Client data transfer limit the options on Serving reads",
+       "rationale": "On-demand object downloads put every file open on the network, which cache servers near the clients absorb."
+      }
+     ],
+     "values": [
+      {
+       "id": "4.1",
+       "dimension_id": "4",
+       "label": "Full clone over the Git protocol",
+       "description": "The client fetches the whole history with standard Git.",
+       "supporting_doc_ids": [
+        "s01_p03",
+        "s01_p06",
+        "s01_p10",
+        "s05_p03"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s01_p03",
+         "s01_p06",
+         "s01_p10",
+         "s05_p03"
+        ]
+       }
+      },
+      {
+       "id": "4.2",
+       "dimension_id": "4",
+       "label": "Partial clone with sparse checkout",
+       "description": "The client fetches only the history and files it needs, with standard Git features.",
+       "supporting_doc_ids": [
+        "s04_p01",
+        "s04_p02",
+        "s05_p01",
+        "s05_p04",
+        "s05_p06",
+        "s05_p08",
+        "s05_p15"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s04_p01",
+         "s04_p02",
+         "s05_p01",
+         "s05_p04",
+         "s05_p06",
+         "s05_p08",
+         "s05_p15"
+        ]
+       }
+      },
+      {
+       "id": "4.3",
+       "dimension_id": "4",
+       "label": "Virtualized filesystem with on-demand objects",
+       "description": "A virtual filesystem shows every file and downloads objects only when a file is opened.",
+       "supporting_doc_ids": [
+        "s05_p01",
+        "s05_p06",
+        "s05_p15",
+        "s05_p03",
+        "s05_p08",
+        "s01_p03"
+       ],
+       "merged_from": [],
+       "status": "mixed",
+       "evidence_code_count": 3,
+       "stances": {
+        "accepted": [
+         "s05_p01",
+         "s05_p06",
+         "s05_p03",
+         "s05_p08",
+         "s01_p03"
+        ],
+        "rejected": [
+         "s05_p15"
+        ]
+       }
+      }
+     ],
+     "evidence": {
+      "codes": 6,
+      "documents": 11,
+      "sources": 3
+     }
+    },
+    {
+     "id": "5",
+     "name": "Serving reads",
+     "description": "Where read traffic (fetches, clones, CI checkouts) is served from.",
+     "relations": [],
+     "values": [
+      {
+       "id": "5.1",
+       "dimension_id": "5",
+       "label": "Nearest up-to-date replica",
+       "description": "Reads go to the closest replica that has the latest state.",
+       "supporting_doc_ids": [
+        "s02_p06",
+        "s03_p04",
+        "s01_p07",
+        "s02_p01"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s02_p06",
+         "s03_p04",
+         "s01_p07",
+         "s02_p01"
+        ]
+       }
+      },
+      {
+       "id": "5.2",
+       "dimension_id": "5",
+       "label": "Cache servers near the clients",
+       "description": "Cache servers in each office or region serve objects and forward misses to the origin.",
+       "supporting_doc_ids": [
+        "s05_p03",
+        "s05_p08"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 1,
+       "stances": {
+        "accepted": [
+         "s05_p03",
+         "s05_p08"
+        ]
+       }
+      },
+      {
+       "id": "5.3",
+       "dimension_id": "5",
+       "label": "Stateless servers with a local disk cache",
+       "description": "Any server can serve any repository, rebuilding a warm copy on its local disk from the log.",
+       "supporting_doc_ids": [
+        "s01_p02",
+        "s01_p11",
+        "s01_p07",
+        "s01_p13",
+        "s05_p08"
+       ],
+       "merged_from": [],
+       "status": "accepted",
+       "evidence_code_count": 2,
+       "stances": {
+        "accepted": [
+         "s01_p02",
+         "s01_p11",
+         "s01_p07",
+         "s01_p13",
+         "s05_p08"
+        ]
+       }
+      }
+     ],
+     "evidence": {
+      "codes": 5,
+      "documents": 9,
+      "sources": 4
+     }
+    }
+   ]
+  }
+ ],
+ "provenance": {
+  "kind": "curated"
+ }
+}

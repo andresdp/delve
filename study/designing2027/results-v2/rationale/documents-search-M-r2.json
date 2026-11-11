@@ -1,0 +1,1464 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "documents-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-m",
+    "run": "20261016_233651",
+    "graph_sha256": "b9d0c92f2b66baa93c7ba663c1c65baa9d364a7570f8c925b4c22b296d8e5297"
+  },
+  "problem": {
+    "title": "Large-scale document classification",
+    "context": "An insurer receives two to eight million scanned forms, e-mails, and PDFs daily, with storm-season volume reaching four times normal. An LLM classifier assigns one of 60 claim types. Claims handling, fraud investigation, and analytics consume results. Documents contain personal data.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Classify every incoming document into a claim type, with a confidence."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Deliver the results to the three consuming teams."
+      },
+      {
+        "id": "R3",
+        "kind": "functional",
+        "text": "Send the documents the classifier is unsure about to human review, and use the reviewers' corrections to improve the classifier."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "throughput and scalability",
+        "text": "During storm season, at eight million documents a day, every document is classified within two hours of arrival.",
+        "constraining": true
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "observability",
+        "text": "When classification quality drops for one claim type (for example, after a form changes its layout), operators see it within one day.",
+        "constraining": true
+      },
+      {
+        "id": "Q3",
+        "kind": "quality",
+        "attribute": "cost",
+        "text": "The classification costs less than 0.2 cents per document on average over the year."
+      },
+      {
+        "id": "Q4",
+        "kind": "quality",
+        "attribute": "loose coupling",
+        "text": "A consuming team can change how it processes the results without the other teams or the classifier having to change."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "The documents contain personal data and may not leave the EU."
+      },
+      {
+        "id": "C2",
+        "kind": "constraint",
+        "text": "The classifier uses an LLM from the insurer's approved provider, in its EU region."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:25.2",
+        "v:29.1",
+        "v:6.2",
+        "v:42.3"
+      ],
+      "description": "REST requests enter a queue-fronted cluster of containerized predictors, with asynchronous messaging decoupling request handling and elastic resources scaling capacity with demand. Feature-drift monitoring watches inputs and feature pipelines, while privacy- and policy-validation governs their preparation and use. Trade-off: This gains scalable throughput, resilience, and compliance visibility, but queues and autoscaling add operational complexity and can introduce waiting or variable latency. Validation and monitoring also add processing overhead and may constrain usable data.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:31.3",
+        "v:26.7",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "description": "The system validates and protects data, trains the model incrementally as new data arrives, and uses large-scale infrastructure for processing. Scheduled jobs score data and persist results to storage or analytics systems, while a REST microservice exposes predictions and human reviewers oversee production behavior. Trade-off: This combines scalable processing, governed data, continual adaptation, and application integration, but scheduled outputs may be less fresh than continuously served predictions. Human oversight improves control but adds review effort and prevents fully automated operation.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "description": "Solution: A REST prediction microservice runs as a serverless function, scaling to zero between requests while serving predictions on demand. Privacy- and policy-validated data supports incremental online training, with human oversight reviewing production behavior and interventions. Trade-off: This combines elastic cost control, continuously refreshed models, governed data use, and human accountability, but scale-to-zero can introduce startup latency and online updates require ongoing operational review. Human oversight also adds process effort and may slow responses to detected issues.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:25.2",
+        "v:29.1",
+        "v:6.2",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "description": "Containerized predictors form an elastic cluster behind a queue, expose REST endpoints, and use asynchronous messages to absorb and distribute requests. Models update incrementally as new data arrives, while feature/input drift monitoring and privacy- and policy-validated data pipelines support governed operation. Trade-off: This provides scalable throughput, decoupling, fresher models, and earlier detection of changing inputs. It sacrifices simplicity and predictability: queues, elastic scaling, online updates, drift handling, and compliance checks add operational complexity, latency variability, and risk of unstable adaptation.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "description": "1. The system uses elastic compute to run scheduled batch scoring, stores predictions for analytics or downstream use, and exposes them through a REST microservice. Privacy-validated data supports the pipeline, while human reviewers oversee production results and label new examples for improvement. 2. Trade-off: This gains scalable, governed, and reviewable operation, but gives up real-time freshness and may add latency. It also incurs human labeling and oversight effort, plus the complexity of coordinating batch outputs with an API interface.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:31.2",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "description": "Solution: Predictions run in serverless functions behind a REST microservice, with elastic resources scaling execution to demand. Privacy- and policy-validated data feeds incremental online training, while human reviewers oversee deployed predictions and intervene when needed. Trade-off: This combines operational elasticity and integration simplicity with continual adaptation and governance, but serverless execution and online updates can complicate state management, reproducibility, and debugging. Human review adds operational effort, while privacy and policy checks may reduce usable data or feature flexibility.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:31.3",
+        "v:26.7",
+        "v:29.1",
+        "v:6.1",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "description": "The system processes very large datasets, validates privacy and policy compliance, and incrementally updates models as new data arrives. On a schedule, it scores data, stores results in analytics or storage systems, and exposes prediction functionality through a REST microservice while continuously monitoring quality when labels are available. Trade-off: This combines scalable batch economics, governed data, ongoing adaptation, and observable quality, but sacrifices consistently fresh, low-latency predictions because scheduled scoring can lag new inputs. Online updating and real-time monitoring also increase operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:25.2",
+        "v:29.1",
+        "v:6.2",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "description": "The system exposes containerized predictors through a REST microservice, with requests distributed via queues and asynchronous messaging across an elastically scaled serving cluster. It monitors feature inputs and drift, while human-reviewed labels and privacy- and policy-validated data support controlled model improvement and governance. Trade-off: This combination improves throughput, responsiveness, scalability, observability, and data trust, but adds queueing and messaging complexity, operational coordination, labeling effort, and monitoring overhead; asynchronous processing may also complicate immediate response handling.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:31.3",
+        "v:26.7",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "description": "1. A policy-validated, privacy-protected data pipeline uses expert-reviewed labels to train a model incrementally as new data arrives. Large-scale infrastructure supports both scheduled batch scoring to storage or analytics systems and a REST prediction service, while people review deployed predictions and guide corrective updates. 2. Trade-off: This gains scalable processing, governed data use, adaptable models, and human quality control. It gives up operational simplicity through ongoing labeling, oversight, online-training management, and potentially stale batch outputs between scheduled runs.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "description": "1. The system exposes predictions through a REST microservice deployed as serverless functions that scale to zero when idle. Privacy- and policy-validated data is labeled with expert review, supports incremental online training, and is monitored with human oversight for operational or quality issues. 2. Trade-off: This reduces idle infrastructure cost and supports fresh, continually improved models, but scale-to-zero can introduce startup latency and complicate persistence of incremental-learning state. Human review and controlled labeling improve trust and compliance at the cost of labor and slower adaptation.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "description": "The system incrementally updates models as new data arrives, with privacy- and policy-validated pipelines governing training data and access. At scheduled times, it elastically allocates compute to score the current model in batch, persists results to storage or analytics systems, and exposes prediction functionality through a REST microservice while continuously monitoring quality when labels become available. Trade-off: This provides governed data handling, adaptive models, and demand-responsive resources, but scheduled results may become stale between runs. Online training, quality monitoring, and elastic scaling add operational complexity and potentially higher costs, while batch persistence favors throughput and analytics over consistently fresh, low-latency predictions.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if queue-fronted asynchronous serving and elastic capacity absorb the seasonal peak while drift monitoring catches changed forms?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if large scheduled batches do the heavy classification work and people label uncertain cases to improve the model?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if serverless serving scales to zero between peaks to control annual cost while human oversight supports safe adaptation?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if batch processing is paired with continuous quality monitoring and incremental updates to foreground drift detection?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:25.2",
+        "v:29.1",
+        "v:6.2",
+        "v:42.3"
+      ],
+      "hypothesis": "Queue-fronted serving with elastic resources should partly meet Q1, while asynchronous communication and a REST endpoint should support R2 and Q4. Drift monitoring should partly meet Q2; privacy validation is relevant to C1 but does not establish EU residency.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "misses",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.1",
+            "v:26.6",
+            "v:25.2"
+          ],
+          "gains": [
+            "R2",
+            "Q1",
+            "Q4"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Queues and elastic capacity help absorb peaks and decouple teams, but always-ready peak capacity and queue operations can raise annual cost."
+        }
+      ],
+      "observation": "The point gives the clearest volume and drift-monitoring strategy so far, but does not include an explicit uncertain-case review and correction path. No source attests this complete combination. The space supplies no performance figures to verify the two-hour target or per-document price.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.3",
+        "v:26.7",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "hypothesis": "Large-scale scheduled scoring should address bulk volume and team delivery. Human oversight plus incremental updates should partly address review and corrections, while privacy validation supports governed processing.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.3",
+            "v:26.7"
+          ],
+          "gains": [
+            "R2",
+            "Q1",
+            "Q3"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Batch capacity suits bulk scoring and can avoid continuous serving cost, but scheduled results and lack of explicit drift monitoring may delay discovery of a changed form."
+        }
+      ],
+      "observation": "This point covers review and adaptation more directly than A, but the space does not establish that scheduled work can finish each document within two hours. No source attests the full combination, and the LLM provider requirement remains outside these choices.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "hypothesis": "Serverless deployment with scale-to-zero should partly address annual cost while offering managed scaling. Human oversight and incremental learning should partly serve R3, although peak latency and throughput need measurement.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.2"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Scale-to-zero reduces idle serving capacity, but cold starts and ramp-up may work against a strict two-hour peak window."
+        }
+      ],
+      "observation": "The cost-focused option is materially different from the always-scaled cluster, but no source attests it and the point has no cost or cold-start figures. The budget also provides no way to verify its quantitative targets.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:25.2",
+        "v:29.1",
+        "v:6.2",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "hypothesis": "Add incremental learning to A so corrections or fresh labeled data can improve the classifier without losing the queue and drift-monitoring advantages.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:28.3"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Incremental updates make new corrections usable sooner, but continual model updates add compute and operational cost."
+        }
+      ],
+      "observation": "The new learning value improves the feedback path, although it does not itself route uncertain documents to reviewers. The result remains an unattested combination; stability and price require workload measurements.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "hypothesis": "Replace generic incremental learning with expert labeling and add elastic resources, making correction capture explicit while preserving batch scoring and human oversight.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:23.1",
+            "v:6.13"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Expert labels and oversight improve correction quality, but review labor adds to operating cost."
+        }
+      ],
+      "observation": "This makes the human feedback loop clearer. It still lacks a specific quality-monitoring value, and the space cannot establish reviewer capacity or batch completion within the target window. No source attests the combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:31.2",
+        "v:26.6",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "hypothesis": "Replace scale-to-zero with elastic resources to retain serverless operational handling while reducing the cold-start risk at peak volume.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.6"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Elastic capacity follows demand and helps peak throughput, but keeping capacity available can weaken scale-to-zero savings."
+        }
+      ],
+      "observation": "The change addresses the main concern in C, but removes its clearest idle-cost mechanism. Latency and price targets remain unproven, and no source attests the combination.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:31.3",
+        "v:26.7",
+        "v:29.1",
+        "v:6.1",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "hypothesis": "Explore batch processing with direct prediction-quality monitoring and incremental updates; this may detect class-specific quality changes while retaining the batch path for volume.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:31.3"
+          ],
+          "gains": [
+            "Q1",
+            "Q3"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Batch scoring can process large volumes economically, but results and labels may arrive too late for immediate quality feedback."
+        }
+      ],
+      "observation": "Quality monitoring addresses observed prediction performance when labels are available, an important qualification for this delayed-feedback classifier. The combination is unattested, and scheduled scoring freshness still needs a measured schedule.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:31.1",
+        "v:26.6",
+        "v:25.2",
+        "v:29.1",
+        "v:6.2",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "hypothesis": "Add expert labeling to the queue-based drift-monitoring design to convert reviewed corrections into reusable labels while retaining peak-oriented serving.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:23.1"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Expert-reviewed labels help train on corrections, but each label consumes reviewer time and adds cost."
+        }
+      ],
+      "observation": "This is the strongest A member: it combines queue-based throughput, drift monitoring, and a labeled correction path. Human labeling is a rough fit for uncertain-document review and does not by itself specify confidence thresholds. No source attests the full point.",
+      "rating": "strong",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:31.3",
+        "v:26.7",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "hypothesis": "Restore explicit incremental updates alongside expert labels, and use large-scale processing capacity to strengthen the scheduled scoring option.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:28.3",
+            "v:23.1"
+          ],
+          "gains": [
+            "R3"
+          ],
+          "costs": [
+            "Q3"
+          ],
+          "note": "Continuous use of labels and incremental updates can improve the model, but both human review and frequent training carry costs."
+        }
+      ],
+      "observation": "This strengthens the correction loop and batch capacity story. Human oversight is not the same as per-class quality monitoring, and no point evidence establishes a two-hour completion time. No source attests this combination.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:31.2",
+        "v:26.2",
+        "v:29.1",
+        "v:6.13",
+        "v:28.3",
+        "v:23.1",
+        "v:42.3"
+      ],
+      "hypothesis": "Restore scale-to-zero savings and add expert labels, keeping serverless handling and the human adaptation path as a cost-led alternative.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.2"
+          ],
+          "gains": [
+            "Q3"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Scale-to-zero cuts idle capacity, but cold starts and capacity ramp-up can threaten rapid peak completion."
+        }
+      ],
+      "observation": "The final C point returns to the cost-oriented value and makes label capture explicit. It remains the least convincing option for a hard peak deadline; price and latency both need provider-specific measurement. No source attests it.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:31.3",
+        "v:26.6",
+        "v:29.1",
+        "v:6.1",
+        "v:28.3",
+        "v:42.3"
+      ],
+      "hypothesis": "Replace static large-scale capacity with elastic resources to preserve monitored batch processing and reduce its cost at lower demand.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "R3": "partly",
+        "Q1": "partly",
+        "Q2": "partly",
+        "Q3": "partly",
+        "Q4": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:26.6"
+          ],
+          "gains": [
+            "Q1",
+            "Q3"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Elastic scaling adjusts batch capacity and may reduce wasted resources, but monitoring only works promptly when ground-truth labels arrive."
+        }
+      ],
+      "observation": "This refines D's operational efficiency while retaining direct quality monitoring. It does not solve label delay or result staleness. The numeric throughput and cost goals remain unproven, and no source attests the combination.",
+      "rating": "strong",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Elastic queue serving",
+      "summary": "Queue-fronted REST predictors scale with demand and watch feature drift, while expert labeling creates a correction path. This best foregrounds storm throughput and loosely coupled consumers, with added queue, monitoring, and review operations.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1"
+          ],
+          "reason": "The queue-fronted cluster serves incoming predictions and targets throughput under bursty volume.",
+          "fit": "approximate",
+          "fit_note": "The space describes serving throughput but does not specify confidence output or prove eight million items finish within two hours.",
+          "evidence": [
+            {
+              "doc": "s02_p11",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic capacity follows changing load and may avoid paying for peak capacity year round.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Elastic resource scaling may reduce idle capacity, but does not establish the less-than-0.2-cent total classification cost."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "Asynchronous messages decouple producers and consumers, helping teams evolve downstream processing independently.",
+          "evidence": [
+            {
+              "doc": "s10_p04",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Asynchronous communication decouples work, but the space does not guarantee that each consuming team can change independently."
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q4"
+          ],
+          "reason": "A REST prediction service provides a stable integration point for the three teams.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "A REST interface supports integration, but it does not define separate consumer contracts or guarantee independent team changes."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Monitoring input and feature changes can surface layout and schema changes before quality problems persist.",
+          "evidence": [
+            {
+              "doc": "s04_p03",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Drift checks can reveal changed inputs, but the value does not guarantee class-specific alerts within one day."
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Expert labeling supplies corrected examples for classifier improvement.",
+          "fit": "approximate",
+          "fit_note": "The value covers expert labeling, but does not specify confidence-based routing or direct correction integration.",
+          "evidence": [
+            {
+              "doc": "s24_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Policy validation helps protect the reviewed personal data used in model improvement.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Scheduled batch scoring may reduce continuous serving overhead, but gives up some freshness."
+        },
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.2",
+          "drivers": [
+            "Q3"
+          ],
+          "reason": "Serverless execution is a possible operating model, but scale-to-zero introduces peak startup concerns."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:25",
+          "target": "d:29",
+          "type": "requires",
+          "holds": true,
+          "note": "The point selects the REST serving interface required by asynchronous runtime communication."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Large-scale reviewed batches",
+      "summary": "Scheduled large-scale scoring delivers persisted results and a REST interface, with human review, expert labels, and incremental learning. This offers a direct correction loop but leaves freshness and timely monitoring less certain.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Scheduled batch scoring writes results to storage or analytics systems for downstream use.",
+          "fit": "approximate",
+          "fit_note": "Batch prediction matches bulk processing, but no schedule or measured capacity establishes the two-hour target or confidence output.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.7",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "The value explicitly targets very large data volumes.",
+          "evidence": [
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Large-scale processing suits volume, but the space does not quantify cost against the per-document ceiling."
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A service endpoint lets consumers integrate with the classifier through a defined interface.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "A REST interface supports integration, but it does not define separate consumer contracts or guarantee independent team changes."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Human oversight makes intervention possible when production predictions are uncertain or problematic.",
+          "fit": "approximate",
+          "fit_note": "It supports review but does not specify class-level monitoring or an alert within one day.",
+          "evidence": [
+            {
+              "doc": "s24_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Incremental updates provide a model adaptation path for newly labeled corrections.",
+          "fit": "approximate",
+          "fit_note": "The value describes online training generally and does not establish that this approved LLM supports incremental updates from corrections.",
+          "evidence": [
+            {
+              "doc": "s09_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Expert review produces labeled examples for improvement.",
+          "fit": "approximate",
+          "fit_note": "The value covers labeling workflows but not the exact confidence-based review policy.",
+          "evidence": [
+            {
+              "doc": "s24_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Privacy and policy validation supports safe handling of review and training data.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic scaling could reduce idle resources, but is less specifically about very large data processing."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "C1",
+      "name": "Serverless cost control",
+      "summary": "Serverless predictions scale to zero between demands, with a REST interface, human oversight, expert labels, and incremental learning. This emphasizes average infrastructure cost but is the riskiest path for a strict peak deadline.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.2",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Serverless functions provide a managed prediction execution path with automated scaling.",
+          "fit": "approximate",
+          "fit_note": "The value provides execution and scaling behavior but not confidence output or a two-hour throughput guarantee.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.2",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Scale-to-zero reduces idle serving expense over low-demand periods.",
+          "fit": "approximate",
+          "fit_note": "Scale-to-zero reduces idle serving expense, but does not establish total per-document classification cost.",
+          "evidence": [
+            {
+              "doc": "s11_p04",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "The REST service exposes predictions to independently integrating consuming teams.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "A REST interface supports integration, but it does not define separate consumer contracts or guarantee independent team changes."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3",
+            "Q2"
+          ],
+          "reason": "Human oversight supports review and intervention in production.",
+          "fit": "approximate",
+          "fit_note": "Human oversight does not itself provide class-specific quality measurement or one-day alerting.",
+          "evidence": [
+            {
+              "doc": "s24_p01",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Incremental updates can incorporate new labeled data.",
+          "fit": "approximate",
+          "fit_note": "The space does not confirm incremental adaptation is supported by the chosen LLM provider or model.",
+          "evidence": [
+            {
+              "doc": "s09_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:23",
+          "value_id": "v:23.1",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Expert label creation turns reviewed examples into training data.",
+          "fit": "approximate",
+          "fit_note": "This does not specify how low-confidence documents are selected for human review.",
+          "evidence": [
+            {
+              "doc": "s24_p08",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Policy checks support safe handling of labeled data.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Elastic resources improve peak readiness, but sacrifice some scale-to-zero savings."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Monitored elastic batches",
+      "summary": "Elastic resources run scheduled scoring with direct prediction-quality monitoring and incremental updates. This foregrounds detection and bulk processing, while scheduled output can lag changing inputs.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:31",
+          "value_id": "v:31.3",
+          "drivers": [
+            "R1",
+            "R2",
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Scheduled batch scoring writes predictions for consuming applications and analytics.",
+          "fit": "approximate",
+          "fit_note": "It does not itself establish confidence output, a two-hour schedule, or independently versioned consumer contracts.",
+          "evidence": [
+            {
+              "doc": "s02_p02",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:26",
+          "value_id": "v:26.6",
+          "drivers": [
+            "Q1",
+            "Q3"
+          ],
+          "reason": "Elastic capacity adjusts to a variable batch workload.",
+          "evidence": [
+            {
+              "doc": "s04_p02",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "Elastic scaling may reduce wasted capacity, but the space does not quantify cost against the per-document ceiling."
+        },
+        {
+          "dimension_id": "d:29",
+          "value_id": "v:29.1",
+          "drivers": [
+            "R2",
+            "Q4"
+          ],
+          "reason": "A service boundary supports integration with separate consuming teams.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "fit": "approximate",
+          "fit_note": "A REST interface supports integration, but it does not define separate consumer contracts or guarantee independent team changes."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Quality monitoring observes prediction performance when labels become available.",
+          "fit": "approximate",
+          "fit_note": "Prediction-quality monitoring depends on labels becoming available and does not guarantee one-day, per-class alerting.",
+          "evidence": [
+            {
+              "doc": "s24_p05",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:28",
+          "value_id": "v:28.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Incremental learning can incorporate corrected labels as new data.",
+          "fit": "approximate",
+          "fit_note": "The value does not specify reviewer routing or compatibility with the required approved LLM.",
+          "evidence": [
+            {
+              "doc": "s09_p03",
+              "stance": "accepts"
+            }
+          ]
+        },
+        {
+          "dimension_id": "d:42",
+          "value_id": "v:42.3",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Privacy and policy validation helps govern training-data use.",
+          "evidence": [
+            {
+              "doc": "s22_p07",
+              "stance": "accepts"
+            }
+          ]
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.13",
+          "drivers": [
+            "R3"
+          ],
+          "reason": "Explicit human oversight supports intervention, but the monitored batch point prioritizes measured quality instead."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Prediction serving and capacity",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q1",
+        "Q3",
+        "Q4"
+      ],
+      "context": "The classifier must process a large, seasonal document stream and make predictions available to three teams. Peak volume and a two-hour deadline favor queued or large-scale processing; annual price favors elastic or scale-to-zero capacity. Serving values do not specify confidence output or prove either numeric target.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Elastic queue serving",
+          "values": [
+            "v:31.1",
+            "v:26.6",
+            "v:25.2",
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Queues and elastic capacity address demand variation.",
+            "Asynchronous messaging and REST provide service boundaries."
+          ],
+          "cons": [
+            "Queue operations add complexity and can add waiting time.",
+            "The per-document cost and deadline need measurement."
+          ],
+          "reason": "Choose when storm throughput and decoupled processing dominate."
+        },
+        {
+          "id": "O2",
+          "name": "Large-scale scheduled scoring",
+          "values": [
+            "v:31.3",
+            "v:26.7",
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Designed for bulk scoring and downstream result storage.",
+            "Avoids requiring continuous online computation for all documents."
+          ],
+          "cons": [
+            "Scheduled output can be stale and completion within two hours is unproven."
+          ],
+          "reason": "Choose when bulk result delivery and large-volume processing are the main concern."
+        },
+        {
+          "id": "O3",
+          "name": "Serverless scale-to-zero",
+          "values": [
+            "v:31.2",
+            "v:26.2",
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Managed scaling and scale-to-zero target idle infrastructure cost."
+          ],
+          "cons": [
+            "Cold starts may threaten peak deadlines and savings do not prove total classification cost."
+          ],
+          "reason": "Choose when idle capacity cost matters most and peak startup behavior can be validated."
+        },
+        {
+          "id": "O4",
+          "name": "Monitored elastic batches",
+          "values": [
+            "v:31.3",
+            "v:26.6",
+            "v:29.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Bulk scoring, demand-responsive capacity, and downstream integration are combined."
+          ],
+          "cons": [
+            "Scheduled results may lag inputs and consumers still need a stable contract."
+          ],
+          "reason": "Choose when scheduled bulk scoring and adjustable capacity are preferred."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Quality feedback and data governance",
+      "drivers": [
+        "R3",
+        "Q2"
+      ],
+      "context": "Uncertain predictions need expert review and corrections need to improve the classifier, while class-specific quality loss should be visible promptly. Human review, labeled examples, incremental updates, drift checks, and prediction-quality monitoring cover parts of this cycle, but the space does not define confidence thresholds or review service levels.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Drift monitoring and expert labels",
+          "values": [
+            "v:6.2",
+            "v:23.1",
+            "v:42.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Drift monitoring targets input and layout changes.",
+            "Expert labels provide corrected examples under policy validation."
+          ],
+          "cons": [
+            "Neither the alert deadline nor automated retraining is specified."
+          ],
+          "reason": "Choose to prioritize early detection of changed inputs and a governed label loop."
+        },
+        {
+          "id": "O2",
+          "name": "Human oversight and incremental learning",
+          "values": [
+            "v:6.13",
+            "v:28.3",
+            "v:23.1",
+            "v:42.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1",
+            "C1"
+          ],
+          "step": 9,
+          "pros": [
+            "Review, expert labels, and model adaptation provide a correction path."
+          ],
+          "cons": [
+            "Human review adds cost and monitoring is not class-specific; incremental LLM updates are unverified."
+          ],
+          "reason": "Choose to foreground human intervention and use of corrected examples."
+        },
+        {
+          "id": "O3",
+          "name": "Prediction-quality monitoring and updates",
+          "values": [
+            "v:6.1",
+            "v:28.3",
+            "v:42.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Direct quality measurement and model updates address degradation when labels arrive."
+          ],
+          "cons": [
+            "Delayed labels can delay detection, and this option lacks an explicit review workflow."
+          ],
+          "reason": "Choose to foreground measured prediction quality across operation."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:42",
+      "note": "The space includes privacy and policy validation, but no alternative guarantees that documents and processing remain within the EU."
+    },
+    {
+      "requirement": "C2",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:33",
+      "note": "Infrastructure strategy covers where workflows run in general but has no option for an approved LLM provider or its EU region."
+    }
+  ]
+}
