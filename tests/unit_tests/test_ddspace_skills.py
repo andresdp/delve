@@ -232,3 +232,20 @@ def test_the_skill_skeleton_passes_the_check(name, space):
         assert rationale.names_space(doc)
     result = rationale.check(doc)
     assert result["ok"], result["problems"]
+
+
+def test_zero_shot_skills_install_outside_a_workspace(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+    from delvedspace import cli
+    monkeypatch.chdir(tmp_path)
+    result = CliRunner().invoke(cli.app, ["agent", "setup", "--skills", "--no-space", "--claude", "--yes"])
+    assert result.exit_code == 0, result.output
+    for folder in (".agents", ".claude"):
+        for name in agent.SKILLS:
+            skill = tmp_path / folder / "skills" / name
+            assert (skill / "SKILL.md").is_file() and not (skill / agent.REFERENCE).exists()
+    rules = json.loads((tmp_path / ".claude" / "settings.json").read_text())["permissions"]["allow"]
+    assert any("point" in r for r in rules) and any("rationale" in r for r in rules)
+    assert not (tmp_path / "AGENTS.md").exists()                     # no space to describe
+    with_space = CliRunner().invoke(cli.app, ["agent", "setup", "--skills", "--yes"])
+    assert with_space.exit_code != 0 and "ddspace.yaml" in with_space.output   # a space needs a workspace

@@ -581,7 +581,17 @@ def agent_setup(
                                              "or a project folder that contains it."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Take the defaults without asking."),
 ) -> None:
-    """Write [bold]AGENTS.md[/bold] (how to query the wiki and cite it) and the files that point agents to it."""
+    """Write [bold]AGENTS.md[/bold] (how to query the wiki and cite it) and the files that point agents to it.
+
+    Outside a workspace, ``--skills --no-space`` installs only the skills, for zero-shot use in any project folder
+    (``--dir``, default: the current folder): the agent names its own decisions and options.
+    """
+    if skills and no_space:
+        try:
+            Workspace.find()
+        except WorkspaceError:
+            _setup_zero_shot((directory or Path.cwd()).resolve(), claude, allow, allow_point, allow_build, yes)
+            return
     ws = current_workspace()
     target = (directory or ws.root).resolve()
     if ws.root != target and target not in ws.root.parents:
@@ -630,6 +640,44 @@ def agent_setup(
     ui.summary("Agent setup done", [("Folder", ui.short_path(target)), ("Agents", tools)],
                text="Open the folder in the agent and ask, for example:\n  [italic]What are the alternatives for "
                     "<a decision>, and which sources support each? Cite passages.[/italic]")
+
+
+def _setup_zero_shot(target: Path, claude: bool, allow: Optional[bool], allow_point: Optional[bool],
+                     allow_build: Optional[bool], yes: bool) -> None:
+    """``agent setup --skills --no-space`` outside a workspace: the skills without a space, and with ``--claude``
+    the permissions for ``ddspace rationale`` and ``ddspace point --no-space``."""
+    ui.header("agent setup", "Search and explain without a design space")
+    if not target.is_dir():
+        fail(f"{target} is not a folder.")
+    install = agent.install_info()
+    done = [f"{action} {path.relative_to(target).as_posix()}"
+            for path, action in agent.install_skills(target, space=False)]
+    if claude:
+        rules: List[str] = []
+        if allow is None:
+            allow = not interactive(yes) or ui.ask_yes(
+                "Let Claude Code run ddspace rationale check and list without a permission prompt?", default=True)
+        if allow:
+            rules += agent.rationale_permissions(install)
+        if allow_point is None:
+            allow_point = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace point --no-space without a prompt? It makes one LLM call per design "
+                "point, to describe it.", default=True)
+        if allow_point:
+            rules += agent.point_permissions(install)
+        if allow_build is None:
+            allow_build = allow if not interactive(yes) else ui.ask_yes(
+                "Also let Claude Code run ddspace rationale build without a prompt? It writes explainer pages "
+                "(no LLM).", default=True)
+        if allow_build:
+            rules += agent.build_permissions(install)
+        if rules:
+            done.append(f"{agent.allow_query(target / '.claude' / 'settings.json', rules)} .claude/settings.json")
+    for line in done:
+        ui.ok(line)
+    ui.summary("Agent setup done", [("Folder", ui.short_path(target)), ("Space", "none (zero-shot)")],
+               text="Put the problem in PROBLEM.md (and, to explain a solution, SOLUTION.md), then ask the agent, "
+                    "for example:\n  [italic]Use the ddspace-search skill. The problem is in PROBLEM.md.[/italic]")
 
 
 # ---------------------------------------------------------------- wiki
