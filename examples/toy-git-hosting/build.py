@@ -85,7 +85,8 @@ def taxonomy(spec: Dict[str, Any]) -> Dict[str, Any]:
                                       "documents": len(docs), "sources": len({x.split("_")[0] for x in docs})}})
     return {"taxonomy_name": spec["name"], "run_metrics": {}, "selected_clusters": clusters,
             "dropped_dimensions": [], "evaluation": {}, "iterations": [{"explanation": spec["title"],
-                                                                         "clusters": clusters}]}
+                                                                         "clusters": clusters}],
+            "provenance": {"kind": "curated"}}     # the wiki says the space was written by hand
 
 
 def _ddspace(cwd: Path, *args: str) -> None:
