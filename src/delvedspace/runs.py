@@ -27,6 +27,7 @@ TOKENS_PER_PASSAGE = 30_000
 SECONDS_PER_PASSAGE = 28
 _ARTIFACT_MARKERS = ("_design_points", "_match", "_metrics", "_vectors")
 IMPORT_RUN, IMPORT_MODEL = "import-run", "import-model"   # run kinds of `ddspace import`
+IMPORT_SPACE = "import-space"   # a design space written by hand (`ddspace import --kind space`)
 
 
 @dataclass

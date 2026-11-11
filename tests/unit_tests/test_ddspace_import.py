@@ -235,3 +235,71 @@ def test_import_model_builds_an_expert_wiki(ws, tmp_path):
     assert len(dims) == 2 and all(d["core"] for d in dims)
     point = json.loads(_invoke("point", "Data lake", "Direct access", "--no-llm").output)
     assert point["attested_by"] == []
+
+
+SPACE_YAML = """\
+name: git-hosting
+question: Which decisions does hosting Git for a large organization involve?
+dimensions:
+  - id: storage
+    name: Source of truth
+    description: Where the authoritative copy of each repository lives.
+    values:
+      - name: Files on server disks
+        description: Plain Git repositories on local disks.
+      - Log in object storage
+  - id: replication
+    name: Replication
+    values: [Three replicas with majority writes, Durability delegated to object storage]
+relations:
+  - {from: replication, to: storage, type: requires, note: What is replicated follows from where state lives.}
+"""
+
+
+def test_import_a_hand_written_space_builds_a_wiki_and_answers_queries(ws, tmp_path):
+    path = tmp_path / "my-space.yaml"
+    path.write_text(SPACE_YAML)
+    result = _invoke("import", str(path), "--kind", "space", "--yes")
+    assert result.exit_code == 0, result.output
+    assert runs.load(runs.current_run_dir(ws)).kind == runs.IMPORT_SPACE
+    assert ws.config()["taxonomy"]["use_case"].startswith("Which decisions")
+    assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
+    graph = read_json(ws.root / "raw" / "graph.json")
+    assert graph["name"] == "git-hosting" and graph["use_case"].startswith("Which decisions")
+    index = (ws.root / "wiki" / "overview.md").read_text()
+    assert "written by hand" in index and "mined" not in index
+    dims = {d["label"]: d for d in json.loads(_invoke("query", "dimensions").output)}
+    assert set(dims) == {"Source of truth", "Replication"}
+    values = json.loads(_invoke("query", "values", "Replication").output)
+    assert [v["label"] for v in values["values"]] == ["Three replicas with majority writes",
+                                                      "Durability delegated to object storage"]
+    relations = json.loads(_invoke("query", "relations").output)
+    assert any(r["type"] == "requires" for r in relations)
+    point = json.loads(_invoke("point", "Files on server disks", "Three replicas with majority writes",
+                               "--no-llm").output)
+    assert point["attested_by"] == [] and len(point["values"]) == 2
+    assert _invoke("agent", "setup", "--yes").exit_code == 0
+    guide = (ws.root / "AGENTS.md").read_text()
+    assert "written by hand" in guide and "cite passage ids" not in guide
+
+
+def test_import_a_space_as_json_too(ws, tmp_path):
+    import yaml
+    path = tmp_path / "my-space.json"
+    path.write_text(json.dumps(yaml.safe_load(SPACE_YAML)))
+    assert _invoke("import", str(path), "--kind", "space", "--yes").exit_code == 0
+
+
+@pytest.mark.parametrize("broken, message", [
+    ("name: x\n", "list of dimensions"),
+    ("dimensions:\n  - name: A\n    values: []\n", "has no values"),
+    ("dimensions:\n  - name: A\n    values: [a, A]\n", "appears twice"),
+    ("dimensions:\n  - {name: A, values: [a]}\nrelations:\n  - {from: A, to: B, type: requires}\n", "no dimension"),
+    ("dimensions:\n  - {name: A, values: [a]}\n  - {name: B, values: [b]}\nrelations:\n  - {from: A, to: B, type: likes}\n",
+     "unknown relation type"),
+])
+def test_a_broken_space_file_says_what_is_wrong(ws, tmp_path, broken, message):
+    path = tmp_path / "broken.yaml"
+    path.write_text(broken)
+    result = _invoke("import", str(path), "--kind", "space", "--yes")
+    assert result.exit_code != 0 and message in result.output, result.output
