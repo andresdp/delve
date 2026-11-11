@@ -1,4 +1,4 @@
-"""study/designing2027: the session runner for the rationale search and explain study (M, E and N)."""
+"""study/designing2027: the session runner for the rationale search and explain study (E and N)."""
 
 import importlib.util
 import json
@@ -23,7 +23,7 @@ def _load(name):
 
 
 runner = _load("run_sessions")
-cain = runner.cain
+controls = runner.controls
 REAL_RUN = subprocess.run
 
 
@@ -116,24 +116,24 @@ def _with_space(uncovered=()):
 
 
 def test_plan_is_case_by_condition_by_repetition_and_resume_skips_finished(cases, tmp_path):
-    planned = runner.plan(cases, ["M", "E", "N"], 2)
-    assert len(planned) == 24 and len({s.id for s in planned}) == 24
-    assert planned[0].id == "feed-M-r1" and planned[0].case == "feed"   # cases in folder order
+    planned = runner.plan(cases, ["E", "N"], 2)
+    assert len(planned) == 16 and len({s.id for s in planned}) == 16
+    assert planned[0].id == "feed-E-r1" and planned[0].case == "feed"   # cases in folder order
     results = tmp_path / "results"
     (results / "rationale").mkdir(parents=True)
-    (results / "rationale" / "kv-store-M-r1.json").write_text("{}")
+    (results / "rationale" / "kv-store-E-r1.json").write_text("{}")
     (results / "summaries").mkdir()
-    (results / "summaries" / "kv-store-M-r1.json").write_text(json.dumps({"status": "ok"}))
-    (results / "summaries" / "kv-store-E-r1.json").write_text("{}")   # a summary alone: the session failed
+    (results / "summaries" / "kv-store-E-r1.json").write_text(json.dumps({"status": "ok"}))
+    (results / "summaries" / "kv-store-N-r1.json").write_text("{}")   # a summary alone: the session failed
     left = runner.pending(planned, results)
-    assert len(left) == 23 and "kv-store-M-r1" not in {s.id for s in left}
+    assert len(left) == 15 and "kv-store-E-r1" not in {s.id for s in left}
 
 
 def test_a_kept_file_counts_as_done_only_with_an_ok_summary(tmp_path):
     results = tmp_path / "results"
     (results / "rationale").mkdir(parents=True)
     (results / "summaries").mkdir()
-    failed, ok, broken, none = (runner.Session("kv-store", c, 1) for c in ("M", "E", "N", "X"))
+    failed, ok, broken, none = (runner.Session("kv-store", "E", r) for r in (1, 2, 3, 4))
     for s in (failed, ok, broken, none):
         (results / "rationale" / f"{s.id}.json").write_text("{}")
     (results / "summaries" / f"{failed.id}.json").write_text(json.dumps({"status": "failed", "problems": ["x"]}))
@@ -148,7 +148,7 @@ def test_guards_tolerate_an_unreadable_summary(tmp_path):
     results = tmp_path / "results"
     (results / "summaries").mkdir(parents=True)
     (results / "summaries" / "a-N-r1.json").write_text('{"model": "gpt-te')
-    (results / "summaries" / "a-M-r1.json").write_bytes(b"\xff\xfe")
+    (results / "summaries" / "a-E-r1.json").write_bytes(b"\xff\xfe")
     (results / "summaries" / "a-E-r1.json").write_text("[1, 2]")
     assert runner.guards(results, model="gpt-test", prompt=prompt, skills_via="files") == []
 
@@ -262,19 +262,19 @@ def test_n_session_has_ddspace_on_path_and_no_workspace(tmp_path, monkeypatch, c
     assert sorted(p.name for p in workdir.iterdir()) == ["PROBLEM.md"]
     argv = runner.command(s, workdir, tmp_path / "last.txt", model="gpt-test")
     assert argv[argv.index("-C") + 1] == str(workdir) and "--output-schema" not in argv
-    assert cain.NETWORK_ON in argv and cain.WEB_SEARCH_OFF in argv and argv[-1] == "-"   # N describes points too
+    assert controls.NETWORK_ON in argv and controls.WEB_SEARCH_OFF in argv and argv[-1] == "-"   # N describes points too
     env = runner._environment(s, tmp_path / "home", bin_dir / "ddspace", "sk-study-key-000000000",
                               describer="openai/describer")
     assert env["PATH"].split(":")[0] == str(bin_dir) and env["OPENAI_API_KEY"] == "sk-study-key-000000000"
     assert env["DDSPACE_POINT_MODEL"] == "openai/describer" and env["CODEX_HOME"] == str(tmp_path / "home")
 
 
-@pytest.mark.parametrize("condition", ["M", "E"])
+@pytest.mark.parametrize("condition", ["E"])
 def test_space_sessions_get_network_and_the_study_key(tmp_path, monkeypatch, condition):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-operator-key-000000000")
     s = runner.Session("kv-store", condition, 1)
     argv = runner.command(s, tmp_path / "ws", tmp_path / "last.txt", model="gpt-test")
-    assert cain.NETWORK_ON in argv and cain.WEB_SEARCH_OFF in argv and argv[-1] == "-"   # for point descriptions
+    assert controls.NETWORK_ON in argv and controls.WEB_SEARCH_OFF in argv and argv[-1] == "-"   # for point descriptions
     env = runner._environment(s, tmp_path / "home", None, "sk-study-key-000000000")
     assert env["OPENAI_API_KEY"] == "sk-study-key-000000000"          # the study key, never the operator's
     assert "OPENAI_API_KEY" not in runner._environment(s, tmp_path / "home", None, None)
@@ -282,11 +282,11 @@ def test_space_sessions_get_network_and_the_study_key(tmp_path, monkeypatch, con
 
 def test_space_sessions_get_a_copy_of_their_workspace(tmp_path, cases):
     workspaces = tmp_path / "workspaces"
-    (workspaces / "M" / "raw").mkdir(parents=True)
-    (workspaces / "M" / "raw" / "graph.json").write_text("{}")
-    (workspaces / "M" / ".agents" / "skills" / "old").mkdir(parents=True)
+    (workspaces / "E" / "raw").mkdir(parents=True)
+    (workspaces / "E" / "raw" / "graph.json").write_text("{}")
+    (workspaces / "E" / ".agents" / "skills" / "old").mkdir(parents=True)
     explain = next(c for c in cases if c["mode"] == "explain")
-    s = runner.Session(explain["id"], "M", 1)
+    s = runner.Session(explain["id"], "E", 1)
     workdir = tmp_path / "ws"
     runner.prepare_workdir(s, explain, workspaces, workdir)
     assert (workdir / "raw" / "graph.json").is_file() and (workdir / "SOLUTION.md").is_file()
@@ -295,26 +295,28 @@ def test_space_sessions_get_a_copy_of_their_workspace(tmp_path, cases):
 
 def test_preflight_checks_network_the_manifest_and_the_skill_file(tmp_path):
     manifest = tmp_path / "manifest.json"
-    manifest.write_text('{"files": {}}')
+    manifest.write_text('{"files": {"gt_model.json": "abc"}}')
     ws = tmp_path / "ws"
     ws.mkdir()
-    (ws / cain.MANIFEST_COPY).write_text(manifest.read_text())
-    s = runner.Session("kv-store", "M", 1)
+    # the work copy's manifest may list more inputs (the study's E workspace does); the listed ones must match
+    (ws / controls.MANIFEST_COPY).write_text('{"files": {"gt_model.json": "abc", "config.yaml": "def"}}')
+    s = runner.Session("kv-store", "E", 1)
     argv = runner.command(s, ws, tmp_path / "last.txt", model="gpt-test")
     assert runner.preflight(s, argv, ws, manifest, model="gpt-test") == []
-    at = argv.index(cain.NETWORK_ON)
+    at = argv.index(controls.NETWORK_ON)
     no_network = argv[:at - 1] + argv[at + 1:]                          # drop "-c", NETWORK_ON
     assert any("network" in p for p in runner.preflight(s, no_network, ws, manifest, model="gpt-test"))
     n = runner.Session("kv-store", "N", 1)
     n_argv = runner.command(n, tmp_path / "n", tmp_path / "last.txt", model="gpt-test")
-    assert runner.preflight(n, n_argv, tmp_path / "n", manifest, model="gpt-test") == []   # CAIN's N rule is dropped
-    at = n_argv.index(cain.NETWORK_ON)
+    assert runner.preflight(n, n_argv, tmp_path / "n", manifest, model="gpt-test") == []   # N needs network too
+    at = n_argv.index(controls.NETWORK_ON)
     assert any("network" in p for p in runner.preflight(n, n_argv[:at - 1] + n_argv[at + 1:], tmp_path / "n",
                                                          manifest, model="gpt-test"))
     assert any("skill" in p for p in runner.preflight(s, argv, ws, manifest, model="gpt-test",
                                                       skill="ddspace-search"))
-    (ws / cain.MANIFEST_COPY).write_text("{}")
-    assert any("manifest" in p for p in runner.preflight(s, argv, ws, manifest, model="gpt-test"))
+    for copy in ("{}", '{"files": {"gt_model.json": "other"}}'):
+        (ws / controls.MANIFEST_COPY).write_text(copy)
+        assert any("manifest" in p for p in runner.preflight(s, argv, ws, manifest, model="gpt-test"))
 
 
 # ---------------------------------------------------------------- guards
@@ -325,15 +327,15 @@ def test_guards_refuse_another_prompt_model_or_skill_delivery(tmp_path):
     prompt.write_text("## search\nnew\n")
     results = tmp_path / "results"
     (results / "summaries").mkdir(parents=True)
-    current = {"model": "gpt-test", "prompt_sha256": cain.design.sha256(prompt), "skills_via": "files",
+    current = {"model": "gpt-test", "prompt_sha256": controls.sha256(prompt), "skills_via": "files",
                "skills_sha256": runner.skills_sha256()}
     (results / "summaries" / "a-N-r1.json").write_text(json.dumps(current))
     assert runner.guards(results, model="gpt-test", prompt=prompt, skills_via="files") == []
     assert any("model" in g for g in runner.guards(results, model="other", prompt=prompt, skills_via="files"))
     assert any("skill" in g for g in runner.guards(results, model="gpt-test", prompt=prompt, skills_via="prompt"))
-    (results / "summaries" / "a-M-r1.json").write_text(json.dumps(dict(current, prompt_sha256="old")))
+    (results / "summaries" / "a-E-r1.json").write_text(json.dumps(dict(current, prompt_sha256="old")))
     refused = runner.guards(results, model="gpt-test", prompt=prompt, skills_via="files")
-    assert any("prompt" in g and "a-M-r1" in g for g in refused)
+    assert any("prompt" in g and "a-E-r1" in g for g in refused)
 
 
 # ---------------------------------------------------------------- skill delivery and the prompt
@@ -341,7 +343,7 @@ def test_guards_refuse_another_prompt_model_or_skill_delivery(tmp_path):
 
 def test_skills_via_files_writes_the_reference_only_with_a_space(tmp_path):
     texts = {}
-    for condition, has_reference in (("M", True), ("N", False)):
+    for condition, has_reference in (("E", True), ("N", False)):
         ws = tmp_path / condition
         ws.mkdir()
         extra = runner.deliver_skill(ws, "search", condition, "files")
@@ -351,7 +353,7 @@ def test_skills_via_files_writes_the_reference_only_with_a_space(tmp_path):
         assert extra == "" and reference.is_file() == has_reference
         assert not has_reference or "ddspace query" in reference.read_text()
         assert not (ws / ".agents" / "skills" / "ddspace-explain").exists()
-    assert texts["M"] == texts["N"] and "ddspace rationale check" in texts["N"]  # one SKILL.md for every condition
+    assert texts["E"] == texts["N"] and "ddspace rationale check" in texts["N"]  # one SKILL.md for every condition
 
 
 def test_skills_via_prompt_appends_the_skill_and_writes_no_file(tmp_path):
@@ -361,17 +363,17 @@ def test_skills_via_prompt_appends_the_skill_and_writes_no_file(tmp_path):
     assert f"Its {agent.REFERENCE} follows." not in extra                    # N gets no reference
     text = runner.prompt_text(runner.PROMPT, {"id": "kv-explain", "mode": "explain"}, "N", extra)
     assert text.endswith(extra) and "SOLUTION.md" in text and "rationale/kv-explain.json" in text
-    with_space = runner.deliver_skill(tmp_path, "explain", "M", "prompt")
+    with_space = runner.deliver_skill(tmp_path, "explain", "E", "prompt")
     assert with_space.startswith(extra.rstrip("\n")) and f"Its {agent.REFERENCE} follows." in with_space
     assert "ddspace query values" in with_space
 
 
 def test_the_prompt_differs_across_conditions_only_in_the_space_note():
     case = {"id": "kv-store", "mode": "search"}
-    m, e, n = (runner.prompt_text(runner.PROMPT, case, c) for c in ("M", "E", "N"))
-    assert m == e and m != n and "ddspace-search" in m and "PROBLEM.md" in m and "{" not in m
+    e, n = (runner.prompt_text(runner.PROMPT, case, c) for c in ("E", "N"))
+    assert e != n and "ddspace-search" in e and "PROBLEM.md" in e and "{" not in e
     notes = runner.prompt_sections(runner.PROMPT)
-    assert m.replace(notes["space"].strip(), "") == n.replace(notes["no space"].strip(), "")
+    assert e.replace(notes["space"].strip(), "") == n.replace(notes["no space"].strip(), "")
 
 
 # ---------------------------------------------------------------- a whole session (Codex faked, ddspace real)
@@ -425,7 +427,7 @@ def test_a_no_space_session_keeps_the_file_checks_it_and_records_the_build(tmp_p
     assert "name: ddspace-search" in seen["input"] and rec["skills_via"] == "prompt"
     assert not (tmp_path / "scratch" / "kv-store-N-r1").exists()
     saved = json.loads((results / "summaries" / "kv-store-N-r1.json").read_text())
-    assert saved["prompt_sha256"] == cain.design.sha256(runner.PROMPT) and saved["model"] == "gpt-test"
+    assert saved["prompt_sha256"] == controls.sha256(runner.PROMPT) and saved["model"] == "gpt-test"
 
 
 def test_a_session_without_a_rationale_file_fails_and_stays_pending(tmp_path, monkeypatch, cases):
@@ -469,10 +471,10 @@ def test_a_rationale_file_that_is_not_utf8_fails_the_session(tmp_path, monkeypat
 
 def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(tmp_path, monkeypatch, cases):
     workspaces = tmp_path / "workspaces"
-    (workspaces / "M" / "raw").mkdir(parents=True)
-    (workspaces / "M" / "raw" / "graph.json").write_text("{}")
-    (workspaces / "M" / cain.MANIFEST_COPY).parent.mkdir(parents=True, exist_ok=True)
-    (workspaces / "M" / cain.MANIFEST_COPY).write_text(cain.MANIFEST.read_text())
+    (workspaces / "E" / "raw").mkdir(parents=True)
+    (workspaces / "E" / "raw" / "graph.json").write_text("{}")
+    (workspaces / "E" / controls.MANIFEST_COPY).parent.mkdir(parents=True, exist_ok=True)
+    (workspaces / "E" / controls.MANIFEST_COPY).write_text(runner.MANIFEST.read_text())
     doc = dict(_no_space(), space={"workspace": "c1", "run": "r", "graph_sha256": "abc"})
     builds = []
 
@@ -496,18 +498,18 @@ def test_a_space_session_builds_its_explainer_against_the_persistent_workspace(t
             seen.append((argv, kwargs.get("env") or {}))
         return real(argv, **kwargs)
     monkeypatch.setattr(runner.subprocess, "run", spy)
-    rec = runner.run(runner.Session("kv-store", "M", 1), case, workspaces, tmp_path / "scratch", model="gpt-test",
+    rec = runner.run(runner.Session("kv-store", "E", 1), case, workspaces, tmp_path / "scratch", model="gpt-test",
                      results=tmp_path / "results", ddspace=["ddspace"], key="sk-study-key-000000000")
     assert rec["status"] == "ok", rec["problems"]
     (argv, env), = seen
-    assert cain.NETWORK_ON in argv and env["OPENAI_API_KEY"] == "sk-study-key-000000000"
+    assert controls.NETWORK_ON in argv and env["OPENAI_API_KEY"] == "sk-study-key-000000000"
     (build_argv, build_cwd), = builds
     assert "--graph" in build_argv and build_cwd == str(tmp_path / "results")   # --out must be inside the cwd
-    assert build_argv[build_argv.index("--out") + 1] == "explainers/kv-store-M-r1"
+    assert build_argv[build_argv.index("--out") + 1] == "explainers/kv-store-E-r1"
     graph = Path(build_argv[build_argv.index("--graph") + 1])
-    assert not (tmp_path / "scratch" / "kv-store-M-r1").exists()   # the work copy is gone, the link target is not
-    assert graph.is_file() and graph.resolve() == (workspaces / "M" / "raw" / "graph.json").resolve()
-    assert rec["explainer"]["links_into"] == "--workspaces/M"
+    assert not (tmp_path / "scratch" / "kv-store-E-r1").exists()   # the work copy is gone, the link target is not
+    assert graph.is_file() and graph.resolve() == (workspaces / "E" / "raw" / "graph.json").resolve()
+    assert rec["explainer"]["links_into"] == "--workspaces/E"
 
 
 def test_file_ids_are_the_wikis_only():
@@ -569,13 +571,13 @@ def test_points_evaluated_counts_the_file_points_some_ddspace_point_call_took():
 
 
 def test_the_effort_goes_to_codex_and_one_results_folder_holds_one_effort(tmp_path):
-    s = runner.Session("kv-store", "M", 1)
+    s = runner.Session("kv-store", "E", 1)
     argv = runner.command(s, tmp_path, tmp_path / "last.txt", model="gpt-test", effort="high")
     assert argv[argv.index('model_reasoning_effort="high"') - 1] == "-c"
     assert 'model_reasoning_effort' not in " ".join(runner.command(s, tmp_path, tmp_path / "l", model="gpt-test"))
     (tmp_path / "results" / "summaries").mkdir(parents=True)
-    (tmp_path / "results" / "summaries" / "kv-store-M-r1.json").write_text(json.dumps(
-        {"model": "gpt-test", "effort": "medium", "prompt_sha256": cain.design.sha256(runner.PROMPT),
+    (tmp_path / "results" / "summaries" / "kv-store-E-r1.json").write_text(json.dumps(
+        {"model": "gpt-test", "effort": "medium", "prompt_sha256": controls.sha256(runner.PROMPT),
          "skills_via": "files", "skills_sha256": runner.skills_sha256()}))
     refused = runner.guards(tmp_path / "results", model="gpt-test", prompt=runner.PROMPT, skills_via="files",
                             effort="high")
@@ -584,16 +586,16 @@ def test_the_effort_goes_to_codex_and_one_results_folder_holds_one_effort(tmp_pa
                          effort="medium") == []
 
 
-def test_the_describer_is_the_m_wikis_model(tmp_path):
+def test_the_describer_is_the_e_spaces_model(tmp_path):
     assert runner.describer_model(tmp_path) is None
-    (tmp_path / "M" / "raw").mkdir(parents=True)
-    (tmp_path / "M" / "raw" / "run.json").write_text('{"models": {"generation_llm": "openai/describer"}}')
+    (tmp_path / "E" / "raw").mkdir(parents=True)
+    (tmp_path / "E" / "raw" / "run.json").write_text('{"models": {"generation_llm": "openai/describer"}}')
     assert runner.describer_model(tmp_path) == "openai/describer"
 
 
 def test_n_point_calls_count_with_their_names_and_without_the_domain():
     args = ["point", "--no-space", "--domain", "Card fraud", "Serving:  Online", "Store :Feature store"]
-    event = cain._point_event(runner._without_domain(args), "{}", True, lambda t: t)
+    event = controls.point_event(runner._without_domain(args), "{}", True, lambda t: t)
     assert event["values"] == ["Serving:  Online", "Store :Feature store"]
     doc = {"points": [{"id": "P1", "values": ["Serving: Online", "Store: Feature store"]},
                       {"id": "P2", "values": ["Serving: Batch"]}]}
@@ -606,3 +608,22 @@ def test_ddspace_calls_split_only_outside_quotes():
     assert runner._ddspace_calls(script) == [
         ["point", "--no-space", "Release: Shadow; then promote", "Store: A && B"],
         ["rationale", "check", "r.json"], ["point", "v:1.1"]]
+
+
+# ---------------------------------------------------------------- the E workspace builder
+
+builder = _load("build_workspace")
+
+
+def test_the_tracked_inputs_match_their_manifest():
+    assert builder.verify() == []
+    assert json.loads(runner.MANIFEST.read_text())["files"] == {"gt_model.json": controls.sha256(
+        runner.MANIFEST.parent / "gt_model.json")}
+
+
+def test_the_builder_refuses_changed_inputs(tmp_path):
+    (tmp_path / "gt_model.json").write_text("{}")
+    (tmp_path / "manifest.json").write_text('{"files": {"gt_model.json": "abc"}}')
+    assert builder.verify(tmp_path) == ["gt_model.json"]
+    with pytest.raises(ValueError, match="gt_model.json"):
+        builder.build(tmp_path / "out", tmp_path)

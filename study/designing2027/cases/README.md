@@ -13,7 +13,7 @@ cases/
 `case.yaml` has two keys:
 
 ```yaml
-id: kv-store        # lowercase letters, digits and hyphens; names the session (kv-store-M-r1) and the file
+id: kv-store        # lowercase letters, digits and hyphens; names the session (kv-store-E-r1) and the file
 mode: search        # search (ddspace-search skill) or explain (ddspace-explain skill)
 ```
 
@@ -22,4 +22,4 @@ For each session the runner copies `problem.md` into the work copy as `PROBLEM.m
 
 Write the problem text the same way for every case: a short context, then the requirements as a list. Keep
 anything that would hint at the design space (dimension names, ids) out of the problem and the solution, so
-the no-space condition (N) reads the same text as M and E.
+the no-space condition (N) reads the same text as E.

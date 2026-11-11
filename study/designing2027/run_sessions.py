@@ -7,24 +7,23 @@ file, ``./rationale/<case>.json``, in one of three conditions:
 
 | Condition | The work copy | The skill variant |
 |---|---|---|
-| M | the mined C1 space (a workspace from ``study/cain2027/build_workspaces.py``) | with a space |
-| E | the expert C1 space (the same builder) | with a space |
+| E | the expert ML-workflow design space (a workspace from ``build_workspace.py``) | with a space |
 | N | an empty folder; ``ddspace`` is on the PATH: the structural check and ``ddspace point --no-space`` | no space |
 
-The CAIN runner's controls are reused as they are (private ``CODEX_HOME``, pinned model, web search off, the
-workspace manifest, the event parsing and redaction; ``study/cain2027/`` is not changed). Unlike CAIN, every
-session gets sandbox network access and the study key (``STUDY_OPENAI_API_KEY``, passed as ``OPENAI_API_KEY``)
-for the descriptions ``ddspace point`` generates: in M and E from the wiki, in N from the agent's own names
-(``--no-space``), with the model of the M wiki's descriptions (``DDSPACE_POINT_MODEL``), so every condition is
-described by the same model and prompt. The summary counts any other network use, and web search is disabled in
-every session. After each session the runner keeps, under ``--results``:
+The session controls live in ``controls.py``: a private ``CODEX_HOME`` holding only the login, a pinned model,
+web search off, the workspace manifest, the event parsing and redaction. Every session gets sandbox network
+access and the study key (``STUDY_OPENAI_API_KEY``, passed as ``OPENAI_API_KEY``) for the descriptions
+``ddspace point`` generates: in E from the space, in N from the agent's own names (``--no-space``), with the
+model the E space describes its points with (``DDSPACE_POINT_MODEL``), so both conditions are described by the
+same model and prompt. The summary counts any other network use, and web search is disabled in every session.
+After each session the runner keeps, under ``--results``:
 
 - ``rationale/<session>.json``: the agent's final rationale file (the home folder and keys redacted);
 - ``summaries/<session>.json``: an allow-listed summary of the event log, the final ``ddspace rationale check``
   (ok and problem codes), the number of check runs, a fabrication audit (ids in the file that no command
   returned), for explain the possible retrieval misses, and the explainer's path;
-- ``explainers/<session>/``: the explainer, from ``ddspace rationale build --out`` (every condition); for M and
-  E its wiki links point into ``--workspaces/<condition>``, which outlives the session's work copy.
+- ``explainers/<session>/``: the explainer, from ``ddspace rationale build --out`` (every condition); for E
+  its wiki links point into ``--workspaces/E``, which outlives the session's work copy.
 
 A session is done when its rationale file is kept and its summary says ``status: ok``; any other session
 (failed, or with an unreadable summary) runs again on the next invocation.
@@ -35,8 +34,8 @@ before the study (plan U5).
 
 Usage::
 
-    STUDY_OPENAI_API_KEY=... python study/designing2027/run_sessions.py --workspaces <folder with M and E> \\
-        --scratch <folder> --model <codex model> [--cases kv-store,feed] [--conditions M,E,N] [--reps 2] \\
+    STUDY_OPENAI_API_KEY=... python study/designing2027/run_sessions.py --workspaces <folder with E> \\
+        --scratch <folder> --model <codex model> [--cases fraud-search,documents-explain] [--conditions E,N] [--reps 2] \\
         [--skills-via files]
 """
 
@@ -44,7 +43,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 import re
@@ -62,19 +60,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 import yaml
 
 HERE = Path(__file__).resolve().parent
-CAIN = HERE.parent / "cain2027"
-
-
-def _import(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module              # dataclasses look their module up while the class is built
-    spec.loader.exec_module(module)
-    return module
-
-
-cain = sys.modules.get("cain2027_run_sessions") or _import("cain2027_run_sessions", CAIN / "run_sessions.py")
-design = cain.design                         # redact, sha256, results-folder names
+sys.path.insert(0, str(HERE))
+import controls  # noqa: E402
 
 from delvedspace import agent, rationale  # noqa: E402
 from delvedspace import point as point_mod  # noqa: E402
@@ -83,13 +70,13 @@ from taxonomy_generator.wiki import query as q  # noqa: E402
 RESULTS = HERE / "results"
 CASES = HERE / "cases"
 PROMPT = HERE / "prompt.md"
-CONDITIONS = ("M", "E", "N")
-SPACE_CONDITIONS = cain.SPACE_CONDITIONS      # M and E
-CAIN_NETWORK_RULE = "network access does not match the condition"   # CAIN: off for N; here on everywhere
+CONDITIONS = ("E", "N")
+SPACE_CONDITIONS = ("E",)                     # the conditions with a design space
+MANIFEST = HERE / "inputs" / "manifest.json"  # the inputs the E workspace is built from
 MODES = rationale.MODES
 SKILL = {name.removeprefix("ddspace-"): name for name in agent.SKILLS}  # mode -> skill
 SKILLS_VIA = ("files", "prompt")
-TIMEOUT = cain.TIMEOUT
+TIMEOUT = controls.TIMEOUT
 DDSPACE_TIMEOUT = 300                         # seconds for the runner's own check and build
 HEARTBEAT = 120                               # seconds without a progress line before "still running"
 POLL = 5                                      # seconds between checks of a running session
@@ -103,7 +90,7 @@ MIN_WORD = 3
 
 @dataclass(frozen=True)
 class Session:
-    """One agent session: a case, a condition (M, E or N) and a repetition number."""
+    """One agent session: a case, a condition (E or N) and a repetition number."""
 
     case: str
     condition: str
@@ -111,7 +98,7 @@ class Session:
 
     @property
     def id(self) -> str:
-        """Return the session id, e.g. ``kv-store-M-r1``."""
+        """Return the session id, e.g. ``fraud-search-E-r1``."""
         return f"{self.case}-{self.condition}-r{self.rep}"
 
 
@@ -214,7 +201,7 @@ def skills_sha256() -> str:
 def deliver_skill(workdir: Path, mode: str, condition: str, via: str) -> str:
     """Give the session its skill; return the text to append to the prompt (empty with ``via="files"``).
 
-    Every condition gets the same ``SKILL.md``; M and E also get the space reference
+    Every condition gets the same ``SKILL.md``; E also gets the space reference
     (``references/design-space.md``), N does not. ``files`` writes them where Codex reads repository skills
     (``.agents/skills/<name>/``); ``prompt`` returns them instead, the reference after the skill.
     """
@@ -259,7 +246,7 @@ EFFORTS = ("minimal", "low", "medium", "high", "xhigh")   # Codex's model_reason
 
 def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Optional[str] = None,
             effort: Optional[str] = None) -> List[str]:
-    """Return the ``codex exec`` argv for one session: CAIN's, without ``--output-schema``.
+    """Return the ``codex exec`` argv for one session.
 
     ``effort`` sets the model's reasoning effort; ``--ignore-user-config`` drops the operator's own setting, so
     without it the model runs at its default (the pilots used a few hundred reasoning tokens for a whole search).
@@ -267,31 +254,34 @@ def command(session: Session, workdir: Path, last: Path, *, model: str, oss: Opt
     Every condition gets sandbox network access, for ``ddspace point`` descriptions (N too, with ``--no-space``).
     """
     argv = ["codex", "exec", "--json", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config",
-            "-s", "workspace-write", "-m", model, "-o", str(last), "-C", str(workdir), "-c", cain.WEB_SEARCH_OFF]
+            "-s", "workspace-write", "-m", model, "-o", str(last), "-C", str(workdir), "-c", controls.WEB_SEARCH_OFF]
     if oss:
         argv += ["--oss", "--local-provider", oss]
     if effort:
         argv += ["-c", f'model_reasoning_effort="{effort}"']
-    for feature in cain.DISABLED_FEATURES:
+    for feature in controls.DISABLED_FEATURES:
         argv += ["--disable", feature]
-    argv += ["-c", cain.NETWORK_ON, "-c", "shell_environment_policy.ignore_default_excludes=true"]
+    argv += ["-c", controls.NETWORK_ON, "-c", "shell_environment_policy.ignore_default_excludes=true"]
     return argv + ["-"]   # the prompt comes on stdin
 
 
-def preflight(session: Session, argv: List[str], workdir: Path, manifest: Path = cain.MANIFEST, *, model: str,
-              matching_model: str = "", skill: Optional[str] = None) -> List[str]:
+def preflight(session: Session, argv: List[str], workdir: Path, manifest: Path = MANIFEST, *, model: str,
+              skill: Optional[str] = None) -> List[str]:
     """Return why the session must not start (empty when every control holds).
 
-    CAIN's checks run for the session's condition (the pinned model, web search off and, for M and E, the study
-    manifest in the work copy), except its network rule (off for N): here every condition needs network access,
-    for the descriptions. No matcher judges this study, so ``matching_model`` is empty by default. ``skill``
-    (with ``--skills-via files``) needs its ``SKILL.md`` there.
+    The model is pinned, web search is off, network access is on (every condition needs it for the descriptions
+    ``ddspace point`` generates), the E work copy comes from the inputs ``manifest`` lists, and ``skill`` (with
+    ``--skills-via files``) has its ``SKILL.md`` in the work copy.
     """
-    problems = [p for p in cain.preflight(cain.Session(session.case, session.condition, session.rep), argv, workdir,
-                                          manifest, model=model, matching_model=matching_model)
-                if p != CAIN_NETWORK_RULE]
-    if cain.NETWORK_ON not in argv:
+    problems = []
+    if not model or argv[argv.index("-m") + 1] != model:
+        problems.append("the session model is not pinned")
+    if controls.WEB_SEARCH_OFF not in argv:
+        problems.append("web search is not disabled")
+    if controls.NETWORK_ON not in argv:
         problems.append("network access is off (every condition needs it for ddspace point descriptions)")
+    if session.condition in SPACE_CONDITIONS:
+        problems += controls.manifest_problems(workdir, manifest)
     if skill and not (workdir / ".agents" / "skills" / skill / "SKILL.md").is_file():
         problems.append(f"the skill file .agents/skills/{skill}/SKILL.md is missing")
     return problems
@@ -299,14 +289,14 @@ def preflight(session: Session, argv: List[str], workdir: Path, manifest: Path =
 
 def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path], key: Optional[str] = None,
                  oss: Optional[str] = None, describer: Optional[str] = None) -> Dict[str, str]:
-    """Return the session's environment: CAIN's allow-list, ``ddspace`` on the PATH in every condition.
+    """Return the session's environment: an allow-list, ``ddspace`` on the PATH in every condition.
 
     Every condition gets the study key ``key`` as ``OPENAI_API_KEY`` and the ``describer`` model as
-    ``DDSPACE_POINT_MODEL`` (for ``ddspace point`` descriptions; N needs the model, M and E read the wiki's own).
+    ``DDSPACE_POINT_MODEL`` (for ``ddspace point`` descriptions; N needs the model, E reads the space's own).
     The operator's own ``OPENAI_API_KEY`` is never passed on.
     """
     path = [p for p in os.environ.get("PATH", "").split(os.pathsep) if not (Path(p) / "ddspace").exists()]
-    env = {k: os.environ[k] for k in cain.SAFE_ENV if k in os.environ}
+    env = {k: os.environ[k] for k in controls.SAFE_ENV if k in os.environ}
     if oss:
         env.update({k: v for k, v in os.environ.items() if k.startswith(f"{oss.upper()}_")})
     if ddspace_bin is not None:
@@ -322,9 +312,9 @@ def _environment(session: Session, codex_home: Path, ddspace_bin: Optional[Path]
 
 
 def describer_model(workspaces: Path) -> Optional[str]:
-    """The model that wrote the M wiki's descriptions (``M/raw/run.json``), for N's ``ddspace point --no-space``."""
+    """The model that describes the E space's points (``E/raw/run.json``), also used by N's ``--no-space``."""
     try:
-        run = json.loads((Path(workspaces) / "M" / "raw" / "run.json").read_text(encoding="utf-8"))
+        run = json.loads((Path(workspaces) / "E" / "raw" / "run.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
     return str((run.get("models") or {}).get("generation_llm") or "") or None
@@ -333,11 +323,11 @@ def describer_model(workspaces: Path) -> Optional[str]:
 def guards(results: Path, *, model: str, prompt: Path, skills_via: str, effort: Optional[str] = None) -> List[str]:
     """Why ``results`` must not take more sessions now: another model, prompt version or skill delivery.
 
-    The checks are CAIN's (``model_mismatch``, ``prompt_mismatch``), done here over :func:`read_summary`, so an
+    The checks run over :func:`read_summary`, so an
     unreadable summary (a crash while it was written) is skipped: that session is pending and runs again.
     """
     out = []
-    prompt_digest, digest = design.sha256(prompt), skills_sha256()
+    prompt_digest, digest = controls.sha256(prompt), skills_sha256()
     other, mixed, skills = [], [], []
     for path in sorted((results / "summaries").glob("*.json")):
         rec = read_summary(path)
@@ -375,7 +365,7 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
     secrets = list(secrets)
 
     def clean(text: str) -> str:
-        return design.redact(text, home, secrets)
+        return controls.redact(text, home, secrets)
 
     calls: Counter = Counter()
     points, network, web, commands = [], 0, 0, 0
@@ -396,15 +386,15 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
         if item.get("type") != "command_execution":
             continue
         commands += 1
-        script = cain._inner(str(item.get("command") or ""))
+        script = controls.inner(str(item.get("command") or ""))
         for args in _ddspace_calls(script):
             if not args:
                 continue
             calls[_command_name(args)] += 1
             if args[0] == "point":
-                points.append(cain._point_event(_without_domain(args), str(item.get("aggregated_output") or ""),
+                points.append(controls.point_event(_without_domain(args), str(item.get("aggregated_output") or ""),
                                                 item.get("exit_code") == 0, clean))
-        if cain._uses_network(script):
+        if controls.uses_network(script):
             network += 1
     return {"complete": complete, "commands": commands, "ddspace_calls": dict(calls),
             "check_runs": calls["rationale check"], "build_runs": calls["rationale build"], "points": points,
@@ -417,7 +407,7 @@ def summarize(events: List[Dict[str, Any]], *, home: str, secrets: Iterable[str]
 def _segments(script: str) -> List[str]:
     """Split a shell script into commands at ``;``, ``&``, ``|`` and newlines outside quotes.
 
-    CAIN's splitter cuts inside quotes too, so a value whose label holds a ``;`` ended its ``ddspace point`` call
+    The naive splitter (``controls.ddspace_calls_naive``) cuts inside quotes too, so a value whose label holds a ``;`` ended its ``ddspace point`` call
     early. A backslash before a newline continues the line.
     """
     out: List[str] = []
@@ -448,11 +438,11 @@ def _segments(script: str) -> List[str]:
 
 def _ddspace_calls(script: str) -> List[List[str]]:
     """The argument lists of every ddspace invocation in a shell script, split with :func:`_segments`."""
-    return [args for args in (cain._ddspace_args(piece) for piece in _segments(script)) if args is not None]
+    return [args for args in (controls.ddspace_args(piece) for piece in _segments(script)) if args is not None]
 
 
 def _without_domain(args: List[str]) -> List[str]:
-    """``ddspace point`` arguments without ``--domain <text>``, which CAIN's parser would read as a value."""
+    """``ddspace point`` arguments without ``--domain <text>``, which the point parser would read as a value."""
     out, skip = [], False
     for a in args:
         if skip:
@@ -471,7 +461,7 @@ def _canonical(value: str) -> str:
 def points_evaluated(doc: Any, calls: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     """How many of the file's ``points`` some ``ddspace point`` call of the session evaluated (same value set).
 
-    Every point should be one call: in M and E with the wiki's ids, in N with ``--no-space`` and the agent's own
+    Every point should be one call: in E with the space's ids, in N with ``--no-space`` and the agent's own
     ``Dimension: Value`` names, compared with the spacing around the colon and between words normalized.
     """
     def key(values: Any) -> frozenset:
@@ -571,7 +561,7 @@ def fabrication_audit(doc: Any, events: List[Dict[str, Any]]) -> Dict[str, Any]:
         if e.get("type") != "item.completed" or item.get("type") != "command_execution":
             continue
         output = str(item.get("aggregated_output") or "")
-        calls = [a for a in cain._ddspace_calls(cain._inner(str(item.get("command") or ""))) if a]
+        calls = [a for a in controls.ddspace_calls_naive(controls.inner(str(item.get("command") or ""))) if a]
         if any(a[0] == "rationale" for a in calls):
             candidates += _candidates(output)
         elif calls:
@@ -653,7 +643,7 @@ def _last_line(text: str) -> str:
 
 
 def final_check(ddspace: Sequence[str], workdir: Path, file: Path) -> Dict[str, Any]:
-    """Run ``ddspace rationale check`` on the final file, in the work copy (where an M or E graph is found)."""
+    """Run ``ddspace rationale check`` on the final file, in the work copy (where the E graph is found)."""
     try:
         proc = _ddspace(ddspace, ["rationale", "check", str(file)], workdir)
     except (OSError, subprocess.TimeoutExpired) as exc:
@@ -677,7 +667,7 @@ def build_explainer(ddspace: Sequence[str], workdir: Path, file: Path, results: 
                     session: Session, workspaces: Optional[Path] = None) -> Dict[str, Any]:
     """Render the explainer with ``ddspace rationale build --out`` under the results folder (every condition).
 
-    Run in the results folder (``--out`` must be inside the current folder), on the work copy's file. For M and
+    Run in the results folder (``--out`` must be inside the current folder), on the work copy's file. For
     E, ``--graph`` names the condition's workspace under ``workspaces`` (the
     same graph the work copy was copied from), so the page's wiki links point into a wiki that outlives the work
     copy, which is deleted after the session; ``links_into`` records it (``--workspaces/<condition>``, no path).
@@ -710,7 +700,7 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
 
     ``problems`` lists why the session does not count: an incomplete log, web search, no rationale file or a
     file that is not UTF-8 JSON. A final check with errors does not fail the session: it is the session's result.
-    ``workspaces`` (the persistent M and E workspaces) is where the explainer's wiki links point.
+    ``workspaces`` (the persistent E workspace) is where the explainer's wiki links point.
     """
     problems = []
     if not summary["complete"]:
@@ -731,7 +721,7 @@ def postflight(summary: Dict[str, Any], session: Session, case: Mapping[str, Any
         return {"problems": [f"{rel} is not JSON: {exc}"] + problems}
     kept = kept_file(results, session)
     kept.parent.mkdir(parents=True, exist_ok=True)
-    kept.write_text(design.redact(text, home, list(secrets)), encoding="utf-8")
+    kept.write_text(controls.redact(text, home, list(secrets)), encoding="utf-8")
     rec: Dict[str, Any] = {"problems": problems, "rationale": kept.relative_to(results).as_posix(),
                            "fabrication": fabrication_audit(doc, events),
                            "points_evaluated": points_evaluated(doc, summary.get("points") or [])}
@@ -769,14 +759,14 @@ def progress(event: Mapping[str, Any], seconds: float, *, home: str = "", secret
     if event.get("type") != "item.completed":
         return None
     if item.get("type") == "command_execution":
-        script = cain._inner(str(item.get("command") or ""))
-        calls = [args for args in cain._ddspace_calls(script) if args]
+        script = controls.inner(str(item.get("command") or ""))
+        calls = [args for args in controls.ddspace_calls_naive(script) if args]
         if not calls:
             writes = "rationale/" in script and any(w in script for w in (">", "apply_patch", "tee "))
             return stamp + "edited the rationale file" if writes else None
         failed = "" if item.get("exit_code") in (0, None) else f"  (exit {item.get('exit_code')})"
         text = "; ".join("ddspace " + " ".join(args) for args in calls)
-        text = design.redact(text, home, list(secrets)) if home else text
+        text = controls.redact(text, home, list(secrets)) if home else text
         return stamp + (text if len(text) <= 110 else text[:107] + "...") + failed
     if item.get("type") == "file_change":
         names = [Path(str(c.get("path") or "")).name for c in item.get("changes") or [] if isinstance(c, dict)]
@@ -885,18 +875,18 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
     record: Dict[str, Any] = {
         "session": session.id, "case": session.case, "mode": case["mode"], "condition": session.condition,
         "rep": session.rep, "model": model, "effort": effort, "provider": oss or "openai", "codex_version": version,
-        "prompt": prompt.name, "prompt_sha256": design.sha256(prompt), "skills_via": skills_via,
+        "prompt": prompt.name, "prompt_sha256": controls.sha256(prompt), "skills_via": skills_via,
         "skill": SKILL[case["mode"]], "skill_variant": "space" if session.condition in SPACE_CONDITIONS else "no space",
         "skills_sha256": skills_sha256(), "describer": describer_model(workspaces),
         "started_at": datetime.now().isoformat(timespec="seconds")}
     problems = preflight(session, argv, workdir, model=model,
                          skill=SKILL[case["mode"]] if skills_via == "files" else None)
     if not problems:
-        env = _environment(session, cain._codex_home(root), ddspace_bin, key, oss, record["describer"])
+        env = _environment(session, controls.codex_home(root), ddspace_bin, key, oss, record["describer"])
         start = time.monotonic()
         print(f"{session.id}: started (stops after {timeout // 60} min)", flush=True)  # noqa: T201
         stdout, stderr, record["exit_code"], timed_out = run_codex(
-            cain.NATIVE + argv, input=prompt_text(prompt, case, session.condition, extra), env=env, timeout=timeout,
+            controls.NATIVE + argv, input=prompt_text(prompt, case, session.condition, extra), env=env, timeout=timeout,
             show=lambda line: print(line, flush=True), home=str(Path.home()), secrets=[key] if key else [])  # noqa: T201
         record["seconds"] = round(time.monotonic() - start, 1)
         if keep_raw:
@@ -904,7 +894,7 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
             raw.mkdir(parents=True, exist_ok=True)
             (raw / f"{session.id}.jsonl").write_text(stdout, encoding="utf-8")
             (raw / f"{session.id}.stderr.txt").write_text(stderr, encoding="utf-8")
-        events = cain._events(stdout)
+        events = controls.events(stdout)
         home = str(Path.home())
         secrets = [key] if key else []
         summary = summarize(events, home=home, secrets=secrets)
@@ -922,21 +912,21 @@ def _run(session: Session, case: Mapping[str, Any], workspaces: Path, root: Path
 
 
 def results_folder(name: str) -> Path:
-    """Return the results folder ``name`` in this study folder (``results`` or ``results-<label>``, as in CAIN)."""
-    return HERE / design.results_folder(name).name
+    """Return the results folder ``name`` in this study folder (``results`` or ``results-<label>``)."""
+    return HERE / controls.check_results_name(name)
 
 
 def main() -> None:
     """Run the pending sessions given on the command line."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--workspaces", type=Path, required=True,
-                        help="folder with the M and E workspaces (study/cain2027/build_workspaces.py)")
+                        help="folder with the E workspace (build_workspace.py)")
     parser.add_argument("--scratch", type=Path, required=True, help="where session copies go (outside the repository)")
     parser.add_argument("--model", required=True, help="the Codex model for every session")
     parser.add_argument("--effort", choices=EFFORTS, help="the model's reasoning effort (default: the model's own)")
     parser.add_argument("--cases", default="", help="comma-separated case ids (default: all)")
     parser.add_argument("--cases-dir", type=Path, default=CASES, help="the cases folder (default: cases/)")
-    parser.add_argument("--conditions", default="M,E,N")
+    parser.add_argument("--conditions", default="E,N")
     parser.add_argument("--reps", type=int, default=2)
     parser.add_argument("--skills-via", choices=SKILLS_VIA, default="files",
                         help="files: .agents/skills/<name>/SKILL.md in the work copy; prompt: append it to the prompt")
@@ -953,7 +943,7 @@ def main() -> None:
     if refused:
         sys.exit("\n".join(refused))
     repo = HERE.parents[1]
-    if cain.inside(args.scratch, repo) or cain.inside(args.workspaces, repo):
+    if controls.inside(args.scratch, repo) or controls.inside(args.workspaces, repo):
         sys.exit("Run sessions outside the repository (--scratch and --workspaces), so agents cannot read it.")
     conditions = args.conditions.split(",")
     unknown = [c for c in conditions if c not in CONDITIONS]
@@ -977,8 +967,8 @@ def main() -> None:
         print("warning: STUDY_OPENAI_API_KEY is not set; ddspace point descriptions will fail "  # noqa: T201
               "(the skills then keep the descriptions null)")
     if "N" in conditions and not describer_model(args.workspaces):
-        sys.exit("No describer model in --workspaces/M/raw/run.json: N describes its points with the M wiki's model.")
-    version = cain.codex_version()
+        sys.exit("No describer model in --workspaces/E/raw/run.json: N describes its points with the E space's model.")
+    version = controls.codex_version()
     print(f"{version or 'codex version unknown'}; model {args.model}, effort {args.effort or 'default'}"  # noqa: T201
           f"{f' via {args.oss}' if args.oss else ''}; skills via {args.skills_via}; results in {results.name}/")
     for s in pending(plan(cases, conditions, args.reps), results):

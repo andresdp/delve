@@ -1,5 +1,10 @@
 # Running the Designing 2027 sessions
 
+> **Since 2026-11-11** the runner runs **E and N only** (the conditions the paper reports) and no longer imports
+> the CAIN runner: its controls are in `controls.py`, and `build_workspace.py` builds the E workspace from
+> `inputs/`. The sessions below, M included, ran at commit `696139c` (second run, `results-v2/`); this file is the
+> record of how they were run.
+
 This guide takes you from the case files to committed results, in four phases: set up, a smoke test, the pilots
 and the full run. Each step says what to run, what you should see, and what to send back before the next step.
 
