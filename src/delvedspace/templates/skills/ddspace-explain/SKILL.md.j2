@@ -28,14 +28,14 @@ you observed, and let the observation decide what to test next.
 - **Evaluating** a point or region means judging it as a whole: for each requirement it bears on, does it `meet`
   it, meet it `partly`, or `miss` it; which of its values conflict; and what supports the combination.
 
-**Where the space comes from.** If `references/design-space.md` is next to this file, a design space exists. In a
-project the skill is `.agents/skills/ddspace-explain/`, so look for
-`.agents/skills/ddspace-explain/references/design-space.md` with `ls` or `cat`: file searches such as `rg --files`
-skip hidden folders and will not find it. If it exists, read the reference before step 1. It says which `ddspace`
-command does each operation below (list dimensions and values, find evidence, evaluate a point), how to write ids,
-what to do with decisions the space does not cover, and the `space` part of the file. Without it, there is no
-space: you do every operation yourself, from the problem and what you know, and the support is your own knowledge,
-which you say.
+**Is there a design space?** A design space is a `ddspace` workspace: a folder with a `ddspace.yaml` and a wiki of
+dimensions, values and relations, which the `ddspace` command reads. Look for `references/design-space.md` next to
+this file, in the folder this skill was loaded from (in a project, `.agents/skills/ddspace-explain/` or
+`.claude/skills/ddspace-explain/`; use `ls` or `cat`: file searches such as `rg --files` skip hidden folders). If it
+is there, run the command it gives for what the space is, exactly as it writes it, in the working folder. A design space exists only when that command prints one: then read the reference before
+step 1. It says which `ddspace` command does each operation below (list dimensions and values, find evidence, evaluate a point), how to write ids, what to do with decisions the space does not cover, and the `space` part of the file. When the reference is missing, `ddspace`
+is not installed, or the command finds no space, there is no space: you do every operation yourself, from the
+problem and what you know, and the support for a point is your own knowledge, which you say.
 
 **Without a space** you work zero-shot: you do not build or write a space, you name each dimension and value
 from the solution, the problem and your own knowledge when you need it. The file's `space` is `null`, a
@@ -56,8 +56,8 @@ evaluate a point, look it up in the list: when a point with the same values is a
 id and you do not evaluate or describe it again. If a description must change (rarely), change it in the list
 only: every step that names the point shows the new one. Without a space, describe each new point with
 `ddspace point --no-space --domain "<problem title>" "<Dimension: Value>" ...` (one call per point, the values
-named as in the file) and record the `description` it prints; `attested_by` stays empty. If that call fails, keep
-the description `null`, never one of your own. Every description ends with the point's own trade-off
+named as in the file) and record the `description` it prints; `attested_by` stays empty. If that call fails, or
+`ddspace` is not installed, keep the description `null`, never one of your own. Every description ends with the point's own trade-off
 (`Trade-off: …`): what the combination of values gains and what it gives up, whatever the requirements.
 
 ## Gaps in the space
@@ -137,11 +137,13 @@ both. Write `"unaddressed": []` when every requirement is addressed.
    requirement no ADR addresses in `unaddressed`, with its reason (see "Gaps in the space").
 11. **Write the file** to `./rationale/<id>.json` (create the folder), in the shape below.
 12. **Check until clean.** Run `ddspace rationale check rationale/<id>.json` and fix every error, then run it
-   again, until `ok` is `true`. Each problem has a `code`, a JSON Pointer `path` into the file and often
+   again, until `ok` is `true`. If `ddspace` is not installed, check the file yourself against the shape below
+   (every required field, every point a step names in `points`, every trade-off's values in its step's point) and
+   say in your summary that `ddspace` did not check it. Each problem has a `code`, a JSON Pointer `path` into the file and often
    `candidates`: read them, they list what would fit.
 13. **Present the explanation.** Summarize the ADRs and the regions that justify the solution, which values are
    forced and which free, the path you took, and the gaps: uncovered decisions, unaddressed requirements and
-   approximate fits. In interactive use (not in a study session), finish with
+   approximate fits. In interactive use (not in a study session), when `ddspace` is installed, finish with
    `ddspace rationale build rationale/<id>.json --out .`, which renders the file as a browsable explainer page
    with the trajectory, in `explainers/<id>.html` (with a space, the reference gives the command that renders it
    into the wiki instead).
