@@ -478,6 +478,21 @@ def test_approach_page(tmp_path):
     assert "approach.html" not in top  # not in the header navigation
 
 
+def test_a_space_that_was_not_mined_says_where_it_comes_from(tmp_path):
+    for kind, origin in (("decision model", "imported from a decision model written by experts"),
+                         ("curated", "written by hand")):
+        tax = dict(_taxonomy(), provenance={"kind": kind})
+        export = build(_inputs(taxonomy=tax, models={"generation_llm": "openai/gen"}))
+        pages = {p.path: p for p in export.pages}
+        index, about = pages["index"].body, pages["approach"]
+        assert origin in index and "mined" not in index and "[[approach|About this design space]]" in index
+        assert about.title == "About this design space" and "## Where this one comes from" in about.body
+        assert "Grounded theory" not in about.body and "mine" not in about.body.replace("determine", "")
+        assert "*The question the design space answers.*" in index      # the use case, without "mining"
+    unknown = build(_inputs(taxonomy=dict(_taxonomy(), provenance={"kind": "something else"})))
+    assert "## Grounded theory in brief" in next(p for p in unknown.pages if p.path == "approach").body
+
+
 def test_core_dimensions(tmp_path):
     tax = _taxonomy()
     tax["selected_clusters"][1]["evidence"]["sources"] = 1          # Replication: one source
