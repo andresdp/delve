@@ -259,4 +259,4 @@ def test_a_standalone_skill_finds_its_space_and_works_without_ddspace(name):
     assert "If `ddspace` is not installed, check the file yourself" in text
     assert "when `ddspace` is installed, finish with `ddspace rationale build" in text
     reference = agent.skill_files(name, space=True)[agent.REFERENCE]
-    assert "DelveDSpace" not in reference and "mined" not in reference
+    assert "the working folder is a `ddspace` workspace" in " ".join(reference.split()) and "mined" not in reference
