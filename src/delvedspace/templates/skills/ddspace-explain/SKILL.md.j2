@@ -12,6 +12,14 @@ explanation, with every point you evaluated on the way, as one rationale file th
 accepts. The work is a loop: form a hypothesis about why part of the solution is there, evaluate it, record what
 you observed, and let the observation decide what to test next.
 
+## The input
+
+The user gives the problem with the request: a file to read (such as `PROBLEM.md`) or text written in the request
+itself. A problem has a context and requirements: functional ones, quality attributes (best as scenarios) and
+constraints. When the requirements are not labelled, take them from the text and say how you read them. The solution to explain comes the same way: a file (such as `SOLUTION.md`) or text that describes the system as built. When
+the request gives neither a file nor text, look for `PROBLEM.md` and `SOLUTION.md` in the working folder; when there is none, ask
+for the problem before you start.
+
 ## The design space
 
 - A **dimension** is a design concern the solution must settle: where the data lives, how replicas agree.
@@ -35,7 +43,9 @@ this file, in the folder this skill was loaded from (in a project, `.agents/skil
 is there, run the command it gives for what the space is, exactly as it writes it, in the working folder. A design space exists only when that command prints one: then read the reference before
 step 1. It says which `ddspace` command does each operation below (list dimensions and values, find evidence, evaluate a point), how to write ids, what to do with decisions the space does not cover, and the `space` part of the file. When the reference is missing, `ddspace`
 is not installed, or the command finds no space, there is no space: you do every operation yourself, from the
-problem and what you know, and the support for a point is your own knowledge, which you say.
+problem and what you know, and the support for a point is your own knowledge, which you say. When `ddspace` runs
+but finds no space, tell the user so in one line before you start ("`ddspace` is installed, but this folder has
+no design space: I continue without one") and go on without a space.
 
 **Without a space** you work zero-shot: you do not build or write a space, you name each dimension and value
 from the solution, the problem and your own knowledge when you need it. The file's `space` is `null`, a

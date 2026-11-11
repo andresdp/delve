@@ -228,14 +228,14 @@ def _examples(ws: Workspace) -> Dict[str, Optional[str]]:
     return {"dimension": dim, "value": value, "word": word, "run": graph.get("run"), "name": graph.get("name")}
 
 
-def _expert_model(ws: Workspace) -> bool:
-    """Whether the current run is an imported expert decision model (no passages to cite)."""
+def _imported_kind(ws: Workspace) -> Optional[str]:
+    """The current run's kind when it is an import without passages (a decision model or a hand-written space)."""
     try:
         run_dir = runs.current_run_dir(ws)
     except WorkspaceError:
-        return False
+        return None
     run = runs.load(run_dir) if run_dir is not None else None
-    return run is not None and run.kind == runs.IMPORT_MODEL
+    return run.kind if run is not None and run.kind in (runs.IMPORT_MODEL, runs.IMPORT_SPACE) else None
 
 
 def _curated(ws: Workspace) -> bool:
@@ -323,8 +323,17 @@ def guide(ws: Workspace, target: Path, install: Optional[Dict[str, Optional[str]
     run = f" (run {ex['run']})" if ex["run"] else ""
     built = "" if ex["run"] else ("\n> The wiki has not been built yet: run `ddspace wiki build` in the workspace, "
                                   "then `ddspace agent setup` again for real examples.\n")
-    expert = _expert_model(ws)
-    if expert:
+    imported = _imported_kind(ws)
+    expert = imported is not None       # no passages: cite dimension and value ids
+    if imported == runs.IMPORT_SPACE:
+        about = (f"a design space written by hand{run}: dimensions, values and relations chosen by its authors, "
+                 "without source passages. Use it to answer design questions and sketch designs, and cite the "
+                 "dimension and value ids you use.")
+        evidence = ("- **Evidence**: there are no source passages; cite dimension and value ids (`d:3`, `v:3.1`).")
+        evidence_cmd = ""
+        rule = ("2. Ground every claim about the design space in it, and cite dimension and value ids\n"
+                "   (from `ddspace query values` and `ddspace query show`).")
+    elif expert:
         about = (f"a design space imported from an expert decision model{run}: decisions and alternatives written by "
                  "researchers, without source passages. Use it to answer design questions and sketch designs, and "
                  "cite the dimension and value ids you use.")

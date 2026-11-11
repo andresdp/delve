@@ -4,7 +4,7 @@
 
 A design space is available: the working folder is a `ddspace` workspace, a wiki of dimensions, values and
 relations. When the space was built from sources, each value has the evidence passages that accept or reject it;
-an imported decision model has none, and you cite its ids. Do not build your own space (step 3 of the skill): map
+a decision model or a space written by hand has none, and you cite its ids. Do not build your own space (step 3 of the skill): map
 the solution onto the wiki's dimensions and values with the commands below, and do every operation of the skill
 with them.
 

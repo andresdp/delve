@@ -516,13 +516,37 @@ def update(
 
 @app.command("import")
 def import_cmd(
-    path: Path = typer.Argument(..., help="A run's taxonomy JSON, or a decision model (gt_model.json)."),
-    kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy) or decision-model (expert decisions and options)."),
+    path: Path = typer.Argument(..., help="A run's taxonomy JSON, a decision model (gt_model.json), or a design "
+                                "space written by hand (YAML or JSON)."),
+    kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy), decision-model (expert decisions and "
+                             "options) or space (a hand-written file: name, question, dimensions with values, "
+                             "relations)."),
     corpus: Optional[Path] = typer.Option(None, "--corpus", help="kind run: the corpus JSON, for quotes and design points."),
     sources: Optional[Path] = typer.Option(None, "--sources", help="kind run: sources.csv (id, title, url)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Replace the current run without asking."),
 ) -> None:
-    """Make a design space built elsewhere the current run: a mined [bold]run[/bold] or an expert [bold]decision-model[/bold]."""
+    """Make a design space built elsewhere the current run: a mined [bold]run[/bold], an expert
+    [bold]decision-model[/bold], or a [bold]space[/bold] you wrote by hand.
+
+    A hand-written space (YAML or JSON) has a name, an optional question, dimensions with their values, and
+    relations (requires, constrains, affects, co_occurs_with) between dimensions:
+
+    \b
+        name: git-hosting
+        question: Which decisions does hosting Git for a large organization involve?
+        dimensions:
+          - id: storage
+            name: Source of truth for repository state
+            values:
+              - name: Repository files on server disks
+                description: Plain Git repositories on local disks are the authority.
+              - Write-ahead log in object storage
+          - id: replication
+            name: Replication for durability
+            values: [Three Git replicas with majority writes, Durability delegated to object storage]
+        relations:
+          - {from: replication, to: storage, type: requires}
+    """
     ws = current_workspace()
     if kind not in importer.KINDS:
         fail(f"--kind must be one of: {', '.join(importer.KINDS)}.")
@@ -543,8 +567,8 @@ def import_cmd(
     taxonomy = wsmod.read_json(runs.find_taxonomy(run_dir))
     dims = wb.selected_dims(taxonomy)
     dropped = (taxonomy.get("provenance") or {}).get("relations_dropped") or 0
-    if kind == "decision-model":
-        evidence = "none (a decision model)"
+    if kind in importer.NO_PASSAGES:
+        evidence = f"none (a {'decision model' if kind == 'decision-model' else 'hand-written space'})"
     elif corpus:
         evidence = "quotes from the corpus"
     else:
