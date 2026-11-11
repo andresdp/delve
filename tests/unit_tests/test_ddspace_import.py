@@ -239,7 +239,6 @@ def test_import_model_builds_an_expert_wiki(ws, tmp_path):
 
 SPACE_YAML = """\
 name: git-hosting
-question: Which decisions does hosting Git for a large organization involve?
 dimensions:
   - id: storage
     name: Source of truth
@@ -262,10 +261,9 @@ def test_import_a_hand_written_space_builds_a_wiki_and_answers_queries(ws, tmp_p
     result = _invoke("import", str(path), "--kind", "space", "--yes")
     assert result.exit_code == 0, result.output
     assert runs.load(runs.current_run_dir(ws)).kind == runs.IMPORT_SPACE
-    assert ws.config()["taxonomy"]["use_case"].startswith("Which decisions")
     assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
     graph = read_json(ws.root / "raw" / "graph.json")
-    assert graph["name"] == "git-hosting" and graph["use_case"].startswith("Which decisions")
+    assert graph["name"] == "git-hosting"
     index = (ws.root / "wiki" / "overview.md").read_text()
     assert "written by hand" in index and "mined" not in index
     dims = {d["label"]: d for d in json.loads(_invoke("query", "dimensions").output)}
@@ -281,6 +279,14 @@ def test_import_a_hand_written_space_builds_a_wiki_and_answers_queries(ws, tmp_p
     assert _invoke("agent", "setup", "--yes").exit_code == 0
     guide = (ws.root / "AGENTS.md").read_text()
     assert "written by hand" in guide and "cite passage ids" not in guide
+
+
+def test_a_space_needs_only_a_name_dimensions_and_values(ws, tmp_path):
+    path = tmp_path / "minimal.yaml"
+    path.write_text("name: tiny\ndimensions:\n  - name: Storage\n    values: [Disks, Object store]\n")
+    assert _invoke("import", str(path), "--kind", "space", "--yes").exit_code == 0
+    assert _invoke("wiki", "build", "--yes", "--no-llm").exit_code == 0
+    assert read_json(ws.root / "raw" / "graph.json")["name"] == "tiny"
 
 
 def test_import_a_space_as_json_too(ws, tmp_path):

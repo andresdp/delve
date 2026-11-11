@@ -5,7 +5,7 @@ when available). ``decision-model`` is an expert decision model in the ground-tr
 (``benchmark/gt_format.py``): decisions become dimensions, options become values and decision links become
 relations. Forces and impacts are not imported, and there are no passages, so the wiki shows the model
 without evidence. ``space`` is a design space written by hand, in YAML or JSON (:func:`space_to_taxonomy`):
-dimensions with their values, and relations between dimensions; it has no passages either.
+a name and dimensions with their values (relations between dimensions are optional); it has no passages either.
 """
 
 from __future__ import annotations
@@ -90,11 +90,10 @@ def model_to_taxonomy(model: Dict[str, Any], name: str) -> Dict[str, Any]:
 def space_to_taxonomy(spec: Dict[str, Any], name: str) -> Dict[str, Any]:
     """Return a hand-written design space as a run taxonomy; raise :class:`WorkspaceError` with what is wrong.
 
-    The file has a ``name``, an optional ``question`` (what the space is for), ``dimensions`` and optional
-    ``relations``::
+    The file has a ``name`` and ``dimensions``, each with a ``name`` and its ``values``; descriptions, ids and
+    ``relations`` are optional::
 
         name: git-hosting
-        question: Which decisions does hosting Git for a large organization involve?
         dimensions:
           - id: storage                       # optional; relations may name a dimension by id or by name
             name: Source of truth for repository state
@@ -175,9 +174,8 @@ def import_space(ws: Workspace, path: Path, kind: str, corpus: Optional[Path] = 
         taxonomy = data
     elif kind == "space":
         taxonomy = space_to_taxonomy(data, name=name)
-        for key, field in (("name", "name"), ("use_case", "question")):    # the file names its space
-            if str((data or {}).get(field) or "").strip():
-                ws.set(f"taxonomy.{key}", str(data[field]).strip())
+        if str((data or {}).get("name") or "").strip():               # the file names its space
+            ws.set("taxonomy.name", str(data["name"]).strip())
     else:
         if not data.get("decisions"):
             raise WorkspaceError(f"{path} has no decisions; is it a decision model (ground-truth format)?")

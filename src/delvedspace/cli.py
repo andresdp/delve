@@ -519,8 +519,7 @@ def import_cmd(
     path: Path = typer.Argument(..., help="A run's taxonomy JSON, a decision model (gt_model.json), or a design "
                                 "space written by hand (YAML or JSON)."),
     kind: str = typer.Option("run", "--kind", help="run (a mined taxonomy), decision-model (expert decisions and "
-                             "options) or space (a hand-written file: name, question, dimensions with values, "
-                             "relations)."),
+                             "options) or space (a hand-written file: a name, dimensions and their values)."),
     corpus: Optional[Path] = typer.Option(None, "--corpus", help="kind run: the corpus JSON, for quotes and design points."),
     sources: Optional[Path] = typer.Option(None, "--sources", help="kind run: sources.csv (id, title, url)."),
     yes: bool = typer.Option(False, "--yes", "-y", help="Replace the current run without asking."),
@@ -528,12 +527,11 @@ def import_cmd(
     """Make a design space built elsewhere the current run: a mined [bold]run[/bold], an expert
     [bold]decision-model[/bold], or a [bold]space[/bold] you wrote by hand.
 
-    A hand-written space (YAML or JSON) has a name, an optional question, dimensions with their values, and
-    relations (requires, constrains, affects, co_occurs_with) between dimensions:
+    A hand-written space (YAML or JSON) needs a name and dimensions with their values; descriptions and relations
+    between dimensions (requires, constrains, affects, co_occurs_with) are optional:
 
     \b
         name: git-hosting
-        question: Which decisions does hosting Git for a large organization involve?
         dimensions:
           - id: storage
             name: Source of truth for repository state
