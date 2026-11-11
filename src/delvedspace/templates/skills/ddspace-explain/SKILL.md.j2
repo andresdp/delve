@@ -14,11 +14,12 @@ you observed, and let the observation decide what to test next.
 
 ## The input
 
-The user gives the problem with the request: a file to read (such as `PROBLEM.md`) or text written in the request
-itself. A problem has a context and requirements: functional ones, quality attributes (best as scenarios) and
-constraints. When the requirements are not labelled, take them from the text and say how you read them. The solution to explain comes the same way: a file (such as `SOLUTION.md`) or text that describes the system as built. When
-the request gives neither a file nor text, look for `PROBLEM.md` and `SOLUTION.md` in the working folder; when there is none, ask
-for the problem before you start.
+The user usually gives the problem as text with the request, for example after the skill's command
+(`/ddspace-explain ...`). A problem has a context and requirements: functional ones, quality attributes (best as
+scenarios) and constraints. When the requirements are not labelled, take them from the text and say how you read
+them. The solution to explain comes the same way, usually in the same text after the problem ("Solution: ..."),
+or in a file such as `SOLUTION.md`: what the system is, its components and the decisions taken. The user may instead name a file to read (such as `PROBLEM.md`). When the request gives neither text
+nor a file, look for `PROBLEM.md` and `SOLUTION.md` in the working folder; when there is none, ask for the problem before you start.
 
 ## The design space
 

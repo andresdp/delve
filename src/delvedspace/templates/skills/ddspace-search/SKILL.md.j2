@@ -13,11 +13,11 @@ what you observed, and let the observation decide the next point.
 
 ## The input
 
-The user gives the problem with the request: a file to read (such as `PROBLEM.md`) or text written in the request
-itself. A problem has a context and requirements: functional ones, quality attributes (best as scenarios) and
-constraints. When the requirements are not labelled, take them from the text and say how you read them. When
-the request gives neither a file nor text, look for `PROBLEM.md` in the working folder; when there is none, ask
-for the problem before you start.
+The user usually gives the problem as text with the request, for example after the skill's command
+(`/ddspace-search ...`). A problem has a context and requirements: functional ones, quality attributes (best as
+scenarios) and constraints. When the requirements are not labelled, take them from the text and say how you read
+them. The user may instead name a file to read (such as `PROBLEM.md`). When the request gives neither text
+nor a file, look for `PROBLEM.md` in the working folder; when there is none, ask for the problem before you start.
 
 ## The design space
 
