@@ -617,8 +617,27 @@ builder = _load("build_workspace")
 
 def test_the_tracked_inputs_match_their_manifest():
     assert builder.verify() == []
-    assert json.loads(runner.MANIFEST.read_text())["files"] == {"gt_model.json": controls.sha256(
-        runner.MANIFEST.parent / "gt_model.json")}
+    inputs = runner.MANIFEST.parent
+    assert json.loads(runner.MANIFEST.read_text())["files"] == {
+        name: controls.sha256(inputs / name) for name in ("gt_model.json", "dimension_names.yaml")}
+
+
+def test_every_decision_gets_a_dimension_name_and_keeps_its_question():
+    import yaml
+    inputs = runner.MANIFEST.parent
+    model = json.loads((inputs / "gt_model.json").read_text())
+    names = yaml.safe_load((inputs / "dimension_names.yaml").read_text())
+    named = builder.named_model(model, names)
+    assert len(named["decisions"]) == len(model["decisions"]) == 28
+    for before, after in zip(model["decisions"], named["decisions"]):
+        assert after["id"] == before["id"] and after["description"] == before["question"]   # the authors' words
+        assert after["name"] == names[before["id"]] and "?" not in after["name"]            # a concern, not a question
+    assert len({d["name"] for d in named["decisions"]}) == 28                                  # all distinct
+    assert model["decisions"][0]["name"].endswith("?")                                         # the input is unchanged
+    with pytest.raises(ValueError, match="missing"):
+        builder.named_model(model, dict(list(names.items())[1:]))
+    with pytest.raises(ValueError, match="unknown"):
+        builder.named_model(model, dict(names, extra_decision="Extra"))
 
 
 def test_the_builder_refuses_changed_inputs(tmp_path):

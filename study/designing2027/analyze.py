@@ -57,7 +57,8 @@ def _mean(values: Sequence[float]) -> Optional[float]:
 def _load(results: Path, condition: str) -> List[Dict[str, Any]]:
     """The condition's sessions: each its summary and rationale file, in session order."""
     out = []
-    for path in sorted((results / "rationale").glob(f"*-{condition}-r*.json")):
+    session = re.compile(rf"^.+-{re.escape(condition)}-r\d+$")     # skips copies such as "x-E-r1 2.json"
+    for path in sorted(p for p in (results / "rationale").glob(f"*-{condition}-r*.json") if session.match(p.stem)):
         summary = results / "summaries" / path.name
         out.append({"id": path.stem, "doc": json.loads(path.read_text(encoding="utf-8")),
                     "summary": json.loads(summary.read_text(encoding="utf-8")) if summary.is_file() else {}})
