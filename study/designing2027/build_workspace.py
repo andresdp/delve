@@ -42,6 +42,9 @@ MANIFEST = "manifest.json"
 MODEL_FILE = "gt_model.json"
 NAMES_FILE = "dimension_names.yaml"
 NAME = "c1-e"                       # the space's name, as in the study's E workspace
+USE_CASE = ("The architectural design decisions of the machine learning workflow, from data ingestion and "
+            "processing through model building and training to deployment and operation, with the options "
+            "for each (Warnett and Zdun's decision model).")
 
 
 def verify(inputs: Path = INPUTS) -> List[str]:
@@ -94,6 +97,7 @@ def build(out: Path, inputs: Path = INPUTS, name: str = NAME) -> Path:
     workspace = Workspace(ws)
     for key, value in (("design_points", "none"), ("quotes", False), ("source_summaries", False)):
         workspace.set(f"wiki.{key}", value)
+    workspace.set("taxonomy.use_case", USE_CASE)
     _ddspace(ws, "wiki", "build", "--yes", "--no-llm")
     _ddspace(ws, "agent", "setup", "--yes")
     shutil.copyfile(inputs / MANIFEST, ws / controls.MANIFEST_COPY)
