@@ -202,6 +202,11 @@
   .opt-solution { border-left: 4px solid var(--accent); } .opt-contrast { border-left: 4px solid var(--novel); }
   .crit { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; margin: 6px 0; cursor: pointer; background: var(--panel); position: relative; z-index: 1; }
   svg.qoc-links path.traced { stroke-opacity: 1; stroke-width: 3px; }
+  details.howto { border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; margin: 4px 0 16px; font-size: 14px; }
+  details.howto summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  details.howto[open] summary { margin-bottom: 6px; }
+  details.howto p, details.howto ul { margin: 6px 0; }
+  details.howto li { margin: 3px 0; }
   details.grid-details { margin-top: 22px; } details.grid-details summary { cursor: pointer; color: var(--muted); font-weight: 600; }
   .solution, .option { border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin: 8px 0; cursor: pointer; }
   .solution.sel, .option.sel { box-shadow: 0 0 0 2px var(--accent); }
@@ -245,6 +250,53 @@
   <div class="kind">{{ "Explain" if d.mode == "explain" else "Search" }} · design rationale{% if d.space %} · run {{ d.space.run }}{% else %} · no design space{% endif %}</div>
   <h1>{{ d.title }}</h1>
   {% if d.context %}<p>{{ d.context }}</p>{% endif %}
+  {% set search = d.mode != "explain" %}
+  <details class="howto"><summary>How to read this page</summary>
+    {% if search %}
+    <p>A coding agent <b>searched</b> for designs that solve this problem. It combined decisions (dimensions) and
+      their options (values) into design points, and judged each point against every requirement: meets, partly
+      or misses. It proposes {{ d.alternatives|length }} alternative{{ "s" if d.alternatives|length != 1 }}.
+      Every judgement here is the agent's; the page lays out its rationale file.</p>
+    <ul>
+      <li><b>Decisions (ADRs)</b> lists the alternatives, then one record per decision: the requirements that drive
+        it, and every option weighed, with its pros and cons, chosen by an alternative or discarded.</li>
+      {% if d.alternatives|length > 1 %}<li><b>Comparison</b> puts the alternatives side by side, with the rows
+        where they differ first.</li>{% endif %}
+      {% if d.trajectory %}<li><b>Trajectory</b> shows how the agent got there:
+        <ul>
+          <li>the lanes show each approach round by round, with every point coloured strong, mixed or weak;</li>
+          <li>a strip shows how each point met each requirement;</li>
+          <li>the story gives each point's thought, change, observation and trade-offs.</li>
+        </ul></li>{% endif %}
+    </ul>
+    {% else %}
+    <p>A coding agent <b>explained</b> an existing solution. It mapped the solution's choices onto decisions
+      (dimensions) and their options (values), and tested which parts of the solution the requirements justify. It
+      contrasted one value at a time to tell whether the requirements <b>force</b> that value or it was chosen
+      <b>freely</b>. Every judgement here is the agent's; the page lays out its rationale file.</p>
+    <ul>
+      <li><b>Decisions (ADRs)</b> shows the solution, then one record per decision: the requirements that drive it,
+        the solution's option, and the options it was contrasted with.</li>
+      {% if d.trajectory %}<li><b>Trajectory</b> shows how the agent got there:
+        <ul>
+          <li>the steps it took (the solution, parts of it called regions, and contrasts), each judged grounded,
+            partial or ungrounded;</li>
+          <li>a view of questions, options and criteria, which shows which values are forced and which free;</li>
+          <li>the regions that justify the solution.</li>
+        </ul></li>{% endif %}
+    </ul>
+    {% endif %}
+    {% if d.inferred %}<p>No problem was given, so the requirements were inferred from the solution. Check them
+      first.</p>{% endif %}
+    {% if d.wiki %}<p><b>Gaps in the space</b>, at the bottom, lists where the design space fell short:
+      {% if not search %}decisions it does not cover, {% endif %}requirements no dimension bears on, and values that
+      only roughly fit.{% if d.links.index %} Every dimension and value links to its page in the space's
+      wiki.{% endif %}</p>
+    {% else %}<p>No design space was used. The agent named the decisions and options itself, so nothing was checked
+      against a space and there are no gaps in one.</p>{% endif %}
+    <p>The graph on the right shows the decisions involved, the design points and the requirements. Select
+      anything, in the text or the graph, to see it in both.</p>
+  </details>
 
   <h2 class="sec">Requirements{% if d.inferred %} (inferred from the solution){% endif %}</h2>
   {% if d.inferred %}<p class="hint">No problem was given: the agent inferred these requirements from the solution, and the explanation rests on them.</p>{% endif %}
@@ -254,7 +306,6 @@
     {% endfor %}
   </ul>
 
-  {% set search = d.mode != "explain" %}
   <div class="tabs" role="tablist">
     <button class="tab" type="button" role="tab" data-tab="adrs" aria-selected="true">{{ "Decisions (ADRs)" }}</button>
     {% if d.alternatives|length > 1 %}
