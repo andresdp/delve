@@ -274,3 +274,10 @@ def test_explain_takes_a_solution_alone_and_infers_the_requirements():
     assert "The problem it solves is optional" in text and "**Without a problem**, infer it from the solution" in text
     assert "Set the problem's `inferred` to `true`" in text and "never a target it does not state" in text
     assert "with or without the problem it solves" in text                       # the description agents pick by
+
+
+@pytest.mark.parametrize("name", SKILLS)
+def test_a_requirement_drives_an_adr_only_through_a_dimension_that_bears_on_it(name):
+    text = " ".join(agent.skill_text(name).split())
+    assert "Make a requirement an ADR's driver only when one of that ADR's dimensions bears on it" in text
+    assert "is `no_dimension`, even when the design as a whole must meet it" in text

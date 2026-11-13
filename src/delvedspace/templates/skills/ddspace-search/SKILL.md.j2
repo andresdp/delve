@@ -80,6 +80,10 @@ fit. Where the space falls short, record the gap instead of forcing a fit:
 
 - **A requirement no dimension bears on.** Do not map it onto the nearest dimension. List it in `unaddressed`
   with `reason: "no_dimension"`, the `nearest_dimension_id` (or `null`) and a `note` saying what the space lacks.
+  A requirement bears on a dimension when choosing one value of it instead of another changes how well the
+  requirement is met. Make a requirement an ADR's driver only when one of that ADR's dimensions bears on it; one that
+  no dimension of the space bears on (a failover time, the size of a team, a regulation) is `no_dimension`, even
+  when the design as a whole must meet it: do not attach it to an ADR whose options leave it unchanged.
 - **A requirement the alternatives give up** for a stronger one (`traded_off`), or one the budget left no point
   for (`budget`): list it in `unaddressed` with that reason and a `note`.
 - **A value that only roughly matches** what a choice or an ADR option stands for: keep the value, and mark the

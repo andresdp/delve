@@ -129,7 +129,8 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
     In a workspace, the file is copied to rationale/<id>.json and the page is written to
     site/explainers/<id>.html, next to the wiki pages it links to, and listed on the HTML index; every
     `ddspace wiki build` re-renders it. With --out DIR, a standalone folder is written
-    (with a space, its links point into the wiki the file was checked against). A file with errors writes
+    (with a space, its links point into the wiki the file was checked against); run inside the space's own
+    workspace (no --graph), the page also goes into the wiki, as `wiki_page`. A file with errors writes
     nothing: exit code 1 with the check result. Exit code 2 for an unreadable file, a graph that cannot be
     loaded, a missing --out, an --out DIR outside the current folder or whose assets/ ddspace did not create,
     an id that cannot name a file, or an id another file in rationale/ already declares.
@@ -149,31 +150,46 @@ def build(file: Path = typer.Argument(..., help="The rationale file (ddspace-rat
         _fail(f"The id '{rid}' cannot name a file: use letters, digits, '.', '_' and '-'.", False)
     changed = any(p["code"] == "graph_changed" for p in result["problems"])
     root = graph_file.resolve().parent.parent if graph_file is not None else None
-    copied = None
+    copied, note, page = None, None, None
+    # Inside the space's own workspace (no --graph), the page always goes into its wiki, --out or not; --out then
+    # also writes the standalone folder. With --graph (another workspace, as the study runner passes), --out alone.
+    here = Path.cwd().resolve()
+    into_wiki = out is None or (graph is None and root is not None and (root / CONFIG_NAME).is_file()
+                                and (here == root or root in here.parents))
     if out is not None:
         page = explainer.write_standalone(doc, loaded, out, wiki_html=html_dir(root) if root else None,
                                           graph_changed=changed)
-    else:
+    wiki_page = None
+    if into_wiki:
         if not (root / CONFIG_NAME).is_file():
             _fail(f"{root} is not a workspace (no {CONFIG_NAME}): pass --out DIR to write a standalone page.", False)
         copied = root / "rationale" / f"{rid}.json"
         others = rationale.declared_by(root, rid, skip=copied)
-        if others:
+        if others and out is None:
             _fail(f"The id '{rid}' is already declared by {', '.join(str(o) for o in others)}: give the file its "
                   "own id, or remove the other file.", False)
-        copied.parent.mkdir(parents=True, exist_ok=True)
-        if not (copied.exists() and copied.samefile(file)):
-            shutil.copyfile(file, copied)
-        site = html_dir(root)
-        page = explainer.write_page(doc, loaded, site, wiki_html=site, graph_changed=changed)
-        # `ddspace wiki build` re-renders every file in rationale/, so the page is listed in raw/exported.json as
-        # the build would list it (a later build that cannot render it, a broken file, then removes it).
-        same = graph_file.resolve() == (root / "raw" / "graph.json").resolve()  # the graph scan would load
-        entries = rationale.scan(root, site, loaded, sha) if same else rationale.scan(root, site)
-        explainer.write_index(site, rationale.index_entries(entries))
-        render.add_to_manifest(root, [page])
-    typer.echo(json.dumps({"page": str(page), "rationale": str(copied) if copied else None,
-                           "problems": result["problems"]}, indent=2, ensure_ascii=False))
+        if others:
+            copied, note = None, (f"not added to the wiki: the id '{rid}' is already declared by "
+                                  f"{', '.join(str(o) for o in others)}")
+        else:
+            copied.parent.mkdir(parents=True, exist_ok=True)
+            if not (copied.exists() and copied.samefile(file)):
+                shutil.copyfile(file, copied)
+            site = html_dir(root)
+            wiki_page = explainer.write_page(doc, loaded, site, wiki_html=site, graph_changed=changed)
+            # `ddspace wiki build` re-renders every file in rationale/, so the page is listed in raw/exported.json
+            # as the build would list it (a later build that cannot render it, a broken file, then removes it).
+            same = graph_file.resolve() == (root / "raw" / "graph.json").resolve()  # the graph scan would load
+            entries = rationale.scan(root, site, loaded, sha) if same else rationale.scan(root, site)
+            explainer.write_index(site, rationale.index_entries(entries))
+            render.add_to_manifest(root, [wiki_page])
+    payload = {"page": str(page or wiki_page), "rationale": str(copied) if copied else None,
+               "problems": result["problems"]}
+    if out is not None and wiki_page is not None:
+        payload["wiki_page"] = str(wiki_page)
+    if note:
+        payload["note"] = note
+    typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
 
 
 @app.command("list")

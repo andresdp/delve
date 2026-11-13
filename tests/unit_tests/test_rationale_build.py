@@ -189,7 +189,19 @@ def test_a_space_file_with_out_links_to_the_wiki_it_was_checked_against(ws, tmp_
     page = out / "explainers" / "toy-store-search.html"
     assert (out / "assets" / "d3.min.js").is_file()
     assert _wiki_links(page) and all(_resolves(page, h) for h in _links(page))
-    assert not (ws / "site" / "explainers").exists()  # --out leaves the workspace alone
+    # inside the space's own workspace, the page also goes into its wiki (agents pass --out by habit)
+    assert (ws / "site" / "explainers" / "toy-store-search.html").is_file()
+    assert (ws / "rationale" / "toy-store-search.json").is_file()
+
+
+def test_out_with_graph_from_another_folder_leaves_that_workspace_alone(ws, tmp_path, monkeypatch):
+    elsewhere = tmp_path / "results"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)                    # as the study runner does: --graph names the workspace
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _sample())), "--out", "explainers-x",
+                             "--graph", str(ws)))
+    assert (elsewhere / "explainers-x" / "explainers" / "toy-store-search.html").is_file()
+    assert "wiki_page" not in payload and not (ws / "site" / "explainers").exists()
 
 
 def test_a_changed_graph_shows_the_banner(ws, tmp_path):
