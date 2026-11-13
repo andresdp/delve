@@ -14,3 +14,4 @@
 - 2026-11-08 22:34 full run started
 - 2026-11-09 11:52 second run (trade-offs, schema 6) at 696139c, into results-v2
 - 2026-11-09 second run finished: 36/36 ok, checks clean, describer openai/gpt-5.6-luna, no web/network commands, 4.7 h
+- 2026-11-12 the E space names its dimensions as concerns (inputs/dimension_names.yaml), each keeping the model's question as its description; the sessions above ran with the questions as names (same ids)
