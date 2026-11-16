@@ -1,0 +1,1458 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "pumps-search",
+  "mode": "search",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261116_115022",
+    "graph_sha256": "5ca7ab8de4859f635a387e9383722c1265b9c272d4a8a4a5464c14761254ef92"
+  },
+  "problem": {
+    "title": "Pump failure prediction",
+    "context": "A water utility operates about 400 pumps in 12 stations. Per-second vibration, temperature, and pressure data should help maintenance replace bearings and seals before failures. Some rural stations have unreliable mobile connectivity; the utility has two data scientists and relies on its IT department.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Warn the maintenance team at least 24 hours before a pump is likely to fail, naming the pump and the probable cause."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Improve the predictions as technicians record what they find at each inspection."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a station loses its connection for up to two days, warnings for its pumps still reach the station's on-call technician."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "modifiability",
+        "text": "When a new pump model is installed, its pumps get predictions within one month, without changes to how the other pumps are scored."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Sensor data stays on the utility's own premises: no cloud service may store or process it."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:2.1",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.1",
+        "v:22.2",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "A shared data store receives continuously streamed data for batch-based model training. CI/CD builds, tests, and deploys models and supporting components; hybrid serving combines online and offline predictions, delivers results through push notifications, and logs data and predictions for monitoring, with humans manually adjusting models when needed. Trade-off: This combines scalable ingestion, reproducible delivery, and flexible serving with operational visibility. However, batch training and manual adjustment can make models slower to adapt, while the shared store and automated deployment increase coordination and governance needs.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:2.3",
+        "v:5.4",
+        "v:6.2",
+        "v:7.3",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:25.2"
+      ],
+      "description": "The system records exchanged data as events, ingests it in batches, and uses a hybrid process to train models partly offline and partly incrementally. An orchestrator builds, tests, and deploys the required pipelines and components; predictions are precomputed into reports, which clients retrieve by polling, while production behavior is tracked and monitoring can trigger automated model adjustments. Trade-off: This provides auditable data, repeatable automation, and adaptive monitoring, but precomputed reports and batch ingestion can make results less timely, while polling adds client overhead. Hybrid training and automated adjustment also increase operational complexity and control risk.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:2.2",
+        "v:5.2",
+        "v:6.1",
+        "v:7.2",
+        "v:19.2",
+        "v:22.1",
+        "v:24.1",
+        "v:8.2",
+        "v:25.1"
+      ],
+      "description": "The system stores ML data in services, actively requests raw data, and incrementally updates models as data arrives. A local service/API returns real-time predictions, pushes result notifications to clients, monitors selected performance parameters, and uses CI/CD scripts to build, test, and deploy models and components; humans manually adjust and redeploy models when monitoring indicates a need. Trade-off: This supports timely predictions, ongoing learning, and controlled human oversight. It gives up fully automated adaptation and requires operational effort for manual model changes and scripted deployments; request-based ingestion may also delay updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:2.1",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "The system ingests a continuous stream into a shared data store, serving predictions through both online services and offline batches, with push notifications when results are available. Models combine batch and incremental training; production usage, inputs, outputs, interpretability, and fairness are tracked, while humans adjust models and CI/CD builds, tests, and deploys models and supporting components. Trade-off: This supports responsive predictions, fresh incremental learning, broad observability, and repeatable delivery, but adds operational complexity and storage/coordination costs. Manual adjustment preserves human control but makes adaptation slower and less automated.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:2.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.3",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:25.2"
+      ],
+      "description": "An event store captures exchanged data, while batch ingestion feeds orchestrated ML pipelines whose components are automatically built, tested, and deployed. Hybrid training and serving combine offline batches with online updates and computation; clients receive pushed results, while production usage, inputs, outputs, interpretability, and fairness trigger automated model adjustments. Trade-off: This combines batch efficiency with selective adaptation and automation, but batch ingestion and offline work can delay data freshness. Automated adjustments and push delivery also require reliable governance, notification, and monitoring infrastructure.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:2.2",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.2",
+        "v:22.1",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "A data service receives a continuous stream and feeds an incrementally trained model exposed through a local real-time service/API. Performance monitoring tracks the deployed model; CI/CD builds, tests, and deploys the model and supporting components, while push notifications deliver prediction results and humans adjust and redeploy models when monitoring indicates a need. Trade-off: This supports responsive predictions, continual adaptation, and repeatable delivery, but streaming and incremental training increase operational and reproducibility challenges. Manual adjustment preserves human oversight but slows response to detected degradation and leaves model correction dependent on human availability.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:2.2",
+        "v:3.1",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.1",
+        "v:22.2",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "Data is stored in data services and exposed through a local data-access API. A continuous stream feeds the application, whose locally served model produces predictions and pushes result-availability notifications; batch jobs retrain models offline, while monitoring logs data and predictions, and CI/CD builds, tests, and deploys models and other components. Trade-off: This provides observable, repeatable delivery and avoids client polling, but batch training and manual adjustment slow adaptation to changing data and require human intervention. Automating deployment of both models and supporting components also increases pipeline scope and operational complexity.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "v:2.1",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "An application ingests a continuous stream into a shared data store, where batch and incremental training update different model factors. A hybrid serving layer combines online service computations with offline batches, pushes result-availability notifications to clients, and uses production tracking to trigger automated model adjustment; CI/CD builds, tests, and deploys models and supporting components. Trade-off: This supports batch use, continual adaptation, and automated delivery and feedback, but increases orchestration and data-consistency complexity across streaming, batch, online, and shared-storage components. Automated adjustment and push notifications require safeguards and reliable infrastructure to prevent unintended model changes or missed and stale client updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "v:2.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:25.2"
+      ],
+      "description": "An event store captures exchanged data, while streamed ingestion feeds hybrid online/offline serving and hybrid batch/incremental training. An orchestrator coordinates the pipelines, CI/CD builds and tests their components, production tracking observes usage and outcomes, automated adjustment responds to monitoring, and push notifications deliver available predictions. Trade-off: This combines responsive predictions, continuous adaptation, traceability, and automation, but increases architectural and operational complexity. Automated adjustments and incremental learning can react quickly, yet may propagate data or monitoring errors without careful controls.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "v:2.2",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.2",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "A service stores data from a continuous ingestion stream, while a locally hosted API serves predictions in real time and pushes result-availability notifications to clients. Hybrid batch and incremental training updates the model; production data and predictions are logged for monitoring, humans adjust models when needed, and CI/CD builds, tests, and deploys models and supporting components. Trade-off: This combines responsive serving and near-real-time learning with reproducible automated delivery and human oversight. It gives up operational simplicity: streaming, incremental training, monitoring, manual redeployment, and broad CI/CD coverage require coordination and can slow response to detected issues.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "v:2.2",
+        "v:3.1",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "description": "A data service ingests continuous streams and exposes them through a local data-access API. A locally served model provides real-time predictions, pushes result notifications, combines batch and incremental training, and is monitored for usage, outputs, interpretability, and fairness; monitoring can trigger automated adjustment, while CI/CD builds, tests, and deploys models and supporting components. Trade-off: This enables responsive predictions, ongoing adaptation, and automated operational feedback, but increases system complexity and operational risk because streaming, incremental updates, automated changes, monitoring, and deployment must be coordinated and controlled.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if continuous ingestion and hybrid online/offline serving keep warnings fresh while tracked outcomes improve the model?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if an event-oriented pipeline makes sensor and inspection history traceable while orchestrated automation adapts the model?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if local real-time serving keeps scoring close to pumps and humans retain control over model changes?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if a local data access API combines local serving with automated feedback and delivery?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:2.1",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.1",
+        "v:22.2",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "Streaming with hybrid serving and push should keep warnings fresh (R1,Q1); monitoring and manual updates support learning from inspections (R2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.1",
+            "v:8.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Point check returned no warnings or unmet relations. The point supports flexible serving and visibility, but batch learning and manual adjustment slow adaptation; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:2.3",
+        "v:5.4",
+        "v:6.2",
+        "v:7.3",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:25.2"
+      ],
+      "hypothesis": "Precomputed forecasts, event history, and hybrid updates should support warning delivery and learning (R1,R2), though batch and polling may hurt outage availability and rollout (Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.4",
+            "v:19.3",
+            "v:8.3"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Point check returned no warnings or unmet relations. Batch ingestion and polling weaken freshness; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "v:2.2",
+        "v:5.2",
+        "v:6.1",
+        "v:7.2",
+        "v:19.2",
+        "v:22.1",
+        "v:24.1",
+        "v:8.2",
+        "v:25.1"
+      ],
+      "hypothesis": "Local scoring and push should improve response and feedback (R1,R2,Q1), while request ingestion and manual releases may slow onboarding (Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:19.2",
+            "v:8.2"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Point check returned no warnings or unmet relations. Local service is a nearer fit for station-side scoring, but rollout and outage behavior remain unspecified; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "v:2.1",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "Hybrid training and tracking should improve inspection learning while preserving stream-fed serving (R1,R2,Q1).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.3",
+            "v:8.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Hybrid learning and broader tracking strengthen feedback but do not define technician finding ingestion or the 24-hour guarantee; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "v:2.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.3",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:25.2"
+      ],
+      "hypothesis": "Streaming and push should improve freshness and access while event history and automated updates support learning and rollout (R1,R2,Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.3",
+            "v:8.3"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Streaming and push remove the seed's main freshness concern, but disconnected-site delivery and safeguards remain unspecified; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "v:2.2",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.2",
+        "v:22.1",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "Streaming and CI/CD should improve freshness and rollout while retaining local scoring and incremental learning (R1,Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:19.2",
+            "v:8.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "The service and streaming path is responsive, but manual adjustment remains and local serving does not guarantee two-day outage delivery; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "v:2.2",
+        "v:3.1",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.1",
+        "v:22.2",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "A local data API and streamed inputs should keep scoring close to pumps; logged outcomes and CI/CD should help learning and rollout (R1,R2,Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:3.1",
+            "v:7.1",
+            "v:24.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "The local API clarifies an access boundary, but batch learning and manual adjustment slow adaptation and data residency is not defined; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "v:2.1",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "Automated adjustment should shorten the path from tracked outcomes to model changes while retaining hybrid scoring (R1,R2,Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.3",
+            "v:8.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Automated adjustment strengthens feedback automation but requires safeguards; outage delivery and explicit time targets remain unverified; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "v:2.3",
+        "v:5.5",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.3",
+        "v:25.2"
+      ],
+      "hypothesis": "Streaming should remove the event pipeline's freshness drawback while keeping traceability and automated adjustment (R1,R2,Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.5",
+            "v:19.3",
+            "v:8.3"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Streaming removes batch-ingestion delay, while event storage and orchestration add operational complexity; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "v:2.2",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.2",
+        "v:24.1",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "Hybrid training and prediction logs should retain local timely scoring and improve evidence for technician feedback (R1,R2,Q1).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2",
+            "v:19.3",
+            "v:8.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Hybrid learning balances incremental response and offline retraining, but manual adjustment and deployment do not prove one-month rollout; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P10"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "v:2.2",
+        "v:3.1",
+        "v:5.2",
+        "v:6.1",
+        "v:7.1",
+        "v:19.3",
+        "v:22.4",
+        "v:24.2",
+        "v:8.1",
+        "v:25.1"
+      ],
+      "hypothesis": "Hybrid training, tracking, and automated adjustment should improve local adaptation and new-model handling (R1,R2,Q1,Q2).",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:3.1",
+            "v:7.1",
+            "v:24.2"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The serving path favors timely predictions, while delivery during a station outage remains unspecified."
+        }
+      ],
+      "observation": "Automated feedback improves the local design's update path, while the space does not specify outage delivery or data residency; no source attests the combination.",
+      "rating": "mixed",
+      "point": "P11"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Tracked hybrid stream pipeline",
+      "summary": "An application ingests a continuous stream into a shared data store, where batch and incremental training update different model factors. A hybrid serving layer combines online service computations with offline batches, pushes result-availability notifications to clients, and uses production tracking to trigger automated model adjustment; CI/CD builds, tests, and deploys models and supporting components.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the prediction delivery decision."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the learning and update decision."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Selected to support the model onboarding decision."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Batch-only learning was retained as a seed but offers less adaptation."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Manual adjustment preserves control but slows the feedback cycle."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect notification of prediction results."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring choices affect model adjustment."
+        }
+      ]
+    },
+    {
+      "id": "B1",
+      "name": "Event-driven hybrid pipeline",
+      "summary": "An event store captures exchanged data, while streamed ingestion feeds hybrid online/offline serving and hybrid batch/incremental training. An orchestrator coordinates the pipelines, CI/CD builds and tests their components, production tracking observes usage and outcomes, automated adjustment responds to monitoring, and push notifications deliver available predictions.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.5",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the prediction delivery decision."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the learning and update decision."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.3",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Selected to support the model onboarding decision."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.4",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Precomputed forecasts may delay warnings."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.2",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Polling leaves clients responsible for checking availability."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.3",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Batch ingestion is less fresh than streaming."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect notification of prediction results."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring choices affect model adjustment."
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "name": "Local service with human review",
+      "summary": "A service stores data from a continuous ingestion stream, while a locally hosted API serves predictions in real time and pushes result-availability notifications to clients. Hybrid batch and incremental training updates the model; production data and predictions are logged for monitoring, humans adjust models when needed, and CI/CD builds, tests, and deploys models and supporting components.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the prediction delivery decision."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the learning and update decision."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Selected to support the model onboarding decision."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.2",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Request-based ingestion can delay fresh data."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Incremental-only learning omits periodic batch retraining."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.2",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Deployment scripts require more manual release work."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect notification of prediction results."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring choices affect model adjustment."
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "name": "Local API with automated feedback",
+      "summary": "A data service ingests continuous streams and exposes them through a local data-access API. A locally served model provides real-time predictions, pushes result notifications, combines batch and incremental training, and is monitored for usage, outputs, interpretability, and fairness; monitoring can trigger automated adjustment, while CI/CD builds, tests, and deploys models and supporting components.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the prediction delivery decision."
+        },
+        {
+          "dimension_id": "d:6",
+          "value_id": "v:6.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.3",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the learning and update decision."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.4",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        },
+        {
+          "dimension_id": "d:8",
+          "value_id": "v:8.1",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Selected to support the model onboarding decision."
+        },
+        {
+          "dimension_id": "d:25",
+          "value_id": "v:25.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Selected to support the data workflow decision."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Batch-only training adapts less often."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.1",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Manual adjustment adds human delay."
+        }
+      ],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:5",
+          "target": "d:6",
+          "type": "affects",
+          "holds": true,
+          "note": "Serving choices affect notification of prediction results."
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true,
+          "note": "Monitoring choices affect model adjustment."
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Serve predictions and notify technicians",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Warnings must arrive early and remain available to station staff during connection loss. The space offers serving, ingestion, and notification patterns but no explicit local failover or delivery guarantee.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Hybrid serving with push",
+          "values": [
+            "v:5.5",
+            "v:6.1",
+            "v:7.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Combines online scoring with offline computation.",
+            "Streaming and push favor freshness."
+          ],
+          "cons": [
+            "Does not define station-local failover or guarantee warning lead time."
+          ],
+          "reason": "Chosen by both hybrid alternatives."
+        },
+        {
+          "id": "O2",
+          "name": "Local API with push",
+          "values": [
+            "v:5.2",
+            "v:6.1",
+            "v:7.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1",
+            "D1"
+          ],
+          "step": 10,
+          "pros": [
+            "Supports real-time scoring near the application.",
+            "Streaming supports fresh inputs."
+          ],
+          "cons": [
+            "Station deployment and disconnected delivery are unspecified."
+          ],
+          "reason": "Chosen for a local low-latency scoring path."
+        },
+        {
+          "id": "O3",
+          "name": "Precomputed reports with polling",
+          "values": [
+            "v:5.4",
+            "v:6.2",
+            "v:7.3"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Scheduled reports are easy for clients to retrieve."
+          ],
+          "cons": [
+            "Batch ingestion and polling may delay warnings."
+          ],
+          "reason": "Seed evaluation exposed freshness and outage concerns."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Learn from inspections and onboard models",
+      "drivers": [
+        "R2",
+        "Q2"
+      ],
+      "context": "Technician findings should improve predictions and new pump models should be onboarded without changing existing scoring. The space offers learning, monitoring, adjustment, storage, and delivery choices but no inspection data model or one-month service level.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Tracked hybrid learning with automated adjustment",
+          "values": [
+            "v:2.1",
+            "v:19.3",
+            "v:22.4",
+            "v:24.2",
+            "v:8.1",
+            "v:25.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Combines batch and incremental learning with production tracking.",
+            "Automated adjustment and CI/CD support ongoing changes."
+          ],
+          "cons": [
+            "Requires safeguards; the one-month target is not proven."
+          ],
+          "reason": "Balances adaptation and repeatable delivery."
+        },
+        {
+          "id": "O2",
+          "name": "Event history with orchestrated updates",
+          "values": [
+            "v:2.3",
+            "v:19.3",
+            "v:22.4",
+            "v:24.2",
+            "v:8.3",
+            "v:25.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Event history supports traceability.",
+            "Orchestrated delivery supports repeatable updates."
+          ],
+          "cons": [
+            "Automation adds complexity and does not prove the onboarding target."
+          ],
+          "reason": "Favors traceability and coordinated pipeline delivery."
+        },
+        {
+          "id": "O3",
+          "name": "Human-reviewed hybrid learning",
+          "values": [
+            "v:2.2",
+            "v:19.3",
+            "v:22.2",
+            "v:24.1",
+            "v:8.1",
+            "v:25.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Logging and human review preserve oversight.",
+            "Hybrid training supports batch and incremental learning."
+          ],
+          "cons": [
+            "Human adjustment can delay updates."
+          ],
+          "reason": "Retains staff control over model changes."
+        },
+        {
+          "id": "O4",
+          "name": "Local API and automated feedback",
+          "values": [
+            "v:2.2",
+            "v:3.1",
+            "v:19.3",
+            "v:22.4",
+            "v:24.2",
+            "v:8.1",
+            "v:25.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Local data access and tracking connect observations to updates."
+          ],
+          "cons": [
+            "Feedback semantics and operational safeguards are unspecified."
+          ],
+          "reason": "Combines local data access with automated adaptation."
+        },
+        {
+          "id": "O5",
+          "name": "Incremental local learning with scripts",
+          "values": [
+            "v:2.2",
+            "v:19.2",
+            "v:22.1",
+            "v:24.1",
+            "v:8.2",
+            "v:25.1"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Incremental learning can react to new data."
+          ],
+          "cons": [
+            "Request ingestion and scripted releases may delay updates."
+          ],
+          "reason": "The seed had a less repeatable release path."
+        }
+      ]
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": "d:2",
+      "note": "Storage choices do not determine data residency or whether processing stays on utility premises. The local serving choice does not establish where all sensor data is stored or processed; an explicit deployment and residency decision is missing."
+    }
+  ]
+}

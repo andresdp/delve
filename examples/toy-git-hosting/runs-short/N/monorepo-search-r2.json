@@ -1,0 +1,1041 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "monorepo-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Hosting an open-source monorepo",
+    "context": "An open-source foundation hosts a 12-year, 40 GB monorepo with about 300 pushes a day and 2,000 contributors on five continents. Most clones come from CI and first-time contributors who need the latest version. Four volunteers run the service on donated servers in Europe and North America.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes from the maintainers to a single canonical repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let a first-time contributor start working without downloading the whole history."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A contributor in Asia or South America clones the latest version within two minutes on a 50 Mbit/s connection."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A CI job that starts after a push has been accepted always fetches that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Four volunteers run the service in their spare time."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: CI fetches from primary",
+        "Serving topology: Two data-centre origins"
+      ],
+      "description": "A single canonical primary accepts all writes. Two data-centre origins serve repository data, while CI fetches directly from the primary for current results and consumers obtain shallow clones with filtered blobs. Trade-off: This provides a consistent write source, fresh CI inputs, and geographically distributed serving, but sacrifices complete local history and unfiltered blob availability; the second origin must also stay synchronized rather than accept authoritative writes.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone from regional read replicas",
+        "Read freshness: Synchronous replication before push acceptance",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "description": "A single canonical primary accepts all writes and waits for synchronous replication to the other data-centre replica before accepting a push. Regional read replicas serve shallow clone requests, reducing transfer size while keeping clone traffic close to users. Trade-off: This provides a clear write authority, strong push durability, and efficient regional cloning. It sacrifices write latency and availability when synchronous replication or the primary is unavailable, and shallow clones provide less history locally.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Write authority: Federated writable replicas",
+        "Clone transfer: CDN-hosted source snapshots",
+        "Read freshness: Asynchronous replication with cache invalidation",
+        "Serving topology: Global edge cache"
+      ],
+      "description": "Writes can be accepted by federated replicas, with updates propagated asynchronously and cache invalidation signaling freshness changes. Clones are delivered as source snapshots through a CDN, while a global edge cache serves ordinary reads close to users. Trade-off: This improves geographic performance, clone distribution, and write availability, but sacrifices immediate consistency: replicas, snapshots, and edge caches may temporarily be stale. It also makes replica coordination and cache invalidation operationally complex.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: CI uses primary with push-completion barrier",
+        "Serving topology: Two data-centre origins"
+      ],
+      "description": "All writes go to a single canonical primary. Repository clients are served by two data-centre origins using shallow clones with blob filtering, while CI uses the primary only after a push-completion barrier. Trade-off: This reduces clone transfer and prevents CI from observing an incomplete push, while the two origins provide serving-path redundancy. It gives up complete local history and readily available blobs, and the single primary remains a write bottleneck or failure point.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: Synchronous replication before push acceptance",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "description": "A single canonical primary accepts writes and synchronously replicates each accepted push to the second data-centre replica before reporting success. Clients receive shallow clones with blob filtering, while reads can be served from either replica after replication completes. Trade-off: This provides a clear write authority, strongly fresh replicas, and reduced clone transfer costs. It gives up write availability and latency when the primary or synchronous replica is unavailable, and shallow/blob-filtered clones may lack history or blobs needed later.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone from regional read replicas",
+        "Read freshness: Primary fallback until replica catches up",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "description": "A single canonical primary accepts all writes, while two replicas in separate data centres serve reads. Users can make shallow clones from a nearby regional replica, with reads falling back to the primary until that replica catches up. Trade-off: This reduces clone transfer cost and regional read latency while preserving a clear write authority. It gives up geographically distributed write capacity and may expose the primary to read load during replica lag or failures.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Immutable shallow snapshots at CDN",
+        "Read freshness: CI fetches from primary",
+        "Serving topology: Snapshot CDN plus two origins"
+      ],
+      "description": "A single canonical primary accepts all writes and produces immutable shallow snapshots that are distributed through a CDN backed by two origins. CI bypasses snapshots and fetches directly from the primary, while other consumers are served through the snapshot CDN. Trade-off: This provides authoritative writes, resilient and scalable snapshot delivery, and fresh CI inputs. It gives up deep clone history and may expose snapshot consumers to publication lag; the primary remains a dependency for CI and writes.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: Primary fallback until replica catches up",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "description": "All writes go to one canonical primary, while two data-centre replicas receive its data. Clients use shallow clones with blob filtering, and reads stay on the primary until a replica catches up, after which replicas can serve them. Trade-off: This provides simple write authority, lower clone-transfer cost, and protection from stale reads, while adding geographic redundancy. It gives up write scalability and may increase primary load or read latency during replication lag; filtered shallow clones provide less history or content.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Immutable shallow snapshots at CDN",
+        "Read freshness: CI uses primary with push-completion barrier",
+        "Serving topology: Snapshot CDN plus two origins"
+      ],
+      "description": "A single primary accepts all writes, while CI reads from it only after the push-completion barrier. Immutable shallow snapshots are published to a CDN backed by two origins, allowing repository consumers to fetch consistent snapshots without querying the primary. Trade-off: This provides centralized write authority, predictable post-push CI freshness, cacheable distribution, and origin redundancy. It gives up mutable or complete clone history at the edge, and snapshot publication can leave consumers temporarily behind the latest primary state.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if maintainers write to one primary and lean on lightweight clones plus direct, ordered CI reads?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if the second data centre synchronously mirrors accepted pushes and serves regional clones?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if replicas accept writes independently and edge caches distribute snapshots?",
+      "status": "dropped",
+      "dropped_because": "Asynchronous independently writable replicas can serve stale state after an accepted push, so this approach cannot guarantee Q2; coordination and cache invalidation also exceed the volunteer operating budget."
+    },
+    {
+      "id": "D",
+      "idea": "What if immutable shallow snapshots on a CDN absorb most geographically distant clone traffic while CI stays on the primary?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: CI fetches from primary",
+        "Serving topology: Two data-centre origins"
+      ],
+      "hypothesis": "A single push authority and direct CI reads should meet R1 and Q2; shallow filtered clones should help R2 and Q1 with low operational burden for C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone transfer: Shallow clone with blob filtering"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Shallow filtered transfer avoids full history, but checkout still needs current blobs and can leave a large transfer on the path; the two-minute threshold remains unproven."
+        }
+      ],
+      "observation": "Shallow filtered transfer avoids full history and primary reads give CI a fresh source. No repository-size or Asia/South America latency measurements prove the two-minute target.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone from regional read replicas",
+        "Read freshness: Synchronous replication before push acceptance",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "hypothesis": "Synchronous mirroring should preserve Q2 and improve durability while regional shallow clones help Q1 and R2; operating a replica pair may strain C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read freshness: Synchronous replication before push acceptance"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Waiting for the remote replica before acknowledging pushes strengthens read freshness but adds failure handling and cross-site operations for the volunteers."
+        },
+        {
+          "values": [
+            "Clone transfer: Shallow clone from regional read replicas"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Regional shallow transfer reduces history and distance, but checkout still needs current blobs and the timing target is unmeasured."
+        }
+      ],
+      "observation": "Synchronous replication provides a strong ordering rule, but it couples push availability to the donated second site. Regional delivery helps performance without evidence that the target is achieved.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Write authority: Federated writable replicas",
+        "Clone transfer: CDN-hosted source snapshots",
+        "Read freshness: Asynchronous replication with cache invalidation",
+        "Serving topology: Global edge cache"
+      ],
+      "hypothesis": "Federated writes and a global edge cache could improve geographical access and availability, but asynchronous propagation may undermine Q2 and complexity may violate C1.",
+      "assessment": {
+        "R1": "misses",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "misses",
+        "C1": "misses"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Write authority: Federated writable replicas",
+            "Read freshness: Asynchronous replication with cache invalidation"
+          ],
+          "gains": [
+            "Q1",
+            "R2"
+          ],
+          "costs": [
+            "R1",
+            "Q2"
+          ],
+          "note": "Local writes and edge delivery favor geographic speed, but independent writable copies conflict with a single canonical repository and asynchronous propagation cannot guarantee post-acceptance CI freshness; coordination adds volunteer burden."
+        }
+      ],
+      "observation": "Cache invalidation cannot prove every CI fetch sees an accepted push if propagation is asynchronous. This approach also adds coordination work and has no single canonical write authority.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: CI uses primary with push-completion barrier",
+        "Serving topology: Two data-centre origins"
+      ],
+      "hypothesis": "Adding an explicit push-completion barrier should make the read-after-acceptance ordering unambiguous for Q2 without adding replica operations.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone transfer: Shallow clone with blob filtering"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The filtered shallow transfer helps quick starts, while the time threshold remains unmeasured."
+        }
+      ],
+      "observation": "The barrier makes the consistency guarantee explicit while keeping a low-complexity single write path. The two-minute clone target remains dependent on measured current-tree size and network conditions.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: Synchronous replication before push acceptance",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "hypothesis": "Using filtered shallow clones with synchronous replication should lower transfer size while preserving replica freshness, improving Q1 and retaining Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read freshness: Synchronous replication before push acceptance"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Synchronous cross-site acknowledgement is a direct freshness mechanism but raises operating and availability burden."
+        },
+        {
+          "values": [
+            "Clone transfer: Shallow clone with blob filtering"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Filtered shallow transfer limits history and unnecessary blobs; current tree transfer performance still needs measurement."
+        }
+      ],
+      "observation": "Filtering improves the transfer strategy but cannot remove the operational cost and availability coupling of synchronous writes.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Immutable shallow snapshots at CDN",
+        "Read freshness: CI fetches from primary",
+        "Serving topology: Snapshot CDN plus two origins"
+      ],
+      "hypothesis": "Immutable shallow snapshots at an edge cache may improve distant clone performance while direct CI reads preserve Q2; publication lag could leave ordinary contributors behind.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone transfer: Immutable shallow snapshots at CDN"
+          ],
+          "gains": [
+            "R2",
+            "Q1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Snapshots can reduce distant transfer latency, but snapshot generation, publication, and CDN invalidation add moving parts for volunteers; timing remains unmeasured."
+        }
+      ],
+      "observation": "The edge distribution addresses geography without making CI depend on cache freshness. It creates an extra publication path and still cannot establish the two-minute target from the supplied facts.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone with blob filtering",
+        "Read freshness: Primary fallback until replica catches up",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "hypothesis": "Adding replicas for clone reads while retaining primary fallback until catch-up should avoid stale fetches and reduce load on the primary when replicas are current.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Serving topology: Two data-centre replicas",
+            "Read freshness: Primary fallback until replica catches up"
+          ],
+          "gains": [
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Regional replicas can improve read locality and fallback protects freshness, but replica monitoring and recovery add volunteer operations."
+        }
+      ],
+      "observation": "Fallback gives a clear safe read policy during lag, though it requires reliable lag detection and increases operational work over the primary-only approach. Clone timing remains unmeasured.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Shallow clone from regional read replicas",
+        "Read freshness: Primary fallback until replica catches up",
+        "Serving topology: Two data-centre replicas"
+      ],
+      "hypothesis": "Replacing synchronous replication with primary fallback during lag can reduce push coupling while regional shallow clones retain locality and the fallback maintains Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read freshness: Primary fallback until replica catches up"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Fallback avoids blocking push acceptance on remote replication while preserving current reads, though monitoring and routing still have an operating cost."
+        },
+        {
+          "values": [
+            "Clone transfer: Shallow clone from regional read replicas"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Regional shallow clones reduce history and distance; measured clone time is still needed."
+        }
+      ],
+      "observation": "Serving reads regionally while falling back to the primary avoids synchronous push latency and stale replica reads, but still requires replica health and lag monitoring.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Write authority: Single canonical primary",
+        "Clone transfer: Immutable shallow snapshots at CDN",
+        "Read freshness: CI uses primary with push-completion barrier",
+        "Serving topology: Snapshot CDN plus two origins"
+      ],
+      "hypothesis": "An explicit post-push barrier should strengthen CI freshness while CDN snapshots serve ordinary clones independently of CI reads.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone transfer: Immutable shallow snapshots at CDN"
+          ],
+          "gains": [
+            "R2",
+            "Q1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "The CDN improves geographic distribution but snapshot publication and cache operations add volunteer burden; the timing goal is unmeasured."
+        }
+      ],
+      "observation": "Separating CI's primary read path from snapshots removes cache freshness from the CI guarantee. The CDN still adds operational work, and the performance scenario needs an end-to-end measurement.",
+      "rating": "mixed",
+      "point": "P9"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Primary with ordered CI reads",
+      "summary": "Keep one canonical primary, shallow filtered clones, and CI reads gated on push completion. This is the simplest operational option; two-minute clone performance remains to be measured.",
+      "approach": "A",
+      "step": 4,
+      "choices": [
+        {
+          "dimension_id": "Write authority",
+          "value_id": "Write authority: Single canonical primary",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "One write authority provides the canonical repository and a direct source for CI."
+        },
+        {
+          "dimension_id": "Clone transfer",
+          "value_id": "Clone transfer: Shallow clone with blob filtering",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Contributors avoid full history and unnecessary blob transfer."
+        },
+        {
+          "dimension_id": "Read freshness",
+          "value_id": "Read freshness: CI uses primary with push-completion barrier",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "CI starts its fetch after the accepted push is visible on the primary."
+        },
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Two data-centre origins",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Uses the two donated sites as origins without adding a large replica fleet."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Read freshness",
+          "value_id": "Read freshness: CI fetches from primary",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Fresh direct reads are plausible, but an explicit completion barrier states the required ordering more clearly."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Regional replicas with safe fallback",
+      "summary": "Use one primary and two read replicas for regional shallow clones, routing reads to the primary until replicas catch up. This improves locality while preserving a single write authority, at the cost of replica operations.",
+      "approach": "B",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "Write authority",
+          "value_id": "Write authority: Single canonical primary",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "Maintainers push to one authoritative repository."
+        },
+        {
+          "dimension_id": "Clone transfer",
+          "value_id": "Clone transfer: Shallow clone from regional read replicas",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Shallow regional clones reduce history and network distance."
+        },
+        {
+          "dimension_id": "Read freshness",
+          "value_id": "Read freshness: Primary fallback until replica catches up",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "A lagging replica does not serve CI a stale result."
+        },
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Two data-centre replicas",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Places reads in the two available sites but creates monitoring and recovery work."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Read freshness",
+          "value_id": "Read freshness: Synchronous replication before push acceptance",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "It provides freshness but couples push acceptance to remote site availability and increases operational burden."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "CDN snapshots with primary CI",
+      "summary": "Publish immutable shallow snapshots through a CDN and two origins, while CI fetches from the primary after a push-completion barrier. This can distribute clone traffic globally but adds snapshot operations.",
+      "approach": "D",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "Write authority",
+          "value_id": "Write authority: Single canonical primary",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "One canonical primary receives standard Git pushes."
+        },
+        {
+          "dimension_id": "Clone transfer",
+          "value_id": "Clone transfer: Immutable shallow snapshots at CDN",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Snapshots avoid transferring full history and use edge delivery for distant contributors."
+        },
+        {
+          "dimension_id": "Read freshness",
+          "value_id": "Read freshness: CI uses primary with push-completion barrier",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "CI bypasses snapshot publication lag and reads after the push completes."
+        },
+        {
+          "dimension_id": "Serving topology",
+          "value_id": "Serving topology: Snapshot CDN plus two origins",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "The cache distributes distant reads but adds a publication and invalidation path for volunteers."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Read freshness",
+          "value_id": "Read freshness: CI fetches from primary",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Direct CI reads remain fresh, with the barrier making accepted-push ordering explicit."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where do maintainer pushes become canonical?",
+      "drivers": [
+        "R1",
+        "Q2"
+      ],
+      "context": "Maintainers need a standard Git push target that is unambiguously canonical. CI must fetch the push after it is accepted. Multiple writable sites add coordination burden and risk stale reads, while one primary can bottleneck and become a failure dependency.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "One canonical primary",
+          "values": [
+            "Write authority: Single canonical primary"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "B1",
+            "D1"
+          ],
+          "step": 4,
+          "pros": [
+            "Matches the single canonical repository requirement.",
+            "Gives CI a clear authoritative source."
+          ],
+          "cons": [
+            "The primary is a write and CI dependency."
+          ],
+          "reason": "All live alternatives preserve a single standard Git push destination."
+        },
+        {
+          "id": "O2",
+          "name": "Federated writable replicas",
+          "values": [
+            "Write authority: Federated writable replicas"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Can accept writes near contributors."
+          ],
+          "cons": [
+            "Does not provide a single canonical write authority and async copies can be stale."
+          ],
+          "reason": "It fails the canonical repository and post-push freshness requirements."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How are post-push CI reads kept current?",
+      "drivers": [
+        "Q2"
+      ],
+      "context": "Every CI job starting after an accepted push must fetch that push. Direct reads from the primary provide a clear source; barriers make ordering explicit. Replicas can reduce read distance, but their lag must be handled, and synchronous replication can increase push latency and reduce availability.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Primary read after push completion",
+          "values": [
+            "Read freshness: CI uses primary with push-completion barrier"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 4,
+          "pros": [
+            "Makes post-acceptance ordering explicit.",
+            "Avoids stale cache and replica reads for CI."
+          ],
+          "cons": [
+            "CI depends on primary availability."
+          ],
+          "reason": "The barrier directly enforces the required read-after-accepted-push behavior."
+        },
+        {
+          "id": "O2",
+          "name": "Primary reads",
+          "values": [
+            "Read freshness: CI fetches from primary"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Reads the authoritative repository."
+          ],
+          "cons": [
+            "The ordering guarantee depends on push visibility and job scheduling semantics."
+          ],
+          "reason": "Direct primary reads are sound, but the barrier states the required ordering more precisely."
+        },
+        {
+          "id": "O3",
+          "name": "Primary fallback until replica catches up",
+          "values": [
+            "Read freshness: Primary fallback until replica catches up"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Avoids serving a known stale replica result."
+          ],
+          "cons": [
+            "Requires lag detection and fallback routing."
+          ],
+          "reason": "This permits regional reads while protecting CI freshness during replication lag."
+        },
+        {
+          "id": "O4",
+          "name": "Synchronous replication before acceptance",
+          "values": [
+            "Read freshness: Synchronous replication before push acceptance"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "Replicas contain accepted pushes before acknowledgement."
+          ],
+          "cons": [
+            "Remote site failures or latency can block pushes."
+          ],
+          "reason": "The stronger coupling is not justified for four spare-time operators when primary fallback can protect reads."
+        },
+        {
+          "id": "O5",
+          "name": "Asynchronous replication and cache invalidation",
+          "values": [
+            "Read freshness: Asynchronous replication with cache invalidation"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Does not wait for remote replication."
+          ],
+          "cons": [
+            "Cannot guarantee a CI fetch always sees an accepted push."
+          ],
+          "reason": "Eventual propagation misses the consistency requirement."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "How should first clones reach distant contributors?",
+      "drivers": [
+        "R2",
+        "Q1"
+      ],
+      "context": "First-time contributors need to start without downloading 12 years of history, and distant users have a two-minute clone target. Shallow transfer reduces history; filtering and snapshots can reduce or distribute bytes. The current checkout size and server measurements are absent, so no option proves the time target. Additional replica and CDN paths add operations for the volunteer team.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shallow filtered clones from origins",
+          "values": [
+            "Clone transfer: Shallow clone with blob filtering"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 4,
+          "pros": [
+            "Avoids full history and unnecessary blob transfer."
+          ],
+          "cons": [
+            "Checkout still needs required current blobs, and the time target is unmeasured."
+          ],
+          "reason": "It supports quick starts with the fewest additional systems."
+        },
+        {
+          "id": "O2",
+          "name": "Regional shallow clones",
+          "values": [
+            "Clone transfer: Shallow clone from regional read replicas"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Combines reduced history with regional serving."
+          ],
+          "cons": [
+            "Replica lag and operations require monitoring."
+          ],
+          "reason": "It favors regional clone performance while preserving safe fallback behavior."
+        },
+        {
+          "id": "O3",
+          "name": "Immutable shallow snapshots at CDN",
+          "values": [
+            "Clone transfer: Immutable shallow snapshots at CDN"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Edge distribution can reduce distant transfer latency."
+          ],
+          "cons": [
+            "Snapshot publication and cache management add volunteer work and can lag the primary."
+          ],
+          "reason": "It offers the strongest geographic distribution path while keeping CI on the primary."
+        },
+        {
+          "id": "O4",
+          "name": "CDN source snapshots with federation",
+          "values": [
+            "Clone transfer: CDN-hosted source snapshots"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Can distribute source near global users."
+          ],
+          "cons": [
+            "The surrounding federated asynchronous design cannot ensure current content."
+          ],
+          "reason": "Its freshness and operating model do not satisfy the problem."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "How much read serving infrastructure should volunteers operate?",
+      "drivers": [
+        "Q1",
+        "C1"
+      ],
+      "context": "The service runs on donated machines in two regions and only four volunteers are available. A small origin setup is easier to operate, while replicas or a CDN can improve geographic delivery but require monitoring, synchronization, and recovery procedures. Performance improvements remain hypotheses until measured.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Two data-centre origins",
+          "values": [
+            "Serving topology: Two data-centre origins"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 4,
+          "pros": [
+            "Uses the two existing sites with limited added machinery."
+          ],
+          "cons": [
+            "Distant contributors may see higher latency."
+          ],
+          "reason": "This keeps operations small while supporting two origin locations."
+        },
+        {
+          "id": "O2",
+          "name": "Two synchronized replicas",
+          "values": [
+            "Serving topology: Two data-centre replicas"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 8,
+          "pros": [
+            "Enables regional reads and source redundancy."
+          ],
+          "cons": [
+            "Adds replication, monitoring, and recovery responsibilities."
+          ],
+          "reason": "It supports regional clones, with primary fallback guarding against lag."
+        },
+        {
+          "id": "O3",
+          "name": "Snapshot CDN and two origins",
+          "values": [
+            "Serving topology: Snapshot CDN plus two origins"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Can serve distant clones from a nearby edge."
+          ],
+          "cons": [
+            "Requires snapshot publication and cache operations."
+          ],
+          "reason": "It targets global clone distribution while maintaining origin backends."
+        },
+        {
+          "id": "O4",
+          "name": "Global edge cache with federated writes",
+          "values": [
+            "Serving topology: Global edge cache"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Can place data near contributors."
+          ],
+          "cons": [
+            "Does not address canonical writes or strict freshness and expands operations."
+          ],
+          "reason": "Its global footprint and federation add complexity while missing Q2."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

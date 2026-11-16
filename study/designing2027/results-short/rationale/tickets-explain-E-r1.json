@@ -1,0 +1,733 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "tickets-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "c1-e",
+    "run": "20261116_115022",
+    "graph_sha256": "5ca7ab8de4859f635a387e9383722c1265b9c272d4a8a4a5464c14761254ef92"
+  },
+  "problem": {
+    "title": "Support-ticket routing",
+    "context": "A software company receives about 20,000 support tickets a day, in English, Spanish and Portuguese, by e-mail and through a web form. Each ticket must reach one of 25 support teams. Today a first-line team reads every ticket and forwards it by hand, and a ticket sent to the wrong team waits a day on average before it reaches the right one. Products, and the teams that support them, change a few times a year.",
+    "inferred": false,
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Assign every new ticket to a team, and let a support agent move it to another team when the assignment is wrong."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Learn from the moves that support agents make."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "latency",
+        "text": "At the daily peak of 3,000 tickets an hour, a ticket is assigned within 10 seconds of its arrival."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "adaptability",
+        "text": "When a new team is created for a new product, at least 80% of the tickets meant for it reach it within two weeks."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Tickets may contain customers' personal data and must not leave the company's cloud region in the EU."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:7.1",
+        "v:18.1",
+        "v:19.1",
+        "v:12.3",
+        "v:10.3",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "description": "A dedicated service integrates each model, while microservices deliver real-time predictions from continuously ingested streams. On a schedule, an automated pipeline trains, evaluates, and validates models in batches; one selected version runs in production, with performance monitoring triggering automated adjustments. Trade-off: This provides modular serving, repeatable training, and automated operational response, but scheduled batch learning may react slowly to changing data, and maintaining only one production version limits comparison, canary deployment, and rollback flexibility.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:1.1",
+        "v:5.1"
+      ],
+      "description": "Each machine-learning model is packaged as its own service within the application. Other components call these distributed model-serving microservices to obtain predictions or scores in real time. Trade-off: This enables independent deployment, scaling, and technology choices for each model, but adds service-management and operational overhead. Network calls and distributed coordination can also increase latency and create availability or versioning concerns.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:1.1",
+        "v:5.3"
+      ],
+      "description": "A dedicated service encapsulates each ML model and exposes its prediction capability to the application. On a schedule, the service processes input data in batches and writes the resulting predictions or scores to data storage for application use. Trade-off: This separates model deployments and supports efficient, repeatable bulk processing, but predictions are not produced continuously and may be delayed until the next scheduled batch; operating one service per model also adds service-management overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:18.1",
+        "v:19.1",
+        "v:12.3",
+        "v:24.2"
+      ],
+      "description": "The system runs an automated pipeline that trains, evaluates, and validates models using batch data. It is triggered on a regular schedule, and monitoring results can automatically initiate model adjustments during subsequent runs. Trade-off: Scheduled batch operation simplifies repeatable, automated retraining and reduces manual intervention, but updates are less immediate than continuous or event-driven learning. Automation also increases consistency while risking propagation of unsuitable adjustments if monitoring signals or adjustment rules are wrong.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:18.1",
+        "v:19.2",
+        "v:12.3",
+        "v:24.2"
+      ],
+      "description": "The system runs an automated pipeline on a recurring schedule to incrementally train the model, then evaluate and validate the resulting version. Monitoring outcomes can automatically trigger model adjustments, which are incorporated into subsequent scheduled or incremental runs. Trade-off: This reduces manual intervention and supports frequent adaptation while preserving automated evaluation and validation. It gives up some predictability and control, since repeated incremental updates and automatic adjustments can introduce unintended model changes and require reliable monitoring.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:22.1",
+        "v:24.2"
+      ],
+      "description": "The system monitors defined model-performance parameters during production operation. When those parameters indicate a need for intervention, automated measures adjust the model without requiring manual action. Trade-off: This gains timely, consistent responses to detected performance changes and reduces operational effort. It gives up some human oversight and may trigger unsuitable adjustments when monitoring signals are noisy, incomplete, or misinterpreted.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:22.1",
+        "v:24.1"
+      ],
+      "description": "The system monitors selected model performance parameters in production and records their status over time. When monitoring indicates degradation or another issue, human operators adjust the model and redeploy the revised version. Trade-off: This provides targeted oversight and human judgment for corrective changes, but relies on people to detect, diagnose, and implement adjustments, potentially making remediation slower and less consistent than automated adaptation.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:5.1",
+        "v:7.1",
+        "v:18.1",
+        "v:19.1",
+        "v:12.3",
+        "v:10.3",
+        "v:22.1",
+        "v:24.2"
+      ],
+      "hypothesis": "The complete solution combines live routing with a scheduled feedback and model-update loop.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.1",
+            "v:5.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The service returns live predictions for assignment, while network and service overhead remain a latency risk and the 10-second target is not measured."
+        },
+        {
+          "values": [
+            "v:18.1",
+            "v:19.1",
+            "v:12.3",
+            "v:24.2"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Weekly batch retraining incorporates agent moves, but a new team initially depends on keyword rules and the stated 80% target is unverified."
+        }
+      ],
+      "observation": "The mapped choices fit a live routing path and an automated weekly learning path. The solution states EU hosting, but that constraint is outside the mapped values. No source evidence attests this combination; the point description is generated, and the quantitative latency and new-team accuracy targets are not demonstrated.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:1.1",
+        "v:5.1"
+      ],
+      "hypothesis": "R1 and Q1 explain using a dedicated real-time model service for ticket assignment.",
+      "assessment": {
+        "R1": "meets",
+        "Q1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:1.1",
+            "v:5.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Live inference supports immediate assignments, but distributed calls add latency and no peak-load result establishes the 10-second target."
+        }
+      ],
+      "observation": "The real-time serving value aligns with assignment on arrival. The value descriptions support the intended mode, while the point has no attesting sources and throughput remains unmeasured.",
+      "verdict": "partial",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "v:1.1",
+        "v:5.3"
+      ],
+      "hypothesis": "Test whether scheduled batch serving could replace live serving while meeting assignment latency.",
+      "assessment": {
+        "R1": "misses",
+        "Q1": "misses"
+      },
+      "tradeoffs": [],
+      "observation": "Batch serving delays predictions until a scheduled run, so it cannot assign every arriving ticket within the stated latency. This contrast supports v:5.1 over v:5.3 for R1 and Q1. The space offers v:5.3 as an alternative; the solution does not say its designers considered it.",
+      "verdict": "ungrounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:18.1",
+        "v:19.1",
+        "v:12.3",
+        "v:24.2"
+      ],
+      "hypothesis": "R2 explains an automated, scheduled batch pipeline that learns from agent corrections.",
+      "assessment": {
+        "R2": "meets",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:18.1",
+            "v:19.1",
+            "v:12.3",
+            "v:24.2"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "The weekly job incorporates corrected tickets, but new teams lack labeled history initially and their keyword fallback has no measured success against Q2."
+        }
+      ],
+      "observation": "The automated pipeline and weekly schedule provide a concrete path for incorporating moves. Batch timing is not required by R2, and the new-team target remains unproven; the point has no attesting sources.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "v:18.1",
+        "v:19.2",
+        "v:12.3",
+        "v:24.2"
+      ],
+      "hypothesis": "Check whether incremental learning is also compatible with learning from agent moves, which would make batch learning a free choice.",
+      "assessment": {
+        "R2": "meets",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:18.1",
+            "v:19.2",
+            "v:12.3",
+            "v:24.2"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Incremental updates can incorporate feedback sooner, but repeated updates may introduce unintended model changes that make it harder to sustain the new-team accuracy target."
+        }
+      ],
+      "observation": "Incremental learning also takes new feedback into model updates, so R2 alone does not force batch-based learning. Q2 remains unproven because the point does not specify new-team accuracy. The solution's batch choice is free with respect to the requirements tested here. This contrast offers quicker incorporation of examples, with a stability trade-off for Q2.",
+      "verdict": "partial",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:22.1",
+        "v:24.2"
+      ],
+      "hypothesis": "R2 explains monitoring agent corrections and automating model updates from them.",
+      "assessment": {
+        "R2": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [],
+      "observation": "The point's abstract pairing fits automated monitoring and adjustment, but the actual dashboard measures agent moves and the job retrains on a weekly schedule; it does not say that monitoring itself triggers the update. The map to v:22.1 is approximate, and neither target accuracy nor causal triggering is established.",
+      "verdict": "partial",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "contrast",
+      "parent": 6,
+      "values": [
+        "v:22.1",
+        "v:24.1"
+      ],
+      "hypothesis": "Check whether the requirements force automated rather than manual model adjustment.",
+      "assessment": {
+        "R2": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [],
+      "observation": "Manual adjustment can also use agent moves as learning input, while R2 does not set an automation or update-time target. The requirements therefore do not force v:24.2 over v:24.1; automatic replacement is a free operational choice. Q2 remains unproven under either option.",
+      "verdict": "partial",
+      "point": "P7"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Live ticket assignment",
+      "step": 2,
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "values": [
+        "v:1.1",
+        "v:5.1"
+      ],
+      "reason": "Real-time service inference supports assignment as tickets arrive and agent correction after a wrong assignment. The checked batch-serving contrast misses both the arrival-time function and latency scenario. Evidence is limited to value descriptions; peak latency is not measured."
+    },
+    {
+      "id": "G2",
+      "name": "Scheduled feedback learning",
+      "step": 4,
+      "drivers": [
+        "R2",
+        "Q2"
+      ],
+      "values": [
+        "v:18.1",
+        "v:19.1",
+        "v:12.3",
+        "v:24.2"
+      ],
+      "reason": "The automated weekly pipeline uses final ticket teams to retrain and deploy a replacement, directly implementing learning from agent moves. Batch learning is free relative to R2 because the incremental contrast also meets that requirement. The new-team threshold remains unproven."
+    },
+    {
+      "id": "G3",
+      "name": "Correction monitoring",
+      "step": 6,
+      "drivers": [
+        "R2"
+      ],
+      "values": [
+        "v:22.1",
+        "v:24.2"
+      ],
+      "reason": "A dashboard of agent move rates provides a correction signal and complements automated retraining, but it only approximates model-performance monitoring and does not trigger the weekly job as described. This is partial support, not a demonstrated requirement-driven necessity."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Ticket routing as built",
+      "summary": "A real-time routing service classifies incoming tickets and a scheduled pipeline learns from agents' final team assignments, with human-authored rules covering new-team cold starts.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "A separate model service provides the runtime integration. The requirements call for live assignment but do not distinguish a model service from a module or local API; no such contrast was tested.",
+          "evidence": [],
+          "solution_quote": "The service runs on a managed Kubernetes cluster in the company's EU cloud region, with two replicas behind a load balancer."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": false,
+          "reason": "Real-time model serving supports assignment on arrival; the checked batch-serving alternative misses R1 and Q1. The requirements favor a live serving mode, but do not force the microservice form over another real-time option such as a local service/API. The exact 10-second target still needs measurement.",
+          "evidence": [],
+          "solution_quote": "Otherwise the service turns the subject and the body into an embedding with a pretrained multilingual sentence-embedding model, and a logistic-regression classifier with one class per team picks the team."
+        },
+        {
+          "dimension_id": "d:7",
+          "value_id": "v:7.1",
+          "drivers": [
+            "R1",
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "Webhooks deliver new tickets as events, roughly matching streamed ingestion. This is an approximate fit because the value describes a continuous stream and the solution specifies webhook requests.",
+          "fit": "approximate",
+          "fit_note": "A webhook event per ticket is not necessarily a continuous data stream as described by the design-space value.",
+          "evidence": [],
+          "solution_quote": "The help desk tool sends every new ticket to the routing service through a webhook."
+        },
+        {
+          "dimension_id": "d:18",
+          "value_id": "v:18.1",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "forced": null,
+          "reason": "Training, evaluation, and replacement are automated in a recurring job, matching a model-building pipeline. The requirements need learning from moves but do not require this pipeline structure.",
+          "evidence": [],
+          "solution_quote": "Every Sunday a scheduled job exports the tickets of the last 90 days with their final teams, retrains the classifier (the embedding model is never retrained) and evaluates it on the last week's tickets."
+        },
+        {
+          "dimension_id": "d:19",
+          "value_id": "v:19.1",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Batch retraining learns from agent moves, but the checked incremental contrast also meets R2. The weekly cadence and cold-start behavior do not establish the Q2 threshold, so batch learning is not forced.",
+          "evidence": [],
+          "solution_quote": "Every Sunday a scheduled job exports the tickets of the last 90 days with their final teams, retrains the classifier (the embedding model is never retrained) and evaluates it on the last week's tickets."
+        },
+        {
+          "dimension_id": "d:12",
+          "value_id": "v:12.3",
+          "drivers": [
+            "R2"
+          ],
+          "forced": null,
+          "reason": "A Sunday job is an on-schedule trigger. R2 does not specify a cadence and the contrast did not vary the trigger, so whether the weekly schedule is required is unsettled.",
+          "evidence": [],
+          "solution_quote": "Every Sunday a scheduled job exports the tickets of the last 90 days with their final teams, retrains the classifier (the embedding model is never retrained) and evaluates it on the last week's tickets."
+        },
+        {
+          "dimension_id": "d:10",
+          "value_id": "v:10.3",
+          "drivers": [
+            "R2"
+          ],
+          "forced": null,
+          "reason": "The accepted candidate replaces the current model file, leaving one selected model in production. R2 requires learning from moves but does not require single-version production; no versioning contrast was checked.",
+          "evidence": [],
+          "solution_quote": "If it is at least as accurate as the current model, the job replaces the model file in object storage, and the service loads the new file within five minutes."
+        },
+        {
+          "dimension_id": "d:22",
+          "value_id": "v:22.1",
+          "drivers": [
+            "R2"
+          ],
+          "forced": null,
+          "reason": "The dashboard monitors the share of tickets agents move, a proxy signal for routing quality. This only approximately matches monitoring specific model-performance parameters, and no requirement forces this dashboard design.",
+          "fit": "approximate",
+          "fit_note": "The measured agent-move share is a human correction proxy, not a directly specified model-performance metric.",
+          "evidence": [],
+          "solution_quote": "A dashboard shows, per team, the share of tickets that agents moved, and sends an alert when that share doubles from one week to the next."
+        },
+        {
+          "dimension_id": "d:24",
+          "value_id": "v:24.2",
+          "drivers": [
+            "R2"
+          ],
+          "forced": false,
+          "reason": "The job automatically replaces a candidate model when its accuracy is at least as high. Manual adjustment could also incorporate corrections, so automation is a free choice for the stated learning requirement.",
+          "evidence": [],
+          "solution_quote": "If it is at least as accurate as the current model, the job replaces the model file in object storage, and the service loads the new file within five minutes."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:1",
+          "target": "d:5",
+          "type": "affects",
+          "holds": true
+        },
+        {
+          "source": "d:5",
+          "target": "d:7",
+          "type": "affects",
+          "holds": true
+        },
+        {
+          "source": "d:18",
+          "target": "d:12",
+          "type": "affects",
+          "holds": true
+        },
+        {
+          "source": "d:22",
+          "target": "d:24",
+          "type": "affects",
+          "holds": true
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Serve ticket assignments in real time",
+      "drivers": [
+        "R1",
+        "Q1"
+      ],
+      "context": "Every arriving ticket needs a team assignment, and the latency scenario sets a 10-second target. A live prediction path supports those drivers; the target still requires a load measurement at peak volume.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Dedicated real-time service with webhook ingestion",
+          "values": [
+            "v:1.1",
+            "v:5.1",
+            "v:7.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "fit": "approximate",
+          "fit_note": "Webhook events are a rough match for the streamed-ingestion value.",
+          "pros": [
+            "Produces live predictions for tickets as they arrive.",
+            "Supports agent correction of an incorrect team assignment."
+          ],
+          "cons": [
+            "Network and service overhead can affect latency.",
+            "Webhook requests only approximate the continuous stream represented by v:7.1.",
+            "No peak-load measurement demonstrates the 10-second target."
+          ],
+          "reason": "The real-time serving value is favored over the checked batch-serving contrast, which misses arrival-time assignment and the latency requirement. A dedicated service and webhook interface are implementation choices not shown to be forced."
+        },
+        {
+          "id": "O2",
+          "name": "Dedicated service with scheduled batch serving",
+          "values": [
+            "v:1.1",
+            "v:5.3"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Supports repeatable bulk prediction and separates model deployment."
+          ],
+          "cons": [
+            "Predictions may wait for a scheduled batch, missing R1 and Q1."
+          ],
+          "reason": "The arrival-time requirements rule out scheduled batch serving for this routing path."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Learn from agent corrections and promote retrained models",
+      "drivers": [
+        "R2",
+        "Q2"
+      ],
+      "context": "Agent moves need to become training feedback. New product teams also need adequate routing within two weeks, but the solution has no labels for a new team until agents make corrections, and it gives no measured result for the 80% target.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Weekly batch training and automatic replacement",
+          "values": [
+            "v:18.1",
+            "v:19.1",
+            "v:12.3",
+            "v:10.3",
+            "v:24.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "pros": [
+            "The scheduled job uses agents' final teams as labels and retrains the classifier.",
+            "Evaluation against current accuracy gates automatic replacement."
+          ],
+          "cons": [
+            "Weekly updates are less immediate than incremental learning.",
+            "The single-model replacement path does not document rollback or parallel comparison.",
+            "The rule-based cold-start path has no demonstrated accuracy against Q2."
+          ],
+          "reason": "The combination implements learning from moves and maintains an automated evaluation gate. Batch learning and automated replacement are free choices relative to R2, and the solution does not prove Q2."
+        },
+        {
+          "id": "O2",
+          "name": "Scheduled incremental training",
+          "values": [
+            "v:18.1",
+            "v:19.2",
+            "v:12.3",
+            "v:24.2"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Can incorporate new feedback without waiting for a complete batch retraining cycle."
+          ],
+          "cons": [
+            "Frequent incremental changes may reduce predictability and still do not establish new-team accuracy."
+          ],
+          "reason": "The contrast also meets R2, showing that batch training is not forced. The solution does not say the designers considered this option."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Track agent corrections as a routing-quality signal",
+      "drivers": [
+        "R2"
+      ],
+      "context": "Agent moves are feedback that the classifier can learn from. The solution also watches the rate of moves by team, while the design-space monitoring value describes model-performance parameters.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Monitor correction share and automate model adjustment",
+          "values": [
+            "v:22.1",
+            "v:24.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 6,
+          "fit": "approximate",
+          "fit_note": "Agent-move share is a proxy for model performance; the weekly retraining is not directly triggered by that monitoring signal.",
+          "pros": [
+            "Makes agent corrections visible by team.",
+            "Alerts on a sharp week-over-week increase in corrections."
+          ],
+          "cons": [
+            "The proxy does not directly measure classification accuracy.",
+            "The weekly job is scheduled rather than triggered by the dashboard alert."
+          ],
+          "reason": "The dashboard helps surface correction patterns, but R2 is met by the training loop and does not force this monitoring choice or automated adjustment."
+        },
+        {
+          "id": "O2",
+          "name": "Monitor performance and adjust manually",
+          "values": [
+            "v:22.1",
+            "v:24.1"
+          ],
+          "status": "discarded",
+          "step": 7,
+          "pros": [
+            "Allows a person to interpret monitoring signals before redeployment."
+          ],
+          "cons": [
+            "Human adjustment can make response slower and less consistent."
+          ],
+          "reason": "Manual adjustment can also incorporate agent feedback, so automation is not forced by the stated requirements. The solution does not say the designers considered this option."
+        }
+      ]
+    }
+  ],
+  "uncovered": [
+    {
+      "decision": "EU cloud-region placement and the managed Kubernetes runtime, including two replicas behind a load balancer",
+      "solution_quote": "The service runs on a managed Kubernetes cluster in the company's EU cloud region, with two replicas behind a load balancer.",
+      "nearest_dimension_id": null
+    },
+    {
+      "decision": "Duplicate detection and attachment policy",
+      "solution_quote": "It first looks for duplicates: if the same customer sent a ticket with the same subject in the last hour, the service attaches the new ticket to the earlier one and does not classify it.",
+      "nearest_dimension_id": "d:5"
+    },
+    {
+      "decision": "Embedding representation and classifier algorithm",
+      "solution_quote": "Otherwise the service turns the subject and the body into an embedding with a pretrained multilingual sentence-embedding model, and a logistic-regression classifier with one class per team picks the team.",
+      "nearest_dimension_id": "d:18"
+    },
+    {
+      "decision": "Agent-facing runner-up predictions and influential words",
+      "solution_quote": "The service writes the team back to the help desk tool, with the two runner-up teams and the words that weighed most in the decision, which the tool shows to agents next to the ticket.",
+      "nearest_dimension_id": "d:6"
+    },
+    {
+      "decision": "Keyword-rule cold start for newly created teams",
+      "solution_quote": "A new team has no training data until agents move tickets to it. Until then, keyword rules written by the team's lead route its tickets.",
+      "nearest_dimension_id": "d:18"
+    },
+    {
+      "decision": "The specific dashboard measure and doubling alert threshold",
+      "solution_quote": "A dashboard shows, per team, the share of tickets that agents moved, and sends an alert when that share doubles from one week to the next.",
+      "nearest_dimension_id": "d:22"
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": null,
+      "note": "The solution places its service in the EU cloud region, but this design space has no dimension for data residency or deployment region, so the constraint cannot be evaluated through its values."
+    }
+  ]
+}

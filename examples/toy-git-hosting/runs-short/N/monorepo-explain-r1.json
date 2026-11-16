@@ -1,0 +1,706 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "monorepo-explain",
+  "mode": "explain",
+  "space": null,
+  "problem": {
+    "title": "Hosting an open-source monorepo",
+    "context": "An open-source foundation hosts a 12-year, 40 GB monorepo with about 300 pushes a day and 2,000 contributors across five continents. Most clones come from CI and first-time contributors. Four volunteers operate donated servers in Europe and North America.",
+    "inferred": false,
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes from the maintainers to a single canonical repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let a first-time contributor start working without downloading the whole history."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A contributor in Asia or South America clones the latest version within two minutes on a 50 Mbit/s connection."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A CI job that starts after a push has been accepted always fetches that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Four volunteers run the service in their spare time."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "Repository storage: Plain Git repository on local disk",
+        "Write concurrency: Pushes applied one at a time",
+        "Origin failover: Same-datacentre block copy with manual takeover",
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Cache refresh: Origin webhooks after every push",
+        "CI source: Origin directly",
+        "Contributor clone: Blob filter and sparse checkout",
+        "Full-history clone: Nightly Git bundle served by caches",
+        "Release distribution: Source tarball on CDN",
+        "Operations model: Four volunteers using donated and small rented servers"
+      ],
+      "description": "Contributors push to a single European origin, where serialized writes update a plain local Git repository; webhooks notify geographically distributed caches, which serve existing objects and forward misses. CI reads the origin, filtered sparse clones use it, nightly full-history bundles are cached, and source tarballs are delivered through the CDN; a same-datacentre block copy supports manual takeover. Trade-off: This provides simple consistency and inexpensive global reads and releases, but sacrifices write locality, automatic high availability, and fresh full-history bundles between nightly runs, while relying on volunteers for failover and operations.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "CI source: Origin directly",
+        "Cache refresh: Origin webhooks after every push"
+      ],
+      "description": "The monorepo is written to one canonical origin located in Europe. CI reads directly from that origin, and after every push, origin webhooks trigger cache refreshes. Trade-off: This provides a single authoritative source, immediate CI access to the latest changes, and prompt cache updates. It gives up geographic locality and resilience, while CI and cache-refresh traffic depend on the European origin and may incur cross-region latency.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "CI source: Regional cache",
+        "Cache refresh: Origin webhooks after every push"
+      ],
+      "description": "All writes go to one canonical origin in Europe, which emits a webhook after each push. The webhook refreshes the regional cache, and CI jobs use that cache as their source. Trade-off: This provides a single authoritative write location while potentially improving CI access through regional copies. It gives up geographically local writes and makes cache freshness depend on webhook delivery and refresh completion.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Contributor clone: Blob filter and sparse checkout"
+      ],
+      "description": "Regional caches in North America, Asia, and South America serve Git objects already present locally, while forwarding cache misses to the origin. Contributors use a blob filter and sparse checkout to clone only selected repository content and avoid downloading unnecessary blobs. Trade-off: This reduces latency for repeated regional access and lowers contributors’ download and storage needs. It gives up immediate cache availability for uncached objects and may require additional fetches when contributors later need omitted files or blobs.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Contributor clone: Full-history clone"
+      ],
+      "description": "Regional caches in North America, Asia, and South America serve repository objects already stored locally, while requests for missing objects are forwarded to the origin. Contributors perform full-history clones through these caches, retrieving every required historical object regardless of whether it is cached. Trade-off: This improves latency for repeated reads and reduces origin traffic across regions, but cache misses still depend on the origin. Full-history clones also require transferring and storing substantially more data than shallow clones.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Read distribution: Origin only",
+        "Cache behavior: Serve all objects from origin",
+        "Contributor clone: Blob filter and sparse checkout"
+      ],
+      "description": "The monorepo is hosted and read exclusively from its origin, with every object served directly rather than through replicas or caches. Contributors clone it using blob filtering and sparse checkout, downloading only selected history content and working-tree paths initially. Trade-off: This minimizes contributor download and local storage requirements while keeping distribution simple. It increases origin bandwidth and load, and contributors may experience slower access or need to fetch omitted blobs and paths later.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Repository storage: Plain Git repository on local disk",
+        "Write concurrency: Pushes applied one at a time",
+        "Origin failover: Same-datacentre block copy with manual takeover",
+        "Operations model: Four volunteers using donated and small rented servers"
+      ],
+      "description": "A bare Git repository on local disk accepts pushes through a single serialized writer, avoiding concurrent repository updates. Its storage is copied at the block level to another server in the same datacentre, with the volunteers manually promoting that copy if the origin fails. Trade-off: This is inexpensive and relatively simple to operate with modest hardware, but serialized pushes limit write throughput. Same-datacentre replication and manual takeover leave the service exposed to site-wide failures and slower recovery, while relying on four volunteers limits operational coverage.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "Repository storage: Plain Git repository on local disk",
+        "Write concurrency: Pushes applied one at a time",
+        "Origin failover: Same-datacentre block copy with manual takeover",
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Cache refresh: Origin webhooks after every push",
+        "CI source: Origin directly",
+        "Contributor clone: Blob filter and sparse checkout",
+        "Full-history clone: Nightly Git bundle served by caches",
+        "Release distribution: Source tarball on CDN",
+        "Operations model: Four volunteers using donated and small rented servers"
+      ],
+      "hypothesis": "The solution as one design point covers canonical writes, fast contributor reads, CI freshness and volunteer operation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read distribution: Caches in North America, Asia and South America",
+            "Contributor clone: Blob filter and sparse checkout",
+            "Operations model: Four volunteers using donated and small rented servers"
+          ],
+          "gains": [
+            "Q1",
+            "R2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Geographic cache coverage and partial clones support contributor starts, while operating several caches adds work for a four-volunteer team."
+        }
+      ],
+      "observation": "The architecture directly serves the consistency requirement by having CI read the canonical origin. Regional caches and filtered sparse clones address the distant, large-repository workload, but no measured clone time establishes the two-minute target. The manual failover and volunteer-run topology fit the staffing limit in scope, with recovery burden still present.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "CI source: Origin directly",
+        "Cache refresh: Origin webhooks after every push"
+      ],
+      "hypothesis": "R1 and Q2 explain a single authoritative write endpoint and direct CI reads; webhooks keep distributed caches useful after pushes.",
+      "assessment": {
+        "R1": "meets",
+        "Q2": "meets",
+        "Q1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Write endpoint: One canonical origin in Europe"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The origin guarantees CI freshness, while an uncached object requested from Asia or South America still depends on a distant origin."
+        }
+      ],
+      "observation": "A CI cache contrast can improve locality but depends on webhook delivery and refresh completion. The solution avoids that freshness dependency for CI by reading the origin. Cache refresh can help later regional reads, though it does not prove Q1's latency target.",
+      "verdict": "grounded",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "CI source: Regional cache",
+        "Cache refresh: Origin webhooks after every push"
+      ],
+      "hypothesis": "If CI reads the regional cache, Q2 may be missed while refresh is still pending.",
+      "assessment": {
+        "R1": "meets",
+        "Q2": "misses",
+        "Q1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "CI source: Regional cache"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Regional locality can shorten fetches, but asynchronous refresh means CI may fetch before the accepted push arrives."
+        }
+      ],
+      "observation": "The description says cache refresh usually takes a few seconds, so a CI job starting during that interval can miss the accepted push. Direct origin reads are forced by Q2; the source text does not establish a quantitative latency penalty for CI.",
+      "verdict": "ungrounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Contributor clone: Blob filter and sparse checkout"
+      ],
+      "hypothesis": "Q1 and R2 explain regional object caches and a partial working clone for first-time contributors.",
+      "assessment": {
+        "Q1": "partly",
+        "R2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read distribution: Caches in North America, Asia and South America",
+            "Cache behavior: Serve present objects and forward misses to origin",
+            "Contributor clone: Blob filter and sparse checkout"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The partial checkout avoids a full-history transfer, but cache misses still fetch from the origin and the two-minute target is not established."
+        }
+      ],
+      "observation": "This combination directly addresses both distant access and avoiding a full-history download. It is supported by the 40 GB repository and the guide's recommendation, but the two-minute threshold remains unverified because clone timings are not supplied.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Contributor clone: Full-history clone"
+      ],
+      "hypothesis": "A full-history first clone is likely to undermine the time and download reduction sought by Q1 and R2.",
+      "assessment": {
+        "Q1": "misses",
+        "R2": "misses"
+      },
+      "tradeoffs": [],
+      "observation": "The contrast removes the partial-clone benefit and requires all history; the repository size makes the two-minute target implausible on a 50 Mbit/s link. Blob filtering and sparse checkout are forced by R2 and materially support Q1.",
+      "verdict": "ungrounded",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "Read distribution: Origin only",
+        "Cache behavior: Serve all objects from origin",
+        "Contributor clone: Blob filter and sparse checkout"
+      ],
+      "hypothesis": "Without regional caches, the partial clone may still reduce transfer size but remote object fetches use the distant origin.",
+      "assessment": {
+        "Q1": "partly",
+        "R2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Read distribution: Origin only",
+            "Cache behavior: Serve all objects from origin",
+            "Contributor clone: Blob filter and sparse checkout"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Filtering lets a contributor start without full history, while distant origin reads and greater origin load weaken the latency case."
+        }
+      ],
+      "observation": "Filtering alone satisfies the no-whole-history behavior. The contrast weakens the geographic latency case, but available facts do not give timings that prove regional caches are necessary for the two-minute target; cache distribution is supported, not conclusively forced.",
+      "verdict": "partial",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "Repository storage: Plain Git repository on local disk",
+        "Write concurrency: Pushes applied one at a time",
+        "Origin failover: Same-datacentre block copy with manual takeover",
+        "Operations model: Four volunteers using donated and small rented servers"
+      ],
+      "hypothesis": "C1 explains using a modest, familiar repository service and manual failover that volunteers can operate.",
+      "assessment": {
+        "C1": "partly",
+        "R1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Repository storage: Plain Git repository on local disk",
+            "Write concurrency: Pushes applied one at a time",
+            "Origin failover: Same-datacentre block copy with manual takeover"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "A plain canonical Git origin supports maintainer pushes, while manual recovery adds volunteer work and offers limited site-level protection."
+        }
+      ],
+      "observation": "The ordinary Git repository and serialized updates are compatible with a small volunteer team and canonical pushes. Manual takeover avoids a larger automated failover system but the solution gives no staffing schedule or recovery target, so C1 is supported rather than fully demonstrated.",
+      "verdict": "partial",
+      "point": "P7"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Authoritative CI reads",
+      "step": 2,
+      "drivers": [
+        "R1",
+        "Q2",
+        "Q1"
+      ],
+      "values": [
+        "Write endpoint: One canonical origin in Europe",
+        "CI source: Origin directly",
+        "Cache refresh: Origin webhooks after every push"
+      ],
+      "reason": "The single canonical endpoint accepts maintainer pushes, and CI reads that source directly, avoiding webhook delay for CI; webhooks then refresh remote caches to support contributor reads."
+    },
+    {
+      "id": "G2",
+      "name": "Small remote contributor clones",
+      "step": 4,
+      "drivers": [
+        "Q1",
+        "R2"
+      ],
+      "values": [
+        "Read distribution: Caches in North America, Asia and South America",
+        "Cache behavior: Serve present objects and forward misses to origin",
+        "Contributor clone: Blob filter and sparse checkout"
+      ],
+      "reason": "Regional objects and a filtered sparse checkout reduce distance and initial transfer for first-time contributors. The design supports the target, but no evidence verifies the two-minute measurement."
+    },
+    {
+      "id": "G3",
+      "name": "Volunteer-scale origin operations",
+      "step": 7,
+      "drivers": [
+        "C1",
+        "R1"
+      ],
+      "values": [
+        "Repository storage: Plain Git repository on local disk",
+        "Write concurrency: Pushes applied one at a time",
+        "Origin failover: Same-datacentre block copy with manual takeover",
+        "Operations model: Four volunteers using donated and small rented servers"
+      ],
+      "reason": "A familiar local Git repository and simple serial writer keep the canonical service modest; manual takeover and limited redundancy leave availability and recovery trade-offs."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Monorepo hosting as built",
+      "summary": "One European Git origin accepts writes and supplies CI; regional caches and filtered sparse clones support contributors, while volunteers operate a manual backup and supplementary distribution paths.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "Write endpoint",
+          "value_id": "Write endpoint: One canonical origin in Europe",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "forced": true,
+          "reason": "A single canonical repository is explicit in R1 and lets CI read the accepted push from the authoritative source.",
+          "solution_quote": "Maintainers push to one origin server in the European data centre."
+        },
+        {
+          "dimension_id": "Repository storage",
+          "value_id": "Repository storage: Plain Git repository on local disk",
+          "drivers": [
+            "R1",
+            "C1"
+          ],
+          "forced": null,
+          "reason": "A plain local Git repository supports standard Git pushes and keeps the primary service simple, but no storage contrast was evaluated.",
+          "solution_quote": "It holds the repository as a plain Git repository on its local disk"
+        },
+        {
+          "dimension_id": "Write concurrency",
+          "value_id": "Write concurrency: Pushes applied one at a time",
+          "drivers": [
+            "R1",
+            "C1"
+          ],
+          "forced": null,
+          "reason": "Serial writes keep repository updates simple; the requirements provide no throughput limit or contrast to settle whether this is necessary.",
+          "solution_quote": "and applies pushes one at a time."
+        },
+        {
+          "dimension_id": "Origin failover",
+          "value_id": "Origin failover: Same-datacentre block copy with manual takeover",
+          "drivers": [
+            "C1"
+          ],
+          "forced": null,
+          "reason": "Manual takeover offers a modest backup arrangement but no requirement specifies an outage target or a failover mechanism.",
+          "solution_quote": "A second server in the same data centre receives a block-by-block copy of the origin's disk and can take over by hand if the origin fails."
+        },
+        {
+          "dimension_id": "Read distribution",
+          "value_id": "Read distribution: Caches in North America, Asia and South America",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "Caches support lower-latency regional reads, but the contrast lacks measured results to show they are required for the two-minute target.",
+          "solution_quote": "Cache servers in North America, Asia and South America serve clones and fetches."
+        },
+        {
+          "dimension_id": "Cache behavior",
+          "value_id": "Cache behavior: Serve present objects and forward misses to origin",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "This makes caches useful while retaining origin as the source for misses; the problem does not require this cache policy specifically.",
+          "solution_quote": "Each cache serves the objects it has and forwards everything else to the origin."
+        },
+        {
+          "dimension_id": "Cache refresh",
+          "value_id": "Cache refresh: Origin webhooks after every push",
+          "drivers": [
+            "Q1"
+          ],
+          "forced": null,
+          "reason": "Push-triggered refresh keeps remote caches relatively current, though no requirement mandates cache freshness and CI bypasses them.",
+          "solution_quote": "After every push, the origin calls a webhook on each cache so that it fetches the new state, which usually takes a few seconds."
+        },
+        {
+          "dimension_id": "CI source",
+          "value_id": "CI source: Origin directly",
+          "drivers": [
+            "Q2"
+          ],
+          "forced": true,
+          "reason": "A cache may not have completed its asynchronous refresh when a CI job starts, so Q2 requires CI to read the canonical origin.",
+          "solution_quote": "CI jobs are configured to fetch from the origin directly."
+        },
+        {
+          "dimension_id": "Contributor clone",
+          "value_id": "Contributor clone: Blob filter and sparse checkout",
+          "drivers": [
+            "Q1",
+            "R2"
+          ],
+          "forced": true,
+          "reason": "The full-history contrast misses R2 and is implausible for the two-minute target on a 40 GB repository; filtering and sparse checkout directly serve both requirements.",
+          "solution_quote": "The contributing guide tells first-time contributors to clone with a blob filter and a sparse checkout of the directories they work on."
+        },
+        {
+          "dimension_id": "Full-history clone",
+          "value_id": "Full-history clone: Nightly Git bundle served by caches",
+          "drivers": [],
+          "forced": false,
+          "reason": "The stated requirements do not ask for full-history clone support or determine its distribution mechanism; this is an additional service path.",
+          "solution_quote": "Every night the origin also writes a Git bundle of the full history, which the caches offer for clones that need everything."
+        },
+        {
+          "dimension_id": "Release distribution",
+          "value_id": "Release distribution: Source tarball on CDN",
+          "drivers": [],
+          "forced": false,
+          "reason": "No stated requirement covers packager release downloads, so this is a supplementary distribution choice.",
+          "solution_quote": "For every release tag, a script builds a source tarball and publishes it on a content delivery network, so that packagers download releases without using Git at all."
+        },
+        {
+          "dimension_id": "Operations model",
+          "value_id": "Operations model: Four volunteers using donated and small rented servers",
+          "drivers": [
+            "C1"
+          ],
+          "forced": null,
+          "reason": "The hardware arrangement follows the small volunteer constraint, but the requirements do not force this specific mix of donated and rented machines.",
+          "solution_quote": "The North American cache runs on a donated server; the other two run on small rented virtual machines."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Keep CI on the canonical write source",
+      "drivers": [
+        "R1",
+        "Q2"
+      ],
+      "context": "Maintainers need one canonical Git repository, and a CI job that starts after an accepted push must fetch that push. A regional cache can lag while its webhook-triggered fetch completes.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Canonical origin with direct CI reads",
+          "values": [
+            "Write endpoint: One canonical origin in Europe",
+            "CI source: Origin directly",
+            "Cache refresh: Origin webhooks after every push"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "CI reads the authoritative repository after a push.",
+            "The canonical write endpoint is clear."
+          ],
+          "cons": [
+            "CI and cache refresh traffic depend on the European origin."
+          ],
+          "reason": "Direct origin reads are forced by Q2 because asynchronous cache refresh can leave CI stale."
+        },
+        {
+          "id": "O2",
+          "name": "CI reads a regional cache",
+          "values": [
+            "Write endpoint: One canonical origin in Europe",
+            "CI source: Regional cache",
+            "Cache refresh: Origin webhooks after every push"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Can serve CI locally."
+          ],
+          "cons": [
+            "A job can start before the cache fetch finishes and miss the accepted push."
+          ],
+          "reason": "It misses Q2 during the webhook refresh interval."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Reduce distance and initial contributor transfer",
+      "drivers": [
+        "Q1",
+        "R2"
+      ],
+      "context": "The repository is 40 GB, and contributors in Asia and South America need a latest-version clone within two minutes on 50 Mbit/s while first-time contributors must start without downloading all history.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Regional caches and filtered sparse checkout",
+          "values": [
+            "Read distribution: Caches in North America, Asia and South America",
+            "Cache behavior: Serve present objects and forward misses to origin",
+            "Contributor clone: Blob filter and sparse checkout",
+            "Cache refresh: Origin webhooks after every push",
+            "Full-history clone: Nightly Git bundle served by caches",
+            "Release distribution: Source tarball on CDN"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "pros": [
+            "Regional objects reduce distance for cached reads.",
+            "Filtering and sparse checkout avoid an initial full-history download.",
+            "Nightly bundles offer a full-history path for users who need everything.",
+            "Release tarballs give packagers a Git-free download path."
+          ],
+          "cons": [
+            "Cache misses use the origin, and the measured two-minute target is not established."
+          ],
+          "reason": "The partial clone is forced by R2 and supports Q1; caches are a plausible regional aid, though the available evidence does not prove their necessity or verify the target. The bundle and release archive are supplementary paths; no stated requirement forces these details."
+        },
+        {
+          "id": "O2",
+          "name": "Regional caches with full-history clones",
+          "values": [
+            "Read distribution: Caches in North America, Asia and South America",
+            "Cache behavior: Serve present objects and forward misses to origin",
+            "Contributor clone: Full-history clone"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Provides the complete history in one clone."
+          ],
+          "cons": [
+            "Transfers all 40 GB and defeats the requirement to start without downloading the whole history."
+          ],
+          "reason": "The contrast misses R2 and makes Q1 implausible."
+        },
+        {
+          "id": "O3",
+          "name": "Origin-only filtered sparse checkout",
+          "values": [
+            "Read distribution: Origin only",
+            "Cache behavior: Serve all objects from origin",
+            "Contributor clone: Blob filter and sparse checkout"
+          ],
+          "status": "discarded",
+          "step": 6,
+          "pros": [
+            "Still avoids a full-history initial transfer."
+          ],
+          "cons": [
+            "Remote reads have no regional object cache and put more load on the origin."
+          ],
+          "reason": "It meets R2 but has weaker support for Q1; available data do not quantify whether it would miss the target."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Use a modest origin and manual recovery",
+      "drivers": [
+        "C1",
+        "R1"
+      ],
+      "context": "Four volunteers operate the service in spare time, while maintainers need a canonical Git repository for pushes.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Local repository, serial writes and manual backup takeover",
+          "values": [
+            "Repository storage: Plain Git repository on local disk",
+            "Write concurrency: Pushes applied one at a time",
+            "Origin failover: Same-datacentre block copy with manual takeover",
+            "Operations model: Four volunteers using donated and small rented servers"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 7,
+          "pros": [
+            "Uses a familiar Git repository and modest server arrangement.",
+            "A disk copy gives volunteers a takeover path."
+          ],
+          "cons": [
+            "Manual takeover needs volunteer attention and same-datacentre copies do not cover site-wide failure."
+          ],
+          "reason": "This is compatible with C1, but no requirement specifies recovery time, write throughput, or a required failover design, so the particular choices are not shown to be forced."
+        }
+      ]
+    }
+  ],
+  "uncovered": [],
+  "unaddressed": []
+}

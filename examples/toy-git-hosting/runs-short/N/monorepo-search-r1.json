@@ -1,0 +1,846 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "monorepo-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Hosting an open-source monorepo",
+    "context": "An open-source foundation hosts a 12-year, 40 GB monorepo with about 300 pushes a day and 2,000 contributors across five continents. Most clones come from CI and first-time contributors who need only the latest version. Four volunteers operate donated servers in data centres in Europe and North America.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes from the maintainers to a single canonical repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let a first-time contributor start working without downloading the whole history."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A contributor in Asia or South America clones the latest version within two minutes on a 50 Mbit/s connection."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A CI job that starts after a push has been accepted always fetches that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Four volunteers run the service in their spare time."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Topology: Single canonical host",
+        "Clone delivery: Shallow Git clone",
+        "CI route: Canonical primary"
+      ],
+      "description": "A single canonical host serves as the authoritative repository for contributors and automation. Users and CI obtain shallow Git clones from that host, while CI runs against the canonical primary rather than a mirror or alternate source. Trade-off: This centralizes source management and reduces clone time and storage, but shallow clones lack full history and the single canonical host becomes a concentrated availability dependency.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Topology: Asynchronous read mirrors",
+        "Clone delivery: Shallow Git clone",
+        "CI route: Nearest mirror"
+      ],
+      "description": "Read-only mirrors asynchronously replicate the monorepo and serve clone requests. A client is directed to the geographically or network-nearest mirror, which provides a shallow Git clone containing limited history. Trade-off: This reduces clone latency and origin load while improving access for distributed contributors. It accepts replication staleness and limits history-dependent operations because the clone is shallow.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Topology: Synchronous read mirrors",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Nearest mirror"
+      ],
+      "description": "The monorepo is replicated to read mirrors synchronously, while a CDN distributes a shallow clone bundle for fast checkout. CI jobs use the nearest mirror for repository reads and updates. Trade-off: This improves clone and CI read performance while reducing load on the primary repository. It gives up full-history availability through the bundle and requires synchronous mirror maintenance, which can add operational overhead or make mirror issues affect reads.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Topology: Asynchronous read mirrors",
+        "Clone delivery: Shallow Git clone",
+        "CI route: Canonical primary"
+      ],
+      "description": "Asynchronous read mirrors serve repository read and clone traffic, while clients use shallow Git clones to obtain only limited history. CI runs against the canonical primary, which remains the authoritative source for validation. Trade-off: This reduces read load on the primary and can improve clone responsiveness, but mirrors may lag and shallow clones cannot support operations requiring full history. CI remains dependent on the primary’s availability and capacity.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Topology: Single canonical host",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Canonical primary"
+      ],
+      "description": "The monorepo has one authoritative host, and developers obtain its contents through a shallow bundle served from a CDN. CI uses the canonical primary as its source of truth and validates changes there. Trade-off: This centralizes governance and can make initial clones and CI access efficient, but shallow bundles omit repository history and the CDN introduces a delivery layer that must stay aligned with the canonical host.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Topology: Asynchronous read mirrors",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Canonical primary"
+      ],
+      "description": "The canonical primary accepts authoritative repository changes, while asynchronous read mirrors serve replicated read traffic. A CDN hosts a shallow clone bundle for fast initial cloning, with its contents ultimately derived from the canonical primary. Trade-off: This improves read and clone distribution while reducing pressure on the primary, but mirrors and CDN bundles may lag behind it, and shallow clones omit repository history.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Topology: Synchronous read mirrors",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Canonical primary"
+      ],
+      "description": "The repository maintains synchronous read mirrors so users can read from replicated copies while writes remain coordinated. New users obtain a shallow clone bundle from a CDN, while CI runs against the canonical primary repository. Trade-off: This combines fast, geographically efficient cloning with consistent read mirrors and a single authoritative CI path. It gives up convenient access to full repository history through the CDN bundle and concentrates CI’s dependency on the primary.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Topology: Single canonical host",
+        "Clone delivery: Sparse partial Git clone",
+        "CI route: Canonical primary"
+      ],
+      "description": "A single canonical host serves as the authoritative repository and source for all development and automation. Developers and CI use sparse partial clones to retrieve only needed content, while CI runs through the canonical primary route. Trade-off: This reduces clone and CI transfer costs and avoids synchronization ambiguity, but concentrates availability and load on one host and can make workflows requiring omitted files or history more complex.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if a single canonical host with shallow Git clones keeps operations simple?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if geographically close asynchronous mirrors serve both contributor and CI reads?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if synchronous mirrors and a CDN bundle optimize distributed reads?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if a CDN bundle accelerates first clones while the canonical host remains the only repository server?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Topology: Single canonical host",
+        "Clone delivery: Shallow Git clone",
+        "CI route: Canonical primary"
+      ],
+      "hypothesis": "A single canonical Git endpoint and shallow clones should meet R1, R2 and Q2 while keeping C1 manageable; Q1 may improve, but checkout size is unknown.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone delivery: Shallow Git clone"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Omitting history reduces transfer, but does not establish that the latest tree fits the two-minute target."
+        }
+      ],
+      "observation": "A canonical source gives CI a direct path to every accepted push. Shallow history helps, but without latest-tree size and measured serving capacity the clone target remains unproven.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Topology: Asynchronous read mirrors",
+        "Clone delivery: Shallow Git clone",
+        "CI route: Nearest mirror"
+      ],
+      "hypothesis": "Nearby shallow clones should help Q1 and R2, but asynchronous mirror lag can make a CI job miss the accepted push in Q2.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "misses",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Topology: Asynchronous read mirrors",
+            "CI route: Nearest mirror"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "Q2",
+            "C1"
+          ],
+          "note": "Geographic read distribution can lower clone latency, while mirror lag violates read-after-accepted-push and adds operational work."
+        }
+      ],
+      "observation": "The regional reads help the intended audience, but CI routed to an asynchronous mirror has no guarantee it sees the newest accepted push. The four-person team also has to operate replica state.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Topology: Synchronous read mirrors",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Nearest mirror"
+      ],
+      "hypothesis": "Synchronous replicas should provide the accepted push to CI while a nearby bundle improves Q1 and avoids full-history transfer for R2; synchronous replica operations may strain C1.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Topology: Synchronous read mirrors"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Synchronous propagation supports read-after-write consistency but adds coordination and failure handling for the volunteer operators."
+        },
+        {
+          "values": [
+            "Clone delivery: CDN-hosted shallow bundle"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "A cached bundle can reduce transfer work, but its size and refresh behavior are unmeasured, so the two-minute target is not proven."
+        }
+      ],
+      "observation": "This provides a consistency path and a globally distributable first-clone artifact. Neither bundle size nor CDN behavior is specified, and synchronous replica operations add work.",
+      "rating": "mixed",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Topology: Asynchronous read mirrors",
+        "Clone delivery: Shallow Git clone",
+        "CI route: Canonical primary"
+      ],
+      "hypothesis": "Keep the shallow clone and read mirrors, but route CI to the canonical primary. This should restore Q2 while retaining geographic read distribution.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Topology: Asynchronous read mirrors"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Regional read copies may improve access, but require volunteer monitoring and maintenance."
+        }
+      ],
+      "observation": "CI now reads the authoritative repository and can fetch every accepted push. Mirror clone performance remains unmeasured and the volunteer team must operate the copies.",
+      "rating": "mixed",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Topology: Asynchronous read mirrors",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Canonical primary"
+      ],
+      "hypothesis": "Keep asynchronous mirrors for contributor reads, but put CI on the canonical primary and use a shallow CDN bundle for first clones. This should restore Q2 and improve Q1 without synchronously coordinating replicas.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "CI route: Canonical primary"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Keeping CI on the authoritative primary ensures it sees accepted pushes but leaves CI dependent on the origin's capacity."
+        },
+        {
+          "values": [
+            "Topology: Asynchronous read mirrors",
+            "Clone delivery: CDN-hosted shallow bundle"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "C1",
+            "Q1"
+          ],
+          "note": "Read replicas and cached bundles distribute load, but they add refresh and monitoring duties and their transfer performance remains unmeasured."
+        }
+      ],
+      "observation": "Changing CI routing resolves the consistency failure without synchronous replication. The CDN and mirrors may both serve stale material unless their refresh path is managed; Q1 remains unproven without artifact size and throughput measurements.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Topology: Single canonical host",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Canonical primary"
+      ],
+      "hypothesis": "Keep one canonical Git server and distribute only a shallow clone bundle through a CDN. This may improve Q1 while reducing operational burden compared with read mirrors; bundle size and freshness still need validation.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone delivery: CDN-hosted shallow bundle"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1",
+            "C1"
+          ],
+          "note": "The bundle could shorten first clones but has unmeasured size and introduces publication and invalidation work."
+        }
+      ],
+      "observation": "This avoids replica operation and keeps CI consistent at the canonical host. CDN cache freshness and the latest snapshot size remain open, and the delivery layer adds some work for volunteers.",
+      "rating": "mixed",
+      "point": "P5"
+    },
+    {
+      "step": 7,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "Topology: Synchronous read mirrors",
+        "Clone delivery: CDN-hosted shallow bundle",
+        "CI route: Canonical primary"
+      ],
+      "hypothesis": "Keep synchronous mirrors for up-to-date distributed reads and CDN bundles for first clones, but route CI directly to the primary. This makes Q2 independent of mirror behavior.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Topology: Synchronous read mirrors"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "C1"
+          ],
+          "note": "Coordinated copies provide current reads but require more operational coordination than four volunteers may comfortably sustain."
+        },
+        {
+          "values": [
+            "Clone delivery: CDN-hosted shallow bundle"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "The shallow artifact avoids full history, but its size and measured delivery time are unknown."
+        }
+      ],
+      "observation": "Sending CI to the origin makes the acceptance guarantee explicit while retaining current mirrors for other reads. The added synchronization remains the main operational cost, and clone performance is still unverified.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Topology: Single canonical host",
+        "Clone delivery: Sparse partial Git clone",
+        "CI route: Canonical primary"
+      ],
+      "hypothesis": "Keep one authoritative host and CI path, while fetching only selected content through a sparse partial clone. This may reduce first-clone transfer while preserving a simple server topology.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Clone delivery: Sparse partial Git clone"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Fetching selected content can reduce transfer, but the clone time still depends on selected tree size and contributor configuration."
+        }
+      ],
+      "observation": "Selective content retrieval may help contributors who need only part of the monorepo, with no extra server topology. The target remains unproven because repository layout, selected content size, and measured transfer time are unknown.",
+      "rating": "strong",
+      "point": "P8"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Canonical host with shallow Git clones",
+      "summary": "Keep one writable canonical repository, shallow Git clones, and CI on the primary. This is the simplest operating model, though global clone time is unverified.",
+      "approach": "A",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "Topology",
+          "value_id": "Topology: Single canonical host",
+          "drivers": [
+            "R1",
+            "C1"
+          ],
+          "reason": "One writable repository gives maintainers a canonical standard Git endpoint and minimizes server topology."
+        },
+        {
+          "dimension_id": "Clone delivery",
+          "value_id": "Clone delivery: Shallow Git clone",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "A shallow clone avoids transferring the full history using ordinary Git behavior."
+        },
+        {
+          "dimension_id": "CI route",
+          "value_id": "CI route: Canonical primary",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "CI fetches directly from the canonical repository after push acceptance."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Synchronous mirrors with primary CI",
+      "summary": "Replicate reads synchronously and serve shallow bundles through a CDN, while routing CI to the canonical primary. This favors freshness and distribution at higher operational cost.",
+      "approach": "B",
+      "step": 5,
+      "choices": [
+        {
+          "dimension_id": "Topology",
+          "value_id": "Topology: Asynchronous read mirrors",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Regional copies distribute contributor reads while preserving one writable source, at the cost of mirror operations."
+        },
+        {
+          "dimension_id": "Clone delivery",
+          "value_id": "Clone delivery: CDN-hosted shallow bundle",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "A shallow, cacheable artifact may help first-time contributors, subject to measuring its size and delivery time."
+        },
+        {
+          "dimension_id": "CI route",
+          "value_id": "CI route: Canonical primary",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "CI fetches directly from the canonical repository after push acceptance."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "CI route",
+          "value_id": "CI route: Nearest mirror",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "CI can instead use a synchronous mirror, but the primary path is simpler to reason about."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "C1",
+      "name": "Canonical host with CDN bundles",
+      "summary": "Keep repository writes, contributor Git service, and CI on one canonical host, with shallow clone bundles distributed through a CDN. This avoids mirror management while adding artifact freshness work.",
+      "approach": "C",
+      "step": 7,
+      "choices": [
+        {
+          "dimension_id": "Topology",
+          "value_id": "Topology: Synchronous read mirrors",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Synchronous replicas support current distributed reads, with additional coordination for volunteers."
+        },
+        {
+          "dimension_id": "Clone delivery",
+          "value_id": "Clone delivery: CDN-hosted shallow bundle",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "A globally served shallow artifact avoids full-history transfer; its latency target remains unverified."
+        },
+        {
+          "dimension_id": "CI route",
+          "value_id": "CI route: Canonical primary",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "The primary directly guarantees CI source after an accepted push."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Clone delivery",
+          "value_id": "Clone delivery: Shallow Git clone",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Direct shallow clones avoid a CDN publication pipeline but do not distribute the snapshot closer to contributors."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Canonical host with CDN bundles",
+      "summary": "Keep repository writes and CI on one canonical host, with shallow clone bundles distributed through a CDN. This avoids mirror management while adding artifact freshness work.",
+      "approach": "D",
+      "step": 6,
+      "choices": [
+        {
+          "dimension_id": "Topology",
+          "value_id": "Topology: Single canonical host",
+          "drivers": [
+            "R1",
+            "C1"
+          ],
+          "reason": "One writable repository gives maintainers a canonical standard Git endpoint and minimizes server topology."
+        },
+        {
+          "dimension_id": "Clone delivery",
+          "value_id": "Clone delivery: CDN-hosted shallow bundle",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "A shallow, cacheable artifact may help first-time contributors, subject to measuring its size and delivery time."
+        },
+        {
+          "dimension_id": "CI route",
+          "value_id": "CI route: Canonical primary",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "CI uses the same canonical source that accepts pushes."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Clone delivery",
+          "value_id": "Clone delivery: Shallow Git clone",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "reason": "Direct shallow clones avoid a CDN publication pipeline but do not distribute the snapshot closer to contributors."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where repository reads come from and where CI fetches",
+      "drivers": [
+        "R1",
+        "Q2",
+        "C1"
+      ],
+      "context": "Maintainers need one canonical write target, and CI must always see a push once it is accepted. Distributed read copies can reduce load and improve geography, but asynchronous copies can lag and synchronous copies add operational work for four volunteers.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Single canonical host",
+          "values": [
+            "Topology: Single canonical host",
+            "CI route: Canonical primary"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "D1"
+          ],
+          "step": 1,
+          "pros": [
+            "One source of truth for pushes and CI."
+          ],
+          "cons": [
+            "The origin serves global demand and is a single availability dependency."
+          ],
+          "reason": "Choose for the smallest operating footprint while CDN delivery handles first-clone distribution."
+        },
+        {
+          "id": "O2",
+          "name": "Asynchronous read mirrors with primary CI",
+          "values": [
+            "Topology: Asynchronous read mirrors",
+            "CI route: Canonical primary"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 5,
+          "pros": [
+            "Mirrors can take contributor read load while CI sees accepted pushes at the primary."
+          ],
+          "cons": [
+            "Mirror freshness and operations need monitoring."
+          ],
+          "reason": "Choose when geographic read capacity justifies additional mirror maintenance."
+        },
+        {
+          "id": "O3",
+          "name": "Synchronous read mirrors with primary CI",
+          "values": [
+            "Topology: Synchronous read mirrors",
+            "CI route: Canonical primary"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 7,
+          "pros": [
+            "Distributed reads are kept current and CI uses the authoritative source."
+          ],
+          "cons": [
+            "Synchronous replication adds coordination and operational burden."
+          ],
+          "reason": "Choose when mirror freshness matters enough to justify the extra work."
+        },
+        {
+          "id": "O4",
+          "name": "Asynchronous mirror as nearest CI source",
+          "values": [
+            "Topology: Asynchronous read mirrors",
+            "CI route: Nearest mirror"
+          ],
+          "status": "discarded",
+          "step": 2,
+          "pros": [
+            "CI and contributors can use a nearby read endpoint."
+          ],
+          "cons": [
+            "Replication lag can hide a just-accepted push from CI."
+          ],
+          "reason": "Set aside because it misses the required read-after-push guarantee."
+        },
+        {
+          "id": "O5",
+          "name": "Synchronous mirror as nearest CI source",
+          "values": [
+            "Topology: Synchronous read mirrors",
+            "CI route: Nearest mirror"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "A nearby mirror can serve current CI reads."
+          ],
+          "cons": [
+            "Synchronous replication raises operational complexity."
+          ],
+          "reason": "The evaluated version couples CI to replicated service behavior; routing CI to the primary gives a simpler guarantee."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How first-time contributors obtain the latest source",
+      "drivers": [
+        "R2",
+        "Q1",
+        "C1"
+      ],
+      "context": "First-time contributors need not download 12 years of history, and clones have a two-minute target on a limited connection. A shallow clone or bundle reduces history transfer, but the current tree size and delivery performance are not specified; a CDN may accelerate delivery while adding freshness work.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shallow Git clone",
+          "values": [
+            "Clone delivery: Shallow Git clone"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 1,
+          "pros": [
+            "Uses ordinary Git clone behavior while omitting full history."
+          ],
+          "cons": [
+            "Does not establish the two-minute target without current tree size and throughput measurements."
+          ],
+          "reason": "Choose for the direct Git workflow with no separate bundle publishing pipeline."
+        },
+        {
+          "id": "O2",
+          "name": "CDN-hosted shallow bundle",
+          "values": [
+            "Clone delivery: CDN-hosted shallow bundle"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1",
+            "C1",
+            "D1"
+          ],
+          "step": 5,
+          "pros": [
+            "A cacheable shallow artifact may reduce distance and repeated origin transfer."
+          ],
+          "cons": [
+            "Bundle freshness, size, and delivery time need validation; publication adds work."
+          ],
+          "reason": "Choose when measurements show the CDN path meets the target and bundle maintenance is manageable."
+        },
+        {
+          "id": "O3",
+          "name": "Sparse partial Git clone",
+          "values": [
+            "Clone delivery: Sparse partial Git clone"
+          ],
+          "status": "discarded",
+          "step": 8,
+          "pros": [
+            "Can fetch only selected paths and reduce transferred content."
+          ],
+          "cons": [
+            "Contributor setup and selected content sizes affect usability and clone time."
+          ],
+          "reason": "Evaluated as a refinement, but retained as a possible variant pending evidence that the project layout makes partial checkout simple."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}
