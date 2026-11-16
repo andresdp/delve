@@ -63,14 +63,21 @@ addEventListener("load", () => setTimeout(() => {
     out.alt_info = document.getElementById("info").textContent;
     click(document.querySelector('.option[data-option="ADR1:O2"]'));
     out.point_option = inPoint();
-    // A value in an option: its lineage, up to the centre and down through points to requirements.
+    // A value in an option: its path to the centre and the points that take it (one ring out, no further).
     click(document.querySelector('.option[data-option="ADR1:O1"] .vref[data-node="v:1.1"]'));
     out.selected_lit = lit();
     out.selected_path = onPath();
+    const assessShown = () => [...document.querySelectorAll("line.link")]
+      .filter((l) => l.__data__.type === "assess" && !l.classList.contains("off")).map((l) => l.__data__.target);
+    out.assess_value = assessShown();
     out.info = document.getElementById("info").textContent;
     click(nodeOf("d:1"));
     out.dim_lit = lit();
     out.dim_path = onPath();
+    // A requirement: the points judged against it, and only its own point-to-requirement links.
+    click(nodeOf("r:R1"));
+    out.req_lit = lit();
+    out.assess_req = assessShown();
     // The compare view: the same subgraph, every alternative outlined, the selection fade cleared.
     click(document.querySelector('.tab[data-tab="compare"]'));
     out.after = positions();
@@ -154,14 +161,18 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert out["step_marked"] >= 3  # its column header, its cells and its entry in the list
     assert out["point_a1"] == ["p:1", "v:1.1", "v:2.1"] and "Three-phase commit" in out["alt_info"]
     assert out["point_option"] == ["p:3", "v:1.2"]                # ADR1's O2, evaluated at step 3
-    # A value: its ancestors, the points that take it and the requirements those points are judged against.
-    assert {"v:1.1", "d:1", "domain", "p:1", "p:2", "r:R1", "r:Q1", "r:C1"} <= set(out["selected_lit"])
-    assert not {"d:2", "v:2.1", "v:1.2", "p:3"} & set(out["selected_lit"])  # not on its paths
-    assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2", "p:1|r:Q1"} <= set(out["selected_path"])
+    # A value: its ancestors and the points that take it; not those points' requirements (one ring out only).
+    assert {"v:1.1", "d:1", "domain", "p:1", "p:2"} <= set(out["selected_lit"])
+    assert not {"d:2", "v:2.1", "v:1.2", "p:3", "r:R1", "r:Q1", "r:C1"} & set(out["selected_lit"])
+    assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2"} <= set(out["selected_path"])
+    assert out["assess_value"] == []                               # point-to-requirement links stay hidden
     assert "Chosen in A1" in out["info"]
     assert "Value · an option for" in out["info"] and "In the trajectory" in out["info"] and "First tried in #1" in out["info"]
-    # A dimension: the centre, its explored values, their points and those points' requirements.
-    assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2", "p:1", "p:2", "p:3", "r:R1", "r:Q1", "r:C1"}
+    # A dimension: the centre and its explored values.
+    assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2"}
+    # A requirement: the points judged against it, linked to it alone.
+    assert "r:R1" in out["req_lit"] and {"p:1"} <= set(out["req_lit"]) and not any(i.startswith("v:") for i in out["req_lit"])
+    assert out["assess_req"] and set(out["assess_req"]) == {"r:R1"}
     assert {"domain|d:1", "d:1|v:1.1", "d:1|v:1.2"} <= set(out["dim_path"])
     assert out["after"] == out["before"]
     assert out["faded_after_tab"] == 0
