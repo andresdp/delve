@@ -585,7 +585,7 @@
     <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value {{ "the space offers" if d.wiki else "the agent named" }}</label>
     <div class="zoom-ctl"><button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button><button type="button" data-zoom="fit" title="Fit the graph" aria-label="Fit the graph">⤢</button></div></div>
   <div class="splitter-h" role="separator" aria-orientation="horizontal" aria-label="Resize the graph and its details" tabindex="0" title="Drag to resize (double-click to reset)"></div>
-  <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, coloured by how the design point shown meets them)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and its direct neighbours; select one of those to go on</span></div>
+  <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, linked to each point by how it meets them; coloured by the design point shown)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and its direct neighbours; select one of those to go on</span></div>
   <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
 </aside>
 </div>
@@ -787,8 +787,11 @@
     const shownPoints = [...lit].filter((id) => id.startsWith("p:"));
     const focus = shownPoints.length === 1 ? stepOf(byId.get(shownPoints[0]).step) : null;
     const reqFill = (d) => COLOR[JUDGED[(focus.assessment || {})[d.req]]] || COLOR.muted;
-    // Point-to-requirement links stay hidden, except those of a selected requirement.
-    linkSel.classed("off", (d) => d.type === "assess" && d.target !== selected);
+    // With nothing selected, every point-to-requirement link is drawn (faint). Once something is selected, only
+    // the links of the selected requirement or of the design point shown remain.
+    const anySelection = selected !== null || lit.size > 0;
+    linkSel.classed("off", (d) => d.type === "assess" && anySelection && d.target !== selected
+      && !(focus && d.source === pid(focus.step)));
     nodeSel.classed("greyed", (d) => !explored(d)).classed("in-point", (d) => lit.has(d.id))
       .select("path.shape").attr("fill", (d) => d.kind === "requirement" && focus ? reqFill(d) : explored(d) ? nodeColor(d) : COLOR.muted)
       .attr("stroke", (d) => d.id === selected || lit.has(d.id) ? COLOR.fg : d.kind === "dimension" ? "#fff" : "none")

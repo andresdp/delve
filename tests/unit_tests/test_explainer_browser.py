@@ -37,6 +37,9 @@ addEventListener("load", () => setTimeout(() => {
   const overlaps = (a, b) => { const r = a.getBoundingClientRect(), s = b.getBoundingClientRect();
     return r.left < s.right && s.left < r.right && r.top < s.bottom && s.top < r.bottom; };
   const label = (e) => e.querySelector("text");
+  const assessShown = () => [...document.querySelectorAll("line.link")]
+    .filter((l) => l.__data__.type === "assess" && !l.classList.contains("off"))
+    .map((l) => l.__data__.source + "|" + l.__data__.target).sort();
   try {
     out.nodes = nodes().length;
     out.before = positions();
@@ -45,6 +48,9 @@ addEventListener("load", () => setTimeout(() => {
     out.tabs = [...document.querySelectorAll(".tab")].map((e) => e.dataset.tab);
     out.greyed_trajectory = greyed();
     out.point_trajectory = inPoint();
+    out.assess_all = document.querySelectorAll("line.link").length && [...document.querySelectorAll("line.link")]
+      .filter((l) => l.__data__.type === "assess").length;
+    out.assess_initial = assessShown().length;  // nothing selected: every point-to-requirement link is drawn
     // The trajectory tab: an arc links each step to its parent; selecting step 3 outlines its point.
     click(document.querySelector('.tab[data-tab="trajectory"]'));
     out.arcs = document.querySelectorAll("svg.lineage path").length;
@@ -52,6 +58,7 @@ addEventListener("load", () => setTimeout(() => {
     click(document.querySelector('.node-chip[data-step="2"]'));
     out.chip_point = inPoint();
     click(document.querySelector('.step-h[data-step="3"]'));
+    out.assess_step3 = assessShown();
     out.greyed_step3 = greyed();
     out.point_step3 = inPoint();
     out.step_info = document.getElementById("info").textContent;
@@ -67,8 +74,6 @@ addEventListener("load", () => setTimeout(() => {
     click(document.querySelector('.option[data-option="ADR1:O1"] .vref[data-node="v:1.1"]'));
     out.selected_lit = lit();
     out.selected_path = onPath();
-    const assessShown = () => [...document.querySelectorAll("line.link")]
-      .filter((l) => l.__data__.type === "assess" && !l.classList.contains("off")).map((l) => l.__data__.target);
     out.assess_value = assessShown();
     out.info = document.getElementById("info").textContent;
     click(nodeOf("d:1"));
@@ -153,6 +158,9 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert out["chip_point"] == ["p:2", "v:1.1"]                   # a lane chip selects its point
     assert out["greyed_step3"] == out["greyed_trajectory"]         # explored stays lit whatever is shown
     assert out["point_step3"] == ["p:3", "v:1.2"]                 # step 3's point and its values are outlined
+    # Point-to-requirement links: all drawn with nothing selected; once a step is shown, only its point's.
+    assert out["assess_all"] > 0 and out["assess_initial"] == out["assess_all"]
+    assert out["assess_step3"] and all(a.startswith("p:3|") for a in out["assess_step3"])
     # The details panel reads like the story: what the point is, its rating in words, thought, move, observation.
     info = out["step_info"]
     assert "Design point" in info and "#3 · New approach B" in info and "Approach B, round 2" in info
@@ -165,14 +173,16 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     assert {"v:1.1", "d:1", "domain", "p:1", "p:2"} <= set(out["selected_lit"])
     assert not {"d:2", "v:2.1", "v:1.2", "p:3", "r:R1", "r:Q1", "r:C1"} & set(out["selected_lit"])
     assert {"domain|d:1", "d:1|v:1.1", "v:1.1|p:1", "v:1.1|p:2"} <= set(out["selected_path"])
-    assert out["assess_value"] == []                               # point-to-requirement links stay hidden
+    # Selecting a value hides the requirement links of the points that take it (only the shown point's remain).
+    assert not any(a.startswith(("p:1|", "p:2|")) for a in out["assess_value"])
     assert "Chosen in A1" in out["info"]
     assert "Value · an option for" in out["info"] and "In the trajectory" in out["info"] and "First tried in #1" in out["info"]
     # A dimension: the centre and its explored values.
     assert set(out["dim_lit"]) == {"d:1", "domain", "v:1.1", "v:1.2"}
     # A requirement: the points judged against it, linked to it alone.
     assert "r:R1" in out["req_lit"] and {"p:1"} <= set(out["req_lit"]) and not any(i.startswith("v:") for i in out["req_lit"])
-    assert out["assess_req"] and set(out["assess_req"]) == {"r:R1"}
+    assert {"p:1|r:R1", "p:2|r:R1"} <= set(out["assess_req"])
+    assert all(a.endswith("|r:R1") or a.startswith("p:3|") for a in out["assess_req"])  # and the shown point's
     assert {"domain|d:1", "d:1|v:1.1", "d:1|v:1.2"} <= set(out["dim_path"])
     assert out["after"] == out["before"]
     assert out["faded_after_tab"] == 0
