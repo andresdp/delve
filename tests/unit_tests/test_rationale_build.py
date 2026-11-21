@@ -912,8 +912,7 @@ def test_map_boxes_of_alternatives_show_their_design_point_on_hover(ws):
     doc["alternatives"][0]["name"] = "Disk quorum"
     data = _data(doc, ws)
     tip = _nodes(data)[1]["tip"]
-    assert tip[0] == "A1 · Disk quorum" and len(tip) == 1 + len(data["alternatives"][0]["choices"])
-    assert tip[1].startswith("d1 ") and ": 1.1 " in tip[1]                # dimension, then the value chosen
+    assert tip == ["A1 · Disk quorum", data["alternatives"][0]["point"]] and tip[1]   # what the design point is
     assert _nodes(data)[2]["tip"] == []                                   # any other box: no tooltip
     assert not set(_nodes(data)[1]["full"]) & set(tip)                    # never the box's own text
 

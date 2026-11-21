@@ -361,7 +361,7 @@ def _qoc(trajectory: Sequence[Mapping[str, Any]], alternatives: Sequence[Mapping
 
 # Geometry of the map, in SVG units: fixed-size nodes, one column per lane
 # (an approach or a region), one row per stage (a round, or solution / regions / contrasts), read top to bottom.
-MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_STAGE_GAP, MAP_PAD = 168, 38, 22, 8, 30, 22
+MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_STAGE_GAP, MAP_PAD = 192, 44, 22, 8, 30, 22
 MAP_CHARS = 26  # characters per node line before it is cut (the full text stays in the tooltip)
 
 
@@ -538,10 +538,8 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
     def name_of(ref: Any, table: Mapping[str, Mapping[str, Any]]) -> str:
         return str((table.get(ref) or {}).get("label") or ref)
 
-    # Hovering an alternative's box (or explain's solution) shows its design point: one dimension and value a line.
-    described = {a["id"]: [f"{a['id']} · {a['name']}"]
-                 + [f"{_short(c['dimension'])} {name_of(c['dimension'], dims)}: {_short(c['value'])} {name_of(c['value'], values)}"
-                    for c in a["choices"] if c["dimension"] and c["value"]]
+    # Hovering an alternative's box (or explain's solution) shows what its design point is: its description.
+    described = {a["id"]: [f"{a['id']} · {a['name']}"] + ([a["point"]] if a.get("point") else [])
                  for a in alternatives}
     shown_values: List[Any] = []  # the values the map names (lane labels, changes), for the legend below it
 
