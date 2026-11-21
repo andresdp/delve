@@ -13,27 +13,29 @@
   .map-grid { display: grid; }
   .map-corner { position: sticky; top: 0; left: 0; z-index: 3; background: var(--panel); }
   .map-cols { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--border); }
-  .map-cols span { position: absolute; top: 5px; transform: translateX(-50%); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .map-lane { position: absolute; top: 4px; margin: 0; font-size: 11.5px; line-height: 1.3; }
+  .map-lane b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .map-lane span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); }
   .map-rows { position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--border); }
-  .map-row { position: absolute; left: 0; right: 0; margin: 0; padding: 0 8px; display: flex; flex-direction: column;
-    justify-content: center; font-size: 11.5px; line-height: 1.3; overflow: hidden; }
-  .map-row span { color: var(--muted); }
+  .map-stage { position: absolute; left: 0; right: 0; padding: 0 8px; display: flex; align-items: center;
+    font-size: 11.5px; color: var(--muted); }
   .map-svg { display: block; }
   .map-edge { fill: none; stroke: var(--muted); stroke-width: 1.4; }
   .map-edge.dashed { stroke-dasharray: 5 4; }
   #map-arrow path { fill: var(--muted); }
   .map-node { cursor: pointer; outline: none; }
   .map-node rect { fill: var(--panel); stroke: var(--muted); stroke-width: 1.3; }
-  .map-node text { font-size: 11px; fill: var(--fg); }
+  .map-node text { font-size: 10.5px; fill: var(--fg); }
   .map-node .map-n { font-weight: 700; }
   .map-node .map-l2 { fill: var(--muted); }
   .map-node.v-strong > rect, .map-node.v-grounded > rect { stroke: var(--accepted); }
   .map-node.v-mixed > rect, .map-node.v-partial > rect { stroke: var(--mixed); }
   .map-node.v-weak > rect, .map-node.v-ungrounded > rect { stroke: var(--rejected); }
-  .map-node.map-alt > rect, .map-node.map-justifying > rect { stroke-width: 3; }
+  /* The proposed alternatives (search) and the regions that justify the solution (explain): a light green fill. */
+  .map-node.map-alt > rect, .map-node.map-justifying > rect { fill: color-mix(in srgb, var(--accepted) 18%, var(--panel)); stroke-width: 2; }
   .map-node.map-dropped > rect, .map-node.map-ungrounded > rect { stroke-dasharray: 5 3; }
   .map-node.map-dropped text { fill: var(--muted); }
-  .map-node.lit > rect { fill: var(--bg); }
+  .map-node.lit > rect { stroke: var(--fg); stroke-width: 2.4; }
   .map-node.sel > rect { stroke: var(--fg); stroke-width: 3.2; stroke-dasharray: none; }
   .map-node:focus-visible > rect { stroke: var(--accent); stroke-width: 3.2; }
   .map-badge rect { fill: var(--fg); stroke: none; }
@@ -50,14 +52,14 @@
 {% set nw, nh = m.node.w, m.node.h %}
     <div class="view-switch" role="group" aria-label="Show the graph or the map"><button type="button" data-view="graph" aria-pressed="true">Graph</button><button type="button" data-view="map" aria-pressed="false">Map (experimental)</button></div>
     <div class="map-view" hidden>
-      <div class="map-grid" style="grid-template-columns: 128px {{ m.size.width }}px; grid-template-rows: 26px {{ m.size.height }}px;">
+      <div class="map-grid" style="grid-template-columns: 74px {{ m.size.width }}px; grid-template-rows: 54px {{ m.size.height }}px;">
         <div class="map-corner"></div>
-        <div class="map-cols">{% for c in m.columns %}<span style="left: {{ c.x }}px">{{ c.label }}</span>{% endfor %}</div>
-        <div class="map-rows">{% for r in m.rows %}<p class="map-row" style="top: {{ r.top }}px; height: {{ r.height }}px" title="{{ r.title }}"><b>{{ r.label }}</b><span>{{ r.sublabel }}</span></p>{% endfor %}</div>
-        <svg class="map-svg" width="{{ m.size.width }}" height="{{ m.size.height }}" viewBox="0 0 {{ m.size.width }} {{ m.size.height }}" role="group" aria-label="{{ 'The search, approach by round' if m.mode == 'search' else 'The explanation, region by move' }}">
+        <div class="map-cols">{% for l in m.lanes %}<p class="map-lane" style="left: {{ l.x }}px; width: {{ nw }}px" title="{{ l.title }}"><b>{{ l.label }}</b><span>{{ l.sublabel }}</span></p>{% endfor %}</div>
+        <div class="map-rows">{% for st in m.stages %}<span class="map-stage" style="top: {{ st.top }}px; height: {{ st.height }}px">{{ st.label }}</span>{% endfor %}</div>
+        <svg class="map-svg" width="{{ m.size.width }}" height="{{ m.size.height }}" viewBox="0 0 {{ m.size.width }} {{ m.size.height }}" role="group" aria-label="{{ 'The search: approaches by column, rounds from top to bottom' if m.mode == 'search' else 'The explanation: the solution, its regions and their contrasts, from top to bottom' }}">
           <defs><marker id="map-arrow" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5"></path></marker></defs>
           {% for e in m.edges %}<path class="map-edge{% if e.dashed %} dashed{% endif %}" d="{{ e.d }}" marker-end="url(#map-arrow)"></path>{% endfor %}
-          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ n.full|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})"><title>{{ n.full|join('\n') }}</title><rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="8" y="30" class="map-l2">{{ n.lines[1] }}</text>{% if n.badge %}{% set bw = 12 + 7 * (n.badge|length) %}<g class="map-badge" transform="translate({{ nw - bw - 2 }},-8)"><rect width="{{ bw }}" height="15" rx="7"></rect><text x="{{ bw / 2 }}" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
+          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ n.tip|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})"><title>{{ n.tip|join('\n') }}</title><rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="8" y="30" class="map-l2">{{ n.lines[1] }}</text>{% if n.badge %}{% set bw = 12 + 7 * (n.badge|length) %}<g class="map-badge" transform="translate({{ nw - bw - 2 }},-8)"><rect width="{{ bw }}" height="15" rx="7"></rect><text x="{{ bw / 2 }}" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
         </svg>
       </div>
       {% if m.footer.uncovered or m.footer.unaddressed %}<div class="map-footer">{% if m.footer.uncovered %}<p><b>Uncovered</b> (no dimension fits): {{ m.footer.uncovered|join('; ') }}</p>{% endif %}{% if m.footer.unaddressed %}<p><b>Unaddressed</b> (no dimension bears on them): {{ m.footer.unaddressed|join(', ') }}</p>{% endif %}</div>{% endif %}
@@ -66,7 +68,7 @@
 
 {% macro key(m) %}
 <details class="map-key" open hidden><summary><b>Map (experimental)</b>: how to read it</summary>
-    {% if m.mode == "search" %}<span>rows: approaches; columns: rounds</span><span>each box: step, rating (border colour) and the values it changed against its parent (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or how it met the requirements</span><span>arrows: from the step it changed</span><span><b>thick</b>, with a badge: an alternative; <b>dashed</b>: a dropped approach</span>
-    {% else %}<span>rows: candidate regions (their dimensions, the requirements behind them, their values); columns: the solution, its regions, the contrasts</span><span>each box: step, verdict (border colour) and, for a contrast, the solution value it swaps (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or assessment, and whether the requirements <b>force</b> that value or leave it <b>free</b></span><span><b>thick</b>: a region that justifies the solution; <b>dashed</b>: an ungrounded contrast</span>{% endif %}
+    {% if m.mode == "search" %}<span>columns: approaches; rows: rounds, from top to bottom</span><span>each box: step, rating and the values it changed against its parent (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or how it met the requirements</span><span>border colour: the rating (<b>green</b> strong, <b>amber</b> mixed, <b>red</b> weak); <b>green background</b>, with a badge: a proposed alternative (hover for its description); <b>dashed</b>: a dropped approach</span><span>arrows: from the step it changed</span>
+    {% else %}<span>columns: candidate regions (their dimensions, the requirements behind them, their values); rows: the solution, its regions, their contrasts, from top to bottom</span><span>each box: step, verdict and, for a contrast, the solution value it swaps (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or assessment, and whether the requirements <b>force</b> that value or leave it <b>free</b></span><span>border colour: the verdict (<b>green</b> grounded, <b>amber</b> partial, <b>red</b> ungrounded); <b>green background</b>: a region that justifies the solution; <b>dashed</b>: an ungrounded contrast</span>{% endif %}
     <span>select a box to follow that step; this view is experimental</span></details>
 {% endmacro %}

@@ -204,13 +204,13 @@ def test_out_with_graph_from_another_folder_leaves_that_workspace_alone(ws, tmp_
     assert "wiki_page" not in payload and not (ws / "site" / "explainers").exists()
 
 
-def test_a_changed_graph_shows_the_banner(ws, tmp_path):
+def test_a_changed_graph_is_reported_but_the_page_shows_no_banner(ws, tmp_path):
     doc = _sample()
     doc["space"]["graph_sha256"] = "0" * 64
     payload = _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
     assert [p["code"] for p in payload["problems"]] == ["graph_changed"]
     html = Path(payload["page"]).read_text(encoding="utf-8")
-    assert 'class="banner"' in html and "graph changed" in html.lower()
+    assert 'class="banner"' not in html and "graph changed" not in html.lower()
 
 
 # ---------------------------------------------------------------- explainers in `ddspace wiki build`
@@ -299,7 +299,7 @@ def test_a_broken_file_is_skipped_with_a_warning_and_its_old_page_removed(built,
     assert "explainers/toy-store-search.html" not in (root / "site" / "index.html").read_text(encoding="utf-8")
 
 
-def test_a_changed_graph_renders_the_banner_and_list_says_changed(built, tmp_path):
+def test_a_changed_graph_shows_no_banner_and_list_says_changed(built, tmp_path):
     root = built.root
     _built(_invoke("rationale", "build", str(_file(tmp_path, _current(root)))))
     assert _statuses() == {"toy-store-search": "ok"}
@@ -308,7 +308,7 @@ def test_a_changed_graph_renders_the_banner_and_list_says_changed(built, tmp_pat
     _add_run(built, "20261014_090000", tax)
     _wiki_build()
     html = (root / PAGE).read_text(encoding="utf-8")
-    assert 'class="banner"' in html and "graph changed" in html.lower()
+    assert 'class="banner"' not in html
     assert _statuses() == {"toy-store-search": "changed"}
 
 
@@ -734,11 +734,12 @@ def _nodes(data):
 def test_search_map_puts_each_step_in_its_approach_row_and_round_column(ws):
     data = _data(_sample(), ws)
     m = data["map"]
-    assert m["mode"] == "search" and [r["key"] for r in m["rows"]] == ["A", "B"]
-    assert [c["label"] for c in m["columns"]] == ["round 1", "round 2"]
+    assert m["mode"] == "search" and [lane["key"] for lane in m["lanes"]] == ["A", "B"]
+    assert [st["label"] for st in m["stages"]] == ["round 1", "round 2"]
     nodes = _nodes(data)
-    assert (nodes[1]["row"], nodes[1]["col"]) == (0, 0) and (nodes[2]["row"], nodes[2]["col"]) == (0, 1)
-    assert (nodes[3]["row"], nodes[3]["col"]) == (1, 1)
+    assert (nodes[1]["lane"], nodes[1]["stage"]) == (0, 0) and (nodes[2]["lane"], nodes[2]["stage"]) == (0, 1)
+    assert (nodes[3]["lane"], nodes[3]["stage"]) == (1, 1)
+    assert nodes[2]["y"] > nodes[1]["y"] and nodes[1]["x"] == nodes[2]["x"] < nodes[3]["x"]   # top to bottom
     assert nodes[1]["full"] == ["1 strong", "+R1 Q1 −C1"]       # a seed: no change; its trade-off
     assert nodes[2]["full"][0] == "2 weak"                        # dropping d:2 is not a change
     assert nodes[1]["badge"] == "A1" and "map-alt" in nodes[1]["cls"] and "v-strong" in nodes[1]["cls"]
@@ -772,9 +773,9 @@ def test_search_map_dashes_a_dropped_approach_and_stacks_steps_in_one_cell(ws):
     data = _data(doc, ws)
     nodes = _nodes(data)
     assert "map-dropped" in nodes[3]["cls"] and "map-alt" not in nodes[3]["cls"] and nodes[3]["badge"] == "A2"
-    assert (nodes[4]["row"], nodes[4]["col"], nodes[4]["slot"]) == (0, 1, 1)
-    rows = data["map"]["rows"]
-    assert rows[0]["height"] > rows[1]["height"] and "too slow" in rows[1]["title"]
+    assert (nodes[4]["lane"], nodes[4]["stage"], nodes[4]["slot"]) == (0, 1, 1)
+    stages, lanes = data["map"]["stages"], data["map"]["lanes"]
+    assert stages[1]["height"] > stages[0]["height"] and "too slow" in lanes[1]["title"]
 
 
 def test_map_change_line_caps_the_pairs_and_cuts_long_lines():
@@ -801,15 +802,17 @@ def _explain_with_contrasts():
 def test_explain_map_rows_are_regions_with_their_contrasts(ws):
     data = _data(_explain_with_contrasts(), ws)
     m = data["map"]
-    assert m["mode"] == "explain" and [c["label"] for c in m["columns"]] == ["solution", "regions", "contrasts"]
-    assert [r["key"] for r in m["rows"]] == ["2", "solution"]     # a contrast of the whole point: a row of its own
-    assert m["rows"][0]["label"] == "d1 · for Q1" and m["rows"][0]["sublabel"] == "1.1"
+    assert m["mode"] == "explain" and [st["label"] for st in m["stages"]] == ["solution", "regions", "contrasts"]
+    assert [lane["key"] for lane in m["lanes"]] == ["2", "solution"]   # a contrast of the whole point: a lane of its own
+    assert m["lanes"][0]["label"] == "d1 · for Q1" and m["lanes"][0]["sublabel"] == "1.1"
     nodes = _nodes(data)
-    assert nodes[1]["col"] == 0 and nodes[2]["col"] == 1 and nodes[2]["full"][0] == "2 grounded"  # a region: no change
+    assert nodes[1]["stage"] == 0 and nodes[2]["stage"] == 1 and nodes[2]["full"][0] == "2 grounded"  # a region: no change
     assert "map-justifying" in nodes[2]["cls"]
-    assert (nodes[3]["row"], nodes[3]["col"]) == (0, 2) and (nodes[4]["row"], nodes[4]["slot"]) == (0, 1)
-    assert nodes[5]["row"] == 1
-    assert {(e["from"], e["to"]) for e in m["edges"]} == {(1, 2), (2, 3), (2, 4), (1, 5)}
+    assert (nodes[3]["lane"], nodes[3]["stage"]) == (0, 2) and (nodes[4]["lane"], nodes[4]["slot"]) == (0, 1)
+    assert nodes[5]["lane"] == 1
+    assert nodes[1]["x"] == (m["lanes"][0]["x"] + m["lanes"][1]["x"]) / 2        # the solution, centred on top
+    kinds = {(e["from"], e["to"]): e["kind"] for e in m["edges"]}
+    assert kinds == {(1, 2): "cross", (2, 3): "straight", (2, 4): "arc", (1, 5): "cross"}  # 4 is stacked under 3
 
 
 def test_explain_map_marks_the_solution_value_each_contrast_tests(ws):
@@ -898,3 +901,12 @@ def test_explain_box_marks_only_the_changes_it_shows(ws):
     node = _nodes(_data(doc, ws))[5]
     assert node["full"][1] == "1.1 forced · 2.1 free"
     assert node["lines"][0].endswith("+1 more") and node["lines"][1] == "1.1 forced"
+
+
+def test_map_boxes_of_alternatives_describe_them(ws):
+    doc = _sample()
+    doc["alternatives"][0].update(name="Disk quorum", summary="Each node keeps the truth on its own disk.")
+    node = _nodes(_data(doc, ws))[1]
+    assert node["tip"][-1] == "A1 · Disk quorum: Each node keeps the truth on its own disk."
+    assert node["tip"][:2] == node["full"]
+    assert "A1" not in "".join(_nodes(_data(doc, ws))[2]["tip"])       # not an alternative: no description

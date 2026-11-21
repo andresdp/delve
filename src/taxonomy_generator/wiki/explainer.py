@@ -359,9 +359,10 @@ def _qoc(trajectory: Sequence[Mapping[str, Any]], alternatives: Sequence[Mapping
 
 # ── the experimental map (an alternative to the radial graph) ─────────────
 
-# Geometry of the map, in SVG units: fixed-size nodes on a grid of rows and columns.
-MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_ROW_GAP, MAP_PAD = 158, 38, 30, 8, 18, 22
-MAP_CHARS = 27  # characters per node line before it is cut (the full text stays in the tooltip)
+# Geometry of the map, in SVG units: fixed-size nodes, one column per lane
+# (an approach or a region), one row per stage (a round, or solution / regions / contrasts), read top to bottom.
+MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_STAGE_GAP, MAP_PAD = 168, 38, 22, 8, 30, 22
+MAP_CHARS = 26  # characters per node line before it is cut (the full text stays in the tooltip)
 
 
 def _short(ref: Any) -> str:
@@ -397,7 +398,7 @@ def _assessment_text(assessment: Mapping[str, str]) -> str:
 
 
 def _search_grid(trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
-    """Search's grid: one row per approach (in the lanes' order), one column per round; dropped approaches dashed,
+    """Search's grid: one lane per approach (in the lanes' order), one stage per round; dropped approaches dashed,
     alternatives thick with a badge."""
     rounds = (lanes or {}).get("rounds") or []
     rows: List[Dict[str, Any]] = []
@@ -421,14 +422,14 @@ def _search_grid(trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mappin
             # a dropped approach stays dashed even where a step became an alternative; the badge still names it
             extra = ["map-dropped"] if s["approach"] in dropped else ["map-alt"] if s.get("alternative") else []
             styles[s["step"]] = (extra, s.get("alternative"))
-    return {"rows": rows, "columns": [f"round {r}" for r in rounds], "cell": cell, "styles": styles,
+    return {"lanes": rows, "stages": [f"round {r}" for r in rounds], "cell": cell, "styles": styles,
             "centred": None}
 
 
 def _explain_grid(trajectory: Sequence[Mapping[str, Any]], solution: Optional[Mapping[str, Any]],
                   regions: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
-    """Explain's grid: one row per region step, plus a "solution" row for contrasts of the whole point; columns
-    solution (the solution, centred across the rows), regions, contrasts. Justifying regions are thick, ungrounded
+    """Explain's grid: one lane per region step, plus a "solution" lane for contrasts of the whole point; stages
+    solution (the solution, centred above the lanes), regions, contrasts. Justifying regions are thick, ungrounded
     contrasts dashed."""
     by_step = {s["step"]: s for s in trajectory}
     justifying = {r.get("step") for r in regions}
@@ -440,10 +441,10 @@ def _explain_grid(trajectory: Sequence[Mapping[str, Any]], solution: Optional[Ma
         if s["move"] == "region":
             row_of[s["step"]] = len(rows)
             drivers = " ".join(s["drivers"])
-            rows.append({"key": str(s["step"]), "label": " ".join(_short(d) for d in s["point"])
-                         + (f" · for {drivers}" if drivers else ""),
-                         "sublabel": " ".join(_short(v) for v in s["point"].values()),
-                         "title": f"Region (step {s['step']})"})
+            label = " ".join(_short(d) for d in s["point"]) + (f" · for {drivers}" if drivers else "")
+            values = " ".join(_short(v) for v in s["point"].values())
+            rows.append({"key": str(s["step"]), "label": label, "sublabel": values,
+                         "title": f"Region (step {s['step']}): {label}; values {values}"})
             cell[s["step"]] = (row_of[s["step"]], 1)
             styles[s["step"]] = (["map-justifying"] if s["step"] in justifying else [], None)
     for s in trajectory:
@@ -466,7 +467,7 @@ def _explain_grid(trajectory: Sequence[Mapping[str, Any]], solution: Optional[Ma
         rows.append({"key": "solution", "label": "solution", "sublabel": "", "title": "The solution"})
     if solution is not None:
         cell[solution["step"]] = (0, 0)
-    return {"rows": rows, "columns": ["solution", "regions", "contrasts"], "cell": cell, "styles": styles,
+    return {"lanes": rows, "stages": ["solution", "regions", "contrasts"], "cell": cell, "styles": styles,
             "centred": solution["step"] if solution is not None else None}
 
 
@@ -475,7 +476,7 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
          uncovered: Sequence[Mapping[str, Any]], unaddressed: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     """The map: one diagram of the run, like the trajectory figures of the Designing 2027 paper.
 
-    The grid comes from ``_search_grid`` or ``_explain_grid``; this lays it out and draws it. Every node has
+    The grid comes from ``_search_grid`` or ``_explain_grid``; this lays it out top to bottom and draws it. Every node has
     two lines: step, verdict and change; then its main trade-off (the first one caused by a value it changed), or
     its assessment. Positions, sizes and arrow paths are computed here, so the template only draws them.
     """
@@ -519,72 +520,82 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         return [full_first, join([second, *marks(pairs)])], [_cut(first), _cut(join([second, *marks(shown_pairs)]))]
 
     grid = _explain_grid(trajectory, solution, regions) if explain else _search_grid(trajectory, lanes)
-    rows, columns, cell, styles = grid["rows"], grid["columns"], grid["cell"], grid["styles"]
+    lane_rows, stages, cell, styles = grid["lanes"], grid["stages"], grid["cell"], grid["styles"]
     centred = grid["centred"]
+    described = {a["id"]: f"{a['id']} · {a['name']}" + (f": {a['summary']}" if a.get("summary") else "")
+                 for a in alternatives}
 
-    # Slots: several steps in one cell stack; a row is as tall as its fullest cell.
+    # Slots: several steps in one cell stack downwards; a stage is as tall as its fullest cell.
     slot: Dict[Any, int] = {}
     filled: Dict[Tuple[int, int], int] = {}
     for s in trajectory:
         if s["step"] in cell and s["step"] != centred:
             slot[s["step"]] = filled.get(cell[s["step"]], 0)
             filled[cell[s["step"]]] = slot[s["step"]] + 1
+    stage_rows: List[Dict[str, Any]] = []
     y = MAP_PAD
-    for i, row in enumerate(rows):
-        n = max([k for (r, _c), k in filled.items() if r == i] or [1])
-        row.update(top=y, height=n * MAP_NODE_H + (n - 1) * MAP_SLOT_GAP)
-        y += row["height"] + MAP_ROW_GAP
-    height = (y - MAP_ROW_GAP + MAP_PAD) if rows else 2 * MAP_PAD + MAP_NODE_H
-    col_x = [MAP_PAD + i * (MAP_NODE_W + MAP_COL_GAP) for i in range(len(columns))]
-    width = 2 * MAP_PAD + len(columns) * MAP_NODE_W + max(len(columns) - 1, 0) * MAP_COL_GAP
+    for j, label in enumerate(stages):
+        n = max([k for (_lane, st), k in filled.items() if st == j] or [1])
+        stage_rows.append({"label": label, "top": y, "height": n * MAP_NODE_H + (n - 1) * MAP_SLOT_GAP})
+        y += stage_rows[-1]["height"] + MAP_STAGE_GAP
+    height = (y - MAP_STAGE_GAP + MAP_PAD) if stage_rows else 2 * MAP_PAD + MAP_NODE_H
+    lane_x = [MAP_PAD + i * (MAP_NODE_W + MAP_COL_GAP) for i in range(len(lane_rows))]
+    for lane, x in zip(lane_rows, lane_x):
+        lane["x"] = x
+    width = 2 * MAP_PAD + max(len(lane_rows), 1) * MAP_NODE_W + max(len(lane_rows) - 1, 0) * MAP_COL_GAP
 
     nodes: List[Dict[str, Any]] = []
     for s in trajectory:
         if s["step"] not in cell:
             continue
-        r, c = cell[s["step"]]
-        if s["step"] == centred:
-            top, bottom = rows[0]["top"], rows[-1]["top"] + rows[-1]["height"]
-            ny = (top + bottom - MAP_NODE_H) / 2
+        lane, st = cell[s["step"]]
+        if s["step"] == centred:  # the solution, above the middle of its regions
+            nx = (lane_x[0] + lane_x[-1]) / 2 if lane_x else MAP_PAD
         else:
-            ny = rows[r]["top"] + slot[s["step"]] * (MAP_NODE_H + MAP_SLOT_GAP)
+            nx = lane_x[lane]
+        ny = stage_rows[st]["top"] + slot.get(s["step"], 0) * (MAP_NODE_H + MAP_SLOT_GAP)
         extra, badge = styles.get(s["step"], ([], None))
         cls = ([f"v-{s['verdict']}"] if s["verdict"] else []) + extra
         full, shown = lines(s)
         number = str(s["step"])  # drawn bold, apart from the rest of the first line
-        nodes.append({"step": s["step"], "row": r, "col": c, "slot": slot.get(s["step"], 0),
-                      "x": col_x[c], "y": ny, "full": full, "lines": shown,
-                      "number": number, "rest": shown[0][len(number):],
-                      "badge": badge, "cls": " ".join(cls)})
+        about = described.get(s.get("alternative"))  # an alternative (or explain's solution) says what it is
+        nodes.append({"step": s["step"], "lane": lane, "stage": st, "slot": slot.get(s["step"], 0),
+                      "x": nx, "y": ny, "full": full, "lines": shown, "tip": full + ([about] if about else []),
+                      "number": number, "rest": shown[0][len(number):], "badge": badge, "cls": " ".join(cls)})
 
-    # Arrows, from each step's parent: straight along a row, arcs over it when they skip columns, curves across rows.
+    # Arrows, from each step's parent: down a lane, around its left side when they skip a stage, and curves
+    # between lanes (or from the solution).
     at = {n["step"]: n for n in nodes}
     edges = []
+    w, h = MAP_NODE_W, MAP_NODE_H
     for n in nodes:
         p = at.get(by_step[n["step"]]["parent"])
         if p is None:
             continue
-        w, h = MAP_NODE_W, MAP_NODE_H
-        from_solution = p["step"] == centred  # the centred solution reaches every row with a curve
-        if p["row"] == n["row"] and n["col"] == p["col"] + 1 and p["slot"] == n["slot"] and not from_solution:
-            kind, d = "straight", f"M{p['x'] + w},{p['y'] + h / 2} L{n['x']},{n['y'] + h / 2}"
-        elif p["row"] == n["row"] and n["col"] > p["col"] + 1 and not from_solution:
-            lift = rows[n["row"]]["top"] - 16
+        px, py, nx, ny = p["x"], p["y"], n["x"], n["y"]
+        if n["slot"] > 0:  # a stacked box is reached from the side, never through the box above it
+            side = min(px, nx) - 14
             kind = "arc"
-            d = (f"M{p['x'] + w / 2},{p['y']} C{p['x'] + w / 2},{lift} {n['x'] + w / 2},{lift} "
-                 f"{n['x'] + w / 2},{n['y']}")
-        elif n["col"] == p["col"]:  # down from the parent's bottom edge, or up from its top edge
-            kind = "straight"
-            d = (f"M{p['x'] + w / 2},{p['y'] + h} L{n['x'] + w / 2},{n['y']}" if n["y"] > p["y"]
-                 else f"M{p['x'] + w / 2},{p['y']} L{n['x'] + w / 2},{n['y'] + h}")
-        else:
-            x0, y0, x1, y1 = p["x"] + w, p["y"] + h / 2, n["x"], n["y"] + h / 2
+            d = f"M{px},{py + h / 2} C{side},{py + h / 2} {side},{ny + h / 2} {nx},{ny + h / 2}"
+        elif p["lane"] == n["lane"] and p["step"] != centred:
+            if ny > py and n["stage"] > p["stage"] + 1:
+                kind, side = "arc", px - 14
+                d = f"M{px},{py + h / 2} C{side},{py + h / 2} {side},{ny + h / 2} {nx},{ny + h / 2}"
+            elif ny > py:
+                kind, d = "straight", f"M{px + w / 2},{py + h} L{nx + w / 2},{ny}"
+            else:
+                kind, d = "straight", f"M{px + w / 2},{py} L{nx + w / 2},{ny + h}"
+        elif ny > py + h:
+            x0, y0, x1, y1 = px + w / 2, py + h, nx + w / 2, ny
+            kind, d = "cross", f"M{x0},{y0} C{x0},{(y0 + y1) / 2} {x1},{(y0 + y1) / 2} {x1},{y1}"
+        else:  # side by side in one stage
+            x0, x1 = (px + w, nx) if nx > px else (px, nx + w)
+            y0, y1 = py + h / 2, ny + h / 2
             kind, d = "cross", f"M{x0},{y0} C{(x0 + x1) / 2},{y0} {(x0 + x1) / 2},{y1} {x1},{y1}"
         edges.append({"from": p["step"], "to": n["step"], "kind": kind, "d": d,
                       "dashed": by_step[n["step"]]["move"] == "explore"})
 
-    return {"mode": "explain" if explain else "search", "rows": rows,
-            "columns": [{"label": label, "x": x + MAP_NODE_W / 2} for label, x in zip(columns, col_x)],
+    return {"mode": "explain" if explain else "search", "lanes": lane_rows, "stages": stage_rows,
             "nodes": nodes, "edges": edges, "node": {"w": MAP_NODE_W, "h": MAP_NODE_H},
             "footer": {"uncovered": [u["decision"] for u in uncovered] if explain else [],
                        "unaddressed": [u["id"] for u in unaddressed]},
