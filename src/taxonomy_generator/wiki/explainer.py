@@ -423,18 +423,28 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
             diff = s.get("diff") or []
         return [(c["before"], c["after"]) for c in diff if c["before"] and c["after"]]  # a swap, not a dropped value
 
-    def lines(s: Mapping[str, Any]) -> List[str]:
+    def lines(s: Mapping[str, Any]) -> Tuple[List[str], List[str]]:
+        """The node's two lines in full (every change, every mark: the tooltip) and as shown in the box."""
         pairs = changes(s)
         head = f"{s['step']} {s['verdict']}".rstrip()
+        full_first = head + (f": {_change_text(pairs, shown=len(pairs))}" if pairs else "")
+        shown_pairs = pairs
         first = head + (f": {_change_text(pairs)}" if pairs else "")
-        if len(first) > MAP_CHARS and len(pairs) > 1:  # keep the "+N more" in view: one pair, then the count
-            first = f"{head}: {_change_text(pairs, shown=1)}"
+        if len(first) > MAP_CHARS and len(pairs) > 1:
+            # One pair, then the count; the pair is cut, never the count.
+            shown_pairs, more = pairs[:1], f" +{len(pairs) - 1} more"
+            first = _cut(f"{head}: {_change_text(pairs[:1])}", MAP_CHARS - len(more)) + more
+        elif len(pairs) > 2:
+            shown_pairs = pairs[:2]
         after = {b for _a, b in pairs}
         t = next((t for t in s["tradeoffs"] if after & set(t["causes"])), None) or (s["tradeoffs"] or [None])[0]
         second = _tradeoff_text(t) if t else _assessment_text(s["assessment"])
-        marks = [f"{_short(a)} {'forced' if forced[a] else 'free'}" for a, _b in pairs
-                 if explain and forced.get(a) is not None]
-        return [first, " · ".join(x for x in [second, *marks] if x)]
+
+        def marks(of: Sequence[Tuple[Any, Any]]) -> List[str]:
+            return [f"{_short(a)} {'forced' if forced[a] else 'free'}" for a, _b in of
+                    if explain and forced.get(a) is not None]
+        join = lambda parts: " · ".join(x for x in parts if x)  # noqa: E731
+        return [full_first, join([second, *marks(pairs)])], [_cut(first), _cut(join([second, *marks(shown_pairs)]))]
 
     # The grid: rows, columns, and each step's (row, column).
     rows: List[Dict[str, Any]] = []
@@ -522,8 +532,7 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
             cls.append("map-dropped")
         elif not explain and s.get("alternative"):
             cls.append("map-alt")
-        full = lines(s)
-        shown = [_cut(full[0]), _cut(full[1])]
+        full, shown = lines(s)
         number = str(s["step"])  # drawn bold, apart from the rest of the first line
         nodes.append({"step": s["step"], "row": r, "col": c, "slot": slot.get(s["step"], 0),
                       "x": col_x[c], "y": ny, "full": full, "lines": shown,
@@ -546,8 +555,10 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
             kind = "arc"
             d = (f"M{p['x'] + w / 2},{p['y']} C{p['x'] + w / 2},{lift} {n['x'] + w / 2},{lift} "
                  f"{n['x'] + w / 2},{n['y']}")
-        elif n["col"] == p["col"]:
-            kind, d = "straight", f"M{p['x'] + w / 2},{p['y'] + h} L{n['x'] + w / 2},{n['y']}"
+        elif n["col"] == p["col"]:  # down from the parent's bottom edge, or up from its top edge
+            kind = "straight"
+            d = (f"M{p['x'] + w / 2},{p['y'] + h} L{n['x'] + w / 2},{n['y']}" if n["y"] > p["y"]
+                 else f"M{p['x'] + w / 2},{p['y']} L{n['x'] + w / 2},{n['y'] + h}")
         else:
             x0, y0, x1, y1 = p["x"] + w, p["y"] + h / 2, n["x"], n["y"] + h / 2
             kind, d = "cross", f"M{x0},{y0} C{(x0 + x1) / 2},{y0} {(x0 + x1) / 2},{y1} {x1},{y1}"

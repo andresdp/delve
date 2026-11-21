@@ -870,6 +870,31 @@ def test_zero_shot_page_has_no_map_switch(tmp_path, monkeypatch):
 def test_map_keeps_the_count_of_further_changes_in_view(ws):
     doc = _sample()
     doc["trajectory"][1].update(values=["v:1.2", "v:2.2"], verdict=None, rating="mixed")
-    line = _nodes(_data(doc, ws))[2]["full"][0]
-    assert line == "2 mixed: 1.1 → 1.2 +1 more"                    # two pairs would be cut: one, then the count
-    assert len(line) <= explainer.MAP_CHARS
+    node = _nodes(_data(doc, ws))[2]
+    assert node["full"][0] == "2 mixed: 1.1 → 1.2, 2.1 → 2.2"      # the tooltip: every change
+    assert node["lines"][0] == "2 mixed: 1.1 → 1.2 +1 more"        # the box: one pair, then the count
+    assert len(node["lines"][0]) <= explainer.MAP_CHARS
+
+
+def test_map_cuts_the_pair_never_the_count(ws):
+    doc = _sample()
+    doc["trajectory"][1].update(step=12, values=["v:1.2", "v:2.2"], verdict="ungrounded", rating=None)
+    line = next(n for n in _data(doc, ws)["map"]["nodes"] if n["step"] == 12)["lines"][0]
+    assert line.endswith(" +1 more") and "…" in line and len(line) <= explainer.MAP_CHARS
+
+
+def test_map_arrows_follow_rows_rounds_and_moves(ws):
+    doc = _sample()
+    doc["trajectory"][2]["parent"] = 1                             # B explores from A: across rows, dashed
+    doc["trajectory"].append({**doc["trajectory"][1], "step": 4, "round": 3, "parent": 1})  # skips round 2
+    edges = {(e["from"], e["to"]): (e["kind"], e["dashed"]) for e in _data(doc, ws)["map"]["edges"]}
+    assert edges == {(1, 2): ("straight", False), (1, 3): ("cross", True), (1, 4): ("arc", False)}
+
+
+def test_explain_box_marks_only_the_changes_it_shows(ws):
+    doc = _explain_with_contrasts()
+    doc["alternatives"][0]["choices"][0]["forced"] = True
+    doc["trajectory"][4].update(values=["v:1.2", "v:2.2"], assessment={})   # swaps both solution values
+    node = _nodes(_data(doc, ws))[5]
+    assert node["full"][1] == "1.1 forced · 2.1 free"
+    assert node["lines"][0].endswith("+1 more") and node["lines"][1] == "1.1 forced"

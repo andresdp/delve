@@ -122,7 +122,7 @@ addEventListener("load", () => setTimeout(() => {
 </script>"""
 
 
-def _probe(tmp_path: Path, probe: str = PROBE) -> dict:
+def _probe(tmp_path: Path, probe: str = PROBE, head: str = "") -> dict:
     tax = _taxonomy()
     tax["selected_clusters"][0]["name"] = LONG_DIMENSION
     tax["selected_clusters"][0]["values"][0]["label"] = LONG_VALUE
@@ -132,7 +132,7 @@ def _probe(tmp_path: Path, probe: str = PROBE) -> dict:
     page = explainer.write_page(_sample(), q.load(root / "raw" / "graph.json"), html, wiki_html=html)
     text = page.read_text(encoding="utf-8")
     assert LONG_DIMENSION in text and LONG_VALUE in text
-    page.write_text(text.replace("<head>", "<head>" + ERRORS, 1).replace("</body>", probe + "</body>", 1),
+    page.write_text(text.replace("<head>", "<head>" + ERRORS + head, 1).replace("</body>", probe + "</body>", 1),
                     encoding="utf-8")
     run = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
                           "--user-data-dir=" + str(tmp_path / "profile"), "--window-size=1280,900",
@@ -222,6 +222,8 @@ addEventListener("load", () => setTimeout(() => {
                         info: document.getElementById("info").textContent.includes("#3") };
     box(2).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     out.after_enter = { sel2: has(2, "sel"), sel3: has(3, "sel") };
+    box(1).dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    out.after_space = has(1, "sel");
     click(document.querySelector('.tab[data-tab="adrs"]'));
     out.cleared = !has(2, "sel") && !has(2, "lit");
     click(document.querySelector('.solution[data-alt="A1"]'));
@@ -242,6 +244,7 @@ def test_the_map_switches_with_the_graph_and_selects_steps_in_a_browser(tmp_path
     # A box selects its step like a design point in the graph: the story opens on the Trajectory tab.
     assert out["after_click"] == {"tab": "trajectory", "sel": True, "lit": True, "shown": True, "info": True}
     assert out["after_enter"] == {"sel2": True, "sel3": False}     # Enter on a focused box does the same
+    assert out["after_space"] is True                              # and Space
     assert out["cleared"] is True                                  # a tab switch clears the selection
     assert out["alt_lit"] == [1]                                   # the map mirrors what the graph lights
     assert out["back"]["hidden"] is True and "p:1" in out["back"]["point"]   # the selection survives the switch
@@ -257,3 +260,19 @@ def test_a_standalone_explainer_folder_carries_the_layout_script_and_loads(tmp_p
     seen = load(page, tmp_path / "profile")
     assert seen["errors"] == []
     assert seen["layout"] == "object" and seen["nodes"] > 0
+
+
+RESTORE_PROBE = r"""<script>
+addEventListener("load", () => setTimeout(() => {
+  const out = { errors: window.__errs };
+  out.shown = !document.querySelector(".map-view").hidden;
+  out.pressed = document.querySelector('.view-switch [data-view="map"]').getAttribute("aria-pressed");
+  document.body.setAttribute("data-probe", JSON.stringify(out));
+}, 0));
+</script>"""
+
+
+def test_the_readers_map_choice_is_restored_on_load(tmp_path):
+    saved = '<script>try { localStorage.setItem("delve-explainer-view", "map"); } catch (e) {}</script>'
+    out = _probe(tmp_path, RESTORE_PROBE, head=saved)
+    assert out == {"errors": [], "shown": True, "pressed": "true"}
