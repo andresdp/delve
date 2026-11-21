@@ -122,7 +122,7 @@ addEventListener("load", () => setTimeout(() => {
 </script>"""
 
 
-def _probe(tmp_path: Path) -> dict:
+def _probe(tmp_path: Path, probe: str = PROBE) -> dict:
     tax = _taxonomy()
     tax["selected_clusters"][0]["name"] = LONG_DIMENSION
     tax["selected_clusters"][0]["values"][0]["label"] = LONG_VALUE
@@ -132,7 +132,7 @@ def _probe(tmp_path: Path) -> dict:
     page = explainer.write_page(_sample(), q.load(root / "raw" / "graph.json"), html, wiki_html=html)
     text = page.read_text(encoding="utf-8")
     assert LONG_DIMENSION in text and LONG_VALUE in text
-    page.write_text(text.replace("<head>", "<head>" + ERRORS, 1).replace("</body>", PROBE + "</body>", 1),
+    page.write_text(text.replace("<head>", "<head>" + ERRORS, 1).replace("</body>", probe + "</body>", 1),
                     encoding="utf-8")
     run = subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
                           "--user-data-dir=" + str(tmp_path / "profile"), "--window-size=1280,900",
@@ -199,6 +199,52 @@ def test_explainer_selection_tabs_and_labels_in_a_browser(tmp_path):
     # Each ring sits outside the labels of the ring inside it.
     assert out["dim_value"] == [], out["dim_value"]
     assert out["value_req"] == [], out["value_req"]
+
+
+MAP_PROBE = r"""<script>
+addEventListener("load", () => setTimeout(() => {
+  const out = { errors: window.__errs };
+  const click = (el) => el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  const box = (n) => document.querySelector('.map-node[data-step="' + n + '"]');
+  const has = (n, c) => box(n).classList.contains(c);
+  const inPoint = () => [...document.querySelectorAll("g.node")].filter((e) => e.classList.contains("in-point"))
+    .map((e) => e.__data__.id).sort();
+  const tab = () => document.querySelector('.tab[aria-selected="true"]').dataset.tab;
+  try {
+    const view = document.querySelector(".map-view");
+    out.start_hidden = view.hidden && !document.querySelector(".graph-key").hidden && document.querySelector(".map-key").hidden;
+    click(document.querySelector('.view-switch [data-view="map"]'));
+    out.map_shown = !view.hidden && document.getElementById("canvas").classList.contains("map-on")
+      && document.querySelector(".graph-key").hidden && !document.querySelector(".map-key").hidden;
+    out.pressed = document.querySelector('.view-switch [data-view="map"]').getAttribute("aria-pressed");
+    click(box(3));
+    out.after_click = { tab: tab(), sel: has(3, "sel"), lit: has(3, "lit"), shown: !view.hidden,
+                        info: document.getElementById("info").textContent.includes("#3") };
+    box(2).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    out.after_enter = { sel2: has(2, "sel"), sel3: has(3, "sel") };
+    click(document.querySelector('.tab[data-tab="adrs"]'));
+    out.cleared = !has(2, "sel") && !has(2, "lit");
+    click(document.querySelector('.solution[data-alt="A1"]'));
+    out.alt_lit = [1, 2, 3].filter((n) => has(n, "lit"));
+    click(document.querySelector('.view-switch [data-view="graph"]'));
+    out.back = { hidden: view.hidden, point: inPoint() };
+  } catch (e) { out.errors.push("probe: " + e.message); }
+  document.body.setAttribute("data-probe", JSON.stringify(out));
+}, 0));
+</script>"""
+
+
+def test_the_map_switches_with_the_graph_and_selects_steps_in_a_browser(tmp_path):
+    out = _probe(tmp_path, MAP_PROBE)
+    assert out["errors"] == []
+    assert out["start_hidden"] is True                             # the radial graph shows first
+    assert out["map_shown"] is True and out["pressed"] == "true"
+    # A box selects its step like a design point in the graph: the story opens on the Trajectory tab.
+    assert out["after_click"] == {"tab": "trajectory", "sel": True, "lit": True, "shown": True, "info": True}
+    assert out["after_enter"] == {"sel2": True, "sel3": False}     # Enter on a focused box does the same
+    assert out["cleared"] is True                                  # a tab switch clears the selection
+    assert out["alt_lit"] == [1]                                   # the map mirrors what the graph lights
+    assert out["back"]["hidden"] is True and "p:1" in out["back"]["point"]   # the selection survives the switch
 
 
 def test_a_standalone_explainer_folder_carries_the_layout_script_and_loads(tmp_path):

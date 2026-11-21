@@ -830,3 +830,38 @@ def test_explain_map_footer_lists_uncovered_and_unaddressed(ws):
 def test_zero_shot_explainer_has_no_map(ws):
     data = _data(_zero(), ws)
     assert data["map"] is None
+
+
+def _page(ws, tmp_path, doc):
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
+    return Path(payload["page"]).read_text(encoding="utf-8")
+
+
+def test_the_graph_pane_offers_the_map_behind_a_switch(ws, tmp_path):
+    html = _page(ws, tmp_path, _sample())
+    assert 'class="view-switch"' in html and 'data-view="graph" aria-pressed="true"' in html
+    assert 'data-view="map" aria-pressed="false"' in html and 'Map (experimental)' in html
+    view = re.search(r'<div class="map-view" hidden>.*?</div><!-- /map-view -->', html, re.S).group(0)
+    assert view.count('<g class="map-node') == 3
+    node = re.search(r'<g class="map-node[^>]*>', view).group(0)
+    for attr in ('data-step="', 'tabindex="0"', 'role="button"', 'aria-label="'):
+        assert attr in node
+    assert '<title>' in view and 'class="map-rows"' in view and 'class="map-cols"' in view
+    assert 'class="map-key"' in html
+
+
+def test_explain_map_footer_is_drawn_and_left_out_when_empty(ws, tmp_path):
+    html = _page(ws, tmp_path, _explain())
+    footer = re.search(r'<div class="map-footer">.*?</div>', html, re.S).group(0)
+    assert "Backup schedule" in footer and "C1" in footer
+    doc = _explain(uncovered=0)
+    doc["unaddressed"] = []
+    doc["adrs"][1]["drivers"].append("C1")                       # every requirement addressed
+    assert 'class="map-footer"' not in _page(ws, tmp_path, doc)
+
+
+def test_zero_shot_page_has_no_map_switch(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", "out"))
+    html = Path(payload["page"]).read_text(encoding="utf-8")
+    assert 'class="view-switch"' not in html and 'class="map-view"' not in html
