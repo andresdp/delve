@@ -722,3 +722,111 @@ def test_explain_with_inferred_requirements_says_so(ws, tmp_path):
     plain = _explain()
     _built(_invoke("rationale", "build", str(_file(tmp_path, plain, "plain.json"))))
     assert "inferred from the solution" not in (ws / "site" / "explainers" / "toy-store-explain.html").read_text()
+
+
+# ---------------------------------------------------------------- the experimental map (graph pane)
+
+
+def _nodes(data):
+    return {n["step"]: n for n in data["map"]["nodes"]}
+
+
+def test_search_map_puts_each_step_in_its_approach_row_and_round_column(ws):
+    data = _data(_sample(), ws)
+    m = data["map"]
+    assert m["mode"] == "search" and [r["key"] for r in m["rows"]] == ["A", "B"]
+    assert [c["label"] for c in m["columns"]] == ["round 1", "round 2"]
+    nodes = _nodes(data)
+    assert (nodes[1]["row"], nodes[1]["col"]) == (0, 0) and (nodes[2]["row"], nodes[2]["col"]) == (0, 1)
+    assert (nodes[3]["row"], nodes[3]["col"]) == (1, 1)
+    assert nodes[1]["full"] == ["1 strong", "+R1 Q1 −C1"]       # a seed: no change; its trade-off
+    assert nodes[2]["full"][0] == "2 weak"                        # dropping d:2 is not a change
+    assert nodes[1]["badge"] == "A1" and "map-alt" in nodes[1]["cls"] and "v-strong" in nodes[1]["cls"]
+    assert [(e["from"], e["to"], e["kind"]) for e in m["edges"]] == [(1, 2, "straight")]
+
+
+def test_search_map_shows_the_change_and_the_trade_off_it_causes(ws):
+    doc = _sample()
+    step = doc["trajectory"][1]
+    step["values"] = ["v:1.2", "v:2.1"]                           # swaps d:1 against its parent
+    step["tradeoffs"] = [{"values": ["v:2.1"], "gains": ["Q1"], "costs": [], "note": "kept"},
+                         {"values": ["v:1.2"], "gains": ["C1"], "costs": ["R1"], "note": "the swap"}]
+    assert _nodes(_data(doc, ws))[2]["full"] == ["2 weak: 1.1 → 1.2", "+C1 −R1"]
+    step["tradeoffs"].reverse()
+    step["tradeoffs"][0]["values"] = ["v:2.1"]                    # no trade-off names the changed value: the first
+    step["tradeoffs"][1]["values"] = ["v:2.1"]
+    assert _nodes(_data(doc, ws))[2]["full"][1] == "+C1 −R1"
+
+
+def test_search_map_without_trade_offs_summarises_the_assessment(ws):
+    doc = _sample()
+    doc["trajectory"][2]["tradeoffs"] = []
+    doc["trajectory"][2]["assessment"] = {"R1": "misses", "Q1": "meets", "C1": "partly"}
+    assert _nodes(_data(doc, ws))[3]["full"][1] == "meets Q1 · misses R1"
+
+
+def test_search_map_dashes_a_dropped_approach_and_stacks_steps_in_one_cell(ws):
+    doc = _sample()
+    doc["approaches"][1].update(status="dropped", dropped_because="too slow")
+    doc["trajectory"].append({**doc["trajectory"][1], "step": 4, "move": "ablate", "parent": 1})
+    data = _data(doc, ws)
+    nodes = _nodes(data)
+    assert "map-dropped" in nodes[3]["cls"] and "map-alt" not in nodes[3]["cls"] and nodes[3]["badge"] == "A2"
+    assert (nodes[4]["row"], nodes[4]["col"], nodes[4]["slot"]) == (0, 1, 1)
+    rows = data["map"]["rows"]
+    assert rows[0]["height"] > rows[1]["height"] and "too slow" in rows[1]["title"]
+
+
+def test_map_change_line_caps_the_pairs_and_cuts_long_lines():
+    pairs = [("v:1.1", "v:1.2"), ("v:2.1", "v:2.2"), ("v:3.1", "v:3.2"), ("v:4.1", "v:4.2")]
+    assert explainer._change_text(pairs) == "1.1 → 1.2, 2.1 → 2.2 +2 more"
+    assert explainer._cut("x" * 50, 10) == "x" * 9 + "…" and explainer._cut("short", 10) == "short"
+
+
+def _explain_with_contrasts():
+    doc = _explain()
+    doc["alternatives"][0]["choices"][1]["forced"] = False        # v:2.1 is free
+    base = {"hypothesis": "h", "observation": "o", "tradeoffs": [], "point": {"description": "d"}}
+    doc["trajectory"] += [
+        {**base, "step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"], "verdict": "ungrounded",
+         "assessment": {"Q1": "misses"}},
+        {**base, "step": 4, "move": "contrast", "parent": 2, "values": ["v:1.1", "v:2.2"], "verdict": "grounded",
+         "assessment": {"Q1": "meets"}},
+        {**base, "step": 5, "move": "contrast", "parent": 1, "values": ["v:1.3", "v:2.1"], "verdict": "partial",
+         "assessment": {"R1": "partly"}},
+    ]
+    return doc
+
+
+def test_explain_map_rows_are_regions_with_their_contrasts(ws):
+    data = _data(_explain_with_contrasts(), ws)
+    m = data["map"]
+    assert m["mode"] == "explain" and [c["label"] for c in m["columns"]] == ["solution", "regions", "contrasts"]
+    assert [r["key"] for r in m["rows"]] == ["2", "solution"]     # a contrast of the whole point: a row of its own
+    assert m["rows"][0]["label"] == "d1 · for Q1" and m["rows"][0]["sublabel"] == "1.1"
+    nodes = _nodes(data)
+    assert nodes[1]["col"] == 0 and nodes[2]["col"] == 1 and nodes[2]["full"][0] == "2 grounded"  # a region: no change
+    assert "map-justifying" in nodes[2]["cls"]
+    assert (nodes[3]["row"], nodes[3]["col"]) == (0, 2) and (nodes[4]["row"], nodes[4]["slot"]) == (0, 1)
+    assert nodes[5]["row"] == 1
+    assert {(e["from"], e["to"]) for e in m["edges"]} == {(1, 2), (2, 3), (2, 4), (1, 5)}
+
+
+def test_explain_map_marks_the_solution_value_each_contrast_tests(ws):
+    nodes = _nodes(_data(_explain_with_contrasts(), ws))
+    assert nodes[3]["full"] == ["3 ungrounded: 1.1 → 1.2", "misses Q1 · 1.1 forced"]
+    assert "map-ungrounded" in nodes[3]["cls"]
+    assert nodes[4]["full"] == ["4 grounded: 2.1 → 2.2", "meets Q1 · 2.1 free"]  # a dimension its region lacks
+    doc = _explain_with_contrasts()
+    doc["alternatives"][0]["choices"][1].pop("forced")
+    assert _nodes(_data(doc, ws))[4]["full"][1] == "meets Q1"                    # no flag: no mark
+
+
+def test_explain_map_footer_lists_uncovered_and_unaddressed(ws):
+    footer = _data(_explain(), ws)["map"]["footer"]
+    assert footer["uncovered"] == ["Backup schedule", "Client library"] and footer["unaddressed"] == ["C1"]
+
+
+def test_zero_shot_explainer_has_no_map(ws):
+    data = _data(_zero(), ws)
+    assert data["map"] is None
