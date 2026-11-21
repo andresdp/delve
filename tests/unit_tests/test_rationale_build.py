@@ -865,3 +865,11 @@ def test_zero_shot_page_has_no_map_switch(tmp_path, monkeypatch):
     payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", "out"))
     html = Path(payload["page"]).read_text(encoding="utf-8")
     assert 'class="view-switch"' not in html and 'class="map-view"' not in html
+
+
+def test_map_keeps_the_count_of_further_changes_in_view(ws):
+    doc = _sample()
+    doc["trajectory"][1].update(values=["v:1.2", "v:2.2"], verdict=None, rating="mixed")
+    line = _nodes(_data(doc, ws))[2]["full"][0]
+    assert line == "2 mixed: 1.1 → 1.2 +1 more"                    # two pairs would be cut: one, then the count
+    assert len(line) <= explainer.MAP_CHARS

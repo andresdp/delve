@@ -360,8 +360,8 @@ def _qoc(trajectory: Sequence[Mapping[str, Any]], alternatives: Sequence[Mapping
 # ── the experimental map (an alternative to the radial graph) ─────────────
 
 # Geometry of the map, in SVG units: fixed-size nodes on a grid of rows and columns (KTD2 of the plan).
-MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_ROW_GAP, MAP_PAD = 176, 38, 40, 8, 18, 22
-MAP_CHARS = 30  # characters per node line before it is cut (the full text stays in the tooltip)
+MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_ROW_GAP, MAP_PAD = 158, 38, 30, 8, 18, 22
+MAP_CHARS = 27  # characters per node line before it is cut (the full text stays in the tooltip)
 
 
 def _short(ref: Any) -> str:
@@ -424,7 +424,10 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
 
     def lines(s: Mapping[str, Any]) -> List[str]:
         pairs = changes(s)
-        first = f"{s['step']} {s['verdict']}".rstrip() + (f": {_change_text(pairs)}" if pairs else "")
+        head = f"{s['step']} {s['verdict']}".rstrip()
+        first = head + (f": {_change_text(pairs)}" if pairs else "")
+        if len(first) > MAP_CHARS and len(pairs) > 1:  # keep the "+N more" in view: one pair, then the count
+            first = f"{head}: {_change_text(pairs, shown=1)}"
         after = {b for _a, b in pairs}
         t = next((t for t in s["tradeoffs"] if after & set(t["causes"])), None) or (s["tradeoffs"] or [None])[0]
         second = _tradeoff_text(t) if t else _assessment_text(s["assessment"])
