@@ -202,3 +202,71 @@ The share of adopting units that adopt exactly one candidate Value of a Dimensio
 
 A step after Evidence Linking that rewrites the candidate Values of a low-exclusivity Dimension as alternative answers to its question. A **combination** is the set of a Dimension's Values one source adopts; the LLM proposes alternatives and assigns every combination to exactly one of them. The former Values become the **facets** of the alternatives that include them (`includes`), with their evidence. It applies only when enough sources share their combination; a recoding is kept only if every alternative is adopted by at least two sources, alternatives differ in their facets (nested levels are fine), and at least half of the sources adopt exactly the facets of their alternative. Dimensions whose sources combine Values in many different ways are not recoded but flagged as likely bundling several decisions. Logged in the Operation Log.
 
+
+## Design Rationale
+
+A design space can be put to work on a problem: a coding agent searches it for alternative designs, or explains an existing solution with it, and records the reasoning in a Rationale File that an Explainer renders. A run is a Trajectory of Design Points; search groups them into Approaches and keeps a few as Alternatives, while explain starts from the solution's point, narrows it to Regions and tests their values with Contrasts. Each step carries Trade-offs. What the space cannot express is recorded as Uncovered Decisions or Unaddressed Requirements, never patched with invented values.
+
+### Design Point
+
+One combination of Values, at most one per Dimension, that a search or explanation evaluates as a whole. A point may be partial (leaving Dimensions undecided). Checked against the space for conflicts and violated Relations, and described in prose that ends with the point's own trade-off.
+
+### Search
+
+The task of going from a system's context and requirements to a few alternative designs, each a Design Point of the space, assessed requirement by requirement.
+
+### Explain
+
+The reverse of Search: going from an existing solution back to the space's Values, to say which requirements call for each choice, what the space offered instead, and which of the solution's decisions the space does not cover.
+
+### Rationale File
+
+The record one Search or Explain writes, against a fixed schema and checked against the space it used: the problem with its requirements, every Design Point examined, the Trajectory, the outcome (Alternatives, or the solution with its Regions), decision records, and the gaps. It names the space it was written against; a Zero-Shot Run names none.
+
+### Trajectory
+
+The ordered steps of a run, one Design Point each. Every step except a starting one names the step it changed (its parent). Each step states its hypothesis, its assessment of each requirement (meets, partly, misses), its Trade-offs and a judgment: a rating in Search (strong, mixed, weak), a verdict in Explain (grounded, partial, ungrounded).
+
+### Approach
+
+In Search, a "what if" idea that seeds one Design Point and is refined step by step. An approach stays live or is dropped with a reason that binds every later step.
+
+### Alternative
+
+In Search, one of the few Design Points kept as the outcome, each from a live Approach; none is dominated by another (no worse on any requirement and better on some). In Explain, the solution itself is the one alternative.
+
+### Region
+
+In Explain, a group of the solution's Values that some requirements call for together, evaluated as its own partial Design Point. Candidate regions that hold up are kept as the regions that justify the solution.
+
+### Contrast
+
+In Explain, a step that swaps one Value of a Region for another Value of the same Dimension, to learn whether the requirements force the solution's choice.
+
+### Forced and Free Values
+
+What a Contrast shows about a solution Value. Forced: swapping it leaves the requirements worse off, so they explain the choice. Free: the swap is no worse, so the requirements leave the choice open. Both are relative to the contrasts tried; a Value never contrasted is neither.
+
+### Trade-off
+
+A claim about how some Values of a Design Point (its cause) pull requirements apart: the requirements they gain, the ones they cost, and a note. It is distinct from the point's own trade-off, which closes the point's prose description and names no requirements.
+
+### Uncovered Decision
+
+In Explain, a decision of the solution that no Dimension of the space fits, recorded with the solution's words and the nearest Dimension instead of being forced onto a Value.
+
+### Unaddressed Requirement
+
+A requirement that no decision record of the run addresses, with the reason: no Dimension bears on it, it was traded off for a stronger one, the evaluation budget ran out, or the solution does not address it.
+
+### Zero-Shot Run
+
+A Search or Explain run with no design space: the agent names its own Dimensions and Values as it goes. Its points can be described but not checked, and nothing can be uncovered, since any decision can be met by naming a new Value. The Explainer gives the agent's names short made-up ids, so one file's ids say nothing about another's.
+
+### Explainer
+
+The browsable page rendered from a Rationale File, next to the space's wiki when there is one: the decisions, a comparison of Alternatives, the Trajectory, and a graph pane. The graph pane shows either the radial graph of the Dimensions, Values and Design Points involved, or the Map View.
+
+### Map View
+
+An Explainer's diagram of the whole run, one box per step. In Search: Approaches as columns and rounds from top to bottom. In Explain: the solution above its Regions, each Region above its Contrasts. Each box shows the step's judgment, the Values it swapped and its main Trade-off (the first one caused by a swapped Value). Alternatives and justifying Regions are highlighted. Selecting a box selects the same step as the graph does, and the map lights whatever the graph lights; it keeps no selection of its own.
