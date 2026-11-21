@@ -827,7 +827,8 @@ def test_explain_map_marks_the_solution_value_each_contrast_tests(ws):
 
 def test_explain_map_footer_lists_uncovered_and_unaddressed(ws):
     footer = _data(_explain(), ws)["map"]["footer"]
-    assert footer["uncovered"] == ["Backup schedule", "Client library"] and footer["unaddressed"] == ["C1"]
+    assert footer["uncovered"] == ["Backup schedule", "Client library"]
+    assert [u["id"] for u in footer["unaddressed"]] == ["C1"] and footer["unaddressed"][0]["text"]
 
 
 def test_zero_shot_explainer_has_no_map(ws):
@@ -856,11 +857,14 @@ def test_the_graph_pane_offers_the_map_behind_a_switch(ws, tmp_path):
 def test_explain_map_footer_is_drawn_and_left_out_when_empty(ws, tmp_path):
     html = _page(ws, tmp_path, _explain())
     footer = re.search(r'<div class="map-footer">.*?</div>', html, re.S).group(0)
-    assert "Backup schedule" in footer and "C1" in footer
+    assert "<li>Backup schedule</li>" in footer and "<li>Client library</li>" in footer   # one per line
+    assert "<li><b>C1</b> " in footer
+    assert "<li><b>d1</b> Source of truth" in footer and "<li><b>1.1</b> Disk quorum</li>" in footer        # the dimensions it names, and values
     doc = _explain(uncovered=0)
     doc["unaddressed"] = []
     doc["adrs"][1]["drivers"].append("C1")                       # every requirement addressed
-    assert 'class="map-footer"' not in _page(ws, tmp_path, doc)
+    footer = re.search(r'<div class="map-footer">.*?</div>', _page(ws, tmp_path, doc), re.S).group(0)
+    assert "Uncovered" not in footer and "Unaddressed" not in footer
 
 
 def test_zero_shot_page_has_no_map_switch(tmp_path, monkeypatch):
@@ -903,10 +907,25 @@ def test_explain_box_marks_only_the_changes_it_shows(ws):
     assert node["lines"][0].endswith("+1 more") and node["lines"][1] == "1.1 forced"
 
 
-def test_map_boxes_of_alternatives_describe_them(ws):
+def test_map_boxes_of_alternatives_show_their_design_point_on_hover(ws):
     doc = _sample()
-    doc["alternatives"][0].update(name="Disk quorum", summary="Each node keeps the truth on its own disk.")
-    node = _nodes(_data(doc, ws))[1]
-    assert node["tip"][-1] == "A1 · Disk quorum: Each node keeps the truth on its own disk."
-    assert node["tip"][:2] == node["full"]
-    assert "A1" not in "".join(_nodes(_data(doc, ws))[2]["tip"])       # not an alternative: no description
+    doc["alternatives"][0]["name"] = "Disk quorum"
+    data = _data(doc, ws)
+    tip = _nodes(data)[1]["tip"]
+    assert tip[0] == "A1 · Disk quorum" and len(tip) == 1 + len(data["alternatives"][0]["choices"])
+    assert tip[1].startswith("d1 ") and ": 1.1 " in tip[1]                # dimension, then the value chosen
+    assert _nodes(data)[2]["tip"] == []                                   # any other box: no tooltip
+    assert not set(_nodes(data)[1]["full"]) & set(tip)                    # never the box's own text
+
+
+def test_map_colours_gains_and_costs():
+    assert explainer._segments("+Q1 Q4 −Q2 Q3 · 2.2 forced") == [
+        ("+Q1 Q4 ", "gain"), ("−Q2 Q3 ", "cost"), ("· 2.2 forced", "")]
+    assert explainer._segments("meets Q1 · misses R1") == [("meets Q1 · misses R1", "")]
+
+
+def test_page_draws_tooltips_only_for_alternatives(ws, tmp_path):
+    html = _page(ws, tmp_path, _sample())
+    view = re.search(r'<div class="map-view" hidden>.*?</div><!-- /map-view -->', html, re.S).group(0)
+    assert view.count("<title>") == 2                                      # A1 and A2 only
+    assert '<tspan class="map-gain">' in view and '<tspan class="map-cost">' in view

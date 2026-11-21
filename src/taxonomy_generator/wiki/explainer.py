@@ -471,9 +471,21 @@ def _explain_grid(trajectory: Sequence[Mapping[str, Any]], solution: Optional[Ma
             "centred": solution["step"] if solution is not None else None}
 
 
+def _segments(text: str) -> List[Tuple[str, str]]:
+    """A box's second line in coloured pieces: ``+`` gains (``gain``), ``−`` costs (``cost``), the rest plain."""
+    return [(m.group(0), "gain" if m.group(0)[0] == "+" else "cost" if m.group(0)[0] == "−" else "")
+            for m in re.finditer(r"[+−][^+−·]*|[^+−]+", text)]
+
+
+def _id_order(ref: Any) -> Tuple:
+    """``d:10`` after ``d:9``, ``v:1.10`` after ``v:1.9``: numbers compare as numbers."""
+    return tuple(int(x) if x.isdigit() else x for x in re.split(r"(\d+)", str(ref)))
+
+
 def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mapping[str, Any]],
          alternatives: Sequence[Mapping[str, Any]], regions: Sequence[Mapping[str, Any]],
-         uncovered: Sequence[Mapping[str, Any]], unaddressed: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+         uncovered: Sequence[Mapping[str, Any]], unaddressed: Sequence[Mapping[str, Any]],
+         dims: Mapping[str, Mapping[str, Any]], values: Mapping[str, Mapping[str, Any]]) -> Dict[str, Any]:
     """The map: one diagram of the run, like the trajectory figures of the Designing 2027 paper.
 
     The grid comes from ``_search_grid`` or ``_explain_grid``; this lays it out top to bottom and draws it. Every node has
@@ -522,8 +534,16 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
     grid = _explain_grid(trajectory, solution, regions) if explain else _search_grid(trajectory, lanes)
     lane_rows, stages, cell, styles = grid["lanes"], grid["stages"], grid["cell"], grid["styles"]
     centred = grid["centred"]
-    described = {a["id"]: f"{a['id']} · {a['name']}" + (f": {a['summary']}" if a.get("summary") else "")
+
+    def name_of(ref: Any, table: Mapping[str, Mapping[str, Any]]) -> str:
+        return str((table.get(ref) or {}).get("label") or ref)
+
+    # Hovering an alternative's box (or explain's solution) shows its design point: one dimension and value a line.
+    described = {a["id"]: [f"{a['id']} · {a['name']}"]
+                 + [f"{_short(c['dimension'])} {name_of(c['dimension'], dims)}: {_short(c['value'])} {name_of(c['value'], values)}"
+                    for c in a["choices"] if c["dimension"] and c["value"]]
                  for a in alternatives}
+    shown_values: List[Any] = []  # the values the map names (lane labels, changes), for the legend below it
 
     # Slots: several steps in one cell stack downwards; a stage is as tall as its fullest cell.
     slot: Dict[Any, int] = {}
@@ -558,10 +578,11 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         cls = ([f"v-{s['verdict']}"] if s["verdict"] else []) + extra
         full, shown = lines(s)
         number = str(s["step"])  # drawn bold, apart from the rest of the first line
-        about = described.get(s.get("alternative"))  # an alternative (or explain's solution) says what it is
+        shown_values += [v for pair in changes(s) for v in pair]
         nodes.append({"step": s["step"], "lane": lane, "stage": st, "slot": slot.get(s["step"], 0),
-                      "x": nx, "y": ny, "full": full, "lines": shown, "tip": full + ([about] if about else []),
-                      "number": number, "rest": shown[0][len(number):], "badge": badge, "cls": " ".join(cls)})
+                      "x": nx, "y": ny, "full": full, "lines": shown, "tip": described.get(s.get("alternative"), []),
+                      "number": number, "rest": shown[0][len(number):], "second": _segments(shown[1]),
+                      "badge": badge, "cls": " ".join(cls)})
 
     # Arrows, from each step's parent: down a lane, around its left side when they skip a stage, and curves
     # between lanes (or from the solution).
@@ -595,10 +616,27 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         edges.append({"from": p["step"], "to": n["step"], "kind": kind, "d": d,
                       "dashed": by_step[n["step"]]["move"] == "explore"})
 
+    # The legend: every dimension the map names by id, with its name, and the values it names under it.
+    if explain:
+        shown_values += [v for s in trajectory if s["move"] == "region" for v in s["point"].values()]
+    legend: Dict[Any, List[Any]] = {}
+    for v in dict.fromkeys(shown_values):
+        d = (values.get(v) or {}).get("dimension")
+        if d is not None:
+            legend.setdefault(d, []).append(v)
+    if explain:
+        for s in trajectory:
+            if s["move"] == "region":
+                for d in s["point"]:
+                    legend.setdefault(d, [])
+    dimensions = [{"id": _short(d), "label": name_of(d, dims),
+                   "value_list": [{"id": _short(v), "label": name_of(v, values)} for v in sorted(vs, key=_id_order)]}
+                  for d, vs in sorted(legend.items(), key=lambda kv: _id_order(kv[0]))]
+
     return {"mode": "explain" if explain else "search", "lanes": lane_rows, "stages": stage_rows,
-            "nodes": nodes, "edges": edges, "node": {"w": MAP_NODE_W, "h": MAP_NODE_H},
+            "nodes": nodes, "edges": edges, "node": {"w": MAP_NODE_W, "h": MAP_NODE_H}, "dimensions": dimensions,
             "footer": {"uncovered": [u["decision"] for u in uncovered] if explain else [],
-                       "unaddressed": [u["id"] for u in unaddressed]},
+                       "unaddressed": [{"id": u["id"], "text": u["text"]} for u in unaddressed]},
             "size": {"width": width, "height": height}}
 
 
@@ -763,7 +801,8 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     lanes = _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None
     # The map is offered only with a design space behind the file (``wiki``; ``with_space`` also holds for the
     # label graph of a zero-shot file).
-    run_map = (_map(doc.get("mode"), trajectory, lanes, alternatives, regions, uncovered, unaddressed)
+    run_map = (_map(doc.get("mode"), trajectory, lanes, alternatives, regions, uncovered, unaddressed,
+                    space.dims, space.values)
                if space.wiki and trajectory else None)
     return {
         "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space, "wiki": space.wiki,

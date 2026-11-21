@@ -41,7 +41,12 @@
   .map-badge rect { fill: var(--fg); stroke: none; }
   .map-badge text { fill: var(--panel); font-size: 10px; font-weight: 700; text-anchor: middle; }
   .map-footer { padding: 6px 12px 10px 12px; font-size: 12px; border-top: 1px solid var(--border); }
-  .map-footer p { margin: 4px 0; }
+  .map-footer p { margin: 6px 0 2px; }
+  .map-footer ul { margin: 0 0 4px; padding-left: 18px; }
+  .map-footer li { margin: 1px 0; }
+  .map-dims > li > ul { color: var(--muted); }
+  .map-node .map-gain { fill: var(--accepted); font-weight: 600; }
+  .map-node .map-cost { fill: var(--rejected); font-weight: 600; }
   .map-key { font-size: 11.5px; color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--border); }
   .map-key summary { cursor: pointer; }
   .map-key span { display: block; margin-top: 2px; }
@@ -59,10 +64,14 @@
         <svg class="map-svg" width="{{ m.size.width }}" height="{{ m.size.height }}" viewBox="0 0 {{ m.size.width }} {{ m.size.height }}" role="group" aria-label="{{ 'The search: approaches by column, rounds from top to bottom' if m.mode == 'search' else 'The explanation: the solution, its regions and their contrasts, from top to bottom' }}">
           <defs><marker id="map-arrow" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5"></path></marker></defs>
           {% for e in m.edges %}<path class="map-edge{% if e.dashed %} dashed{% endif %}" d="{{ e.d }}" marker-end="url(#map-arrow)"></path>{% endfor %}
-          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ n.tip|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})"><title>{{ n.tip|join('\n') }}</title><rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="8" y="30" class="map-l2">{{ n.lines[1] }}</text>{% if n.badge %}{% set bw = 12 + 7 * (n.badge|length) %}<g class="map-badge" transform="translate({{ nw - bw - 2 }},-8)"><rect width="{{ bw }}" height="15" rx="7"></rect><text x="{{ bw / 2 }}" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
+          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ (n.full + n.tip)|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})">{% if n.tip %}<title>{{ n.tip|join('\n') }}</title>{% endif %}<rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="8" y="30" class="map-l2">{% for text, kind in n.second %}{% if kind %}<tspan class="map-{{ kind }}">{{ text }}</tspan>{% else %}{{ text }}{% endif %}{% endfor %}</text>{% if n.badge %}{% set bw = 12 + 7 * (n.badge|length) %}<g class="map-badge" transform="translate({{ nw - bw - 2 }},-8)"><rect width="{{ bw }}" height="15" rx="7"></rect><text x="{{ bw / 2 }}" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
         </svg>
       </div>
-      {% if m.footer.uncovered or m.footer.unaddressed %}<div class="map-footer">{% if m.footer.uncovered %}<p><b>Uncovered</b> (no dimension fits): {{ m.footer.uncovered|join('; ') }}</p>{% endif %}{% if m.footer.unaddressed %}<p><b>Unaddressed</b> (no dimension bears on them): {{ m.footer.unaddressed|join(', ') }}</p>{% endif %}</div>{% endif %}
+      {% if m.footer.uncovered or m.footer.unaddressed or m.dimensions %}<div class="map-footer">
+        {% if m.footer.uncovered %}<p><b>Uncovered</b> (no dimension fits):</p><ul>{% for u in m.footer.uncovered %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
+        {% if m.footer.unaddressed %}<p><b>Unaddressed</b> (no dimension bears on them):</p><ul>{% for r in m.footer.unaddressed %}<li><b>{{ r.id }}</b> {{ r.text }}</li>{% endfor %}</ul>{% endif %}
+        {% if m.dimensions %}<p><b>Dimensions and values</b> in this map:</p><ul class="map-dims">{% for x in m.dimensions %}<li><b>{{ x.id }}</b> {{ x.label }}{% if x.value_list %}<ul>{% for v in x.value_list %}<li><b>{{ v.id }}</b> {{ v.label }}</li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul>{% endif %}
+      </div>{% endif %}
     </div><!-- /map-view -->
 {% endmacro %}
 
