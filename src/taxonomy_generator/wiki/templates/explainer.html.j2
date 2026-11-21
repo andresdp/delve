@@ -637,7 +637,7 @@
         <svg class="map-svg" width="{{ m.size.width }}" height="{{ m.size.height }}" viewBox="0 0 {{ m.size.width }} {{ m.size.height }}" role="group" aria-label="{{ 'The search, approach by round' if m.mode == 'search' else 'The explanation, region by move' }}">
           <defs><marker id="map-arrow" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5"></path></marker></defs>
           {% for e in m.edges %}<path class="map-edge{% if e.dashed %} dashed{% endif %}" d="{{ e.d }}" marker-end="url(#map-arrow)"></path>{% endfor %}
-          {% for n in m.nodes %}{% set num = n.step|string %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ n.full|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})"><title>{{ n.full|join('\n') }}</title><rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ num }}</tspan>{{ n.lines[0][num|length:] }}</text><text x="8" y="30" class="map-l2">{{ n.lines[1] }}</text>{% if n.badge %}<g class="map-badge" transform="translate({{ nw - 30 }},-8)"><rect width="28" height="15" rx="7"></rect><text x="14" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
+          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ n.full|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})"><title>{{ n.full|join('\n') }}</title><rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="8" y="30" class="map-l2">{{ n.lines[1] }}</text>{% if n.badge %}<g class="map-badge" transform="translate({{ nw - 30 }},-8)"><rect width="28" height="15" rx="7"></rect><text x="14" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
         </svg>
       </div>
       {% if m.footer.uncovered or m.footer.unaddressed %}<div class="map-footer">{% if m.footer.uncovered %}<p><b>Uncovered</b> (no dimension fits): {{ m.footer.uncovered|join('; ') }}</p>{% endif %}{% if m.footer.unaddressed %}<p><b>Unaddressed</b> (no dimension bears on them): {% for r in m.footer.unaddressed %}<span class="chip small" data-node="r:{{ r }}">{{ r }}</span>{% endfor %}</p>{% endif %}</div>{% endif %}
@@ -1088,11 +1088,14 @@
     const show = (which) => {
       const onMap = which === "map";
       canvas.classList.toggle("map-on", onMap); mapView.hidden = !onMap;
-      if (graphKey) graphKey.hidden = onMap; if (mapKey) mapKey.hidden = !onMap;
+      graphKey.hidden = onMap;
+      mapKey.hidden = !onMap;
       canvas.querySelectorAll(".view-switch button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === which ? "true" : "false"));
-      try { localStorage.setItem(KEY, which); } catch (e) { /* no storage */ }
     };
-    canvas.querySelectorAll(".view-switch button").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+    canvas.querySelectorAll(".view-switch button").forEach((b) => b.addEventListener("click", () => {
+      show(b.dataset.view);
+      try { localStorage.setItem(KEY, b.dataset.view); } catch (e) { /* no storage */ }
+    }));
     let saved = null;
     try { saved = localStorage.getItem(KEY); } catch (e) { /* no storage */ }
     if (saved === "map") show("map");

@@ -359,7 +359,7 @@ def _qoc(trajectory: Sequence[Mapping[str, Any]], alternatives: Sequence[Mapping
 
 # ── the experimental map (an alternative to the radial graph) ─────────────
 
-# Geometry of the map, in SVG units: fixed-size nodes on a grid of rows and columns (KTD2 of the plan).
+# Geometry of the map, in SVG units: fixed-size nodes on a grid of rows and columns.
 MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_ROW_GAP, MAP_PAD = 158, 38, 30, 8, 18, 22
 MAP_CHARS = 27  # characters per node line before it is cut (the full text stays in the tooltip)
 
@@ -416,11 +416,12 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         if explain:  # a contrast is read against the solution; the solution and its regions change nothing
             if s["move"] != "contrast" or solution is None:
                 return []
-            sol = solution["point"]
-            return [(sol[d], v) for d, v in s["point"].items() if d in sol and sol[d] != v]
-        if s["parent"] is None:
+            diff = _diff(s["point"], solution["point"])
+        elif s["parent"] is None:
             return []
-        return [(c["before"], c["after"]) for c in s.get("diff") or [] if c["before"] and c["after"]]
+        else:
+            diff = s.get("diff") or []
+        return [(c["before"], c["after"]) for c in diff if c["before"] and c["after"]]  # a swap, not a dropped value
 
     def lines(s: Mapping[str, Any]) -> List[str]:
         pairs = changes(s)
@@ -438,10 +439,10 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
     # The grid: rows, columns, and each step's (row, column).
     rows: List[Dict[str, Any]] = []
     cell: Dict[Any, Tuple[int, int]] = {}
-    dropped: set = set()
+    row_of: Dict[Any, int] = {}
+    dropped: set = set()  # search: the approaches dropped
     if explain:
         columns = ["solution", "regions", "contrasts"]
-        row_of: Dict[Any, int] = {}
         for s in trajectory:
             if s["move"] == "region":
                 row_of[s["step"]] = len(rows)
@@ -472,7 +473,6 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
     else:
         rounds = (lanes or {}).get("rounds") or []
         columns = [f"round {r}" for r in rounds]
-        row_of = {}
         for lane in (lanes or {}).get("lanes") or []:
             row_of[lane["approach"]] = len(rows)
             status = lane.get("status") or ""
@@ -523,8 +523,11 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         elif not explain and s.get("alternative"):
             cls.append("map-alt")
         full = lines(s)
+        shown = [_cut(full[0]), _cut(full[1])]
+        number = str(s["step"])  # drawn bold, apart from the rest of the first line
         nodes.append({"step": s["step"], "row": r, "col": c, "slot": slot.get(s["step"], 0),
-                      "x": col_x[c], "y": ny, "full": full, "lines": [_cut(full[0]), _cut(full[1])],
+                      "x": col_x[c], "y": ny, "full": full, "lines": shown,
+                      "number": number, "rest": shown[0][len(number):],
                       "badge": s.get("alternative") if not explain else None, "cls": " ".join(cls)})
 
     # Arrows, from each step's parent: straight along a row, arcs over it when they skip columns, curves across rows.
@@ -535,9 +538,10 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         if p is None:
             continue
         w, h = MAP_NODE_W, MAP_NODE_H
-        if p["row"] == n["row"] and n["col"] == p["col"] + 1 and p["slot"] == n["slot"] and not (explain and p["col"] == 0):
+        from_solution = explain and p["col"] == 0  # the centred solution reaches every row with a curve
+        if p["row"] == n["row"] and n["col"] == p["col"] + 1 and p["slot"] == n["slot"] and not from_solution:
             kind, d = "straight", f"M{p['x'] + w},{p['y'] + h / 2} L{n['x']},{n['y'] + h / 2}"
-        elif p["row"] == n["row"] and n["col"] > p["col"] + 1 and not (explain and p["col"] == 0):
+        elif p["row"] == n["row"] and n["col"] > p["col"] + 1 and not from_solution:
             lift = rows[n["row"]]["top"] - 16
             kind = "arc"
             d = (f"M{p['x'] + w / 2},{p['y']} C{p['x'] + w / 2},{lift} {n['x'] + w / 2},{lift} "
@@ -719,8 +723,8 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
     lanes = _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None
     # The map is offered only with a design space behind the file (``wiki``; ``with_space`` also holds for the
     # label graph of a zero-shot file).
-    run_map = _map(doc.get("mode"), trajectory, lanes, alternatives, regions, uncovered, unaddressed) \
-        if space.wiki and trajectory else None
+    run_map = (_map(doc.get("mode"), trajectory, lanes, alternatives, regions, uncovered, unaddressed)
+               if space.wiki and trajectory else None)
     return {
         "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space, "wiki": space.wiki,
         "title": problem.get("title") or str(doc.get("id")), "context": problem.get("context") or "",
