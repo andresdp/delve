@@ -1,0 +1,1004 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "pumps-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Pump failure prediction",
+    "context": "A water utility runs about 400 pumps in 12 pumping stations. Each pump has vibration, temperature and pressure sensors reporting every second. Unexpected failures interrupt water supply. The utility wants predictive maintenance; several stations have unreliable mobile connections, there are two data scientists, and IT supports servers and networks.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Warn the maintenance team at least 24 hours before a pump is likely to fail, naming the pump and the probable cause."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Improve the predictions as technicians record what they find at each inspection."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a station loses its connection for up to two days, warnings for its pumps still reach the station’s on-call technician."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "modifiability",
+        "text": "When a new pump model is installed, its pumps get predictions within one month, without changes to how the other pumps are scored."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Sensor data stays on the utility’s own premises: no cloud service may store or process it."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "description": "At each station, a shared fleet model performs inference at the edge and produces warnings locally. Alerts are queued locally when offline, while inspection labels are sent to a central process for retraining the shared model. Trade-off: This provides prompt, locally available warnings and lets inspection data improve one common model across the fleet. Trade-off: The shared model may be less tailored to individual stations, and improvements depend on centrally retraining and distributing updated models.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "description": "The station edge runs model-family plugins with calibration, producing predictions locally and placing warnings in an alert queue when offline. Inspection labels are sent centrally to retrain the models, whose updated versions and calibration can later be deployed to stations. Trade-off: This provides low-latency, outage-tolerant warnings and modular model replacement, but requires managing plugins and model versions across stations, while retraining feedback is delayed and depends on inspection labels.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Independent model per pump family",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Federated station updates"
+      ],
+      "description": "The system runs a separate pump-family model at each station edge, using local data for inference. It generates alerts locally and queues them during connectivity loss, while federated station updates periodically improve models without centralizing raw data. Trade-off: This gains low-latency, locally resilient warning and preserves station-level data locality. It gives up the simplicity of one centralized model and requires coordinating multiple family models and federated updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model with local fallback rules",
+        "Offline warning path: Local model with rule fallback",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "description": "The shared fleet model runs at the station edge for timely pump-failure predictions, with local fallback rules when needed. During offline operation, a local model continues inference and falls back to rules; inspection labels are sent centrally for retraining. Trade-off: This gains low-latency, resilient warnings and fleet-wide learning from inspection data. It gives up immediate adaptation to station-specific behavior and depends on maintaining local models and rules while central retraining catches up.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "description": "At each station, family-specific model plugins run locally, with calibration applied to their outputs. Local inference places warnings in an alert queue during offline operation, while inspection labels support versioned, per-family retraining. Trade-off: This improves offline responsiveness, model-family adaptability, and traceable updates. It gives up centralized simplicity and increases station-side deployment and maintenance burden, while calibration and separate retraining may require additional operational coordination.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local model with rule fallback",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "description": "At each station, family-specific model plugins run at the edge and apply calibration to produce predictions. A local warning model operates offline, falling back to rules when needed, while inspection labels drive versioned retraining separately for each model family. Trade-off: This gains low-latency, resilient warnings and lets families be updated and audited independently. It gives up centralized simplicity: plugin, calibration, fallback, and per-family version management increase operational complexity, while retraining depends on the availability and quality of inspection labels.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model with local fallback rules",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "description": "At each station, a shared fleet model runs at the edge, with local fallback rules handling cases when normal model operation is unavailable. The station performs inference offline, queues alerts locally, and sends inspection labels to central retraining to improve the shared model. Trade-off: This provides low-latency, connectivity-tolerant warnings and fleet-wide learning, but requires coordinating model updates and queued alerts across stations and may delay learning from inspections until synchronization.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local model with rule fallback",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "description": "Pump data is evaluated at the station edge using a selected model-family plugin and its calibration. When offline, the local model continues issuing warnings and falls back to rules, while inspection labels are sent to central retraining to improve future model releases. Trade-off: This provides low-latency, offline-capable warnings and supports multiple calibrated model families, but requires managing model and calibration versions at stations. Central retraining can improve accuracy from inspections, at the cost of updates depending on collected labels and deployment to the edge.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Independent model per pump family",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "description": "At each station, a pump-family-specific model runs locally, producing predictions and placing warnings in a local alert queue. Inspection labels are later centralized to retrain the independent family models, which are then redeployed to stations. Trade-off: This provides low-latency, locally available warnings and allows models to specialize by pump family. It gives up centralized simplicity and requires coordinating deployments and retraining across multiple models; learning also depends on inspection labels arriving centrally.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Independent model per pump family",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "description": "At each station, a pump-family-specific model runs locally to infer failure risk. Warnings are placed in a local alert queue, while inspection labels support versioned retraining independently for each pump family. Trade-off: This reduces dependence on connectivity and allows family-specific model updates, but increases deployment and version-management overhead across stations and families. It also relies on inspection labels, so learning may be slower or uneven where inspections are sparse.",
+      "attested_by": []
+    },
+    {
+      "id": "P11",
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model with local fallback rules",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "description": "At each station, a shared fleet model runs at the edge, with local fallback rules maintaining decisions when the model is unavailable. Offline warnings are handled by local inference and an alert queue, while inspection labels drive versioned retraining for each equipment family. Trade-off: This combines low-latency, outage-tolerant alerts with centrally organized learning, but requires managing model versions, family-specific retraining, and possible differences between shared-model outputs and local fallback behavior.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if one shared fleet model runs at station edges and learns centrally from inspection labels?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if calibrated model-family plugins isolate scoring and updates?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if each pump family has an independent edge model with federated station updates?",
+      "status": "live"
+    },
+    {
+      "id": "D",
+      "idea": "What if edge models retain a rule fallback for degraded operation?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "hypothesis": "Keep one fleet-wide model and local inference; expect inspection labels to improve shared predictions and local queues to survive disconnection.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Shared fleet model"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Fleet-wide learning reuses inspection findings, while adding a pump family can require changes to shared-model management and may affect existing scoring."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "hypothesis": "Use calibrated family plugins with modular retraining; expect new models to be introduced independently while warnings remain local.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Model-family plugins with calibration"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Independent model per pump family",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Federated station updates"
+      ],
+      "hypothesis": "Use family-specific edge models and federated updates; expect local tailoring and offline operation, with more coordination around learning.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Independent model per pump family"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given. Federated updates need an explicit mechanism to incorporate inspection findings before their effect on predictions is assured.",
+      "rating": "strong",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model with local fallback rules",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "hypothesis": "Keep one fleet-wide model and local inference; expect inspection labels to improve shared predictions and local queues to survive disconnection.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Shared fleet model with local fallback rules"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Fleet-wide learning reuses inspection findings, while adding a pump family can require changes to shared-model management and may affect existing scoring."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P7"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "hypothesis": "Use calibrated family plugins with modular retraining; expect new models to be introduced independently while warnings remain local.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Model-family plugins with calibration"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 3,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Independent model per pump family",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "hypothesis": "Use family-specific edge models and federated updates; expect local tailoring and offline operation, with more coordination around learning.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Independent model per pump family"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P10"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "D",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model with local fallback rules",
+        "Offline warning path: Local model with rule fallback",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "hypothesis": "Add local fallback behavior to edge prediction; expect warnings to remain available even when normal model operation is degraded.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Shared fleet model with local fallback rules"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Fleet-wide learning reuses inspection findings, while adding a pump family can require changes to shared-model management and may affect existing scoring."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P4"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 4,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Shared fleet model with local fallback rules",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "hypothesis": "Keep one fleet-wide model and local inference; expect inspection labels to improve shared predictions and local queues to survive disconnection.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Shared fleet model with local fallback rules"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Fleet-wide learning reuses inspection findings, while adding a pump family can require changes to shared-model management and may affect existing scoring."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P11"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local model with rule fallback",
+        "Learning loop: Versioned per-family retraining from inspection labels"
+      ],
+      "hypothesis": "Use calibrated family plugins with modular retraining; expect new models to be introduced independently while warnings remain local.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Model-family plugins with calibration"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P6"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "C",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Independent model per pump family",
+        "Offline warning path: Local inference and alert queue",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "hypothesis": "Use family-specific edge models and federated updates; expect local tailoring and offline operation, with more coordination around learning.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Independent model per pump family"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P9"
+    },
+    {
+      "step": 11,
+      "round": 3,
+      "approach": "D",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Inference placement: Station edge",
+        "Model organization: Model-family plugins with calibration",
+        "Offline warning path: Local model with rule fallback",
+        "Learning loop: Central retraining from inspection labels"
+      ],
+      "hypothesis": "Add local fallback behavior to edge prediction; expect warnings to remain available even when normal model operation is degraded.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model organization: Model-family plugins with calibration"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Separating pump-family scoring supports independent onboarding, while the added model and calibration versions require disciplined inspection-label retraining and deployment before findings improve predictions."
+        }
+      ],
+      "observation": "All compute and sensor processing remain on premises, and local inference plus a local alert queue supports the two-day outage scenario. Inspection labels are part of the learning loop. The 24-hour lead-time target cannot be established from the supplied context: no labeled history or validation results are given.",
+      "rating": "strong",
+      "point": "P8"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Shared edge model with rule fallback",
+      "summary": "Run the shared on-premises model at each station and queue local warnings, with fallback rules and versioned family retraining. This favors resilient operations while retaining fleet-wide learning.",
+      "approach": "A",
+      "step": 8,
+      "choices": [
+        {
+          "dimension_id": "Inference placement",
+          "value_id": "Inference placement: Station edge",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Station-local inference keeps sensor processing on premises and supports operation through backhaul loss."
+        },
+        {
+          "dimension_id": "Model organization",
+          "value_id": "Model organization: Shared fleet model with local fallback rules",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "This model organization captures the selected balance between pump-family isolation and fleet-wide learning."
+        },
+        {
+          "dimension_id": "Offline warning path",
+          "value_id": "Offline warning path: Local inference and alert queue",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A local warning path allows warnings to continue reaching station staff during connection loss."
+        },
+        {
+          "dimension_id": "Learning loop",
+          "value_id": "Learning loop: Versioned per-family retraining from inspection labels",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Inspection findings feed the selected model update process."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Learning loop",
+          "value_id": "Learning loop: Central retraining from inspection labels",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Simpler shared retraining, but less explicit family-level versioning."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Calibrated model-family plugins",
+      "summary": "Deploy calibrated plugins at station edges, with local warning queues and separately versioned retraining from inspection labels. This provides model-family modularity at the cost of more deployment work.",
+      "approach": "B",
+      "step": 9,
+      "choices": [
+        {
+          "dimension_id": "Inference placement",
+          "value_id": "Inference placement: Station edge",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Station-local inference keeps sensor processing on premises and supports operation through backhaul loss."
+        },
+        {
+          "dimension_id": "Model organization",
+          "value_id": "Model organization: Model-family plugins with calibration",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "This model organization captures the selected balance between pump-family isolation and fleet-wide learning."
+        },
+        {
+          "dimension_id": "Offline warning path",
+          "value_id": "Offline warning path: Local model with rule fallback",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A local warning path allows warnings to continue reaching station staff during connection loss."
+        },
+        {
+          "dimension_id": "Learning loop",
+          "value_id": "Learning loop: Versioned per-family retraining from inspection labels",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Inspection findings feed the selected model update process."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Offline warning path",
+          "value_id": "Offline warning path: Local inference and alert queue",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Queues warnings locally but does not add fallback behavior when the model path is unavailable."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "C1",
+      "name": "Independent family models",
+      "summary": "Run separate pump-family models at station edges and queue warnings locally, with central retraining from inspection labels. It favors independent scoring paths without requiring federated coordination.",
+      "approach": "C",
+      "step": 10,
+      "choices": [
+        {
+          "dimension_id": "Inference placement",
+          "value_id": "Inference placement: Station edge",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Station-local inference keeps sensor processing on premises and supports operation through backhaul loss."
+        },
+        {
+          "dimension_id": "Model organization",
+          "value_id": "Model organization: Independent model per pump family",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "This model organization captures the selected balance between pump-family isolation and fleet-wide learning."
+        },
+        {
+          "dimension_id": "Offline warning path",
+          "value_id": "Offline warning path: Local inference and alert queue",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A local warning path allows warnings to continue reaching station staff during connection loss."
+        },
+        {
+          "dimension_id": "Learning loop",
+          "value_id": "Learning loop: Central retraining from inspection labels",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Inspection findings feed the selected model update process."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Learning loop",
+          "value_id": "Learning loop: Federated station updates",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Avoids sending training data centrally, but the effect of inspection findings on deployed predictions is less direct."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "D1",
+      "name": "Calibrated plugins with edge fallback",
+      "summary": "Deploy calibrated model-family plugins at station edges, with local model and rule fallback for warnings and central retraining from inspection labels. This isolates pump-family scoring while keeping the feedback loop centrally managed on premises.",
+      "approach": "D",
+      "step": 11,
+      "choices": [
+        {
+          "dimension_id": "Inference placement",
+          "value_id": "Inference placement: Station edge",
+          "drivers": [
+            "Q1",
+            "C1"
+          ],
+          "reason": "Station-local inference keeps sensor processing on premises and supports operation through backhaul loss."
+        },
+        {
+          "dimension_id": "Model organization",
+          "value_id": "Model organization: Model-family plugins with calibration",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "This model organization captures the selected balance between pump-family isolation and fleet-wide learning."
+        },
+        {
+          "dimension_id": "Offline warning path",
+          "value_id": "Offline warning path: Local model with rule fallback",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "A local warning path allows warnings to continue reaching station staff during connection loss."
+        },
+        {
+          "dimension_id": "Learning loop",
+          "value_id": "Learning loop: Central retraining from inspection labels",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Inspection findings feed the selected model update process."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model organization",
+          "value_id": "Model organization: Shared fleet model with local fallback rules",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Simpler fleet-wide management, but new pump families are less isolated."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where inference runs and warnings remain available",
+      "drivers": [
+        "Q1",
+        "C1"
+      ],
+      "context": "Sensor processing must stay on utility premises, and warnings must reach station technicians through a two-day connection loss. Station-edge inference with a local warning path satisfies both demands; the remaining choice is whether the offline path also includes local rule fallback.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Station edge with queued local inference",
+          "values": [
+            "Inference placement: Station edge",
+            "Offline warning path: Local inference and alert queue"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1",
+            "C1"
+          ],
+          "step": 8,
+          "pros": [
+            "Keeps inference on premises.",
+            "Generates and queues warnings during network loss."
+          ],
+          "cons": [
+            "Does not describe a fallback when model inference itself is unavailable."
+          ],
+          "reason": "Chosen by the shared and independent family model alternatives."
+        },
+        {
+          "id": "O2",
+          "name": "Station edge with model and rule fallback",
+          "values": [
+            "Inference placement: Station edge",
+            "Offline warning path: Local model with rule fallback"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1",
+            "D1"
+          ],
+          "step": 9,
+          "pros": [
+            "Keeps inference on premises.",
+            "Provides a local fallback warning path."
+          ],
+          "cons": [
+            "Requires maintaining local rules alongside model versions."
+          ],
+          "reason": "Chosen by alternatives that prioritize a fallback path during degraded operation."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How pump models and inspection learning are organized",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q2"
+      ],
+      "context": "Predictions need to identify likely failures, improve from inspection findings, and allow a new pump model to receive predictions without changing other pumps’ scoring. Shared models simplify fleet learning, while family-specific plugins or models isolate scoring and updates.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shared fleet model with family-versioned learning",
+          "values": [
+            "Model organization: Shared fleet model with local fallback rules",
+            "Learning loop: Versioned per-family retraining from inspection labels"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 8,
+          "pros": [
+            "Inspection labels can improve a fleet-wide model.",
+            "Versioned family retraining supports controlled updates."
+          ],
+          "cons": [
+            "New-family work may still affect shared model management."
+          ],
+          "reason": "Chosen when fleet-wide reuse of inspection learning is preferred."
+        },
+        {
+          "id": "O2",
+          "name": "Calibrated family plugins with versioned retraining",
+          "values": [
+            "Model organization: Model-family plugins with calibration",
+            "Learning loop: Versioned per-family retraining from inspection labels"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 9,
+          "pros": [
+            "Isolates new-family scoring and calibration.",
+            "Provides traceable per-family updates from inspection findings."
+          ],
+          "cons": [
+            "Adds plugin, calibration, and version management across stations."
+          ],
+          "reason": "Chosen when onboarding isolation and controlled family updates are primary."
+        },
+        {
+          "id": "O3",
+          "name": "Independent family models with central retraining",
+          "values": [
+            "Model organization: Independent model per pump family",
+            "Learning loop: Central retraining from inspection labels"
+          ],
+          "status": "chosen",
+          "in": [
+            "C1"
+          ],
+          "step": 10,
+          "pros": [
+            "Separates pump-family scoring paths.",
+            "Offers a direct central inspection-label learning loop."
+          ],
+          "cons": [
+            "Requires maintaining several model families."
+          ],
+          "reason": "Chosen for family independence while using a straightforward on-premises learning pipeline."
+        },
+        {
+          "id": "O4",
+          "name": "Calibrated family plugins with central retraining",
+          "values": [
+            "Model organization: Model-family plugins with calibration",
+            "Learning loop: Central retraining from inspection labels"
+          ],
+          "status": "chosen",
+          "in": [
+            "D1"
+          ],
+          "step": 11,
+          "pros": [
+            "Isolates scoring by pump family.",
+            "Keeps retraining centrally managed on premises."
+          ],
+          "cons": [
+            "Updates are less explicitly versioned per family."
+          ],
+          "reason": "Chosen for isolated scoring with a simpler central feedback pipeline."
+        },
+        {
+          "id": "O5",
+          "name": "Federated station updates",
+          "values": [
+            "Model organization: Independent model per pump family",
+            "Learning loop: Federated station updates"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Can update models using station-local training data."
+          ],
+          "cons": [
+            "Requires coordinating federated updates, and inspection findings do not automatically translate into improved deployed predictions."
+          ],
+          "reason": "Set aside because the learning effect and coordination burden are less direct for this utility."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

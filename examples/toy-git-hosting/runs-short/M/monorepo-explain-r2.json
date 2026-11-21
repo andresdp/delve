@@ -1,0 +1,774 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "monorepo-explain",
+  "mode": "explain",
+  "space": {
+    "workspace": "toy-git-hosting",
+    "run": "20261109_000000",
+    "graph_sha256": "2dffd33ca0c9591431be414f303ce088b16bf31021ba90e13086a4cead77fc57"
+  },
+  "problem": {
+    "title": "Hosting an open-source monorepo",
+    "context": "An open-source foundation hosts a 12-year, 40 GB monorepo with about 300 pushes daily and 2,000 contributors across five continents. Most clones are from CI and first-time contributors, who need only the latest version. Volunteers operate donated servers in Europe and North America.",
+    "inferred": false,
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Accept pushes from the maintainers to a single canonical repository over the standard Git protocol."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Let a first-time contributor start working without downloading the whole history."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "performance",
+        "text": "A contributor in Asia or South America clones the latest version within two minutes on a 50 Mbit/s connection."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "consistency",
+        "text": "A CI job that starts after a push has been accepted always fetches that push."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Four volunteers run the service in their spare time."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 8
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3",
+        "v:4.2",
+        "v:5.2"
+      ],
+      "description": "The origin keeps plain Git repositories on server disks, with one file server serializing reference updates; paired machines replicate the underlying filesystem blocks. Clients use partial clone and sparse checkout, while regional cache servers serve reads and forward misses to the origin. Trade-off: This combines simple authoritative storage and atomic reference ordering with reduced client transfer and lower origin read load. It gives up distributed write availability and makes the single file server a bottleneck, while the block-replication choice is marked rejected despite providing machine-loss durability.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "v:4.2"
+      ],
+      "description": "The system lets developers use standard Git while fetching only the repository history and files selected by their sparse-checkout configuration. Each client therefore works with a focused working tree and a partial local clone rather than the entire repository. Trade-off: This reduces initial download size and local storage, but files or history outside the selected scope are unavailable locally and must be fetched if later needed.",
+      "attested_by": [
+        {
+          "id": "s:s4",
+          "kind": "source",
+          "label": "Scalar philosophy",
+          "href": "sources/s4"
+        },
+        {
+          "id": "s:s5",
+          "kind": "source",
+          "label": "Introducing Scalar",
+          "href": "sources/s5"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "values": [
+        "v:4.1"
+      ],
+      "description": "The system has developers use standard Git to clone repositories over the Git protocol. Each client downloads the repository’s complete history before working locally. Trade-off: This provides the full history and familiar Git compatibility, but increases initial download time, bandwidth use, and local storage compared with partial or shallow transfer.",
+      "attested_by": [
+        {
+          "id": "s:s1",
+          "kind": "source",
+          "label": "Git at any scale",
+          "href": "sources/s1"
+        },
+        {
+          "id": "s:s5",
+          "kind": "source",
+          "label": "Introducing Scalar",
+          "href": "sources/s5"
+        }
+      ]
+    },
+    {
+      "id": "P4",
+      "values": [
+        "v:5.2"
+      ],
+      "description": "Regional or office cache servers handle fetches, clones, and CI checkouts close to clients. On a cache miss, the server retrieves the required objects from the origin and can serve subsequent requests locally. Trade-off: This reduces read latency and repeated origin traffic, but requires deploying and operating distributed caches, consumes local storage, and may provide less benefit for infrequently requested objects that still incur origin-fetch latency.",
+      "attested_by": [
+        {
+          "id": "s:s5",
+          "kind": "source",
+          "label": "Introducing Scalar",
+          "href": "sources/s5"
+        }
+      ]
+    },
+    {
+      "id": "P5",
+      "values": [
+        "v:5.1"
+      ],
+      "description": "The system routes fetches, clones, and CI checkouts to the geographically nearest replica whose data reflects the latest repository state. Read routing therefore considers both network proximity and replica freshness. Trade-off: This reduces read latency and improves locality while preserving up-to-date results. It requires freshness tracking and may route a request to a more distant replica—or delay it—when the nearest replica is not current.",
+      "attested_by": [
+        {
+          "id": "s:s1",
+          "kind": "source",
+          "label": "Git at any scale",
+          "href": "sources/s1"
+        },
+        {
+          "id": "s:s2",
+          "kind": "source",
+          "label": "Stretching Spokes",
+          "href": "sources/s2"
+        },
+        {
+          "id": "s:s3",
+          "kind": "source",
+          "label": "Building resilience in Spokes",
+          "href": "sources/s3"
+        }
+      ]
+    },
+    {
+      "id": "P6",
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3"
+      ],
+      "description": "Repository files on each server’s local disks are the authoritative state for each repository. The server holding a repository serializes reference updates, while the rejected block-level replication approach is not used for durability. Trade-off: This keeps authority and update ordering simple and centralized, but a machine loss can lose repository data because filesystem blocks are not replicated to a paired machine. It also makes that server the coordination bottleneck for concurrent reference updates.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "description": "The origin keeps plain Git repositories on server disks, with one file server serializing reference updates; paired machines replicate the underlying filesystem blocks. Clients use partial clone and sparse checkout, while reads go to the nearest replica that has the latest state. Trade-off: This favors reduced transfer, freshness-aware locality, and straightforward single-server updates, but block replication remains a rejected durability choice and all writes depend on one origin.",
+      "attested_by": [
+        {
+          "id": "s:s1",
+          "kind": "source",
+          "label": "Git at any scale",
+          "href": "sources/s1"
+        },
+        {
+          "id": "s:s2",
+          "kind": "source",
+          "label": "Stretching Spokes",
+          "href": "sources/s2"
+        },
+        {
+          "id": "s:s3",
+          "kind": "source",
+          "label": "Building resilience in Spokes",
+          "href": "sources/s3"
+        }
+      ]
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "move": "solution",
+      "parent": null,
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3",
+        "v:4.2",
+        "v:5.2"
+      ],
+      "hypothesis": "The complete mapped design supports standard Git pushes, fast contributor clones, durable hosting, and post-push CI consistency.",
+      "assessment": {
+        "R1": "meets",
+        "R2": "meets",
+        "Q1": "partly",
+        "Q2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:2.1"
+          ],
+          "gains": [
+            "R1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Paired block replication offers a manual recovery copy, but the space's evidence rejects this practice and it does not establish a recovery target."
+        }
+      ],
+      "observation": "The point has no attesting source combination and triggers a warning because block-level filesystem replication is rejected. Partial clone is supported by sources. Q2 is served by the stated CI routing directly to the origin, a detail the broad cache value does not capture. The point description is generated and is not evidence.",
+      "verdict": "partial",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:4.2"
+      ],
+      "hypothesis": "R2 and Q1 explain requesting only needed files and history for a contributor's initial checkout.",
+      "assessment": {
+        "R2": "meets",
+        "Q1": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:4.2"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Fetching only selected files and history avoids the full transfer, but the design space does not establish whether this specific checkout meets the two-minute target."
+        }
+      ],
+      "observation": "The partial-clone value is accepted by Scalar philosophy and Introducing Scalar and directly addresses avoiding the full history. It reduces transfer but does not establish a two-minute result for this repository and network target.",
+      "verdict": "grounded",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "move": "contrast",
+      "parent": 2,
+      "values": [
+        "v:4.1"
+      ],
+      "hypothesis": "A full clone is an inferior alternative for R2 and Q1 at this repository size.",
+      "assessment": {
+        "R2": "misses",
+        "Q1": "misses"
+      },
+      "tradeoffs": [],
+      "observation": "Partial clone is forced by R2. The 40 GB repository at 50 Mbit/s also makes a full transfer incompatible with the two-minute target even before protocol overhead.",
+      "verdict": "ungrounded",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:5.2"
+      ],
+      "hypothesis": "Regional caches explain serving contributor reads close to users and support Q1.",
+      "assessment": {
+        "Q1": "partly",
+        "Q2": "partly"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.2"
+          ],
+          "gains": [
+            "Q1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Regional cache service helps distant clones, but cache propagation after pushes is asynchronous; freshness is not guaranteed by the value itself."
+        }
+      ],
+      "observation": "The value has source support and can reduce read latency, but the actual implementation's webhook usually takes seconds and CI bypasses caches to fetch the canonical origin. This split routing and freshness mechanism is only an approximate fit to the single read-serving value.",
+      "verdict": "partial",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "move": "contrast",
+      "parent": 4,
+      "values": [
+        "v:5.1"
+      ],
+      "hypothesis": "Freshness-aware replica selection could preserve Q2 while retaining locality, compared with cache reads.",
+      "assessment": {
+        "Q1": "partly",
+        "Q2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Routing only to an up-to-date replica explicitly protects freshness; the space provides no evidence that this incurs a measurable cost against the stated clone target."
+        }
+      ],
+      "observation": "The alternative has evidence support and expresses freshness-aware reads more directly. However, the actual solution satisfies Q2 through CI's direct origin fetch, not through a nearest-replica policy. The requirement does not force this alternative over split routing.",
+      "verdict": "partial",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "move": "region",
+      "parent": 1,
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3"
+      ],
+      "hypothesis": "R1 and Q2 explain a canonical disk-backed Git origin with serialized reference changes and a recovery copy.",
+      "assessment": {
+        "R1": "meets",
+        "Q2": "meets"
+      },
+      "tradeoffs": [],
+      "observation": "The solution's origin accepts standard Git pushes and serializes updates, while CI fetches the origin after push acceptance. Local repository files and serialized updates are accepted by sources; the chosen block-level replication is rejected by the sources, so the full durability region is only partially supported. C1's volunteer staffing constraint is not evaluated by these dimensions.",
+      "verdict": "partial",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "move": "contrast",
+      "parent": 6,
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3",
+        "v:4.2",
+        "v:5.1"
+      ],
+      "hypothesis": "Freshness-aware read routing is a supported alternative to the cache arrangement, but is not required because CI reads the origin.",
+      "assessment": {
+        "Q1": "partly",
+        "Q2": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "v:5.1"
+          ],
+          "gains": [
+            "Q2"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Freshness-aware routing gives a clear path to current reads, while routing farther away or waiting for a current replica can reduce locality or add delay."
+        }
+      ],
+      "observation": "This contrast changes only serving reads and is source-attested. It does not make the solution's choice forced: direct CI reads from the canonical origin already meet Q2, and the space gives no measured clone latency. The solution's cache value is therefore a freely chosen locality strategy, with an approximate fit due to the separate CI route.",
+      "verdict": "partial",
+      "point": "P7"
+    }
+  ],
+  "regions": [
+    {
+      "id": "G1",
+      "name": "Partial checkout for contributors",
+      "step": 2,
+      "drivers": [
+        "R2",
+        "Q1"
+      ],
+      "values": [
+        "v:4.2"
+      ],
+      "reason": "This accepted and source-attested practice directly reduces initial data transfer and avoids downloading the full history; it is forced by R2, though the two-minute target remains unproven."
+    },
+    {
+      "id": "G2",
+      "name": "Canonical origin and ordered pushes",
+      "step": 6,
+      "drivers": [
+        "R1",
+        "Q2"
+      ],
+      "values": [
+        "v:1.1",
+        "v:2.1",
+        "v:3.3"
+      ],
+      "reason": "A plain Git repository on the origin accepts standard pushes and one-at-a-time reference updates give CI a serialized canonical state to fetch. Both values are supported by the space."
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "S",
+      "name": "Monorepo hosting as built",
+      "summary": "A disk-backed European Git origin serializes pushes, replicates its filesystem to a paired server, and serves regional clones through caches. Contributors use partial clone and sparse checkout; CI reads the origin directly.",
+      "step": 1,
+      "choices": [
+        {
+          "dimension_id": "d:1",
+          "value_id": "v:1.1",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "forced": null,
+          "reason": "A plain Git origin naturally serves the canonical push and CI fetch path, but no contrast isolates this storage choice as forced.",
+          "evidence": [
+            {
+              "doc": "s01_p02",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s02_p01",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "It holds the repository as a plain Git repository on its local disk"
+        },
+        {
+          "dimension_id": "d:2",
+          "value_id": "v:2.1",
+          "drivers": [
+            "R1"
+          ],
+          "forced": null,
+          "reason": "The paired copy offers a hand-operated recovery path, but the space marks block replication rejected. No requirement forces this implementation, and C1 may make its operational burden material.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "rejects"
+            },
+            {
+              "doc": "s02_p01",
+              "stance": "rejects"
+            }
+          ],
+          "solution_quote": "A second server in the same data centre receives a block-by-block copy of the origin's disk and can take over by hand if the origin fails."
+        },
+        {
+          "dimension_id": "d:3",
+          "value_id": "v:3.3",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "forced": null,
+          "reason": "Serial updates fit a single canonical origin and preserve ordering for subsequent CI fetches. The requirements do not demand this exact coordination method.",
+          "evidence": [
+            {
+              "doc": "s01_p05",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "applies pushes one at a time"
+        },
+        {
+          "dimension_id": "d:4",
+          "value_id": "v:4.2",
+          "drivers": [
+            "R2",
+            "Q1"
+          ],
+          "forced": true,
+          "reason": "The partial clone and sparse checkout avoid downloading the whole history, as R2 requires; the full-clone contrast misses R2 and Q1.",
+          "evidence": [
+            {
+              "doc": "s04_p01",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s05_p01",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "The contributing guide tells first-time contributors to clone with a blob filter and a sparse checkout of the directories they work on."
+        },
+        {
+          "dimension_id": "d:5",
+          "value_id": "v:5.2",
+          "drivers": [
+            "Q1",
+            "Q2"
+          ],
+          "forced": false,
+          "reason": "Regional caches aid distant clones. CI's direct origin route separately meets Q2; the design-space value approximates this split because it does not represent per-client routing or webhook freshness.",
+          "evidence": [
+            {
+              "doc": "s05_p03",
+              "stance": "accepts"
+            },
+            {
+              "doc": "s05_p08",
+              "stance": "accepts"
+            }
+          ],
+          "solution_quote": "Cache servers in North America, Asia and South America serve clones and fetches and forward everything else to the origin.",
+          "fit": "approximate",
+          "fit_note": "The value captures regional cache reads, but the solution routes CI directly to the origin and uses push-triggered webhooks to refresh caches; those distinct paths and their freshness guarantee are not encoded in this value."
+        }
+      ],
+      "considered": [],
+      "open": [],
+      "relations": [
+        {
+          "source": "d:2",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true
+        },
+        {
+          "source": "d:2",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true
+        },
+        {
+          "source": "d:3",
+          "target": "d:1",
+          "type": "requires",
+          "holds": true
+        },
+        {
+          "source": "d:4",
+          "target": "d:5",
+          "type": "constrains",
+          "holds": true
+        }
+      ]
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Canonical repository and push ordering",
+      "drivers": [
+        "R1",
+        "Q2"
+      ],
+      "context": "Maintainers need one standard Git push destination, and a CI fetch begun after acceptance must see that accepted update.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Disk-backed canonical origin with serialized updates",
+          "values": [
+            "v:1.1",
+            "v:3.3"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 6,
+          "pros": [
+            "Uses a plain Git repository as the authoritative state.",
+            "One-at-a-time updates give the canonical origin a clear ordering for CI fetches."
+          ],
+          "cons": [
+            "Writes depend on one origin server."
+          ],
+          "reason": "Chosen and supported by Git at any scale and Stretching Spokes; the requirements call for a canonical ordered write path but do not force this exact storage and serialization design."
+        },
+        {
+          "id": "O2",
+          "name": "Three-phase commit across replicas",
+          "values": [
+            "v:1.1",
+            "v:3.1"
+          ],
+          "status": "discarded",
+          "step": null,
+          "pros": [
+            "Coordinates reference updates across replicas."
+          ],
+          "cons": [
+            "Adds distributed coordination not required by the single-origin push path."
+          ],
+          "reason": "A space alternative, not stated as considered by the designers; the solution gives no need for this coordination."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "Durability and manual recovery copy",
+      "drivers": [
+        "R1"
+      ],
+      "context": "The origin must remain serviceable as the canonical repository, while the solution also describes a manual takeover copy. The requirements state no recovery-time or durability target.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Block-level filesystem replication",
+          "values": [
+            "v:2.1"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 1,
+          "pros": [
+            "Provides a second disk image that can be taken over by hand."
+          ],
+          "cons": [
+            "The design space's sources reject this replication approach."
+          ],
+          "reason": "This is a free implementation choice with weak support: the requirements do not force block replication and the evidence rejects the value."
+        },
+        {
+          "id": "O2",
+          "name": "Three Git replicas with majority writes",
+          "values": [
+            "v:2.2"
+          ],
+          "status": "discarded",
+          "pros": [
+            "Sources support machine-loss durability with replicas."
+          ],
+          "cons": [
+            "Requires coordinated writes across replicas."
+          ],
+          "reason": "An available alternative in the space, not stated as considered; it offers a stronger distributed durability mechanism than the brief requires."
+        }
+      ]
+    },
+    {
+      "id": "ADR3",
+      "title": "Contributor clone transfer",
+      "drivers": [
+        "R2",
+        "Q1"
+      ],
+      "context": "First-time contributors must begin without fetching the whole history, and distant contributors have a two-minute clone target.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Partial clone with sparse checkout",
+          "values": [
+            "v:4.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 2,
+          "pros": [
+            "Avoids downloading the whole history and limits initial file transfer."
+          ],
+          "cons": [
+            "Objects outside the selected scope may need fetching later; the exact latency target is not demonstrated."
+          ],
+          "reason": "R2 forces a partial transfer approach: the full-clone contrast misses both R2 and Q1. The evidence for the chosen practice is positive."
+        },
+        {
+          "id": "O2",
+          "name": "Full clone over the Git protocol",
+          "values": [
+            "v:4.1"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Provides all history locally."
+          ],
+          "cons": [
+            "Contradicts R2 and increases initial transfer for Q1."
+          ],
+          "reason": "It fails the explicit request to avoid the full history."
+        }
+      ]
+    },
+    {
+      "id": "ADR4",
+      "title": "Read serving and freshness",
+      "drivers": [
+        "Q1",
+        "Q2"
+      ],
+      "context": "Regional contributors need low-latency clones, while CI must fetch the accepted push. The solution serves contributors from caches and directs CI to the origin.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Regional caches with direct CI origin reads",
+          "values": [
+            "v:5.2"
+          ],
+          "status": "chosen",
+          "in": [
+            "S"
+          ],
+          "step": 4,
+          "pros": [
+            "Regional caches reduce distance for clone and fetch traffic.",
+            "CI reads the canonical origin after push acceptance."
+          ],
+          "cons": [
+            "Cache refresh is asynchronous, so the cache value alone does not guarantee freshness; the split route is only approximately represented."
+          ],
+          "reason": "The caches serve Q1, and direct origin fetches meet Q2. This split policy is not a value represented exactly by the space and is a free choice beyond the freshness requirement.",
+          "fit": "approximate",
+          "fit_note": "The value describes regional cache service and forwarding, not the separate CI-to-origin path or webhook refresh behavior."
+        },
+        {
+          "id": "O2",
+          "name": "Nearest up-to-date replica",
+          "values": [
+            "v:5.1"
+          ],
+          "status": "discarded",
+          "step": 5,
+          "pros": [
+            "Explicitly serves reads from a nearby copy only when it has current state."
+          ],
+          "cons": [
+            "Could route farther away or delay reads when the nearest replica is stale."
+          ],
+          "reason": "This alternative is supported and could address freshness through the read path, but CI's direct origin fetch already meets Q2; the requirement does not force it over the chosen split route."
+        }
+      ]
+    }
+  ],
+  "uncovered": [
+    {
+      "decision": "Webhook-triggered cache refresh after every push",
+      "solution_quote": "After every push, the origin calls a webhook on each cache so that it fetches the new state, which usually takes a few seconds.",
+      "nearest_dimension_id": "d:5"
+    },
+    {
+      "decision": "Nightly full-history Git bundles offered by caches",
+      "solution_quote": "Every night the origin also writes a Git bundle of the full history, which the caches offer for clones that need everything.",
+      "nearest_dimension_id": "d:4"
+    },
+    {
+      "decision": "Release source tarballs published on a content delivery network",
+      "solution_quote": "For every release tag, a script builds a source tarball and publishes it on a content delivery network, so that packagers download releases without using Git at all.",
+      "nearest_dimension_id": "d:5"
+    },
+    {
+      "decision": "Manual takeover procedure and placement of the replica in the same data centre",
+      "solution_quote": "A second server in the same data centre receives a block-by-block copy of the origin's disk and can take over by hand if the origin fails.",
+      "nearest_dimension_id": "d:2"
+    }
+  ],
+  "unaddressed": [
+    {
+      "requirement": "C1",
+      "reason": "no_dimension",
+      "nearest_dimension_id": null,
+      "note": "The design space has no dimension for volunteer staffing, operational effort, or donated versus rented infrastructure, so it cannot assess whether this operating model fits four volunteers."
+    }
+  ]
+}

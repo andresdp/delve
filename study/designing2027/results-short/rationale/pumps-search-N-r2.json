@@ -1,0 +1,892 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "pumps-search",
+  "mode": "search",
+  "space": null,
+  "problem": {
+    "title": "Pump failure prediction",
+    "context": "A water utility runs about 400 pumps in 12 pumping stations. Each pump has vibration, temperature and pressure sensors that report every second. When a pump fails without warning, part of the town loses its water supply, so the utility wants to replace bearings and seals before they fail. Several stations are in rural areas with an unreliable mobile connection. The utility has two data scientists and relies on its IT department for servers and networks.",
+    "requirements": [
+      {
+        "id": "R1",
+        "kind": "functional",
+        "text": "Warn the maintenance team at least 24 hours before a pump is likely to fail, naming the pump and the probable cause."
+      },
+      {
+        "id": "R2",
+        "kind": "functional",
+        "text": "Improve the predictions as technicians record what they find at each inspection."
+      },
+      {
+        "id": "Q1",
+        "kind": "quality",
+        "attribute": "availability",
+        "text": "When a station loses its connection for up to two days, warnings for its pumps still reach the station's on-call technician."
+      },
+      {
+        "id": "Q2",
+        "kind": "quality",
+        "attribute": "modifiability",
+        "text": "When a new pump model is installed, its pumps get predictions within one month, without changes to how the other pumps are scored."
+      },
+      {
+        "id": "C1",
+        "kind": "constraint",
+        "text": "Sensor data stays on the utility's own premises: no cloud service may store or process it."
+      }
+    ]
+  },
+  "budget": {
+    "max_points": 12
+  },
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "The utility stores and processes data on premises, trains a shared fleet model centrally, and deploys pump-family adapters for station-edge inference. Stations issue local warnings during outages and buffer results for up to 48 hours, after which synchronized data and inspection labels support batch retraining. Trade-off: This preserves utility data control and warning availability while reusing a common model across pump families. It gives up rapid feedback and potentially fresh model updates, because labels arrive through inspections and synchronization may be delayed; maintaining adapters also adds coordination overhead.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Inference placement: Station-local autonomous inference and learning",
+        "Model strategy: Independent model per pump family",
+        "Feedback path: Local incremental updates with later synchronization",
+        "Outage behavior: Local warnings with deferred synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "Station equipment runs autonomous inference and learning on premises, using a model tailored to each pump family. It issues local warnings during outages, retains incremental updates locally, and synchronizes them later within the utility’s owned processing and storage environment. Trade-off: This improves local responsiveness, outage resilience, and data control, but requires maintaining multiple pump-family models and managing delayed synchronization. Learning and operational visibility may be less consistent across stations until updates are exchanged.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": [
+        "Inference placement: Central on-prem inference",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Queue warnings until central connection returns",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "Pump data is processed by a utility-owned, on-premises central inference service using a shared fleet model with pump-family adapters to generate warnings. Warnings are queued during loss of the central connection, while inspection labels feed periodic central batch retraining. Trade-off: This reuses a common model across pump families and keeps processing and storage within the utility, but timely warnings depend on central availability and model improvements wait for batch-collected inspection labels.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Inference placement: Station-edge inference",
+        "Model strategy: Generic unsupervised anomaly detector",
+        "Feedback path: Technician-confirmed local calibration synced centrally",
+        "Outage behavior: Local threshold warnings during disconnection",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "A generic unsupervised anomaly detector runs at the station edge over utility-owned, on-premises data. It issues local threshold warnings during disconnection, while technician-confirmed local calibration is synchronized centrally when connectivity is available. Trade-off: This provides low-latency, outage-tolerant detection and keeps data under utility control, but the generic detector may be less accurate for local pump behavior and requires technician input and later synchronization to improve calibration.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Local incremental updates with later synchronization",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "The system runs pump-family-adapted inference at each station while training a shared fleet model centrally on utility-owned on-premises data. Stations incorporate local incremental updates and issue warnings during outages, buffering results and synchronizing them within 48 hours. Trade-off: This reduces latency, preserves utility control of data, and maintains warnings during connectivity loss. It gives up some central consistency and freshness because locally adapted models and buffered observations may diverge until synchronization.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": [
+        "Inference placement: Station-local autonomous inference and learning",
+        "Model strategy: Shared fleet model with family calibration",
+        "Feedback path: Local incremental updates with later synchronization",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "1. Each station runs inference and incremental learning locally, using a shared fleet model calibrated for its equipment family. It issues local warnings during outages, buffers synchronization for up to 48 hours, and exchanges updates later while keeping processing and storage on utility premises. 2. Trade-off: This improves outage resilience, local adaptation, and utility control of data, but sacrifices immediate fleet-wide consistency and may allow station models to diverge until synchronization.",
+      "attested_by": []
+    },
+    {
+      "id": "P7",
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with family calibration",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "The system runs inference at each station while training a shared fleet model centrally on utility-owned, on-premises data, with calibration for equipment families. Stations issue local warnings during connectivity loss and buffer results for up to 48 hours; inspection labels are later aggregated for batch retraining. Trade-off: This provides resilient local alerting, centralized learning, and strong data control, but buffered synchronization and batch labels delay model updates and feedback. It also requires maintaining station inference and synchronization alongside central training and family calibration.",
+      "attested_by": []
+    },
+    {
+      "id": "P8",
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage + local model registry"
+      ],
+      "description": "Each station runs inference locally, using a shared fleet model tailored through pump-family adapters, while training occurs centrally on premises. Inspection labels flow back through batch retraining, and stations issue warnings during outages while buffering synchronization for up to 48 hours; models and data remain within the utility’s boundary and local registry. Trade-off: This improves data control, fleet-wide reuse, and outage resilience. It gives up rapid feedback and centralized real-time visibility, because updates depend on inspection labels, batch retraining, and delayed synchronization.",
+      "attested_by": []
+    },
+    {
+      "id": "P9",
+      "values": [
+        "Inference placement: Station-local autonomous inference and learning",
+        "Model strategy: Independent model per pump family",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with deferred synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "Each station keeps processing and storage on the utility’s premises, running autonomous inference and learning locally with a model tailored to its pump family. It issues local warnings during outages, then synchronizes information for central batch retraining using inspection labels. Trade-off: This provides data locality, outage-tolerant warnings, and family-specific adaptation. It gives up immediate fleet-wide updates; models may remain different across stations until synchronized and retrained from inspection data.",
+      "attested_by": []
+    },
+    {
+      "id": "P10",
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization + local acknowledgement queue",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "description": "Station-edge models issue pump warnings locally, while a shared fleet model with pump-family adapters is trained centrally on utility-owned on-premises data. Inspection labels feed batch retraining, and outages are handled through 48-hour buffering plus a local acknowledgement queue before synchronization. Trade-off: This improves outage resilience, data control, and reuse across pump families, but feedback and model improvement are delayed by batch retraining and buffered synchronization. It also requires managing edge deployments, adapters, local queues, and central on-premises training infrastructure.",
+      "attested_by": []
+    }
+  ],
+  "approaches": [
+    {
+      "id": "A",
+      "idea": "What if station-edge inference kept warnings available locally while a centrally trained shared model learned from inspection labels?",
+      "status": "live"
+    },
+    {
+      "id": "B",
+      "idea": "What if stations learned and scored pumps autonomously, specializing models by pump family?",
+      "status": "live"
+    },
+    {
+      "id": "C",
+      "idea": "What if one central on-premises service owned all inference and feedback processing?",
+      "status": "dropped",
+      "dropped_because": "Central inference depends on connectivity for timely warning delivery, so it misses Q1 during the stated two-day station outage."
+    },
+    {
+      "id": "D",
+      "idea": "What if a generic unsupervised edge detector offered pump-agnostic startup and local warnings?",
+      "status": "dropped",
+      "dropped_because": "A generic anomaly score does not reliably name a probable cause or establish the 24-hour warning lead time required by R1."
+    },
+    {
+      "id": "E",
+      "idea": "What if station-edge inference used family calibration while central batch training preserved fleet consistency?",
+      "status": "live"
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1,
+      "round": 1,
+      "approach": "A",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "Edge inference should meet Q1 through local alerts and the 48-hour buffer, while central label-based retraining supports R2 and adapters isolate pump families for Q2. On-premises processing meets C1; predictive accuracy and the one-month onboarding target still need evidence for R1 and Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Feedback path: Central batch retraining from inspection labels",
+            "Model strategy: Shared fleet model with pump-family adapters"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Inspection findings can improve the shared model, but waiting for labeled inspections and batch retraining slows the independent onboarding of a new pump family."
+        }
+      ],
+      "observation": "Local inference supports outage warnings, and inspection labels have a defined route into training. The architecture alone does not establish the prediction lead time or demonstrate onboarding within one month.",
+      "rating": "mixed",
+      "point": "P1"
+    },
+    {
+      "step": 2,
+      "round": 1,
+      "approach": "B",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Station-local autonomous inference and learning",
+        "Model strategy: Independent model per pump family",
+        "Feedback path: Local incremental updates with later synchronization",
+        "Outage behavior: Local warnings with deferred synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "Autonomous local scoring and learning should meet Q1 and use inspection findings for R2. Separate family models limit cross-model effects for Q2, though maintaining each model may make the one-month target difficult; C1 is met.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model strategy: Independent model per pump family",
+            "Feedback path: Local incremental updates with later synchronization"
+          ],
+          "gains": [
+            "R2",
+            "Q1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Station-local learning uses findings without waiting for a central link, but independent model maintenance can slow new-family onboarding."
+        }
+      ],
+      "observation": "The point is resilient and learns locally, but decentralized updates can diverge and separate models put more work on a two-person data science team. Prediction accuracy and lead time remain unproven.",
+      "rating": "mixed",
+      "point": "P2"
+    },
+    {
+      "step": 3,
+      "round": 1,
+      "approach": "C",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Central on-prem inference",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Queue warnings until central connection returns",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "Centralized scoring and retraining should simplify model consistency, support R2, and meet C1. Queued warnings are expected to miss Q1 while disconnected; adapter-based onboarding may partly support Q2.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "misses",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Inference placement: Central on-prem inference",
+            "Outage behavior: Queue warnings until central connection returns"
+          ],
+          "gains": [
+            "R2",
+            "C1"
+          ],
+          "costs": [
+            "Q1"
+          ],
+          "note": "Centralized processing simplifies controlled retraining within the utility, but without a local inference path it cannot deliver warnings to a station during a connection loss."
+        }
+      ],
+      "observation": "Central processing keeps data on premises but cannot reach the on-call technician while the station link is down; queued alerts arrive too late to satisfy Q1.",
+      "rating": "weak",
+      "point": "P3"
+    },
+    {
+      "step": 4,
+      "round": 1,
+      "approach": "D",
+      "move": "seed",
+      "parent": null,
+      "values": [
+        "Inference placement: Station-edge inference",
+        "Model strategy: Generic unsupervised anomaly detector",
+        "Feedback path: Technician-confirmed local calibration synced centrally",
+        "Outage behavior: Local threshold warnings during disconnection",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "A generic edge detector should support Q1, C1 and quick startup for Q2. Technician calibration may improve the detector for R2, but a generic anomaly score may not provide the probable cause or 24-hour lead time in R1.",
+      "assessment": {
+        "R1": "misses",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model strategy: Generic unsupervised anomaly detector"
+          ],
+          "gains": [
+            "Q1",
+            "Q2"
+          ],
+          "costs": [
+            "R1"
+          ],
+          "note": "A generic detector can start scoring new equipment with little model setup, but anomaly thresholds alone do not provide a validated failure cause and 24-hour prediction."
+        }
+      ],
+      "observation": "This is easy to deploy locally, but detection of unusual behavior is not enough to establish the cause-specific warning required by R1.",
+      "rating": "weak",
+      "point": "P4"
+    },
+    {
+      "step": 5,
+      "round": 2,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 1,
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Local incremental updates with later synchronization",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "Changing feedback from central batches to local incremental updates should make inspection findings improve predictions sooner for R2. Edge warnings continue to meet Q1 and the adapter approach partly supports Q2, while C1 remains met.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Feedback path: Local incremental updates with later synchronization"
+          ],
+          "gains": [
+            "R2",
+            "Q1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Local updates make findings usable without a central connection, but delayed synchronization can leave the shared model and new-family deployment out of date."
+        }
+      ],
+      "observation": "Local learning improves feedback responsiveness without losing local alerts. Model consistency and the one-month onboarding deadline are still unverified.",
+      "rating": "strong",
+      "point": "P5"
+    },
+    {
+      "step": 6,
+      "round": 2,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 2,
+      "values": [
+        "Inference placement: Station-local autonomous inference and learning",
+        "Model strategy: Shared fleet model with family calibration",
+        "Feedback path: Local incremental updates with later synchronization",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "Replace independent family models with a shared model plus isolated family calibration. This should make new-family scoring more repeatable for Q2 while retaining local learning for R2, local warnings for Q1 and the on-premises boundary for C1.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "partly",
+        "Q1": "meets",
+        "Q2": "meets",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model strategy: Shared fleet model with family calibration",
+            "Feedback path: Local incremental updates with later synchronization"
+          ],
+          "gains": [
+            "Q2",
+            "Q1"
+          ],
+          "costs": [
+            "R2"
+          ],
+          "note": "Family calibration can be added without changing the shared scoring path for existing families, but isolated local updates need validation and synchronization before all inspection findings improve the fleet predictions."
+        }
+      ],
+      "observation": "A shared baseline with family-specific calibration gives a plausible path to isolated onboarding. The one-month target depends on calibration and validation effort, while local learning can temporarily diverge.",
+      "rating": "mixed",
+      "point": "P6"
+    },
+    {
+      "step": 7,
+      "round": 2,
+      "approach": "E",
+      "move": "explore",
+      "parent": null,
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with family calibration",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "A hybrid point with family calibration rather than adapters may simplify new-family setup for Q2, while central batch retraining uses inspection findings for R2. Edge inference supports Q1 and all data remains on premises for C1.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Feedback path: Central batch retraining from inspection labels",
+            "Model strategy: Shared fleet model with family calibration"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Batch training provides a controlled route for inspection findings to improve predictions, but calibration and batch release still leave the new-family deadline uncertain."
+        }
+      ],
+      "observation": "Family calibration is another plausible extension point, but central batches preserve the same feedback delay and do not establish the one-month onboarding target.",
+      "rating": "mixed",
+      "point": "P7"
+    },
+    {
+      "step": 8,
+      "round": 3,
+      "approach": "A",
+      "move": "exploit",
+      "parent": 5,
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage + local model registry"
+      ],
+      "hypothesis": "A local model registry should make adapter rollout and rollback more manageable for Q2 without changing scoring for existing families. Central batch retraining retains R2, edge warnings retain Q1 and the registry remains on premises for C1.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Feedback path: Central batch retraining from inspection labels",
+            "Data boundary: Utility-owned on-premises processing and storage + local model registry"
+          ],
+          "gains": [
+            "R2",
+            "C1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "The registry helps manage family-specific releases, but the central batch label cycle can still delay the predictions needed for a new family."
+        }
+      ],
+      "observation": "A registry improves deployment control, but does not remove the unmeasured data preparation, calibration or validation time for a one-month launch. This did not improve A's best assessment.",
+      "rating": "mixed",
+      "point": "P8"
+    },
+    {
+      "step": 9,
+      "round": 3,
+      "approach": "B",
+      "move": "exploit",
+      "parent": 6,
+      "values": [
+        "Inference placement: Station-local autonomous inference and learning",
+        "Model strategy: Independent model per pump family",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with deferred synchronization",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "Using central batch retraining instead of unsynchronized local learning should reduce model divergence and give controlled use of inspection findings for R2. Local inference retains Q1 and independent family models avoid changing other models for Q2, though the amount of per-family work remains a concern.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Model strategy: Independent model per pump family",
+            "Feedback path: Central batch retraining from inspection labels"
+          ],
+          "gains": [
+            "R2",
+            "Q1"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Central retraining can validate learning from findings and local inference remains available, but maintaining and updating separate family models increases onboarding work."
+        }
+      ],
+      "observation": "Controlled retraining reduces the risk of unvalidated local updates but retains the separate-model burden that weakens B's Q2 fit. This does not improve B's best assessment.",
+      "rating": "mixed",
+      "point": "P9"
+    },
+    {
+      "step": 10,
+      "round": 3,
+      "approach": "E",
+      "move": "exploit",
+      "parent": 7,
+      "values": [
+        "Inference placement: Station-edge inference with central on-prem training",
+        "Model strategy: Shared fleet model with pump-family adapters",
+        "Feedback path: Central batch retraining from inspection labels",
+        "Outage behavior: Local warnings with 48-hour buffered synchronization + local acknowledgement queue",
+        "Data boundary: Utility-owned on-premises processing and storage"
+      ],
+      "hypothesis": "A local acknowledgement queue should help station staff manage and confirm alerts through an outage for Q1, while keeping the hybrid model, feedback path and on-premises boundary. It is not expected to improve prediction quality or model onboarding.",
+      "assessment": {
+        "R1": "partly",
+        "R2": "meets",
+        "Q1": "meets",
+        "Q2": "partly",
+        "C1": "meets"
+      },
+      "tradeoffs": [
+        {
+          "values": [
+            "Feedback path: Central batch retraining from inspection labels"
+          ],
+          "gains": [
+            "R2"
+          ],
+          "costs": [
+            "Q2"
+          ],
+          "note": "Inspection labels provide a controlled route to improved predictions, but waiting for batch retraining delays onboarding predictions for new pump families."
+        }
+      ],
+      "observation": "The local queue adds operational confirmation but does not improve the assessment of warning delivery or model requirements. This did not improve E's best point or make the new approach better than A or B, so the search stops with budget remaining.",
+      "rating": "mixed",
+      "point": "P10"
+    }
+  ],
+  "alternatives": [
+    {
+      "id": "A1",
+      "name": "Hybrid edge scoring with shared learning",
+      "summary": "Stations issue warnings locally while a shared on-premises model improves from local inspection feedback. Family adapters isolate deployment, but model freshness and new-family lead time need validation.",
+      "approach": "A",
+      "step": 5,
+      "choices": [
+        {
+          "dimension_id": "Inference placement",
+          "value_id": "Inference placement: Station-edge inference with central on-prem training",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Station-side inference keeps warnings available during a mobile connection outage."
+        },
+        {
+          "dimension_id": "Model strategy",
+          "value_id": "Model strategy: Shared fleet model with pump-family adapters",
+          "drivers": [
+            "R1",
+            "Q2"
+          ],
+          "reason": "A shared model can reuse fleet data, while family adapters give new pump models a separate scoring extension."
+        },
+        {
+          "dimension_id": "Feedback path",
+          "value_id": "Feedback path: Local incremental updates with later synchronization",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Inspection findings can update local predictions without waiting for a central connection."
+        },
+        {
+          "dimension_id": "Outage behavior",
+          "value_id": "Outage behavior: Local warnings with 48-hour buffered synchronization",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Local alerts and buffered synchronization cover the stated outage duration."
+        },
+        {
+          "dimension_id": "Data boundary",
+          "value_id": "Data boundary: Utility-owned on-premises processing and storage",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "Training, storage and inference stay on utility premises."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Feedback path",
+          "value_id": "Feedback path: Central batch retraining from inspection labels",
+          "drivers": [
+            "R2",
+            "Q2"
+          ],
+          "reason": "Batch retraining has a controlled feedback route but can delay updates and new-family rollout."
+        }
+      ],
+      "open": [],
+      "relations": []
+    },
+    {
+      "id": "B1",
+      "name": "Autonomous station learning with family calibration",
+      "summary": "Stations score and update locally using a shared fleet baseline with family-specific calibration. This gives a plausible isolated onboarding path and outage resilience, while validation of local learning and the one-month target remains important.",
+      "approach": "B",
+      "step": 6,
+      "choices": [
+        {
+          "dimension_id": "Inference placement",
+          "value_id": "Inference placement: Station-local autonomous inference and learning",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "Autonomous station scoring continues when mobile connectivity fails."
+        },
+        {
+          "dimension_id": "Model strategy",
+          "value_id": "Model strategy: Shared fleet model with family calibration",
+          "drivers": [
+            "Q2",
+            "R1"
+          ],
+          "reason": "Family-specific calibration can be introduced without changing other pumps' shared scoring path."
+        },
+        {
+          "dimension_id": "Feedback path",
+          "value_id": "Feedback path: Local incremental updates with later synchronization",
+          "drivers": [
+            "R2"
+          ],
+          "reason": "Technician findings can update station predictions locally, with changes synchronized later."
+        },
+        {
+          "dimension_id": "Outage behavior",
+          "value_id": "Outage behavior: Local warnings with 48-hour buffered synchronization",
+          "drivers": [
+            "Q1"
+          ],
+          "reason": "The station can issue warnings while disconnected and synchronize buffered information afterward."
+        },
+        {
+          "dimension_id": "Data boundary",
+          "value_id": "Data boundary: Utility-owned on-premises processing and storage",
+          "drivers": [
+            "C1"
+          ],
+          "reason": "The utility owns and operates all processing and storage."
+        }
+      ],
+      "considered": [
+        {
+          "dimension_id": "Model strategy",
+          "value_id": "Model strategy: Independent model per pump family",
+          "drivers": [
+            "Q2"
+          ],
+          "reason": "Separate models limit cross-family effects but increase the maintenance work for each new pump model."
+        }
+      ],
+      "open": [],
+      "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1",
+      "title": "Where should scoring and outage handling run?",
+      "drivers": [
+        "Q1",
+        "C1"
+      ],
+      "context": "The utility requires warnings to reach station staff during up to two days without a connection, and sensor data must remain within utility premises. Central-only scoring keeps processing centralized but cannot deliver a warning over a failed link. Both hybrid and autonomous station scoring meet the data boundary while allowing local alerts.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Hybrid station inference",
+          "values": [
+            "Inference placement: Station-edge inference with central on-prem training",
+            "Outage behavior: Local warnings with 48-hour buffered synchronization",
+            "Data boundary: Utility-owned on-premises processing and storage"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 5,
+          "pros": [
+            "Local inference and warning buffering cover station connectivity loss.",
+            "Central training and storage stay on utility premises."
+          ],
+          "cons": [
+            "Edge deployment and delayed synchronization require operational support."
+          ],
+          "reason": "A1 combines local outage behavior with centrally managed on-premises model training."
+        },
+        {
+          "id": "O2",
+          "name": "Autonomous station inference",
+          "values": [
+            "Inference placement: Station-local autonomous inference and learning",
+            "Outage behavior: Local warnings with 48-hour buffered synchronization",
+            "Data boundary: Utility-owned on-premises processing and storage"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 6,
+          "pros": [
+            "Stations can score pumps without a central connection.",
+            "Data and station updates remain on utility premises."
+          ],
+          "cons": [
+            "Local model operations and synchronization can diverge across stations."
+          ],
+          "reason": "B1 prioritizes station autonomy while preserving the data boundary."
+        },
+        {
+          "id": "O3",
+          "name": "Central-only inference",
+          "values": [
+            "Inference placement: Central on-prem inference",
+            "Outage behavior: Queue warnings until central connection returns",
+            "Data boundary: Utility-owned on-premises processing and storage"
+          ],
+          "status": "discarded",
+          "step": 3,
+          "pros": [
+            "Central scoring and operations are straightforward to manage.",
+            "All processing stays on utility premises."
+          ],
+          "cons": [
+            "Warnings cannot reach the station during the outage."
+          ],
+          "reason": "It misses the explicit outage delivery requirement."
+        }
+      ]
+    },
+    {
+      "id": "ADR2",
+      "title": "How should models use inspection findings and accommodate new pump families?",
+      "drivers": [
+        "R1",
+        "R2",
+        "Q2"
+      ],
+      "context": "Predictions need useful lead time and probable causes, technician findings must improve them, and a new pump model must receive predictions within one month without changing existing scoring. Shared models can reuse fleet learning, while family-specific extensions can isolate new equipment. Local learning is responsive but needs validation; batch learning is controlled but may delay updates. Predictive accuracy and onboarding time require operational evidence.",
+      "options": [
+        {
+          "id": "O1",
+          "name": "Shared model with adapters and local feedback",
+          "values": [
+            "Model strategy: Shared fleet model with pump-family adapters",
+            "Feedback path: Local incremental updates with later synchronization"
+          ],
+          "status": "chosen",
+          "in": [
+            "A1"
+          ],
+          "step": 5,
+          "pros": [
+            "Inspection findings can be used locally without waiting for central connectivity.",
+            "Adapters separate pump-family deployment from the shared model."
+          ],
+          "cons": [
+            "Local updates can diverge before synchronization, and prediction lead time is unproven."
+          ],
+          "reason": "A1 balances immediate feedback with reusable fleet learning and family-level isolation."
+        },
+        {
+          "id": "O2",
+          "name": "Shared calibrated model with station learning",
+          "values": [
+            "Model strategy: Shared fleet model with family calibration",
+            "Feedback path: Local incremental updates with later synchronization"
+          ],
+          "status": "chosen",
+          "in": [
+            "B1"
+          ],
+          "step": 6,
+          "pros": [
+            "Family calibration offers an isolated route for a new model.",
+            "Technician findings can be applied locally."
+          ],
+          "cons": [
+            "Local updates need validation and may diverge; the one-month target is unverified."
+          ],
+          "reason": "B1 favors family-level modifiability and local responsiveness."
+        },
+        {
+          "id": "O3",
+          "name": "Shared adapters with central batch learning",
+          "values": [
+            "Model strategy: Shared fleet model with pump-family adapters",
+            "Feedback path: Central batch retraining from inspection labels"
+          ],
+          "status": "discarded",
+          "step": 1,
+          "pros": [
+            "Inspection labels have a controlled path into shared model retraining.",
+            "Family adapters isolate deployment."
+          ],
+          "cons": [
+            "Batch feedback may delay prediction improvements and new-family onboarding."
+          ],
+          "reason": "The seed established a useful baseline, but its delayed feedback led to the local-update refinement."
+        },
+        {
+          "id": "O4",
+          "name": "Generic anomaly model",
+          "values": [
+            "Model strategy: Generic unsupervised anomaly detector",
+            "Feedback path: Technician-confirmed local calibration synced centrally"
+          ],
+          "status": "discarded",
+          "step": 4,
+          "pros": [
+            "A generic detector can start scoring equipment with little model-specific preparation."
+          ],
+          "cons": [
+            "It does not establish probable cause or 24-hour lead time."
+          ],
+          "reason": "The generic anomaly score does not meet the central prediction need in R1."
+        }
+      ]
+    }
+  ],
+  "unaddressed": []
+}

@@ -1,0 +1,236 @@
+{
+  "schema": "ddspace-rationale/6",
+  "id": "tickets-explain",
+  "mode": "explain",
+  "space": null,
+  "problem": {
+    "title": "Support-ticket routing",
+    "context": "A software company receives about 20,000 support tickets a day in English, Spanish and Portuguese, through e-mail and a web form. Tickets must reach one of 25 teams. First-line staff currently forward tickets by hand, and a misrouted ticket waits a day on average. Products and support teams change a few times a year.",
+    "inferred": false,
+    "requirements": [
+      {"id": "R1", "kind": "functional", "text": "Assign every new ticket to a team, and let a support agent move it to another team when the assignment is wrong."},
+      {"id": "R2", "kind": "functional", "text": "Learn from the moves that support agents make."},
+      {"id": "Q1", "kind": "quality", "attribute": "latency", "text": "At the daily peak of 3,000 tickets an hour, a ticket is assigned within 10 seconds of its arrival."},
+      {"id": "Q2", "kind": "quality", "attribute": "adaptability", "text": "When a new team is created for a new product, at least 80% of the tickets meant for it reach it within two weeks."},
+      {"id": "C1", "kind": "constraint", "text": "Tickets may contain customers' personal data and must not leave the company's cloud region in the EU."}
+    ]
+  },
+  "budget": {"max_points": 8},
+  "points": [
+    {
+      "id": "P1",
+      "values": [
+        "Ticket intake: Help desk webhook",
+        "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket",
+        "Text representation: Pretrained multilingual sentence embeddings",
+        "Classifier: Logistic regression with one class per team",
+        "Agent correction: Help desk records agent-selected team",
+        "Agent explanation: Show two runner-up teams and influential words",
+        "Runtime: Managed Kubernetes in EU region with two replicas behind load balancer",
+        "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets",
+        "Evaluation gate: Replace model if last-week accuracy is at least current model",
+        "Embedding lifecycle: Embedding model remains fixed",
+        "Model distribution: Model file in object storage, loaded within five minutes",
+        "New-team cold start: Lead-written keyword rules until moves create training data",
+        "Monitoring: Per-team moved-ticket share with alert when share doubles week over week"
+      ],
+      "description": "Tickets arrive via the help-desk webhook, with recent same-customer/subject duplicates attached to the earlier ticket. Remaining tickets use fixed multilingual embeddings and one-class-per-team logistic regression; corrections feed weekly 90-day retraining, accepted models load from object storage into two EU Kubernetes replicas, and new teams initially use lead-written keyword rules while monitoring tracks moved-ticket shares. Trade-off: This provides multilingual coverage, rapid model rollout, redundancy, and some transparency, but weekly updates and fixed embeddings limit adaptation, while last-week accuracy can overlook per-team or new-team performance and keyword rules may be inconsistent.",
+      "attested_by": []
+    },
+    {
+      "id": "P2",
+      "values": [
+        "Ticket intake: Help desk webhook",
+        "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket",
+        "Text representation: Pretrained multilingual sentence embeddings",
+        "Classifier: Logistic regression with one class per team",
+        "Agent correction: Help desk records agent-selected team",
+        "Agent explanation: Show two runner-up teams and influential words"
+      ],
+      "description": "A help desk webhook feeds tickets into a pipeline that attaches same-customer, same-subject tickets arriving within an hour to the earlier ticket. The system creates multilingual sentence embeddings, uses logistic regression to select a team, records the agent’s chosen team, and displays the two runner-up teams with influential words. Trade-off: This enables multilingual routing and simple team-level classification, but the deduplication rule may merge separate issues, and the model depends on team labels. Sentence embeddings also make “influential words” less direct to identify, weakening that explanation.",
+      "attested_by": []
+    },
+    {
+      "id": "P3",
+      "values": ["Runtime: Managed Kubernetes in EU region with two replicas behind load balancer"],
+      "description": "1. A support-ticket routing service runs on managed Kubernetes in an EU region, with two replicas deployed behind a load balancer. The load balancer distributes requests between replicas and can continue serving if one replica fails. 2. Trade-off: This gains simpler cluster operations and basic replica-level availability, but incurs the cost of running two replicas. It remains vulnerable to an outage affecting the entire EU region and does not provide multi-region resilience.",
+      "attested_by": []
+    },
+    {
+      "id": "P4",
+      "values": [
+        "Agent correction: Help desk records agent-selected team",
+        "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets",
+        "Evaluation gate: Replace model if last-week accuracy is at least current model",
+        "Embedding lifecycle: Embedding model remains fixed",
+        "Model distribution: Model file in object storage, loaded within five minutes",
+        "Monitoring: Per-team moved-ticket share with alert when share doubles week over week"
+      ],
+      "description": "1. The help desk records the team chosen by agents, and each Sunday those final-team tickets from the last 90 days train the next model. A replacement is used when its last-week accuracy is at least the current model’s; the fixed embedding model is packaged in object storage for loading within five minutes, while monitoring alerts when a team’s moved-ticket share doubles week over week. 2. Trade-off: This provides simple, rapid model distribution and feedback-driven retraining, but adapts only weekly and cannot improve the fixed embeddings. The gate and monitoring emphasize aggregate accuracy and routing shifts, potentially overlooking other changes.",
+      "attested_by": []
+    },
+    {
+      "id": "P5",
+      "values": ["New-team cold start: Lead-written keyword rules until moves create training data"],
+      "description": "The system initially routes support tickets using keyword rules written by team leads. As tickets are moved to different teams, those moves accumulate as training data for improving or eventually replacing the rules. Trade-off: This provides an immediate, interpretable way to route tickets without historical data, but depends on leads maintaining useful keywords and may route unfamiliar wording poorly until enough corrective moves accumulate.",
+      "attested_by": []
+    },
+    {
+      "id": "P6",
+      "values": ["New-team cold start: Classifier alone until training examples arrive"],
+      "description": "The system uses the classifier as the sole basis for routing new-team tickets while no training examples are available. Once examples arrive, they can support a later transition to example-informed classification. Trade-off: This enables routing immediately without waiting for team-specific data. It gives up the reliability and adaptation that training examples could provide initially, increasing the risk of incorrect routing.",
+      "attested_by": []
+    }
+  ],
+  "trajectory": [
+    {
+      "step": 1, "move": "solution", "parent": null,
+      "values": [
+        "Ticket intake: Help desk webhook",
+        "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket",
+        "Text representation: Pretrained multilingual sentence embeddings",
+        "Classifier: Logistic regression with one class per team",
+        "Agent correction: Help desk records agent-selected team",
+        "Agent explanation: Show two runner-up teams and influential words",
+        "Runtime: Managed Kubernetes in EU region with two replicas behind load balancer",
+        "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets",
+        "Evaluation gate: Replace model if last-week accuracy is at least current model",
+        "Embedding lifecycle: Embedding model remains fixed",
+        "Model distribution: Model file in object storage, loaded within five minutes",
+        "New-team cold start: Lead-written keyword rules until moves create training data",
+        "Monitoring: Per-team moved-ticket share with alert when share doubles week over week"
+      ],
+      "hypothesis": "The full design assigns tickets and captures corrections, learns from moves, supports new teams, and keeps processing in the EU; its latency and adaptation targets remain to be established.",
+      "assessment": {"R1": "meets", "R2": "meets", "Q1": "partly", "Q2": "partly", "C1": "meets"},
+      "tradeoffs": [
+        {"values": ["Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets", "Evaluation gate: Replace model if last-week accuracy is at least current model", "Embedding lifecycle: Embedding model remains fixed"], "gains": ["R2"], "costs": ["Q2"], "note": "Moves are used to retrain the classifier, while weekly updates and fixed embeddings limit how quickly a new team can benefit; last-week accuracy does not establish new-team performance."}
+      ],
+      "observation": "The system provides an assignment and correction path, uses agent moves for retraining, and locates service hosting in the EU. The stated architecture does not give peak-load measurements or new-team routing results, so the numerical Q1 and Q2 targets remain unverified. The design also skips classification for a detected duplicate by attaching it to an earlier ticket.",
+      "verdict": "partial", "point": "P1"
+    },
+    {
+      "step": 2, "move": "region", "parent": 1,
+      "values": [
+        "Ticket intake: Help desk webhook",
+        "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket",
+        "Text representation: Pretrained multilingual sentence embeddings",
+        "Classifier: Logistic regression with one class per team",
+        "Agent correction: Help desk records agent-selected team",
+        "Agent explanation: Show two runner-up teams and influential words"
+      ],
+      "hypothesis": "R1 explains the end-to-end assignment and correction path: tickets enter the service, receive a team, and agents can move wrong assignments with some supporting context.",
+      "assessment": {"R1": "meets"}, "tradeoffs": [],
+      "observation": "These values implement assignment and correction across the stated languages. Duplicate attachment treats the newer item as part of an existing ticket rather than independently classifying it; whether this is acceptable depends on what counts as a new ticket.",
+      "verdict": "grounded", "point": "P2"
+    },
+    {
+      "step": 3, "move": "region", "parent": 1,
+      "values": ["Runtime: Managed Kubernetes in EU region with two replicas behind load balancer"],
+      "hypothesis": "C1 requires EU-region processing; the replicas and load balancer may also support Q1, though no capacity evidence is stated.",
+      "assessment": {"C1": "meets", "Q1": "partly"},
+      "tradeoffs": [
+        {"values": ["Runtime: Managed Kubernetes in EU region with two replicas behind load balancer"], "gains": ["C1"], "costs": ["Q1"], "note": "Keeping the service in the EU meets the location constraint. Two replicas distribute requests and provide basic failover, but the fixed deployment has no stated throughput or latency measurement against the peak target."}
+      ],
+      "observation": "EU hosting is directly required by C1. Replicas and a load balancer are compatible with serving concurrent requests, but the solution gives no autoscaling, capacity, or latency evidence; Q1 is therefore only partly supported.",
+      "verdict": "partial", "point": "P3"
+    },
+    {
+      "step": 4, "move": "region", "parent": 1,
+      "values": [
+        "Agent correction: Help desk records agent-selected team",
+        "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets",
+        "Evaluation gate: Replace model if last-week accuracy is at least current model",
+        "Embedding lifecycle: Embedding model remains fixed",
+        "Model distribution: Model file in object storage, loaded within five minutes",
+        "Monitoring: Per-team moved-ticket share with alert when share doubles week over week"
+      ],
+      "hypothesis": "R2 calls for a feedback path from agent moves to model learning. Q2 also benefits if that learning can absorb new teams quickly, but the schedule and accuracy gate may limit that benefit.",
+      "assessment": {"R2": "meets", "Q2": "partly"},
+      "tradeoffs": [
+        {"values": ["Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets", "Evaluation gate: Replace model if last-week accuracy is at least current model", "Embedding lifecycle: Embedding model remains fixed"], "gains": ["R2"], "costs": ["Q2"], "note": "Scheduled retraining learns from corrections, but a weekly cadence can defer learning and the fixed representation plus a last-week aggregate gate do not establish adaptation for a newly created team."}
+      ],
+      "observation": "The moves are recorded as final-team labels and fed into recurring classifier training, so learning from moves is explicit. The short rollout time is stated, but no per-team accuracy criterion or result establishes the 80% new-team outcome.",
+      "verdict": "partial", "point": "P4"
+    },
+    {
+      "step": 5, "move": "region", "parent": 4,
+      "values": ["New-team cold start: Lead-written keyword rules until moves create training data"],
+      "hypothesis": "Q2 makes a no-example fallback useful: new teams need some route before agent moves have produced training examples.",
+      "assessment": {"Q2": "partly"}, "tradeoffs": [],
+      "observation": "Lead-written rules permit immediate routing without waiting for the classifier to learn a new class. No rule coverage, quality measure, or observed two-week result is supplied, so this is a plausible bridge rather than evidence that Q2 is met.",
+      "verdict": "partial", "point": "P5"
+    },
+    {
+      "step": 6, "move": "contrast", "parent": 5,
+      "values": ["New-team cold start: Classifier alone until training examples arrive"],
+      "hypothesis": "Compare the rules with relying on a classifier that has no examples for the new team: does Q2 call for the rules?",
+      "assessment": {"R1": "meets", "Q2": "misses"},
+      "tradeoffs": [
+        {"values": ["New-team cold start: Classifier alone until training examples arrive"], "gains": ["R1"], "costs": ["Q2"], "note": "The classifier can still return an existing team for assignment, but it has no team-specific examples for the new destination, making the two-week new-team target unsupported."}
+      ],
+      "observation": "The contrast exposes why a fallback matters for Q2: ordinary classifier assignment can continue, but a team with no examples is not represented by learned evidence. The rules are better supported than classifier-only cold start, yet the exact 80% threshold remains unproven, so this does not establish that this particular rule scheme is forced.",
+      "verdict": "ungrounded", "point": "P6"
+    }
+  ],
+  "regions": [
+    {"id": "G1", "name": "Assignment with agent correction", "step": 2, "drivers": ["R1"], "values": ["Ticket intake: Help desk webhook", "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket", "Text representation: Pretrained multilingual sentence embeddings", "Classifier: Logistic regression with one class per team", "Agent correction: Help desk records agent-selected team", "Agent explanation: Show two runner-up teams and influential words"], "reason": "The pipeline assigns a team and exposes a correction path to agents, directly matching R1; the chosen multilingual representation fits the ticket languages."},
+    {"id": "G2", "name": "EU hosted service", "step": 3, "drivers": ["C1", "Q1"], "values": ["Runtime: Managed Kubernetes in EU region with two replicas behind load balancer"], "reason": "The EU region satisfies the location constraint, while two replicas and a load balancer support availability and concurrent serving. The exact latency target remains unverified."},
+    {"id": "G3", "name": "Feedback-driven retraining", "step": 4, "drivers": ["R2", "Q2"], "values": ["Agent correction: Help desk records agent-selected team", "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets", "Evaluation gate: Replace model if last-week accuracy is at least current model", "Embedding lifecycle: Embedding model remains fixed", "Model distribution: Model file in object storage, loaded within five minutes", "Monitoring: Per-team moved-ticket share with alert when share doubles week over week"], "reason": "Agent moves become training labels and accepted models are deployed quickly, grounding the learning loop. This offers a path toward adaptation, but the available evidence does not demonstrate the 80% new-team target."}
+  ],
+  "alternatives": [
+    {
+      "id": "S", "name": "Ticket routing as built",
+      "summary": "A webhook-driven multilingual classifier assigns teams, captures corrections, retrains weekly from final-team labels, and uses lead-written rules for new-team cold starts. It runs in the EU and rolls accepted model files out quickly.",
+      "step": 1,
+      "choices": [
+        {"dimension_id": "Ticket intake", "value_id": "Ticket intake: Help desk webhook", "drivers": ["R1"], "forced": null, "reason": "A service needs ticket input to automate assignment, but a webhook is one implementation and no contrast establishes that it is required.", "solution_quote": "The help desk tool sends every new ticket to the routing service through a webhook."},
+        {"dimension_id": "Duplicate handling", "value_id": "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket", "drivers": ["R1"], "forced": null, "reason": "Deduplicating can avoid repeated classification, but no requirement specifies this key or time window; the solution gives no evidence about false merges.", "solution_quote": "It first looks for duplicates: if the same customer sent a ticket with the same subject in the last hour, the service attaches the new ticket to the earlier one and does not classify it."},
+        {"dimension_id": "Text representation", "value_id": "Text representation: Pretrained multilingual sentence embeddings", "drivers": ["R1", "Q1"], "forced": null, "reason": "A multilingual representation supports the three ticket languages and may support a compact classifier, but neither the model choice nor its latency is compared with alternatives.", "solution_quote": "Otherwise the service turns the subject and the body into an embedding with a pretrained multilingual sentence-embedding model"},
+        {"dimension_id": "Classifier", "value_id": "Classifier: Logistic regression with one class per team", "drivers": ["R1", "Q1", "Q2"], "forced": null, "reason": "One class per team directly implements team selection and can be retrained from labels. The solution does not provide comparative accuracy, latency, or new-team evidence to settle this algorithm choice.", "solution_quote": "and a logistic-regression classifier with one class per team picks the team."},
+        {"dimension_id": "Agent correction", "value_id": "Agent correction: Help desk records agent-selected team", "drivers": ["R1", "R2"], "forced": true, "reason": "R1 requires agents to move a wrong assignment, and recording that move supplies the feedback required by R2.", "solution_quote": "When an agent moves a ticket, the help desk tool records the new team."},
+        {"dimension_id": "Agent explanation", "value_id": "Agent explanation: Show two runner-up teams and influential words", "drivers": ["R1"], "forced": null, "reason": "The extra context may help an agent review an assignment, but R1 requires moving tickets and does not require runner-up teams or influential words.", "solution_quote": "The service writes the team back to the help desk tool, with the two runner-up teams and the words that weighed most in the decision, which the tool shows to agents next to the ticket."},
+        {"dimension_id": "Runtime", "value_id": "Runtime: Managed Kubernetes in EU region with two replicas behind load balancer", "drivers": ["Q1", "C1"], "forced": null, "reason": "The EU location is forced by C1, while managed Kubernetes, two replicas, and a load balancer are implementation choices. Their ability to meet Q1 is not established by measurements.", "solution_quote": "The service runs on a managed Kubernetes cluster in the company's EU cloud region, with two replicas behind a load balancer."},
+        {"dimension_id": "Feedback training", "value_id": "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets", "drivers": ["R2", "Q2"], "forced": null, "reason": "Retraining on corrected labels answers R2. The weekly cadence and 90-day window are choices; no result shows that this pace meets Q2.", "solution_quote": "Every Sunday a scheduled job exports the tickets of the last 90 days with their final teams, retrains the classifier"},
+        {"dimension_id": "Evaluation gate", "value_id": "Evaluation gate: Replace model if last-week accuracy is at least current model", "drivers": ["Q2"], "forced": null, "reason": "The gate avoids deploying a model with lower measured last-week accuracy, but aggregate recent accuracy does not establish adaptation for a new team.", "solution_quote": "and evaluates it on the last week's tickets. If it is at least as accurate as the current model, the job replaces the model file in object storage"},
+        {"dimension_id": "Embedding lifecycle", "value_id": "Embedding lifecycle: Embedding model remains fixed", "drivers": ["Q2"], "forced": null, "reason": "Keeping embeddings fixed simplifies training and rollout, but no requirement dictates it and it limits one possible route for adapting representations.", "solution_quote": "(the embedding model is never retrained)"},
+        {"dimension_id": "Model distribution", "value_id": "Model distribution: Model file in object storage, loaded within five minutes", "drivers": ["Q2"], "forced": null, "reason": "Quick loading makes an accepted model available promptly, but no requirement directly states a deployment propagation target and it does not prove new-team accuracy.", "solution_quote": "the job replaces the model file in object storage, and the service loads the new file within five minutes."},
+        {"dimension_id": "New-team cold start", "value_id": "New-team cold start: Lead-written keyword rules until moves create training data", "drivers": ["Q2"], "forced": null, "reason": "Rules address the lack of training examples and are better supported than classifier-only cold start, but their measured coverage is absent and the specific rule method is not proven necessary.", "solution_quote": "A new team has no training data until agents move tickets to it. Until then, keyword rules written by the team's lead route its tickets."},
+        {"dimension_id": "Monitoring", "value_id": "Monitoring: Per-team moved-ticket share with alert when share doubles week over week", "drivers": ["R2", "Q2"], "forced": null, "reason": "The dashboard can reveal teams with routing problems, including possible new-team issues, but it is an observation mechanism and does not itself learn from moves or guarantee the Q2 threshold.", "solution_quote": "A dashboard shows, per team, the share of tickets that agents moved, and sends an alert when that share doubles from one week to the next."}
+      ],
+      "considered": [], "open": [], "relations": []
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR1", "title": "Build an agent-correctable multilingual assignment path", "drivers": ["R1"],
+      "context": "Tickets need a team assignment and agents need a way to correct mistakes. The stated intake covers a multilingual service, and the tool can show agents the basis and alternatives for a decision.",
+      "options": [
+        {"id": "O1", "name": "Webhook, multilingual embedding classifier, and agent correction", "values": ["Ticket intake: Help desk webhook", "Duplicate handling: Same customer and subject within one hour attaches to earlier ticket", "Text representation: Pretrained multilingual sentence embeddings", "Classifier: Logistic regression with one class per team", "Agent correction: Help desk records agent-selected team", "Agent explanation: Show two runner-up teams and influential words"], "status": "chosen", "in": ["S"], "step": 2, "pros": ["Provides a concrete assignment path for multiple languages.", "Records agent corrections for subsequent use.", "Runner-up teams and influential words give agents context."], "cons": ["The duplicate rule may attach a distinct issue to an earlier ticket.", "The solution does not provide evidence that the displayed words explain the embedding-based classification."], "reason": "The assignment and correction functions directly answer R1. The specific webhook, representation, classifier, duplicate rule, and display choices are not shown to be forced."}
+      ]
+    },
+    {
+      "id": "ADR2", "title": "Keep the service inside the EU region", "drivers": ["C1", "Q1"],
+      "context": "Tickets can contain personal data and must remain in the company's EU cloud region. The service also has a stated peak-load latency target.",
+      "options": [
+        {"id": "O1", "name": "Two managed Kubernetes replicas behind a load balancer in the EU", "values": ["Runtime: Managed Kubernetes in EU region with two replicas behind load balancer"], "status": "chosen", "in": ["S"], "step": 3, "pros": ["The service runs in the required EU region.", "The load balancer distributes requests and replicas provide basic failover."], "cons": ["The target of 3,000 tickets an hour within 10 seconds has no stated capacity test or measurement.", "Two replicas do not protect against a region-wide outage."], "reason": "The EU location is forced by C1. Managed Kubernetes and two replicas are free implementation choices on the supplied evidence; their support for Q1 is plausible but unverified."}
+      ]
+    },
+    {
+      "id": "ADR3", "title": "Turn agent moves into accepted classifier updates", "drivers": ["R2", "Q2"],
+      "context": "Agent moves must inform learning. New products and teams arrive, so training and deployment need to make updated routing available, while new-team performance is important.",
+      "options": [
+        {"id": "O1", "name": "Weekly retraining with a recent-accuracy gate and rapid model loading", "values": ["Agent correction: Help desk records agent-selected team", "Feedback training: Weekly Sunday retraining on last 90 days of final-team tickets", "Evaluation gate: Replace model if last-week accuracy is at least current model", "Embedding lifecycle: Embedding model remains fixed", "Model distribution: Model file in object storage, loaded within five minutes", "Monitoring: Per-team moved-ticket share with alert when share doubles week over week"], "status": "chosen", "in": ["S"], "step": 4, "pros": ["Uses final-team labels from agent corrections for classifier retraining.", "Checks candidate accuracy before replacing the current model.", "Loads an accepted model within five minutes and monitors moved-ticket shares."], "cons": ["Retraining is weekly and the embedding model is fixed.", "A last-week accuracy comparison does not establish the performance of a new team.", "No measured Q2 result is supplied."], "reason": "Recording and using agent moves fulfills R2. Weekly cadence, the 90-day window, aggregate gate, fixed embeddings, and distribution mechanism are implementation choices; they do not prove Q2, so they are not established as forced by its numerical target."}
+      ]
+    },
+    {
+      "id": "ADR4", "title": "Provide a rule-based route before new-team examples exist", "drivers": ["Q2"],
+      "context": "A new team has no training data until agents move tickets. It still needs tickets routed during the period in which examples are accumulating.",
+      "options": [
+        {"id": "O1", "name": "Lead-written keyword rules for cold start", "values": ["New-team cold start: Lead-written keyword rules until moves create training data"], "status": "chosen", "in": ["S"], "step": 5, "pros": ["Allows routing before the new team has classifier training examples.", "Rules can be inspected and maintained by the team lead."], "cons": ["Rule coverage and accuracy are not reported.", "The 80% within two weeks target remains unverified."], "reason": "The contrast with classifier-only routing shows that a no-example fallback is better supported for Q2, but the required threshold is not demonstrated, so this exact keyword-rule choice is not proven forced."},
+        {"id": "O2", "name": "Use the classifier alone during cold start", "values": ["New-team cold start: Classifier alone until training examples arrive"], "status": "discarded", "step": 6, "pros": ["Keeps routing on the existing classifier without a separate rule set."], "cons": ["With no examples for the new class, it has no team-specific basis for meeting Q2."], "reason": "It continues to return a team but misses the new-team adaptation requirement in this evaluation, so the rule-based fallback is better supported."}
+      ]
+    }
+  ],
+  "uncovered": [],
+  "unaddressed": []
+}
