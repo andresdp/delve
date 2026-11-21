@@ -396,13 +396,86 @@ def _assessment_text(assessment: Mapping[str, str]) -> str:
     return " · ".join(parts)
 
 
+def _search_grid(trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Search's grid: one row per approach (in the lanes' order), one column per round; dropped approaches dashed,
+    alternatives thick with a badge."""
+    rounds = (lanes or {}).get("rounds") or []
+    rows: List[Dict[str, Any]] = []
+    row_of: Dict[Any, int] = {}
+    dropped = set()
+    for lane in (lanes or {}).get("lanes") or []:
+        row_of[lane["approach"]] = len(rows)
+        is_dropped = (lane.get("status") or "") == "dropped"
+        if is_dropped:
+            dropped.add(lane["approach"])
+        title = lane.get("idea") or lane["approach"]
+        if lane.get("dropped_because"):
+            title += f" (dropped: {lane['dropped_because']})"
+        rows.append({"key": lane["approach"], "label": lane["approach"] + (" · dropped" if is_dropped else ""),
+                     "sublabel": _cut(lane.get("idea") or "", 34), "title": title})
+    cell: Dict[Any, Tuple[int, int]] = {}
+    styles: Dict[Any, Tuple[List[str], Any]] = {}
+    for s in trajectory:
+        if s.get("approach") in row_of and s.get("round") in rounds:
+            cell[s["step"]] = (row_of[s["approach"]], rounds.index(s["round"]))
+            # a dropped approach stays dashed even where a step became an alternative; the badge still names it
+            extra = ["map-dropped"] if s["approach"] in dropped else ["map-alt"] if s.get("alternative") else []
+            styles[s["step"]] = (extra, s.get("alternative"))
+    return {"rows": rows, "columns": [f"round {r}" for r in rounds], "cell": cell, "styles": styles,
+            "centred": None}
+
+
+def _explain_grid(trajectory: Sequence[Mapping[str, Any]], solution: Optional[Mapping[str, Any]],
+                  regions: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Explain's grid: one row per region step, plus a "solution" row for contrasts of the whole point; columns
+    solution (the solution, centred across the rows), regions, contrasts. Justifying regions are thick, ungrounded
+    contrasts dashed."""
+    by_step = {s["step"]: s for s in trajectory}
+    justifying = {r.get("step") for r in regions}
+    rows: List[Dict[str, Any]] = []
+    row_of: Dict[Any, int] = {}
+    cell: Dict[Any, Tuple[int, int]] = {}
+    styles: Dict[Any, Tuple[List[str], Any]] = {}
+    for s in trajectory:
+        if s["move"] == "region":
+            row_of[s["step"]] = len(rows)
+            drivers = " ".join(s["drivers"])
+            rows.append({"key": str(s["step"]), "label": " ".join(_short(d) for d in s["point"])
+                         + (f" · for {drivers}" if drivers else ""),
+                         "sublabel": " ".join(_short(v) for v in s["point"].values()),
+                         "title": f"Region (step {s['step']})"})
+            cell[s["step"]] = (row_of[s["step"]], 1)
+            styles[s["step"]] = (["map-justifying"] if s["step"] in justifying else [], None)
+    for s in trajectory:
+        if s["move"] == "region" or s is solution:
+            continue
+        up = by_step.get(s["parent"])
+        while up is not None and up["move"] != "region":
+            up = by_step.get(up["parent"])
+        if up is None:
+            if "solution" not in row_of:
+                row_of["solution"] = len(rows)
+                rows.append({"key": "solution", "label": "solution", "sublabel": "contrasts of the whole point",
+                             "title": "Contrasts whose parent is the solution itself"})
+            cell[s["step"]] = (row_of["solution"], 2)
+        else:
+            cell[s["step"]] = (row_of[up["step"]], 2)
+        if s["move"] == "contrast" and s["verdict"] == "ungrounded":
+            styles[s["step"]] = (["map-ungrounded"], None)
+    if not rows and solution is not None:  # no region: the solution alone
+        rows.append({"key": "solution", "label": "solution", "sublabel": "", "title": "The solution"})
+    if solution is not None:
+        cell[solution["step"]] = (0, 0)
+    return {"rows": rows, "columns": ["solution", "regions", "contrasts"], "cell": cell, "styles": styles,
+            "centred": solution["step"] if solution is not None else None}
+
+
 def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mapping[str, Any]],
          alternatives: Sequence[Mapping[str, Any]], regions: Sequence[Mapping[str, Any]],
          uncovered: Sequence[Mapping[str, Any]], unaddressed: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     """The map: one diagram of the run, like the trajectory figures of the Designing 2027 paper.
 
-    Search: one row per approach (in the lanes' order), one column per round. Explain: one row per region step
-    (plus a "solution" row for contrasts of the whole point), columns solution, regions, contrasts. Every node has
+    The grid comes from ``_search_grid`` or ``_explain_grid``; this lays it out and draws it. Every node has
     two lines: step, verdict and change; then its main trade-off (the first one caused by a value it changed), or
     its assessment. Positions, sizes and arrow paths are computed here, so the template only draws them.
     """
@@ -410,7 +483,6 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
     by_step = {s["step"]: s for s in trajectory}
     solution = next((s for s in trajectory if s["move"] == "solution"), None) if explain else None
     forced = {c["value"]: c.get("forced") for a in alternatives for c in a["choices"] if c["value"]}
-    justifying = {r.get("step") for r in regions}
 
     def changes(s: Mapping[str, Any]) -> List[Tuple[Any, Any]]:
         if explain:  # a contrast is read against the solution; the solution and its regions change nothing
@@ -446,62 +518,15 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         join = lambda parts: " · ".join(x for x in parts if x)  # noqa: E731
         return [full_first, join([second, *marks(pairs)])], [_cut(first), _cut(join([second, *marks(shown_pairs)]))]
 
-    # The grid: rows, columns, and each step's (row, column).
-    rows: List[Dict[str, Any]] = []
-    cell: Dict[Any, Tuple[int, int]] = {}
-    row_of: Dict[Any, int] = {}
-    dropped: set = set()  # search: the approaches dropped
-    if explain:
-        columns = ["solution", "regions", "contrasts"]
-        for s in trajectory:
-            if s["move"] == "region":
-                row_of[s["step"]] = len(rows)
-                drivers = " ".join(s["drivers"])
-                rows.append({"key": str(s["step"]), "label": " ".join(_short(d) for d in s["point"])
-                             + (f" · for {drivers}" if drivers else ""),
-                             "sublabel": " ".join(_short(v) for v in s["point"].values()),
-                             "title": f"Region (step {s['step']})"})
-                cell[s["step"]] = (row_of[s["step"]], 1)
-        for s in trajectory:
-            if s["move"] == "region" or s is solution:
-                continue
-            up = by_step.get(s["parent"])
-            while up is not None and up["move"] != "region":
-                up = by_step.get(up["parent"])
-            if up is None:
-                if "solution" not in row_of:
-                    row_of["solution"] = len(rows)
-                    rows.append({"key": "solution", "label": "solution", "sublabel": "contrasts of the whole point",
-                                 "title": "Contrasts whose parent is the solution itself"})
-                cell[s["step"]] = (row_of["solution"], 2)
-            else:
-                cell[s["step"]] = (row_of[up["step"]], 2)
-        if not rows and solution is not None:  # no region: the solution alone
-            rows.append({"key": "solution", "label": "solution", "sublabel": "", "title": "The solution"})
-        if solution is not None:
-            cell[solution["step"]] = (0, 0)
-    else:
-        rounds = (lanes or {}).get("rounds") or []
-        columns = [f"round {r}" for r in rounds]
-        for lane in (lanes or {}).get("lanes") or []:
-            row_of[lane["approach"]] = len(rows)
-            status = lane.get("status") or ""
-            if status == "dropped":
-                dropped.add(lane["approach"])
-            title = lane.get("idea") or lane["approach"]
-            if lane.get("dropped_because"):
-                title += f" (dropped: {lane['dropped_because']})"
-            rows.append({"key": lane["approach"], "label": lane["approach"] + (" · dropped" if status == "dropped" else ""),
-                         "sublabel": _cut(lane.get("idea") or "", 34), "title": title})
-        for s in trajectory:
-            if s.get("approach") in row_of and s.get("round") in rounds:
-                cell[s["step"]] = (row_of[s["approach"]], rounds.index(s["round"]))
+    grid = _explain_grid(trajectory, solution, regions) if explain else _search_grid(trajectory, lanes)
+    rows, columns, cell, styles = grid["rows"], grid["columns"], grid["cell"], grid["styles"]
+    centred = grid["centred"]
 
     # Slots: several steps in one cell stack; a row is as tall as its fullest cell.
     slot: Dict[Any, int] = {}
     filled: Dict[Tuple[int, int], int] = {}
     for s in trajectory:
-        if s["step"] in cell and not (explain and s is solution):
+        if s["step"] in cell and s["step"] != centred:
             slot[s["step"]] = filled.get(cell[s["step"]], 0)
             filled[cell[s["step"]]] = slot[s["step"]] + 1
     y = MAP_PAD
@@ -518,26 +543,19 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         if s["step"] not in cell:
             continue
         r, c = cell[s["step"]]
-        if explain and s is solution:
+        if s["step"] == centred:
             top, bottom = rows[0]["top"], rows[-1]["top"] + rows[-1]["height"]
             ny = (top + bottom - MAP_NODE_H) / 2
         else:
             ny = rows[r]["top"] + slot[s["step"]] * (MAP_NODE_H + MAP_SLOT_GAP)
-        cls = [f"v-{s['verdict']}"] if s["verdict"] else []
-        if explain and s["move"] == "region" and s["step"] in justifying:
-            cls.append("map-justifying")
-        if explain and s["move"] == "contrast" and s["verdict"] == "ungrounded":
-            cls.append("map-ungrounded")
-        if not explain and s.get("approach") in dropped:
-            cls.append("map-dropped")
-        elif not explain and s.get("alternative"):
-            cls.append("map-alt")
+        extra, badge = styles.get(s["step"], ([], None))
+        cls = ([f"v-{s['verdict']}"] if s["verdict"] else []) + extra
         full, shown = lines(s)
         number = str(s["step"])  # drawn bold, apart from the rest of the first line
         nodes.append({"step": s["step"], "row": r, "col": c, "slot": slot.get(s["step"], 0),
                       "x": col_x[c], "y": ny, "full": full, "lines": shown,
                       "number": number, "rest": shown[0][len(number):],
-                      "badge": s.get("alternative") if not explain else None, "cls": " ".join(cls)})
+                      "badge": badge, "cls": " ".join(cls)})
 
     # Arrows, from each step's parent: straight along a row, arcs over it when they skip columns, curves across rows.
     at = {n["step"]: n for n in nodes}
@@ -547,7 +565,7 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         if p is None:
             continue
         w, h = MAP_NODE_W, MAP_NODE_H
-        from_solution = explain and p["col"] == 0  # the centred solution reaches every row with a curve
+        from_solution = p["step"] == centred  # the centred solution reaches every row with a curve
         if p["row"] == n["row"] and n["col"] == p["col"] + 1 and p["slot"] == n["slot"] and not from_solution:
             kind, d = "straight", f"M{p['x'] + w},{p['y'] + h / 2} L{n['x']},{n['y'] + h / 2}"
         elif p["row"] == n["row"] and n["col"] > p["col"] + 1 and not from_solution:

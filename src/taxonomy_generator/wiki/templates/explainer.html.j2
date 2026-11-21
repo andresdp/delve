@@ -1,3 +1,4 @@
+{% import "explainer-map.html.j2" as map_ui %}
 {% macro value_ref(vid) -%}
 {%- set v = d["values"].get(vid) if vid else none -%}
 {%- if v -%}
@@ -108,49 +109,7 @@
   .graph-key { font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 12px;
     border-top: 1px solid var(--border); }
   .graph-key b { color: var(--fg); font-weight: 600; }
-  /* The experimental map: an alternative to the radial graph, in the same pane. */
-  .view-switch { position: absolute; top: 8px; left: 10px; z-index: 4; display: flex; border: 1px solid var(--border);
-    border-radius: 7px; overflow: hidden; background: var(--panel); }
-  .view-switch button { font: inherit; font-size: 12px; padding: 4px 10px; border: 0; background: none; color: var(--muted); cursor: pointer; }
-  .view-switch button[aria-pressed="true"] { background: var(--bg); color: var(--fg); font-weight: 600; }
-  #canvas.has-map .graph-toggle { top: 42px; }
-  .graph-key[hidden] { display: none; }
-  #canvas.map-on #svg, #canvas.map-on .graph-toggle, #canvas.map-on .zoom-ctl { visibility: hidden; }
-  .map-view { position: absolute; top: 40px; left: 0; right: 0; bottom: 0; overflow: auto; background: var(--panel); z-index: 3; }
-  .map-grid { display: grid; }
-  .map-corner { position: sticky; top: 0; left: 0; z-index: 3; background: var(--panel); }
-  .map-cols { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--border); }
-  .map-cols span { position: absolute; top: 5px; transform: translateX(-50%); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-  .map-rows { position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--border); }
-  .map-row { position: absolute; left: 0; right: 0; margin: 0; padding: 0 8px; display: flex; flex-direction: column;
-    justify-content: center; font-size: 11.5px; line-height: 1.3; overflow: hidden; }
-  .map-row span { color: var(--muted); }
-  .map-svg { display: block; }
-  .map-edge { fill: none; stroke: var(--muted); stroke-width: 1.4; }
-  .map-edge.dashed { stroke-dasharray: 5 4; }
-  #map-arrow path { fill: var(--muted); }
-  .map-node { cursor: pointer; outline: none; }
-  .map-node rect { fill: var(--panel); stroke: var(--muted); stroke-width: 1.3; }
-  .map-node text { font-size: 11px; fill: var(--fg); }
-  .map-node .map-n { font-weight: 700; }
-  .map-node .map-l2 { fill: var(--muted); }
-  .map-node.v-strong > rect, .map-node.v-grounded > rect { stroke: var(--accepted); }
-  .map-node.v-mixed > rect, .map-node.v-partial > rect { stroke: var(--mixed); }
-  .map-node.v-weak > rect, .map-node.v-ungrounded > rect { stroke: var(--rejected); }
-  .map-node.map-alt > rect, .map-node.map-justifying > rect { stroke-width: 3; }
-  .map-node.map-dropped > rect, .map-node.map-ungrounded > rect { stroke-dasharray: 5 3; }
-  .map-node.map-dropped text { fill: var(--muted); }
-  .map-node.lit > rect { fill: var(--bg); }
-  .map-node.sel > rect { stroke: var(--fg); stroke-width: 3.2; stroke-dasharray: none; }
-  .map-node:focus-visible > rect { stroke: var(--accent); stroke-width: 3.2; }
-  .map-badge rect { fill: var(--fg); stroke: none; }
-  .map-badge text { fill: var(--panel); font-size: 10px; font-weight: 700; text-anchor: middle; }
-  .map-footer { padding: 6px 12px 10px 12px; font-size: 12px; border-top: 1px solid var(--border); }
-  .map-footer p { margin: 4px 0; }
-  .map-key { font-size: 11.5px; color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--border); }
-  .map-key summary { cursor: pointer; }
-  .map-key span { display: block; margin-top: 2px; }
-  .map-key b { color: var(--fg); font-weight: 600; }
+  {% if d.map %}{{ map_ui.styles() }}{% endif %}
   .traj-wrap { position: relative; }
   svg.lineage { display: block; width: 100%; height: 46px; overflow: visible; }
   table.traj { border-collapse: separate; border-spacing: 0; font-size: 12.5px; overflow-wrap: normal; word-break: normal; hyphens: none; }
@@ -627,27 +586,9 @@
   <div id="canvas"{% if d.map %} class="has-map"{% endif %}><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg>
     <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value {{ "the space offers" if d.wiki else "the agent named" }}</label>
     <div class="zoom-ctl"><button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button><button type="button" data-zoom="fit" title="Fit the graph" aria-label="Fit the graph">⤢</button></div>
-    {% if d.map %}{% set m = d.map %}{% set nw, nh = m.node.w, m.node.h %}
-    <div class="view-switch" role="group" aria-label="Show the graph or the map"><button type="button" data-view="graph" aria-pressed="true">Graph</button><button type="button" data-view="map" aria-pressed="false">Map (experimental)</button></div>
-    <div class="map-view" hidden>
-      <div class="map-grid" style="grid-template-columns: 128px {{ m.size.width }}px; grid-template-rows: 26px {{ m.size.height }}px;">
-        <div class="map-corner"></div>
-        <div class="map-cols">{% for c in m.columns %}<span style="left: {{ c.x }}px">{{ c.label }}</span>{% endfor %}</div>
-        <div class="map-rows">{% for r in m.rows %}<p class="map-row" style="top: {{ r.top }}px; height: {{ r.height }}px" title="{{ r.title }}"><b>{{ r.label }}</b><span>{{ r.sublabel }}</span></p>{% endfor %}</div>
-        <svg class="map-svg" width="{{ m.size.width }}" height="{{ m.size.height }}" viewBox="0 0 {{ m.size.width }} {{ m.size.height }}" role="group" aria-label="{{ 'The search, approach by round' if m.mode == 'search' else 'The explanation, region by move' }}">
-          <defs><marker id="map-arrow" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5"></path></marker></defs>
-          {% for e in m.edges %}<path class="map-edge{% if e.dashed %} dashed{% endif %}" d="{{ e.d }}" marker-end="url(#map-arrow)"></path>{% endfor %}
-          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ n.full|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})"><title>{{ n.full|join('\n') }}</title><rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="8" y="15"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="8" y="30" class="map-l2">{{ n.lines[1] }}</text>{% if n.badge %}{% set bw = 12 + 7 * (n.badge|length) %}<g class="map-badge" transform="translate({{ nw - bw - 2 }},-8)"><rect width="{{ bw }}" height="15" rx="7"></rect><text x="{{ bw / 2 }}" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
-        </svg>
-      </div>
-      {% if m.footer.uncovered or m.footer.unaddressed %}<div class="map-footer">{% if m.footer.uncovered %}<p><b>Uncovered</b> (no dimension fits): {{ m.footer.uncovered|join('; ') }}</p>{% endif %}{% if m.footer.unaddressed %}<p><b>Unaddressed</b> (no dimension bears on them): {{ m.footer.unaddressed|join(', ') }}</p>{% endif %}</div>{% endif %}
-    </div><!-- /map-view -->
-    {% endif %}</div>
+    {% if d.map %}{{ map_ui.view(d.map) }}{% endif %}</div>
   <div class="splitter-h" role="separator" aria-orientation="horizontal" aria-label="Resize the graph and its details" tabindex="0" title="Drag to resize (double-click to reset)"></div>
-  {% if d.map %}<details class="map-key" open hidden><summary><b>Map (experimental)</b>: how to read it</summary>
-    {% if d.map.mode == "search" %}<span>rows: approaches; columns: rounds</span><span>each box: step, rating (border colour) and the values it changed against its parent (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or how it met the requirements</span><span>arrows: from the step it changed</span><span><b>thick</b>, with a badge: an alternative; <b>dashed</b>: a dropped approach</span>
-    {% else %}<span>rows: candidate regions (their dimensions, the requirements behind them, their values); columns: the solution, its regions, the contrasts</span><span>each box: step, verdict (border colour) and, for a contrast, the solution value it swaps (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or assessment, and whether the requirements <b>force</b> that value or leave it <b>free</b></span><span><b>thick</b>: a region that justifies the solution; <b>dashed</b>: an ungrounded contrast</span>{% endif %}
-    <span>select a box to follow that step; this view is experimental</span></details>{% endif %}
+  {% if d.map %}{{ map_ui.key(d.map) }}{% endif %}
   <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, linked to each point by how it meets them; coloured by the design point shown)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and its direct neighbours; select one of those to go on</span></div>
   <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
 </aside>
