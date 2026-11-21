@@ -831,9 +831,14 @@ def test_explain_map_footer_lists_uncovered_and_unaddressed(ws):
     assert [u["id"] for u in footer["unaddressed"]] == ["C1"] and footer["unaddressed"][0]["text"]
 
 
-def test_zero_shot_explainer_has_no_map(ws):
+def test_zero_shot_explainer_has_a_map_with_short_made_up_ids(ws):
     data = _data(_zero(), ws)
-    assert data["map"] is None
+    m = data["map"]
+    assert m is not None and m["mode"] == "search" and m["nodes"]
+    legend = {x["id"]: x for x in m["dimensions"]}
+    assert all(i.startswith("d") and ":" not in i for i in legend)          # z:1 -> d1
+    assert all(":" not in v["id"] for x in legend.values() for v in x["value_list"])   # z:1.2 -> 1.2
+    assert not any("z:" in line for n in m["nodes"] for line in n["full"])  # no raw made-up id in a box
 
 
 def _page(ws, tmp_path, doc):
@@ -867,11 +872,11 @@ def test_explain_map_footer_is_drawn_and_left_out_when_empty(ws, tmp_path):
     assert "Uncovered" not in footer and "Unaddressed" not in footer
 
 
-def test_zero_shot_page_has_no_map_switch(tmp_path, monkeypatch):
+def test_zero_shot_page_offers_the_map_too(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", "out"))
     html = Path(payload["page"]).read_text(encoding="utf-8")
-    assert 'class="view-switch"' not in html and 'class="map-view"' not in html
+    assert 'class="view-switch"' in html and 'class="map-view"' in html
 
 
 def test_map_keeps_the_count_of_further_changes_in_view(ws):
@@ -939,3 +944,7 @@ def test_page_draws_tooltips_only_for_alternatives(ws, tmp_path):
     assert sum("A1 · " in t for t in titles) == 1 and sum("A2 · " in t for t in titles) == 1  # only alternatives
     assert not any("A1 · " in t or "A2 · " in t for t in titles if "Trade-off" in t.split("\n")[0])
     assert '<tspan class="map-gain">' in view and '<tspan class="map-cost">' in view
+
+
+def test_map_shortens_space_and_made_up_ids():
+    assert [explainer._short(x) for x in ("v:2.2", "d:3", "z:1.2", "z:1", "other")] == ["2.2", "d3", "1.2", "d1", "other"]

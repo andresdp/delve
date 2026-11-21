@@ -366,9 +366,14 @@ MAP_CHARS = 26  # characters per node line before it is cut (the full text stays
 
 
 def _short(ref: Any) -> str:
-    """A value or dimension id as the map prints it: ``v:2.2`` -> ``2.2``, ``d:3`` -> ``d3``."""
+    """A value or dimension id as the map prints it: ``v:2.2`` -> ``2.2``, ``d:3`` -> ``d3``. A zero-shot file's
+    made-up ids read the same way: ``z:1.2`` -> ``1.2``, ``z:1`` -> ``d1``."""
     text = str(ref)
-    return text[2:] if text.startswith("v:") else text.replace(":", "", 1) if text.startswith("d:") else text
+    if text.startswith("v:") or (text.startswith("z:") and "." in text):
+        return text[2:]
+    if text.startswith(("d:", "z:")):
+        return "d" + text[2:]
+    return text
 
 
 def _cut(text: str, budget: int = MAP_CHARS) -> str:
@@ -802,11 +807,11 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
 
     meta = doc.get("space") if isinstance(doc.get("space"), dict) else None
     lanes = _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None
-    # The map is offered only with a design space behind the file (``wiki``; ``with_space`` also holds for the
-    # label graph of a zero-shot file).
+    # The map, with a design space behind the file or with the label graph of a zero-shot file (whose names get
+    # made-up ids); a file of the old schema without either has none.
     run_map = (_map(doc.get("mode"), trajectory, lanes, alternatives, regions, uncovered, unaddressed,
                     space.dims, space.values)
-               if space.wiki and trajectory else None)
+               if with_space and trajectory else None)
     return {
         "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space, "wiki": space.wiki,
         "title": problem.get("title") or str(doc.get("id")), "context": problem.get("context") or "",
