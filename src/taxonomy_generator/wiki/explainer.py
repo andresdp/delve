@@ -357,6 +357,297 @@ def _qoc(trajectory: Sequence[Mapping[str, Any]], alternatives: Sequence[Mapping
     return questions
 
 
+# ── the experimental map (an alternative to the radial graph) ─────────────
+
+# Geometry of the map, in SVG units: fixed-size nodes, one column per lane
+# (an approach or a region), one row per stage (a round, or solution / regions / contrasts), read top to bottom.
+MAP_NODE_W, MAP_NODE_H, MAP_COL_GAP, MAP_SLOT_GAP, MAP_STAGE_GAP, MAP_PAD = 192, 44, 22, 8, 30, 22
+MAP_CHARS = 26  # characters per node line before it is cut (the full text stays in the tooltip)
+
+
+def _short(ref: Any) -> str:
+    """A value or dimension id as the map prints it: ``v:2.2`` -> ``2.2``, ``d:3`` -> ``d3``. A zero-shot file's
+    made-up ids read the same way: ``z:1.2`` -> ``1.2``, ``z:1`` -> ``d1``."""
+    text = str(ref)
+    if text.startswith("v:") or (text.startswith("z:") and "." in text):
+        return text[2:]
+    if text.startswith(("d:", "z:")):
+        return "d" + text[2:]
+    return text
+
+
+def _cut(text: str, budget: int = MAP_CHARS) -> str:
+    """``text`` cut to ``budget`` characters with an ellipsis."""
+    return text if len(text) <= budget else text[:budget - 1] + "…"
+
+
+def _change_text(pairs: Sequence[Tuple[Any, Any]], shown: int = 2) -> str:
+    """Value swaps as ``1.1 → 1.2``: the first ``shown`` of them, then ``+N more``."""
+    text = ", ".join(f"{_short(a)} → {_short(b)}" for a, b in pairs[:shown])
+    return text + (f" +{len(pairs) - shown} more" if len(pairs) > shown else "")
+
+
+def _tradeoff_text(t: Mapping[str, Any]) -> str:
+    parts = (["+" + " ".join(t["gains"])] if t["gains"] else []) + (["−" + " ".join(t["costs"])] if t["costs"] else [])
+    return " ".join(parts)
+
+
+def _assessment_text(assessment: Mapping[str, str]) -> str:
+    """``meets … · misses …`` (requirements judged ``partly`` are left out)."""
+    parts = []
+    for word in ("meets", "misses"):
+        ids = [r for r, j in assessment.items() if j == word]
+        if ids:
+            parts.append(f"{word} {' '.join(ids)}")
+    return " · ".join(parts)
+
+
+def _search_grid(trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Search's grid: one lane per approach (in the lanes' order), one stage per round; dropped approaches dashed,
+    alternatives thick with a badge."""
+    rounds = (lanes or {}).get("rounds") or []
+    rows: List[Dict[str, Any]] = []
+    row_of: Dict[Any, int] = {}
+    dropped = set()
+    for lane in (lanes or {}).get("lanes") or []:
+        row_of[lane["approach"]] = len(rows)
+        is_dropped = (lane.get("status") or "") == "dropped"
+        if is_dropped:
+            dropped.add(lane["approach"])
+        title = lane.get("idea") or lane["approach"]
+        if lane.get("dropped_because"):
+            title += f" (dropped: {lane['dropped_because']})"
+        rows.append({"key": lane["approach"], "label": lane["approach"] + (" · dropped" if is_dropped else ""),
+                     "sublabel": _cut(lane.get("idea") or "", 34), "title": title})
+    cell: Dict[Any, Tuple[int, int]] = {}
+    styles: Dict[Any, Tuple[List[str], Any]] = {}
+    for s in trajectory:
+        if s.get("approach") in row_of and s.get("round") in rounds:
+            cell[s["step"]] = (row_of[s["approach"]], rounds.index(s["round"]))
+            # a dropped approach stays dashed even where a step became an alternative; the badge still names it
+            extra = ["map-dropped"] if s["approach"] in dropped else ["map-alt"] if s.get("alternative") else []
+            styles[s["step"]] = (extra, s.get("alternative"))
+    return {"lanes": rows, "stages": [f"round {r}" for r in rounds], "cell": cell, "styles": styles,
+            "centred": None}
+
+
+def _explain_grid(trajectory: Sequence[Mapping[str, Any]], solution: Optional[Mapping[str, Any]],
+                  regions: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Explain's grid: one lane per region step, plus a "solution" lane for contrasts of the whole point; stages
+    solution (the solution, centred above the lanes), regions, contrasts. Justifying regions are thick, ungrounded
+    contrasts dashed."""
+    by_step = {s["step"]: s for s in trajectory}
+    justifying = {r.get("step") for r in regions}
+    rows: List[Dict[str, Any]] = []
+    row_of: Dict[Any, int] = {}
+    cell: Dict[Any, Tuple[int, int]] = {}
+    styles: Dict[Any, Tuple[List[str], Any]] = {}
+    for s in trajectory:
+        if s["move"] == "region":
+            row_of[s["step"]] = len(rows)
+            drivers = " ".join(s["drivers"])
+            label = " ".join(_short(d) for d in s["point"]) + (f" · for {drivers}" if drivers else "")
+            values = " ".join(_short(v) for v in s["point"].values())
+            rows.append({"key": str(s["step"]), "label": label, "sublabel": values,
+                         "title": f"Region (step {s['step']}): {label}; values {values}"})
+            cell[s["step"]] = (row_of[s["step"]], 1)
+            styles[s["step"]] = (["map-justifying"] if s["step"] in justifying else [], None)
+    for s in trajectory:
+        if s["move"] == "region" or s is solution:
+            continue
+        up = by_step.get(s["parent"])
+        while up is not None and up["move"] != "region":
+            up = by_step.get(up["parent"])
+        if up is None:
+            if "solution" not in row_of:
+                row_of["solution"] = len(rows)
+                rows.append({"key": "solution", "label": "solution", "sublabel": "contrasts of the whole point",
+                             "title": "Contrasts whose parent is the solution itself"})
+            cell[s["step"]] = (row_of["solution"], 2)
+        else:
+            cell[s["step"]] = (row_of[up["step"]], 2)
+        if s["move"] == "contrast" and s["verdict"] == "ungrounded":
+            styles[s["step"]] = (["map-ungrounded"], None)
+    if not rows and solution is not None:  # no region: the solution alone
+        rows.append({"key": "solution", "label": "solution", "sublabel": "", "title": "The solution"})
+    if solution is not None:
+        cell[solution["step"]] = (0, 0)
+    return {"lanes": rows, "stages": ["solution", "regions", "contrasts"], "cell": cell, "styles": styles,
+            "centred": solution["step"] if solution is not None else None}
+
+
+def _segments(text: str) -> List[Tuple[str, str]]:
+    """A box's second line in coloured pieces: ``+`` gains (``gain``), ``−`` costs (``cost``), the rest plain."""
+    return [(m.group(0), "gain" if m.group(0)[0] == "+" else "cost" if m.group(0)[0] == "−" else "")
+            for m in re.finditer(r"[+−][^+−·]*|[^+−]+", text)]
+
+
+def _id_order(ref: Any) -> Tuple:
+    """``d:10`` after ``d:9``, ``v:1.10`` after ``v:1.9``: numbers compare as numbers."""
+    return tuple(int(x) if x.isdigit() else x for x in re.split(r"(\d+)", str(ref)))
+
+
+def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Mapping[str, Any]],
+         alternatives: Sequence[Mapping[str, Any]], regions: Sequence[Mapping[str, Any]],
+         uncovered: Sequence[Mapping[str, Any]], unaddressed: Sequence[Mapping[str, Any]],
+         dims: Mapping[str, Mapping[str, Any]], values: Mapping[str, Mapping[str, Any]]) -> Dict[str, Any]:
+    """The map: one diagram of the run, like the trajectory figures of the Designing 2027 paper.
+
+    The grid comes from ``_search_grid`` or ``_explain_grid``; this lays it out top to bottom and draws it. Every node has
+    two lines: step, verdict and change; then its main trade-off (the first one caused by a value it changed), or
+    its assessment. Positions, sizes and arrow paths are computed here, so the template only draws them.
+    """
+    explain = mode == "explain"
+    by_step = {s["step"]: s for s in trajectory}
+    solution = next((s for s in trajectory if s["move"] == "solution"), None) if explain else None
+    forced = {c["value"]: c.get("forced") for a in alternatives for c in a["choices"] if c["value"]}
+
+    def changes(s: Mapping[str, Any]) -> List[Tuple[Any, Any]]:
+        if explain:  # a contrast is read against the solution; the solution and its regions change nothing
+            if s["move"] != "contrast" or solution is None:
+                return []
+            diff = _diff(s["point"], solution["point"])
+        elif s["parent"] is None:
+            return []
+        else:
+            diff = s.get("diff") or []
+        return [(c["before"], c["after"]) for c in diff if c["before"] and c["after"]]  # a swap, not a dropped value
+
+    def lines(s: Mapping[str, Any]) -> Tuple[List[str], List[str], str]:
+        """The node's two lines in full (every change, every mark) and as shown in the box, and what its trade-off
+        means: the note of the trade-off on its second line, else the point's own trade-off."""
+        pairs = changes(s)
+        head = f"{s['step']} {s['verdict']}".rstrip()
+        full_first = head + (f": {_change_text(pairs, shown=len(pairs))}" if pairs else "")
+        shown_pairs = pairs
+        first = head + (f": {_change_text(pairs)}" if pairs else "")
+        if len(first) > MAP_CHARS and len(pairs) > 1:
+            # One pair, then the count; the pair is cut, never the count.
+            shown_pairs, more = pairs[:1], f" +{len(pairs) - 1} more"
+            first = _cut(f"{head}: {_change_text(pairs[:1])}", MAP_CHARS - len(more)) + more
+        elif len(pairs) > 2:
+            shown_pairs = pairs[:2]
+        after = {b for _a, b in pairs}
+        t = next((t for t in s["tradeoffs"] if after & set(t["causes"])), None) or (s["tradeoffs"] or [None])[0]
+        second = _tradeoff_text(t) if t else _assessment_text(s["assessment"])
+
+        def marks(of: Sequence[Tuple[Any, Any]]) -> List[str]:
+            return [f"{_short(a)} {'forced' if forced[a] else 'free'}" for a, _b in of
+                    if explain and forced.get(a) is not None]
+        join = lambda parts: " · ".join(x for x in parts if x)  # noqa: E731
+        meaning = (t or {}).get("note") or s.get("own_tradeoff") or ""
+        return ([full_first, join([second, *marks(pairs)])], [_cut(first), _cut(join([second, *marks(shown_pairs)]))],
+                meaning)
+
+    grid = _explain_grid(trajectory, solution, regions) if explain else _search_grid(trajectory, lanes)
+    lane_rows, stages, cell, styles = grid["lanes"], grid["stages"], grid["cell"], grid["styles"]
+    centred = grid["centred"]
+
+    def name_of(ref: Any, table: Mapping[str, Mapping[str, Any]]) -> str:
+        return str((table.get(ref) or {}).get("label") or ref)
+
+    # Hovering an alternative's box (or explain's solution) shows what its design point is: its description.
+    described = {a["id"]: [f"{a['id']} · {a['name']}"] + ([a["point"]] if a.get("point") else [])
+                 for a in alternatives}
+    shown_values: List[Any] = []  # the values the map names (lane labels, changes), for the legend below it
+
+    # Slots: several steps in one cell stack downwards; a stage is as tall as its fullest cell.
+    slot: Dict[Any, int] = {}
+    filled: Dict[Tuple[int, int], int] = {}
+    for s in trajectory:
+        if s["step"] in cell and s["step"] != centred:
+            slot[s["step"]] = filled.get(cell[s["step"]], 0)
+            filled[cell[s["step"]]] = slot[s["step"]] + 1
+    stage_rows: List[Dict[str, Any]] = []
+    y = MAP_PAD
+    for j, label in enumerate(stages):
+        n = max([k for (_lane, st), k in filled.items() if st == j] or [1])
+        stage_rows.append({"label": label, "top": y, "height": n * MAP_NODE_H + (n - 1) * MAP_SLOT_GAP})
+        y += stage_rows[-1]["height"] + MAP_STAGE_GAP
+    height = (y - MAP_STAGE_GAP + MAP_PAD) if stage_rows else 2 * MAP_PAD + MAP_NODE_H
+    lane_x = [MAP_PAD + i * (MAP_NODE_W + MAP_COL_GAP) for i in range(len(lane_rows))]
+    for lane, x in zip(lane_rows, lane_x):
+        lane["x"] = x
+    width = 2 * MAP_PAD + max(len(lane_rows), 1) * MAP_NODE_W + max(len(lane_rows) - 1, 0) * MAP_COL_GAP
+
+    nodes: List[Dict[str, Any]] = []
+    for s in trajectory:
+        if s["step"] not in cell:
+            continue
+        lane, st = cell[s["step"]]
+        if s["step"] == centred:  # the solution, above the middle of its regions
+            nx = (lane_x[0] + lane_x[-1]) / 2 if lane_x else MAP_PAD
+        else:
+            nx = lane_x[lane]
+        ny = stage_rows[st]["top"] + slot.get(s["step"], 0) * (MAP_NODE_H + MAP_SLOT_GAP)
+        extra, badge = styles.get(s["step"], ([], None))
+        cls = ([f"v-{s['verdict']}"] if s["verdict"] else []) + extra
+        full, shown, meaning = lines(s)
+        number = str(s["step"])  # drawn bold, apart from the rest of the first line
+        shown_values += [v for pair in changes(s) for v in pair]
+        nodes.append({"step": s["step"], "lane": lane, "stage": st, "slot": slot.get(s["step"], 0),
+                      "x": nx, "y": ny, "full": full, "lines": shown,
+                      # the tooltip: what an alternative's design point is, then what the box's trade-off means
+                      "tip": described.get(s.get("alternative"), []) + ([f"Trade-off: {meaning}"] if meaning else []),
+                      "number": number, "rest": shown[0][len(number):], "second": _segments(shown[1]),
+                      "badge": badge, "cls": " ".join(cls)})
+
+    # Arrows, from each step's parent: down a lane, around its left side when they skip a stage, and curves
+    # between lanes (or from the solution).
+    at = {n["step"]: n for n in nodes}
+    edges = []
+    w, h = MAP_NODE_W, MAP_NODE_H
+    for n in nodes:
+        p = at.get(by_step[n["step"]]["parent"])
+        if p is None:
+            continue
+        px, py, nx, ny = p["x"], p["y"], n["x"], n["y"]
+        if n["slot"] > 0:  # a stacked box is reached from the side, never through the box above it
+            side = min(px, nx) - 14
+            kind = "arc"
+            d = f"M{px},{py + h / 2} C{side},{py + h / 2} {side},{ny + h / 2} {nx},{ny + h / 2}"
+        elif p["lane"] == n["lane"] and p["step"] != centred:
+            if ny > py and n["stage"] > p["stage"] + 1:
+                kind, side = "arc", px - 14
+                d = f"M{px},{py + h / 2} C{side},{py + h / 2} {side},{ny + h / 2} {nx},{ny + h / 2}"
+            elif ny > py:
+                kind, d = "straight", f"M{px + w / 2},{py + h} L{nx + w / 2},{ny}"
+            else:
+                kind, d = "straight", f"M{px + w / 2},{py} L{nx + w / 2},{ny + h}"
+        elif ny > py + h:
+            x0, y0, x1, y1 = px + w / 2, py + h, nx + w / 2, ny
+            kind, d = "cross", f"M{x0},{y0} C{x0},{(y0 + y1) / 2} {x1},{(y0 + y1) / 2} {x1},{y1}"
+        else:  # side by side in one stage
+            x0, x1 = (px + w, nx) if nx > px else (px, nx + w)
+            y0, y1 = py + h / 2, ny + h / 2
+            kind, d = "cross", f"M{x0},{y0} C{(x0 + x1) / 2},{y0} {(x0 + x1) / 2},{y1} {x1},{y1}"
+        edges.append({"from": p["step"], "to": n["step"], "kind": kind, "d": d,
+                      "dashed": by_step[n["step"]]["move"] == "explore"})
+
+    # The legend: every dimension the map names by id, with its name, and the values it names under it.
+    if explain:
+        shown_values += [v for s in trajectory if s["move"] == "region" for v in s["point"].values()]
+    legend: Dict[Any, List[Any]] = {}
+    for v in dict.fromkeys(shown_values):
+        d = (values.get(v) or {}).get("dimension")
+        if d is not None:
+            legend.setdefault(d, []).append(v)
+    if explain:
+        for s in trajectory:
+            if s["move"] == "region":
+                for d in s["point"]:
+                    legend.setdefault(d, [])
+    dimensions = [{"id": _short(d), "label": name_of(d, dims),
+                   "value_list": [{"id": _short(v), "label": name_of(v, values)} for v in sorted(vs, key=_id_order)]}
+                  for d, vs in sorted(legend.items(), key=lambda kv: _id_order(kv[0]))]
+
+    return {"mode": "explain" if explain else "search", "lanes": lane_rows, "stages": stage_rows,
+            "nodes": nodes, "edges": edges, "node": {"w": MAP_NODE_W, "h": MAP_NODE_H}, "dimensions": dimensions,
+            "footer": {"uncovered": [u["decision"] for u in uncovered] if explain else [],
+                       "unaddressed": [{"id": u["id"], "text": u["text"]} for u in unaddressed]},
+            "size": {"width": width, "height": height}}
+
+
 def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: Link,
               graph_changed: bool = False) -> Dict[str, Any]:
     """Build everything the explainer shows from a checked rationale file and the space's graph."""
@@ -515,6 +806,12 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
                  for u in doc.get("uncovered") or [] if isinstance(u, dict)]
 
     meta = doc.get("space") if isinstance(doc.get("space"), dict) else None
+    lanes = _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None
+    # The map, with a design space behind the file or with the label graph of a zero-shot file (whose names get
+    # made-up ids); a file of the old schema without either has none.
+    run_map = (_map(doc.get("mode"), trajectory, lanes, alternatives, regions, uncovered, unaddressed,
+                    space.dims, space.values)
+               if with_space and trajectory else None)
     return {
         "id": str(doc.get("id")), "mode": doc.get("mode"), "with_space": with_space, "wiki": space.wiki,
         "title": problem.get("title") or str(doc.get("id")), "context": problem.get("context") or "",
@@ -532,7 +829,7 @@ def page_data(doc: Mapping[str, Any], graph: Optional[Mapping[str, Any]], link: 
         "relations": relations, "uncovered": uncovered, "trajectory": trajectory,
         "trajectory_dimensions": trajectory_dims, "regions": regions,
         "adrs": adrs, "unaddressed": unaddressed, "fits": fits,
-        "lanes": _lanes(doc, trajectory, alternatives) if doc.get("mode") != "explain" else None,
+        "lanes": lanes, "map": run_map,
         "qoc": _qoc(trajectory, alternatives) if doc.get("mode") == "explain" else [],
         "budget": {"max_points": budget.get("max_points"), "used": len(trajectory)},
         "links": {"index": link("index.html"), "graph": link("graph.html")},

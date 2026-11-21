@@ -204,13 +204,13 @@ def test_out_with_graph_from_another_folder_leaves_that_workspace_alone(ws, tmp_
     assert "wiki_page" not in payload and not (ws / "site" / "explainers").exists()
 
 
-def test_a_changed_graph_shows_the_banner(ws, tmp_path):
+def test_a_changed_graph_is_reported_but_the_page_shows_no_banner(ws, tmp_path):
     doc = _sample()
     doc["space"]["graph_sha256"] = "0" * 64
     payload = _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
     assert [p["code"] for p in payload["problems"]] == ["graph_changed"]
     html = Path(payload["page"]).read_text(encoding="utf-8")
-    assert 'class="banner"' in html and "graph changed" in html.lower()
+    assert 'class="banner"' not in html and "graph changed" not in html.lower()
 
 
 # ---------------------------------------------------------------- explainers in `ddspace wiki build`
@@ -299,7 +299,7 @@ def test_a_broken_file_is_skipped_with_a_warning_and_its_old_page_removed(built,
     assert "explainers/toy-store-search.html" not in (root / "site" / "index.html").read_text(encoding="utf-8")
 
 
-def test_a_changed_graph_renders_the_banner_and_list_says_changed(built, tmp_path):
+def test_a_changed_graph_shows_no_banner_and_list_says_changed(built, tmp_path):
     root = built.root
     _built(_invoke("rationale", "build", str(_file(tmp_path, _current(root)))))
     assert _statuses() == {"toy-store-search": "ok"}
@@ -308,7 +308,7 @@ def test_a_changed_graph_renders_the_banner_and_list_says_changed(built, tmp_pat
     _add_run(built, "20261014_090000", tax)
     _wiki_build()
     html = (root / PAGE).read_text(encoding="utf-8")
-    assert 'class="banner"' in html and "graph changed" in html.lower()
+    assert 'class="banner"' not in html
     assert _statuses() == {"toy-store-search": "changed"}
 
 
@@ -722,3 +722,229 @@ def test_explain_with_inferred_requirements_says_so(ws, tmp_path):
     plain = _explain()
     _built(_invoke("rationale", "build", str(_file(tmp_path, plain, "plain.json"))))
     assert "inferred from the solution" not in (ws / "site" / "explainers" / "toy-store-explain.html").read_text()
+
+
+# ---------------------------------------------------------------- the experimental map (graph pane)
+
+
+def _nodes(data):
+    return {n["step"]: n for n in data["map"]["nodes"]}
+
+
+def test_search_map_puts_each_step_in_its_approach_row_and_round_column(ws):
+    data = _data(_sample(), ws)
+    m = data["map"]
+    assert m["mode"] == "search" and [lane["key"] for lane in m["lanes"]] == ["A", "B"]
+    assert [st["label"] for st in m["stages"]] == ["round 1", "round 2"]
+    nodes = _nodes(data)
+    assert (nodes[1]["lane"], nodes[1]["stage"]) == (0, 0) and (nodes[2]["lane"], nodes[2]["stage"]) == (0, 1)
+    assert (nodes[3]["lane"], nodes[3]["stage"]) == (1, 1)
+    assert nodes[2]["y"] > nodes[1]["y"] and nodes[1]["x"] == nodes[2]["x"] < nodes[3]["x"]   # top to bottom
+    assert nodes[1]["full"] == ["1 strong", "+R1 Q1 −C1"]       # a seed: no change; its trade-off
+    assert nodes[2]["full"][0] == "2 weak"                        # dropping d:2 is not a change
+    assert nodes[1]["badge"] == "A1" and "map-alt" in nodes[1]["cls"] and "v-strong" in nodes[1]["cls"]
+    assert [(e["from"], e["to"], e["kind"]) for e in m["edges"]] == [(1, 2, "straight")]
+
+
+def test_search_map_shows_the_change_and_the_trade_off_it_causes(ws):
+    doc = _sample()
+    step = doc["trajectory"][1]
+    step["values"] = ["v:1.2", "v:2.1"]                           # swaps d:1 against its parent
+    step["tradeoffs"] = [{"values": ["v:2.1"], "gains": ["Q1"], "costs": [], "note": "kept"},
+                         {"values": ["v:1.2"], "gains": ["C1"], "costs": ["R1"], "note": "the swap"}]
+    assert _nodes(_data(doc, ws))[2]["full"] == ["2 weak: 1.1 → 1.2", "+C1 −R1"]
+    step["tradeoffs"].reverse()
+    step["tradeoffs"][0]["values"] = ["v:2.1"]                    # no trade-off names the changed value: the first
+    step["tradeoffs"][1]["values"] = ["v:2.1"]
+    assert _nodes(_data(doc, ws))[2]["full"][1] == "+C1 −R1"
+
+
+def test_search_map_without_trade_offs_summarises_the_assessment(ws):
+    doc = _sample()
+    doc["trajectory"][2]["tradeoffs"] = []
+    doc["trajectory"][2]["assessment"] = {"R1": "misses", "Q1": "meets", "C1": "partly"}
+    assert _nodes(_data(doc, ws))[3]["full"][1] == "meets Q1 · misses R1"
+
+
+def test_search_map_dashes_a_dropped_approach_and_stacks_steps_in_one_cell(ws):
+    doc = _sample()
+    doc["approaches"][1].update(status="dropped", dropped_because="too slow")
+    doc["trajectory"].append({**doc["trajectory"][1], "step": 4, "move": "ablate", "parent": 1})
+    data = _data(doc, ws)
+    nodes = _nodes(data)
+    assert "map-dropped" in nodes[3]["cls"] and "map-alt" not in nodes[3]["cls"] and nodes[3]["badge"] == "A2"
+    assert (nodes[4]["lane"], nodes[4]["stage"], nodes[4]["slot"]) == (0, 1, 1)
+    stages, lanes = data["map"]["stages"], data["map"]["lanes"]
+    assert stages[1]["height"] > stages[0]["height"] and "too slow" in lanes[1]["title"]
+
+
+def test_map_change_line_caps_the_pairs_and_cuts_long_lines():
+    pairs = [("v:1.1", "v:1.2"), ("v:2.1", "v:2.2"), ("v:3.1", "v:3.2"), ("v:4.1", "v:4.2")]
+    assert explainer._change_text(pairs) == "1.1 → 1.2, 2.1 → 2.2 +2 more"
+    assert explainer._cut("x" * 50, 10) == "x" * 9 + "…" and explainer._cut("short", 10) == "short"
+
+
+def _explain_with_contrasts():
+    doc = _explain()
+    doc["alternatives"][0]["choices"][1]["forced"] = False        # v:2.1 is free
+    base = {"hypothesis": "h", "observation": "o", "tradeoffs": [], "point": {"description": "d"}}
+    doc["trajectory"] += [
+        {**base, "step": 3, "move": "contrast", "parent": 2, "values": ["v:1.2"], "verdict": "ungrounded",
+         "assessment": {"Q1": "misses"}},
+        {**base, "step": 4, "move": "contrast", "parent": 2, "values": ["v:1.1", "v:2.2"], "verdict": "grounded",
+         "assessment": {"Q1": "meets"}},
+        {**base, "step": 5, "move": "contrast", "parent": 1, "values": ["v:1.3", "v:2.1"], "verdict": "partial",
+         "assessment": {"R1": "partly"}},
+    ]
+    return doc
+
+
+def test_explain_map_rows_are_regions_with_their_contrasts(ws):
+    data = _data(_explain_with_contrasts(), ws)
+    m = data["map"]
+    assert m["mode"] == "explain" and [st["label"] for st in m["stages"]] == ["solution", "regions", "contrasts"]
+    assert [lane["key"] for lane in m["lanes"]] == ["2", "solution"]   # a contrast of the whole point: a lane of its own
+    assert m["lanes"][0]["label"] == "d1 · for Q1" and m["lanes"][0]["sublabel"] == "1.1"
+    nodes = _nodes(data)
+    assert nodes[1]["stage"] == 0 and nodes[2]["stage"] == 1 and nodes[2]["full"][0] == "2 grounded"  # a region: no change
+    assert "map-justifying" in nodes[2]["cls"]
+    assert (nodes[3]["lane"], nodes[3]["stage"]) == (0, 2) and (nodes[4]["lane"], nodes[4]["slot"]) == (0, 1)
+    assert nodes[5]["lane"] == 1
+    assert nodes[1]["x"] == (m["lanes"][0]["x"] + m["lanes"][1]["x"]) / 2        # the solution, centred on top
+    kinds = {(e["from"], e["to"]): e["kind"] for e in m["edges"]}
+    assert kinds == {(1, 2): "cross", (2, 3): "straight", (2, 4): "arc", (1, 5): "cross"}  # 4 is stacked under 3
+
+
+def test_explain_map_marks_the_solution_value_each_contrast_tests(ws):
+    nodes = _nodes(_data(_explain_with_contrasts(), ws))
+    assert nodes[3]["full"] == ["3 ungrounded: 1.1 → 1.2", "misses Q1 · 1.1 forced"]
+    assert "map-ungrounded" in nodes[3]["cls"]
+    assert nodes[4]["full"] == ["4 grounded: 2.1 → 2.2", "meets Q1 · 2.1 free"]  # a dimension its region lacks
+    doc = _explain_with_contrasts()
+    doc["alternatives"][0]["choices"][1].pop("forced")
+    assert _nodes(_data(doc, ws))[4]["full"][1] == "meets Q1"                    # no flag: no mark
+
+
+def test_explain_map_footer_lists_uncovered_and_unaddressed(ws):
+    footer = _data(_explain(), ws)["map"]["footer"]
+    assert footer["uncovered"] == ["Backup schedule", "Client library"]
+    assert [u["id"] for u in footer["unaddressed"]] == ["C1"] and footer["unaddressed"][0]["text"]
+
+
+def test_zero_shot_explainer_has_a_map_with_short_made_up_ids(ws):
+    data = _data(_zero(), ws)
+    m = data["map"]
+    assert m is not None and m["mode"] == "search" and m["nodes"]
+    legend = {x["id"]: x for x in m["dimensions"]}
+    assert all(i.startswith("d") and ":" not in i for i in legend)          # z:1 -> d1
+    assert all(":" not in v["id"] for x in legend.values() for v in x["value_list"])   # z:1.2 -> 1.2
+    assert not any("z:" in line for n in m["nodes"] for line in n["full"])  # no raw made-up id in a box
+
+
+def _page(ws, tmp_path, doc):
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, doc))))
+    return Path(payload["page"]).read_text(encoding="utf-8")
+
+
+def test_the_graph_pane_offers_the_map_behind_a_switch(ws, tmp_path):
+    html = _page(ws, tmp_path, _sample())
+    assert 'class="view-switch"' in html and 'data-view="graph" aria-pressed="true"' in html
+    assert 'data-view="map" aria-pressed="false"' in html and 'Map (experimental)' in html
+    view = re.search(r'<div class="map-view" hidden>.*?</div><!-- /map-view -->', html, re.S).group(0)
+    assert view.count('<g class="map-node') == 3
+    node = re.search(r'<g class="map-node[^>]*>', view).group(0)
+    for attr in ('data-step="', 'tabindex="0"', 'role="button"', 'aria-label="'):
+        assert attr in node
+    assert '<title>' in view and 'class="map-rows"' in view and 'class="map-cols"' in view
+    assert 'class="map-key"' in html
+
+
+def test_explain_map_footer_is_drawn_and_left_out_when_empty(ws, tmp_path):
+    html = _page(ws, tmp_path, _explain())
+    footer = re.search(r'<div class="map-footer">.*?</div>', html, re.S).group(0)
+    assert "<li>Backup schedule</li>" in footer and "<li>Client library</li>" in footer   # one per line
+    assert "<li><b>C1</b> " in footer
+    assert "<li><b>d1</b> Source of truth" in footer and "<li><b>1.1</b> Disk quorum</li>" in footer        # the dimensions it names, and values
+    doc = _explain(uncovered=0)
+    doc["unaddressed"] = []
+    doc["adrs"][1]["drivers"].append("C1")                       # every requirement addressed
+    footer = re.search(r'<div class="map-footer">.*?</div>', _page(ws, tmp_path, doc), re.S).group(0)
+    assert "Uncovered" not in footer and "Unaddressed" not in footer
+
+
+def test_zero_shot_page_offers_the_map_too(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    payload = _built(_invoke("rationale", "build", str(_file(tmp_path, _zero())), "--out", "out"))
+    html = Path(payload["page"]).read_text(encoding="utf-8")
+    assert 'class="view-switch"' in html and 'class="map-view"' in html
+
+
+def test_map_keeps_the_count_of_further_changes_in_view(ws):
+    doc = _sample()
+    doc["trajectory"][1].update(values=["v:1.2", "v:2.2"], verdict=None, rating="mixed")
+    node = _nodes(_data(doc, ws))[2]
+    assert node["full"][0] == "2 mixed: 1.1 → 1.2, 2.1 → 2.2"      # the tooltip: every change
+    assert node["lines"][0] == "2 mixed: 1.1 → 1.2 +1 more"        # the box: one pair, then the count
+    assert len(node["lines"][0]) <= explainer.MAP_CHARS
+
+
+def test_map_cuts_the_pair_never_the_count(ws):
+    doc = _sample()
+    doc["trajectory"][1].update(step=12, values=["v:1.2", "v:2.2"], verdict="ungrounded", rating=None)
+    line = next(n for n in _data(doc, ws)["map"]["nodes"] if n["step"] == 12)["lines"][0]
+    assert line.endswith(" +1 more") and "…" in line and len(line) <= explainer.MAP_CHARS
+
+
+def test_map_arrows_follow_rows_rounds_and_moves(ws):
+    doc = _sample()
+    doc["trajectory"][2]["parent"] = 1                             # B explores from A: across rows, dashed
+    doc["trajectory"].append({**doc["trajectory"][1], "step": 4, "round": 3, "parent": 1})  # skips round 2
+    edges = {(e["from"], e["to"]): (e["kind"], e["dashed"]) for e in _data(doc, ws)["map"]["edges"]}
+    assert edges == {(1, 2): ("straight", False), (1, 3): ("cross", True), (1, 4): ("arc", False)}
+
+
+def test_explain_box_marks_only_the_changes_it_shows(ws):
+    doc = _explain_with_contrasts()
+    doc["alternatives"][0]["choices"][0]["forced"] = True
+    doc["trajectory"][4].update(values=["v:1.2", "v:2.2"], assessment={})   # swaps both solution values
+    node = _nodes(_data(doc, ws))[5]
+    assert node["full"][1] == "1.1 forced · 2.1 free"
+    assert node["lines"][0].endswith("+1 more") and node["lines"][1] == "1.1 forced"
+
+
+def test_map_boxes_of_alternatives_show_their_design_point_on_hover(ws):
+    doc = _sample()
+    doc["alternatives"][0]["name"] = "Disk quorum"
+    data = _data(doc, ws)
+    tip = _nodes(data)[1]["tip"]
+    assert tip[:2] == ["A1 · Disk quorum", data["alternatives"][0]["point"]] and tip[1]   # what the design point is
+    assert tip[2] == "Trade-off: Serves requests durably, but the commit protocol adds cost."  # then its trade-off
+    assert _nodes(data)[2]["tip"] == ["Trade-off: Durable on a node failure, but nothing orders concurrent writes."]
+    assert not set(_nodes(data)[1]["full"]) & set(tip)                    # never the box's own text
+
+
+def test_a_box_without_trade_offs_explains_the_points_own_trade_off(ws):
+    doc = _sample()
+    doc["trajectory"][1]["tradeoffs"] = []
+    doc["points"][1]["description"] = "One disk. Trade-off: simple, but nothing orders writes."
+    assert _nodes(_data(doc, ws))[2]["tip"] == ["Trade-off: simple, but nothing orders writes."]
+
+
+def test_map_colours_gains_and_costs():
+    assert explainer._segments("+Q1 Q4 −Q2 Q3 · 2.2 forced") == [
+        ("+Q1 Q4 ", "gain"), ("−Q2 Q3 ", "cost"), ("· 2.2 forced", "")]
+    assert explainer._segments("meets Q1 · misses R1") == [("meets Q1 · misses R1", "")]
+
+
+def test_page_draws_tooltips_only_for_alternatives(ws, tmp_path):
+    html = _page(ws, tmp_path, _sample())
+    view = re.search(r'<div class="map-view" hidden>.*?</div><!-- /map-view -->', html, re.S).group(0)
+    titles = re.findall(r"<title>(.*?)</title>", view, re.S)
+    assert len(titles) == 3 and all("Trade-off: " in t for t in titles)   # every box explains its trade-off
+    assert sum("A1 · " in t for t in titles) == 1 and sum("A2 · " in t for t in titles) == 1  # only alternatives
+    assert not any("A1 · " in t or "A2 · " in t for t in titles if "Trade-off" in t.split("\n")[0])
+    assert '<tspan class="map-gain">' in view and '<tspan class="map-cost">' in view
+
+
+def test_map_shortens_space_and_made_up_ids():
+    assert [explainer._short(x) for x in ("v:2.2", "d:3", "z:1.2", "z:1", "other")] == ["2.2", "d3", "1.2", "d1", "other"]

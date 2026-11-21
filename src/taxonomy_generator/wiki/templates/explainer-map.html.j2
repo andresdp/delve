@@ -1,0 +1,83 @@
+{#- The experimental map: an alternative to the radial graph in the explainer's graph pane (explainer.html.j2
+    imports these macros when the page has a map). The layout comes from explainer._map. -#}
+{% macro styles() %}
+  /* The experimental map: an alternative to the radial graph, in the same pane. */
+  .view-switch { position: absolute; top: 8px; left: 10px; z-index: 4; display: flex; border: 1px solid var(--border);
+    border-radius: 7px; overflow: hidden; background: var(--panel); }
+  .view-switch button { font: inherit; font-size: 12px; padding: 4px 10px; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .view-switch button[aria-pressed="true"] { background: var(--bg); color: var(--fg); font-weight: 600; }
+  #canvas.has-map .graph-toggle { top: 42px; }
+  .graph-key[hidden] { display: none; }
+  #canvas.map-on #svg, #canvas.map-on .graph-toggle, #canvas.map-on .zoom-ctl { visibility: hidden; }
+  .map-view { position: absolute; top: 40px; left: 0; right: 0; bottom: 0; overflow: auto; background: var(--panel); z-index: 3; }
+  .map-grid { display: grid; }
+  .map-corner { position: sticky; top: 0; left: 0; z-index: 3; background: var(--panel); }
+  .map-cols { position: sticky; top: 0; z-index: 2; background: var(--panel); border-bottom: 1px solid var(--border); }
+  .map-lane { position: absolute; top: 4px; margin: 0; font-size: 12.5px; line-height: 1.3; }
+  .map-lane b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .map-lane span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); }
+  .map-rows { position: sticky; left: 0; z-index: 2; background: var(--panel); border-right: 1px solid var(--border); }
+  .map-stage { position: absolute; left: 0; right: 0; padding: 0 8px; display: flex; align-items: center;
+    font-size: 12.5px; color: var(--muted); }
+  .map-svg { display: block; }
+  .map-edge { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+  .map-edge.dashed { stroke-dasharray: 5 4; }
+  #map-arrow path { fill: var(--muted); }
+  .map-node { cursor: pointer; outline: none; }
+  .map-node rect { fill: var(--panel); stroke: var(--muted); stroke-width: 1.3; }
+  .map-node text { font-size: 12px; fill: var(--fg); }
+  .map-node .map-n { font-weight: 700; }
+  .map-node .map-l2 { fill: var(--muted); }
+  .map-node.v-strong > rect, .map-node.v-grounded > rect { stroke: var(--accepted); }
+  .map-node.v-mixed > rect, .map-node.v-partial > rect { stroke: var(--mixed); }
+  .map-node.v-weak > rect, .map-node.v-ungrounded > rect { stroke: var(--rejected); }
+  /* The proposed alternatives (search) and the regions that justify the solution (explain): a light blue fill. */
+  .map-node.map-alt > rect, .map-node.map-justifying > rect { fill: color-mix(in srgb, var(--accent) 20%, var(--panel)); stroke-width: 2; }
+  .map-node.map-dropped > rect, .map-node.map-ungrounded > rect { stroke-dasharray: 5 3; }
+  .map-node.map-dropped text { fill: var(--muted); }
+  .map-node.lit > rect { stroke: var(--fg); stroke-width: 2.4; }
+  .map-node.sel > rect { stroke: var(--fg); stroke-width: 3.2; stroke-dasharray: none; }
+  .map-node:focus-visible > rect { stroke: var(--accent); stroke-width: 3.2; }
+  .map-badge rect { fill: var(--fg); stroke: none; }
+  .map-badge text { fill: var(--panel); font-size: 10.5px; font-weight: 700; text-anchor: middle; }
+  .map-footer { padding: 6px 12px 10px 12px; font-size: 12px; border-top: 1px solid var(--border); }
+  .map-footer p { margin: 6px 0 2px; }
+  .map-footer ul { margin: 0 0 4px; padding-left: 18px; }
+  .map-footer li { margin: 1px 0; }
+  .map-dims > li > ul { color: var(--muted); }
+  .map-node .map-gain { fill: var(--accepted); font-weight: 600; }
+  .map-node .map-cost { fill: var(--rejected); font-weight: 600; }
+  .map-key { font-size: 11.5px; color: var(--muted); padding: 6px 12px; border-top: 1px solid var(--border); }
+  .map-key summary { cursor: pointer; }
+  .map-key span { display: block; margin-top: 2px; }
+  .map-key b { color: var(--fg); font-weight: 600; }
+{% endmacro %}
+
+{% macro view(m) %}
+{% set nw, nh = m.node.w, m.node.h %}
+    <div class="view-switch" role="group" aria-label="Show the graph or the map"><button type="button" data-view="graph" aria-pressed="true">Graph</button><button type="button" data-view="map" aria-pressed="false">Map (experimental)</button></div>
+    <div class="map-view" hidden>
+      <div class="map-grid" style="grid-template-columns: 74px {{ m.size.width }}px; grid-template-rows: 54px {{ m.size.height }}px;">
+        <div class="map-corner"></div>
+        <div class="map-cols">{% for l in m.lanes %}<p class="map-lane" style="left: {{ l.x }}px; width: {{ nw }}px" title="{{ l.title }}"><b>{{ l.label }}</b><span>{{ l.sublabel }}</span></p>{% endfor %}</div>
+        <div class="map-rows">{% for st in m.stages %}<span class="map-stage" style="top: {{ st.top }}px; height: {{ st.height }}px">{{ st.label }}</span>{% endfor %}</div>
+        <svg class="map-svg" width="{{ m.size.width }}" height="{{ m.size.height }}" viewBox="0 0 {{ m.size.width }} {{ m.size.height }}" role="group" aria-label="{{ 'The search: approaches by column, rounds from top to bottom' if m.mode == 'search' else 'The explanation: the solution, its regions and their contrasts, from top to bottom' }}">
+          <defs><marker id="map-arrow" viewBox="0 -5 10 10" refX="9" refY="0" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,-5L10,0L0,5"></path></marker></defs>
+          {% for e in m.edges %}<path class="map-edge{% if e.dashed %} dashed{% endif %}" d="{{ e.d }}" marker-end="url(#map-arrow)"></path>{% endfor %}
+          {% for n in m.nodes %}<g class="map-node {{ n.cls }}" data-step="{{ n.step }}" tabindex="0" role="button" aria-label="{{ (n.full + n.tip)|join('; ') }}" transform="translate({{ n.x }},{{ n.y }})">{% if n.tip %}<title>{{ n.tip|join('\n') }}</title>{% endif %}<rect width="{{ nw }}" height="{{ nh }}" rx="5"></rect><text x="9" y="18"><tspan class="map-n">{{ n.number }}</tspan>{{ n.rest }}</text><text x="9" y="35" class="map-l2">{% for text, kind in n.second %}{% if kind %}<tspan class="map-{{ kind }}">{{ text }}</tspan>{% else %}{{ text }}{% endif %}{% endfor %}</text>{% if n.badge %}{% set bw = 12 + 7 * (n.badge|length) %}<g class="map-badge" transform="translate({{ nw - bw - 2 }},-8)"><rect width="{{ bw }}" height="15" rx="7"></rect><text x="{{ bw / 2 }}" y="11">{{ n.badge }}</text></g>{% endif %}</g>{% endfor %}
+        </svg>
+      </div>
+      {% if m.footer.uncovered or m.footer.unaddressed or m.dimensions %}<div class="map-footer">
+        {% if m.footer.uncovered %}<p><b>Uncovered</b> (no dimension fits):</p><ul>{% for u in m.footer.uncovered %}<li>{{ u }}</li>{% endfor %}</ul>{% endif %}
+        {% if m.footer.unaddressed %}<p><b>Unaddressed</b> (no dimension bears on them):</p><ul>{% for r in m.footer.unaddressed %}<li><b>{{ r.id }}</b> {{ r.text }}</li>{% endfor %}</ul>{% endif %}
+        {% if m.dimensions %}<p><b>Dimensions and values</b> in this map:</p><ul class="map-dims">{% for x in m.dimensions %}<li><b>{{ x.id }}</b> {{ x.label }}{% if x.value_list %}<ul>{% for v in x.value_list %}<li><b>{{ v.id }}</b> {{ v.label }}</li>{% endfor %}</ul>{% endif %}</li>{% endfor %}</ul>{% endif %}
+      </div>{% endif %}
+    </div><!-- /map-view -->
+{% endmacro %}
+
+{% macro key(m) %}
+<details class="map-key" open hidden><summary><b>Map (experimental)</b>: how to read it</summary>
+    {% if m.mode == "search" %}<span>columns: approaches; rows: rounds, from top to bottom</span><span>each box: step, rating and the values it changed against its parent (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or how it met the requirements</span><span>border colour: the rating (<b>green</b> strong, <b>amber</b> mixed, <b>red</b> weak); <b>light blue background</b>, with a badge: a proposed alternative (hover for its description); <b>dashed</b>: a dropped approach</span><span>arrows: from the step it changed</span>
+    {% else %}<span>columns: candidate regions (their dimensions, the requirements behind them, their values); rows: the solution, its regions, their contrasts, from top to bottom</span><span>each box: step, verdict and, for a contrast, the solution value it swaps (before → after); below, its main trade-off (<b>+</b> gains, <b>−</b> gives up) or assessment, and whether the requirements <b>force</b> that value or leave it <b>free</b></span><span>border colour: the verdict (<b>green</b> grounded, <b>amber</b> partial, <b>red</b> ungrounded); <b>light blue background</b>: a region that justifies the solution; <b>dashed</b>: an ungrounded contrast</span>{% endif %}
+    <span>select a box to follow that step; this view is experimental</span></details>
+{% endmacro %}

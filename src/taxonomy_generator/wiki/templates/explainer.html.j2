@@ -1,3 +1,4 @@
+{% import "explainer-map.html.j2" as map_ui %}
 {% macro value_ref(vid) -%}
 {%- set v = d["values"].get(vid) if vid else none -%}
 {%- if v -%}
@@ -59,7 +60,6 @@
   .muted, .hint { color: var(--muted); font-size: 12.5px; }
   h1 { margin: 6px 0 4px; font-size: 24px; }
   h2.sec { font-size: 16px; margin: 22px 0 8px; border: none; }
-  .banner { background: var(--mixed); color: #fff; padding: 9px 14px; border-radius: 8px; margin: 0 0 14px; font-size: 14px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 6px 0; list-style: none; }
   .chip { display: inline-flex; gap: 6px; align-items: baseline; border: 1px solid var(--border); background: var(--panel);
     color: var(--fg); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
@@ -108,6 +108,7 @@
   .graph-key { font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 6px 12px;
     border-top: 1px solid var(--border); }
   .graph-key b { color: var(--fg); font-weight: 600; }
+  {% if d.map %}{{ map_ui.styles() }}{% endif %}
   .traj-wrap { position: relative; }
   svg.lineage { display: block; width: 100%; height: 46px; overflow: visible; }
   table.traj { border-collapse: separate; border-spacing: 0; font-size: 12.5px; overflow-wrap: normal; word-break: normal; hyphens: none; }
@@ -242,7 +243,6 @@
 </header>
 <div class="ex-wrap">
 <main class="ex-text">
-  {% if d.graph_changed %}<div class="banner" role="status">The graph changed since this rationale was written: its ids were checked against the current graph, but labels, values and evidence may differ from what the agent saw.</div>{% endif %}
   <div class="mode-icon mode-{{ d.mode or 'search' }}" role="img" aria-label="{{ 'Explain: the rationale of a given solution' if d.mode == 'explain' else 'Search: alternative solutions for a problem' }}" title="{{ 'Explain: the rationale of a given solution' if d.mode == 'explain' else 'Search: alternative solutions for a problem' }}">
     {% if d.mode == "explain" %}<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
     {% else %}<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>{% endif %}
@@ -581,10 +581,12 @@
 </main>
 <div class="splitter-v" role="separator" aria-orientation="vertical" aria-label="Resize the text and the graph" tabindex="0" title="Drag to resize (double-click to reset)"></div>
 <aside class="ex-side">
-  <div id="canvas"><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg>
+  <div id="canvas"{% if d.map %} class="has-map"{% endif %}><svg id="svg" role="img" aria-label="The dimensions this rationale involves"></svg>
     <label class="graph-toggle"><input type="checkbox" id="show-all"> Show every value {{ "the space offers" if d.wiki else "the agent named" }}</label>
-    <div class="zoom-ctl"><button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button><button type="button" data-zoom="fit" title="Fit the graph" aria-label="Fit the graph">⤢</button></div></div>
+    <div class="zoom-ctl"><button type="button" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button><button type="button" data-zoom="fit" title="Fit the graph" aria-label="Fit the graph">⤢</button></div>
+    {% if d.map %}{{ map_ui.view(d.map) }}{% endif %}</div>
   <div class="splitter-h" role="separator" aria-orientation="horizontal" aria-label="Resize the graph and its details" tabindex="0" title="Drag to resize (double-click to reset)"></div>
+  {% if d.map %}{{ map_ui.key(d.map) }}{% endif %}
   <div class="graph-key"><span>from the centre: dimensions, values, <b>design points</b> (▲, one per step, coloured by its rating), requirements (■, linked to each point by how it meets them; coloured by the design point shown)</span><span><b>blue</b>: explored paths</span><span><b>outlined</b>: the design point shown</span><span>select a node: its path to the centre and its direct neighbours; select one of those to go on</span></div>
   <div id="info"><p class="hint">Select a dimension, value or requirement (in the graph or the text) to see its details.</p></div>
 </aside>
@@ -801,6 +803,8 @@
     linkSel.classed("shown", (d) => (d.type === "member" && lit.has(d.target)) || (d.type === "assess" && lit.has(d.source)));
     document.querySelectorAll("[data-step]").forEach((el) =>
       el.classList.toggle("sel", view === "trajectory" && selectedStep !== null && Number(el.dataset.step) === selectedStep));
+    // The map mirrors the graph: a box is lit when the graph lights its design point.
+    document.querySelectorAll(".map-node").forEach((el) => el.classList.toggle("lit", lit.has(pid(Number(el.dataset.step)))));
     document.querySelectorAll(".solution").forEach((el) => el.classList.toggle("sel", el.dataset.alt === selectedAlt));
     document.querySelectorAll(".option").forEach((el) => el.classList.toggle("sel", el.dataset.option === selectedOption));
   }
@@ -981,17 +985,19 @@
 
   // The trajectory: selecting a step (its column, its entry or its point in the graph) lights its point and its lineage.
   function stepInfo(s) {
-    const sub = (s.approach ? "Approach " + esc(s.approach) + (s.round ? ", round " + esc(s.round) : "") + ". " : "") + esc(s.description || "");
+    // What the design point is, and its own trade-off right after it.
+    const sub = (s.approach ? "Approach " + esc(s.approach) + (s.round ? ", round " + esc(s.round) : "") + ". " : "") + esc(s.description || "")
+      + (s.own_tradeoff ? " <b>Trade-off:</b> " + esc(s.own_tradeoff) : "");
     const inAdrs = adrOptions.filter(({ o }) => o.step === s.step);
     return head("Design point" + (s.point_id ? " · " + esc(s.point_id) : ""), "#" + s.step + " · " + esc(phrase(s)),
         sub + (s.reuses ? " The same point as #" + s.reuses + ": reused, not evaluated again." : ""))
       + para('<span class="vd-chip vb-' + esc(s.verdict) + '">' + esc(s.verdict) + "</span> " + esc(MEANS[s.verdict] || "")
         + (s.alternative ? '<br><span class="alt-chip">' + (EXPLAIN ? "This is the solution." : "It became alternative " + esc(s.alternative) + ".") + "</span>" : ""))
+      + sec("Trade-offs against the requirements", list((s.tradeoffs || []).map(tradeoffLine)))
       + sec("Thought", para(esc(s.why)))
       + sec("Move", list(moveItems(s)))
       + sec("Observed", para(esc(s.observation)))
       + sec("Requirements", chips(s.assessment))
-      + tradeoffSecs(s)
       + (["seed", "solution", "region"].includes(s.move) ? "" : sec("The whole point", list(Object.entries(s.point).map(([d, v]) => pair(d, v)))))
       + sec("In the decisions", list(inAdrs.map(optLine)))
       + (data.wiki ? sec("What the sources say", s.attested_by.length
@@ -1005,10 +1011,36 @@
     selectedStep = n; applyView(); highlight(pid(n));
     showInfo(stepInfo(s));
   }
-  document.querySelectorAll(".step-h, .region, .node-chip, .heat-h, td.h, .story-step, .opt").forEach((el) => el.addEventListener("click", (e) => {
+  document.querySelectorAll(".step-h, .region, .node-chip, .heat-h, td.h, .story-step, .opt, .map-node").forEach((el) => el.addEventListener("click", (e) => {
     if (e.target.closest("a") || e.target.closest("[data-node]")) return;
     selectStep(Number(el.dataset.step));
   }));
+  // A map box is a button: Enter or Space selects its step, as a click does.
+  document.querySelectorAll(".map-node").forEach((el) => el.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault(); selectStep(Number(el.dataset.step));
+  }));
+  // The graph pane shows the radial graph or the experimental map; the reader's choice is kept in this browser
+  // only (a convenience: the page works without storage). Switching keeps the selection.
+  (function viewSwitch() {
+    const canvas = document.getElementById("canvas"), mapView = canvas.querySelector(".map-view");
+    if (!mapView) return;
+    const KEY = "delve-explainer-view", graphKey = document.querySelector(".graph-key"), mapKey = document.querySelector(".map-key");
+    const show = (which) => {
+      const onMap = which === "map";
+      canvas.classList.toggle("map-on", onMap); mapView.hidden = !onMap;
+      graphKey.hidden = onMap;
+      mapKey.hidden = !onMap;
+      canvas.querySelectorAll(".view-switch button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === which ? "true" : "false"));
+    };
+    canvas.querySelectorAll(".view-switch button").forEach((b) => b.addEventListener("click", () => {
+      show(b.dataset.view);
+      try { localStorage.setItem(KEY, b.dataset.view); } catch (e) { /* no storage */ }
+    }));
+    let saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) { /* no storage */ }
+    if (saved === "map") show("map");
+  })();
   // The ADRs tab: an alternative or an option lights its point in the graph.
   function altInfo(a) {
     const s = stepOf(a.step);
