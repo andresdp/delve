@@ -912,9 +912,17 @@ def test_map_boxes_of_alternatives_show_their_design_point_on_hover(ws):
     doc["alternatives"][0]["name"] = "Disk quorum"
     data = _data(doc, ws)
     tip = _nodes(data)[1]["tip"]
-    assert tip == ["A1 · Disk quorum", data["alternatives"][0]["point"]] and tip[1]   # what the design point is
-    assert _nodes(data)[2]["tip"] == []                                   # any other box: no tooltip
+    assert tip[:2] == ["A1 · Disk quorum", data["alternatives"][0]["point"]] and tip[1]   # what the design point is
+    assert tip[2] == "Trade-off: Serves requests durably, but the commit protocol adds cost."  # then its trade-off
+    assert _nodes(data)[2]["tip"] == ["Trade-off: Durable on a node failure, but nothing orders concurrent writes."]
     assert not set(_nodes(data)[1]["full"]) & set(tip)                    # never the box's own text
+
+
+def test_a_box_without_trade_offs_explains_the_points_own_trade_off(ws):
+    doc = _sample()
+    doc["trajectory"][1]["tradeoffs"] = []
+    doc["points"][1]["description"] = "One disk. Trade-off: simple, but nothing orders writes."
+    assert _nodes(_data(doc, ws))[2]["tip"] == ["Trade-off: simple, but nothing orders writes."]
 
 
 def test_map_colours_gains_and_costs():
@@ -926,5 +934,8 @@ def test_map_colours_gains_and_costs():
 def test_page_draws_tooltips_only_for_alternatives(ws, tmp_path):
     html = _page(ws, tmp_path, _sample())
     view = re.search(r'<div class="map-view" hidden>.*?</div><!-- /map-view -->', html, re.S).group(0)
-    assert view.count("<title>") == 2                                      # A1 and A2 only
+    titles = re.findall(r"<title>(.*?)</title>", view, re.S)
+    assert len(titles) == 3 and all("Trade-off: " in t for t in titles)   # every box explains its trade-off
+    assert sum("A1 · " in t for t in titles) == 1 and sum("A2 · " in t for t in titles) == 1  # only alternatives
+    assert not any("A1 · " in t or "A2 · " in t for t in titles if "Trade-off" in t.split("\n")[0])
     assert '<tspan class="map-gain">' in view and '<tspan class="map-cost">' in view

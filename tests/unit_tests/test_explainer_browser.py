@@ -220,6 +220,9 @@ addEventListener("load", () => setTimeout(() => {
     click(box(3));
     out.after_click = { tab: tab(), sel: has(3, "sel"), lit: has(3, "lit"), shown: !view.hidden,
                         info: document.getElementById("info").textContent.includes("#3") };
+    const info = document.getElementById("info").textContent;
+    out.tradeoffs_first = info.indexOf("Trade-offs against the requirements") > -1
+      && info.indexOf("Trade-offs against the requirements") < info.indexOf("Thought");
     box(2).dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     out.after_enter = { sel2: has(2, "sel"), sel3: has(3, "sel") };
     box(1).dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
@@ -243,6 +246,7 @@ def test_the_map_switches_with_the_graph_and_selects_steps_in_a_browser(tmp_path
     assert out["map_shown"] is True and out["pressed"] == "true"
     # A box selects its step like a design point in the graph: the story opens on the Trajectory tab.
     assert out["after_click"] == {"tab": "trajectory", "sel": True, "lit": True, "shown": True, "info": True}
+    assert out["tradeoffs_first"] is True                          # the details show the trade-offs first
     assert out["after_enter"] == {"sel2": True, "sel3": False}     # Enter on a focused box does the same
     assert out["after_space"] is True                              # and Space
     assert out["cleared"] is True                                  # a tab switch clears the selection

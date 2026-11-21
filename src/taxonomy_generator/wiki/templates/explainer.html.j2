@@ -985,17 +985,19 @@
 
   // The trajectory: selecting a step (its column, its entry or its point in the graph) lights its point and its lineage.
   function stepInfo(s) {
-    const sub = (s.approach ? "Approach " + esc(s.approach) + (s.round ? ", round " + esc(s.round) : "") + ". " : "") + esc(s.description || "");
+    // What the design point is, and its own trade-off right after it.
+    const sub = (s.approach ? "Approach " + esc(s.approach) + (s.round ? ", round " + esc(s.round) : "") + ". " : "") + esc(s.description || "")
+      + (s.own_tradeoff ? " <b>Trade-off:</b> " + esc(s.own_tradeoff) : "");
     const inAdrs = adrOptions.filter(({ o }) => o.step === s.step);
     return head("Design point" + (s.point_id ? " · " + esc(s.point_id) : ""), "#" + s.step + " · " + esc(phrase(s)),
         sub + (s.reuses ? " The same point as #" + s.reuses + ": reused, not evaluated again." : ""))
       + para('<span class="vd-chip vb-' + esc(s.verdict) + '">' + esc(s.verdict) + "</span> " + esc(MEANS[s.verdict] || "")
         + (s.alternative ? '<br><span class="alt-chip">' + (EXPLAIN ? "This is the solution." : "It became alternative " + esc(s.alternative) + ".") + "</span>" : ""))
+      + sec("Trade-offs against the requirements", list((s.tradeoffs || []).map(tradeoffLine)))
       + sec("Thought", para(esc(s.why)))
       + sec("Move", list(moveItems(s)))
       + sec("Observed", para(esc(s.observation)))
       + sec("Requirements", chips(s.assessment))
-      + tradeoffSecs(s)
       + (["seed", "solution", "region"].includes(s.move) ? "" : sec("The whole point", list(Object.entries(s.point).map(([d, v]) => pair(d, v)))))
       + sec("In the decisions", list(inAdrs.map(optLine)))
       + (data.wiki ? sec("What the sources say", s.attested_by.length

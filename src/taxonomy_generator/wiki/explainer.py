@@ -508,8 +508,9 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
             diff = s.get("diff") or []
         return [(c["before"], c["after"]) for c in diff if c["before"] and c["after"]]  # a swap, not a dropped value
 
-    def lines(s: Mapping[str, Any]) -> Tuple[List[str], List[str]]:
-        """The node's two lines in full (every change, every mark: the tooltip) and as shown in the box."""
+    def lines(s: Mapping[str, Any]) -> Tuple[List[str], List[str], str]:
+        """The node's two lines in full (every change, every mark) and as shown in the box, and what its trade-off
+        means: the note of the trade-off on its second line, else the point's own trade-off."""
         pairs = changes(s)
         head = f"{s['step']} {s['verdict']}".rstrip()
         full_first = head + (f": {_change_text(pairs, shown=len(pairs))}" if pairs else "")
@@ -529,7 +530,9 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
             return [f"{_short(a)} {'forced' if forced[a] else 'free'}" for a, _b in of
                     if explain and forced.get(a) is not None]
         join = lambda parts: " · ".join(x for x in parts if x)  # noqa: E731
-        return [full_first, join([second, *marks(pairs)])], [_cut(first), _cut(join([second, *marks(shown_pairs)]))]
+        meaning = (t or {}).get("note") or s.get("own_tradeoff") or ""
+        return ([full_first, join([second, *marks(pairs)])], [_cut(first), _cut(join([second, *marks(shown_pairs)]))],
+                meaning)
 
     grid = _explain_grid(trajectory, solution, regions) if explain else _search_grid(trajectory, lanes)
     lane_rows, stages, cell, styles = grid["lanes"], grid["stages"], grid["cell"], grid["styles"]
@@ -574,11 +577,13 @@ def _map(mode: Any, trajectory: Sequence[Mapping[str, Any]], lanes: Optional[Map
         ny = stage_rows[st]["top"] + slot.get(s["step"], 0) * (MAP_NODE_H + MAP_SLOT_GAP)
         extra, badge = styles.get(s["step"], ([], None))
         cls = ([f"v-{s['verdict']}"] if s["verdict"] else []) + extra
-        full, shown = lines(s)
+        full, shown, meaning = lines(s)
         number = str(s["step"])  # drawn bold, apart from the rest of the first line
         shown_values += [v for pair in changes(s) for v in pair]
         nodes.append({"step": s["step"], "lane": lane, "stage": st, "slot": slot.get(s["step"], 0),
-                      "x": nx, "y": ny, "full": full, "lines": shown, "tip": described.get(s.get("alternative"), []),
+                      "x": nx, "y": ny, "full": full, "lines": shown,
+                      # the tooltip: what an alternative's design point is, then what the box's trade-off means
+                      "tip": described.get(s.get("alternative"), []) + ([f"Trade-off: {meaning}"] if meaning else []),
                       "number": number, "rest": shown[0][len(number):], "second": _segments(shown[1]),
                       "badge": badge, "cls": " ".join(cls)})
 
